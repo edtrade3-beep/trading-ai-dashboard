@@ -1,6 +1,6 @@
 import { Badge, ScoreBar, TrendTag, formatNum } from "./ui-atoms.jsx";
 import { LAYOUT } from "./theme.js";
-import { computeScores, classifyTrend, computeMTFSignal } from "./trading-utils.js";
+import { computeScores, classifyTrend, computeMTFSignal, computeRvol } from "./trading-utils.js";
 // A+ Score — a real, deliberately SEPARATE second signal from this tab's own
 // Composite/Tech/Fund system (2026-07-27, explicit user request, same
 // additive-not-replacing pattern already used on RhPro Watchlists/Scanner).
@@ -378,7 +378,7 @@ export default function QuotesTab({
                     const isUp   = chg >= 0;
                     const scores = computeScores(q, trendMap?.[q.symbol]);
                     const trend  = classifyTrend(q);
-                    const rvol   = q.avgVolume ? (q.volume / q.avgVolume) : 0;
+                    const rvol   = computeRvol(q, trendMap?.[q.symbol]);
                     const mtf    = computeMTFSignal(q, trendMap?.[q.symbol]);
                     const aplus  = computeAPlusScore(trendMap?.[q.symbol] || {}, regime);
                     const sigCol = mtf.signal === "BUY" ? C.green : mtf.signal === "SELL" ? C.red : C.amber;
@@ -518,7 +518,7 @@ export default function QuotesTab({
                         const isUp = chg >= 0;
                         const scores = computeScores(q, trendMap?.[q.symbol]);
                         const trend = classifyTrend(q);
-                        const rvol = q.avgVolume ? (q.volume / q.avgVolume) : 0;
+                        const rvol = computeRvol(q, trendMap?.[q.symbol]);
                         const mtf = computeMTFSignal(q, trendMap?.[q.symbol]);
                         const aplus = computeAPlusScore(trendMap?.[q.symbol] || {}, regime);
                         // +1 base column count and +1 to the tablet-hidden count below for the new

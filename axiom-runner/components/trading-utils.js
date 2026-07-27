@@ -15,6 +15,22 @@ export function classifyTrend(q) {
   return "Down";
 }
 
+// Real RVOL (today's volume ÷ 50-day average volume). q.avgVolume comes from
+// /api/market/quote, which never populates it for any Alpaca-covered symbol
+// — same root cause as priceAvg50/200/yearHigh/yearLow above, confirmed live
+// 2026-07-27 (Watchlist showing "RVOL 0.00x" for AAPL, an Alpaca-covered
+// symbol). trend.volRatio (from /api/market/trend-screen) is the exact same
+// ratio, computed server-side from real Yahoo bar history, so it's a real
+// fallback rather than a fabricated one. Only genuinely returns 0 when
+// neither source has real data.
+export function computeRvol(q, trend) {
+  const avgVol = Number(q?.avgVolume || 0);
+  const vol = Number(q?.volume || 0);
+  if (avgVol > 0) return vol / avgVol;
+  const vr = Number(trend?.volRatio);
+  return Number.isFinite(vr) && vr > 0 ? vr : 0;
+}
+
 // trend: optional row from /api/market/trend-screen ({stage, pctFromHigh,
 // abovePivotPct, pivot, ...}). q.priceAvg50/priceAvg200/yearHigh/yearLow
 // come from /api/market/quote, a fast price-only path that never populates
@@ -43,7 +59,6 @@ export function computeScores(q, trend) {
   const hi52   = Number(q.yearHigh    || q.fiftyTwoWeekHigh  || 0);
   const lo52   = Number(q.yearLow     || q.fiftyTwoWeekLow   || 0);
   const vol    = Number(q.volume      || q.regularMarketVolume || 0);
-  const avgVol = Number(q.avgVolume   || q.averageDailyVolume10Day || 0);
   const pe     = Number(q.pe          || q.trailingPE         || 0);
   const mcap   = Number(q.marketCap   || 0);
   const beta   = Number(q.beta        || 0);
@@ -98,8 +113,8 @@ export function computeScores(q, trend) {
   }
 
   // Volume confirmation
-  if (vol > 0 && avgVol > 0) {
-    const rvol = vol / avgVol;
+  const rvol = computeRvol(q, trend);
+  if (vol > 0 && rvol > 0) {
     if (rvol > 2 && chgPct > 0)   tech += 10;
     else if (rvol > 1.5 && chgPct > 0) tech += 6;
     else if (rvol > 1.5 && chgPct < 0) tech -= 8;
@@ -183,8 +198,7 @@ export function computeGreenLight(q, spyChg, scanRow, regime = null, trend = nul
   const macdBull = scanRow?.macdBull;
   const rsi    = Number(scanRow?.rsiVal || 0) || 50;
   const vol    = Number(q?.volume || 0);
-  const avgVol = Number(q?.avgVolume || 0);
-  const rvol   = avgVol > 0 ? vol / avgVol : 0;
+  const rvol   = computeRvol(q, trend);
   const chg    = Number(q?.changesPercentage || 0);
   const { inUptrend, inDowntrend, distToHigh, abovePivotPct } = _trendSignals(trend);
 
@@ -584,7 +598,7 @@ export function computeMTFSignal(q, trend) {
   const sma200  = Number(q.priceAvg200 || 0);
   const yHigh   = Number(q.yearHigh || 0);
   const yLow    = Number(q.yearLow  || 0);
-  const rvol    = q.avgVolume ? q.volume / q.avgVolume : 1;
+  const rvol    = computeRvol(q, trend);
   const { inUptrend, inDowntrend, distToHigh, abovePivotPct } = _trendSignals(trend);
 
   // Each timeframe: label shown in the badge row, and whether it's bullish.

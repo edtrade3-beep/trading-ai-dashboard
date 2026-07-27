@@ -50,7 +50,7 @@ import TerminalChartArea from "./components/TerminalChartArea.jsx";
 import {
   classifyTrend, computeScores, computeGreenLight, logTradeNote, addPaperTrade, addPaperShort,
   optionValue, addPaperOption, alpacaPlace, alpacaShort, alpacaClose, alpacaOption,
-  GL_TRADES_KEY, OPT_LEVERAGE, SLIP, OPT_SLIP, computeMTFSignal, r2,
+  GL_TRADES_KEY, OPT_LEVERAGE, SLIP, OPT_SLIP, computeMTFSignal, r2, computeRvol,
 } from "./components/trading-utils.js";
 import RhProJournal, { rhLoadJournal, rhSaveJournal, rhPnl } from "./components/rhpro-journal.jsx";
 import GreenLightTab from "./components/GreenLightTab.jsx";
@@ -1137,7 +1137,7 @@ function classifyRegime(macroQuotes) {
   return "Neutral";
 }
 
-function buildAlerts({ watchlist, macro, regime, sectorData, customAlerts }) {
+function buildAlerts({ watchlist, macro, regime, sectorData, customAlerts, trendMap }) {
   if (!Array.isArray(watchlist) || watchlist.length === 0) return [];
   const alerts = [];
   const spy = Array.isArray(macro) ? macro.find((q) => q.symbol === "SPY") : null;
@@ -1148,7 +1148,7 @@ function buildAlerts({ watchlist, macro, regime, sectorData, customAlerts }) {
   watchlist.forEach((q) => {
     const symbol = q.symbol;
     const chg = q.changesPercentage || 0;
-    const rvol = q.avgVolume > 0 ? q.volume / q.avgVolume : 0;
+    const rvol = computeRvol(q, trendMap?.[symbol]);
     const price = q.price || 0;
     const yearHigh = q.yearHigh || 0;
     const yearLow = q.yearLow || 0;
@@ -4328,7 +4328,7 @@ export default function App() {
         case "price": va = a.price; vb = b.price; break;
         case "change": va = a.changesPercentage || 0; vb = b.changesPercentage || 0; break;
         case "volume": va = a.volume || 0; vb = b.volume || 0; break;
-        case "rvol": va = a.avgVolume ? a.volume / a.avgVolume : 0; vb = b.avgVolume ? b.volume / b.avgVolume : 0; break;
+        case "rvol": va = computeRvol(a, trendMap[a.symbol]); vb = computeRvol(b, trendMap[b.symbol]); break;
         case "mktcap": va = a.marketCap || 0; vb = b.marketCap || 0; break;
         case "composite": va = scA.composite; vb = scB.composite; break;
         case "tech": va = scA.tech; vb = scB.tech; break;
@@ -4347,7 +4347,7 @@ export default function App() {
       if (trendFilter !== "ALL" && classifyTrend(q) !== trendFilter) return false;
       // Volume (RVOL)
       if (volumeFilter !== "ALL") {
-        const rvol = q.avgVolume ? q.volume / q.avgVolume : 0;
+        const rvol = computeRvol(q, trendMap[q.symbol]);
         if (volumeFilter === "HIGH"   && rvol < 1.5)  return false;
         if (volumeFilter === "NORMAL" && (rvol < 0.8 || rvol >= 1.5)) return false;
         if (volumeFilter === "LOW"    && rvol >= 0.8) return false;
@@ -4632,8 +4632,8 @@ export default function App() {
 
   const regime = useMemo(() => classifyRegime(macroData), [macroData]);
   const alerts = useMemo(
-    () => buildAlerts({ watchlist: watchlistData, macro: macroData, regime, sectorData, customAlerts }),
-    [watchlistData, macroData, regime, sectorData, customAlerts]
+    () => buildAlerts({ watchlist: watchlistData, macro: macroData, regime, sectorData, customAlerts, trendMap }),
+    [watchlistData, macroData, regime, sectorData, customAlerts, trendMap]
   );
   const macroTone = useMemo(() => classifyMacroTone(macroData), [macroData]);
   // Real top-opportunity scan state — lifted here (2026-07-19, was local to
@@ -4652,22 +4652,22 @@ export default function App() {
         sectorEtf: STOCK_TO_SECTOR[q.symbol] || "",
         relVsSector: (q.changesPercentage || 0) - ((sectorData.find((s) => s.symbol === (STOCK_TO_SECTOR[q.symbol] || ""))?.changesPercentage) || 0),
         relVsSpy: (q.changesPercentage || 0) - spy,
-        rvol: q.avgVolume ? q.volume / q.avgVolume : 0,
+        rvol: computeRvol(q, trendMap[q.symbol]),
       }))
       .sort((a, b) => (b.relVsSpy * 0.5 + b.relVsSector * 0.6 + b.rvol * 1.2) - (a.relVsSpy * 0.5 + a.relVsSector * 0.6 + a.rvol * 1.2));
-  }, [watchlistData, macroData, sectorData]);
+  }, [watchlistData, macroData, sectorData, trendMap]);
   const scannerRank = useMemo(() => {
     const spy = macroData.find((q) => q.symbol === "SPY")?.changesPercentage || 0;
     return [...watchlistData]
       .map((q) => {
-        const rvol = q.avgVolume ? q.volume / q.avgVolume : 0;
+        const rvol = computeRvol(q, trendMap[q.symbol]);
         const rel = (q.changesPercentage || 0) - spy;
         const score = (q.delta5m || 0) * 5 + (q.delta30m || 0) * 2 + rel * 2 + rvol * 12;
         return { ...q, rvol, rel, score };
       })
       .sort((a, b) => b.score - a.score)
       .slice(0, 10);
-  }, [watchlistData, macroData]);
+  }, [watchlistData, macroData, trendMap]);
   const scannerRows = useMemo(() => {
     const sourceRows = scannerFilters.scope === "market" ? marketUniverseData : watchlistData;
     const minPrice = Number(scannerFilters.minPrice || 0);
@@ -4678,7 +4678,7 @@ export default function App() {
     return sourceRows
       .map((q) => {
         const scores = computeScores(q, trendMap[q.symbol]);
-        const rvol = q.avgVolume ? q.volume / q.avgVolume : 0;
+        const rvol = computeRvol(q, trendMap[q.symbol]);
         const sectorEtf = STOCK_TO_SECTOR[q.symbol] || "";
         return {
           ...q,
@@ -5198,7 +5198,7 @@ export default function App() {
       .filter((q) => Number(q?.price || 0) > 0)
       .map((q) => {
         const scores = computeScores(q, trendMapRef.current[q.symbol]);
-        const rvol = q.avgVolume ? q.volume / q.avgVolume : 0;
+        const rvol = computeRvol(q, trendMapRef.current[q.symbol]);
         const change = Number(q.changesPercentage || 0);
         const delta30 = Number(q.delta30m || 0);
         const sectorEtf = STOCK_TO_SECTOR[q.symbol] || "";
