@@ -6,7 +6,7 @@ import { computeScores, classifyTrend, computeMTFSignal, computeRvol } from "./t
 // additive-not-replacing pattern already used on RhPro Watchlists/Scanner).
 // trendMap[symbol] is already a real /api/market/trend-screen row (same one
 // rhScore/computeScores already consume above) — no new fetch needed.
-import { computeAPlusScore, computeRegime } from "./market-helpers.js";
+import { computeAPlusScore, computeRegime, computeNextAction } from "./market-helpers.js";
 
 export default function QuotesTab({
   C, MONO, SANS, isTablet, apiKey, settings, marketSession,
@@ -381,6 +381,18 @@ export default function QuotesTab({
                     const rvol   = computeRvol(q, trendMap?.[q.symbol]);
                     const mtf    = computeMTFSignal(q, trendMap?.[q.symbol]);
                     const aplus  = computeAPlusScore(trendMap?.[q.symbol] || {}, regime);
+                    // WATCH/BUY setup verdict — the same real classifier
+                    // (verdict/atBuyPoint/volConfirmed/actionable from the
+                    // trend-screen row) already used by RhPro Scanner/
+                    // Watchlists, Top Opportunity, and Trade Planner, and
+                    // the exact real signal the auto-watchlist scan itself
+                    // uses to decide GO vs WATCH when adding a symbol here
+                    // in the first place (2026-07-27, explicit user
+                    // request: "add watch or buy"). Deliberately a THIRD,
+                    // separate signal from this tab's own SIGNAL badge
+                    // (computeMTFSignal, multi-timeframe momentum) — same
+                    // additive-not-replacing discipline as A+ above.
+                    const next = computeNextAction(trendMap?.[q.symbol] || {});
                     const sigCol = mtf.signal === "BUY" ? C.green : mtf.signal === "SELL" ? C.red : C.amber;
                     const trendArrow = trend.includes("Up") ? "▲" : trend.includes("Down") ? "▼" : "─";
                     const trendCol   = trend.includes("Up") ? C.green : trend.includes("Down") ? C.red : C.textDim;
@@ -421,6 +433,9 @@ export default function QuotesTab({
                           <span style={{ fontFamily: MONO, fontSize: isTablet ? 12 : 11, color: trendCol }}>{trendArrow} {trend.replace(" Up","").replace(" Down","").replace("Strong","").trim() || trend}</span>
                           <span style={{ display: "flex", gap: 4, alignItems: "center" }}>
                             <span style={{ fontFamily: MONO, fontSize: isTablet ? 12 : 11, color: C.textDim }}>S:{Math.round(scores.composite)}</span>
+                            {/* WATCH/BUY setup verdict — see const next above */}
+                            <span title={next.reason} style={{ fontFamily: MONO, fontSize: isTablet ? 11 : 10, fontWeight: 900, color: "#fff", cursor: "help",
+                              background: next.color, borderRadius: 4, padding: "1px 5px" }}>{next.action}</span>
                             {/* A+ — separate real 9-dimension score, same additive-not-replacing pattern as the table view above */}
                             <span title={aplus.reasons.join(" · ")} style={{ fontFamily: MONO, fontSize: isTablet ? 11 : 10, fontWeight: 900, color: "#fff", cursor: "help",
                               background: aplus.score >= 80 ? "#0d9465" : aplus.score >= 60 ? "#d6a312" : "#c8282a", borderRadius: 4, padding: "1px 5px" }}>A+{aplus.score}</span>
@@ -508,6 +523,12 @@ export default function QuotesTab({
                             same "keep parallel scoring systems separate" rule this app already
                             follows for RhPro Watchlists/Scanner. */}
                         {!isTablet && <th title="A+ Score — a separate, real 9-dimension composite" style={{ padding: "10px 8px", fontSize: 12, fontFamily: MONO, color: C.textDim, textAlign: "center", borderBottom: `1px solid ${C.border}`, letterSpacing: "0.08em" }}>A+</th>}
+                        {/* SETUP — real BUY/BREAKOUT/WATCH/AVOID/WAIT verdict (computeNextAction,
+                            market-helpers.js), the same trend-screen-derived classifier the
+                            auto-watchlist scan itself uses to decide GO vs WATCH. A third,
+                            deliberately separate signal from SIGNAL (multi-timeframe momentum)
+                            below — 2026-07-27, explicit user request: "add watch or buy". */}
+                        <th title="Real BUY/BREAKOUT/WATCH/AVOID/WAIT verdict from the trend-screen setup" style={{ padding: "10px 8px", fontSize: 12, fontFamily: MONO, color: C.textDim, textAlign: "center", borderBottom: `1px solid ${C.border}`, letterSpacing: "0.08em" }}>SETUP</th>
                         <th style={{ padding: "10px 8px", fontSize: 12, fontFamily: MONO, color: C.textDim, textAlign: "center", borderBottom: `1px solid ${C.border}`, letterSpacing: "0.08em" }}>SIGNAL</th>
                         <th style={{ padding: "10px 8px", fontSize: 12, fontFamily: MONO, color: C.textDim, textAlign: "center", borderBottom: `1px solid ${C.border}` }}>⚡</th>
                       </tr>
@@ -521,9 +542,10 @@ export default function QuotesTab({
                         const rvol = computeRvol(q, trendMap?.[q.symbol]);
                         const mtf = computeMTFSignal(q, trendMap?.[q.symbol]);
                         const aplus = computeAPlusScore(trendMap?.[q.symbol] || {}, regime);
-                        // +1 base column count and +1 to the tablet-hidden count below for the new
-                        // A+ column (also !isTablet-gated, same as 5M/30M/MKT CAP/FUND — now 5 total).
-                        const colSpan = ((marketSession === "PREMARKET" || marketSession === "AFTERMARKET") ? 16 : 15) - (isTablet ? 5 : 0);
+                        const next = computeNextAction(trendMap?.[q.symbol] || {});
+                        // +1 base column count for the new always-visible SETUP column (on top
+                        // of the existing +1 for A+, tablet-gated — 5 tablet-hidden total).
+                        const colSpan = ((marketSession === "PREMARKET" || marketSession === "AFTERMARKET") ? 17 : 16) - (isTablet ? 5 : 0);
                         return (
                           <React.Fragment key={q.symbol}>
                           <tr
@@ -653,6 +675,10 @@ export default function QuotesTab({
                                 background: aplus.score >= 80 ? "#0d9465" : aplus.score >= 60 ? "#d6a312" : "#c8282a",
                                 borderRadius: 4, padding: "2px 6px", cursor: "help" }}>{aplus.score}</span>
                             </td>}
+                            <td style={{ padding: "7px 8px", borderBottom: `1px solid ${C.border}`, textAlign: "center", minWidth: 80 }}>
+                              <span title={next.reason} style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: "#fff",
+                                background: next.color, borderRadius: 5, padding: "3px 8px", display: "inline-block", cursor: "help", letterSpacing: "0.04em" }}>{next.action}</span>
+                            </td>
                             <td style={{ padding: "7px 10px", borderBottom: `1px solid ${C.border}`, textAlign: "center", minWidth: 90 }}>
                               {(() => {
                                 const sigColor = mtf.signal === "BUY" ? C.green : mtf.signal === "SELL" ? C.red : C.amber;
