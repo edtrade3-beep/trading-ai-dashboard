@@ -1,11 +1,22 @@
+// Compact "$250K" / "$1.2M" style — the Flow tab's autoAlertNotional setting
+// is stored as a plain dollar number, always a round thousand/million in
+// practice, so a simple two-tier formatter reads cleaner here than the
+// full formatNum() (which would print "$250,000.00" for the common case).
+const formatThreshold = (n) => {
+  if (!Number.isFinite(n) || n <= 0) return null;
+  if (n >= 1e6) return `$${(n / 1e6).toFixed(n % 1e6 === 0 ? 0 : 1)}M`;
+  return `$${Math.round(n / 1e3)}K`;
+};
+
 // News / Alert Tape — the scrolling ticker strip under the market index strip
-export default function NewsAlertTape({ C, MONO, SANS, topHeadlineTape, tapeFilter = "all", setTapeFilter }) {
+export default function NewsAlertTape({ C, MONO, SANS, topHeadlineTape, tapeFilter = "all", setTapeFilter, alertThreshold }) {
   const filtered = tapeFilter === "all" ? topHeadlineTape : topHeadlineTape.filter((item) => item.bias === tapeFilter);
   const FILTERS = [
     { id: "all", label: "All" },
     { id: "bullish", label: "🟢 Bullish" },
     { id: "bearish", label: "🔴 Bearish" },
   ];
+  const thresholdLabel = formatThreshold(alertThreshold);
   return (
     <div style={{ borderBottom: `1px solid ${C.border}`, background: C.surface, display: "flex", alignItems: "center" }}>
       {setTapeFilter && (
@@ -25,6 +36,14 @@ export default function NewsAlertTape({ C, MONO, SANS, topHeadlineTape, tapeFilt
               {f.label}
             </button>
           ))}
+          {thresholdLabel && (
+            <span
+              title={`Flow/dark-pool alerts show trades of ${thresholdLabel} or more (adjustable in the Flow tab).`}
+              style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, whiteSpace: "nowrap", paddingLeft: 6, marginLeft: 2, borderLeft: `1px solid ${C.border}`, cursor: "help" }}
+            >
+              Alerts ≥ {thresholdLabel}
+            </span>
+          )}
         </div>
       )}
       <div style={{ overflow: "hidden", whiteSpace: "nowrap", flex: 1, minWidth: 0 }}>

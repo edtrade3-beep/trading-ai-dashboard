@@ -5967,7 +5967,7 @@ export default function App() {
         {/* Market Index Strip — matches screenshot layout */}
         <MacroTape data={macroData} cryptoSnapshot={cryptoSnapshot} marketSession={marketSession} />
 
-        <NewsAlertTape C={C} MONO={MONO} SANS={SANS} topHeadlineTape={topHeadlineTape} tapeFilter={tapeFilter} setTapeFilter={setTapeFilter} />
+        <NewsAlertTape C={C} MONO={MONO} SANS={SANS} topHeadlineTape={topHeadlineTape} tapeFilter={tapeFilter} setTapeFilter={setTapeFilter} alertThreshold={Number(flowFilters.autoAlertNotional) || 250000} />
       </div>
 
       {error && (
