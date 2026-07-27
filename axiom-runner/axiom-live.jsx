@@ -6932,7 +6932,7 @@ export default function App() {
           content wrapper above, same as IstighfarWidget/TradingCopilot/
           RealityCheckWidget: these are viewport-relative fixed overlays,
           not page content, so they shouldn't inherit the sidebar offset. */}
-      <FloatingChecklistButton C={C} checklistItems={checklistItems} setActiveTab={setActiveTab} statusBarH={statusBarH} fabFading={fabFading} />
+      <FloatingChecklistButton C={C} checklistItems={checklistItems} setActiveTab={setActiveTab} statusBarH={statusBarH} fabFading={fabFading} isMobile={isMobile} />
 
       <TiltDetectorOverlay C={C} MONO={MONO} SANS={SANS} tiltLocked={tiltLocked} tiltUnlockAt={tiltUnlockAt} setActiveTab={setActiveTab} setTiltLocked={setTiltLocked} setTiltUnlockAt={setTiltUnlockAt} />
 
