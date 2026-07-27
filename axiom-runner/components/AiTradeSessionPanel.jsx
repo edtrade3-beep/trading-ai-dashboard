@@ -1,34 +1,38 @@
 import { useState, useEffect, useRef } from "react";
 import { computeRegime, computeAPlusScore, computeNextAction } from "./market-helpers.js";
 import { BEST_OPP_UNIVERSE } from "./terminal-panels.jsx";
-import { addPaperTrade } from "./trading-utils.js";
 
 // ── AI Trade Session — one click, then it runs itself while you watch ──
-// Follow-up request (2026-07-27): "one click and tool do the rest
-// automatically — check market, news, check trades, place trades if any —
-// all these happening im watching". So beyond the earlier guided-tour
-// rewrite (which still required a manual "Continue" click per step), this
-// makes the whole sequence self-advancing: Market -> News -> Scan for
-// setups -> Place the trade, each step showing for a readable pause before
-// automatically moving to the next and navigating (setActiveTab) to the
-// real screen for that step. A manual "Skip" and "End Session" stay
-// available for anyone who doesn't want to wait out the pauses. Signal/
-// order logic is unchanged from before: real BEST_OPP_UNIVERSE +
-// trend-screen + A+ Score ranking (same as Best Opportunities), real
-// addPaperTrade (same engine as Green Light's Paper Buy, auto-managed
-// afterward by AutoPilotEngine). Nothing here touches Alpaca or real money.
-const PAUSE_MARKET = 3500;
-const PAUSE_NEWS = 4000;
-const PAUSE_RESULT = 4500;
-const PAUSE_END = 6000;
+// Follow-up feedback (2026-07-27): after the earlier localStorage-only
+// simulated version, the user said "not satisfied" — specifically (1) same
+// stock every run, (2) too slow, (3) "not a real trade". Confirmed via
+// follow-up questions: this should place a REAL order through the user's
+// actual Alpaca PAPER account (same account Autopilot/Quick Trade already
+// use — real broker mechanics, no real money, but a genuine order that
+// shows up in Alpaca's own history and the real Performance Report Card),
+// show the top 3 real candidates for variety, and move faster. Real Alpaca
+// bracket orders only support one stop + one take-profit leg (confirmed —
+// no 3-way scale-out exists anywhere in this app for real positions), so
+// T2 (2R) is the real take-profit; T1/T3 stay as reference levels only.
+// Scan shows 3 candidates; only the #1 ranked one gets a real order.
+// Reuses the real, already-gated /api/quick-trade/precheck + /order routes
+// (same risk gate — account health, daily loss breaker, open risk %,
+// sector cap, market hours — Quick Trade itself uses). Auth is automatic:
+// a global fetch wrapper (axiom-live.jsx) attaches x-api-token from
+// localStorage.axiom_api_token to every /api/* call.
+const PAUSE_MARKET = 1800;
+const PAUSE_NEWS = 2000;
+const PAUSE_RESULT = 2200;
+const PAUSE_END = 4000;
 
 export default function AiTradeSessionPanel({ C, MONO, SANS, macroData, newsData, statusBarH = 40, fabFading = false, isMobile = false, activeTab, setActiveTab, topOffset = 64 }) {
   // step: 0 idle | 1 market | 2 news | 3 scanning | 4 trade placed
   const [step, setStep] = useState(0);
   const [startTab, setStartTab] = useState(null);
   const [scanState, setScanState] = useState("idle"); // idle | loading | ok | none | err
-  const [scan, setScan] = useState(null);
-  const [trade, setTrade] = useState(null);
+  const [scan, setScan] = useState(null); // { top: [row,row,row], scannedCount, regime }
+  const [tradeState, setTradeState] = useState("idle"); // idle | checking | placed | dup | blocked | err
+  const [trade, setTrade] = useState(null); // { entry, stop, t1, t2, t3, qty, orderId, reason }
   const endedRef = useRef(true);
   const timerRef = useRef(null);
 
@@ -37,23 +41,55 @@ export default function AiTradeSessionPanel({ C, MONO, SANS, macroData, newsData
   const endSession = () => {
     endedRef.current = true;
     clearTimer();
-    setStep(0); setScanState("idle"); setScan(null); setTrade(null);
+    setStep(0); setScanState("idle"); setScan(null); setTradeState("idle"); setTrade(null);
     if (startTab && setActiveTab) setActiveTab(startTab);
     setStartTab(null);
   };
 
-  const goToPlaceTrade = (row) => {
+  const goToPlaceTrade = async (row) => {
     if (endedRef.current) return;
+    setStep(4);
+    setTradeState("checking");
+    if (setActiveTab) setActiveTab("mytrades");
+
     const entry = Number(row.entry), stop = Number(row.stop);
     const riskPerShare = entry - stop;
     const t1 = +(entry + riskPerShare * 1).toFixed(2);
     const t2 = +(entry + riskPerShare * 2).toFixed(2);
     const t3 = +(entry + riskPerShare * 3).toFixed(2);
-    const placeResult = addPaperTrade(row.symbol, entry, { stop, t1, t2, t3, glScore: row._aplus.score });
-    setTrade({ entry, stop, t1, t2, t3, placeResult });
-    setStep(4);
-    if (setActiveTab) setActiveTab("mytrades");
-    timerRef.current = setTimeout(() => { if (!endedRef.current) endSession(); }, PAUSE_END);
+    const base = { entry, stop, t1, t2, t3 };
+
+    try {
+      const posRes = await fetch("/api/alpaca/positions");
+      if (posRes.status === 401) { setTrade(base); setTradeState("noauth"); return; }
+      const positions = await posRes.json().catch(() => []);
+      if (endedRef.current) return;
+      if (Array.isArray(positions) && positions.some(p => p.symbol === row.symbol)) {
+        setTrade(base); setTradeState("dup"); return;
+      }
+
+      const preRes = await fetch(`/api/quick-trade/precheck?symbol=${encodeURIComponent(row.symbol)}&riskPct=1&entry=${entry}&stop=${stop}&side=long`);
+      if (preRes.status === 401) { setTrade(base); setTradeState("noauth"); return; }
+      const pre = await preRes.json().catch(() => ({}));
+      if (endedRef.current) return;
+      if (!pre.ok) { setTrade({ ...base, reason: pre.reason || pre.error || "real risk gate blocked this trade" }); setTradeState("blocked"); return; }
+      const qty = pre.sizing?.qty || 0;
+      if (!(qty > 0)) { setTrade({ ...base, reason: "real position size came out to 0 shares" }); setTradeState("blocked"); return; }
+
+      const orderRes = await fetch("/api/quick-trade/order", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ symbol: row.symbol, qty, side: "buy", type: "market", stopLoss: stop, takeProfit: t2 }),
+      });
+      if (orderRes.status === 401) { setTrade(base); setTradeState("noauth"); return; }
+      const order = await orderRes.json().catch(() => ({}));
+      if (endedRef.current) return;
+      if (!order.ok) { setTrade({ ...base, reason: order.reason || order.error || "order was rejected" }); setTradeState("blocked"); return; }
+      setTrade({ ...base, qty, orderId: order.id || order.order?.id });
+      setTradeState("placed");
+      timerRef.current = setTimeout(() => { if (!endedRef.current) endSession(); }, PAUSE_END);
+    } catch {
+      if (!endedRef.current) { setTrade(base); setTradeState("err"); }
+    }
   };
 
   const goToScan = () => {
@@ -68,16 +104,17 @@ export default function AiTradeSessionPanel({ C, MONO, SANS, macroData, newsData
         const regime = computeRegime(macroData);
         const allScored = (j.results || []).filter(r => !r.error);
         const qualified = allScored.filter(r => Number(r.entry) > Number(r.stop) && (r.passCount || 0) >= 6 && !r.extended && (r.rsRating || 0) >= 70);
-        const top = qualified.map(r => ({ ...r, _aplus: computeAPlusScore(r, regime) })).sort((a, b) => b._aplus.score - a._aplus.score)[0] || null;
-        if (!top) {
+        const ranked = qualified.map(r => ({ ...r, _aplus: computeAPlusScore(r, regime) })).sort((a, b) => b._aplus.score - a._aplus.score);
+        const top = ranked.slice(0, 3);
+        if (!top.length) {
           setScan({ scannedCount: allScored.length, regime });
           setScanState("none");
           timerRef.current = setTimeout(() => { if (!endedRef.current) endSession(); }, PAUSE_RESULT);
           return;
         }
-        setScan({ row: top, next: computeNextAction(top), regime });
+        setScan({ top, next: computeNextAction(top[0]), regime });
         setScanState("ok");
-        timerRef.current = setTimeout(() => { if (!endedRef.current) goToPlaceTrade(top); }, PAUSE_RESULT);
+        timerRef.current = setTimeout(() => { if (!endedRef.current) goToPlaceTrade(top[0]); }, PAUSE_RESULT);
       })
       .catch(() => { if (!endedRef.current) setScanState("err"); });
   };
@@ -127,6 +164,13 @@ export default function AiTradeSessionPanel({ C, MONO, SANS, macroData, newsData
   const Body = ({ children }) => (
     <div style={{ fontFamily: SANS, fontSize: isMobile ? 13 : 14, color: C.text, lineHeight: 1.6, marginBottom: 12 }}>{children}</div>
   );
+  const candCard = (row) => (
+    <div key={row.symbol} style={{ flex: 1, minWidth: 100, textAlign: "center", background: `${C.accent}0d`, border: `1px solid ${C.accent}33`, borderRadius: 8, padding: "8px 6px" }}>
+      <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.text }}>{row.symbol}</div>
+      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: row._aplus.score >= 80 ? "#0d9465" : row._aplus.score >= 60 ? "#d6a312" : "#c8282a" }}>A+ {row._aplus.score}</div>
+      <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 2 }}>${row.entry} → ${row.stop}</div>
+    </div>
+  );
 
   return (
     <>
@@ -134,7 +178,7 @@ export default function AiTradeSessionPanel({ C, MONO, SANS, macroData, newsData
       <div style={{ position: "fixed", bottom: (isMobile ? 10 : 82) + statusBarH, left: isMobile ? 60 : 18, zIndex: 8500 }}>
         <button
           onClick={startSession}
-          title="AI Trade Session — learning mode, simulated only"
+          title="AI Trade Session — places a real order on your Alpaca paper account"
           style={{ width: isMobile ? 42 : 52, height: isMobile ? 42 : 52, borderRadius: "50%", border: "none", cursor: "pointer",
             background: "#7c5cff", color: "#fff", boxShadow: "0 4px 18px #7c5cff66",
             display: "flex", alignItems: "center", justifyContent: "center",
@@ -197,10 +241,12 @@ export default function AiTradeSessionPanel({ C, MONO, SANS, macroData, newsData
                 <Body><span style={{ color: C.red }}>⚠ Scan failed — try again shortly.</span></Body>
               )}
               {scanState === "ok" && scan && (
-                <Body>
-                  <b>{scan.row.symbol}</b> clears the {scan.row.passCount}/8 trend template with RS {scan.row.rsRating} —
-                  A+ Score {scan.row._aplus.score}. This is the real setup — placing a simulated trade next.
-                </Body>
+                <>
+                  <Body>
+                    Top {scan.top.length} real candidate{scan.top.length > 1 ? "s" : ""} right now — placing a real order on <b>{scan.top[0].symbol}</b>, the #1 ranked pick.
+                  </Body>
+                  <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>{scan.top.map(candCard)}</div>
+                </>
               )}
               {scanState === "none" && scan && (
                 <Body>
@@ -210,7 +256,7 @@ export default function AiTradeSessionPanel({ C, MONO, SANS, macroData, newsData
               )}
               <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
                 <EndBtn />
-                {scanState === "ok" && <SkipBtn onClick={() => goToPlaceTrade(scan.row)} />}
+                {scanState === "ok" && <SkipBtn onClick={() => goToPlaceTrade(scan.top[0])} />}
                 {scanState === "err" && <SkipBtn onClick={goToScan} />}
               </div>
             </>
@@ -218,18 +264,21 @@ export default function AiTradeSessionPanel({ C, MONO, SANS, macroData, newsData
 
           {step === 4 && trade && (
             <>
-              <StepLabel n={4} title="SIMULATED TRADE PLACED" />
+              <StepLabel n={4} title="PLACING THE TRADE" />
               <Body>
-                Entry ${trade.entry} · Stop ${trade.stop} · Targets 1R/2R/3R = ${trade.t1} / ${trade.t2} / ${trade.t3}.
+                Entry ${trade.entry} · Stop ${trade.stop} · Real target (2R) ${trade.t2} <span style={{ color: C.textDim }}>(1R ${trade.t1} / 3R ${trade.t3} for reference)</span>.
               </Body>
               <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, marginBottom: 12,
-                color: trade.placeResult === "DUP" ? C.amber : trade.placeResult === "OK" ? C.green : C.red }}>
-                {trade.placeResult === "OK" && `✅ Simulated position opened in ${scan.row.symbol}.`}
-                {trade.placeResult === "DUP" && `Already had an open simulated position in ${scan.row.symbol} — no duplicate opened.`}
-                {!trade.placeResult && "⚠ Could not open the simulated position."}
+                color: tradeState === "placed" ? C.green : tradeState === "dup" ? C.amber : tradeState === "checking" ? C.textDim : C.red }}>
+                {tradeState === "checking" && "Checking your real account and risk limits…"}
+                {tradeState === "placed" && `✅ Real order placed — ${trade.qty} sh ${scan.top[0].symbol} on your Alpaca paper account${trade.orderId ? ` (order ${trade.orderId})` : ""}.`}
+                {tradeState === "dup" && `You already hold a real position in ${scan.top[0].symbol} — no duplicate order placed.`}
+                {tradeState === "blocked" && `⚠ Real order blocked: ${trade.reason}`}
+                {tradeState === "noauth" && "⚠ Real order failed — add your API token in Green Light's 🔒 API TOKEN field first."}
+                {tradeState === "err" && "⚠ Could not reach the order service — try again shortly."}
               </div>
               <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginBottom: 14 }}>
-                Simulated — not a real order. Auto-managed with a trailing stop + 3 scale-out targets from here, same engine as Green Light's Paper Buy. Ending the session shortly.
+                Real order on your Alpaca <b>paper</b> account — no real money, but a genuine broker order, same account as Autopilot/Quick Trade.
               </div>
               <div style={{ display: "flex", justifyContent: "flex-end" }}>
                 <button onClick={endSession}
