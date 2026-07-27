@@ -201,16 +201,25 @@ async function runXIntelXApiGeneration({ topN } = {}) {
     sendTelegramMessage(`🐦 *X API BUDGET* — ${warning.pctUsed}% of $${xApiUsage.X_API_BUDGET_USD} used this month (crossed the ${warning.newThreshold}% mark).`).catch(() => {});
   }
 
-  // Telegram alerts — real conditions only: high-priority watched account,
-  // or real high engagement (replaces the old AI impactScore condition;
-  // "Breaking News" category alerting is dropped since that required an
-  // AI urgency judgment no classifier here can honestly make).
+  // Telegram alerts — real conditions only: this SPECIFIC post's real
+  // blended importance (itemImportanceScore, category severity + entity
+  // weight — see computeItemImportance), or real high engagement (replaces
+  // the old AI impactScore condition; "Breaking News" category alerting is
+  // dropped since that required an AI urgency judgment no classifier here
+  // can honestly make).
+  // Real bug fixed 2026-07-27 (explicit user request: "important one
+  // only" — Telegram was flooded): this used to gate on
+  // entityImportanceScore, the watched account's static score, so EVERY
+  // post from any high-importance account (e.g. every OpenAI tweet) fired
+  // an alert regardless of what that specific post was actually about —
+  // exactly the bug computeItemImportance/itemImportanceScore already
+  // fixed for on-screen display, just never wired into this alert gate.
   if (telegramConfigured() && shouldSendAlert({ category: "ai-coach" })) {
     for (const it of logged) {
-      const highPriority = (it.entityImportanceScore || 0) >= HIGH_PRIORITY_IMPORTANCE;
+      const highPriority = (it.itemImportanceScore || 0) >= HIGH_PRIORITY_IMPORTANCE;
       const highEngagement = it.realEngagement.likes >= HIGH_ENGAGEMENT_LIKES || it.realEngagement.retweets >= HIGH_ENGAGEMENT_RETWEETS;
       if (!(highPriority || highEngagement)) continue;
-      const tags = [highEngagement && `${it.realEngagement.likes} likes / ${it.realEngagement.retweets} RT`, highPriority && "HIGH-PRIORITY ACCT"].filter(Boolean).join(" · ");
+      const tags = [highEngagement && `${it.realEngagement.likes} likes / ${it.realEngagement.retweets} RT`, highPriority && "HIGH-PRIORITY"].filter(Boolean).join(" · ");
       const symbolLine = it.marketImpact.length ? it.marketImpact.map((m) => `$${m.symbol}`).join(" ") : "";
       const msg = `🐦 *X INTEL* — ${tags}\n\n@${it.entityUsername}: ${it.aiSummary.oneLine}\n${symbolLine}\n\n${it.sourceCitation}`;
       sendTelegramMessage(msg).catch(() => {});
