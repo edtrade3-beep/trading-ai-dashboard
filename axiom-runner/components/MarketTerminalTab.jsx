@@ -8,6 +8,14 @@ import {
   FundamentalsPanel, CompanyProfile, AiPredictPanel, COTPanel,
   PredictionMarkets, SocialFeed, InvestorsPanel, TradeExtrasPanel,
 } from "./terminal-panels.jsx";
+// SCORE + real RVOL for the Movers/Watchlist mini-list — explicit user
+// request 2026-07-27 ("add score and rvol in list before i click on each
+// one"). Watchlist rows previously hardcoded volRatio: null (this list's
+// own quote fetch is the fast price-only path, same one that never
+// populates avgVolume) and had no score at all. Real trend-screen data,
+// same A+ Score used everywhere else this session — additive, not a new
+// 4th scoring system.
+import { computeAPlusScore, computeRegime } from "./market-helpers.js";
 
 // Combined Market-Terminal page: movers leaderboard on the left, pro chart with
 // AI overlays on the right. Click a mover → it loads in the chart.
@@ -155,6 +163,25 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
     else if (sortBy === "price") s.sort((a, b) => b.price - a.price);
     return s;
   })();
+  // Real trend-screen data for whichever rows are currently shown — A+
+  // Score for both movers/watchlist, and the real volRatio fallback for
+  // watchlist rows (their own quote fetch never gets one). Re-fetches only
+  // when the actual symbol SET changes (order-independent key), not on
+  // every render/resort.
+  const [termTrendMap, setTermTrendMap] = useState({});
+  const rowsSymKey = [...new Set(rows.map(r => r.symbol))].sort().join(",");
+  useEffect(() => {
+    if (!rowsSymKey) { setTermTrendMap({}); return; }
+    fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(rowsSymKey)}`)
+      .then(r => r.json())
+      .then(j => {
+        const map = {};
+        (j.results || []).forEach(r => { if (!r.error) map[r.symbol] = r; });
+        setTermTrendMap(map);
+      })
+      .catch(() => {});
+  }, [rowsSymKey]);
+  const regime = computeRegime(macroData);
   const pct = (v) => v == null ? "—" : (v > 0 ? "+" : "") + v.toFixed(2) + "%";
   const col = (v) => v == null ? C.textDim : v > 0 ? "#22d47e" : v < 0 ? "#ef4444" : C.text;
   // Day-change % for the loaded symbol, looked up across all movers buckets.
@@ -224,26 +251,43 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
           </>
         )}
         <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden", background: C.card }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr 1fr 0.8fr", padding: "8px 12px", background: C.bg, borderBottom: `2px solid ${C.border}`, fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.textDim }}>
-            <div>SYMBOL</div><div style={{ textAlign: "right" }}>PRICE</div><div style={{ textAlign: "right" }}>DAY%</div><div style={{ textAlign: "right" }}>RVOL</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1.2fr 0.9fr 0.9fr 0.7fr 0.6fr", padding: "8px 12px", background: C.bg, borderBottom: `2px solid ${C.border}`, fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.textDim }}>
+            <div>SYMBOL</div><div style={{ textAlign: "right" }}>PRICE</div><div style={{ textAlign: "right" }}>DAY%</div><div style={{ textAlign: "right" }}>RVOL</div><div title="A+ Score — a real 9-dimension composite" style={{ textAlign: "right", cursor: "help" }}>A+</div>
           </div>
           {((source === "movers" && !lb) || (source === "watchlist" && wlRows === null)) && <div style={{ padding: "24px 0", textAlign: "center", fontFamily: MONO, fontSize: 12, color: C.textDim }}>Loading…</div>}
           {source === "watchlist" && Array.isArray(wlRows) && wlRows.length === 0 && <div style={{ padding: "24px 12px", textAlign: "center", fontFamily: MONO, fontSize: 12, color: C.textDim }}>Your watchlist is empty — add names from any tab.</div>}
-          {rows.map((r, i) => (
+          {rows.map((r, i) => {
+            // Real RVOL: movers rows already carry a real, server-computed
+            // volRatio (leaderboard endpoint); watchlist rows never did
+            // (their own quote fetch is the fast price-only path) — same
+            // real trend-screen fallback used everywhere else this session.
+            const trend = termTrendMap[r.symbol];
+            const rvol = r.volRatio != null ? r.volRatio : (trend?.volRatio ?? null);
+            const aplus = computeAPlusScore(trend || {}, regime);
+            return (
             <div key={r.symbol} onClick={() => { loadSym(r.symbol); scrollToChart(); }}
-              style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr 1fr 0.8fr", padding: "9px 12px", alignItems: "center", cursor: "pointer",
+              style={{ display: "grid", gridTemplateColumns: "1.2fr 0.9fr 0.9fr 0.7fr 0.6fr", padding: "9px 12px", alignItems: "center", cursor: "pointer",
                 borderBottom: i < rows.length - 1 ? `1px solid ${C.border}` : "none",
                 background: r.symbol === sym ? "rgba(34,212,126,0.10)" : (i % 2 ? "transparent" : "rgba(127,127,127,0.03)") }}>
-              <div style={{ fontFamily: SANS, fontWeight: 800, fontSize: 13, color: r.symbol === sym ? "#22d47e" : C.text }}>{r.symbol}</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 4, minWidth: 0 }}>
+                <span style={{ fontFamily: SANS, fontWeight: 800, fontSize: 13, color: r.symbol === sym ? "#22d47e" : C.text, overflow: "hidden", textOverflow: "ellipsis" }}>{r.symbol}</span>
+                {source === "watchlist" && (
+                  <span onClick={(e) => { e.stopPropagation(); removeFromWatchlist(r.symbol); }} title="Remove from watchlist"
+                    style={{ cursor: "pointer", color: C.textDim, fontWeight: 800, fontSize: 12, flexShrink: 0, padding: "0 2px" }}>×</span>
+                )}
+              </div>
               <div style={{ textAlign: "right", fontFamily: MONO, fontSize: 12, color: C.text }}>${r.price.toFixed(2)}</div>
               <div style={{ textAlign: "right", fontFamily: MONO, fontSize: 12, fontWeight: 700, color: col(r.dayPct) }}>{pct(r.dayPct)}</div>
-              <div style={{ textAlign: "right", fontFamily: MONO, fontSize: 12, fontWeight: 700, color: r.volRatio >= 1.5 ? "#f59e0b" : C.textDim }}>
-                {source === "watchlist"
-                  ? <span onClick={(e) => { e.stopPropagation(); removeFromWatchlist(r.symbol); }} title="Remove from watchlist" style={{ cursor: "pointer", color: C.textDim, fontWeight: 800, padding: "0 4px" }}>×</span>
-                  : (r.volRatio == null ? "—" : r.volRatio.toFixed(1) + "×")}
+              <div style={{ textAlign: "right", fontFamily: MONO, fontSize: 12, fontWeight: 700, color: rvol >= 1.5 ? "#f59e0b" : C.textDim }}>
+                {rvol == null ? "—" : rvol.toFixed(1) + "×"}
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <span title={aplus.reasons.join(" · ")} style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: "#fff", cursor: "help",
+                  background: aplus.score >= 80 ? "#0d9465" : aplus.score >= 60 ? "#d6a312" : "#c8282a", borderRadius: 4, padding: "1px 5px" }}>{aplus.score}</span>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
         <MarketNewsWire C={C} MONO={MONO} SANS={SANS} />
         <COTPanel C={C} MONO={MONO} SANS={SANS} />
