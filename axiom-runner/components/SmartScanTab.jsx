@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { computeGreenLight } from "./trading-utils.js";
+import { computeGreenLight, computeRvol } from "./trading-utils.js";
 import { smartScanZoneOf, exportSmartScanZonePDF } from "./smartscan-shared.js";
 import { FIVEX_REF } from "./fivex-data.js";
 import { computeAPlusScore, computeRegime } from "./market-helpers.js";
@@ -647,7 +647,12 @@ export default function SmartScanTab({
                                   const hi52 = Number(row.quote?.yearHigh || 0);
                                   const lo52 = Number(row.quote?.yearLow  || 0);
                                   const ma50 = Number(row.quote?.priceAvg50 || 0);
-                                  const rvol = row.quote?.volume && row.quote?.avgVolume ? row.quote.volume / row.quote.avgVolume : 0;
+                                  // Same real RVOL fix already applied to Watchlist/Green Light
+                                  // (trading-utils.js's computeRvol) — row.quote.avgVolume is never
+                                  // populated for Alpaca-covered symbols, so this fell back to a
+                                  // fabricated-looking 0 instead of the real trend-screen ratio
+                                  // already fetched into smartScanTrendMap just below.
+                                  const rvol = computeRvol(row.quote, smartScanTrendMap[row.ticker]);
                                   const chg1w = Number(row.quote?.delta1w || 0);
 
                                   // ── 🟢 GREEN LIGHT SYSTEM — same engine as the Green Light card ──
@@ -1542,7 +1547,9 @@ export default function SmartScanTab({
                                           const hi52   = Number(fd2.fiftyTwoWeekHigh || row.quote?.yearHigh || row.quote?.fiftyTwoWeekHigh || px * 1.3);
                                           const lo52   = Number(fd2.fiftyTwoWeekLow  || row.quote?.yearLow  || row.quote?.fiftyTwoWeekLow  || px * 0.7);
                                           const rsi    = Number(row.rsiVal || fd2.rsi || 50);
-                                          const rvol   = row.quote?.volume && row.quote?.avgVolume ? row.quote.volume / row.quote.avgVolume : 1;
+                                          // Same real RVOL fix as above — falls back to the real
+                                          // trend-screen ratio instead of a blind neutral 1x guess.
+                                          const rvol   = computeRvol(row.quote, smartScanTrendMap[row.ticker]);
                                           const chg1d  = Number(row.quote?.changePercent || row.quote?.changesPercentage || 0);
                                           const chg1w  = Number(row.quote?.delta1w || 0);
                                           const ma50   = Number(row.quote?.priceAvg50  || fd2.fiftyDayAverage || 0);
