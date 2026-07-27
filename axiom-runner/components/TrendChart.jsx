@@ -170,6 +170,15 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
     // here self-corrects even if the chart-creation effect's own rAF-based
     // check (right after mount) still ran too early.
     if (fillToViewport) { const h = computeFillHeight(); applyHeight(h); chart.applyOptions({ height: h }); }
+    // Same staleness class, but for WIDTH: the chart's internal pixel width
+    // is only re-synced on a real `resize`/`scroll` event (see the
+    // chart-creation effect below). If the container's own layout width
+    // settles (sidebar collapse, sibling content finishing its layout, etc.)
+    // without either event firing, the canvas is left narrower than its
+    // container — real live bug (screenshot 2026-07-26): visible empty
+    // space to the right of the last candle, before the price axis. Every
+    // data refresh re-measures and re-syncs it, same backstop as height.
+    if (elRef.current) chart.applyOptions({ width: elRef.current.clientWidth || 800 });
     // Show clock time on the x-axis for intraday granularities (otherwise
     // Lightweight Charts just repeats the date across every bar in a day).
     chart.applyOptions({ timeScale: { timeVisible: !!isIntraday, secondsVisible: false } });
