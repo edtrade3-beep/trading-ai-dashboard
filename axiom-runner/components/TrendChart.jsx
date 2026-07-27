@@ -40,7 +40,16 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
   const computeFillHeight = () => {
     const el = elRef.current;
     if (!el) return 520;
-    return Math.max(320, Math.floor(window.innerHeight - el.getBoundingClientRect().top - 20));
+    // Clamp top at 0: once the chart is scrolled past (its top edge above
+    // the viewport, top < 0), subtracting a negative top ADDS to the
+    // available space instead of capping it — real bug found live
+    // (2026-07-27) via a scroll-past test: an over-scroll drove top to
+    // -412 and inflated the computed height to 1262px, taller than the
+    // 900px viewport itself. The real available space can never exceed
+    // the viewport height regardless of how far past the chart you've
+    // scrolled.
+    const top = Math.max(0, el.getBoundingClientRect().top);
+    return Math.max(320, Math.floor(window.innerHeight - top - 20));
   };
   const applyHeight = (h) => {
     const el = elRef.current;
@@ -122,17 +131,25 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
     // edge mid-animation, baking in a transient (too-small) position that
     // then only got corrected on an actual browser resize. A scroll listener
     // — not just resize — keeps this self-correcting through that animation
-    // and any ordinary manual scrolling, rAF-throttled so a smooth-scroll's
-    // many scroll events don't thrash layout every frame.
-    let scrollRaf = 0;
+    // and any ordinary manual scrolling.
+    // Second real live bug (screenshot, 2026-07-27): the first version of
+    // this listener recomputed on every scroll event (rAF-throttled to once
+    // per frame, but still up to ~60×/sec) — resizing the wrapper's real
+    // height WHILE the user was actively scrolling, which visibly grew/
+    // shrank the chart under their cursor mid-scroll ("messes up the
+    // chart"). Debounced instead: only recompute once scrolling has
+    // actually stopped for 120ms, which still self-corrects after the
+    // auto-scroll animation settles and after ordinary manual scrolling,
+    // without resizing anything while a scroll is in progress.
+    let scrollDebounce = 0;
     const onScroll = () => {
-      if (!fillToViewport || scrollRaf) return;
-      scrollRaf = requestAnimationFrame(() => {
-        scrollRaf = 0;
+      if (!fillToViewport) return;
+      clearTimeout(scrollDebounce);
+      scrollDebounce = setTimeout(() => {
         const h = computeFillHeight();
         applyHeight(h);
         chart.applyOptions({ height: h });
-      });
+      }, 120);
     };
     if (fillToViewport) window.addEventListener("scroll", onScroll, { passive: true });
     // handleScroll.mouseWheel:false above kills ALL wheel-driven chart
@@ -152,7 +169,7 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => {
-      cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); cancelAnimationFrame(scrollRaf);
+      cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); clearTimeout(scrollDebounce);
       window.removeEventListener("resize", onResize);
       if (fillToViewport) window.removeEventListener("scroll", onScroll);
       el.removeEventListener("wheel", onWheel);
