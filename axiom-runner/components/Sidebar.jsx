@@ -23,7 +23,25 @@ export const SIDEBAR_ITEMS = [
   { id: "advisor-ai", label: "Advisor AI",   icon: "🏛️", tab: "advisor-ai", badge: "NEW", section: "AI Desk" },
   { id: "x-intel", label: "X Intelligence", icon: "🐦", tab: "x-intel", badge: "NEW", section: "AI Desk" },
 
-  // 3. RESEARCH & INTEL — gathering real market data before deciding
+  // 3. PRO AI — the "Robinhood Pro AI" cluster (RhPro*): a real, separate
+  // scoring/analysis system (rhScore — Trend Template + RS + timing +
+  // volume) from A+ Score/Green Light/Smart Scan elsewhere in this app,
+  // same "keep parallel scoring systems separate" rule. Fully built but
+  // had ZERO sidebar presence — only reachable if you already knew the
+  // exact command-palette keyword (APEX/SNIPER/DECK/SECTORHEAT/WATCHLISTS/
+  // AICOACH). Real regression found live 2026-07-27 ("i need pro system" —
+  // user couldn't find a system they knew existed). rhpro-journal is
+  // deliberately NOT added here — its own file comment says it's
+  // intentionally orphaned, superseded by the journal embedded live inside
+  // GreenLightTab.
+  { id: "rhpro",        label: "Pro Dashboard",  icon: "🗂️", tab: "rhpro",       section: "Pro AI" },
+  { id: "rhpro-apex",   label: "Trade Pro AI",   icon: "💎", tab: "rhpro-apex",  section: "Pro AI" },
+  { id: "rhpro-scan",   label: "Sniper Scanner", icon: "🔭", tab: "rhpro-scan",  section: "Pro AI" },
+  { id: "rhpro-lists",  label: "Pro Watchlists", icon: "📌", tab: "rhpro-lists", section: "Pro AI" },
+  { id: "rhpro-heat",   label: "Sector Heat",    icon: "🌡️", tab: "rhpro-heat",  section: "Pro AI" },
+  { id: "rhpro-coach",  label: "Pro Coach",      icon: "🏆", tab: "rhpro-coach", section: "Pro AI" },
+
+  // 4. RESEARCH & INTEL — gathering real market data before deciding
   // anything: regime/breadth, charts, news, positioning. The three
   // "Market ___" items are grouped adjacently here for the same reason
   // as AI Desk above.
@@ -33,7 +51,7 @@ export const SIDEBAR_ITEMS = [
   { id: "news",      label: "News",          icon: "📰", tab: "news", section: "Research & Intel" },
   { id: "cot",       label: "COT",           icon: "🏦", tab: "cot", section: "Research & Intel" },
 
-  // 4. OPPORTUNITIES — turning research into real candidate trades.
+  // 5. OPPORTUNITIES — turning research into real candidate trades.
   // Green Light was the app's original default landing tab (until it was
   // changed to X Intelligence, 2026-07) — it never had its own sidebar
   // entry or command-palette alias because it never needed one before;
@@ -53,22 +71,22 @@ export const SIDEBAR_ITEMS = [
   { id: "flow",      label: "Options Flow",  icon: "📊", tab: "flow", section: "Opportunities" },
   { id: "fibonacci", label: "Fibonacci",     icon: "🌀", tab: "fibonacci", section: "Opportunities" },
 
-  // 5. PORTFOLIO & RISK — what's actually on, and how much room is left.
+  // 6. PORTFOLIO & RISK — what's actually on, and how much room is left.
   { id: "portfolio-tab", label: "Portfolio", icon: "💼", tab: "portfolio-tab", section: "Portfolio & Risk" },
   { id: "capital-allocation", label: "Capital Allocation", icon: "💰", tab: "capital-allocation", section: "Portfolio & Risk" },
   { id: "mission-status", label: "Mission Status", icon: "🎯", tab: "mission-status", section: "Portfolio & Risk" },
 
-  // 6. ASSISTANT — callable at any point in the flow, kept as its own
+  // 7. ASSISTANT — callable at any point in the flow, kept as its own
   // section rather than forced into research or portfolio.
   { id: "copilot",   label: "AI Copilot",    icon: "🤖", tab: null, badge: "NEW", section: "Assistant" },
 
-  // 7. REVIEW & GROWTH — after the trading day: coaching, notification
+  // 8. REVIEW & GROWTH — after the trading day: coaching, notification
   // tuning, and ongoing education.
   { id: "coach",     label: "Coach",         icon: "🧭", tab: "coach", section: "Review & Growth" },
   { id: "alerts",    label: "Alerts",        icon: "🔔", tab: "alerts", section: "Review & Growth" },
   { id: "learn",     label: "Learn",         icon: "🎓", tab: "education", section: "Review & Growth" },
 
-  // 8. PERSONAL — not part of the trading flow, deliberately last.
+  // 9. PERSONAL — not part of the trading flow, deliberately last.
   { id: "quran",     label: "Quran",         icon: "☪️", tab: "quran", section: "Personal" },
 ];
 // Scanner/Journal removed from the visible sidebar (2026-07-17, user
