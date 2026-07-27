@@ -179,6 +179,11 @@ async function handleAlpaca(req, res, requestUrl) {
       id: o.id, symbol: o.symbol, qty: Number(o.qty), side: o.side, type: o.type,
       status: o.status, filledAvg: o.filled_avg_price ? Number(o.filled_avg_price) : null,
       submittedAt: o.submitted_at,
+      // Real stop/limit price — Alpaca already returns these, they were just
+      // never mapped through. Needed to actually see how much room an open
+      // stop order gives before it fires (not just whether one exists).
+      stopPrice: o.stop_price ? Number(o.stop_price) : null,
+      limitPrice: o.limit_price ? Number(o.limit_price) : null,
     }));
     return writeJson(res, 200, { ok: true, orders });
   }
