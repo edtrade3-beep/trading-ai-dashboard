@@ -5536,7 +5536,7 @@ export default function App() {
       <TradingCopilot C={C} MONO={MONO} SANS={SANS} macroData={macroData} watchlistSymbols={watchlistSymbols} statusBarH={statusBarH} fabFading={fabFading} isMobile={isMobile} />
       <QuickTradePanel C={C} MONO={MONO} SANS={SANS} terminalSymbol={terminalSymbol} setTerminalSymbol={setTerminalSymbol} macroData={macroData} scanResults={scanResults} statusBarH={statusBarH} fabFading={fabFading} isMobile={isMobile} />
       <RealityCheckWidget statusBarH={statusBarH} fabFading={fabFading} isMobile={isMobile} />
-      <AiTradeSessionPanel C={C} MONO={MONO} SANS={SANS} macroData={macroData} statusBarH={statusBarH} fabFading={fabFading} isMobile={isMobile} setActiveTab={setActiveTab} />
+      <AiTradeSessionPanel C={C} MONO={MONO} SANS={SANS} macroData={macroData} statusBarH={statusBarH} fabFading={fabFading} isMobile={isMobile} activeTab={activeTab} setActiveTab={setActiveTab} topOffset={ISTIGHFAR_BAR_H + topBarH} />
       {/* Google Fonts — Inter (UI) + JetBrains Mono (data/numbers) */}
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
