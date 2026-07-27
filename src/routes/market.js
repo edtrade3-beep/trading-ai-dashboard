@@ -2161,6 +2161,21 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
     return writeJson(res, 200, payload);
   }
 
+  // Manual/on-demand trigger for the market-wide GO/WATCH auto-watchlist
+  // scan (2026-07-27, explicit user request to see it run right now rather
+  // than wait for market hours + the next real 30-min interval tick).
+  // Same non-auth-gated pattern as /api/scanner/insider/ai-take/refresh —
+  // read + compute + additive watchlist write, no money movement.
+  if (pathname === "/api/market/auto-watchlist/run" && req.method === "POST") {
+    const { runMarketAutoWatchlist } = require("../market-auto-watchlist");
+    try {
+      const result = await runMarketAutoWatchlist({ ignoreMarketHours: true });
+      return writeJson(res, 200, result);
+    } catch (e) {
+      return writeJson(res, 200, { ok: false, error: e.message });
+    }
+  }
+
   if (pathname === "/api/market/options-flow") {
     const symbols = (searchParams.get("symbols") || "")
       .split(",").map((s) => s.trim().toUpperCase()).filter(Boolean);

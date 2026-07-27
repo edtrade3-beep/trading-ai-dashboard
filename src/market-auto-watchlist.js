@@ -42,8 +42,12 @@ const MARKET_UNIVERSE_SYMBOLS = [
 const isGo = (r) => r.verdict === "GO" || (r.atBuyPoint && r.volConfirmed);
 const isCandidate = (r) => !r.error && Number(r.entry) > Number(r.stop) && (r.passCount || 0) >= 6 && !r.extended;
 
-async function runMarketAutoWatchlist() {
-  if (!isMarketHoursET()) return { ok: true, skipped: "outside market hours" };
+async function runMarketAutoWatchlist(opts = {}) {
+  // ignoreMarketHours: manual/on-demand trigger only (POST
+  // /api/market/auto-watchlist/run) — the automatic 30-min setInterval in
+  // server.js never passes this, so the real cron stays market-hours-gated
+  // as designed.
+  if (!opts.ignoreMarketHours && !isMarketHoursET()) return { ok: true, skipped: "outside market hours" };
 
   let screenTrendTemplate;
   try { ({ screenTrendTemplate } = require("./routes/market")); } catch { return { ok: false, added: [] }; }
