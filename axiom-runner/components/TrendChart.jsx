@@ -131,7 +131,13 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
       handleScale: { mouseWheel: false, pinch: true, axisPressedMouseMove: true },
     });
     const candle = chart.addCandlestickSeries({ upColor: C.green, downColor: C.red, borderUpColor: C.green, borderDownColor: C.red, wickUpColor: C.green, wickDownColor: C.red });
-    const vol = chart.addHistogramSeries({ priceScaleId: "vol", priceFormat: { type: "volume" } });
+    // priceLineVisible/lastValueVisible: false — every other overlay series
+    // in this chart (MA50/150/200, Bollinger Bands, via mk() below) already
+    // suppresses its own last-value label; volume never got the same
+    // treatment, so its label ("1.53M" etc.) was left free to render right
+    // on top of the main price scale's own low-end gridline labels (real
+    // live bug, screenshot 2026-07-27: "1.53M" fused with "220.00").
+    const vol = chart.addHistogramSeries({ priceScaleId: "vol", priceFormat: { type: "volume" }, priceLineVisible: false, lastValueVisible: false });
     chart.priceScale("vol").applyOptions({ scaleMargins: { top: 0.84, bottom: 0 } });
     const mk = (color, w) => chart.addLineSeries({ color, lineWidth: w, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
     const ma200 = mk("#c94440", 1), ma150 = mk("#d6a312", 1), ma50 = mk(C.accent, 2);
