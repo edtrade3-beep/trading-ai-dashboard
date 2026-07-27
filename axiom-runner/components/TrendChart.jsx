@@ -74,7 +74,14 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
   };
 
   // Create the chart + series once per symbol / theme / size.
-  React.useEffect(() => {
+  // useLayoutEffect, not useEffect: the wrapper divs' JSX below paints at
+  // the static H fallback (560 in fill mode) first. A plain useEffect only
+  // runs AFTER the browser has already painted that frame, so the real
+  // computed height landed one visible frame later — a real, if small,
+  // "stretch" on every chart mount (confirmed live, 2026-07-27: "chart
+  // stretch just little bit"). useLayoutEffect runs synchronously before
+  // paint, so the browser only ever paints the correct final height.
+  React.useLayoutEffect(() => {
     const LC = window.LightweightCharts, el = elRef.current;
     if (!LC || !el) return;
     el.innerHTML = "";
