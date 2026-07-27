@@ -9,6 +9,7 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
   const chartRef = React.useRef(null);
   const seriesRef = React.useRef(null);
   const symRef = React.useRef(null);
+  const fillTimeoutsRef = React.useRef([]);
   // height="fill" (opt-in, currently only MarketTerminalTab.jsx) sizes the
   // chart to whatever real vertical space is left below it in the viewport,
   // instead of a fixed pixel number — fixes a real live bug (screenshot,
@@ -124,34 +125,19 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
       if (fillToViewport) { const h = computeFillHeight(); applyHeight(h); chart.applyOptions({ height: h }); }
     };
     window.addEventListener("resize", onResize);
-    // Real live bug found after shipping: MarketTerminalTab's own auto-scroll-
-    // to-chart feature (a different fix, same session) smooth-scrolls the
-    // page when you search/click a symbol — that animation takes real wall-
-    // clock time to settle, and computeFillHeight() measured the chart's top
-    // edge mid-animation, baking in a transient (too-small) position that
-    // then only got corrected on an actual browser resize. A scroll listener
-    // — not just resize — keeps this self-correcting through that animation
-    // and any ordinary manual scrolling.
-    // Second real live bug (screenshot, 2026-07-27): the first version of
-    // this listener recomputed on every scroll event (rAF-throttled to once
-    // per frame, but still up to ~60×/sec) — resizing the wrapper's real
-    // height WHILE the user was actively scrolling, which visibly grew/
-    // shrank the chart under their cursor mid-scroll ("messes up the
-    // chart"). Debounced instead: only recompute once scrolling has
-    // actually stopped for 120ms, which still self-corrects after the
-    // auto-scroll animation settles and after ordinary manual scrolling,
-    // without resizing anything while a scroll is in progress.
-    let scrollDebounce = 0;
-    const onScroll = () => {
-      if (!fillToViewport) return;
-      clearTimeout(scrollDebounce);
-      scrollDebounce = setTimeout(() => {
-        const h = computeFillHeight();
-        applyHeight(h);
-        chart.applyOptions({ height: h });
-      }, 120);
-    };
-    if (fillToViewport) window.addEventListener("scroll", onScroll, { passive: true });
+    // Real live bug history (2026-07-26/27), all around this same
+    // fill-to-viewport height: a hardcoded scroll listener that recomputed
+    // on every scroll event (even rAF-throttled/debounced) kept resizing the
+    // chart on ANY page scroll, not just the one real case that needed it —
+    // MarketTerminalTab's auto-scroll-to-chart animation settling after a
+    // symbol search. Ordinary manual scrolling (the normal way a user reads
+    // the page) has its own pauses between flicks, so a scroll-triggered
+    // correction visibly "stretched" the chart after every pause — reported
+    // live as "when i scroll chart stretch". There is no listener here at
+    // all now; the bounded, one-time settle corrections that replace it live
+    // in the data-fill effect below (fillTimeoutsRef), tied to data/symbol
+    // changes instead of to scrolling. Real window resize is still a
+    // legitimate reason to recompute (above) and stays wired.
     // handleScroll.mouseWheel:false above kills ALL wheel-driven chart
     // interaction, not just the vertical case — a genuine horizontal
     // trackpad swipe (a wheel event with deltaX, same as deltaY for
@@ -169,9 +155,9 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => {
-      cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); clearTimeout(scrollDebounce);
+      cancelAnimationFrame(raf1); cancelAnimationFrame(raf2);
+      fillTimeoutsRef.current.forEach(clearTimeout); fillTimeoutsRef.current = [];
       window.removeEventListener("resize", onResize);
-      if (fillToViewport) window.removeEventListener("scroll", onScroll);
       el.removeEventListener("wheel", onWheel);
       chart.remove(); chartRef.current = null; seriesRef.current = null;
     };
@@ -181,21 +167,26 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
   React.useEffect(() => {
     const s = seriesRef.current, chart = chartRef.current;
     if (!s || !chart || !data || !data.bars) return;
-    // Real backstop for the fill-to-viewport height: this effect fires on
-    // initial load AND every live refresh, by which point sibling content
-    // above the chart has reliably finished its own layout — re-measuring
-    // here self-corrects even if the chart-creation effect's own rAF-based
-    // check (right after mount) still ran too early.
-    if (fillToViewport) { const h = computeFillHeight(); applyHeight(h); chart.applyOptions({ height: h }); }
-    // Same staleness class, but for WIDTH: the chart's internal pixel width
-    // is only re-synced on a real `resize`/`scroll` event (see the
-    // chart-creation effect below). If the container's own layout width
-    // settles (sidebar collapse, sibling content finishing its layout, etc.)
-    // without either event firing, the canvas is left narrower than its
-    // container — real live bug (screenshot 2026-07-26): visible empty
-    // space to the right of the last candle, before the price axis. Every
-    // data refresh re-measures and re-syncs it, same backstop as height.
-    if (elRef.current) chart.applyOptions({ width: elRef.current.clientWidth || 800 });
+    // Real backstop for fill-to-viewport height + width: this effect fires
+    // on initial load AND every live refresh, by which point sibling
+    // content above the chart has reliably finished its own layout —
+    // re-measuring here self-corrects even if the chart-creation effect's
+    // own rAF-based check (right after mount) still ran too early.
+    // Bounded follow-up corrections (not a live scroll listener — removed,
+    // see the chart-creation effect's comment) catch the one case that
+    // genuinely still needs a delayed re-check: MarketTerminalTab's
+    // auto-scroll-to-chart animation, which takes real wall-clock time
+    // (a few hundred ms) to settle after this effect's first, immediate
+    // pass already ran.
+    fillTimeoutsRef.current.forEach(clearTimeout); fillTimeoutsRef.current = [];
+    const settleCorrect = () => {
+      const el = elRef.current, c = chartRef.current;
+      if (!el || !c) return;
+      if (fillToViewport) { const h = computeFillHeight(); applyHeight(h); c.applyOptions({ height: h }); }
+      c.applyOptions({ width: el.clientWidth || 800 });
+    };
+    settleCorrect();
+    fillTimeoutsRef.current.push(setTimeout(settleCorrect, 400), setTimeout(settleCorrect, 900));
     // Show clock time on the x-axis for intraday granularities (otherwise
     // Lightweight Charts just repeats the date across every bar in a day).
     chart.applyOptions({ timeScale: { timeVisible: !!isIntraday, secondsVisible: false } });
