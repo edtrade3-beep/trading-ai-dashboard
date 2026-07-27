@@ -1,4 +1,5 @@
 import { computeRegime, computeAPlusScore, computeNextAction } from "./market-helpers.js";
+import AiScoreExplainer, { AplusBadge } from "./AiScoreExplainer.jsx";
 
 export default function TradePlannerTab({ C, MONO, SANS, macroData }) {
   const [input,   setInput]   = React.useState("");
@@ -7,6 +8,7 @@ export default function TradePlannerTab({ C, MONO, SANS, macroData }) {
   const [error,   setError]   = React.useState("");
   const [account, setAccount] = React.useState(10000);
   const [riskPct, setRiskPct] = React.useState(1);
+  const [showWhy, setShowWhy] = React.useState(false);
   const regime = computeRegime(macroData);
 
   const r2 = n => Math.round(n * 100) / 100;
@@ -151,7 +153,7 @@ export default function TradePlannerTab({ C, MONO, SANS, macroData }) {
             {result.aplus && (
               <div style={{textAlign:"center"}}>
                 <div style={{fontFamily:MONO,fontSize:9,color:C.textDim,fontWeight:800,letterSpacing:"0.08em",marginBottom:4}}>A+ SCORE</div>
-                <div title={result.aplus.reasons.join(" · ")} style={{fontFamily:MONO,fontSize:16,fontWeight:900,color:result.aplus.score>=80?C.green:result.aplus.score>=60?C.amber:C.red,cursor:"help"}}>{result.aplus.score}/100</div>
+                <AplusBadge C={C} MONO={MONO} aplus={result.aplus} onClick={() => setShowWhy(true)} />
               </div>
             )}
             {result.next && (
@@ -309,6 +311,9 @@ export default function TradePlannerTab({ C, MONO, SANS, macroData }) {
             You'll get stop loss, 3 price targets, position sizing,<br/>and a step-by-step exit strategy.
           </div>
         </div>
+      )}
+      {showWhy && result?.aplus && (
+        <AiScoreExplainer C={C} MONO={MONO} SANS={SANS} symbol={result.sym} aplus={result.aplus} onClose={() => setShowWhy(false)} />
       )}
     </div>
   );
