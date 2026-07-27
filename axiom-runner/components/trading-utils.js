@@ -407,15 +407,24 @@ export function logTradeNote(type, text) {
 // Shared: create an auto-managed PAPER trade (stop/T1/T2/T3 + sizing) from anywhere.
 // opts.atrPct (daily-range volatility, 0-0.05) enables ATR-based stops/targets when
 // the user has Dynamic mode on (localStorage axiom_autopilot_atr !== "off").
+// opts.stop/t1/t2/t3 (all four together) skip both the ATR and fixed-% derivations
+// and use the caller's real, already-computed levels directly (e.g. AiTradeSessionPanel
+// passing real trend-screen entry/stop + 1R/2R/3R targets) — additive, every existing
+// caller that doesn't pass these keeps its exact prior ATR/fixed behavior unchanged.
 export function addPaperTrade(sym, entry, opts = {}) {
   if (!sym || !entry || entry <= 0) return;
   entry = +(entry * (1 + SLIP)).toFixed(2);  // slippage: a long fills slightly ABOVE the quoted price
   const acct    = Number(localStorage.getItem("axiom_acct_size")) || 10000;
   const riskPct = Number(localStorage.getItem("axiom_risk_pct")) || 1;
 
-  const useAtr = localStorage.getItem("axiom_autopilot_atr") !== "off" && Number(opts.atrPct) > 0;
+  const hasExplicitLevels = [opts.stop, opts.t1, opts.t2, opts.t3].every(v => Number(v) > 0);
+  const useAtr = !hasExplicitLevels && localStorage.getItem("axiom_autopilot_atr") !== "off" && Number(opts.atrPct) > 0;
   let stop, t1, t2, t3, basis;
-  if (useAtr) {
+  if (hasExplicitLevels) {
+    stop = +Number(opts.stop).toFixed(2); t1 = +Number(opts.t1).toFixed(2);
+    t2 = +Number(opts.t2).toFixed(2); t3 = +Number(opts.t3).toFixed(2);
+    basis = "scan";
+  } else if (useAtr) {
     // Volatility-sized: floor 1% / cap 5% daily range; stop 1.5×ATR, targets 1.5/3/4.5×ATR (1:1, 2:1, 3:1)
     const atrPct = Math.min(0.05, Math.max(0.01, Number(opts.atrPct)));
     const atr = entry * atrPct;

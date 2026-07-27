@@ -6,6 +6,7 @@ import TrendSetupPanel from "./components/TrendSetupPanel.jsx";
 import SmartScanPanel from "./components/SmartScanPanel.jsx";
 import DayTradeTab from "./components/DayTradeTab.jsx";
 import MarketTerminalTab from "./components/MarketTerminalTab.jsx";
+import AiTradeSessionPanel from "./components/AiTradeSessionPanel.jsx";
 import { computeRegime, computeAPlusScore, STOCK_TO_SECTOR, SECTOR_ETFS, computeFibLevels } from "./components/market-helpers.js";
 import { FIVEX_DATA, FIVEX_REF } from "./components/fivex-data.js";
 import { qUrl, QURAN_RECITERS, SURAH_LIST } from "./components/quran-data.js";
@@ -5535,6 +5536,7 @@ export default function App() {
       <TradingCopilot C={C} MONO={MONO} SANS={SANS} macroData={macroData} watchlistSymbols={watchlistSymbols} statusBarH={statusBarH} fabFading={fabFading} isMobile={isMobile} />
       <QuickTradePanel C={C} MONO={MONO} SANS={SANS} terminalSymbol={terminalSymbol} setTerminalSymbol={setTerminalSymbol} macroData={macroData} scanResults={scanResults} statusBarH={statusBarH} fabFading={fabFading} isMobile={isMobile} />
       <RealityCheckWidget statusBarH={statusBarH} fabFading={fabFading} isMobile={isMobile} />
+      <AiTradeSessionPanel C={C} MONO={MONO} SANS={SANS} macroData={macroData} statusBarH={statusBarH} fabFading={fabFading} isMobile={isMobile} setActiveTab={setActiveTab} />
       {/* Google Fonts — Inter (UI) + JetBrains Mono (data/numbers) */}
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
