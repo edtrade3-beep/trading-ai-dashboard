@@ -1248,7 +1248,13 @@ async function _buildTrendTemplate(symbol, opts = {}) {
 }
 
 // Scan many symbols with bounded concurrency, fetching SPY momentum just once.
-async function screenTrendTemplate(symbols) {
+// filters — real Stage-1 universe filters applied AFTER each symbol's real
+// data is already fetched (price from bars, marketCap/dollarVolume/quoteType
+// from the same batched fundamentals-overlay quote call below) — zero new
+// network calls. { minPrice, maxPrice, minDollarVolume, minMarketCap,
+// excludeETFs }. All optional; omitting all keeps existing behavior for the
+// 4 existing callers that don't pass filters.
+async function screenTrendTemplate(symbols, filters = {}) {
   let spyMom = null;
   try { spyMom = ttWeightedMomentum((await fetchYahooBars("SPY", "1y", "1d")).map((b) => b.close)); } catch {}
 
@@ -1302,7 +1308,10 @@ async function screenTrendTemplate(symbols) {
     delete x._passExclRS; delete x.momentum;
   }
 
-  // ── Fundamentals overlay (one batched quote call): next earnings date + EPS growth. ──
+  // ── Fundamentals overlay (one batched quote call): next earnings date + EPS growth,
+  // plus real marketCap/regularMarketVolume/quoteType for the Stage-1 filters below —
+  // this same v7 quote response already carries all three, so capturing them here is
+  // zero additional network cost. ──
   try {
     const syms = out.filter((x) => !x.error).map((x) => x.symbol);
     const qmap = {};
@@ -1319,8 +1328,28 @@ async function screenTrendTemplate(symbols) {
       x.earningsSoon = x.earningsDte != null && x.earningsDte >= 0 && x.earningsDte <= 10;
       const epsTTM = Number(q.epsTrailingTwelveMonths || 0), epsFwd = Number(q.epsForward || 0);
       x.epsGrowth = (epsTTM > 0 && epsFwd > 0) ? Math.round((epsFwd / epsTTM - 1) * 100) : null;
+      x.marketCap = Number(q.marketCap) || null;
+      x.dollarVolume = Number(q.regularMarketVolume) > 0 ? Math.round(x.price * Number(q.regularMarketVolume)) : null;
+      x.quoteType = q.quoteType || null; // real "EQUITY"/"ETF"/etc from Yahoo, not guessed
     }
   } catch { /* fundamentals are best-effort */ }
+
+  // ── Stage-1 universe filters — real, applied to data already fetched above.
+  // A symbol missing the underlying real field (e.g. dollarVolume when the
+  // fundamentals overlay failed) is never excluded by a filter it has no real
+  // data for — only excluded when the real value is present and fails the bar. ──
+  const { minPrice, maxPrice, minDollarVolume, minMarketCap, excludeETFs } = filters;
+  if (minPrice != null || maxPrice != null || minDollarVolume != null || minMarketCap != null || excludeETFs) {
+    for (let i = out.length - 1; i >= 0; i--) {
+      const x = out[i];
+      if (x.error) continue;
+      if (minPrice != null && x.price < minPrice) { out.splice(i, 1); continue; }
+      if (maxPrice != null && x.price > maxPrice) { out.splice(i, 1); continue; }
+      if (minDollarVolume != null && x.dollarVolume != null && x.dollarVolume < minDollarVolume) { out.splice(i, 1); continue; }
+      if (minMarketCap != null && x.marketCap != null && x.marketCap < minMarketCap) { out.splice(i, 1); continue; }
+      if (excludeETFs && x.quoteType && x.quoteType !== "EQUITY") { out.splice(i, 1); continue; }
+    }
+  }
 
   const rank = (x) => x.error ? -1 : (x.atBuyPoint ? 1000 : 0) + x.passCount * 100 + (x.rsRating || 0);
   out.sort((a, b) => rank(b) - rank(a));
@@ -1921,8 +1950,21 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
     const symbols = (searchParams.get("symbols") || "")
       .split(",").map((s) => s.trim().toUpperCase()).filter(Boolean).slice(0, 90);
     if (!symbols.length) return writeJson(res, 400, { error: "symbols required" });
+    // Real Stage-1 universe filters — all optional, all applied to data the
+    // scan already fetches (see screenTrendTemplate's own comment above).
+    // Number(null) is 0, not NaN — must check for absent/empty BEFORE
+    // coercing, or every filter defaults to 0 (maxPrice:0 would then filter
+    // out every real row, since any real price is > 0 — confirmed live).
+    const numOrUndef = (v) => { if (v === null || v === "") return undefined; const n = Number(v); return Number.isFinite(n) ? n : undefined; };
+    const filters = {
+      minPrice: numOrUndef(searchParams.get("minPrice")),
+      maxPrice: numOrUndef(searchParams.get("maxPrice")),
+      minDollarVolume: numOrUndef(searchParams.get("minDollarVolume")),
+      minMarketCap: numOrUndef(searchParams.get("minMarketCap")),
+      excludeETFs: searchParams.get("excludeETFs") === "1",
+    };
     try {
-      const results = await screenTrendTemplate(symbols);
+      const results = await screenTrendTemplate(symbols, filters);
       return writeJson(res, 200, { count: results.length, results });
     } catch (err) {
       return writeJson(res, 502, { error: err instanceof Error ? err.message : "Screen failed." });

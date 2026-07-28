@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { NUM } from "./theme.js";
-import { computeRegime, computeAPlusScore, STOCK_TO_SECTOR, SECTOR_ETFS } from "./market-helpers.js";
+import { computeRegime, computeAPlusScore, STOCK_TO_SECTOR, SECTOR_ETFS, SCAN_UNIVERSE } from "./market-helpers.js";
 
 // Small self-contained panels that make up MarketTerminalTab's per-symbol
 // detail tabs (Valuation, Analysts, Investors, Earnings, Company, Social,
@@ -752,12 +752,11 @@ export function PerformanceCard({ C, MONO, SANS }) {
 
 // ONE-CLICK best opportunities: scan a liquid universe, rank the best long
 // buy-points, show top 5 with why / entry / stop / target / R:R. Click → chart.
-export const BEST_OPP_UNIVERSE = [
-  "NVDA","AAPL","MSFT","AMZN","META","GOOGL","AVGO","AMD","NFLX","TSLA",
-  "MU","SMCI","DELL","ARM","PLTR","CRWD","SNOW","NOW","ORCL","ANET",
-  "MRVL","PANW","COIN","HOOD","UBER","SHOP","LLY","V","MA","JPM",
-  "GE","CAT","CEG","VRT","TSM","QCOM","NEE","WMB","CCJ","MARA",
-];
+// Re-exports the app-wide consolidated SCAN_UNIVERSE (market-helpers.js) —
+// every one of this list's original 40 symbols was already a subset of
+// Sniper Scanner's RH_UNIVERSE (verified, not approximated), so this and
+// RH_UNIVERSE now share one real scan instead of two overlapping ones.
+export const BEST_OPP_UNIVERSE = SCAN_UNIVERSE;
 export function BestOpportunities({ C, MONO, SANS, onPick, macroData, setActiveTab }) {
   const [rows, setRows] = useState(null);
   const [state, setState] = useState("idle"); // idle | loading | ok | err

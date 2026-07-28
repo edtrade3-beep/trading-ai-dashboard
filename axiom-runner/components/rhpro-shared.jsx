@@ -1,16 +1,12 @@
 // Shared helpers for the Robinhood Pro AI cluster (RhProDashboard,
 // RhProScanner, RhProWatchlists, RhProHeatMap, RhProCoach, RhProApex).
+import { SCAN_UNIVERSE } from "./market-helpers.js";
 
 // Robinhood Pro AI — Feature 2: AI Sniper Scanner. Ranks a universe 0–100 by
 // reusing the server trend-screen engine. Analysis only — no orders.
-export const RH_UNIVERSE = [
-  "AAPL","MSFT","NVDA","AMZN","META","GOOGL","AVGO","TSLA","AMD","NFLX",
-  "CRM","ORCL","ADBE","NOW","PANW","CRWD","PLTR","SNOW","MU","QCOM",
-  "ANET","MRVL","SMCI","ARM","COIN","UBER","ABNB","SHOP","INTU","LRCX",
-  "LLY","V","MA","JPM","COST","WMT","HD","AXP","GE","CAT",
-  "TSM","VRT","NEE","WMB","CCJ","CEG","DELL","MARA","RIOT","CLSK",
-  "CIFR","WULF","IREN","HOOD","NET","DDOG","ZS","CVNA","APP","RDDT",
-];
+// Re-exports the app-wide consolidated SCAN_UNIVERSE (market-helpers.js) —
+// see that file's comment for why this and BEST_OPP_UNIVERSE were merged.
+export const RH_UNIVERSE = SCAN_UNIVERSE;
 export function rhScore(r) {
   // 0–100 composite: Trend Template (50) + Relative Strength (25) + timing (15) + volume (10).
   const pass = Math.max(0, Math.min(8, Number(r.passCount) || 0));

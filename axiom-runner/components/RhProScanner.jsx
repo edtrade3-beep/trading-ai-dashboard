@@ -1,12 +1,38 @@
 import { useState, useEffect } from "react";
 import { RH_UNIVERSE, rhScore, rhScreenProgressive } from "./rhpro-shared.jsx";
 import { computeRegime, computeAPlusScore, computeNextAction } from "./market-helpers.js";
+import GapScanner from "./GapScanner.jsx";
+import DayTradeTab from "./DayTradeTab.jsx";
+
+// ── Categorized ranking — Phase 1 of the Institutional Scanner work
+// (2026-07-27). Every category here is derived from fields the scan ALREADY
+// computes (screenTrendTemplate/buildTrendTemplate, src/routes/market.js) —
+// no new scoring logic, no new fetches for the in-memory categories. Gap
+// Ups/Downs and Day Trade Candidates reuse the app's existing standalone
+// GapScanner.jsx/DayTradeTab.jsx components directly rather than
+// reimplementing their real (Alpaca-bar-based) data. "Reversal Watch" is
+// deliberately labeled as a simplified heuristic — it's real (pctFromHigh
+// and volRatio both come straight off the scan), but it is NOT the same as
+// Green Light's full bottomScore, which needs live quote data this scan
+// doesn't fetch — never claim more sophistication than what's actually run.
+const CATEGORIES = [
+  { id: "all", label: "All / Ranked" },
+  { id: "breakout", label: "🚀 Breakout" },
+  { id: "pullback", label: "↩️ Pullback" },
+  { id: "rvol", label: "🔥 High RVOL" },
+  { id: "momentum", label: "📈 Momentum Leaders" },
+  { id: "reversal", label: "🔄 Reversal Watch" },
+  { id: "avoid", label: "🚫 Avoid List" },
+  { id: "gap", label: "⚡ Gap Up/Down" },
+  { id: "daytrade", label: "⏱ Day Trade" },
+];
 
 export default function RhProScanner({ C, MONO, SANS, macroData, setActiveTab }) {
   const regime = computeRegime(macroData);
   const planTrade = (sym) => { try { localStorage.setItem("tradeplanner_load_sym", sym); } catch {} setActiveTab && setActiveTab("tradeplanner"); };
   const [rows, setRows] = useState([]); const [loading, setLoading] = useState(false);
   const [err, setErr] = useState(""); const [filter, setFilter] = useState(60); const [ranAt, setRanAt] = useState(null);
+  const [category, setCategory] = useState("all");
   const scan = () => {
     setLoading(true); setErr(""); setRows([]);
     let all = [];
@@ -20,7 +46,31 @@ export default function RhProScanner({ C, MONO, SANS, macroData, setActiveTab })
     );
   };
   useEffect(() => { scan(); }, []);
-  const shown = rows.filter(r => filter === "buy" ? r.atBuyPoint : r.score >= filter);
+
+  // Category derivation — all real, all off fields the scan already returns.
+  let categorized = rows;
+  let categoryNote = null;
+  if (category === "breakout") {
+    categorized = rows.filter(r => r.atBuyPoint && r.volConfirmed);
+    categoryNote = "Real buy point (8/8-eligible template + actionable, not extended) with volume ≥1.4x the 50-day average.";
+  } else if (category === "pullback") {
+    categorized = rows.filter(r => r.actionable && !r.atBuyPoint && !r.extended);
+    categoryNote = "Actionable setup, not yet at a confirmed buy point, not extended — the real trend-screen \"WATCH\" bucket.";
+  } else if (category === "rvol") {
+    categorized = [...rows].filter(r => Number.isFinite(r.volRatio)).sort((a, b) => (b.volRatio || 0) - (a.volRatio || 0));
+    categoryNote = "Sorted by real volume vs the 50-day average, highest first.";
+  } else if (category === "momentum") {
+    categorized = rows.filter(r => (r.rsRating || 0) >= 80 && (r.stage || "").includes("2"));
+    categoryNote = "RS ≥ 80 in a confirmed Stage 2 uptrend — the same real definition Pro Watchlists' Momentum Leaders uses.";
+  } else if (category === "reversal") {
+    categorized = rows.filter(r => (r.pctFromHigh || 0) <= -20 && (r.volRatio || 0) >= 1.4);
+    categoryNote = "Simplified heuristic: ≥20% off the 52-week high with volume picking up — real data, but not the same as Green Light's full bottom-score model (that needs live quote data this scan doesn't fetch).";
+  } else if (category === "avoid") {
+    categorized = [...rows].filter(r => r.aplus).sort((a, b) => (a.aplus.score || 0) - (b.aplus.score || 0)).slice(0, 10);
+    categoryNote = "The real bottom of this scan by A+ Score — same pattern as Dashboard's Stocks to Avoid card.";
+  }
+  const shown = category === "all" ? categorized.filter(r => filter === "buy" ? r.atBuyPoint : r.score >= filter) : categorized;
+
   const scoreCol = s => s >= 80 ? C.green : s >= 65 ? "#5ab552" : s >= 50 ? C.amber : C.textDim;
   const cell = { fontFamily: MONO, fontSize: 12.5, padding: "8px 10px", borderBottom: `1px solid ${C.border}`, whiteSpace: "nowrap" };
   const th = { fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", padding: "6px 10px", textAlign: "left", position: "sticky", top: 0, background: C.card };
@@ -32,11 +82,28 @@ export default function RhProScanner({ C, MONO, SANS, macroData, setActiveTab })
         <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>{RH_UNIVERSE.length} stocks · ranked 0–100 · {ranAt ? `scanned ${ranAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}</div>
         <button onClick={scan} disabled={loading} style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "8px 16px", borderRadius: 8, border: "none", color: "#fff", background: loading ? C.textDim : C.accent, cursor: loading ? "default" : "pointer" }}>{loading ? "⏳ scanning…" : "↻ RESCAN"}</button>
       </div>
-      <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
-        {[["buy", "🎯 At buy point"], [75, "≥ 75 elite"], [65, "≥ 65 strong"], [50, "≥ 50 all setups"]].map(([v, l]) => (
-          <button key={String(v)} onClick={() => setFilter(v)} style={{ fontFamily: SANS, fontSize: 11, fontWeight: 700, padding: "6px 12px", borderRadius: 7, cursor: "pointer", border: `1px solid ${filter === v ? C.accent : C.border}`, background: filter === v ? C.accent : C.surface, color: filter === v ? "#fff" : C.textSec }}>{l}</button>
+
+      {/* Category tabs — the "AI Ranking" categorized view */}
+      <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
+        {CATEGORIES.map(cat => (
+          <button key={cat.id} onClick={() => setCategory(cat.id)} style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, padding: "6px 12px", borderRadius: 7, cursor: "pointer", border: `1px solid ${category === cat.id ? C.accent : C.border}`, background: category === cat.id ? C.accent : C.surface, color: category === cat.id ? "#fff" : C.textSec }}>{cat.label}</button>
         ))}
+        <button onClick={() => setActiveTab && setActiveTab("rhpro-heat")} style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, padding: "6px 12px", borderRadius: 7, cursor: "pointer", border: `1px solid ${C.border}`, background: C.surface, color: C.textSec }}>🌡️ Sectors →</button>
       </div>
+      {categoryNote && <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginBottom: 10, lineHeight: 1.5 }}>{categoryNote}</div>}
+
+      {category === "gap" && <GapScanner C={C} MONO={MONO} SANS={SANS} />}
+      {category === "daytrade" && <DayTradeTab C={C} MONO={MONO} SANS={SANS} />}
+
+      {category !== "gap" && category !== "daytrade" && (
+      <>
+      {category === "all" && (
+        <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
+          {[["buy", "🎯 At buy point"], [75, "≥ 75 elite"], [65, "≥ 65 strong"], [50, "≥ 50 all setups"]].map(([v, l]) => (
+            <button key={String(v)} onClick={() => setFilter(v)} style={{ fontFamily: SANS, fontSize: 11, fontWeight: 700, padding: "6px 12px", borderRadius: 7, cursor: "pointer", border: `1px solid ${filter === v ? C.accent : C.border}`, background: filter === v ? C.accent : C.surface, color: filter === v ? "#fff" : C.textSec }}>{l}</button>
+          ))}
+        </div>
+      )}
       {err && <div style={{ fontFamily: SANS, fontSize: 12, color: C.red, marginBottom: 10 }}>⚠ {err}</div>}
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, overflow: "auto", maxHeight: "70vh" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -69,6 +136,8 @@ export default function RhProScanner({ C, MONO, SANS, macroData, setActiveTab })
         </table>
       </div>
       <div style={{ marginTop: 10, fontFamily: SANS, fontSize: 10, color: C.textDim }}>Score = Trend Template 50% · Relative Strength 25% · buy-zone timing 15% · volume 10%. Analysis only — execute manually.</div>
+      </>
+      )}
     </div>
   );
 }

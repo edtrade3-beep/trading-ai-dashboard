@@ -3,6 +3,26 @@
 // split-out files) — kept separate from ui-helpers.js, which is purely
 // about styling.
 
+// Real, consolidated scan universe — Phase 1 of the Institutional Scanner
+// work (2026-07-27): previously RH_UNIVERSE (rhpro-shared.jsx, 60 symbols)
+// and BEST_OPP_UNIVERSE (terminal-panels.jsx, 40 symbols) were two
+// independently-hardcoded lists, fetched separately even though every one
+// of the 40 BEST_OPP_UNIVERSE symbols was already inside RH_UNIVERSE — a
+// real, verified full subset, not an approximation. Consolidating to this
+// single list means Sniper Scanner, Best Opportunities, and the AI Trade
+// Session all scan the exact same real universe instead of redundantly
+// re-fetching overlapping symbols. Both files below now just re-export this
+// same array under their existing names for backward compatibility with
+// every existing import site.
+export const SCAN_UNIVERSE = [
+  "AAPL","MSFT","NVDA","AMZN","META","GOOGL","AVGO","TSLA","AMD","NFLX",
+  "CRM","ORCL","ADBE","NOW","PANW","CRWD","PLTR","SNOW","MU","QCOM",
+  "ANET","MRVL","SMCI","ARM","COIN","UBER","ABNB","SHOP","INTU","LRCX",
+  "LLY","V","MA","JPM","COST","WMT","HD","AXP","GE","CAT",
+  "TSM","VRT","NEE","WMB","CCJ","CEG","DELL","MARA","RIOT","CLSK",
+  "CIFR","WULF","IREN","HOOD","NET","DDOG","ZS","CVNA","APP","RDDT",
+];
+
 export const SECTOR_ETFS = [
   { symbol: "XLK", name: "Technology" },
   { symbol: "XLV", name: "Healthcare" },
