@@ -198,8 +198,8 @@ export default function TradePlannerTab({ C, MONO, SANS, macroData }) {
             </div>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:10}}>
-            {numCard("ENTRY PRICE",`$${result.price.toFixed(2)}`,result.planSource?`Real pivot entry from ${result.planSource}`:"Current price — buy here",C.accent)}
-            {numCard("STOP LOSS 🛑",`$${result.stopLoss}`,`${fmtPct(pct(result.stopLoss,result.price))} · ${result.planSource?`real pivot stop from ${result.planSource}`:"ATR-based"}`,C.red)}
+            {numCard("ENTRY PRICE",`$${result.price.toFixed(2)}`,result.planSource?`Real entry from ${result.planSource}`:"Current price — buy here",C.accent)}
+            {numCard("STOP LOSS 🛑",`$${result.stopLoss}`,`${fmtPct(pct(result.stopLoss,result.price))} · ${result.planSource?`real stop from ${result.planSource}`:"ATR-based"}`,C.red)}
             {numCard("TARGET 1 🎯",`$${result.t1}`,`${fmtPct(pct(result.t1,result.price))} · 1.5R · Take 50%`,C.green)}
             {numCard("TARGET 2 🚀",`$${result.t2}`,`${fmtPct(pct(result.t2,result.price))} · 2.5R · Take 25%`,"#22c55e")}
             {numCard("TARGET 3 💎",`$${result.t3}`,`${fmtPct(pct(result.t3,result.price))} · 4R · Let run`,C.accent)}

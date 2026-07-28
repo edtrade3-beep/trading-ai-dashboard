@@ -1538,6 +1538,40 @@ export default function SmartScanTab({
                                             ))}
                                           </div>
                                         )}
+                                        {/* Plan this trade — hands off the same real
+                                            trend-screen entry/stop/target already used to
+                                            compute this row's A+ Score above, so Trade
+                                            Planner shows one consistent real plan instead
+                                            of recalculating a different one (2026-07-28,
+                                            same fix as Sniper Scanner/Best Opportunities/
+                                            Green Light — "add it to smart scan too"). Gated
+                                            on smartScanTrendMap having real entry/stop for
+                                            this ticker (not the static FIVEX ref above), so
+                                            it also works for tickers added outside the
+                                            curated 5x list. */}
+                                        {(() => {
+                                          const tr = smartScanTrendMap[row.ticker];
+                                          const validPlan = tr && Number.isFinite(Number(tr.entry)) && Number.isFinite(Number(tr.stop)) && Number(tr.entry) > Number(tr.stop);
+                                          if (!validPlan) return null;
+                                          return (
+                                            <button onClick={(e) => {
+                                                e.stopPropagation();
+                                                try {
+                                                  localStorage.setItem("tradeplanner_load_plan", JSON.stringify({
+                                                    symbol: row.ticker, entry: Number(tr.entry), stop: Number(tr.stop),
+                                                    target: Number.isFinite(Number(tr.target2)) ? Number(tr.target2) : null,
+                                                    aplus, next: null, source: "Smart Scan",
+                                                  }));
+                                                } catch {}
+                                                setActiveTab && setActiveTab("tradeplanner");
+                                              }}
+                                              title={`Plan this trade — opens Trade Planner with ${row.ticker}'s real entry/stop from this scan already filled in`}
+                                              style={{ marginTop: 12, width: "100%", background: `${C.accent}14`, border: `1px solid ${C.accent}`, color: C.accent,
+                                                borderRadius: 6, fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "8px 10px", cursor: "pointer" }}>
+                                              🎯 PLAN TRADE
+                                            </button>
+                                          );
+                                        })()}
                                         {/* ── BOTTOM / TOP DETECTOR ── */}
                                         {(() => {
                                           const px     = Number(livePrice || row.quote?.price || 0);
