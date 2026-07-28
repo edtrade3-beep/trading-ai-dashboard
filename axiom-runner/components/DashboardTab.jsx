@@ -4,6 +4,8 @@ import FedInterpreter from "./FedInterpreter.jsx";
 import FedWatchWidget from "./FedWatchWidget.jsx";
 import MacroEventsWidget from "./MacroEventsWidget.jsx";
 import RegimeNewsPanel from "./RegimeNewsPanel.jsx";
+import { MarketNewsWire } from "./terminal-panels.jsx";
+import RhProScanner from "./RhProScanner.jsx";
 import RadialGauge from "./RadialGauge.jsx";
 import DonutChart from "./DonutChart.jsx";
 import Sparkline from "./Sparkline.jsx";
@@ -824,6 +826,25 @@ export default function DashboardTab({
             <OpportunityQueueCard C={C} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
           </div>
           <CopilotInsightsCard C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} topPick={topPick} />
+
+          {/* Real market news headlines, directly on Dashboard's default
+              landing sub-tab (2026-07-28, explicit user request: "add news
+              to dashboard") — NewsSentimentCard on the Overview sub-tab is
+              only a sentiment donut with a link away; this is the same real
+              MarketNewsWire headline feed Market Terminal already uses,
+              not a rebuild. */}
+          <div style={{ marginTop: 14 }}>
+            <MarketNewsWire C={C} MONO={MONO} SANS={SANS} />
+          </div>
+
+          {/* Real Sniper Scanner, directly on Dashboard's default landing
+              sub-tab (2026-07-28, explicit user request: "add sniper
+              scanner to dashboard") — the exact same Pro AI component, not
+              a condensed summary this time; macroData/sectorData/
+              setActiveTab are already real props on this component. */}
+          <div style={{ marginTop: 14 }}>
+            <RhProScanner C={C} MONO={MONO} SANS={SANS} macroData={macroData} sectorData={sectorData} setActiveTab={setActiveTab} />
+          </div>
         </>
       )}
 

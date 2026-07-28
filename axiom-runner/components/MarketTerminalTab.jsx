@@ -76,6 +76,16 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
     load(); const t = setInterval(load, 90000); return () => clearInterval(t);
   }, []);
 
+  // Real Telegram notification every time a stock chart is actually viewed
+  // (2026-07-28, explicit user request) — reuses the same /api/notify
+  // endpoint the manual "PUSH" buttons elsewhere (RotationTab/SectorsTab)
+  // already use, so it's a real, un-throttled direct send, not subject to
+  // the AI-alert daily-info-message budget (a different real gate for a
+  // different category of message). Skipped on this component's own
+  // initial mount (loading NVDA or a handed-off symbol isn't a real click)
+  // via firstLoadRef — every subsequent loadSym call (search, mover click,
+  // watchlist click, or any external "open chart" handoff) does notify.
+  const firstLoadRef = useRef(true);
   // tf param lets a caller (timeframe buttons) override the current chartTf
   // in the same click that also changes it, avoiding a stale-closure refetch.
   const loadSym = useCallback((s, tf) => {
@@ -85,7 +95,17 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
     setSym(symbol); setLoadingChart(true);
     fetch(`/api/market/trend-template?symbol=${encodeURIComponent(symbol)}&interval=${encodeURIComponent(useTf)}`)
       .then(r => r.json())
-      .then(d => { if (!d.error) setChart(d); })
+      .then(d => {
+        if (!d.error) {
+          setChart(d);
+          if (!firstLoadRef.current) {
+            const chg = Number(d.setup?.abovePivotPct) || 0;
+            const msg = `📈 Chart viewed: ${symbol} — $${Number(d.price || 0).toFixed(2)}${d.stage ? ` · ${d.stage}` : ""}${Number.isFinite(chg) && d.setup ? ` · ${chg >= 0 ? "+" : ""}${chg.toFixed(1)}% from pivot` : ""}`;
+            fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }).catch(() => {});
+          }
+          firstLoadRef.current = false;
+        }
+      })
       .catch(() => {})
       .finally(() => setLoadingChart(false));
   }, [chartTf]);
