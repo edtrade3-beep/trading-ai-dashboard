@@ -697,13 +697,14 @@ export default function DashboardTab({
   // would unmount, and the data would go stale, the moment you left
   // Dashboard entirely).
   const aplusSymbol = topPick?.symbol || null;
-  // Opportunities made the default/first sub-tab (2026-07-19, user request:
-  // "need opportunities right away... not late") -- was Overview.
+  // AI Sniper made the default/first sub-tab (2026-07-28, explicit user
+  // request: "default in ai sniper") -- was Opportunities (2026-07-19,
+  // "need opportunities right away... not late"), before that Overview.
   const [dashTab, setDashTab] = useState(() => {
     // "more" was removed (2026-07-19, split into existing tabs) — stale
     // localStorage from before that change must not resolve to a
     // dead/blank sub-tab.
-    try { const saved = localStorage.getItem("dash_subtab"); return (saved && saved !== "more") ? saved : "opportunities"; } catch { return "opportunities"; }
+    try { const saved = localStorage.getItem("dash_subtab"); return (saved && saved !== "more") ? saved : "sniper"; } catch { return "sniper"; }
   });
   const setDashTabPersist = (id) => {
     setDashTab(id);
