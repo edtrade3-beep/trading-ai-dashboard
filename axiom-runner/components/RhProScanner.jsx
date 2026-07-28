@@ -63,7 +63,30 @@ const CATEGORIES = [
 
 export default function RhProScanner({ C, MONO, SANS, macroData, sectorData, setActiveTab }) {
   const regime = computeRegime(macroData);
-  const planTrade = (sym) => { try { localStorage.setItem("tradeplanner_load_sym", sym); } catch {} setActiveTab && setActiveTab("tradeplanner"); };
+  // "plan" used to hand off only the symbol, so Trade Planner would silently
+  // recompute its OWN ATR-based entry/stop/targets — often disagreeing with
+  // the real VCP pivot entry/stop this same row already shows in ENTRY →
+  // STOP. Handing off the actual computed row (2026-07-28, "combine chart
+  // with plan... give me best result") means chart and plan now agree on
+  // one real trade instead of showing two different ones for the same
+  // symbol. Falls back to the plain symbol when this row has no valid
+  // real entry/stop (Trade Planner then does its own live calc, same as
+  // before) instead of forcing a bad plan.
+  const planTrade = (r) => {
+    try {
+      const validPlan = Number.isFinite(Number(r.entry)) && Number.isFinite(Number(r.stop)) && Number(r.entry) > Number(r.stop);
+      if (validPlan) {
+        localStorage.setItem("tradeplanner_load_plan", JSON.stringify({
+          symbol: r.symbol, entry: Number(r.entry), stop: Number(r.stop),
+          target: Number.isFinite(Number(r.target2)) ? Number(r.target2) : null,
+          aplus: r.aplus || null, next: r.next || null, source: "AI Sniper Scanner",
+        }));
+      } else {
+        localStorage.setItem("tradeplanner_load_sym", r.symbol);
+      }
+    } catch {}
+    setActiveTab && setActiveTab("tradeplanner");
+  };
   // Market Terminal combined into Sniper Scanner (2026-07-28, explicit user
   // request) — same real handoff pattern RotationTab/SectorsTab already use
   // to open a symbol's full chart + fundamentals/earnings/analyst/news/SMC
@@ -243,7 +266,7 @@ export default function RhProScanner({ C, MONO, SANS, macroData, sectorData, set
                   {r.symbol}
                   <button onClick={() => openChart(r.symbol)} title={`Open ${r.symbol}'s full chart — trend, fundamentals, earnings, analysts, news, SMC`}
                     style={{ marginLeft: 6, fontSize: 10, border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "1px 5px", cursor: "pointer" }}>📈 chart</button>
-                  <button onClick={() => planTrade(r.symbol)} title={`Plan this trade — opens Trade Planner with ${r.symbol} loaded`}
+                  <button onClick={() => planTrade(r)} title={`Plan this trade — opens Trade Planner with ${r.symbol}'s real entry/stop from this scan already filled in`}
                     style={{ marginLeft: 4, fontSize: 10, border: `1px solid ${C.accent}`, background: `${C.accent}14`, color: C.accent, borderRadius: 4, padding: "1px 5px", cursor: "pointer" }}>🎯 plan</button>
                 </td>
                 <td style={cell}>

@@ -15,7 +15,7 @@ export default function TradePlannerTab({ C, MONO, SANS, macroData }) {
   const pct = (a, b) => b > 0 ? r2((a - b) / b * 100) : 0;
   const fmtPct = n => `${n >= 0 ? "+" : ""}${n.toFixed(1)}%`;
 
-  const analyze = async (symOverride) => {
+  const analyze = async (symOverride, handoff) => {
     const sym = (symOverride || input).trim().toUpperCase().replace(/[^A-Z0-9.^-]/g, "").slice(0, 10);
     if (!sym) return;
     setLoading(true); setError(""); setResult(null);
@@ -31,7 +31,16 @@ export default function TradePlannerTab({ C, MONO, SANS, macroData }) {
       const bars  = ts.map((t, i) => ({ c: q.close?.[i]||0, h: q.high?.[i]||0, l: q.low?.[i]||0, v: q.volume?.[i]||0 })).filter(b => b.c > 0);
       if (bars.length < 14) throw new Error("Not enough data");
 
-      const price  = meta.regularMarketPrice || bars.at(-1).c;
+      const livePrice = meta.regularMarketPrice || bars.at(-1).c;
+      // Real handoff from a scan (AI Sniper Scanner) — its entry/stop are
+      // the exact same real VCP pivot-breakout levels that scan's own table
+      // already showed, not a guess re-derived here. Using them instead of
+      // this planner's own ATR-based estimate means "chart" and "plan" now
+      // agree on one real trade for the symbol instead of silently showing
+      // two different stop/target sets (2026-07-28, "combine chart with
+      // plan... give me best result").
+      const hasRealPlan = handoff && Number.isFinite(Number(handoff.entry)) && Number.isFinite(Number(handoff.stop)) && Number(handoff.entry) > Number(handoff.stop);
+      const price = hasRealPlan ? Number(handoff.entry) : livePrice;
       // /api/market/chart proxies v8/finance/chart directly — its meta
       // object never contains regularMarketChangePercent (confirmed: only
       // price/volume/range fields are present), so this always silently
@@ -62,33 +71,48 @@ export default function TradePlannerTab({ C, MONO, SANS, macroData }) {
       const trend=price>ema50&&ema50>ema21?'STRONG BULL':price>ema21?'BULL':price<ema21?'BEAR':'NEUTRAL';
       const trendCol=trend.includes('BULL')?C.green:trend==='BEAR'?C.red:C.amber;
 
-      const stopLoss=r2(Math.max(price-atr*1.5, price*0.97, ema21<price?ema21*0.99:price*0.97));
+      const stopLoss = hasRealPlan ? r2(Number(handoff.stop)) : r2(Math.max(price-atr*1.5, price*0.97, ema21<price?ema21*0.99:price*0.97));
       const riskPerShare=r2(price-stopLoss);
       const riskAmt=account*(riskPct/100);
       const shares=riskPerShare>0?Math.floor(riskAmt/riskPerShare):0;
       const t1=r2(price+riskPerShare*1.5), t2=r2(price+riskPerShare*2.5), t3=r2(price+riskPerShare*4);
 
-      // Best-effort: same trend-template screen the Terminal/Watchlists/Scanner use, so this
-      // gets the identical A+ Score + Next Action language as the rest of the app. If it fails
-      // (symbol not covered, request error), the rest of the plan above still renders fine.
-      let aplus = null, next = null;
-      try {
-        const tsResp = await fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(sym)}`);
-        const tsJson = tsResp.ok ? await tsResp.json() : null;
-        const tsRow = (tsJson?.results || []).find(x => x && !x.error && x.symbol === sym);
-        if (tsRow) { aplus = computeAPlusScore(tsRow, regime); next = computeNextAction(tsRow); }
-      } catch {}
+      // Reuse the scan's already-computed real Trade Setup Score + Next
+      // Action when handed off — the exact same data the user just saw on
+      // that scanner row, no extra fetch, no chance of it drifting from what
+      // was just shown there. Only fall back to the standalone trend-screen
+      // lookup when there's no handoff (manual ticker entry).
+      let aplus = hasRealPlan && handoff.aplus ? handoff.aplus : null;
+      let next  = hasRealPlan && handoff.next  ? handoff.next  : null;
+      if (!aplus) {
+        try {
+          const tsResp = await fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(sym)}`);
+          const tsJson = tsResp.ok ? await tsResp.json() : null;
+          const tsRow = (tsJson?.results || []).find(x => x && !x.error && x.symbol === sym);
+          if (tsRow) { aplus = computeAPlusScore(tsRow, regime); next = computeNextAction(tsRow); }
+        } catch {}
+      }
 
-      setResult({ sym, price, chg, ema9, ema21, ema50, atr, rsi, trend, trendCol,
+      setResult({ sym, price, livePrice, planSource: hasRealPlan ? (handoff.source || "a scan") : null,
+        scanTarget: hasRealPlan && Number.isFinite(Number(handoff.target)) ? Number(handoff.target) : null,
+        chg, ema9, ema21, ema50, atr, rsi, trend, trendCol,
         stopLoss, riskPerShare, riskAmt, shares, cost:r2(shares*price), t1, t2, t3, aplus, next });
     } catch(e) { setError(e.message||"Failed to fetch data"); }
     setLoading(false);
   };
 
-  // Pick up a symbol handed off from Sniper Scanner / Best Opportunities (same
-  // mterminal_load_sym convention used sitewide for "send this symbol elsewhere",
-  // just a dedicated key so a chart-only pick doesn't also trigger a full plan).
+  // Pick up a handoff from Sniper Scanner (real entry/stop/score, so "chart"
+  // and "plan" agree — see analyze() above) or a plain symbol from other
+  // callers (Best Opportunities, etc — same mterminal_load_sym convention
+  // used sitewide for "send this symbol elsewhere", just a dedicated key so
+  // a chart-only pick doesn't also trigger a full plan).
   React.useEffect(() => {
+    let handoff = null;
+    try {
+      const raw = localStorage.getItem("tradeplanner_load_plan");
+      if (raw) { localStorage.removeItem("tradeplanner_load_plan"); handoff = JSON.parse(raw); }
+    } catch {}
+    if (handoff?.symbol) { setInput(handoff.symbol); analyze(handoff.symbol, handoff); return; }
     let pending = null;
     try { pending = localStorage.getItem("tradeplanner_load_sym"); if (pending) localStorage.removeItem("tradeplanner_load_sym"); } catch {}
     if (pending) { setInput(pending); analyze(pending); }
@@ -133,8 +157,14 @@ export default function TradePlannerTab({ C, MONO, SANS, macroData }) {
             <div>
               <div style={{fontFamily:MONO,fontSize:22,fontWeight:900,color:C.text}}>{result.sym}</div>
               <div style={{fontFamily:MONO,fontSize:14,fontWeight:700,color:result.chg>=0?C.green:C.red,marginTop:2}}>
-                ${result.price.toFixed(2)} {result.chg>=0?"+":""}{result.chg.toFixed(2)}%
+                ${result.livePrice.toFixed(2)} {result.chg>=0?"+":""}{result.chg.toFixed(2)}% <span style={{fontFamily:SANS,fontWeight:500,color:C.textDim,fontSize:11}}>current price</span>
               </div>
+              {result.planSource && (
+                <div style={{fontFamily:SANS,fontSize:11,color:C.accent,marginTop:4}}
+                  title="Entry and stop below are the real VCP pivot levels that scan already computed for this row — not recalculated here, so chart and plan agree.">
+                  📡 Entry/stop loaded from {result.planSource}
+                </div>
+              )}
             </div>
             {[["TREND",result.trend,result.trendCol],["RSI",result.rsi.toFixed(0),result.rsi<30?C.green:result.rsi>70?C.red:C.textDim],
               ["EMA 9/21",result.ema9>result.ema21?"▲ BULLISH":"▼ BEARISH",result.ema9>result.ema21?C.green:C.red],
@@ -168,12 +198,17 @@ export default function TradePlannerTab({ C, MONO, SANS, macroData }) {
             </div>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:10}}>
-            {numCard("ENTRY PRICE",`$${result.price.toFixed(2)}`,"Current price — buy here",C.accent)}
-            {numCard("STOP LOSS 🛑",`$${result.stopLoss}`,`${fmtPct(pct(result.stopLoss,result.price))} · ATR-based`,C.red)}
+            {numCard("ENTRY PRICE",`$${result.price.toFixed(2)}`,result.planSource?`Real pivot entry from ${result.planSource}`:"Current price — buy here",C.accent)}
+            {numCard("STOP LOSS 🛑",`$${result.stopLoss}`,`${fmtPct(pct(result.stopLoss,result.price))} · ${result.planSource?`real pivot stop from ${result.planSource}`:"ATR-based"}`,C.red)}
             {numCard("TARGET 1 🎯",`$${result.t1}`,`${fmtPct(pct(result.t1,result.price))} · 1.5R · Take 50%`,C.green)}
             {numCard("TARGET 2 🚀",`$${result.t2}`,`${fmtPct(pct(result.t2,result.price))} · 2.5R · Take 25%`,"#22c55e")}
             {numCard("TARGET 3 💎",`$${result.t3}`,`${fmtPct(pct(result.t3,result.price))} · 4R · Let run`,C.accent)}
           </div>
+          {result.scanTarget != null && (
+            <div style={{fontFamily:SANS,fontSize:11,color:C.textDim,marginTop:-4}}>
+              📡 {result.planSource}'s own real target: <b style={{color:C.text}}>${result.scanTarget.toFixed(2)}</b> ({fmtPct(pct(result.scanTarget,result.price))}) — shown for reference; the 3 targets above use this planner's fixed R-multiple ladder off the same real entry/stop.
+            </div>
+          )}
           <div style={{...card,borderTop:`3px solid ${C.accent}`}}>
             <div style={{fontFamily:MONO,fontSize:11,fontWeight:900,color:C.textDim,letterSpacing:"0.1em",marginBottom:12}}>
               💰 POSITION SIZING — ${account.toLocaleString()} account · {riskPct}% risk = ${result.riskAmt.toFixed(0)} max loss
