@@ -4,6 +4,54 @@ import { smartScanZoneOf, exportSmartScanZonePDF } from "./smartscan-shared.js";
 import { FIVEX_REF } from "./fivex-data.js";
 import { computeAPlusScore, computeRegime } from "./market-helpers.js";
 
+// ── Early Warning — "stocks before it pops / before it drops" (2026-07-29,
+// explicit user request) — the exact same real precursor patterns the
+// per-row Quick Read chips already compute below (Breakout Watch/Possible
+// Bottom/Oversold Bounce/MA50 Pullback for bullish; Possible Top/Dead Cat
+// for bearish; Squeeze Build kept its own neutral "coiling" bucket since a
+// low-volatility squeeze genuinely can break either direction — never
+// force a direction the real data doesn't support), consolidated into one
+// filterable field instead of requiring a scroll-and-eyeball pass over
+// every row. Same real RSI/volume/EMA/52-week-range thresholds, not new
+// math — checked in the same priority order the chips already use, with
+// bearish patterns checked first so a real top/breakdown warning wins over
+// a bullish read on the same stock.
+function computeEarlySignal(row, trendRow) {
+  const q = row.quote || {};
+  const px = Number(q.price || 0);
+  if (!px) return null;
+  const rsi = row.rsiVal;
+  const ema9 = row.ema9v, ema21 = row.ema21v;
+  const hi52 = Number(q.yearHigh || 0), lo52 = Number(q.yearLow || 0);
+  const ma50 = Number(q.priceAvg50 || 0);
+  const rvol = computeRvol(q, trendRow);
+  const chg1d = Number(q.changesPercentage || 0);
+  const chg1w = Number(q.delta1w || 0);
+
+  if (rsi != null && rsi > 68 && hi52 > 0 && (hi52 - px) / hi52 * 100 < 8) {
+    return { dir: "down", label: "🔴 POSSIBLE TOP", reason: "RSI overbought + near 52-week high — reversal risk" };
+  }
+  if (chg1d > 5 && chg1w < -15 && ema9 && ema21 && ema9 < ema21) {
+    return { dir: "down", label: "☠ DEAD CAT?", reason: "Bounced today but trend is still bearish — likely to roll over" };
+  }
+  if (hi52 > 0 && px > 0 && (hi52 - px) / hi52 * 100 < 3 && rvol > 1.5 && rsi > 55) {
+    return { dir: "up", label: "🚀 BREAKOUT WATCH", reason: "Near 52-week high with real volume — potential breakout" };
+  }
+  if (rsi != null && rsi < 35 && hi52 > 0 && lo52 > 0 && (px - lo52) / lo52 * 100 < 20 && rvol > 1.2) {
+    return { dir: "up", label: "🟢 POSSIBLE BOTTOM", reason: "RSI oversold + near 52-week low + volume — bottom forming" };
+  }
+  if (rsi != null && rsi < 32 && chg1d > 0) {
+    return { dir: "up", label: "⚡ OVERSOLD BOUNCE", reason: "RSI oversold and green today — bounce in progress" };
+  }
+  if (ma50 > 0 && Math.abs((px - ma50) / ma50 * 100) < 1.5 && ema9 && ema21 && ema9 > ema21) {
+    return { dir: "up", label: "📍 MA50 PULLBACK", reason: "Pulling back to the 50-day MA in an uptrend — high-probability bounce entry" };
+  }
+  if (rsi != null && rsi > 40 && rsi < 55 && rvol < 0.7) {
+    return { dir: null, label: "🌀 SQUEEZE BUILD", reason: "Volatility coiling on low volume — a real move is building, direction not yet clear" };
+  }
+  return null;
+}
+
 export default function SmartScanTab({
   C, MONO, SANS, isTablet, macroData, watchlistSymbols,
   scanResults, scanExpanded, scanError, scanLoading, scanProgress, scanLastRun,
@@ -39,6 +87,11 @@ export default function SmartScanTab({
           // openDeepDiveFor(), so one implementation here covers all of them.
           const [whyState, setWhyState] = useState({}); // ticker -> "loading" | "ok" | "err"
           const [whyReply, setWhyReply] = useState({}); // ticker -> reply text
+          // Early Warning filter — "stocks before it pops / before it drops"
+          // (2026-07-29). ALL | UP (pre-pop) | DOWN (pre-drop) | COIL (squeeze,
+          // direction not yet clear). Local state — purely a client-side view
+          // filter, same pattern as `search` in RhProScanner.jsx.
+          const [sfEarly, setSfEarly] = useState("ALL");
           const askWhy = (ticker, price, changePct) => {
             if (whyState[ticker] === "ok" || whyState[ticker] === "loading") return; // already fetched/fetching
             setWhyState(s => ({ ...s, [ticker]: "loading" }));
@@ -90,6 +143,12 @@ export default function SmartScanTab({
               }
               if (!z.includes(sfZone)) return false;
             }
+            if (sfEarly !== "ALL") {
+              const es = computeEarlySignal(r, smartScanTrendMap[r.ticker]);
+              if (sfEarly === "UP" && es?.dir !== "up") return false;
+              if (sfEarly === "DOWN" && es?.dir !== "down") return false;
+              if (sfEarly === "COIL" && !(es && es.dir === null)) return false;
+            }
             return true;
           // Sort: favorites pinned to top
           }).sort((a, b) => {
@@ -101,6 +160,16 @@ export default function SmartScanTab({
           // ── Summary counts ────────────────────────────────────────────────
           const sigCounts = { "STRONG BUY": 0, "BUY": 0, "WATCH": 0, "NEUTRAL": 0, "AVOID": 0 };
           scanResults.forEach(r => { if (sigCounts[r.signal] !== undefined) sigCounts[r.signal]++; });
+
+          // Early Warning counts — "stocks before it pops / before it drops"
+          let earlyUpCount = 0, earlyDownCount = 0, earlyCoilCount = 0;
+          scanResults.forEach(r => {
+            const es = computeEarlySignal(r, smartScanTrendMap[r.ticker]);
+            if (!es) return;
+            if (es.dir === "up") earlyUpCount++;
+            else if (es.dir === "down") earlyDownCount++;
+            else earlyCoilCount++;
+          });
 
           const STAT_CARDS = [
             { label: "STRONG BUY", count: sigCounts["STRONG BUY"], color: "#00e676" },
@@ -395,6 +464,32 @@ export default function SmartScanTab({
 
                   <span style={{ width: 1, height: 20, background: C.border }} />
 
+                  {/* Early Warning filter — "stocks before it pops / before it
+                      drops" (2026-07-29, explicit user request) */}
+                  <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
+                    <span style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginRight: 2 }}>EARLY WARNING</span>
+                    {[
+                      ["ALL", "ALL", C.accent],
+                      ["UP", `🚀 PRE-POP (${earlyUpCount})`, "#00e676"],
+                      ["DOWN", `📉 PRE-DROP (${earlyDownCount})`, "#ff4444"],
+                      ["COIL", `🌀 COILING (${earlyCoilCount})`, "#d97706"],
+                    ].map(([v, lbl, col]) => (
+                      <button key={v} onClick={() => setSfEarly(v)}
+                        title={v === "UP" ? "Real bullish precursor patterns: breakout watch, possible bottom, oversold bounce, MA50 pullback"
+                          : v === "DOWN" ? "Real bearish precursor patterns: possible top, dead cat bounce"
+                          : v === "COIL" ? "Low-volatility squeeze — a real move is building, direction not yet clear" : undefined}
+                        style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, border: "none",
+                          background: sfEarly === v ? col : C.surface,
+                          color: sfEarly === v ? "#fff" : C.textDim,
+                          borderRadius: 6, padding: "4px 8px", cursor: "pointer",
+                          minHeight: 28 }}>
+                        {lbl}
+                      </button>
+                    ))}
+                  </div>
+
+                  <span style={{ width: 1, height: 20, background: C.border }} />
+
                   {/* Score filter */}
                   <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
                     <span style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginRight: 2 }}>MIN SCORE</span>
@@ -441,8 +536,8 @@ export default function SmartScanTab({
                     <span style={{ fontFamily: MONO, fontSize: 12, color: filteredResults.length < scanResults.length ? C.accent : C.textDim }}>
                       {filteredResults.length}/{scanResults.length} shown
                     </span>
-                    {(sfSig !== "ALL" || sfZone !== "ALL" || sfMinScore > 0 || sfMaxPrice > 0) && (
-                      <button onClick={() => { setSfSig("ALL"); setSfZone("ALL"); setSfMinScore(0); setSfMaxPrice(0); }}
+                    {(sfSig !== "ALL" || sfZone !== "ALL" || sfMinScore > 0 || sfMaxPrice > 0 || sfEarly !== "ALL") && (
+                      <button onClick={() => { setSfSig("ALL"); setSfZone("ALL"); setSfMinScore(0); setSfMaxPrice(0); setSfEarly("ALL"); }}
                         style={{ fontFamily: MONO, fontSize: 12, border: `1px solid ${C.border}`,
                           background: C.surface, color: C.red, borderRadius: 6,
                           padding: "3px 8px", cursor: "pointer" }}>
