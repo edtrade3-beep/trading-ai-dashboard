@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { RH_UNIVERSE, rhScore, stockQualityBreakdown, rhScreenProgressive } from "./rhpro-shared.jsx";
-import { computeRegime, computeAPlusScore, computeNextAction } from "./market-helpers.js";
+import { computeRegime, computeAPlusScore, computeNextAction, computePrediction } from "./market-helpers.js";
 import AiScoreExplainer, { TRADE_SETUP_DIMENSIONS, STOCK_QUALITY_DIMENSIONS } from "./AiScoreExplainer.jsx";
 import GapScanner from "./GapScanner.jsx";
 import DayTradeTab from "./DayTradeTab.jsx";
@@ -87,7 +87,12 @@ export default function RhProScanner({ C, MONO, SANS, macroData, sectorData, set
         all = [...all, ...part.map(x => {
           const quality = stockQualityBreakdown(x, sectorPerf);
           const aplus = computeAPlusScore(x, regime);
-          return { ...x, score: quality.score, quality, aplus, next: computeNextAction(x) };
+          // Real prediction reused from PredictionsTab's engine, run on this
+          // same row (x doubles as both the quote and the trend input — no
+          // separate live-quote fetch here, so today's %-change/day-range
+          // component honestly defaults to neutral; the dominant Stage/RS/
+          // volume-driven scoring still runs in full).
+          return { ...x, score: quality.score, quality, aplus, next: computeNextAction(x), prediction: computePrediction(x, x) };
         })].sort((a, b) => (b.score - a.score) || ((b.rsRating || 0) - (a.rsRating || 0)));
         setRows(all); setRanAt(new Date());   // render as batches arrive
       },
@@ -160,7 +165,7 @@ export default function RhProScanner({ C, MONO, SANS, macroData, sectorData, set
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, overflow: "auto", maxHeight: "70vh" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead><tr>
-            {["#", "SYMBOL", "STOCK QUALITY", "TRADE SETUP", "WIN%", "CONFIDENCE", "RISK", "PRICE", "RS", "TREND (8pt)", "STAGE", "SMC", "ACTION", "ENTRY → STOP"].map(h => <th key={h} style={th}>{h}</th>)}
+            {["#", "SYMBOL", "STOCK QUALITY", "TRADE SETUP", "WIN%", "PRED (1WK)", "CONFIDENCE", "RISK", "PRICE", "RS", "TREND (8pt)", "STAGE", "SMC", "ACTION", "ENTRY → STOP"].map(h => <th key={h} style={th}>{h}</th>)}
           </tr></thead>
           <tbody>
             {shown.map((r, i) => {
@@ -193,6 +198,19 @@ export default function RhProScanner({ C, MONO, SANS, macroData, sectorData, set
                     : win.winRate != null ? <span title={`${win.count} real observations, ${win.horizon}-day forward, same score band`} style={{ fontWeight: 800, color: win.winRate >= 60 ? C.green : win.winRate >= 45 ? C.amber : C.red, cursor: "help" }}>{win.winRate}%</span>
                     : <span title="Real forward-return log, but not enough observations yet in this score band" style={{ fontSize: 10, color: C.textDim, cursor: "help" }}>{win.count}/{MIN_WIN_SAMPLE} obs</span>}
                 </td>
+                <td style={cell}>
+                  {r.prediction && (() => {
+                    const p = r.prediction;
+                    const dirCol = p.dir.includes("BULL") || p.dir === "LEAN UP" ? C.green : p.dir.includes("BEAR") || p.dir === "LEAN DOWN" ? C.red : C.textDim;
+                    const dirIcon = p.dir.includes("BULL") || p.dir === "LEAN UP" ? "📈" : p.dir.includes("BEAR") || p.dir === "LEAN DOWN" ? "📉" : "➡️";
+                    return (
+                      <span title={`${p.why.join(" · ") || "No strong real signal either way"} · target $${p.target} (${p.movePct >= 0 ? "+" : ""}${p.movePct}%) · ${p.conf}% confidence`}
+                        style={{ fontSize: 11, fontWeight: 800, color: dirCol, cursor: "help" }}>
+                        {dirIcon} {p.dir}
+                      </span>
+                    );
+                  })()}
+                </td>
                 <td style={cell}>{r.confidence != null && <span title="Breakout-engine confidence — base quality + how ready the setup is right now" style={{ fontWeight: 800, color: r.confidence >= 70 ? C.green : r.confidence >= 40 ? C.amber : C.textDim }}>{r.confidence}%</span>}</td>
                 <td style={cell}>{r.riskState && <span title="From the VCP risk report — base quality + breakout readiness" style={{ fontSize: 10, fontWeight: 900, color: r.riskState === "LOW" ? C.green : r.riskState === "MEDIUM" ? C.amber : C.red, border: `1px solid ${r.riskState === "LOW" ? C.green : r.riskState === "MEDIUM" ? C.amber : C.red}`, borderRadius: 4, padding: "1px 6px" }}>{r.riskState}</span>}</td>
                 <td style={{ ...cell, color: C.textSec }}>${Number(r.price || 0).toFixed(2)}</td>
@@ -221,14 +239,14 @@ export default function RhProScanner({ C, MONO, SANS, macroData, sectorData, set
               </tr>
               );
             })}
-            {!shown.length && !loading && <tr><td colSpan="14" style={{ ...cell, textAlign: "center", color: C.textDim }}>No setups meet this filter right now — lower the threshold or rescan.</td></tr>}
+            {!shown.length && !loading && <tr><td colSpan="15" style={{ ...cell, textAlign: "center", color: C.textDim }}>No setups meet this filter right now — lower the threshold or rescan.</td></tr>}
           </tbody>
         </table>
       </div>
       <div style={{ marginTop: 10, fontFamily: SANS, fontSize: 10, color: C.textDim }}>
         Stock Quality = Trend 20 · RS 15 · Momentum 10 · Stage 10 · Volume Trend 15 · Sector Strength 15 · Fundamental 10 · Liquidity 5.
         Trade Setup = Market Regime 20 · Entry Timing 20 · Breakout Confirmation 15 · Volume Confirmation 10 · Risk Discipline 20 · Support 10 · Volatility 5.
-        Win% = real forward-return log, same score band, min {MIN_WIN_SAMPLE} observations. Analysis only — execute manually.
+        Win% = real forward-return log, same score band, min {MIN_WIN_SAMPLE} observations. Pred = real deterministic ~1-week direction/target off this same scan (Stage/RS/volume), not a paid AI call — hover for why. Analysis only — execute manually.
       </div>
       {explain && <AiScoreExplainer C={C} MONO={MONO} SANS={SANS} symbol={explain.symbol} aplus={explain.aplus} dimensions={explain.dimensions} label={explain.label} onClose={() => setExplain(null)} />}
       </>

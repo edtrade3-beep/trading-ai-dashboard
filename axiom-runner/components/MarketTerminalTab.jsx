@@ -15,7 +15,7 @@ import {
 // populates avgVolume) and had no score at all. Real trend-screen data,
 // same A+ Score used everywhere else this session — additive, not a new
 // 4th scoring system.
-import { computeAPlusScore, computeRegime } from "./market-helpers.js";
+import { computeAPlusScore, computeRegime, computePrediction } from "./market-helpers.js";
 
 // Combined Market-Terminal page: movers leaderboard on the left, pro chart with
 // AI overlays on the right. Click a mover → it loads in the chart.
@@ -404,6 +404,31 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             <TrendSetupPanel data={chart} C={C} MONO={MONO} SANS={SANS} />
             <TradeExtrasPanel data={chart} macroData={macroData} C={C} MONO={MONO} SANS={SANS} />
             <AiWhyPanel symbol={sym} price={chart && chart.price} changePct={symDayPct} C={C} MONO={MONO} SANS={SANS} />
+            {chart && (() => {
+              // Real, free, deterministic ~1-week read — the same engine
+              // formerly the standalone Predictions tab (moved 2026-07-28
+              // so it shows inline with whatever's already loaded here
+              // instead of needing its own tab). Distinct from AiPredictPanel
+              // below, which is a manual, paid (Fable) AI-generated target —
+              // this one is always-on and costs nothing.
+              const p = computePrediction(chart, chart);
+              if (!p) return null;
+              const dirCol = p.dir.includes("BULL") || p.dir === "LEAN UP" ? C.green : p.dir.includes("BEAR") || p.dir === "LEAN DOWN" ? C.red : C.textDim;
+              const dirIcon = p.dir.includes("BULL") || p.dir === "LEAN UP" ? "📈" : p.dir.includes("BEAR") || p.dir === "LEAN DOWN" ? "📉" : "➡️";
+              return (
+                <div style={{ marginTop: 14, border: `1px solid ${dirCol}55`, borderRadius: 12, padding: "12px 14px", background: `${dirCol}0d` }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                    <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 800, color: C.text }}>{dirIcon} Quick Read — next ~1 week</div>
+                    <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: dirCol }}>{p.dir}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>target ${p.target} ({p.movePct >= 0 ? "+" : ""}{p.movePct}%) · {p.conf}% confidence</span>
+                  </div>
+                  <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.textSec, marginTop: 6 }}>
+                    {p.why.length ? p.why.join(" · ") : "No strong real signal either way — real trend template + volume are roughly neutral right now."}
+                  </div>
+                  <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 6 }}>Free, deterministic, real trend-template based — not an AI call. Educational, not advice.</div>
+                </div>
+              );
+            })()}
             <AiPredictPanel symbol={sym} chart={chart} C={C} MONO={MONO} SANS={SANS} />
           </>
         )}

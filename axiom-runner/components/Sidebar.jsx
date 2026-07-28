@@ -66,20 +66,20 @@ export const SIDEBAR_ITEMS = [
   // 7am Telegram scan and the AutoPilot engines already run on.
   { id: "greenlight", label: "Green Light", icon: "🟢", tab: "greenlight", section: "Opportunities" },
   { id: "best-opportunities", label: "Best Opportunities", icon: "🔥", tab: "best-opportunities", section: "Opportunities" },
-  // Was palette-only (PREDICTIONS alias) since it shipped — given a real
-  // sidebar home 2026-07-27 per explicit user request ("put prediction as a
-  // tab"). Includes SPY/QQQ/IWM/DIA by default (tagged MARKET), plus
-  // whatever's on the watchlist — same real trend-template signal as the
-  // rest of the app, not a separate forecasting system.
-  { id: "predictions", label: "Predictions", icon: "🔮", tab: "predictions", section: "Opportunities" },
-  { id: "watchlist", label: "Watchlist",     icon: "⭐", tab: "quotes", section: "Opportunities" },
+  // Predictions removed from the sidebar 2026-07-28 (explicit user request)
+  // — its real computePrediction engine now shows inline with every
+  // stock's analysis (Market Terminal, Sniper Scanner, Pro Watchlists)
+  // instead of needing its own tab. Still reachable via the command
+  // palette (PREDICTIONS) for the full multi-symbol filterable view.
+  // Watchlist / Fibonacci removed the same pass (explicit user request) —
+  // still reachable via the palette (QUOTES / FIBONACCI).
   { id: "flow",      label: "Options Flow",  icon: "📊", tab: "flow", section: "Opportunities" },
-  { id: "fibonacci", label: "Fibonacci",     icon: "🌀", tab: "fibonacci", section: "Opportunities" },
 
   // 6. PORTFOLIO & RISK — what's actually on, and how much room is left.
+  // Capital Allocation / Mission Status removed from the sidebar 2026-07-28
+  // (explicit user request) — still reachable via the palette
+  // (CAPITALALLOCATION / MISSIONSTATUS).
   { id: "portfolio-tab", label: "Portfolio", icon: "💼", tab: "portfolio-tab", section: "Portfolio & Risk" },
-  { id: "capital-allocation", label: "Capital Allocation", icon: "💰", tab: "capital-allocation", section: "Portfolio & Risk" },
-  { id: "mission-status", label: "Mission Status", icon: "🎯", tab: "mission-status", section: "Portfolio & Risk" },
 
   // 7. ASSISTANT — callable at any point in the flow, kept as its own
   // section rather than forced into research or portfolio.

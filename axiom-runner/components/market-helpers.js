@@ -204,6 +204,60 @@ export function computeFibLevels(bars, ticker) {
   return { ticker, swingHigh, swingLow, levels, lastPrice: last };
 }
 
+// Price Prediction — real, deterministic ~1-week direction + target, shared
+// so it can show up wherever a stock is already being analyzed (Market
+// Terminal, Sniper Scanner, Pro Watchlists) instead of living only on its
+// own standalone tab (extracted from PredictionsTab.jsx 2026-07-28, same
+// logic, zero behavior change for that tab). Real inputs: `trend`'s Stage
+// classification, pctFromHigh, volRatio (the same trend-template scan every
+// other score in this app trusts) plus `q`'s today's %change and day range
+// for the ATR-based target. `q` and `trend` can be the SAME object when a
+// caller only has one row (e.g. a scanner row with no separate live quote)
+// — the trend-based scoring (the dominant part) still runs fully; only the
+// smaller today's-%-change component and the day-range ATR silently fall
+// back to a neutral default (0 / 2.5%) rather than fabricating a number.
+export function computePrediction(q, trend) {
+  const px = Number(q?.price || q?.regularMarketPrice || 0);
+  if (!px) return null;
+  const chg = Number(q?.changesPercentage || 0);
+
+  let score = 0; const why = [];
+
+  if (trend) {
+    const stage = String(trend.stage || "");
+    if (stage.startsWith("Stage 2"))      { score += 30; why.push("Stage 2 uptrend (real trend template)"); }
+    else if (stage.startsWith("Stage 4")) { score -= 30; why.push("Stage 4 downtrend (real trend template)"); }
+    else if (stage.startsWith("Stage 3")) { score -= 15; why.push("Stage 3 topping/distribution"); }
+
+    const pfh = Number(trend.pctFromHigh);
+    if (Number.isFinite(pfh)) {
+      if (pfh > -5)        { score += 12; why.push("Within 5% of 52W high — momentum"); }
+      else if (pfh < -40)  { score -= 10; why.push(`${Math.abs(pfh).toFixed(0)}% below 52W high — weak`); }
+    }
+
+    const vr = Number(trend.volRatio);
+    if (Number.isFinite(vr) && vr > 1.8) {
+      if (chg > 0)      { score += 15; why.push(`Volume surge ${vr.toFixed(1)}x on green`); }
+      else if (chg < 0) { score -= 15; why.push(`Volume surge ${vr.toFixed(1)}x on red`); }
+    }
+  }
+  if (chg > 3)       { score += 10; why.push("Strong momentum today"); }
+  else if (chg < -3) { score -= 10; why.push("Heavy selling today"); }
+
+  const dayRange = (Number(q?.dayHigh || 0) - Number(q?.dayLow || 0));
+  const atrPct = px > 0 && dayRange > 0 ? (dayRange / px) : 0.025;
+  const conf = Math.min(90, 50 + Math.abs(score) / 2);
+  const dir  = score >= 20 ? "BULLISH" : score >= 8 ? "LEAN UP" : score <= -20 ? "BEARISH" : score <= -8 ? "LEAN DOWN" : "NEUTRAL";
+  // Cap the ATR so a single huge-move day doesn't produce absurd targets
+  const cappedAtr = Math.min(atrPct, 0.05); // max 5% daily range used
+  let weeklyMove = cappedAtr * Math.sqrt(5) * 100;
+  weeklyMove = Math.min(weeklyMove, 12); // hard cap weekly expected move at 12%
+  const biasMult = score >= 8 ? 1 : score <= -8 ? -1 : 0;
+  const target = +(px * (1 + biasMult * weeklyMove / 100)).toFixed(2);
+  const movePct = +(biasMult * weeklyMove).toFixed(1);
+  return { px, chg, dir, conf: Math.round(conf), score, why: why.slice(0, 3), target, movePct, atrPct: cappedAtr };
+}
+
 // Next Action — a plain one-word verdict for new-money decisions (not position
 // management — no REDUCE/REMOVE, this doesn't know what you already own).
 // Same row shape as computeAPlusScore. Always returns a `reason`.

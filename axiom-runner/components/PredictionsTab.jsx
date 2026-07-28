@@ -1,62 +1,10 @@
 import { useState, useEffect } from "react";
-import { STOCK_TO_SECTOR } from "./market-helpers.js";
+import { STOCK_TO_SECTOR, computePrediction } from "./market-helpers.js";
 
 // ─── PREDICTIONS TAB — stock / crypto / market price direction forecast ──────
-// computePrediction's trend/52-week/volume signals used to read q.priceAvg50,
-// q.priceAvg200, q.yearHigh, q.yearLow, q.avgVolume directly off the watchlist
-// quote — but /api/market/quote (the endpoint that feeds watchlistData) is a
-// fast, price-only path: for any symbol Alpaca covers (i.e. nearly every US
-// stock in normal use) it returns immediately without those fundamentals
-// fields at all, so they were always exactly 0. Each guard below happened to
-// require a positive value before scoring, so this never produced a WRONG
-// number — it silently produced NO signal, meaning real predictions were
-// driven almost entirely by today's % change alone while the UI still
-// claimed "trend + momentum + volume." Fixed by pulling the platform's own
-// already-real trend-template scan (/api/market/trend-screen — the same
-// engine ADVISOR AI, RhPro, and the Trading Copilot already trust) for stock
-// symbols, and using its real Stage classification, pctFromHigh, and
-// volRatio instead.
-function computePrediction(q, trend) {
-  const px  = Number(q.price || q.regularMarketPrice || 0);
-  if (!px) return null;
-  const chg = Number(q.changesPercentage || 0);
-
-  let score = 0; const why = [];
-
-  if (trend) {
-    const stage = String(trend.stage || "");
-    if (stage.startsWith("Stage 2"))      { score += 30; why.push("Stage 2 uptrend (real trend template)"); }
-    else if (stage.startsWith("Stage 4")) { score -= 30; why.push("Stage 4 downtrend (real trend template)"); }
-    else if (stage.startsWith("Stage 3")) { score -= 15; why.push("Stage 3 topping/distribution"); }
-
-    const pfh = Number(trend.pctFromHigh);
-    if (Number.isFinite(pfh)) {
-      if (pfh > -5)        { score += 12; why.push("Within 5% of 52W high — momentum"); }
-      else if (pfh < -40)  { score -= 10; why.push(`${Math.abs(pfh).toFixed(0)}% below 52W high — weak`); }
-    }
-
-    const vr = Number(trend.volRatio);
-    if (Number.isFinite(vr) && vr > 1.8) {
-      if (chg > 0)      { score += 15; why.push(`Volume surge ${vr.toFixed(1)}x on green`); }
-      else if (chg < 0) { score -= 15; why.push(`Volume surge ${vr.toFixed(1)}x on red`); }
-    }
-  }
-  if (chg > 3)       { score += 10; why.push("Strong momentum today"); }
-  else if (chg < -3) { score -= 10; why.push("Heavy selling today"); }
-
-  const dayRange = (Number(q.dayHigh||0) - Number(q.dayLow||0));
-  const atrPct = px > 0 && dayRange > 0 ? (dayRange / px) : 0.025;
-  const conf = Math.min(90, 50 + Math.abs(score) / 2);
-  const dir  = score >= 20 ? "BULLISH" : score >= 8 ? "LEAN UP" : score <= -20 ? "BEARISH" : score <= -8 ? "LEAN DOWN" : "NEUTRAL";
-  // Cap the ATR so a single huge-move day doesn't produce absurd targets
-  const cappedAtr = Math.min(atrPct, 0.05); // max 5% daily range used
-  let weeklyMove = cappedAtr * Math.sqrt(5) * 100;
-  weeklyMove = Math.min(weeklyMove, 12); // hard cap weekly expected move at 12%
-  const biasMult = score >= 8 ? 1 : score <= -8 ? -1 : 0;
-  const target = +(px * (1 + biasMult * weeklyMove / 100)).toFixed(2);
-  const movePct = +(biasMult * weeklyMove).toFixed(1);
-  return { px, chg, dir, conf: Math.round(conf), score, why: why.slice(0, 3), target, movePct, atrPct: cappedAtr };
-}
+// computePrediction moved to market-helpers.js 2026-07-28 so Market
+// Terminal, Sniper Scanner, and Pro Watchlists can show the same real
+// prediction inline with each stock's analysis instead of only here.
 
 export default function PredictionsTab({ C, MONO, SANS, watchlistData, macroData }) {
   const [filter, setFilter] = useState("ALL");

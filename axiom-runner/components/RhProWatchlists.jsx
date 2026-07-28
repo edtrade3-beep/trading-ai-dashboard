@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { RH_UNIVERSE, rhScore, rhScreenProgressive } from "./rhpro-shared.jsx";
-import { computeRegime, computeAPlusScore, computeNextAction } from "./market-helpers.js";
+import { computeRegime, computeAPlusScore, computeNextAction, computePrediction } from "./market-helpers.js";
 
 export default function RhProWatchlists({ C, MONO, SANS, setActiveTab, macroData }) {
   const regime = computeRegime(macroData);
@@ -9,7 +9,7 @@ export default function RhProWatchlists({ C, MONO, SANS, setActiveTab, macroData
     setLoading(true); setRows([]);
     let all = [];
     rhScreenProgressive(RH_UNIVERSE,
-      (part) => { all = [...all, ...part.map(x => ({ ...x, score: rhScore(x), aplus: computeAPlusScore(x, regime), next: computeNextAction(x) }))]; setRows(all); setRanAt(new Date()); },
+      (part) => { all = [...all, ...part.map(x => ({ ...x, score: rhScore(x), aplus: computeAPlusScore(x, regime), next: computeNextAction(x), prediction: computePrediction(x, x) }))]; setRows(all); setRanAt(new Date()); },
       () => setLoading(false)
     );
   };
@@ -64,6 +64,12 @@ export default function RhProWatchlists({ C, MONO, SANS, setActiveTab, macroData
                   {r.confidence != null && (
                     <span title="Breakout-engine confidence" style={{ fontSize: 10, fontWeight: 800, color: r.confidence >= 70 ? C.green : r.confidence >= 40 ? C.amber : C.textDim }}>{r.confidence}%</span>
                   )}
+                  {r.prediction && (() => {
+                    const p = r.prediction;
+                    const dirCol = p.dir.includes("BULL") || p.dir === "LEAN UP" ? C.green : p.dir.includes("BEAR") || p.dir === "LEAN DOWN" ? C.red : C.textDim;
+                    const dirIcon = p.dir.includes("BULL") || p.dir === "LEAN UP" ? "📈" : p.dir.includes("BEAR") || p.dir === "LEAN DOWN" ? "📉" : "➡️";
+                    return <span title={`Real ~1-week prediction: ${p.why.join(" · ") || "no strong real signal either way"} · target $${p.target} (${p.movePct >= 0 ? "+" : ""}${p.movePct}%)`} style={{ fontSize: 10, fontWeight: 800, color: dirCol, cursor: "help" }}>{dirIcon}</span>;
+                  })()}
                   <span style={{ fontSize: 10, color: C.textDim }}>RS {r.rsRating ?? "—"}</span>
                   {r.aplus && (
                     <span title={r.aplus.reasons.join(" · ")} style={{ fontSize: 10, fontWeight: 900, color: "#fff", background: r.aplus.score >= 80 ? "#0d9465" : r.aplus.score >= 60 ? "#d6a312" : "#c8282a", borderRadius: 4, padding: "1px 6px", cursor: "help" }}>A+ {r.aplus.score}</span>
