@@ -387,6 +387,31 @@ export function computeGreenLight(q, spyChg, scanRow, regime = null, trend = nul
   };
 }
 
+// Shared expectancy/profit-factor math — was independently reimplemented
+// (with a slightly different formula each time) in MyTradesTab's Report
+// Card, PerformanceCard (Mission Status), and JournalTab's Performance
+// Analytics block (2026-07-29, "unify it"). All three are mathematically
+// equivalent — win%×avgWin − loss%×avgLoss reduces to totalPnl/n — but
+// PerformanceCard never showed Expectancy at all, and each surface gated
+// (or didn't gate) the "real edge" claim differently. One real source now:
+// same n≥20 minimum-sample honesty convention as MyTradesTab's original
+// "N/20 trades — keep going" treatment, applied everywhere this shows up.
+export const MIN_TRADES_FOR_EDGE = 20;
+export function computeTradeStats(closedTrades) {
+  const trades = (closedTrades || []).filter(t => t && Number.isFinite(Number(t.pnl)));
+  const n = trades.length;
+  const wins = trades.filter(t => Number(t.pnl) > 0);
+  const losses = trades.filter(t => Number(t.pnl) <= 0);
+  const winRate = n ? Math.round(wins.length / n * 100) : 0;
+  const avgWin = wins.length ? wins.reduce((s, t) => s + Number(t.pnl), 0) / wins.length : 0;
+  const avgLoss = losses.length ? Math.abs(losses.reduce((s, t) => s + Number(t.pnl), 0) / losses.length) : 0;
+  const totalPnl = trades.reduce((s, t) => s + Number(t.pnl), 0);
+  const expectancy = n ? totalPnl / n : 0;
+  const profitFactor = avgLoss > 0 && losses.length ? (avgWin * wins.length) / (avgLoss * losses.length) : (wins.length ? Infinity : null);
+  const edgeReady = n >= MIN_TRADES_FOR_EDGE && expectancy > 0;
+  return { n, wins: wins.length, losses: losses.length, winRate, avgWin, avgLoss, totalPnl, expectancy, profitFactor, edgeReady };
+}
+
 export const GL_TRADES_KEY = "axiom_gl_trades_v1";
 
 // Shared: append an automatic trade-journal note (open/close events) to the Notes tab

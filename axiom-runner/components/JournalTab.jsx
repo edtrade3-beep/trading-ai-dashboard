@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import JournalPatternsPanel from "./JournalPatternsPanel.jsx";
+import { computeTradeStats, MIN_TRADES_FOR_EDGE } from "./trading-utils.js";
 
 // ── Coach's Notes — ai-coach.js's scheduled functions (morning game plan,
 // after-close trade coach, weekly review) have always run on a cron and
@@ -191,11 +192,7 @@ export default function JournalTab({
             {journalEntries.length > 0 && (() => {
               const closed = journalEntries.filter(e => e.status === "closed" && e.pnl != null).sort((a, b) => new Date(a.closedAt) - new Date(b.closedAt));
               if (closed.length < 2) return null;
-              const wins = closed.filter(e => e.pnl > 0);
-              const losses = closed.filter(e => e.pnl <= 0);
-              const avgWin = wins.length ? wins.reduce((s, e) => s + e.pnl, 0) / wins.length : 0;
-              const avgLoss = losses.length ? Math.abs(losses.reduce((s, e) => s + e.pnl, 0) / losses.length) : 0;
-              const profitFactor = avgLoss > 0 ? (avgWin * wins.length) / (avgLoss * losses.length) : wins.length ? Infinity : 0;
+              const { avgWin, avgLoss, profitFactor, expectancy, edgeReady } = computeTradeStats(closed);
               const rFactor = avgLoss > 0 ? avgWin / avgLoss : 0;
               let curStreak = 0, maxWinStreak = 0, maxLossStreak = 0, curWin = 0, curLoss = 0;
               closed.forEach(e => {
@@ -207,7 +204,6 @@ export default function JournalTab({
               if (curStreak === -1) curStreak = closed.length;
               let peak = 0, runningPnl = 0, maxDd = 0;
               closed.forEach(e => { runningPnl += e.pnl; if (runningPnl > peak) peak = runningPnl; const dd = peak - runningPnl; if (dd > maxDd) maxDd = dd; });
-              const expectancy = closed.length ? closed.reduce((s, e) => s + e.pnl, 0) / closed.length : 0;
               return (
                 <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px", marginBottom: 12 }}>
                   <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>PERFORMANCE ANALYTICS ({closed.length} closed trades)</div>
@@ -233,6 +229,11 @@ export default function JournalTab({
                         <span>{" best"}</span>
                       </div>
                     </div>
+                  </div>
+                  <div style={{ fontFamily: MONO, fontSize: 10.5, color: C.textDim, marginTop: 8 }}>
+                    {closed.length < MIN_TRADES_FOR_EDGE
+                      ? `⏳ ${closed.length}/${MIN_TRADES_FOR_EDGE} trades — real edge check needs more history`
+                      : edgeReady ? "✓ positive edge over 20+ trades" : "✕ no edge yet — refine before sizing up"}
                   </div>
                 </div>
               );

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { GL_TRADES_KEY } from "./trading-utils.js";
+import { GL_TRADES_KEY, computeTradeStats, MIN_TRADES_FOR_EDGE } from "./trading-utils.js";
 
 // ── MY TRADES tab — auto-pilot controls + paper positions (its own tab under Green Light) ──
 function AlpacaPanel({ C, MONO, SANS }) {
@@ -116,16 +116,7 @@ function AlpacaReportCard({ C, MONO, SANS }) {
   if (err) return wrap(<div style={{ fontFamily: SANS, fontSize: 12, color: C.red }}>Couldn't load closed trades — {err}.</div>);
 
   const closed = trades;
-  const wins = closed.filter(t => t.pnl > 0), losses = closed.filter(t => t.pnl <= 0);
-  const n = closed.length;
-  const winRate = n ? Math.round(wins.length / n * 100) : 0;
-  const totalPnl = closed.reduce((s, t) => s + t.pnl, 0);
-  const avgWin = wins.length ? wins.reduce((s, t) => s + t.pnl, 0) / wins.length : 0;
-  const avgLoss = losses.length ? Math.abs(losses.reduce((s, t) => s + t.pnl, 0) / losses.length) : 0;
-  const lossRate = n ? losses.length / n : 0;
-  const expectancy = n ? ((winRate / 100) * avgWin - lossRate * avgLoss) : 0;
-  const profitFactor = avgLoss > 0 && losses.length ? (avgWin * wins.length) / (avgLoss * losses.length) : (wins.length ? Infinity : 0);
-  const edgeReady = n >= 20 && expectancy > 0;
+  const { n, winRate, avgWin, avgLoss, totalPnl, expectancy, profitFactor, edgeReady } = computeTradeStats(closed);
   const chrono = [...closed].sort((a, b) => new Date(a.closedAt) - new Date(b.closedAt));
   let cum = 0; const eq = chrono.map(t => (cum += t.pnl));
 
@@ -142,8 +133,8 @@ function AlpacaReportCard({ C, MONO, SANS }) {
     <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
       <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textSec, letterSpacing: "0.06em" }}>📊 REPORT CARD</span>
       <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>real Alpaca closed trades</span>
-      {n < 20
-        ? <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.amber, background: `${C.amber}18`, borderRadius: 5, padding: "3px 8px" }}>⏳ {n}/20 trades — keep going</span>
+      {n < MIN_TRADES_FOR_EDGE
+        ? <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.amber, background: `${C.amber}18`, borderRadius: 5, padding: "3px 8px" }}>⏳ {n}/{MIN_TRADES_FOR_EDGE} trades — keep going</span>
         : edgeReady
           ? <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.green, background: `${C.green}18`, borderRadius: 5, padding: "3px 8px" }}>✓ POSITIVE EDGE — you may be ready to scale</span>
           : <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.red, background: `${C.red}18`, borderRadius: 5, padding: "3px 8px" }}>✕ NO EDGE YET — refine before sizing up</span>}
