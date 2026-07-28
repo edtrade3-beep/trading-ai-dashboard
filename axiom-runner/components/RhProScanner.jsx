@@ -69,7 +69,7 @@ export default function RhProScanner({ C, MONO, SANS, macroData, sectorData, set
   // to open a symbol's full chart + fundamentals/earnings/analyst/news/SMC
   // panels, reusing MarketTerminalTab as-is rather than duplicating any of
   // its real data or building a second chart.
-  const openChart = (sym) => { try { localStorage.setItem("mterminal_load_sym", sym); } catch {} setActiveTab && setActiveTab("mterminal"); };
+  const openChart = (sym) => { try { localStorage.setItem("mterminal_load_sym", sym); localStorage.setItem("mterminal_back_to", "rhpro-scan"); } catch {} setActiveTab && setActiveTab("mterminal"); };
   const [rows, setRows] = useState([]); const [loading, setLoading] = useState(false);
   const [err, setErr] = useState(""); const [filter, setFilter] = useState(60); const [ranAt, setRanAt] = useState(null);
   const [category, setCategory] = useState("all");

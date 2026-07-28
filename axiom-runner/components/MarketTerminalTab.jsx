@@ -31,6 +31,20 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   const [sortBy, setSortBy] = useState("bucket");  // movers sort
   const [source, setSource] = useState("movers");  // movers | watchlist
   const [wlRows, setWlRows] = useState(null);
+  // Real "back" navigation (2026-07-28, explicit user request) — any
+  // caller that hands off into Market Terminal (Sniper Scanner's 📈 chart
+  // button, RotationTab/SectorsTab's CHART button, etc) can set
+  // mterminal_back_to to its own real tab id first; read once on mount and
+  // clear immediately so a direct visit via the sidebar/palette later
+  // never shows a stale back button.
+  const BACK_LABELS = { "rhpro-scan": "Sniper Scanner" };
+  const [backTo, setBackTo] = useState(null);
+  useEffect(() => {
+    try {
+      const b = localStorage.getItem("mterminal_back_to");
+      if (b) { setBackTo(b); localStorage.removeItem("mterminal_back_to"); }
+    } catch {}
+  }, []);
   useEffect(() => {
     if (source !== "watchlist") return;
     setWlRows(null);
@@ -206,6 +220,13 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
 
   return (
     <div style={{ width: "100%" }}>
+    {backTo && (
+      <button onClick={() => setActiveTab && setActiveTab(backTo)}
+        style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "7px 14px", marginBottom: 10, borderRadius: 8, cursor: "pointer",
+          border: `1px solid ${C.accent}`, background: `${C.accent}14`, color: C.accent }}>
+        ← Back to {BACK_LABELS[backTo] || "previous page"}
+      </button>
+    )}
     {/* Movers/Watchlist on top, chart below — both full-width (stacked,
         not side-by-side) so the chart still keeps the room it earned
         earlier, just second in scroll order now. */}
@@ -430,6 +451,15 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
               );
             })()}
             <AiPredictPanel symbol={sym} chart={chart} C={C} MONO={MONO} SANS={SANS} />
+            {/* Real per-symbol news, inline on the default chart view
+                (2026-07-28, explicit user request: "add news to market") —
+                same real NewsPanel already reachable one click away via the
+                "📰 Symbol News" sub-tab below, just surfaced immediately
+                instead of requiring the extra click. */}
+            <div style={{ marginTop: 14 }}>
+              <SectionHeader icon="📰" label={`${sym} News`} />
+              <NewsPanel symbol={sym} C={C} MONO={MONO} SANS={SANS} />
+            </div>
           </>
         )}
         {dTab === "smart" && <SmartScanPanel symbol={sym} chart={chart} C={C} MONO={MONO} SANS={SANS} />}
