@@ -3941,6 +3941,7 @@ export default function App() {
       CAPITALALLOCATION: "capital-allocation",
       MISSIONSTATUS: "mission-status",
       MARKETPULSE: "market-pulse",
+      MARKETHEALTH: "market-health",
       DEALS: "deals",
       DIPBUY: "dipbuy",
       TELEGRAM: "telegram",
@@ -6158,6 +6159,26 @@ export default function App() {
           <div style={{ padding: "16px 20px", maxWidth: 900, margin: "0 auto" }}>
             <CeoAiCard C={C} MONO={MONO} SANS={SANS} />
             <CashGoldSilverAdvisor C={C} MONO={MONO} SANS={SANS} macroData={macroData} />
+            {/* Market Pulse / Market Health / Sector Heat condensed into
+                CEO AI (2026-07-28, explicit user request to minimize tabs)
+                — real report-length summaries of the exact same
+                components/data those standalone tabs used (MarketPulseCard
+                as-is; MarketHealthTab/RhProHeatMap via a new `compact`
+                prop that trims each down to its headline numbers), not a
+                rebuild. Both tabs stay reachable via the command palette
+                (MARKETHEALTH / SECTORHEAT / MARKETPULSE). */}
+            <div style={{ marginTop: 14 }}>
+              <MarketPulseCard C={C} MONO={MONO} SANS={SANS}
+                rotationRank={rotationRank} flowBias={flowBias}
+                flowCallNotional={flowCallNotional} flowPutNotional={flowPutNotional}
+                fullScan={fullScan} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} />
+            </div>
+            <div style={{ marginTop: 14 }}>
+              <MarketHealthTab C={C} MONO={MONO} SANS={SANS} compact />
+            </div>
+            <div style={{ marginTop: 14 }}>
+              <RhProHeatMap C={C} MONO={MONO} SANS={SANS} sectorData={sectorData} macroData={macroData} compact />
+            </div>
           </div>
         )}
 

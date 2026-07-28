@@ -43,23 +43,23 @@ export const SIDEBAR_ITEMS = [
   // the more complete version post-Phase-3 (dual Stock Quality/Trade Setup
   // scores, real Win%, SMC signals). Still reachable via the command
   // palette (WATCHLISTS).
-  { id: "rhpro-heat",   label: "Sector Heat",    icon: "🌡️", tab: "rhpro-heat",  section: "Pro AI" },
-  // Pro Coach removed from the sidebar 2026-07-28 (explicit user request:
-  // "remove ai trading coach" — this is the real trading-mistake-pattern
+  // Sector Heat / Pro Coach removed from the sidebar 2026-07-28. Pro Coach
+  // per "remove ai trading coach" — the real trading-mistake-pattern
   // analytics tab, RhProCoach.jsx, distinct from the unrelated life-coaching
-  // "Coach" tab below, which stays). Still reachable via the command
-  // palette (AICOACH).
+  // "Coach" tab below, which stays; reachable via the palette (AICOACH).
+  // Sector Heat condensed into CEO AI (see below) — reachable via the
+  // palette (SECTORHEAT) for the full heat grid + RRG quadrants.
 
   // 4. RESEARCH & INTEL — gathering real market data before deciding
-  // anything: regime/breadth, news, positioning. Market (single-symbol
-  // chart + fundamentals/earnings/analyst/news/SMC panels) was combined
-  // into Sniper Scanner 2026-07-28 (explicit user request) — every Sniper
-  // Scanner row now has a real 📈 chart link into the exact same
-  // MarketTerminalTab component (same real data, same panels, not a
-  // duplicate build), so the standalone "Market" sidebar entry was
-  // removed. Still reachable via the command palette (TERMINAL).
-  { id: "market-health", label: "Market Health", icon: "🩺", tab: "market-health", badge: "NEW", section: "Research & Intel" },
-  { id: "market-pulse", label: "Market Pulse", icon: "📈", tab: "market-pulse", section: "Research & Intel" },
+  // anything: news, positioning. Market (single-symbol chart +
+  // fundamentals/earnings/analyst/news/SMC panels), Market Pulse, and
+  // Market Health were all combined 2026-07-28 (explicit user request) —
+  // Market via a real 📈 chart link on every Sniper Scanner row (same
+  // MarketTerminalTab component, not a duplicate); Market Pulse and Market
+  // Health as real condensed report summaries embedded directly in CEO AI
+  // (same real components/data via a new `compact` prop, not rebuilt).
+  // All three stay reachable via the command palette (TERMINAL /
+  // MARKETPULSE / MARKETHEALTH) for their full standalone versions.
   { id: "news",      label: "News",          icon: "📰", tab: "news", section: "Research & Intel" },
   { id: "cot",       label: "COT",           icon: "🏦", tab: "cot", section: "Research & Intel" },
 

@@ -1,7 +1,12 @@
 import { useState, useEffect } from "react";
 import { SECTOR_ETFS } from "./market-helpers.js";
 
-export default function RhProHeatMap({ C, MONO, SANS, sectorData, macroData }) {
+// `compact` — 2026-07-28, embedded into CEO AI to cut down on separate
+// tabs (explicit user request). Skips the full heat grid + RRG rotation
+// quadrants, keeps just the real Strongest/Weakest 3 sectors today — same
+// real sectorData/macroData, same real ranking, report-length instead of
+// the full page.
+export default function RhProHeatMap({ C, MONO, SANS, sectorData, macroData, compact = false }) {
   const [screen, setScreen] = useState({}); // symbol -> {rsRating, momentum, stage}
   useEffect(() => {
     fetch(`/api/market/trend-screen?symbols=${SECTOR_ETFS.map(s => s.symbol).join(",")}`)
@@ -33,9 +38,11 @@ export default function RhProHeatMap({ C, MONO, SANS, sectorData, macroData }) {
   const heatCol = (v) => { const a = Math.min(1, Math.abs(v) / 2.5); return v >= 0 ? `rgba(34,212,126,${0.12 + a * 0.55})` : `rgba(239,68,68,${0.12 + a * 0.55})`; };
 
   return (
-    <div style={{ padding: "8px 4px" }}>
-      <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.text, marginBottom: 12 }}>🗺 MARKET HEAT MAP</div>
+    <div style={compact ? { background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 16 } : { padding: "8px 4px" }}>
+      <div style={{ fontFamily: MONO, fontSize: compact ? 14 : 20, fontWeight: 900, color: C.text, marginBottom: 12 }}>🗺 {compact ? "SECTOR HEAT" : "MARKET HEAT MAP"}</div>
 
+      {!compact && (
+      <>
       {/* Heat grid — money flow (green = inflow / red = outflow) */}
       <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, marginBottom: 6 }}>SECTOR PERFORMANCE TODAY · green = money in / red = money out</div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(130px,1fr))", gap: 8, marginBottom: 18 }}>
@@ -79,6 +86,8 @@ export default function RhProHeatMap({ C, MONO, SANS, sectorData, macroData }) {
           );
         })}
       </div>
+      </>
+      )}
 
       {/* Strongest / weakest */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -91,7 +100,9 @@ export default function RhProHeatMap({ C, MONO, SANS, sectorData, macroData }) {
           {ranked.slice(-3).reverse().map(s => <div key={s.symbol} style={{ fontFamily: SANS, fontSize: 13, color: C.text, padding: "2px 0" }}>{s.name} <span style={{ fontFamily: MONO, color: C.red }}>{s.chg.toFixed(2)}%</span> {s.rs ? <span style={{ fontSize: 10, color: C.textDim }}>RS {s.rs} (trend)</span> : null}</div>)}
         </div>
       </div>
-      <div style={{ marginTop: 10, fontFamily: SANS, fontSize: 10, color: C.textDim }}>Trade leaders in the Leading/Improving quadrants; avoid Lagging. Analysis only — no orders.</div>
+      <div style={{ marginTop: 10, fontFamily: SANS, fontSize: 10, color: C.textDim }}>
+        {compact ? "Real sector-ETF % change today. Analysis only — no orders." : "Trade leaders in the Leading/Improving quadrants; avoid Lagging. Analysis only — no orders."}
+      </div>
     </div>
   );
 }

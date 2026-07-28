@@ -29,7 +29,13 @@ function Metric({ label, value, sub, color, C, MONO }) {
   );
 }
 
-export default function MarketHealthTab({ C, MONO, SANS }) {
+// `compact` — 2026-07-28, embedded into CEO AI to cut down on separate
+// tabs (explicit user request). Skips the divergence-engine table,
+// risk-flag scorecard, and data-coverage footnote; keeps the regime-shift
+// alert (when present) and the headline Risk Stance + 4-metric strip —
+// same real /api/command-center data, same real numbers, just the report
+// summary instead of the full memo.
+export default function MarketHealthTab({ C, MONO, SANS, compact = false }) {
   const [brief, setBrief] = useState(null);
   const [state, setState] = useState("loading"); // loading | ok | empty | error
   const [error, setError] = useState(null);
@@ -55,7 +61,9 @@ export default function MarketHealthTab({ C, MONO, SANS }) {
   const shiftColor = regimeShift?.justShifted ? (SEVERITY_COLOR[regimeShift.severity] || C.textDim) : null;
 
   return (
-    <div style={{ padding: "16px 20px", maxWidth: 1180, margin: "0 auto", display: "flex", flexDirection: "column", gap: 14 }}>
+    <div style={compact
+      ? { background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 16, display: "flex", flexDirection: "column", gap: 14 }
+      : { padding: "16px 20px", maxWidth: 1180, margin: "0 auto", display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
         <div>
           <div style={{ fontFamily: MONO, fontSize: 19, fontWeight: 900, color: C.text, letterSpacing: "0.02em" }}>MARKET HEALTH</div>
@@ -164,6 +172,8 @@ export default function MarketHealthTab({ C, MONO, SANS }) {
             </div>
           </div>
 
+          {!compact && (
+          <>
           {/* Divergence flags — treated as alert rows, not soft chips. */}
           <div style={{ ...cardStyle(C, { background: C.card }), borderRadius: 4, padding: "14px 18px" }}>
             <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.text, letterSpacing: "0.06em", marginBottom: 10 }}>DIVERGENCE ENGINE</div>
@@ -222,6 +232,8 @@ export default function MarketHealthTab({ C, MONO, SANS }) {
                 {notCoveredFreeData.map((n, i) => <div key={i}>· {n}</div>)}
               </div>
             </div>
+          )}
+          </>
           )}
         </>
       )}
