@@ -37,7 +37,12 @@ export const SIDEBAR_ITEMS = [
   // says it's intentionally orphaned, superseded by the journal embedded
   // live inside GreenLightTab.
   { id: "rhpro-scan",   label: "Sniper Scanner", icon: "🔭", tab: "rhpro-scan",  section: "Pro AI" },
-  { id: "rhpro-lists",  label: "Pro Watchlists", icon: "📌", tab: "rhpro-lists", section: "Pro AI" },
+  // Pro Watchlists removed 2026-07-28 (declutter pass, part 2) — its
+  // categorized AI-ranked lists (Top Picks/Breakout/Pullback/etc) are the
+  // same real job Sniper Scanner already does, and Sniper Scanner is now
+  // the more complete version post-Phase-3 (dual Stock Quality/Trade Setup
+  // scores, real Win%, SMC signals). Still reachable via the command
+  // palette (WATCHLISTS).
   { id: "rhpro-heat",   label: "Sector Heat",    icon: "🌡️", tab: "rhpro-heat",  section: "Pro AI" },
   { id: "rhpro-coach",  label: "Pro Coach",      icon: "🏆", tab: "rhpro-coach", section: "Pro AI" },
 

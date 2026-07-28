@@ -3918,7 +3918,11 @@ export default function App() {
       // declutter audit — confirmed not trading-related, not in active use).
       // Components/routes untouched, just unreachable now — same
       // "hide, don't delete" convention as the rest of this map.
-      SECTORS: "sectors",
+      // SECTORS removed 2026-07-28 (declutter pass, part 2) — a plain
+      // sector %-change grid, a strict subset of Sector Heat's real RRG
+      // quadrant view (rhpro-heat). BREADTH kept — real per-sector
+      // advance/decline + 50/200MA detail, genuinely more than Market
+      // Health's summary number.
       BREADTH: "breadth",
       COT: "cot",
       SMBRIEF: "sm-brief",
@@ -3973,7 +3977,11 @@ export default function App() {
       GAP: "gap",
       TRADEPLANNER: "tradeplanner",
       AUTOEXEC: "autoexec",
-      COMBINED: "combined",
+      // COMBINED removed 2026-07-28 (declutter pass, part 2) — its own code
+      // comment says it merges Compression + the legacy Scanner endpoint;
+      // the legacy Scanner half is now redundant with Sniper Scanner, and
+      // Compression alone (kept, real distinct VCP-style contraction scan)
+      // already covers the real remaining half.
       OPTIONS: "options",
       UNDER10: "under10",
       GAPFILL: "gapfill",
