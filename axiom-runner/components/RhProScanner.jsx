@@ -64,6 +64,12 @@ const CATEGORIES = [
 export default function RhProScanner({ C, MONO, SANS, macroData, sectorData, setActiveTab }) {
   const regime = computeRegime(macroData);
   const planTrade = (sym) => { try { localStorage.setItem("tradeplanner_load_sym", sym); } catch {} setActiveTab && setActiveTab("tradeplanner"); };
+  // Market Terminal combined into Sniper Scanner (2026-07-28, explicit user
+  // request) — same real handoff pattern RotationTab/SectorsTab already use
+  // to open a symbol's full chart + fundamentals/earnings/analyst/news/SMC
+  // panels, reusing MarketTerminalTab as-is rather than duplicating any of
+  // its real data or building a second chart.
+  const openChart = (sym) => { try { localStorage.setItem("mterminal_load_sym", sym); } catch {} setActiveTab && setActiveTab("mterminal"); };
   const [rows, setRows] = useState([]); const [loading, setLoading] = useState(false);
   const [err, setErr] = useState(""); const [filter, setFilter] = useState(60); const [ranAt, setRanAt] = useState(null);
   const [category, setCategory] = useState("all");
@@ -135,8 +141,8 @@ export default function RhProScanner({ C, MONO, SANS, macroData, sectorData, set
   return (
     <div style={{ padding: "8px 4px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 10 }}>
-        <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.text }}>🎯 AI SNIPER SCANNER</div>
-        <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>{RH_UNIVERSE.length} stocks · ranked 0–100 · {ranAt ? `scanned ${ranAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}</div>
+        <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.text }}>🎯 AI SNIPER SCANNER PRO</div>
+        <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>{RH_UNIVERSE.length} stocks · ranked 0–100 · full chart on every row · {ranAt ? `scanned ${ranAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}</div>
         <button onClick={scan} disabled={loading} style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "8px 16px", borderRadius: 8, border: "none", color: "#fff", background: loading ? C.textDim : C.accent, cursor: loading ? "default" : "pointer" }}>{loading ? "⏳ scanning…" : "↻ RESCAN"}</button>
       </div>
 
@@ -175,8 +181,10 @@ export default function RhProScanner({ C, MONO, SANS, macroData, sectorData, set
                 <td style={{ ...cell, color: C.textDim }}>{i + 1}</td>
                 <td style={{ ...cell, fontWeight: 900, color: C.text }}>
                   {r.symbol}
+                  <button onClick={() => openChart(r.symbol)} title={`Open ${r.symbol}'s full chart — trend, fundamentals, earnings, analysts, news, SMC`}
+                    style={{ marginLeft: 6, fontSize: 10, border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "1px 5px", cursor: "pointer" }}>📈 chart</button>
                   <button onClick={() => planTrade(r.symbol)} title={`Plan this trade — opens Trade Planner with ${r.symbol} loaded`}
-                    style={{ marginLeft: 6, fontSize: 10, border: `1px solid ${C.accent}`, background: `${C.accent}14`, color: C.accent, borderRadius: 4, padding: "1px 5px", cursor: "pointer" }}>🎯 plan</button>
+                    style={{ marginLeft: 4, fontSize: 10, border: `1px solid ${C.accent}`, background: `${C.accent}14`, color: C.accent, borderRadius: 4, padding: "1px 5px", cursor: "pointer" }}>🎯 plan</button>
                 </td>
                 <td style={cell}>
                   {r.quality && (
