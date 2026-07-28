@@ -62,7 +62,10 @@ function mapToRegimeTaxonomy({ regimeLabel, regimeScore, volRegime, distribution
     reasoning = `Regime YELLOW (${regimeScore}/100), no acute distribution signal.`;
   } else if (volRegime === "Panic") {
     taxonomy = "Panic";
-    reasoning = `Regime RED (${regimeScore}/100), VIX regime Panic.`;
+    reasoning = `Regime ${regimeLabel} (${regimeScore}/100), VIX regime Panic.`;
+  } else if (regimeLabel === "ORANGE") {
+    taxonomy = "Correction";
+    reasoning = `Regime ORANGE (${regimeScore}/100) — deteriorating, real factors slipping below the YELLOW band.`;
   } else {
     taxonomy = "Correction";
     reasoning = `Regime RED (${regimeScore}/100).`;

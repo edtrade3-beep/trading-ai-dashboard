@@ -30,10 +30,12 @@ export default function RhProDashboard({ C, MONO, SANS, macroData, sectorData })
   const chg = x => Number(x?.changesPercentage ?? x?.changePercent ?? 0);
   const spy = qOf("SPY"), qqq = qOf("QQQ"), iwm = qOf("IWM");
   const vix = Number(regime.vixVal || 0);
-  const bias = regime.label === "GREEN" ? "BULLISH" : regime.label === "YELLOW" ? "NEUTRAL / MIXED" : "BEARISH / DEFENSIVE";
+  const bias = regime.label === "GREEN" ? "BULLISH" : regime.label === "YELLOW" ? "NEUTRAL / MIXED" : regime.label === "ORANGE" ? "DETERIORATING / DEFENSIVE" : "BEARISH / DEFENSIVE";
   const confidence = regime.score;
   const cashRec = regime.score >= 75 ? "0–25% cash · deploy into strength"
-    : regime.score >= 55 ? "40–60% cash · be selective" : "70–100% cash · protect capital";
+    : regime.score >= 55 ? "40–60% cash · be selective"
+    : regime.score >= 40 ? "55–75% cash · scale down, defensive"
+    : "80–100% cash · protect capital";
   const risk = vix >= 28 ? { t: "HIGH", c: C.red } : vix >= 20 ? { t: "ELEVATED", c: C.amber } : vix > 0 ? { t: "NORMAL", c: C.green } : { t: "—", c: C.textDim };
 
   const sectors = SECTOR_ETFS.map(se => {

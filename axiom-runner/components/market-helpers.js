@@ -74,8 +74,14 @@ export function computeRegime(macroData) {
   // Trend day proxy: SPY moving decisively (|chg| > 0.4%) in the up direction
   factors.push({ label: "Trend day", pass: spy ? chg(spy) > 0.4 : false, pts: 20 });
   const score = factors.reduce((s, f) => s + (f.pass ? f.pts : 0), 0);
-  const label = score >= 75 ? "GREEN" : score >= 55 ? "YELLOW" : "RED";
-  const color = score >= 75 ? "#22c55e" : score >= 55 ? "#d6a312" : "#ef4444";
+  // 4-band regime (ORANGE added 2026-07-28 per the MISSION doc, between
+  // YELLOW and RED) — same 5 real factors above, only the label/color
+  // threshold changed. ORANGE = meaningfully weaker than YELLOW's "mixed,
+  // be selective" but not yet RED's "stand down" — real distinction for a
+  // tape that's actively deteriorating (1-2 real factors left) vs one
+  // that's just mixed (2-3 real factors).
+  const label = score >= 75 ? "GREEN" : score >= 55 ? "YELLOW" : score >= 40 ? "ORANGE" : "RED";
+  const color = score >= 75 ? "#22c55e" : score >= 55 ? "#d6a312" : score >= 40 ? "#e07b1a" : "#ef4444";
   return { score, label, color, factors, vixVal };
 }
 

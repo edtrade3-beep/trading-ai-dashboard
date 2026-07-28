@@ -114,9 +114,9 @@ export default function MarketHealthTab({ C, MONO, SANS }) {
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   {regime && (
                     <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "4px 10px", borderRadius: 4,
-                      background: `${regime.label === "GREEN" ? C.green : regime.label === "YELLOW" ? C.amber : C.red}18`,
-                      border: `1px solid ${regime.label === "GREEN" ? C.green : regime.label === "YELLOW" ? C.amber : C.red}44`,
-                      color: regime.label === "GREEN" ? C.green : regime.label === "YELLOW" ? C.amber : C.red }}>
+                      background: `${regime.color}18`,
+                      border: `1px solid ${regime.color}44`,
+                      color: regime.color }}>
                       REGIME {regime.label} {regime.score}/100
                     </span>
                   )}

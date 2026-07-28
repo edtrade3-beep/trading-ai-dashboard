@@ -73,6 +73,7 @@ import CommandCenterTab from "./components/CommandCenterTab.jsx";
 import MarketHealthTab from "./components/MarketHealthTab.jsx";
 import XIntelTab from "./components/XIntelTab.jsx";
 import CeoAiCard from "./components/CeoAiCard.jsx";
+import CashGoldSilverAdvisor from "./components/CashGoldSilverAdvisor.jsx";
 import TrendTemplateTab from "./components/TrendTemplateTab.jsx";
 import EarlyEntryScanner from "./components/EarlyEntryScanner.jsx";
 import ChallengeTab from "./components/ChallengeTab.jsx";
@@ -374,6 +375,7 @@ const MACRO_SYMBOLS = [
   { symbol: "DIA", label: "Dow 30", type: "etf" },
   { symbol: "VIXY", label: "Volatility", type: "volatility" },
   { symbol: "GLD", label: "Gold", type: "commodity" },
+  { symbol: "SLV", label: "Silver", type: "commodity" },
   { symbol: "BNO", label: "Brent Oil (Proxy)", type: "commodity" },
   { symbol: "USO", label: "Crude Oil", type: "commodity" },
   { symbol: "SHY", label: "2Y Treasury (Proxy)", type: "bond" },
@@ -1520,7 +1522,7 @@ export default function App() {
       localStorage.setItem("axiom_seen_start", "1");
       return "start";
     }
-    return "x-intel";  // default landing: X Intelligence Engine (changed 2026-07 per user request)
+    return "ceo-ai";  // default landing: CEO AI Advisor (changed 2026-07-28 per the MISSION doc + explicit user confirmation — was X Intelligence Engine)
   });
   // Save tab on change
   React.useEffect(() => { try { localStorage.setItem("last_tab", activeTab); } catch {} }, [activeTab]);
@@ -6150,6 +6152,7 @@ export default function App() {
         {activeTab === "ceo-ai" && (
           <div style={{ padding: "16px 20px", maxWidth: 900, margin: "0 auto" }}>
             <CeoAiCard C={C} MONO={MONO} SANS={SANS} />
+            <CashGoldSilverAdvisor C={C} MONO={MONO} SANS={SANS} macroData={macroData} />
           </div>
         )}
 

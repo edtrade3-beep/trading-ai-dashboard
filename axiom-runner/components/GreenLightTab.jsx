@@ -711,10 +711,10 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
         background: `${regime.color}14`, border: `1px solid ${regime.color}55`,
         display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ fontSize: 22 }}>{regime.label === "GREEN" ? "✅" : regime.label === "YELLOW" ? "⚠️" : "🚨"}</span>
+          <span style={{ fontSize: 22 }}>{regime.label === "GREEN" ? "✅" : regime.label === "YELLOW" ? "⚠️" : regime.label === "ORANGE" ? "🔶" : "🚨"}</span>
           <div>
             <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: regime.color }}>
-              MARKET {regime.label} — {regime.label === "GREEN" ? "trade freely" : regime.label === "YELLOW" ? "trade smaller / be selective" : "sit out — weak tape"}
+              MARKET {regime.label} — {regime.label === "GREEN" ? "trade freely" : regime.label === "YELLOW" ? "trade smaller / be selective" : regime.label === "ORANGE" ? "high-conviction only, small size" : "sit out — weak tape"}
             </div>
             <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>
               Regime score <strong style={{ color: regime.color }}>{regime.score}/100</strong> · SPY {spyChg >= 0 ? "+" : ""}{spyChg.toFixed(2)}%{regime.vixVal ? ` · VIX ${regime.vixVal.toFixed(1)}` : ""}

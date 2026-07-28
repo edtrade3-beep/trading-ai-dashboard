@@ -201,6 +201,8 @@ export default function AiTradeSessionPanel({ C, MONO, SANS, macroData, newsData
                 {regime.vixVal ? ` · VIX ${regime.vixVal}` : ""}.{" "}
                 {regime.label === "RED"
                   ? "Unfavorable conditions — let's see if anything still clears the bar."
+                  : regime.label === "ORANGE"
+                  ? "Deteriorating conditions — raising the bar, most setups won't qualify."
                   : regime.label === "YELLOW"
                   ? "Mixed conditions — being selective about what qualifies."
                   : "Favorable conditions for new entries."}

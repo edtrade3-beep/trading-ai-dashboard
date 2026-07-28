@@ -16,8 +16,8 @@ function computeRegime(macroData) {
   factors.push({ label: "Breadth +", pass: spy && qqq ? (chg(spy) > 0 && chg(qqq) > 0) : false, pts: 20 });
   factors.push({ label: "Trend day", pass: spy ? chg(spy) > 0.4 : false, pts: 20 });
   const score = factors.reduce((s, f) => s + (f.pass ? f.pts : 0), 0);
-  const label = score >= 75 ? "GREEN" : score >= 55 ? "YELLOW" : "RED";
-  const color = score >= 75 ? "#22c55e" : score >= 55 ? "#d6a312" : "#ef4444";
+  const label = score >= 75 ? "GREEN" : score >= 55 ? "YELLOW" : score >= 40 ? "ORANGE" : "RED";
+  const color = score >= 75 ? "#22c55e" : score >= 55 ? "#d6a312" : score >= 40 ? "#e07b1a" : "#ef4444";
   return { score, label, color, factors, vixVal };
 }
 
