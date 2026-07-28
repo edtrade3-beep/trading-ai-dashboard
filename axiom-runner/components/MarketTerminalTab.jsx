@@ -81,10 +81,11 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   // endpoint the manual "PUSH" buttons elsewhere (RotationTab/SectorsTab)
   // already use, so it's a real, un-throttled direct send, not subject to
   // the AI-alert daily-info-message budget (a different real gate for a
-  // different category of message). Skipped on this component's own
-  // initial mount (loading NVDA or a handed-off symbol isn't a real click)
-  // via firstLoadRef — every subsequent loadSym call (search, mover click,
-  // watchlist click, or any external "open chart" handoff) does notify.
+  // different category of message). firstLoadRef only suppresses the bare
+  // default landing (no real handoff, falls back to NVDA) — a genuine
+  // handoff into this component's first mount (Sniper Scanner's chart
+  // button, Rotation/Sectors' CHART button) still counts as a real click
+  // and does notify; see the mount effect below for exactly how.
   const firstLoadRef = useRef(true);
   // tf param lets a caller (timeframe buttons) override the current chartTf
   // in the same click that also changes it, avoiding a stale-closure refetch.
@@ -112,6 +113,12 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   useEffect(() => {
     let pending = null;
     try { pending = localStorage.getItem("mterminal_load_sym"); if (pending) localStorage.removeItem("mterminal_load_sym"); } catch {}
+    // A real handoff (Sniper Scanner's chart button, Rotation/Sectors'
+    // CHART button, etc) IS a real "click on a stock chart" and should
+    // notify even though it lands on this component's own first mount;
+    // only the bare default landing (no handoff, falls back to NVDA) is
+    // not a click.
+    firstLoadRef.current = !pending;
     loadSym(pending || "NVDA");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
