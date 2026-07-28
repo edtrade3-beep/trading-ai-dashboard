@@ -25,18 +25,21 @@ export const SIDEBAR_ITEMS = [
   { id: "ceo-ai",    label: "CEO AI",        icon: "🧠", tab: "ceo-ai", section: "AI Desk" },
   { id: "x-intel", label: "X Intelligence", icon: "🐦", tab: "x-intel", badge: "NEW", section: "AI Desk" },
 
-  // 3. PRO AI — the "Robinhood Pro AI" cluster (RhPro*): a real, separate
-  // scoring/analysis system (rhScore — Trend Template + RS + timing +
-  // volume) from A+ Score/Green Light/Smart Scan elsewhere in this app,
-  // same "keep parallel scoring systems separate" rule. Pro Dashboard /
-  // Trade Pro AI removed from the sidebar in the same 2026-07-28 declutter
-  // pass — both are more "what should I do" bias/briefing cards
-  // (Trade Pro AI is also a paid ~15c-per-run generation), redundant with
-  // CEO AI; still reachable via the command palette (DECK / APEX).
+  // 3. PRO AI — Sniper Scanner moved off the sidebar 2026-07-28 (explicit
+  // user request: "remove sniper tab since you put it in dashboard") — it's
+  // now a real dedicated Dashboard sub-tab (see DashboardTab.jsx's "AI
+  // SNIPER" sub-tab), same real component/data, exactly one mount point
+  // (the old "add sniper scanner to dashboard" embed on Opportunities was
+  // removed at the same time, so there's no duplicate). Still reachable via
+  // the command palette (SNIPER).
+  // Pro Dashboard / Trade Pro AI removed from the sidebar in the same
+  // 2026-07-28 declutter pass — both are more "what should I do" bias/
+  // briefing cards (Trade Pro AI is also a paid ~15c-per-run generation),
+  // redundant with CEO AI; still reachable via the command palette
+  // (DECK / APEX).
   // rhpro-journal is deliberately NOT added here — its own file comment
   // says it's intentionally orphaned, superseded by the journal embedded
   // live inside GreenLightTab.
-  { id: "rhpro-scan",   label: "Sniper Scanner", icon: "🔭", tab: "rhpro-scan",  section: "Pro AI" },
   // Pro Watchlists removed 2026-07-28 (declutter pass, part 2) — its
   // categorized AI-ranked lists (Top Picks/Breakout/Pullback/etc) are the
   // same real job Sniper Scanner already does, and Sniper Scanner is now
@@ -51,36 +54,28 @@ export const SIDEBAR_ITEMS = [
   // palette (SECTORHEAT) for the full heat grid + RRG quadrants.
 
   // 4. RESEARCH & INTEL — gathering real market data before deciding
-  // anything: news, positioning. Market (single-symbol chart +
-  // fundamentals/earnings/analyst/news/SMC panels), Market Pulse, and
-  // Market Health were all combined 2026-07-28 (explicit user request) —
-  // Market via a real 📈 chart link on every Sniper Scanner row (same
-  // MarketTerminalTab component, not a duplicate); Market Pulse and Market
-  // Health as real condensed report summaries embedded directly in CEO AI
-  // (same real components/data via a new `compact` prop, not rebuilt).
-  // All three stay reachable via the command palette (TERMINAL /
+  // anything. News moved off the sidebar 2026-07-28 (same "fold real tools
+  // into Dashboard, one mount point each" pass) — it's now Dashboard's real
+  // "NEWS & EVENTS" sub-tab (the same NewsTab component, not a rebuild/
+  // duplicate). Still reachable via the command palette (NEWS). Market
+  // (single-symbol chart + fundamentals/earnings/analyst/news/SMC panels),
+  // Market Pulse, and Market Health were all combined 2026-07-28 (explicit
+  // user request) — Market via a real 📈 chart link on every Sniper Scanner
+  // row (same MarketTerminalTab component, not a duplicate); Market Pulse
+  // and Market Health as real condensed report summaries embedded directly
+  // in CEO AI (same real components/data via a new `compact` prop, not
+  // rebuilt). All three stay reachable via the command palette (TERMINAL /
   // MARKETPULSE / MARKETHEALTH) for their full standalone versions.
-  { id: "news",      label: "News",          icon: "📰", tab: "news", section: "Research & Intel" },
   { id: "cot",       label: "COT",           icon: "🏦", tab: "cot", section: "Research & Intel" },
 
   // 5. OPPORTUNITIES — turning research into real candidate trades.
-  // Green Light was the app's original default landing tab (until it was
-  // changed to X Intelligence, 2026-07) — it never had its own sidebar
-  // entry or command-palette alias because it never needed one before;
-  // that made it completely unreachable the moment it stopped being the
-  // default. Real regression, found live ("WHERE IS THE GREEN LIGHT
-  // TRADE") and fixed here — same real BUY-zone signal engine ai-coach.js's
-  // 7am Telegram scan and the AutoPilot engines already run on.
-  { id: "greenlight", label: "Green Light", icon: "🟢", tab: "greenlight", section: "Opportunities" },
-  { id: "best-opportunities", label: "Best Opportunities", icon: "🔥", tab: "best-opportunities", section: "Opportunities" },
-  // Predictions removed from the sidebar 2026-07-28 (explicit user request)
-  // — its real computePrediction engine now shows inline with every
-  // stock's analysis (Market Terminal, Sniper Scanner, Pro Watchlists)
-  // instead of needing its own tab. Still reachable via the command
-  // palette (PREDICTIONS) for the full multi-symbol filterable view.
-  // Watchlist / Fibonacci removed the same pass (explicit user request) —
-  // still reachable via the palette (QUOTES / FIBONACCI).
-  { id: "flow",      label: "Options Flow",  icon: "📊", tab: "flow", section: "Opportunities" },
+  // Green Light, Best Opportunities, and Options Flow all moved off the
+  // sidebar into Dashboard 2026-07-28 (explicit user request: "green light
+  // as a tab in dashboard bes opportunities as tab in dashboard option flow
+  // as a tab in dashboard... no duplicates") — each is now a real dedicated
+  // Dashboard sub-tab, same real components/data, exactly one mount point
+  // each. Still reachable via the command palette (GREENLIGHT / BESTOPP /
+  // FLOW).
 
   // 6. PORTFOLIO & RISK — what's actually on, and how much room is left.
   // Capital Allocation / Mission Status removed from the sidebar 2026-07-28

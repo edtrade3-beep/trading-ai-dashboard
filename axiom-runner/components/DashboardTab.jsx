@@ -3,9 +3,11 @@ import MonitorSection from "./MonitorSection.jsx";
 import FedInterpreter from "./FedInterpreter.jsx";
 import FedWatchWidget from "./FedWatchWidget.jsx";
 import MacroEventsWidget from "./MacroEventsWidget.jsx";
-import RegimeNewsPanel from "./RegimeNewsPanel.jsx";
-import { MarketNewsWire } from "./terminal-panels.jsx";
 import RhProScanner from "./RhProScanner.jsx";
+import GreenLightTab from "./GreenLightTab.jsx";
+import { BestOpportunities } from "./terminal-panels.jsx";
+import FlowTab from "./FlowTab.jsx";
+import NewsTab from "./NewsTab.jsx";
 import RadialGauge from "./RadialGauge.jsx";
 import DonutChart from "./DonutChart.jsx";
 import Sparkline from "./Sparkline.jsx";
@@ -634,6 +636,10 @@ const DASH_TABS = [
   { id: "opportunities", label: "OPPORTUNITIES" },
   { id: "overview",    label: "OVERVIEW" },
   { id: "watchlist",   label: "WATCHLIST & CHART" },
+  { id: "sniper",       label: "AI SNIPER" },
+  { id: "greenlight",   label: "GREEN LIGHT" },
+  { id: "best-opportunities", label: "BEST OPP" },
+  { id: "flow",         label: "OPTIONS FLOW" },
   { id: "news",        label: "NEWS & EVENTS" },
 ];
 
@@ -670,6 +676,16 @@ export default function DashboardTab({
   tiltEnabled, tiltLocked, tiltStreak, topPick, fullScan,
   setTerminalSymbol, setScanResults, setActiveTab, setScanExpanded, loadDeepDive, loadDeepSocial,
   setTiltLocked, setSigLoading, setSigData, fetchFearGreed, setDistData, setFuturesData, setPreMktMovers,
+  // Green Light / Best Opportunities / Options Flow / News — threaded
+  // through so those tools can get real dedicated Dashboard sub-tabs
+  // (2026-07-28, "no distraction... easy to use" declutter: fold Sniper,
+  // Green Light, Best Opportunities, Options Flow, News into Dashboard so
+  // they can come off the main Sidebar without losing functionality).
+  openDeepDiveFor, scanResults,
+  optionsFlow, flowFilters, setFlowFilters, setLoading, fetchAll, apiKey, flowBySymbol, flowRows,
+  watchlistSymbols, setWatchlistSymbols,
+  newsSymFilter, setNewsSymFilter, newsSentFilter, setNewsSentFilter,
+  refreshNews, newsLoading, newsData, scoreNewsSentiment, newsSentLoading, newsSentiments, setQuickLogModal,
 }) {
   // topPick/fullScan are now lifted to axiom-live.jsx (2026-07-19) so the
   // real scan they come from keeps running regardless of which top-level
@@ -826,35 +842,59 @@ export default function DashboardTab({
             <OpportunityQueueCard C={C} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
           </div>
           <CopilotInsightsCard C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} topPick={topPick} />
-
-          {/* Real market news headlines, directly on Dashboard's default
-              landing sub-tab (2026-07-28, explicit user request: "add news
-              to dashboard") — NewsSentimentCard on the Overview sub-tab is
-              only a sentiment donut with a link away; this is the same real
-              MarketNewsWire headline feed Market Terminal already uses,
-              not a rebuild. */}
-          <div style={{ marginTop: 14 }}>
-            <MarketNewsWire C={C} MONO={MONO} SANS={SANS} />
-          </div>
-
-          {/* Real Sniper Scanner, directly on Dashboard's default landing
-              sub-tab (2026-07-28, explicit user request: "add sniper
-              scanner to dashboard") — the exact same Pro AI component, not
-              a condensed summary this time; macroData/sectorData/
-              setActiveTab are already real props on this component. */}
-          <div style={{ marginTop: 14 }}>
-            <RhProScanner C={C} MONO={MONO} SANS={SANS} macroData={macroData} sectorData={sectorData} setActiveTab={setActiveTab} />
-          </div>
         </>
       )}
 
-      {/* ── NEWS & EVENTS ── */}
+      {/* ── AI SNIPER ── real Sniper Scanner, moved off the main Sidebar
+          into its own Dashboard sub-tab (2026-07-28, "no distraction...
+          easy to use" declutter) — same real component, exactly one
+          mount point now (no duplicate copy on Opportunities anymore). */}
+      {dashTab === "sniper" && (
+        <RhProScanner C={C} MONO={MONO} SANS={SANS} macroData={macroData} sectorData={sectorData} setActiveTab={setActiveTab} />
+      )}
+
+      {/* ── GREEN LIGHT ── real GreenLightTab, same component/props the
+          Sidebar used, moved into Dashboard (2026-07-28). */}
+      {dashTab === "greenlight" && (
+        <GreenLightTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} macroData={macroData} openDeepDiveFor={openDeepDiveFor} scanResults={scanResults} sectorData={sectorData} setTerminalSymbol={setTerminalSymbol} />
+      )}
+
+      {/* ── BEST OPPORTUNITIES ── real BestOpportunities component, moved
+          into Dashboard (2026-07-28), same real scan as before. */}
+      {dashTab === "best-opportunities" && (
+        <div style={{ maxWidth: 900, margin: "0 auto" }}>
+          <BestOpportunities C={C} MONO={MONO} SANS={SANS} macroData={macroData} setActiveTab={setActiveTab}
+            onPick={(sym) => { setTerminalSymbol?.(sym); try { localStorage.setItem("mterminal_load_sym", sym); } catch {} setActiveTab?.("mterminal"); }} />
+        </div>
+      )}
+
+      {/* ── OPTIONS FLOW ── real FlowTab, moved into Dashboard (2026-07-28). */}
+      {dashTab === "flow" && (
+        <FlowTab
+          C={C} MONO={MONO} optionsFlow={optionsFlow} flowBias={flowBias}
+          flowCallNotional={flowCallNotional} flowPutNotional={flowPutNotional}
+          flowFilters={flowFilters} setFlowFilters={setFlowFilters} setLoading={setLoading}
+          fetchAll={fetchAll} apiKey={apiKey}
+          flowBySymbol={flowBySymbol} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab}
+          setWatchlistSymbols={setWatchlistSymbols} watchlistSymbols={watchlistSymbols} flowRows={flowRows}
+        />
+      )}
+
+      {/* ── NEWS & EVENTS ── real NewsTab (same News Desk the Sidebar used —
+          not RegimeNewsPanel's lighter summary anymore), plus the real
+          catalysts/pre-market-movers panels that were already here. */}
       {dashTab === "news" && (
         <>
           <div style={{ marginBottom: 14 }}>
-            <Card C={C} title="MARKET NEWS">
-              <RegimeNewsPanel C={C} MONO={MONO} SANS={SANS} />
-            </Card>
+            <NewsTab
+              C={C} MONO={MONO} newsSymFilter={newsSymFilter} setNewsSymFilter={setNewsSymFilter}
+              newsSentFilter={newsSentFilter} setNewsSentFilter={setNewsSentFilter}
+              refreshNews={refreshNews} newsLoading={newsLoading} newsData={newsData}
+              scoreNewsSentiment={scoreNewsSentiment} newsSentLoading={newsSentLoading}
+              watchlistSymbols={watchlistSymbols} newsSentiments={newsSentiments}
+              setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab}
+              setQuickLogModal={setQuickLogModal} setWatchlistSymbols={setWatchlistSymbols}
+            />
           </div>
           <MonitorSection C={C} MONO={MONO} label="🏛 CATALYSTS & EVENTS" storeKey="mon_catalysts" defaultOpen={true}>
             <FedInterpreter C={C} MONO={MONO} SANS={SANS} />

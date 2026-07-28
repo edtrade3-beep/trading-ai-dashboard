@@ -6067,6 +6067,15 @@ export default function App() {
             setTiltLocked={setTiltLocked} setSigLoading={setSigLoading} setSigData={setSigData}
             fetchFearGreed={fetchFearGreed} setDistData={setDistData} setFuturesData={setFuturesData}
             setPreMktMovers={setPreMktMovers}
+            openDeepDiveFor={openDeepDiveFor} scanResults={scanResults}
+            optionsFlow={optionsFlow} flowFilters={flowFilters} setFlowFilters={setFlowFilters} setLoading={setLoading}
+            fetchAll={fetchAll} apiKey={apiKey} flowBySymbol={flowBySymbol} flowRows={flowRows}
+            watchlistSymbols={watchlistSymbols} setWatchlistSymbols={setWatchlistSymbols}
+            newsSymFilter={newsSymFilter} setNewsSymFilter={setNewsSymFilter}
+            newsSentFilter={newsSentFilter} setNewsSentFilter={setNewsSentFilter}
+            refreshNews={refreshNews} newsLoading={newsLoading} newsData={newsData}
+            scoreNewsSentiment={scoreNewsSentiment} newsSentLoading={newsSentLoading}
+            newsSentiments={newsSentiments} setQuickLogModal={setQuickLogModal}
           />
         )}
 
