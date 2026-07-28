@@ -51,32 +51,39 @@ const MACRO_ASSET_CLASSES = [
 ];
 
 // Broad, liquid, sector-diverse universe — expanded per user request for
-// "more stocks" (was 50 names, tech/mega-cap heavy). Same liquid-cap
-// pattern other real-time scanners in this app use (gap-scan.js's
-// GAP_UNIVERSE, RH_UNIVERSE), just wider: mega-cap tech, semis, defense,
-// energy majors, financials, biotech/pharma, industrials, nuclear/quantum
-// future-tech names (matching ADVISOR's own 5-year-thesis framing),
-// fintech, and high-momentum small/mid-caps. Capped by trend-screen's own
-// route limit (90 symbols).
+// "more stocks" (was 50 names, tech/mega-cap heavy), then expanded again
+// and harmonized (2026-07-29) with axiom-runner/components/market-helpers.js's
+// SCAN_UNIVERSE (Sniper Scanner/Best Opportunities' shared universe) — the
+// two had silently drifted apart into different real lists; this is now
+// the exact same 100-symbol array as that file, not a separate copy that
+// can drift again. Same liquid-cap pattern other real-time scanners in
+// this app use (gap-scan.js's GAP_UNIVERSE), just wider: mega-cap tech,
+// semis, defense, energy majors, financials, biotech/pharma, industrials,
+// nuclear/quantum future-tech names, fintech, and high-momentum small/mid-
+// caps. This module calls screenTrendTemplate() directly (not the HTTP
+// route), so it isn't subject to the trend-screen route's own request-size
+// cap (src/routes/market.js, 90 → 120 symbols as of the same change).
 const SCAN_UNIVERSE = [
   // Mega-cap tech / AI infrastructure
   "AAPL","MSFT","NVDA","AMZN","META","GOOGL","AVGO","TSLA","AMD","NFLX",
   "CRM","ORCL","ADBE","NOW","PANW","CRWD","PLTR","SNOW","MU","QCOM",
   "ANET","MRVL","SMCI","ARM","LRCX","TSM","INTC","TXN","ON","KLAC",
   // Cybersecurity / cloud / software
-  "NET","DDOG","ZS","APP","FTNT","S","TEAM","WDAY",
+  "NET","DDOG","ZS","APP","FTNT","S","TEAM","WDAY","INTU",
   // Fintech / financials
-  "COIN","HOOD","V","MA","JPM","GS","MS","BLK","SCHW","SOFI",
+  "COIN","HOOD","V","MA","JPM","GS","MS","BLK","SCHW","SOFI","AXP",
   // Consumer / retail
-  "COST","HD","NKE","SBUX","UBER","ABNB","SHOP","LULU",
-  // Industrials / defense / government exposure
+  "COST","HD","NKE","SBUX","UBER","ABNB","SHOP","LULU","WMT","CVNA",
+  // Industrials / defense
   "CAT","LMT","RTX","NOC","GE","BA","DE",
   // Energy / power / nuclear
-  "XOM","CVX","OXY","VRT","NEE","CCJ","CEG","SMR","OKLO",
+  "XOM","CVX","OXY","VRT","NEE","CCJ","CEG","SMR","OKLO","WMB",
   // Healthcare / biotech
   "LLY","UNH","ISRG","REGN","VRTX",
   // Momentum / small-mid cap
-  "DELL","MARA","RIOT","RKLB","ASTS","IONQ","SOUN",
+  "DELL","MARA","RIOT","RKLB","ASTS","IONQ","SOUN","CLSK","CIFR","WULF","IREN","RDDT",
+  // Blue-chip additions
+  "PYPL","DIS","KO","PEP","MCD","IBM",
 ];
 
 function relStrength(sd, spyChg) {

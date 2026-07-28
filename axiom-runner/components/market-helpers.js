@@ -14,13 +14,37 @@
 // re-fetching overlapping symbols. Both files below now just re-export this
 // same array under their existing names for backward compatibility with
 // every existing import site.
+// Expanded 60 → 100 (2026-07-29, "i need more stocks in that list") — the
+// added 40 are the real union with src/advisor-ai.js's own separate
+// (previously out-of-sync) 85-symbol scan universe, which already covered
+// real sectors this list was missing (industrials/defense, energy/nuclear,
+// healthcare/biotech, more fintech, more momentum small-caps), plus 6 more
+// widely-known liquid names — advisor-ai.js's SCAN_UNIVERSE now mirrors
+// this exact same list so both stay harmonized instead of silently
+// drifting apart again. The trend-screen route's per-request symbol cap
+// was raised 90 → 120 (src/routes/market.js) so Best Opportunities' single
+// batched request isn't silently truncated at this larger size.
 export const SCAN_UNIVERSE = [
+  // Mega-cap tech / AI infrastructure
   "AAPL","MSFT","NVDA","AMZN","META","GOOGL","AVGO","TSLA","AMD","NFLX",
   "CRM","ORCL","ADBE","NOW","PANW","CRWD","PLTR","SNOW","MU","QCOM",
-  "ANET","MRVL","SMCI","ARM","COIN","UBER","ABNB","SHOP","INTU","LRCX",
-  "LLY","V","MA","JPM","COST","WMT","HD","AXP","GE","CAT",
-  "TSM","VRT","NEE","WMB","CCJ","CEG","DELL","MARA","RIOT","CLSK",
-  "CIFR","WULF","IREN","HOOD","NET","DDOG","ZS","CVNA","APP","RDDT",
+  "ANET","MRVL","SMCI","ARM","LRCX","TSM","INTC","TXN","ON","KLAC",
+  // Cybersecurity / cloud / software
+  "NET","DDOG","ZS","APP","FTNT","S","TEAM","WDAY","INTU",
+  // Fintech / financials
+  "COIN","HOOD","V","MA","JPM","GS","MS","BLK","SCHW","SOFI","AXP",
+  // Consumer / retail
+  "COST","HD","NKE","SBUX","UBER","ABNB","SHOP","LULU","WMT","CVNA",
+  // Industrials / defense
+  "CAT","LMT","RTX","NOC","GE","BA","DE",
+  // Energy / power / nuclear
+  "XOM","CVX","OXY","VRT","NEE","CCJ","CEG","SMR","OKLO","WMB",
+  // Healthcare / biotech
+  "LLY","UNH","ISRG","REGN","VRTX",
+  // Momentum / small-mid cap
+  "DELL","MARA","RIOT","RKLB","ASTS","IONQ","SOUN","CLSK","CIFR","WULF","IREN","RDDT",
+  // Blue-chip additions
+  "PYPL","DIS","KO","PEP","MCD","IBM",
 ];
 
 export const SECTOR_ETFS = [

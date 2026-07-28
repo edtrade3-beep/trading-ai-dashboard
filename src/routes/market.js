@@ -1974,8 +1974,13 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
   }
 
   if (pathname === "/api/market/trend-screen" && req.method === "GET") {
+    // Raised 90 → 120 (2026-07-29, "more stocks in that list") — the real
+    // consolidated scan universe (market-helpers.js's SCAN_UNIVERSE) grew
+    // 60 → 100, and Best Opportunities sends it as one single request (not
+    // chunked like Sniper Scanner's rhScreenProgressive), so the old 90 cap
+    // would have silently truncated the last 10 symbols off that scan.
     const symbols = (searchParams.get("symbols") || "")
-      .split(",").map((s) => s.trim().toUpperCase()).filter(Boolean).slice(0, 90);
+      .split(",").map((s) => s.trim().toUpperCase()).filter(Boolean).slice(0, 120);
     if (!symbols.length) return writeJson(res, 400, { error: "symbols required" });
     // Real Stage-1 universe filters — all optional, all applied to data the
     // scan already fetches (see screenTrendTemplate's own comment above).
