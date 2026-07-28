@@ -80,8 +80,11 @@ export const SIDEBAR_ITEMS = [
   // 6. PORTFOLIO & RISK — what's actually on, and how much room is left.
   // Capital Allocation / Mission Status removed from the sidebar 2026-07-28
   // (explicit user request) — still reachable via the palette
-  // (CAPITALALLOCATION / MISSIONSTATUS).
-  { id: "portfolio-tab", label: "Portfolio", icon: "💼", tab: "portfolio-tab", section: "Portfolio & Risk" },
+  // (CAPITALALLOCATION / MISSIONSTATUS). Portfolio moved off the sidebar
+  // the same day ("move portfolio to dashboard") — real
+  // PortfolioSnapshotCard + ActivePositionsCard, now Dashboard's real
+  // "PORTFOLIO" sub-tab, one mount point. Still reachable via the command
+  // palette (PORTFOLIOTAB).
 
   // 7. ASSISTANT — callable at any point in the flow, kept as its own
   // section rather than forced into research or portfolio.

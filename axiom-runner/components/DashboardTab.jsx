@@ -8,6 +8,7 @@ import GreenLightTab from "./GreenLightTab.jsx";
 import { BestOpportunities } from "./terminal-panels.jsx";
 import FlowTab from "./FlowTab.jsx";
 import NewsTab from "./NewsTab.jsx";
+import ActivePositionsCard from "./ActivePositionsCard.jsx";
 import RadialGauge from "./RadialGauge.jsx";
 import DonutChart from "./DonutChart.jsx";
 import Sparkline from "./Sparkline.jsx";
@@ -641,6 +642,7 @@ const DASH_TABS = [
   { id: "best-opportunities", label: "BEST OPP" },
   { id: "flow",         label: "OPTIONS FLOW" },
   { id: "news",        label: "NEWS & EVENTS" },
+  { id: "portfolio",   label: "PORTFOLIO" },
 ];
 
 function DashSubNav({ C, MONO, active, setActive }) {
@@ -878,6 +880,15 @@ export default function DashboardTab({
           flowBySymbol={flowBySymbol} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab}
           setWatchlistSymbols={setWatchlistSymbols} watchlistSymbols={watchlistSymbols} flowRows={flowRows}
         />
+      )}
+
+      {/* ── PORTFOLIO ── real PortfolioSnapshotCard + ActivePositionsCard,
+          moved into Dashboard (2026-07-28, "move portfolio to dashboard"). */}
+      {dashTab === "portfolio" && (
+        <div style={{ maxWidth: 700, margin: "0 auto", display: "flex", flexDirection: "column", gap: 12 }}>
+          <PortfolioSnapshotCard C={C} MONO={MONO} SANS={SANS} />
+          <ActivePositionsCard C={C} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
+        </div>
       )}
 
       {/* ── NEWS & EVENTS ── real NewsTab (same News Desk the Sidebar used —
