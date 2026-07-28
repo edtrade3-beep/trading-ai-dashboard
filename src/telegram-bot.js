@@ -65,8 +65,8 @@ let infoMsgCount = 0;
 let infoMsgDate  = "";
 const MAX_DAILY_INFO_MSGS = 10; // generous — normal operation never approaches this; it's a safety net, not a throttle
 
-// Categories the vision doc explicitly says should ALWAYS notify — never
-// gated, regardless of volume: A+ Opportunity, Market Regime Change, Portfolio
+// Categories the vision doc says should be prioritized ahead of the
+// informational budget: A+ Opportunity, Market Regime Change, Portfolio
 // Risk, Economic Event, Stop Trigger, Target Hit, Breaking News. Everything
 // else routes through the shared informational budget.
 const ALWAYS_ALLOW_CATEGORIES = new Set([
@@ -81,9 +81,25 @@ const ALWAYS_ALLOW_CATEGORIES = new Set([
   "budget-warning",
 ]);
 
+// These used to be truly unlimited/day by design ("never gated, regardless
+// of volume") — but a real per-symbol/per-type cooldown on each source
+// doesn't stop a genuinely busy day (many distinct A+ setups, several stops
+// hit) from adding up to a lot of separate messages. "too many alerts in
+// telegram" (2026-07-29) — generous, priority-ahead-of-info budget, not a
+// meaningful throttle on any single real event; a safety net against
+// runaway volume, same role MAX_DAILY_INFO_MSGS already plays below.
+let priorityMsgCount = 0;
+let priorityMsgDate  = "";
+const MAX_DAILY_PRIORITY_MSGS = 20;
+
 function shouldSendAlert({ category }) {
-  if (ALWAYS_ALLOW_CATEGORIES.has(category)) return true;
   const today = new Date().toLocaleDateString("en-US", { timeZone: "America/New_York" });
+  if (ALWAYS_ALLOW_CATEGORIES.has(category)) {
+    if (today !== priorityMsgDate) { priorityMsgDate = today; priorityMsgCount = 0; }
+    if (priorityMsgCount >= MAX_DAILY_PRIORITY_MSGS) return false;
+    priorityMsgCount++;
+    return true;
+  }
   if (today !== infoMsgDate) { infoMsgDate = today; infoMsgCount = 0; }
   if (infoMsgCount >= MAX_DAILY_INFO_MSGS) return false;
   infoMsgCount++;

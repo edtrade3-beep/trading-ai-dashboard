@@ -79,13 +79,20 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   // Real Telegram notification every time a stock chart is actually viewed
   // (2026-07-28, explicit user request) — reuses the same /api/notify
   // endpoint the manual "PUSH" buttons elsewhere (RotationTab/SectorsTab)
-  // already use, so it's a real, un-throttled direct send, not subject to
-  // the AI-alert daily-info-message budget (a different real gate for a
-  // different category of message). firstLoadRef only suppresses the bare
-  // default landing (no real handoff, falls back to NVDA) — a genuine
-  // handoff into this component's first mount (Sniper Scanner's chart
-  // button, Rotation/Sectors' CHART button) still counts as a real click
-  // and does notify; see the mount effect below for exactly how.
+  // already use, so it's a real direct send, not subject to the AI-alert
+  // daily-info-message budget (a different real gate for a different
+  // category of message). firstLoadRef only suppresses the bare default
+  // landing (no real handoff, falls back to NVDA) — a genuine handoff into
+  // this component's first mount (Sniper Scanner's chart button, Rotation/
+  // Sectors' CHART button) still counts as a real click and does notify;
+  // see the mount effect below for exactly how.
+  //
+  // Per-symbol cooldown (2026-07-29, "too many alerts in telegram") — was
+  // completely un-throttled, so clicking through timeframe buttons (1D/1W/
+  // 1M — loadSym re-runs on each) on the SAME symbol fired a fresh Telegram
+  // ping every time, not just on a genuinely new chart. localStorage-backed
+  // so it survives a page reload/new tab, not just this component instance.
+  const NOTIFY_COOLDOWN_MS = 15 * 60 * 1000; // 15 min
   const firstLoadRef = useRef(true);
   // tf param lets a caller (timeframe buttons) override the current chartTf
   // in the same click that also changes it, avoiding a stale-closure refetch.
@@ -100,9 +107,16 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
         if (!d.error) {
           setChart(d);
           if (!firstLoadRef.current) {
-            const chg = Number(d.setup?.abovePivotPct) || 0;
-            const msg = `📈 Chart viewed: ${symbol} — $${Number(d.price || 0).toFixed(2)}${d.stage ? ` · ${d.stage}` : ""}${Number.isFinite(chg) && d.setup ? ` · ${chg >= 0 ? "+" : ""}${chg.toFixed(1)}% from pivot` : ""}`;
-            fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }).catch(() => {});
+            let cooldowns = {};
+            try { cooldowns = JSON.parse(localStorage.getItem("mterminal_notify_cooldown") || "{}"); } catch {}
+            const now = Date.now();
+            if (now - (cooldowns[symbol] || 0) >= NOTIFY_COOLDOWN_MS) {
+              const chg = Number(d.setup?.abovePivotPct) || 0;
+              const msg = `📈 Chart viewed: ${symbol} — $${Number(d.price || 0).toFixed(2)}${d.stage ? ` · ${d.stage}` : ""}${Number.isFinite(chg) && d.setup ? ` · ${chg >= 0 ? "+" : ""}${chg.toFixed(1)}% from pivot` : ""}`;
+              fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }).catch(() => {});
+              cooldowns[symbol] = now;
+              try { localStorage.setItem("mterminal_notify_cooldown", JSON.stringify(cooldowns)); } catch {}
+            }
           }
           firstLoadRef.current = false;
         }

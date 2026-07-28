@@ -1,6 +1,7 @@
 const { loadPriceAlerts, savePriceAlerts } = require("./price-alert-store");
-const { sendTelegramAlert, isConfigured } = require("./telegram");
+const { sendTelegramAlert, sendTelegramMessage, isConfigured } = require("./telegram");
 const { fetchJsonSafe, withTimeout } = require("./utils");
+const { shouldSendAlert } = require("./telegram-bot");
 
 const CHECK_INTERVAL_MS = 90_000; // every 90 seconds
 
@@ -36,6 +37,7 @@ async function checkPriceAlerts() {
   }
 
   let changed = false;
+  const triggeredNow = [];
   for (const alert of alerts) {
     if (alert.status !== "active") continue;
     const q = quotes[alert.symbol];
@@ -54,18 +56,30 @@ async function checkPriceAlerts() {
       alert.status = "triggered";
       alert.triggeredAt = new Date().toISOString();
       changed = true;
-
-      if (isConfigured()) {
-        sendTelegramAlert({
-          symbol: alert.symbol,
-          side: alert.direction === "above" ? "BUY" : "SELL",
-          price,
-          score: 85,
-          message: `Price Alert: ${alert.symbol} ${alert.direction} $${alert.targetPrice} — now $${price.toFixed(2)}${alert.requireVolume ? ` · vol ${q.volRatio.toFixed(1)}× avg ✅` : ""}${alert.note ? " · " + alert.note : ""}`,
-          at: alert.triggeredAt,
-        });
-      }
+      triggeredNow.push({ alert, price, volRatio: q.volRatio });
     }
+  }
+
+  // Batch same-cycle triggers into ONE Telegram message instead of N
+  // (2026-07-29, "too many alerts in telegram") — a broad market move can
+  // flip several price alerts in the same 90s check, which used to fire
+  // one separate message per alert. Single-trigger case keeps the original
+  // per-alert message format unchanged.
+  if (triggeredNow.length === 1 && isConfigured() && shouldSendAlert({ category: "target-hit" })) {
+    const { alert, price, volRatio } = triggeredNow[0];
+    sendTelegramAlert({
+      symbol: alert.symbol,
+      side: alert.direction === "above" ? "BUY" : "SELL",
+      price,
+      score: 85,
+      message: `Price Alert: ${alert.symbol} ${alert.direction} $${alert.targetPrice} — now $${price.toFixed(2)}${alert.requireVolume ? ` · vol ${volRatio.toFixed(1)}× avg ✅` : ""}${alert.note ? " · " + alert.note : ""}`,
+      at: alert.triggeredAt,
+    });
+  } else if (triggeredNow.length > 1 && isConfigured() && shouldSendAlert({ category: "target-hit" })) {
+    const lines = triggeredNow.map(({ alert, price, volRatio }) =>
+      `${alert.symbol} ${alert.direction} $${alert.targetPrice} — now $${price.toFixed(2)}${alert.requireVolume ? ` · vol ${volRatio.toFixed(1)}× avg ✅` : ""}${alert.note ? " · " + alert.note : ""}`
+    );
+    sendTelegramMessage(`🎯 ${triggeredNow.length} PRICE ALERTS TRIGGERED\n\n${lines.join("\n")}`).catch(() => {});
   }
 
   if (changed) savePriceAlerts(alerts);
@@ -112,6 +126,7 @@ async function checkT1Alerts() {
       if (now - last < 24 * 60 * 60 * 1000) continue; // 24h cooldown — once per trade only
 
       T1_COOLDOWN.set(cooldownKey, now);
+      if (!shouldSendAlert({ category: "target-hit" })) continue;
       const rr = entry > 0 ? Math.abs((target - entry) / (entry - Number(trade.stopLoss || entry))).toFixed(1) : "—";
       const pnl = trade.size ? Math.round(Math.abs(price - entry) * Number(trade.size)) : null;
 
