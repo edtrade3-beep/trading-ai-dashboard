@@ -969,8 +969,30 @@ export function BestOpportunities({ C, MONO, SANS, onPick, macroData, setActiveT
                     🤖 Why{whyState[r.symbol] === "loading" ? "…" : ""}
                   </button>
                   <button
-                    onClick={(e) => { e.stopPropagation(); try { localStorage.setItem("tradeplanner_load_sym", r.symbol); } catch {} setActiveTab && setActiveTab("tradeplanner"); }}
-                    title={`Plan this trade — opens Trade Planner with ${r.symbol} loaded`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      try {
+                        // Same real entry/stop/target/score this row already
+                        // shows (r.entry/r.stop/r.target2/r._aplus, filtered
+                        // to entry > stop at scan time) — handed off instead
+                        // of just the symbol so Trade Planner doesn't
+                        // silently recompute a different plan (2026-07-28,
+                        // same fix as Sniper Scanner: "do the same for best
+                        // opportunities and green light").
+                        const validPlan = Number.isFinite(Number(r.entry)) && Number.isFinite(Number(r.stop)) && Number(r.entry) > Number(r.stop);
+                        if (validPlan) {
+                          localStorage.setItem("tradeplanner_load_plan", JSON.stringify({
+                            symbol: r.symbol, entry: Number(r.entry), stop: Number(r.stop),
+                            target: Number.isFinite(Number(r.target2)) ? Number(r.target2) : null,
+                            aplus: r._aplus || null, next: null, source: "Best Opportunities",
+                          }));
+                        } else {
+                          localStorage.setItem("tradeplanner_load_sym", r.symbol);
+                        }
+                      } catch {}
+                      setActiveTab && setActiveTab("tradeplanner");
+                    }}
+                    title={`Plan this trade — opens Trade Planner with ${r.symbol}'s real entry/stop from this scan already filled in`}
                     style={{ flexShrink: 0, fontFamily: MONO, fontSize: 11, fontWeight: 800, border: `1px solid ${C.accent}`, background: `${C.accent}14`, color: C.accent, borderRadius: 6, padding: "6px 10px", cursor: "pointer" }}>
                     🎯 Plan
                   </button>

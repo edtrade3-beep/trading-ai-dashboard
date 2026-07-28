@@ -132,7 +132,7 @@ function AutopilotStatusCard({ C, MONO, SANS }) {
   );
 }
 
-export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFor, scanResults, sectorData, setTerminalSymbol }) {
+export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFor, scanResults, sectorData, setTerminalSymbol, setActiveTab }) {
   const spyQ   = (macroData || []).find(m => m.symbol === "SPY") || (watchlistData || []).find(w => w.symbol === "SPY");
   const spyChg = Number(spyQ?.changesPercentage || 0);
   // Sector strength: rank the 11 SPDR sector ETFs by today's move; top half = "strong" (Step 2 of the A+ spec).
@@ -456,6 +456,34 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
               padding: "6px 12px", cursor: "pointer" }}>
             ⚡ PAPER BUY
           </button>
+          {/* Hand off this card's own real entry/stop/target to Trade
+              Planner instead of just the symbol (2026-07-28, same fix as
+              Sniper Scanner/Best Opportunities — "do the same for best
+              opportunities and green light") — so opening the plan for a
+              Green Light pick shows the same real levels already on this
+              card instead of a different ATR recalculation. Green Light's
+              A+ score/checks are a distinct real scoring system on purpose
+              (this app's standing "keep parallel scoring systems separate"
+              rule) so it isn't force-fit into Trade Setup Score's shape —
+              Trade Planner just won't show that badge for these. */}
+          {(r.signal === "GREEN" || r.signal === "YELLOW") && Number.isFinite(Number(r.bestEntry)) && Number.isFinite(Number(r.stop)) && Number(r.bestEntry) > Number(r.stop) && (
+            <button onClick={() => {
+                try {
+                  localStorage.setItem("tradeplanner_load_plan", JSON.stringify({
+                    symbol: r.symbol, entry: Number(r.bestEntry), stop: Number(r.stop),
+                    target: Number.isFinite(Number(r.t2)) ? Number(r.t2) : null,
+                    aplus: null, next: null, source: "Green Light",
+                  }));
+                } catch {}
+                setActiveTab && setActiveTab("tradeplanner");
+              }}
+              title={`Plan this trade — opens Trade Planner with ${r.symbol}'s real Green Light entry/stop/target already filled in`}
+              style={{ background: `${C.accent}14`, border: `1px solid ${C.accent}`, color: C.accent,
+                borderRadius: 6, fontFamily: MONO, fontSize: 11, fontWeight: 800,
+                padding: "6px 12px", cursor: "pointer" }}>
+              🎯 PLAN
+            </button>
+          )}
           {/* Options buy disabled for now */}
           {(() => {
             if (true) return null;  // options paused

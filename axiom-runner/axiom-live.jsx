@@ -6701,7 +6701,7 @@ export default function App() {
       {activeTab === "tradeplanner" && <TradePlannerTab C={C} MONO={MONO} SANS={SANS} macroData={macroData} />}
       {activeTab === "dipbuy" && <DipBuyTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} macroData={macroData} openDeepDiveFor={openDeepDiveFor} />}
       {(activeTab === "greenlight" || activeTab === "mytrades") && <>
-        <GreenLightTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} macroData={macroData} openDeepDiveFor={openDeepDiveFor} scanResults={scanResults} sectorData={sectorData} setTerminalSymbol={setTerminalSymbol} />
+        <GreenLightTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} macroData={macroData} openDeepDiveFor={openDeepDiveFor} scanResults={scanResults} sectorData={sectorData} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
         <MyTradesTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} />
       </>}
       {activeTab === "trendtemplate" && <TrendTemplateTab C={C} MONO={MONO} SANS={SANS} watchlistSymbols={watchlistSymbols} />}

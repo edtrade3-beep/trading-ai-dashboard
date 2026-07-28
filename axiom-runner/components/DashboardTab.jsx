@@ -859,7 +859,7 @@ export default function DashboardTab({
       {/* ── GREEN LIGHT ── real GreenLightTab, same component/props the
           Sidebar used, moved into Dashboard (2026-07-28). */}
       {dashTab === "greenlight" && (
-        <GreenLightTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} macroData={macroData} openDeepDiveFor={openDeepDiveFor} scanResults={scanResults} sectorData={sectorData} setTerminalSymbol={setTerminalSymbol} />
+        <GreenLightTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} macroData={macroData} openDeepDiveFor={openDeepDiveFor} scanResults={scanResults} sectorData={sectorData} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
       )}
 
       {/* ── BEST OPPORTUNITIES ── real BestOpportunities component, moved
