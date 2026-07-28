@@ -1,17 +1,91 @@
 // Shared helpers for the Robinhood Pro AI cluster (RhProDashboard,
 // RhProScanner, RhProWatchlists, RhProHeatMap, RhProCoach, RhProApex).
-import { SCAN_UNIVERSE } from "./market-helpers.js";
+import { SCAN_UNIVERSE, STOCK_TO_SECTOR } from "./market-helpers.js";
 
 // Robinhood Pro AI — Feature 2: AI Sniper Scanner. Ranks a universe 0–100 by
 // reusing the server trend-screen engine. Analysis only — no orders.
 // Re-exports the app-wide consolidated SCAN_UNIVERSE (market-helpers.js) —
 // see that file's comment for why this and BEST_OPP_UNIVERSE were merged.
 export const RH_UNIVERSE = SCAN_UNIVERSE;
-export function rhScore(r) {
-  // 0–100 composite: Trend Template (50) + Relative Strength (25) + timing (15) + volume (10).
-  const pass = Math.max(0, Math.min(8, Number(r.passCount) || 0));
-  const rs = Math.max(1, Math.min(99, Number(r.rsRating) || 1));
-  return Math.round(pass / 8 * 50 + rs / 99 * 25 + (r.atBuyPoint ? 15 : 0) + (r.volConfirmed ? 10 : 0));
+
+// Stock Quality Score — "is this a good STOCK" (slow-changing, company/trend
+// quality), as distinct from computeAPlusScore's Trade Setup Score — "is
+// TODAY the right time" (fast-changing, timing/regime). Real, 8 dimensions,
+// 100pts (2026-07-28, Phase 3 of the Institutional Scanner work, replacing
+// the old 4-factor rhScore formula). Every dimension reuses a real field
+// /api/market/trend-screen already returns, plus an optional real
+// sectorPerf map (symbol->%chg for the 11 SECTOR_ETFS, fetched by the
+// caller — RhProScanner fetches it; call sites that don't pass one get an
+// honest neutral mid-point for Sector Strength, never a fabricated number).
+export function stockQualityBreakdown(r, sectorPerf) {
+  const passCount = Math.max(0, Math.min(8, Number(r?.passCount) || 0));
+  const rsRating = Math.max(1, Math.min(99, Number(r?.rsRating) || 1));
+
+  // 1. Trend structure — Minervini 8-point trend template pass count.
+  const trendPts = Math.round((passCount / 8) * 20);
+  // 2. Relative strength — cross-sectional percentile rank vs the screened universe.
+  const rsPts = Math.round((rsRating / 100) * 15);
+
+  // 3. Momentum — real absolute weighted return (not percentile-ranked, so
+  // this genuinely differs from RS above: a stock can rank well vs a weak
+  // peer group on RS while still having soft absolute momentum, and vice
+  // versa). Same weighted-momentum value the server uses to build RS
+  // (0.4*63d + 0.2*126d + 0.2*189d + 0.2*252d returns) — now passed through
+  // instead of being deleted server-side. Normalized so 0% = mid-low credit,
+  // +40% blended return = full credit; real absent data gets an honest
+  // mid-point, not a zero.
+  const momentum = Number(r?.momentum);
+  const momentumPts = Number.isFinite(momentum) ? Math.round(Math.max(0, Math.min(1, (momentum + 0.1) / 0.5)) * 10) : 5;
+
+  // 4. Stage analysis — real Minervini stage string the server already derives.
+  const stage = String(r?.stage || "");
+  const stagePts = stage.startsWith("Stage 2 — Confirmed") ? 10 : stage.startsWith("Stage 2") ? 7 : stage.startsWith("Stage 1/3") ? 4 : 0;
+
+  // 5. Volume trend — real volume vs the 50-day average (reused from the
+  // Trade Setup Score's volume check, but framed here as a quality signal —
+  // sustained above-average volume vs a one-day breakout spike).
+  const volRatio = Number(r?.volRatio);
+  const volTrendPts = Number.isFinite(volRatio) ? Math.round(Math.max(0, Math.min(1, volRatio / 2)) * 15) : 8;
+
+  // 6. Sector strength — real sector-ETF % change vs SPY's % change, looked
+  // up via the real STOCK_TO_SECTOR map. Requires the caller to pass a real
+  // sectorPerf map ({ XLK: pctChg, ..., SPY: pctChg }); when absent (most
+  // call sites don't fetch sector ETFs), gives an honest neutral mid-point —
+  // never fabricates a relative-strength number with no real sector data.
+  const sectorEtf = STOCK_TO_SECTOR[String(r?.symbol || "").toUpperCase()];
+  const sectorChg = sectorPerf && sectorEtf ? Number(sectorPerf[sectorEtf]) : NaN;
+  const spyChg = sectorPerf ? Number(sectorPerf.SPY) : NaN;
+  const sectorRel = Number.isFinite(sectorChg) && Number.isFinite(spyChg) ? sectorChg - spyChg : NaN;
+  const sectorPts = Number.isFinite(sectorRel) ? Math.round(Math.max(0, Math.min(1, (sectorRel + 1.5) / 3)) * 15) : 8;
+
+  // 7. Fundamental strength — real forward-vs-trailing EPS growth when Yahoo
+  // has both figures (often absent for thin-coverage names — honest
+  // mid-point then, not a fabricated growth number).
+  const epsGrowth = Number(r?.epsGrowth);
+  const fundamentalPts = Number.isFinite(epsGrowth) ? Math.round(Math.max(0, Math.min(1, (epsGrowth + 10) / 30)) * 10) : 5;
+
+  // 8. Liquidity — real dollar volume (price × regularMarketVolume) as a
+  // proxy for how easily this position can be entered/exited without
+  // slippage. $1B+/day = full credit.
+  const dollarVolume = Number(r?.dollarVolume);
+  const liquidityPts = Number.isFinite(dollarVolume) && dollarVolume > 0 ? Math.round(Math.max(0, Math.min(1, dollarVolume / 1e9)) * 5) : 3;
+
+  const score = Math.max(0, Math.min(100, trendPts + rsPts + momentumPts + stagePts + volTrendPts + sectorPts + fundamentalPts + liquidityPts));
+  const reasons = [
+    `${passCount}/8 trend template criteria met`,
+    rsRating >= 90 ? `RS ${rsRating} — top-decile market leader` : rsRating >= 70 ? `RS ${rsRating} — market leader` : `RS ${rsRating} — below leader threshold`,
+    Number.isFinite(momentum) ? `Weighted momentum ${(momentum * 100).toFixed(1)}% over the trailing year (blended)` : "Momentum data unavailable",
+    stage ? `${stage}` : "Stage unavailable",
+    Number.isFinite(volRatio) ? `Volume ${volRatio.toFixed(1)}x the 50-day average` : "Volume data unavailable",
+    Number.isFinite(sectorRel) ? `Sector ${sectorRel >= 0 ? "outperforming" : "underperforming"} SPY by ${Math.abs(sectorRel).toFixed(1)}pts today` : "Sector performance data unavailable",
+    Number.isFinite(epsGrowth) ? `EPS growth (fwd vs TTM): ${epsGrowth >= 0 ? "+" : ""}${epsGrowth}%` : "Forward EPS data unavailable",
+    Number.isFinite(dollarVolume) && dollarVolume > 0 ? `$${(dollarVolume / 1e6).toFixed(0)}M real daily dollar volume` : "Dollar volume unavailable",
+  ];
+  return { score, reasons, breakdown: { trendPts, rsPts, momentumPts, stagePts, volTrendPts, sectorPts, fundamentalPts, liquidityPts } };
+}
+
+export function rhScore(r, sectorPerf) {
+  return stockQualityBreakdown(r, sectorPerf).score;
 }
 // Screen a big universe in small parallel batches — one 60-symbol call times out
 // (each symbol fetches Yahoo). Batches of 12 finish fast; failures are tolerated.

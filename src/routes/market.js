@@ -1330,7 +1330,9 @@ async function screenTrendTemplate(symbols, filters = {}) {
     x.qualifies = x.passCount === 8;
     // Buy point now requires a volume-confirmed breakout — no more low-volume fakeouts.
     x.atBuyPoint = x.passCount >= 7 && x.actionable && !x.extended && x.volConfirmed;
-    delete x._passExclRS; delete x.momentum;
+    // momentum is kept (previously deleted here) — Stock Quality Score's real
+    // Momentum dimension (rhpro-shared.jsx) needs the raw weighted value.
+    delete x._passExclRS;
   }
 
   // ── Fundamentals overlay (one batched quote call): next earnings date + EPS growth,

@@ -23,21 +23,48 @@ function computeRegime(macroData) {
 
 function computeAPlusScore(row, regime) {
   const passCount = Number(row?.passCount || 0);
-  const rsRating = Number(row?.rsRating || 0);
   const regimeScore = Number(regime?.score ?? 0);
-  const trendPts = Math.round((passCount / 8) * 40);
-  const rsPts = Math.round((rsRating / 100) * 30);
+
   const regimePts = Math.round((regimeScore / 100) * 20);
+
+  const abovePivotPct = Number(row?.abovePivotPct);
+  const idealDist = !Number.isFinite(abovePivotPct) ? null
+    : abovePivotPct < 0 ? -abovePivotPct : Math.max(0, abovePivotPct - 5);
+  const entryPts = idealDist == null ? 10 : Math.round(Math.max(0, Math.min(1, (15 - idealDist) / 15)) * 20);
+
   const isGo = row?.verdict === "GO" || (row?.atBuyPoint && row?.volConfirmed);
-  const setupPts = isGo ? 10 : row?.actionable ? 6 : 0;
-  const score = Math.max(0, Math.min(100, trendPts + rsPts + regimePts + setupPts));
+  const breakoutConf = Number(row?.confidence) || 0;
+  const breakoutBase = isGo ? 12 : row?.actionable ? 7 : 0;
+  const breakoutBonus = Math.round((breakoutConf / 100) * 3);
+  const breakoutPts = Math.min(15, breakoutBase + breakoutBonus);
+
+  const volRatio = Number(row?.volRatio);
+  const volPts = Number.isFinite(volRatio) ? Math.round(Math.max(0, Math.min(1, volRatio / 2)) * 10) : 5;
+
+  const riskPct = Number(row?.riskPct);
+  const riskPts = Number.isFinite(riskPct) && riskPct > 0 ? Math.round(Math.max(0, Math.min(1, (10 - riskPct) / 7)) * 20) : 10;
+
+  const pctFromHigh = Number(row?.pctFromHigh);
+  const supportPts = Number.isFinite(pctFromHigh) ? Math.round(Math.max(0, Math.min(1, (pctFromHigh + 25) / 25)) * 10) : 5;
+
+  const volatilityPts = row?.tightening ? 5 : (row?.vcpGrade && row.vcpGrade !== "-" ? 3 : 2);
+
+  const score = Math.max(0, Math.min(100, regimePts + entryPts + breakoutPts + volPts + riskPts + supportPts + volatilityPts));
+  const cautions = [];
+  if (row?.earningsSoon) cautions.push(`⚠️ Earnings within ${row.earningsDte} day${row.earningsDte === 1 ? "" : "s"} — added gap risk (not scored, timing-only caution)`);
   const reasons = [
-    `${passCount}/8 trend template criteria met`,
-    rsRating >= 90 ? `RS ${rsRating} — top-decile market leader` : rsRating >= 70 ? `RS ${rsRating} — market leader` : `RS ${rsRating} — below leader threshold`,
     `Market regime ${regime?.label || "?"} (${regimeScore}/100)${regimeScore >= 75 ? " — favorable for breakouts" : regimeScore >= 55 ? " — mixed, be selective" : " — unfavorable, high failure risk"}`,
-    isGo ? "At buy point with volume confirmation" : row?.actionable ? "Near pivot, not yet confirmed" : "Not yet actionable",
+    idealDist == null ? "Pivot distance unavailable"
+      : abovePivotPct < 0 ? `${Math.abs(abovePivotPct).toFixed(1)}% below pivot — base not yet broken`
+      : abovePivotPct <= 5 ? `${abovePivotPct.toFixed(1)}% above pivot — fresh, unextended entry`
+      : `${abovePivotPct.toFixed(1)}% above pivot — extended, chasing risk`,
+    isGo ? `At buy point with volume confirmation${breakoutConf ? ` (${breakoutConf}% breakout confidence)` : ""}` : row?.actionable ? "Near pivot, not yet confirmed" : "Not yet actionable",
+    Number.isFinite(volRatio) ? `Volume ${volRatio.toFixed(1)}x the 50-day average` : "Volume data unavailable",
+    Number.isFinite(riskPct) && riskPct > 0 ? `${riskPct.toFixed(1)}% risk to stop — ${riskPct <= 5 ? "tight, low-risk entry" : riskPct <= 8 ? "moderate risk" : "wide stop, higher risk"}` : "Risk distance unavailable",
+    Number.isFinite(pctFromHigh) ? `${Math.abs(pctFromHigh).toFixed(1)}% ${pctFromHigh < 0 ? "below" : "at"} the 52-week high` : "52-week high distance unavailable",
+    row?.tightening ? "VCP tightening — each pullback shallower than the last" : row?.vcpGrade && row.vcpGrade !== "-" ? `VCP grade ${row.vcpGrade}, not yet tightening` : "No real VCP base detected",
   ];
-  return { score, reasons, breakdown: { trendPts, rsPts, regimePts, setupPts } };
+  return { score, reasons, cautions, breakdown: { regimePts, entryPts, breakoutPts, volPts, riskPts, supportPts, volatilityPts }, passCount };
 }
 
 function computeNextAction(row) {

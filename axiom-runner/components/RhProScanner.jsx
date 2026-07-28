@@ -1,8 +1,42 @@
 import { useState, useEffect } from "react";
-import { RH_UNIVERSE, rhScore, rhScreenProgressive } from "./rhpro-shared.jsx";
+import { RH_UNIVERSE, rhScore, stockQualityBreakdown, rhScreenProgressive } from "./rhpro-shared.jsx";
 import { computeRegime, computeAPlusScore, computeNextAction } from "./market-helpers.js";
+import AiScoreExplainer, { TRADE_SETUP_DIMENSIONS, STOCK_QUALITY_DIMENSIONS } from "./AiScoreExplainer.jsx";
 import GapScanner from "./GapScanner.jsx";
 import DayTradeTab from "./DayTradeTab.jsx";
+
+// Real win-probability lookup — Phase 3 of the Institutional Scanner work
+// (2026-07-28). Reuses /api/market/aplus-track's existing real forward-return
+// log (aplus-score-history.js), bucketed by the row's real Trade Setup
+// Score band. Prefers a longer real horizon (more representative of a swing
+// hold) but falls back to whichever horizon actually has enough real
+// samples. Below MIN_WIN_SAMPLE real observations, returns null — the UI
+// then shows the honest sample count instead of a fabricated-looking
+// percentage (this platform's forward log is one ~60-symbol daily snapshot,
+// never thousands of setups).
+const MIN_WIN_SAMPLE = 10;
+function bucketOf(score) {
+  if (score >= 80) return "80-100";
+  if (score >= 60) return "60-79";
+  if (score >= 40) return "40-59";
+  return "0-39";
+}
+function winProbFor(track, score) {
+  if (!track?.horizons) return null;
+  const bucket = bucketOf(score);
+  for (const h of ["d20", "d10", "d5", "d60"]) {
+    const b = track.horizons[h]?.buckets?.[bucket];
+    if (b && b.count >= MIN_WIN_SAMPLE) return { winRate: b.winRate, count: b.count, horizon: h.slice(1) };
+  }
+  // Real data exists but every horizon is under the honest sample floor —
+  // surface the largest real count so the UI can say exactly how far short.
+  let best = null;
+  for (const h of ["d20", "d10", "d5", "d60"]) {
+    const b = track.horizons[h]?.buckets?.[bucket];
+    if (b && (!best || b.count > best.count)) best = { count: b.count, horizon: h.slice(1) };
+  }
+  return best ? { winRate: null, count: best.count, horizon: best.horizon } : null;
+}
 
 // ── Categorized ranking — Phase 1 of the Institutional Scanner work
 // (2026-07-27). Every category here is derived from fields the scan ALREADY
@@ -27,25 +61,43 @@ const CATEGORIES = [
   { id: "daytrade", label: "⏱ Day Trade" },
 ];
 
-export default function RhProScanner({ C, MONO, SANS, macroData, setActiveTab }) {
+export default function RhProScanner({ C, MONO, SANS, macroData, sectorData, setActiveTab }) {
   const regime = computeRegime(macroData);
   const planTrade = (sym) => { try { localStorage.setItem("tradeplanner_load_sym", sym); } catch {} setActiveTab && setActiveTab("tradeplanner"); };
   const [rows, setRows] = useState([]); const [loading, setLoading] = useState(false);
   const [err, setErr] = useState(""); const [filter, setFilter] = useState(60); const [ranAt, setRanAt] = useState(null);
   const [category, setCategory] = useState("all");
+  const [track, setTrack] = useState(null); // real win-probability forward-return log
+  const [explain, setExplain] = useState(null); // { symbol, aplus, dimensions, label } | null
+
+  // Real sector-ETF % change map for Stock Quality's Sector Strength
+  // dimension — reuses sectorData/macroData, both already fetched app-wide
+  // (RhProHeatMap's exact pattern), zero new network cost.
+  const chg = x => Number(x?.changesPercentage ?? 0);
+  const sectorPerf = {};
+  (sectorData || []).forEach(s => { if (s?.symbol) sectorPerf[s.symbol] = chg(s); });
+  const spyQuote = (macroData || []).find(m => (m.symbol || "").toUpperCase() === "SPY");
+  if (spyQuote) sectorPerf.SPY = chg(spyQuote);
+
   const scan = () => {
     setLoading(true); setErr(""); setRows([]);
     let all = [];
     rhScreenProgressive(RH_UNIVERSE,
       (part) => {
-        all = [...all, ...part.map(x => ({ ...x, score: rhScore(x), aplus: computeAPlusScore(x, regime), next: computeNextAction(x) }))]
-          .sort((a, b) => (b.score - a.score) || ((b.rsRating || 0) - (a.rsRating || 0)));
+        all = [...all, ...part.map(x => {
+          const quality = stockQualityBreakdown(x, sectorPerf);
+          const aplus = computeAPlusScore(x, regime);
+          return { ...x, score: quality.score, quality, aplus, next: computeNextAction(x) };
+        })].sort((a, b) => (b.score - a.score) || ((b.rsRating || 0) - (a.rsRating || 0)));
         setRows(all); setRanAt(new Date());   // render as batches arrive
       },
       () => { setLoading(false); if (!all.length) setErr("No data returned — try RESCAN in a moment."); }
     );
   };
   useEffect(() => { scan(); }, []);
+  useEffect(() => {
+    fetch("/api/market/aplus-track").then(r => r.json()).then(d => { if (d?.ok) setTrack(d); }).catch(() => {});
+  }, []);
 
   // Category derivation — all real, all off fields the scan already returns.
   let categorized = rows;
@@ -108,10 +160,12 @@ export default function RhProScanner({ C, MONO, SANS, macroData, setActiveTab })
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, overflow: "auto", maxHeight: "70vh" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead><tr>
-            {["#", "SYMBOL", "AI SCORE", "A+ SCORE", "CONFIDENCE", "RISK", "PRICE", "RS", "TREND (8pt)", "STAGE", "SMC", "ACTION", "ENTRY → STOP"].map(h => <th key={h} style={th}>{h}</th>)}
+            {["#", "SYMBOL", "STOCK QUALITY", "TRADE SETUP", "WIN%", "CONFIDENCE", "RISK", "PRICE", "RS", "TREND (8pt)", "STAGE", "SMC", "ACTION", "ENTRY → STOP"].map(h => <th key={h} style={th}>{h}</th>)}
           </tr></thead>
           <tbody>
-            {shown.map((r, i) => (
+            {shown.map((r, i) => {
+              const win = track ? winProbFor(track, r.aplus?.score ?? r.score) : null;
+              return (
               <tr key={r.symbol} style={{ background: i % 2 ? "transparent" : `${C.surface}55` }}>
                 <td style={{ ...cell, color: C.textDim }}>{i + 1}</td>
                 <td style={{ ...cell, fontWeight: 900, color: C.text }}>
@@ -119,8 +173,26 @@ export default function RhProScanner({ C, MONO, SANS, macroData, setActiveTab })
                   <button onClick={() => planTrade(r.symbol)} title={`Plan this trade — opens Trade Planner with ${r.symbol} loaded`}
                     style={{ marginLeft: 6, fontSize: 10, border: `1px solid ${C.accent}`, background: `${C.accent}14`, color: C.accent, borderRadius: 4, padding: "1px 5px", cursor: "pointer" }}>🎯 plan</button>
                 </td>
-                <td style={cell}><span style={{ fontWeight: 900, color: scoreCol(r.score) }}>{r.score}</span>{r.atBuyPoint && <span style={{ marginLeft: 6, fontSize: 10, color: C.green }}>🎯</span>}</td>
-                <td style={cell}>{r.aplus && <span title={r.aplus.reasons.join(" · ")} style={{ fontWeight: 900, color: "#fff", background: r.aplus.score >= 80 ? "#0d9465" : r.aplus.score >= 60 ? "#d6a312" : "#c8282a", borderRadius: 4, padding: "1px 7px", cursor: "help" }}>{r.aplus.score}</span>}</td>
+                <td style={cell}>
+                  {r.quality && (
+                    <button onClick={() => setExplain({ symbol: r.symbol, aplus: r.quality, dimensions: STOCK_QUALITY_DIMENSIONS, label: "STOCK QUALITY SCORE" })}
+                      title="Click to see why this score, and what would raise it"
+                      style={{ font: "inherit", fontWeight: 900, color: scoreCol(r.score), background: "transparent", border: "none", cursor: "pointer", padding: 0 }}>
+                      {r.score} <span style={{ fontSize: 9, opacity: 0.7 }}>▸</span>
+                    </button>
+                  )}
+                  {r.atBuyPoint && <span style={{ marginLeft: 6, fontSize: 10, color: C.green }}>🎯</span>}
+                </td>
+                <td style={cell}>{r.aplus && (
+                  <button onClick={() => setExplain({ symbol: r.symbol, aplus: r.aplus, dimensions: TRADE_SETUP_DIMENSIONS, label: "TRADE SETUP SCORE" })}
+                    title="Click to see why this score, and what would raise it"
+                    style={{ font: "inherit", fontWeight: 900, color: "#fff", background: r.aplus.score >= 80 ? "#0d9465" : r.aplus.score >= 60 ? "#d6a312" : "#c8282a", border: "none", borderRadius: 4, padding: "1px 7px", cursor: "pointer" }}>{r.aplus.score}</button>
+                )}</td>
+                <td style={cell}>
+                  {win == null ? <span style={{ color: C.textDim, fontSize: 10 }}>—</span>
+                    : win.winRate != null ? <span title={`${win.count} real observations, ${win.horizon}-day forward, same score band`} style={{ fontWeight: 800, color: win.winRate >= 60 ? C.green : win.winRate >= 45 ? C.amber : C.red, cursor: "help" }}>{win.winRate}%</span>
+                    : <span title="Real forward-return log, but not enough observations yet in this score band" style={{ fontSize: 10, color: C.textDim, cursor: "help" }}>{win.count}/{MIN_WIN_SAMPLE} obs</span>}
+                </td>
                 <td style={cell}>{r.confidence != null && <span title="Breakout-engine confidence — base quality + how ready the setup is right now" style={{ fontWeight: 800, color: r.confidence >= 70 ? C.green : r.confidence >= 40 ? C.amber : C.textDim }}>{r.confidence}%</span>}</td>
                 <td style={cell}>{r.riskState && <span title="From the VCP risk report — base quality + breakout readiness" style={{ fontSize: 10, fontWeight: 900, color: r.riskState === "LOW" ? C.green : r.riskState === "MEDIUM" ? C.amber : C.red, border: `1px solid ${r.riskState === "LOW" ? C.green : r.riskState === "MEDIUM" ? C.amber : C.red}`, borderRadius: 4, padding: "1px 6px" }}>{r.riskState}</span>}</td>
                 <td style={{ ...cell, color: C.textSec }}>${Number(r.price || 0).toFixed(2)}</td>
@@ -147,12 +219,18 @@ export default function RhProScanner({ C, MONO, SANS, macroData, setActiveTab })
                 <td style={cell}>{r.next && <span title={r.next.reason} style={{ fontSize: 11, fontWeight: 900, color: r.next.color, border: `1px solid ${r.next.color}`, borderRadius: 4, padding: "1px 6px", cursor: "help" }}>{r.next.action}</span>}</td>
                 <td style={{ ...cell, fontSize: 11, color: C.textSec }}>{r.entry ? `$${Number(r.entry).toFixed(2)} → $${Number(r.stop).toFixed(2)}` : "—"}</td>
               </tr>
-            ))}
-            {!shown.length && !loading && <tr><td colSpan="13" style={{ ...cell, textAlign: "center", color: C.textDim }}>No setups meet this filter right now — lower the threshold or rescan.</td></tr>}
+              );
+            })}
+            {!shown.length && !loading && <tr><td colSpan="14" style={{ ...cell, textAlign: "center", color: C.textDim }}>No setups meet this filter right now — lower the threshold or rescan.</td></tr>}
           </tbody>
         </table>
       </div>
-      <div style={{ marginTop: 10, fontFamily: SANS, fontSize: 10, color: C.textDim }}>Score = Trend Template 50% · Relative Strength 25% · buy-zone timing 15% · volume 10%. Analysis only — execute manually.</div>
+      <div style={{ marginTop: 10, fontFamily: SANS, fontSize: 10, color: C.textDim }}>
+        Stock Quality = Trend 20 · RS 15 · Momentum 10 · Stage 10 · Volume Trend 15 · Sector Strength 15 · Fundamental 10 · Liquidity 5.
+        Trade Setup = Market Regime 20 · Entry Timing 20 · Breakout Confirmation 15 · Volume Confirmation 10 · Risk Discipline 20 · Support 10 · Volatility 5.
+        Win% = real forward-return log, same score band, min {MIN_WIN_SAMPLE} observations. Analysis only — execute manually.
+      </div>
+      {explain && <AiScoreExplainer C={C} MONO={MONO} SANS={SANS} symbol={explain.symbol} aplus={explain.aplus} dimensions={explain.dimensions} label={explain.label} onClose={() => setExplain(null)} />}
       </>
       )}
     </div>
