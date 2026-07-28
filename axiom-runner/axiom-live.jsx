@@ -3914,10 +3914,10 @@ export default function App() {
       BACKTEST: "backtest",
       ROTATION: "rotation",
       TOOLS: "tools",
-      // Added with the TOOLS group removal 2026-07-12.
-      DEALFINDER: "dealfinder",
-      FLIGHTFINDER: "flightfinder",
-      LEADRESPONDER: "leadresponder",
+      // DEALFINDER/FLIGHTFINDER/LEADRESPONDER removed 2026-07-28 (platform
+      // declutter audit — confirmed not trading-related, not in active use).
+      // Components/routes untouched, just unreachable now — same
+      // "hide, don't delete" convention as the rest of this map.
       SECTORS: "sectors",
       BREADTH: "breadth",
       COT: "cot",
@@ -3941,16 +3941,17 @@ export default function App() {
       DIPBUY: "dipbuy",
       TELEGRAM: "telegram",
       ADVISOR: "advisor",
-      MORNING: "morning-routine",
+      // MORNING/ACADEMY/COURSES/SCREENER removed 2026-07-28 (platform
+      // declutter audit) — Morning Routine + Briefing were more "what
+      // should I do" surfaces redundant with CEO AI; Academy/Courses
+      // collapsed into Learn (education-tab consolidation); Screener's job
+      // is now covered by Sniper Scanner. Components/routes untouched.
       COMPRESSION: "compression",
       TRENDTEMPLATE: "trendtemplate",
       EARLY: "early",
       CHALLENGE: "challenge",
-      ACADEMY: "academy",
-      COURSES: "courses",
       START: "start",
       AILAB: "ailab",
-      SCREENER: "screener",
       OPENSTOCK: "openstock",
       STOCKS: "openstock",
       ANALYST: "analyst",
@@ -3966,7 +3967,6 @@ export default function App() {
       HEATMAP: "heatmap",
       EARNCAL: "earn-cal",
       FEARGREED: "feargreed",
-      BRIEFING: "briefing",
       DIVIDEND: "ipo",
       RECAP: "recap",
       ADOL22: "adol22",
@@ -3978,14 +3978,11 @@ export default function App() {
       UNDER10: "under10",
       GAPFILL: "gapfill",
       SQUEEZE: "squeeze",
-      SMARTSCAN: "smartscan",
       OUTLOOK: "outlook",
       GLBACKTEST: "gl-backtest",
       PREDICTIONS: "predictions",
       JOURNAL: "journal",
       JSTATS: "journal-stats",
-      // Added with the LEARN nav trim 2026-07-12.
-      PROPATH: "propath",
       OPTIONSEDU: "options-edu",
       OPTIONS101: "options-edu",
       QURAN: "quran",

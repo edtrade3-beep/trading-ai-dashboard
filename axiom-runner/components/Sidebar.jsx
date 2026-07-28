@@ -14,28 +14,28 @@ export const SIDEBAR_ITEMS = [
   // 1. OVERVIEW — where the day starts: the single general landing page.
   { id: "dashboard", label: "Dashboard",     icon: "🏠", tab: "dashboard", section: "Overview" },
 
-  // 2. AI DESK — the four AI-brief/strategy tools, grouped together
-  // instead of scattered across Overview/Research & Intel (real finding
-  // from a site-reorg audit: these were split across 3 sections purely by
-  // shipping order, not by any logical distinction between them).
+  // 2. AI DESK — pared down 2026-07-28 per a real platform-declutter audit
+  // ("scan my platform... too many tools non needed"): CEO AI is the one
+  // real daily-briefing surface now (also the app's default landing tab).
+  // Command Center / Advisor AI answered the same "what should I do"
+  // question as CEO AI with different branding — hidden from the sidebar
+  // rather than deleted (still reachable via the command palette:
+  // COMMANDCENTER / ADVISORAI / CIO), same "hide, don't delete" convention
+  // as everything else not listed in this file.
   { id: "ceo-ai",    label: "CEO AI",        icon: "🧠", tab: "ceo-ai", section: "AI Desk" },
-  { id: "command-center", label: "Command Center", icon: "🛰️", tab: "command-center", badge: "NEW", section: "AI Desk" },
-  { id: "advisor-ai", label: "Advisor AI",   icon: "🏛️", tab: "advisor-ai", badge: "NEW", section: "AI Desk" },
   { id: "x-intel", label: "X Intelligence", icon: "🐦", tab: "x-intel", badge: "NEW", section: "AI Desk" },
 
   // 3. PRO AI — the "Robinhood Pro AI" cluster (RhPro*): a real, separate
   // scoring/analysis system (rhScore — Trend Template + RS + timing +
   // volume) from A+ Score/Green Light/Smart Scan elsewhere in this app,
-  // same "keep parallel scoring systems separate" rule. Fully built but
-  // had ZERO sidebar presence — only reachable if you already knew the
-  // exact command-palette keyword (APEX/SNIPER/DECK/SECTORHEAT/WATCHLISTS/
-  // AICOACH). Real regression found live 2026-07-27 ("i need pro system" —
-  // user couldn't find a system they knew existed). rhpro-journal is
-  // deliberately NOT added here — its own file comment says it's
-  // intentionally orphaned, superseded by the journal embedded live inside
-  // GreenLightTab.
-  { id: "rhpro",        label: "Pro Dashboard",  icon: "🗂️", tab: "rhpro",       section: "Pro AI" },
-  { id: "rhpro-apex",   label: "Trade Pro AI",   icon: "💎", tab: "rhpro-apex",  section: "Pro AI" },
+  // same "keep parallel scoring systems separate" rule. Pro Dashboard /
+  // Trade Pro AI removed from the sidebar in the same 2026-07-28 declutter
+  // pass — both are more "what should I do" bias/briefing cards
+  // (Trade Pro AI is also a paid ~15c-per-run generation), redundant with
+  // CEO AI; still reachable via the command palette (DECK / APEX).
+  // rhpro-journal is deliberately NOT added here — its own file comment
+  // says it's intentionally orphaned, superseded by the journal embedded
+  // live inside GreenLightTab.
   { id: "rhpro-scan",   label: "Sniper Scanner", icon: "🔭", tab: "rhpro-scan",  section: "Pro AI" },
   { id: "rhpro-lists",  label: "Pro Watchlists", icon: "📌", tab: "rhpro-lists", section: "Pro AI" },
   { id: "rhpro-heat",   label: "Sector Heat",    icon: "🌡️", tab: "rhpro-heat",  section: "Pro AI" },
