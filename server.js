@@ -335,6 +335,13 @@ server.listen(PORT, HOST, () => {
   setInterval(() => require("./src/watchlist-turn-alerts").checkWatchlistTurns().catch(() => {}), 15 * 60_000);
   console.log("[Watchlist turns] Buy/sell verdict-change alerts active — every 15 min, market hours only");
 
+  // Watchlist setup alerts — Phase 4 of the Institutional Scanner work
+  // (2026-07-28): real Trade Setup Score tradeable-tier crossing (≥70) and
+  // real buy-zone entry (atBuyPoint false→true), same persisted-diff
+  // pattern as the verdict-turn alert above, read-only.
+  setInterval(() => require("./src/watchlist-setup-alerts").checkWatchlistSetupAlerts().catch(() => {}), 15 * 60_000);
+  console.log("[Watchlist setup] Trade Setup Score + buy-zone alerts active — every 15 min, market hours only");
+
   // Market auto-watchlist — real, continuous scan of a curated ~96-symbol
   // universe that auto-adds any GO (ready to pop) or WATCH (actionable,
   // building) setup to the Watchlist (2026-07-26, explicit user request:
