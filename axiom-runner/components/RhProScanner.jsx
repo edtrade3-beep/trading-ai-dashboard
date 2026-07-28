@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { RH_UNIVERSE, rhScore, stockQualityBreakdown, rhScreenProgressive } from "./rhpro-shared.jsx";
 import { computeRegime, computeAPlusScore, computeNextAction, computePrediction } from "./market-helpers.js";
 import AiScoreExplainer, { TRADE_SETUP_DIMENSIONS, STOCK_QUALITY_DIMENSIONS } from "./AiScoreExplainer.jsx";
@@ -70,11 +70,22 @@ export default function RhProScanner({ C, MONO, SANS, macroData, sectorData, set
   // panels, reusing MarketTerminalTab as-is rather than duplicating any of
   // its real data or building a second chart.
   const openChart = (sym) => { try { localStorage.setItem("mterminal_load_sym", sym); localStorage.setItem("mterminal_back_to", "rhpro-scan"); } catch {} setActiveTab && setActiveTab("mterminal"); };
-  const [rows, setRows] = useState([]); const [loading, setLoading] = useState(false);
+  // rawRows holds only the real trend-screen data from the network — score
+  // computation is derived separately below (useMemo) so it always reflects
+  // the LATEST regime/sector data instead of freezing at scan time. Fixes a
+  // real gap: previously Sector Strength (and the whole Trade Setup Score,
+  // which depends on regime) could go stale between scans if sectorData/
+  // macroData hadn't loaded yet on mount, or if the regime shifted mid-
+  // session — now every score recomputes live off current inputs without
+  // needing a manual RESCAN.
+  const [rawRows, setRawRows] = useState([]); const [loading, setLoading] = useState(false);
   const [err, setErr] = useState(""); const [filter, setFilter] = useState(60); const [ranAt, setRanAt] = useState(null);
   const [category, setCategory] = useState("all");
   const [track, setTrack] = useState(null); // real win-probability forward-return log
   const [explain, setExplain] = useState(null); // { symbol, aplus, dimensions, label } | null
+  const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState(null); // null = default score-ranked order
+  const [sortDir, setSortDir] = useState("desc");
 
   // Real sector-ETF % change map for Stock Quality's Sector Strength
   // dimension — reuses sectorData/macroData, both already fetched app-wide
@@ -84,31 +95,44 @@ export default function RhProScanner({ C, MONO, SANS, macroData, sectorData, set
   (sectorData || []).forEach(s => { if (s?.symbol) sectorPerf[s.symbol] = chg(s); });
   const spyQuote = (macroData || []).find(m => (m.symbol || "").toUpperCase() === "SPY");
   if (spyQuote) sectorPerf.SPY = chg(spyQuote);
+  const sectorPerfKey = JSON.stringify(sectorPerf);
 
   const scan = () => {
-    setLoading(true); setErr(""); setRows([]);
+    setLoading(true); setErr(""); setRawRows([]);
     let all = [];
     rhScreenProgressive(RH_UNIVERSE,
-      (part) => {
-        all = [...all, ...part.map(x => {
-          const quality = stockQualityBreakdown(x, sectorPerf);
-          const aplus = computeAPlusScore(x, regime);
-          // Real prediction reused from PredictionsTab's engine, run on this
-          // same row (x doubles as both the quote and the trend input — no
-          // separate live-quote fetch here, so today's %-change/day-range
-          // component honestly defaults to neutral; the dominant Stage/RS/
-          // volume-driven scoring still runs in full).
-          return { ...x, score: quality.score, quality, aplus, next: computeNextAction(x), prediction: computePrediction(x, x) };
-        })].sort((a, b) => (b.score - a.score) || ((b.rsRating || 0) - (a.rsRating || 0)));
-        setRows(all); setRanAt(new Date());   // render as batches arrive
-      },
+      (part) => { all = [...all, ...part]; setRawRows(all); setRanAt(new Date()); },
       () => { setLoading(false); if (!all.length) setErr("No data returned — try RESCAN in a moment."); }
     );
   };
   useEffect(() => { scan(); }, []);
+  // Auto-refresh every 10 min during the session, same real "keep it fresh
+  // without a click" pattern Best Opportunities already uses (5 min there;
+  // 10 here since this is a heavier 60-symbol deep scan with SMC/predict).
+  // scan() only ever touches rawRows/loading/err/ranAt via stable setters —
+  // no stale-closure risk from the empty dep array.
+  useEffect(() => {
+    const t = setInterval(scan, 10 * 60 * 1000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   useEffect(() => {
     fetch("/api/market/aplus-track").then(r => r.json()).then(d => { if (d?.ok) setTrack(d); }).catch(() => {});
   }, []);
+
+  const rows = useMemo(() => {
+    return rawRows.map(x => {
+      const quality = stockQualityBreakdown(x, sectorPerf);
+      const aplus = computeAPlusScore(x, regime);
+      // Real prediction reused from PredictionsTab's engine, run on this
+      // same row (x doubles as both the quote and the trend input — no
+      // separate live-quote fetch here, so today's %-change/day-range
+      // component honestly defaults to neutral; the dominant Stage/RS/
+      // volume-driven scoring still runs in full).
+      return { ...x, score: quality.score, quality, aplus, next: computeNextAction(x), prediction: computePrediction(x, x) };
+    }).sort((a, b) => (b.score - a.score) || ((b.rsRating || 0) - (a.rsRating || 0)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rawRows, sectorPerfKey, regime?.score]);
 
   // Category derivation — all real, all off fields the scan already returns.
   let categorized = rows;
@@ -132,7 +156,33 @@ export default function RhProScanner({ C, MONO, SANS, macroData, sectorData, set
     categorized = [...rows].filter(r => r.aplus).sort((a, b) => (a.aplus.score || 0) - (b.aplus.score || 0)).slice(0, 10);
     categoryNote = "The real bottom of this scan by A+ Score — same pattern as Dashboard's Stocks to Avoid card.";
   }
-  const shown = category === "all" ? categorized.filter(r => filter === "buy" ? r.atBuyPoint : r.score >= filter) : categorized;
+  let shown = category === "all" ? categorized.filter(r => filter === "buy" ? r.atBuyPoint : r.score >= filter) : categorized;
+  if (search.trim()) {
+    const q = search.trim().toUpperCase();
+    shown = shown.filter(r => r.symbol.includes(q));
+  }
+
+  // Sortable columns — click a header to sort by that real field, click
+  // again to flip direction. Extracted here so both "all" and every real
+  // category (breakout/pullback/rvol/momentum/reversal/avoid) share the
+  // same sort behavior rather than only the default view.
+  const SORTABLE = {
+    quality: r => r.score,
+    setup: r => r.aplus?.score ?? -1,
+    win: r => (track ? winProbFor(track, r.aplus?.score ?? r.score)?.winRate : null) ?? -1,
+    confidence: r => r.confidence ?? -1,
+    price: r => Number(r.price) || 0,
+    rs: r => r.rsRating ?? -1,
+    trend: r => r.passCount ?? -1,
+  };
+  if (sortBy && SORTABLE[sortBy]) {
+    const acc = SORTABLE[sortBy];
+    shown = [...shown].sort((a, b) => (acc(a) - acc(b)) * (sortDir === "asc" ? 1 : -1));
+  }
+  const toggleSort = (key) => {
+    if (sortBy === key) setSortDir(d => d === "asc" ? "desc" : "asc");
+    else { setSortBy(key); setSortDir("desc"); }
+  };
 
   const scoreCol = s => s >= 80 ? C.green : s >= 65 ? "#5ab552" : s >= 50 ? C.amber : C.textDim;
   const cell = { fontFamily: MONO, fontSize: 12.5, padding: "8px 10px", borderBottom: `1px solid ${C.border}`, whiteSpace: "nowrap" };
@@ -142,8 +192,10 @@ export default function RhProScanner({ C, MONO, SANS, macroData, sectorData, set
     <div style={{ padding: "8px 4px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 10 }}>
         <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.text }}>🎯 AI SNIPER SCANNER PRO</div>
-        <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>{RH_UNIVERSE.length} stocks · ranked 0–100 · full chart on every row · {ranAt ? `scanned ${ranAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}</div>
-        <button onClick={scan} disabled={loading} style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "8px 16px", borderRadius: 8, border: "none", color: "#fff", background: loading ? C.textDim : C.accent, cursor: loading ? "default" : "pointer" }}>{loading ? "⏳ scanning…" : "↻ RESCAN"}</button>
+        <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>{RH_UNIVERSE.length} stocks · ranked 0–100 · full chart on every row · auto-refreshes every 10 min · {ranAt ? `scanned ${ranAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}</div>
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Find symbol…"
+          style={{ fontFamily: MONO, fontSize: 12, padding: "7px 10px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.surface, color: C.text, width: 140, marginLeft: "auto" }} />
+        <button onClick={scan} disabled={loading} style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "8px 16px", borderRadius: 8, border: "none", color: "#fff", background: loading ? C.textDim : C.accent, cursor: loading ? "default" : "pointer" }}>{loading ? "⏳ scanning…" : "↻ RESCAN"}</button>
       </div>
 
       {/* Category tabs — the "AI Ranking" categorized view */}
@@ -171,7 +223,15 @@ export default function RhProScanner({ C, MONO, SANS, macroData, sectorData, set
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, overflow: "auto", maxHeight: "70vh" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead><tr>
-            {["#", "SYMBOL", "STOCK QUALITY", "TRADE SETUP", "WIN%", "PRED (1WK)", "CONFIDENCE", "RISK", "PRICE", "RS", "TREND (8pt)", "STAGE", "SMC", "ACTION", "ENTRY → STOP"].map(h => <th key={h} style={th}>{h}</th>)}
+            {[
+              ["#", null], ["SYMBOL", null], ["STOCK QUALITY", "quality"], ["TRADE SETUP", "setup"], ["WIN%", "win"],
+              ["PRED (1WK)", null], ["CONFIDENCE", "confidence"], ["RISK", null], ["PRICE", "price"], ["RS", "rs"],
+              ["TREND (8pt)", "trend"], ["STAGE", null], ["SMC", null], ["ACTION", null], ["ENTRY → STOP", null],
+            ].map(([h, key]) => (
+              <th key={h} style={{ ...th, cursor: key ? "pointer" : "default" }} onClick={key ? () => toggleSort(key) : undefined} title={key ? "Click to sort" : undefined}>
+                {h}{sortBy === key && key ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
+              </th>
+            ))}
           </tr></thead>
           <tbody>
             {shown.map((r, i) => {
@@ -247,7 +307,7 @@ export default function RhProScanner({ C, MONO, SANS, macroData, sectorData, set
               </tr>
               );
             })}
-            {!shown.length && !loading && <tr><td colSpan="15" style={{ ...cell, textAlign: "center", color: C.textDim }}>No setups meet this filter right now — lower the threshold or rescan.</td></tr>}
+            {!shown.length && !loading && <tr><td colSpan="15" style={{ ...cell, textAlign: "center", color: C.textDim }}>{search.trim() ? `No symbol matching "${search.trim().toUpperCase()}" in this scan.` : "No setups meet this filter right now — lower the threshold or rescan."}</td></tr>}
           </tbody>
         </table>
       </div>
