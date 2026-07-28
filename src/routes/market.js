@@ -1,6 +1,7 @@
 const { writeJson, readRequestBody, withTimeout, fetchJsonSafe, round2, average, trimText } = require("../utils");
 const { callAnthropicApi, MODELS, anthropicRequest } = require("../anthropic");
 const { PORT, MARKET_QUOTE_TIMEOUT_MS, MACRO_SYMBOLS, TIMEFRAME_CONFIG, resolveProviderKeys } = require("../config");
+const { detectFVGs, detectOrderBlocks, detectBOSChoCh, detectLiquidityLevels } = require("../smc-engine");
 const {
   computeEMA, computeRSI, computeVWAP,
   detectTrend, detectStructure, detectDivergence, detectSimpleTrend,
@@ -1186,6 +1187,28 @@ async function _buildTrendTemplate(symbol, opts = {}) {
     verdictReason,
   };
 
+  // Real Smart Money Concepts signal, computed on the SAME bars already
+  // fetched above — zero additional network cost (Phase 2 of the
+  // Institutional Scanner work, 2026-07-28). Previously smc-engine.js's real
+  // detectors were only reachable one symbol at a time via /api/market/smc;
+  // this attaches a compact real summary to every trend-screen row instead
+  // of the full raw arrays, to keep row payloads small. Wrapped defensively
+  // — a detector failing on unusual bar data degrades to "no signal" rather
+  // than failing the whole trend-template build.
+  let smc = null;
+  try {
+    const { bos, choch } = detectBOSChoCh(bars);
+    const obs = detectOrderBlocks(bars);
+    const fvgs = detectFVGs(bars);
+    const liquidity = detectLiquidityLevels(bars);
+    smc = {
+      bos, choch,
+      nearestOB: obs.length ? obs.reduce((a, b) => Math.abs(b.mid - price) < Math.abs(a.mid - price) ? b : a) : null,
+      openFVGCount: fvgs.length,
+      nearestLiquidity: liquidity[0] || null,
+    };
+  } catch { /* SMC is informational-only — never block the real trend-template score */ }
+
   const result = {
     symbol,
     asOf: new Date(bars[last].time).toISOString(),
@@ -1205,6 +1228,7 @@ async function _buildTrendTemplate(symbol, opts = {}) {
     pctFromLow,
     criteria,
     setup,
+    smc,
   };
   if (opts.light) return result;
   result.bars = bars.map((b) => ({
@@ -1279,6 +1303,7 @@ async function screenTrendTemplate(symbols, filters = {}) {
           state: r.setup.breakout.state, signal: r.setup.breakout.signal, confidence: r.setup.breakout.confidence,
           vcpScore: r.setup.report.score, vcpVerdict: r.setup.report.verdict, riskState: r.setup.report.riskState,
           momentum: r.momentum, volRatio: r.volRatio, volConfirmed,
+          smc: r.smc || null,
           _passExclRS: passExclRS,
           atBuyPoint: r.passCount >= 7 && r.setup.actionable && !r.setup.extended,
         });

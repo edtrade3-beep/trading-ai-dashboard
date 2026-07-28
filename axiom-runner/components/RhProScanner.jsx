@@ -108,7 +108,7 @@ export default function RhProScanner({ C, MONO, SANS, macroData, setActiveTab })
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, overflow: "auto", maxHeight: "70vh" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead><tr>
-            {["#", "SYMBOL", "AI SCORE", "A+ SCORE", "CONFIDENCE", "RISK", "PRICE", "RS", "TREND (8pt)", "STAGE", "ACTION", "ENTRY → STOP"].map(h => <th key={h} style={th}>{h}</th>)}
+            {["#", "SYMBOL", "AI SCORE", "A+ SCORE", "CONFIDENCE", "RISK", "PRICE", "RS", "TREND (8pt)", "STAGE", "SMC", "ACTION", "ENTRY → STOP"].map(h => <th key={h} style={th}>{h}</th>)}
           </tr></thead>
           <tbody>
             {shown.map((r, i) => (
@@ -127,11 +127,28 @@ export default function RhProScanner({ C, MONO, SANS, macroData, setActiveTab })
                 <td style={{ ...cell, color: (r.rsRating || 0) >= 70 ? C.green : C.textSec }}>{r.rsRating ?? "—"}</td>
                 <td style={{ ...cell, color: C.textSec }}>{r.passCount ?? "?"}/8</td>
                 <td style={{ ...cell, fontSize: 11, color: (r.stage || "").includes("2") ? C.green : (r.stage || "").includes("4") ? C.red : C.textDim }}>{(r.stage || "").replace(/ —.*/, "").slice(0, 18) || "—"}</td>
+                <td style={cell}>
+                  {r.smc && (() => {
+                    const bull = r.smc.bos?.type === "BULL_BOS";
+                    const bear = r.smc.bos?.type === "BEAR_BOS";
+                    const tip = [
+                      r.smc.bos?.label, r.smc.choch?.label,
+                      r.smc.nearestOB ? `Nearest ${r.smc.nearestOB.type === "BULL_OB" ? "bullish" : "bearish"} order block ~$${r.smc.nearestOB.mid}` : null,
+                      r.smc.openFVGCount ? `${r.smc.openFVGCount} open fair value gap${r.smc.openFVGCount === 1 ? "" : "s"}` : null,
+                      r.smc.nearestLiquidity ? `Nearest liquidity: ${r.smc.nearestLiquidity.label} @ $${r.smc.nearestLiquidity.price}` : null,
+                    ].filter(Boolean).join(" · ") || "No real SMC signal right now";
+                    return (
+                      <span title={tip} style={{ fontSize: 10, fontWeight: 900, cursor: "help", color: bull ? C.green : bear ? C.red : C.textDim, border: `1px solid ${bull ? C.green : bear ? C.red : C.border}`, borderRadius: 4, padding: "1px 6px" }}>
+                        {bull ? "BOS ▲" : bear ? "BOS ▼" : "—"}
+                      </span>
+                    );
+                  })()}
+                </td>
                 <td style={cell}>{r.next && <span title={r.next.reason} style={{ fontSize: 11, fontWeight: 900, color: r.next.color, border: `1px solid ${r.next.color}`, borderRadius: 4, padding: "1px 6px", cursor: "help" }}>{r.next.action}</span>}</td>
                 <td style={{ ...cell, fontSize: 11, color: C.textSec }}>{r.entry ? `$${Number(r.entry).toFixed(2)} → $${Number(r.stop).toFixed(2)}` : "—"}</td>
               </tr>
             ))}
-            {!shown.length && !loading && <tr><td colSpan="10" style={{ ...cell, textAlign: "center", color: C.textDim }}>No setups meet this filter right now — lower the threshold or rescan.</td></tr>}
+            {!shown.length && !loading && <tr><td colSpan="13" style={{ ...cell, textAlign: "center", color: C.textDim }}>No setups meet this filter right now — lower the threshold or rescan.</td></tr>}
           </tbody>
         </table>
       </div>
