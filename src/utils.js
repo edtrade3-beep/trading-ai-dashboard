@@ -87,7 +87,24 @@ function writeJson(res, statusCode, payload) {
 // Forgiving env-flag check: on/true/1/yes/enabled (trimmed, case-insensitive).
 function isOn(v) { return ["on", "true", "1", "yes", "enabled"].includes(String(v || "").trim().toLowerCase()); }
 
+// Constant-time secret comparison — shared by every place in this app that
+// checks a submitted secret against a configured one (APP_PASSWORD,
+// TV_WEBHOOK_SECRET, ...), so there's one place to get this right instead
+// of each call site reinventing it (and risking a plain `===` compare,
+// which leaks timing information about how many leading characters matched).
+function safeCompare(submitted, stored) {
+  const crypto = require("node:crypto");
+  const a = Buffer.from(String(submitted));
+  const b = Buffer.from(String(stored));
+  if (a.length !== b.length) {
+    crypto.timingSafeEqual(b, b);
+    return false;
+  }
+  return crypto.timingSafeEqual(a, b);
+}
+
 module.exports = {
   round2, average, trimText, stripHtml, decodeXmlEntities, extractXmlTag,
-  withTimeout, fetchJsonSafe, readRequestBody, readRequestBodyBuffer, writeJson, isOn
+  withTimeout, fetchJsonSafe, readRequestBody, readRequestBodyBuffer, writeJson, isOn,
+  safeCompare
 };

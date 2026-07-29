@@ -1,16 +1,5 @@
-const crypto = require("node:crypto");
-const { readRequestBody, writeJson } = require("../utils");
+const { readRequestBody, writeJson, safeCompare } = require("../utils");
 const { APP_PASSWORD } = require("../config");
-
-function safeCompare(submitted, stored) {
-  const a = Buffer.from(String(submitted));
-  const b = Buffer.from(String(stored));
-  if (a.length !== b.length) {
-    crypto.timingSafeEqual(b, b);
-    return false;
-  }
-  return crypto.timingSafeEqual(a, b);
-}
 
 async function handleAuth(req, res, requestUrl) {
   const { pathname } = requestUrl;

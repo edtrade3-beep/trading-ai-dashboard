@@ -1,4 +1,4 @@
-const { writeJson, readRequestBody } = require("../utils");
+const { writeJson, readRequestBody, safeCompare } = require("../utils");
 const { TV_WEBHOOK_SECRET, TV_WEBHOOK_MAX_ROWS } = require("../config");
 const { sendTelegramAlert, isConfigured: telegramConfigured } = require("../telegram");
 const { loadAlerts, saveAlerts, prependAlert, deduplicateAlerts } = require("../alert-store");
@@ -8,7 +8,13 @@ const { addEntry: addJournalEntry } = require("../journal-store");
 let TV_WEBHOOK_ALERTS = deduplicateAlerts(loadAlerts());
 
 function isTradingViewWebhookAuthorized(requestUrl, req) {
-  if (!TV_WEBHOOK_SECRET) return true;
+  // Fail CLOSED, not open: an unset TV_WEBHOOK_SECRET used to mean "anyone
+  // can post fake alerts" (CTO audit, 2026-07-29, Critical #3) rather than
+  // "webhook disabled." Zero real webhook traffic was ever recorded on
+  // this endpoint (confirmed live: total:0 in /api/market/tv-alerts) before
+  // this fix shipped, so there's no live integration this could break —
+  // set TV_WEBHOOK_SECRET and pass ?token=... to actually use this route.
+  if (!TV_WEBHOOK_SECRET) return false;
   const queryToken = String(requestUrl.searchParams.get("token") || "").trim();
   const headerToken = String(req.headers["x-axiom-token"] || req.headers["x-webhook-token"] || "").trim();
   const authHeader = String(req.headers.authorization || "").trim();
@@ -17,7 +23,8 @@ function isTradingViewWebhookAuthorized(requestUrl, req) {
     bearer = authHeader.slice(7).trim();
   }
   const provided = queryToken || headerToken || bearer;
-  return provided === TV_WEBHOOK_SECRET;
+  if (!provided) return false;
+  return safeCompare(provided, TV_WEBHOOK_SECRET);
 }
 
 function scoreTradingViewPayload(text) {
@@ -128,7 +135,7 @@ async function handleWebhooks(req, res, requestUrl) {
       method: "POST",
       secured: Boolean(TV_WEBHOOK_SECRET),
       telegram: telegramConfigured(),
-      auth: TV_WEBHOOK_SECRET ? "query token (?token=...)" : "none",
+      auth: TV_WEBHOOK_SECRET ? "query token (?token=...)" : "disabled — set TV_WEBHOOK_SECRET to accept alerts",
       note: 'Send JSON from TradingView alerts. Example: {"symbol":"NVDA","side":"BUY","message":"Breakout above range"}'
     });
   }
