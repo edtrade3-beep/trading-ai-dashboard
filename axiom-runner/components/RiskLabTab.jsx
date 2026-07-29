@@ -7,6 +7,17 @@ export default function RiskLabTab({
         // Alpaca positions, Phase 3 of the Institutional Research Upgrade,
         // 2026-07-29). Was previously an inline client vol-ratio proxy
         // duplicated from risk-lab-calc.js; now one real source for both.
+        // `portfolioRows` here is the real Alpaca-positions feed built at
+        // the root app level (riskLabPositions in axiom-live.jsx) -- NOT
+        // the manual CSV/paste-import portfolioHoldings the Portfolio tab
+        // uses. Fixed 2026-07-29 (CTO audit item #3 + explicit user
+        // confirmation that Alpaca is the real/primary account): this
+        // component's own code always expected {ticker,shares,
+        // currentPrice,avgCost}, but was previously fed the manual list's
+        // {symbol,shares,avgCost,live,marketValue,...} shape -- meaning
+        // every position posted to /api/market/portfolio-risk silently had
+        // symbol:undefined and currentPrice:undefined regardless of which
+        // account it should have reflected.
         const [riskLab, setRiskLab] = React.useState(null);
         const [riskLabState, setRiskLabState] = React.useState("idle"); // idle | loading | ok | err
         const posKey = portfolioRows.map(p => `${p.ticker}:${p.shares}:${p.currentPrice || p.avgCost}`).join(",");
@@ -53,7 +64,7 @@ export default function RiskLabTab({
             {portfolioRows.length === 0 ? (
               <div style={{ ...card({ padding: 60, textAlign: "center" }) }}>
                 <div style={{ fontFamily: MONO, fontSize: 32, marginBottom: 12 }}>⚠</div>
-                <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>Add positions to Portfolio first</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>No open Alpaca positions</div>
               </div>
             ) : (
               <>

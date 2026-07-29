@@ -4889,6 +4889,32 @@ export default function App() {
     return { totalValue, totalCost, totalPnl, totalPnlPct, winners, losers, dayPnlTotal, dayPnlPct };
   }, [portfolioRows]);
 
+  // Real Alpaca positions for RiskLabTab (2026-07-29 fix, CTO audit item #3
+  // + user's explicit confirmation that Alpaca is the real/primary account,
+  // not the manual CSV/paste portfolioHoldings above). Same
+  // /api/alpaca/positions endpoint ActivePositionsCard/PortfolioSnapshotCard
+  // already poll, reshaped to {ticker,shares,currentPrice,avgCost} --
+  // RiskLabTab's own internal code (and its POST body to
+  // /api/market/portfolio-risk) was already written against exactly this
+  // shape; it had just never been fed data with these field names before
+  // (portfolioRows above uses `symbol`/nested `live.price`, not
+  // `ticker`/`currentPrice`), so real VaR/beta was silently computed off
+  // undefined fields for every position regardless of source.
+  const [alpacaPositions, setAlpacaPositions] = useState([]);
+  useEffect(() => {
+    const loadAlpacaPositions = () => {
+      fetch("/api/alpaca/positions").then((r) => r.json()).then((d) => {
+        if (d?.ok) setAlpacaPositions(Array.isArray(d.positions) ? d.positions : []);
+      }).catch(() => {});
+    };
+    loadAlpacaPositions();
+    const t = setInterval(loadAlpacaPositions, 60000);
+    return () => clearInterval(t);
+  }, []);
+  const riskLabPositions = useMemo(() => alpacaPositions.map((p) => ({
+    ticker: p.symbol, shares: Number(p.qty) || 0, currentPrice: Number(p.current) || 0, avgCost: Number(p.avgEntry) || 0,
+  })), [alpacaPositions]);
+
   // ── Daily Max Loss Lock check (after portfolioSummary is available) ───────────
   useEffect(() => {
     const dayPnl = portfolioSummary ? (portfolioSummary.dayPnlTotal || 0) : 0;
@@ -6827,7 +6853,7 @@ export default function App() {
       )}
 
       {activeTab === "risklab" && (
-        <RiskLabTab C={C} MONO={MONO} portfolioRows={portfolioRows} scanDeepData={scanDeepData} />
+        <RiskLabTab C={C} MONO={MONO} portfolioRows={riskLabPositions} scanDeepData={scanDeepData} />
       )}
 
       {activeTab === "ailab" && (
