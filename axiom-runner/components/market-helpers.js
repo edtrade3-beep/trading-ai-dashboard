@@ -201,6 +201,139 @@ export function computeAPlusScore(row, regime) {
   return { score, reasons, cautions, breakdown: { regimePts, entryPts, breakoutPts, volPts, riskPts, supportPts, volatilityPts }, passCount };
 }
 
+// Institutional Grade — a 3rd, additive score (explicit user request,
+// 2026-07-29): "one combined institutional-style grade" blending real
+// fundamentals + technicals + smart money + options flow + macro + sector
+// into a single 0-100 read. Deliberately does NOT replace or fold into
+// Stock Quality Score or Trade Setup Score — those keep measuring what
+// they've always measured (company/trend quality, and today's entry
+// timing); this is a separate, broader "does the full real picture line
+// up" read, same "additive, not merged" convention already used for every
+// other score on this platform. Every dimension reuses a real field
+// already fetched elsewhere (trend-screen row, chart.technicals from
+// Phase 2, fundamentals overlay, regime, sector rank, a real options-flow
+// summary) — zero fabricated numbers; missing real data gets an honest
+// mid-point credit, never a guess.
+export function computeInstitutionalGrade(row, technicals, regime, sectorInfo, optionsFlow) {
+  // 1. Trend Structure (20) — same real Minervini template pass count used elsewhere.
+  const passCount = Number(row?.passCount);
+  const trendPts = Number.isFinite(passCount) ? Math.round((passCount / 8) * 20) : 10;
+
+  // 2. Technical Confirmation (15) — real ADX trend-strength/direction (Phase 2).
+  const adx = technicals?.adx;
+  let technicalPts = 7; // honest neutral midpoint when ADX isn't computable yet
+  if (adx) {
+    if (adx.strength === "Strong") technicalPts = adx.direction === "Bullish" ? 15 : adx.direction === "Bearish" ? 2 : 8;
+    else if (adx.strength === "Developing") technicalPts = adx.direction === "Bullish" ? 11 : adx.direction === "Bearish" ? 5 : 8;
+    else technicalPts = 8; // Weak/Range — genuinely no real trend signal either way
+  }
+
+  // 3. Smart Money (15) — real BOS/ChoCh/order-block structure (smc-engine.js),
+  // already attached to every trend-screen row (Phase 2 of the Institutional Scanner work).
+  const smc = row?.smc;
+  let smartMoneyPts = 8; // honest neutral — no clear real structure signal
+  if (smc?.bos?.type === "BULL_BOS") smartMoneyPts = 15;
+  else if (smc?.bos?.type === "BEAR_BOS") smartMoneyPts = 3;
+  else if (smc?.choch?.type === "CHOCH_BULL") smartMoneyPts = 12;
+  else if (smc?.choch?.type === "CHOCH_BEAR") smartMoneyPts = 5;
+  else if (smc?.nearestOB?.type === "BULL_OB") smartMoneyPts = 10;
+  else if (smc?.nearestOB?.type === "BEAR_OB") smartMoneyPts = 6;
+
+  // 4. Options Flow (15) — real call/put notional bias, when a real flow read is available.
+  const callN = Number(optionsFlow?.callNotional), putN = Number(optionsFlow?.putNotional);
+  const flowTotal = (Number.isFinite(callN) ? callN : 0) + (Number.isFinite(putN) ? putN : 0);
+  const flowRatio = flowTotal > 0 ? callN / flowTotal : null;
+  const optionsFlowPts = flowRatio != null ? Math.max(1, Math.min(15, Math.round(flowRatio * 14) + 1)) : 8;
+
+  // 5. Fundamentals (15) — same real forward-vs-trailing EPS growth field
+  // Stock Quality Score's own Fundamental Strength dimension uses, just
+  // re-weighted here (this score's job is to blend it with the other real
+  // categories below, not to duplicate that dimension's exact 10pt scale).
+  const epsGrowth = Number(row?.epsGrowth);
+  const fundamentalPts = Number.isFinite(epsGrowth) ? Math.round(Math.max(0, Math.min(1, (epsGrowth + 10) / 30)) * 15) : 7;
+
+  // 6. Macro Regime (10) — same real 4-band SPY/QQQ/VIX regime used everywhere else.
+  const macroPts = Math.round((Number(regime?.score) || 0) / 100 * 10);
+
+  // 7. Sector Strength (10) — real sector-ETF rank today (1 = strongest of 11).
+  const sectorPts = sectorInfo?.rank ? Math.round(((11 - sectorInfo.rank + 1) / 11) * 10) : 5;
+
+  const score = Math.max(0, Math.min(100, trendPts + technicalPts + smartMoneyPts + optionsFlowPts + fundamentalPts + macroPts + sectorPts));
+  const reasons = [
+    Number.isFinite(passCount) ? `${passCount}/8 real Minervini trend-template criteria pass` : "Trend template data unavailable",
+    adx ? `ADX ${adx.adx} (${adx.strength}), ${adx.direction} — +DI ${adx.plusDI} / -DI ${adx.minusDI}` : "ADX unavailable (insufficient history)",
+    smc?.bos?.type ? smc.bos.label : smc?.choch?.type ? smc.choch.label : smc?.nearestOB?.type ? `Nearest real order block: ${smc.nearestOB.type === "BULL_OB" ? "bullish" : "bearish"}` : "No clear real market-structure signal",
+    flowRatio != null ? `Real options flow ${Math.round(flowRatio * 100)}% call-weighted notional` : "Options flow data unavailable",
+    Number.isFinite(epsGrowth) ? `EPS growth (fwd vs TTM): ${epsGrowth >= 0 ? "+" : ""}${epsGrowth}%` : "Forward EPS data unavailable",
+    `Market regime ${regime?.label || "?"} (${regime?.score ?? "?"}/100)`,
+    sectorInfo?.rank ? `Sector rank #${sectorInfo.rank}/${sectorInfo.of} today` : "Sector rank unavailable",
+  ];
+  return {
+    score, reasons, cautions: [],
+    breakdown: { trendPts, technicalPts, smartMoneyPts, optionsFlowPts, fundamentalPts, macroPts, sectorPts },
+  };
+}
+
+// Letter-grade read for computeInstitutionalGrade's 0-100 score — a
+// bond/institutional-rating style label (distinct visual language from the
+// numeric-only Stock Quality/Trade Setup badges) since this score is
+// explicitly framed as an "institutional grade", not a raw setup score.
+export function institutionalLetterGrade(score) {
+  if (score >= 90) return "A+";
+  if (score >= 80) return "A";
+  if (score >= 70) return "B+";
+  if (score >= 60) return "B";
+  if (score >= 50) return "C";
+  if (score >= 35) return "D";
+  return "F";
+}
+
+// Strong Buy / Buy / Hold / Sell / Strong Sell + star count — a real,
+// deterministic label on computeInstitutionalGrade's real 0-100 score
+// (explicit user request, 2026-07-29, "AI Score Card" concept). Not a
+// separate AI call or a new number — the same score, just given the plain-
+// English recommendation label institutional research platforms use.
+export function institutionalRecommendation(score) {
+  if (score >= 85) return { label: "Strong Buy", stars: 5, color: "#0d9465" };
+  if (score >= 70) return { label: "Buy", stars: 4, color: "#22a06b" };
+  if (score >= 45) return { label: "Hold", stars: 3, color: "#d6a312" };
+  if (score >= 25) return { label: "Sell", stars: 2, color: "#e07b1a" };
+  return { label: "Strong Sell", stars: 1, color: "#c8282a" };
+}
+
+// Real win-probability lookup — moved here from RhProScanner.jsx
+// (2026-07-29, so MarketTerminalTab's AI Score Card can reuse the exact
+// same real number instead of re-deriving it) — Phase 3 of the
+// Institutional Scanner work originally. Reuses /api/market/aplus-track's
+// real forward-return log (aplus-score-history.js), bucketed by the row's
+// real Trade Setup Score band. Prefers a longer real horizon (more
+// representative of a swing hold) but falls back to whichever horizon
+// actually has enough real samples. Below MIN_WIN_SAMPLE real observations,
+// returns the honest sample count instead of a fabricated-looking
+// percentage — this platform's forward log is one ~60-symbol daily
+// snapshot, never thousands of setups.
+export const MIN_WIN_SAMPLE = 10;
+export function winProbBucketOf(score) {
+  if (score >= 80) return "80-100";
+  if (score >= 60) return "60-79";
+  if (score >= 40) return "40-59";
+  return "0-39";
+}
+export function winProbFor(track, score) {
+  if (!track?.horizons) return null;
+  const bucket = winProbBucketOf(score);
+  for (const h of ["d20", "d10", "d5", "d60"]) {
+    const b = track.horizons[h]?.buckets?.[bucket];
+    if (b && b.count >= MIN_WIN_SAMPLE) return { winRate: b.winRate, count: b.count, horizon: h.slice(1) };
+  }
+  let best = null;
+  for (const h of ["d20", "d10", "d5", "d60"]) {
+    const b = track.horizons[h]?.buckets?.[bucket];
+    if (b && (!best || b.count > best.count)) best = { count: b.count, horizon: h.slice(1) };
+  }
+  return best ? { winRate: null, count: best.count, horizon: best.horizon } : null;
+}
+
 // Fibonacci retracement/extension levels from real daily candle bars — the
 // same pure calculation FibonacciTab's fetchFibonacci originally had
 // inline, extracted here so it can also auto-run on every stock's

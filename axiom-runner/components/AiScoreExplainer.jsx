@@ -37,6 +37,22 @@ export const STOCK_QUALITY_DIMENSIONS = [
 ];
 const STOCK_QUALITY_LABEL = "STOCK QUALITY SCORE";
 
+// Institutional Grade — 3rd, additive score (explicit user request,
+// 2026-07-29, "one combined institutional-style grade"). See
+// computeInstitutionalGrade in market-helpers.js for why each dimension is
+// weighted the way it is. Key order MUST match that function's breakdown
+// key order AND reasons[] array order, same rule as the two configs above.
+export const INSTITUTIONAL_GRADE_DIMENSIONS = [
+  { key: "trendPts", max: 20, label: "Trend Structure", improve: "More of the 8 real Minervini trend-template criteria need to pass." },
+  { key: "technicalPts", max: 15, label: "Technical Confirmation", improve: "Real ADX trend strength/direction needs to turn more clearly bullish." },
+  { key: "smartMoneyPts", max: 15, label: "Smart Money", improve: "Needs a real bullish break of structure or order block nearby." },
+  { key: "optionsFlowPts", max: 15, label: "Options Flow", improve: "Real options notional needs to skew more call-weighted." },
+  { key: "fundamentalPts", max: 15, label: "Fundamentals", improve: "Forward EPS growth vs trailing EPS needs to improve." },
+  { key: "macroPts", max: 10, label: "Macro Regime", improve: "Market-wide, not stock-specific — recovers as SPY/QQQ/VIX conditions turn more favorable." },
+  { key: "sectorPts", max: 10, label: "Sector Strength", improve: "This stock's real sector ETF needs to rank higher among the 11 S&P sectors today." },
+];
+const INSTITUTIONAL_GRADE_LABEL = "INSTITUTIONAL GRADE";
+
 // Back-compat default — existing call sites (Trade Planner) that don't pass
 // a dimensions/title prop keep the original A+ Score framing untouched.
 const DIMENSIONS = TRADE_SETUP_DIMENSIONS;

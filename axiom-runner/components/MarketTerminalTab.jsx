@@ -16,8 +16,11 @@ import {
 // populates avgVolume) and had no score at all. Real trend-screen data,
 // same A+ Score used everywhere else this session — additive, not a new
 // 4th scoring system.
-import { computeAPlusScore, computeRegime, computePrediction, STOCK_TO_SECTOR, SECTOR_ETFS } from "./market-helpers.js";
-import AiScoreExplainer, { AplusBadge, TRADE_SETUP_DIMENSIONS, STOCK_QUALITY_DIMENSIONS } from "./AiScoreExplainer.jsx";
+import {
+  computeAPlusScore, computeRegime, computePrediction, STOCK_TO_SECTOR, SECTOR_ETFS,
+  computeInstitutionalGrade, institutionalLetterGrade, institutionalRecommendation, winProbFor,
+} from "./market-helpers.js";
+import AiScoreExplainer, { AplusBadge, TRADE_SETUP_DIMENSIONS, STOCK_QUALITY_DIMENSIONS, INSTITUTIONAL_GRADE_DIMENSIONS } from "./AiScoreExplainer.jsx";
 import { stockQualityBreakdown } from "./rhpro-shared.jsx";
 
 // Combined Market-Terminal page: movers leaderboard on the left, pro chart with
@@ -190,6 +193,29 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
       .catch(() => {});
   }, [sym]);
 
+  // Real call/put notional summary for the loaded symbol — the one input
+  // the new Institutional Grade / AI Score Card (below) needs that isn't
+  // already fetched elsewhere on this page. Lightweight (limit=1, only the
+  // summary block is used, not the contract list already shown in full on
+  // the Options Flow tab). Explicit user request 2026-07-29 ("institutional
+  // AI grade") — additive, doesn't touch Stock Quality/Trade Setup scores.
+  const [symOptionsFlow, setSymOptionsFlow] = useState(null);
+  useEffect(() => {
+    if (!sym) return;
+    setSymOptionsFlow(null);
+    fetch(`/api/market/options-flow?symbols=${encodeURIComponent(sym)}&limit=1`)
+      .then(r => r.json())
+      .then(j => setSymOptionsFlow(j && !j.error ? j.summary || null : null))
+      .catch(() => {});
+  }, [sym]);
+
+  // Real forward-return win-probability log — market-wide, fetched once
+  // (not per-symbol), same real source RhProScanner already uses.
+  const [aplusTrack, setAplusTrack] = useState(null);
+  useEffect(() => {
+    fetch("/api/market/aplus-track").then(r => r.json()).then(d => { if (d?.ok) setAplusTrack(d); }).catch(() => {});
+  }, []);
+
   const [wlMsg, setWlMsg] = useState("");
   const addToWatchlist = useCallback(() => {
     const s = String(sym || "").trim().toUpperCase();
@@ -275,6 +301,24 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
     return rank > 0 ? { name: info?.name || symSectorEtf, rank, of: ranked.length, chg: info?.chg } : null;
   })();
   const [explain, setExplain] = useState(null); // { symbol, aplus, dimensions, label } | null
+
+  // AI Score Card — explicit user request 2026-07-29 ("institutional AI
+  // grade"). Every field below reuses a real, already-computed value
+  // (nothing here is a new fabricated metric): Overall Grade blends real
+  // trend/technicals/smart-money/options-flow/fundamentals/macro/sector
+  // (computeInstitutionalGrade — additive, does not touch Stock Quality or
+  // Trade Setup Score). Confidence/Expected Move reuse the same real
+  // computePrediction engine already driving the "Quick Read" card lower on
+  // this page. Probability of Success reuses the exact real forward-return
+  // win-rate log (aplus-track) RhProScanner already surfaces, honestly gated
+  // below its real sample floor. Risk Level reuses the real ATR-based
+  // riskPct already computed server-side for every trend-screen row.
+  // Holding Time is deliberately NOT included — there's no real per-stock
+  // time-to-target dataset in this app to draw it from honestly.
+  const institutionalGrade = (symTrend && chart) ? computeInstitutionalGrade(symTrend, chart.technicals, regime, symSectorInfo, symOptionsFlow) : null;
+  const prediction = chart ? computePrediction(chart, chart) : null;
+  const winProb = (symTrend && aplusTrack) ? winProbFor(aplusTrack, computeAPlusScore(symTrend, regime).score) : null;
+  const riskLevel = symTrend?.riskPct != null ? (symTrend.riskPct <= 5 ? "Low" : symTrend.riskPct <= 8 ? "Medium" : "High") : null;
   const pct = (v) => v == null ? "—" : (v > 0 ? "+" : "") + v.toFixed(2) + "%";
   const col = (v) => v == null ? C.textDim : v > 0 ? "#22d47e" : v < 0 ? "#ef4444" : C.text;
   // Day-change % for the loaded symbol, looked up across all movers buckets.
@@ -506,6 +550,56 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             })()}
           </div>
         )}
+        {/* AI SCORE CARD — explicit user request 2026-07-29 ("institutional
+            AI grade"). Overall Grade is the new, additive Institutional
+            Grade (computeInstitutionalGrade, market-helpers.js) — Stock
+            Quality Score and Trade Setup Score above are untouched.
+            Recommendation/stars are a deterministic label on that same real
+            score. Confidence and Expected Move reuse the real computePrediction
+            engine (same one driving the Quick Read card below). Probability
+            of Success reuses the real aplus-track forward-return win-rate
+            log, honestly gated below its real sample floor. Risk Level
+            reuses the real ATR-based riskPct already on every trend-screen
+            row. No fabricated metrics (no DCF, no gamma exposure, no 13F,
+            etc — see the plan's "explicitly NOT building" list). */}
+        {institutionalGrade && (() => {
+          const rec = institutionalRecommendation(institutionalGrade.score);
+          const letter = institutionalLetterGrade(institutionalGrade.score);
+          const stat = (label, val, col, title) => (
+            <div title={title} style={{ minWidth: 110, cursor: title ? "help" : "default" }}>
+              <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim, letterSpacing: 0.5 }}>{label}</div>
+              <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 800, color: col || C.text }}>{val}</div>
+            </div>
+          );
+          const riskCol = riskLevel === "Low" ? "#22d47e" : riskLevel === "Medium" ? "#d6a312" : riskLevel === "High" ? "#ef4444" : C.text;
+          return (
+            <div style={{ marginBottom: 10, border: `1px solid ${rec.color}55`, borderRadius: 12, padding: "14px 16px", background: `${rec.color}0c` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
+                <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 900, color: C.text }}>🏛 AI SCORE CARD</div>
+                <button onClick={() => setExplain({ symbol: sym, aplus: institutionalGrade, dimensions: INSTITUTIONAL_GRADE_DIMENSIONS, label: "INSTITUTIONAL GRADE" })}
+                  title="Click to see the full real breakdown"
+                  style={{ display: "inline-flex", alignItems: "baseline", gap: 8, fontFamily: MONO, fontWeight: 900, color: rec.color, background: `${rec.color}18`,
+                    border: `1px solid ${rec.color}55`, borderRadius: 8, padding: "4px 12px", cursor: "pointer" }}>
+                  <span style={{ fontSize: 20 }}>{letter}</span>
+                  <span style={{ fontSize: 13 }}>{institutionalGrade.score}/100</span>
+                  <span style={{ fontSize: 11, opacity: 0.85 }}>▸ why?</span>
+                </button>
+                <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: rec.color }}>
+                  {"★".repeat(rec.stars)}{"☆".repeat(5 - rec.stars)} {rec.label}
+                </span>
+              </div>
+              <div style={{ display: "flex", gap: 22, rowGap: 10, flexWrap: "wrap" }}>
+                {stat("CONFIDENCE", prediction ? `${prediction.conf}%` : "—", null, prediction ? "Real confidence from the same trend/volume/momentum engine as the Quick Read below" : null)}
+                {stat("EXPECTED MOVE (1WK)", prediction ? `${prediction.movePct >= 0 ? "+" : ""}${prediction.movePct}%` : "—", prediction ? (prediction.movePct > 0 ? "#22d47e" : prediction.movePct < 0 ? "#ef4444" : C.text) : null, prediction ? `Target $${prediction.target} — real, deterministic, trend-template based` : null)}
+                {stat("RISK LEVEL", riskLevel || "—", riskLevel ? riskCol : null, symTrend?.riskPct != null ? `${symTrend.riskPct.toFixed(1)}% real ATR-based distance to stop` : null)}
+                {stat("PROB. OF SUCCESS", winProb?.winRate != null ? `${winProb.winRate}%` : winProb?.count != null ? `n=${winProb.count} (need ${10})` : "—",
+                  winProb?.winRate != null ? (winProb.winRate >= 55 ? "#22d47e" : winProb.winRate >= 45 ? "#d6a312" : "#ef4444") : C.textDim,
+                  winProb?.winRate != null ? `Real forward ${winProb.horizon}-day win rate for this Trade Setup Score band, n=${winProb.count}` : "Real forward-return log exists but sample is below the honest floor for this score band")}
+                {stat("HOLDING TIME", "—", C.textDim, "Not built — no real per-stock time-to-target dataset exists in this app to draw an honest number from")}
+              </div>
+            </div>
+          );
+        })()}
         {/* ── Per-symbol detail tabs ──
             "Symbol News" not bare "News" — this is a per-symbol detail
             tab, and the Sidebar has its own separate, global "📰 News"
@@ -565,8 +659,10 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
               // so it shows inline with whatever's already loaded here
               // instead of needing its own tab). Distinct from AiPredictPanel
               // below, which is a manual, paid (Fable) AI-generated target —
-              // this one is always-on and costs nothing.
-              const p = computePrediction(chart, chart);
+              // this one is always-on and costs nothing. Reuses the `prediction`
+              // computed once above (also feeds the new AI Score Card) instead
+              // of recomputing the same real read twice.
+              const p = prediction;
               if (!p) return null;
               const dirCol = p.dir.includes("BULL") || p.dir === "LEAN UP" ? C.green : p.dir.includes("BEAR") || p.dir === "LEAN DOWN" ? C.red : C.textDim;
               const dirIcon = p.dir.includes("BULL") || p.dir === "LEAN UP" ? "📈" : p.dir.includes("BEAR") || p.dir === "LEAN DOWN" ? "📉" : "➡️";

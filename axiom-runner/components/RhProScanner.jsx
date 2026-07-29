@@ -1,42 +1,12 @@
 import { useState, useEffect, useMemo } from "react";
 import { RH_UNIVERSE, rhScore, stockQualityBreakdown, rhScreenProgressive } from "./rhpro-shared.jsx";
-import { computeRegime, computeAPlusScore, computeNextAction, computePrediction } from "./market-helpers.js";
+import { computeRegime, computeAPlusScore, computeNextAction, computePrediction, winProbFor } from "./market-helpers.js";
 import AiScoreExplainer, { TRADE_SETUP_DIMENSIONS, STOCK_QUALITY_DIMENSIONS } from "./AiScoreExplainer.jsx";
 import GapScanner from "./GapScanner.jsx";
 import DayTradeTab from "./DayTradeTab.jsx";
-
-// Real win-probability lookup — Phase 3 of the Institutional Scanner work
-// (2026-07-28). Reuses /api/market/aplus-track's existing real forward-return
-// log (aplus-score-history.js), bucketed by the row's real Trade Setup
-// Score band. Prefers a longer real horizon (more representative of a swing
-// hold) but falls back to whichever horizon actually has enough real
-// samples. Below MIN_WIN_SAMPLE real observations, returns null — the UI
-// then shows the honest sample count instead of a fabricated-looking
-// percentage (this platform's forward log is one ~60-symbol daily snapshot,
-// never thousands of setups).
-const MIN_WIN_SAMPLE = 10;
-function bucketOf(score) {
-  if (score >= 80) return "80-100";
-  if (score >= 60) return "60-79";
-  if (score >= 40) return "40-59";
-  return "0-39";
-}
-function winProbFor(track, score) {
-  if (!track?.horizons) return null;
-  const bucket = bucketOf(score);
-  for (const h of ["d20", "d10", "d5", "d60"]) {
-    const b = track.horizons[h]?.buckets?.[bucket];
-    if (b && b.count >= MIN_WIN_SAMPLE) return { winRate: b.winRate, count: b.count, horizon: h.slice(1) };
-  }
-  // Real data exists but every horizon is under the honest sample floor —
-  // surface the largest real count so the UI can say exactly how far short.
-  let best = null;
-  for (const h of ["d20", "d10", "d5", "d60"]) {
-    const b = track.horizons[h]?.buckets?.[bucket];
-    if (b && (!best || b.count > best.count)) best = { count: b.count, horizon: h.slice(1) };
-  }
-  return best ? { winRate: null, count: best.count, horizon: best.horizon } : null;
-}
+// winProbFor/bucketOf/MIN_WIN_SAMPLE moved to market-helpers.js (2026-07-29)
+// so MarketTerminalTab's new AI Score Card can reuse the exact same real
+// win-probability lookup instead of re-deriving it independently.
 
 // ── Categorized ranking — Phase 1 of the Institutional Scanner work
 // (2026-07-27). Every category here is derived from fields the scan ALREADY
