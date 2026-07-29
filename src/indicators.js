@@ -150,6 +150,98 @@ function computeMACDSeries(bars, fastPeriod = 12, slowPeriod = 26, signalPeriod 
   return { line, signal, histogram };
 }
 
+// Wilder's Average Directional Index — real trend-strength read (0-100,
+// >=25 conventionally "trending", <20 "range/no trend"), plus +DI/-DI so
+// the caller can also say which direction. Computed on the same daily bars
+// buildTrendTemplate already fetches — no new data source (Phase 2 of the
+// Institutional Research Upgrade, 2026-07-29).
+function computeADX(bars, period = 14) {
+  if (!Array.isArray(bars) || bars.length < period * 2) return null;
+  const plusDM = [], minusDM = [], tr = [];
+  for (let i = 1; i < bars.length; i += 1) {
+    const upMove = bars[i].high - bars[i - 1].high;
+    const downMove = bars[i - 1].low - bars[i].low;
+    plusDM.push(upMove > downMove && upMove > 0 ? upMove : 0);
+    minusDM.push(downMove > upMove && downMove > 0 ? downMove : 0);
+    tr.push(Math.max(
+      bars[i].high - bars[i].low,
+      Math.abs(bars[i].high - bars[i - 1].close),
+      Math.abs(bars[i].low - bars[i - 1].close)
+    ));
+  }
+  // Wilder smoothing: running sum, each step = prior - prior/period + new value.
+  const wilderSmooth = (values) => {
+    const out = new Array(values.length).fill(null);
+    let sum = 0;
+    for (let i = 0; i < period; i += 1) sum += values[i];
+    out[period - 1] = sum;
+    for (let i = period; i < values.length; i += 1) {
+      sum = sum - (sum / period) + values[i];
+      out[i] = sum;
+    }
+    return out;
+  };
+  const trSmooth = wilderSmooth(tr);
+  const plusDMSmooth = wilderSmooth(plusDM);
+  const minusDMSmooth = wilderSmooth(minusDM);
+
+  const dx = new Array(tr.length).fill(null);
+  for (let i = period - 1; i < tr.length; i += 1) {
+    if (!trSmooth[i]) { dx[i] = 0; continue; }
+    const plusDI = 100 * (plusDMSmooth[i] / trSmooth[i]);
+    const minusDI = 100 * (minusDMSmooth[i] / trSmooth[i]);
+    const sum = plusDI + minusDI;
+    dx[i] = sum ? 100 * Math.abs(plusDI - minusDI) / sum : 0;
+  }
+  const validDx = dx.filter((v) => v != null);
+  if (validDx.length < period) return null;
+
+  let adx = average(validDx.slice(0, period));
+  for (let i = period; i < validDx.length; i += 1) {
+    adx = (adx * (period - 1) + validDx[i]) / period;
+  }
+
+  const lastIdx = tr.length - 1;
+  const plusDI = trSmooth[lastIdx] ? 100 * (plusDMSmooth[lastIdx] / trSmooth[lastIdx]) : 0;
+  const minusDI = trSmooth[lastIdx] ? 100 * (minusDMSmooth[lastIdx] / trSmooth[lastIdx]) : 0;
+  const strength = adx >= 25 ? "Strong" : adx >= 20 ? "Developing" : "Weak/Range";
+  const direction = plusDI > minusDI ? "Bullish" : minusDI > plusDI ? "Bearish" : "Neutral";
+  return { adx: round2(adx), plusDI: round2(plusDI), minusDI: round2(minusDI), strength, direction };
+}
+
+// Donchian Channel — highest high / lowest low over the trailing window,
+// plus where price sits inside that range today (0% = at the lower band,
+// 100% = at the upper band). Same real daily bars, no new fetch.
+function computeDonchian(bars, period = 20) {
+  if (!Array.isArray(bars) || bars.length < period) return null;
+  const recent = bars.slice(-period);
+  const upper = Math.max(...recent.map((b) => b.high));
+  const lower = Math.min(...recent.map((b) => b.low));
+  const price = bars[bars.length - 1].close;
+  const pctPosition = upper !== lower ? round2(((price - lower) / (upper - lower)) * 100) : 50;
+  return { upper: round2(upper), lower: round2(lower), mid: round2((upper + lower) / 2), pctPosition };
+}
+
+// Bollinger Bands — 20-period SMA +/- 2 standard deviations, plus %B
+// (price's position relative to the bands) and bandwidth (a real
+// volatility-squeeze read: bandwidth contracting = coiling, same real idea
+// VCP already tracks via ATR, just the standard indicator version). Same
+// real daily bars, no new fetch.
+function computeBollinger(bars, period = 20, mult = 2) {
+  if (!Array.isArray(bars) || bars.length < period) return null;
+  const closes = bars.map((b) => b.close);
+  const recent = closes.slice(-period);
+  const sma = average(recent);
+  const variance = average(recent.map((c) => (c - sma) ** 2));
+  const stdev = Math.sqrt(variance);
+  const upper = sma + mult * stdev;
+  const lower = sma - mult * stdev;
+  const price = closes[closes.length - 1];
+  const percentB = upper !== lower ? round2(((price - lower) / (upper - lower)) * 100) : 50;
+  const bandwidthPct = sma ? round2(((upper - lower) / sma) * 100) : null;
+  return { upper: round2(upper), mid: round2(sma), lower: round2(lower), percentB, bandwidthPct };
+}
+
 function detectTrend(price, ema21, ema200, closes) {
   const recent = closes.slice(-10);
   const first = recent[0] || price;
@@ -199,6 +291,7 @@ module.exports = {
   computeRSI, computeRSISeries,
   computeVWAP, computeVWAPSeries,
   computeMACDSeries,
+  computeADX, computeDonchian, computeBollinger,
   detectTrend, detectStructure, detectDivergence, detectSimpleTrend,
   normalizeYield
 };

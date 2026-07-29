@@ -4,6 +4,7 @@ const { PORT, MARKET_QUOTE_TIMEOUT_MS, MACRO_SYMBOLS, TIMEFRAME_CONFIG, resolveP
 const { detectFVGs, detectOrderBlocks, detectBOSChoCh, detectLiquidityLevels } = require("../smc-engine");
 const {
   computeEMA, computeRSI, computeVWAP,
+  computeADX, computeDonchian, computeBollinger,
   detectTrend, detectStructure, detectDivergence, detectSimpleTrend,
   normalizeYield, aggregateBars
 } = require("../indicators");
@@ -1245,6 +1246,20 @@ async function _buildTrendTemplate(symbol, opts = {}) {
     ma200: ttSmaSeries(closes, 200).map((v) => (v == null ? null : round2(v))),
   };
   result.intervalUsed = "1d";
+
+  // Real technical indicators (Phase 2 of the Institutional Research
+  // Upgrade, 2026-07-29) — ADX/Donchian/Bollinger, computed on the same
+  // daily bars everything else on this page already uses. Always daily
+  // (matches the Minervini template's own timeframe) even when the chart's
+  // candle picker below swaps to a different interval — a 5-min ADX reading
+  // would answer a different question than the daily trend-strength read
+  // this is meant to be. Each function honestly returns null on
+  // insufficient history rather than a partial/misleading number.
+  result.technicals = {
+    adx: computeADX(bars, 14),
+    donchian: computeDonchian(bars, 20),
+    bollinger: computeBollinger(bars, 20),
+  };
 
   // Optional alternate-granularity candles for the chart's timeframe picker.
   // Only the candles + their own MAs swap — score/criteria/setup (pivot,

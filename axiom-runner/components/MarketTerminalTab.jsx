@@ -479,6 +479,33 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             )}
           </div>
         )}
+        {/* Real technical indicators — ADX (trend strength/direction),
+            Donchian Channel (20d), Bollinger Bands (20d) — all computed
+            server-side on the same daily bars the chart already fetched
+            (chart.technicals, from /api/market/trend-template). Phase 2 of
+            the Institutional Research Upgrade (2026-07-29). Each renders
+            "—" on its own if that indicator's real function returned null
+            (insufficient history), never a guessed number. */}
+        {chart && chart.technicals && (
+          <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+            {(() => {
+              const t = chart.technicals, pill = (label, val, col, title) => (
+                <div key={label} title={title} style={{ flex: "1 1 150px", minWidth: 140, border: `1px solid ${C.border}`, borderRadius: 8, padding: "7px 10px", background: C.card, cursor: title ? "help" : "default" }}>
+                  <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim, letterSpacing: 0.5 }}>{label}</div>
+                  <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: col || C.text }}>{val}</div>
+                </div>
+              );
+              const adx = t.adx, don = t.donchian, bb = t.bollinger;
+              const adxCol = !adx ? C.text : adx.strength === "Strong" ? (adx.direction === "Bullish" ? "#22d47e" : "#ef4444") : C.textDim;
+              const bbSqueeze = bb && bb.bandwidthPct != null && bb.bandwidthPct < 8;
+              return [
+                pill("ADX (14d)", adx ? `${adx.adx} · ${adx.strength}` : "—", adxCol, adx ? `+DI ${adx.plusDI} / -DI ${adx.minusDI} — ${adx.direction} trend, ${adx.strength.toLowerCase()}` : "Insufficient history"),
+                pill("DONCHIAN (20d)", don ? `${don.pctPosition}% of range` : "—", don ? (don.pctPosition >= 90 ? "#22d47e" : don.pctPosition <= 10 ? "#ef4444" : C.text) : C.text, don ? `Upper $${don.upper} · Lower $${don.lower} — price is ${don.pctPosition}% of the way up the 20-day range` : "Insufficient history"),
+                pill("BOLLINGER %B", bb ? `${bb.percentB}%${bbSqueeze ? " · squeeze" : ""}` : "—", bb ? (bb.percentB >= 100 ? "#22d47e" : bb.percentB <= 0 ? "#ef4444" : bbSqueeze ? "#d6a312" : C.text) : C.text, bb ? `Upper $${bb.upper} · Mid $${bb.mid} · Lower $${bb.lower} · Bandwidth ${bb.bandwidthPct}%${bbSqueeze ? " — tight, coiling" : ""}` : "Insufficient history"),
+              ];
+            })()}
+          </div>
+        )}
         {/* ── Per-symbol detail tabs ──
             "Symbol News" not bare "News" — this is a per-symbol detail
             tab, and the Sidebar has its own separate, global "📰 News"
