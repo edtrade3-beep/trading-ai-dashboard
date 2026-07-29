@@ -7,6 +7,7 @@ import {
   MarketPulseBar, SentimentRow, MarketNewsWire, AnalystPeerPanel,
   FundamentalsPanel, CompanyProfile, AiPredictPanel, COTPanel,
   PredictionMarkets, SocialFeed, InvestorsPanel, TradeExtrasPanel,
+  OptionsFlowPanel,
 } from "./terminal-panels.jsx";
 // SCORE + real RVOL for the Movers/Watchlist mini-list — explicit user
 // request 2026-07-27 ("add score and rvol in list before i click on each
@@ -15,7 +16,9 @@ import {
 // populates avgVolume) and had no score at all. Real trend-screen data,
 // same A+ Score used everywhere else this session — additive, not a new
 // 4th scoring system.
-import { computeAPlusScore, computeRegime, computePrediction } from "./market-helpers.js";
+import { computeAPlusScore, computeRegime, computePrediction, STOCK_TO_SECTOR, SECTOR_ETFS } from "./market-helpers.js";
+import AiScoreExplainer, { AplusBadge, TRADE_SETUP_DIMENSIONS, STOCK_QUALITY_DIMENSIONS } from "./AiScoreExplainer.jsx";
+import { stockQualityBreakdown } from "./rhpro-shared.jsx";
 
 // Combined Market-Terminal page: movers leaderboard on the left, pro chart with
 // AI overlays on the right. Click a mover → it loads in the chart.
@@ -172,6 +175,21 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
       .then(r => r.json()).then(j => setFund(j && !j.error ? j : null)).catch(() => {});
   }, [sym]);
 
+  // Own trend-screen row for the loaded symbol — the Movers/Watchlist
+  // termTrendMap below only covers rows currently on screen in that list,
+  // but the chart symbol can be anything typed/searched, so it needs its
+  // own real fetch to drive the Stock Quality + Trade Setup score chips
+  // (2026-07-28, Phase 1 institutional research consolidation).
+  const [symTrend, setSymTrend] = useState(null);
+  useEffect(() => {
+    if (!sym) return;
+    setSymTrend(null);
+    fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(sym)}`)
+      .then(r => r.json())
+      .then(j => { const row = (j.results || []).find(r => !r.error); setSymTrend(row || null); })
+      .catch(() => {});
+  }, [sym]);
+
   const [wlMsg, setWlMsg] = useState("");
   const addToWatchlist = useCallback(() => {
     const s = String(sym || "").trim().toUpperCase();
@@ -237,6 +255,26 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
       .catch(() => {});
   }, [rowsSymKey]);
   const regime = computeRegime(macroData);
+  // Sector context for the loaded symbol — real %chg-per-ETF map (same
+  // shape stockQualityBreakdown's Sector Strength dimension expects) plus
+  // a real rank of that sector among all 11 today, both derived from the
+  // sectorData prop already fetched for the Sector Heat Strip, no new call.
+  const sectorPerf = {};
+  (sectorData || []).forEach(x => { if (x.symbol) sectorPerf[String(x.symbol).toUpperCase()] = Number(x.changesPercentage) || 0; });
+  // stockQualityBreakdown's Sector Strength dimension also needs a real SPY
+  // %chg to compare the sector against (see rhpro-shared.jsx) — sectorData
+  // only carries the 11 sector ETFs, so pull SPY from macroData, already in scope.
+  const spyQuote = (macroData || []).find(m => (m.symbol || "").toUpperCase() === "SPY");
+  if (spyQuote) sectorPerf.SPY = Number(spyQuote.changesPercentage) || 0;
+  const symSectorEtf = STOCK_TO_SECTOR[sym];
+  const symSectorInfo = (() => {
+    if (!symSectorEtf || !(sectorData || []).length) return null;
+    const ranked = [...SECTOR_ETFS].map(se => ({ ...se, chg: sectorPerf[se.symbol] ?? 0 })).sort((a, b) => b.chg - a.chg);
+    const rank = ranked.findIndex(se => se.symbol === symSectorEtf) + 1;
+    const info = ranked.find(se => se.symbol === symSectorEtf);
+    return rank > 0 ? { name: info?.name || symSectorEtf, rank, of: ranked.length, chg: info?.chg } : null;
+  })();
+  const [explain, setExplain] = useState(null); // { symbol, aplus, dimensions, label } | null
   const pct = (v) => v == null ? "—" : (v > 0 ? "+" : "") + v.toFixed(2) + "%";
   const col = (v) => v == null ? C.textDim : v > 0 ? "#22d47e" : v < 0 ? "#ef4444" : C.text;
   // Day-change % for the loaded symbol, looked up across all movers buckets.
@@ -413,6 +451,34 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             })()}
           </div>
         )}
+        {/* Score + macro/sector context strip — real Stock Quality + Trade
+            Setup scores for the loaded symbol (click to see the full real
+            breakdown, same AiScoreExplainer used in Sniper Scanner), plus
+            the already-computed real market regime and this symbol's real
+            sector rank today. Symbol-relative context that previously only
+            existed market-wide (2026-07-28, Phase 1 institutional research
+            consolidation). Renders once symTrend arrives; no fabricated
+            placeholders while loading. */}
+        {symTrend && (
+          <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap", alignItems: "center" }}>
+            <AplusBadge C={C} MONO={MONO} aplus={stockQualityBreakdown(symTrend, sectorPerf)}
+              onClick={() => setExplain({ symbol: sym, aplus: stockQualityBreakdown(symTrend, sectorPerf), dimensions: STOCK_QUALITY_DIMENSIONS, label: "STOCK QUALITY SCORE" })} />
+            <AplusBadge C={C} MONO={MONO} aplus={computeAPlusScore(symTrend, regime)}
+              onClick={() => setExplain({ symbol: sym, aplus: computeAPlusScore(symTrend, regime), dimensions: TRADE_SETUP_DIMENSIONS, label: "TRADE SETUP SCORE" })} />
+            <span title={(regime.factors || []).map(f => `${f.pass ? "✓" : "✗"} ${f.label}`).join(" · ")}
+              style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 10px", borderRadius: 7, cursor: "help",
+                border: `1px solid ${regime.color}55`, color: regime.color, background: `${regime.color}14` }}>
+              {regime.label} ({regime.score}/100)
+            </span>
+            {symSectorInfo && (
+              <span title="Real sector ETF %chg rank today, out of all 11 S&P sectors"
+                style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 10px", borderRadius: 7,
+                  border: `1px solid ${C.border}`, color: symSectorInfo.rank <= 3 ? "#22d47e" : symSectorInfo.rank >= 9 ? "#ef4444" : C.textDim }}>
+                {symSectorInfo.name} #{symSectorInfo.rank}/{symSectorInfo.of} ({pct(symSectorInfo.chg)})
+              </span>
+            )}
+          </div>
+        )}
         {/* ── Per-symbol detail tabs ──
             "Symbol News" not bare "News" — this is a per-symbol detail
             tab, and the Sidebar has its own separate, global "📰 News"
@@ -426,7 +492,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             on mobile there. 9 tabs here is the widest sub-nav in the app,
             so this one benefits most from scrolling instead of wrapping. */}
         <div style={{ display: "flex", gap: 4, margin: "4px 0 12px", flexWrap: "nowrap", overflowX: "auto", scrollbarWidth: "none", borderBottom: `1px solid ${C.border}`, paddingBottom: 8 }}>
-          {[["chart", "📈 Chart"], ["smart", "🔬 Smart Scan"], ["valuation", "📊 Valuation"], ["analysts", "🎯 Analysts"], ["investors", "🏦 Investors"], ["earnings", "💰 Earnings"], ["company", "🏢 Company"], ["social", "💬 Social"], ["news", "📰 Symbol News"]].map(([id, lbl]) => (
+          {[["chart", "📈 Chart"], ["smart", "🔬 Smart Scan"], ["flow", "💵 Options Flow"], ["valuation", "📊 Valuation"], ["analysts", "🎯 Analysts"], ["investors", "🏦 Investors"], ["earnings", "💰 Earnings"], ["company", "🏢 Company"], ["social", "💬 Social"], ["news", "📰 Symbol News"]].map(([id, lbl]) => (
             <button key={id} onClick={() => setDTab(id)}
               style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 11px", borderRadius: 7, cursor: "pointer",
                 whiteSpace: "nowrap", flexShrink: 0, minHeight: 40,
@@ -504,6 +570,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
           </>
         )}
         {dTab === "smart" && <SmartScanPanel symbol={sym} chart={chart} C={C} MONO={MONO} SANS={SANS} />}
+        {dTab === "flow" && <OptionsFlowPanel symbol={sym} C={C} MONO={MONO} SANS={SANS} />}
         {dTab === "valuation" && <FundamentalsPanel symbol={sym} C={C} MONO={MONO} SANS={SANS} />}
         {dTab === "analysts" && <AnalystPeerPanel symbol={sym} price={chart && chart.price} lb={lb} C={C} MONO={MONO} SANS={SANS} />}
         {dTab === "investors" && <InvestorsPanel symbol={sym} C={C} MONO={MONO} SANS={SANS} />}
@@ -528,6 +595,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
       <SentimentRow C={C} MONO={MONO} SANS={SANS} />
       <SectorHeatStrip sectorData={sectorData} C={C} MONO={MONO} SANS={SANS} />
     </div>
+    {explain && <AiScoreExplainer C={C} MONO={MONO} SANS={SANS} symbol={explain.symbol} aplus={explain.aplus} dimensions={explain.dimensions} label={explain.label} onClose={() => setExplain(null)} />}
     </div>
   );
 }

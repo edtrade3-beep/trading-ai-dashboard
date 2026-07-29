@@ -599,6 +599,21 @@ export function InvestorsPanel({ symbol, C, MONO, SANS }) {
     fetch("/api/market/insider?ticker=" + encodeURIComponent(symbol))
       .then(r => r.json()).then(j => { setD(j); setState(j && j.ok ? "ok" : "none"); }).catch(() => setState("none"));
   }, [symbol]);
+  // Short interest + dark pool prints — real, same "Institutional Flow"
+  // category the rest of this panel already covers (ownership + insider
+  // txns), just two fields that were missing (2026-07-29, institutional
+  // research audit). Independent fetches/states so a slow or unconfigured
+  // one (dark pool needs UNUSUAL_WHALES_API_KEY) never blocks the rest of
+  // this panel from rendering.
+  const [short, setShort] = useState(null);
+  const [dp, setDp] = useState(null);
+  useEffect(() => {
+    if (!symbol) return; setShort(null); setDp(null);
+    fetch("/api/market/short-interest?tickers=" + encodeURIComponent(symbol))
+      .then(r => r.json()).then(j => setShort(j?.results?.[0] || null)).catch(() => setShort(null));
+    fetch("/api/market/darkpool?symbol=" + encodeURIComponent(symbol))
+      .then(r => r.json()).then(j => setDp(j)).catch(() => setDp(null));
+  }, [symbol]);
   const inst = d && d.institutional || {};
   const holders = (inst.institutions || []);
   const txns = (d && d.insiderTransactions && d.insiderTransactions.transactions) || (d && d.insiderTransactions) || [];
@@ -639,6 +654,110 @@ export function InvestorsPanel({ symbol, C, MONO, SANS }) {
                 <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "5px 0", borderBottom: `1px solid ${C.border}` }}>
                   <span style={{ fontFamily: SANS, fontSize: 11.5, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.name} <span style={{ color: C.textDim }}>{t.role}</span></span>
                   <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: t.type === "SELL" ? "#c8282a" : "#0d9465", whiteSpace: "nowrap" }}>{t.type} {big(t.value)}</span>
+                </div>
+              ))}
+            </>
+          )}
+        </>
+      )}
+      {/* Short interest + dark pool — independent of the ownership/insider
+          fetch above (a symbol can be IP-blocked on Yahoo for ownership but
+          still have real short-interest/dark-pool data, or vice versa), so
+          these render on their own real state instead of being gated
+          behind `hasData`. */}
+      {short && (short.shortFloat != null || short.shortRatio != null) && (
+        <>
+          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, margin: "12px 0 5px" }}>SHORT INTEREST</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ flex: 1, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px" }}>
+              <div style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim }}>SHORT % OF FLOAT</div>
+              <div style={{ fontFamily: NUM, fontSize: 18, fontWeight: 700, color: short.shortFloat > 20 ? "#c8282a" : short.shortFloat > 10 ? "#d6a312" : C.text }}>{short.shortFloat != null ? short.shortFloat.toFixed(1) + "%" : "—"}</div>
+            </div>
+            <div style={{ flex: 1, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px" }}>
+              <div style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim }}>DAYS TO COVER</div>
+              <div style={{ fontFamily: NUM, fontSize: 18, fontWeight: 700, color: C.text }}>{short.shortRatio != null ? short.shortRatio.toFixed(1) : "—"}</div>
+            </div>
+          </div>
+        </>
+      )}
+      <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, margin: "12px 0 5px" }}>DARK POOL PRINTS</div>
+      {dp && dp.ok && Array.isArray(dp.prints) && dp.prints.length > 0 ? (
+        dp.prints.slice(0, 6).map((p, i) => (
+          <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "5px 0", borderBottom: `1px solid ${C.border}` }}>
+            <span style={{ fontFamily: MONO, fontSize: 11.5, color: C.textDim }}>{p.time ? new Date(p.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"} · {p.size ? Number(p.size).toLocaleString() : "—"} sh @ ${p.price != null ? Number(p.price).toFixed(2) : "—"}</span>
+            <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.accent }}>{big(p.value)}</span>
+          </div>
+        ))
+      ) : (
+        <div style={{ fontFamily: MONO, fontSize: 11.5, color: C.textDim, padding: "6px 0" }}>
+          {dp && dp.ok === false && dp.error === "Unusual Whales API key not configured" ? "⚠ Dark pool prints need an Unusual Whales API key — not configured." : dp && dp.ok ? "No block prints >$500K today." : "Loading…"}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Real per-symbol options flow — the same real endpoint/data shape FlowTab
+// (market-wide) already uses, just scoped to the one loaded symbol
+// (2026-07-29, institutional research audit — this was real but only
+// reachable from the market-wide Flow tab, not per-symbol on Market
+// Terminal). `source` honestly tells you whether this is a real live feed
+// (Tradier/Yahoo) or the price/volume-momentum-based synthetic fallback —
+// never silently presented as live data it isn't.
+export function OptionsFlowPanel({ symbol, C, MONO, SANS }) {
+  const [d, setD] = useState(null);
+  const [state, setState] = useState("loading");
+  useEffect(() => {
+    if (!symbol) return; setState("loading"); setD(null);
+    fetch(`/api/market/options-flow?symbols=${encodeURIComponent(symbol)}&limit=15`)
+      .then(r => r.json()).then(j => { setD(j); setState(j && !j.error ? "ok" : "none"); }).catch(() => setState("none"));
+  }, [symbol]);
+  const big = (v) => !v ? "—" : v >= 1e9 ? "$" + (v / 1e9).toFixed(2) + "B" : v >= 1e6 ? "$" + (v / 1e6).toFixed(1) + "M" : "$" + Number(v || 0).toLocaleString();
+  const isEstimated = String(d?.source || "").includes("estimated");
+  const flow = (d && d.flow) || [];
+  return (
+    <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, padding: "12px 14px", background: C.bg }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+        <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 800, color: C.text }}>💵 Options Flow — {symbol}</div>
+        {d && (
+          <span title={isEstimated ? "No live options feed configured (Tradier/Yahoo) — this is a price/volume-momentum estimate, not real order flow" : "Real live options data"}
+            style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, padding: "2px 7px", borderRadius: 5, cursor: "help",
+              color: isEstimated ? "#d6a312" : "#0d9465", background: isEstimated ? "#d6a31218" : "#0d946518" }}>
+            {isEstimated ? "ESTIMATED" : "LIVE"}
+          </span>
+        )}
+      </div>
+      {state === "loading" && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, padding: "16px 0", textAlign: "center" }}>Loading…</div>}
+      {state === "none" && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, padding: "16px 0", textAlign: "center" }}>⚠ Options flow unavailable for {symbol}.</div>}
+      {state === "ok" && (
+        <>
+          <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+            <div style={{ flex: 1, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px" }}>
+              <div style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim }}>CALL NOTIONAL</div>
+              <div style={{ fontFamily: NUM, fontSize: 18, fontWeight: 700, color: "#0d9465" }}>{big(d.summary?.callNotional)}</div>
+            </div>
+            <div style={{ flex: 1, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px" }}>
+              <div style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim }}>PUT NOTIONAL</div>
+              <div style={{ fontFamily: NUM, fontSize: 18, fontWeight: 700, color: "#c8282a" }}>{big(d.summary?.putNotional)}</div>
+            </div>
+            <div style={{ flex: 1, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px" }}>
+              <div style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim }}>CALL/PUT BIAS</div>
+              <div style={{ fontFamily: NUM, fontSize: 18, fontWeight: 700, color: (d.summary?.callNotional || 0) >= (d.summary?.putNotional || 0) ? "#0d9465" : "#c8282a" }}>
+                {(d.summary?.callNotional || 0) >= (d.summary?.putNotional || 0) ? "BULLISH" : "BEARISH"}
+              </div>
+            </div>
+          </div>
+          {flow.length === 0 ? (
+            <div style={{ fontFamily: MONO, fontSize: 11.5, color: C.textDim, padding: "6px 0" }}>No contracts matched today.</div>
+          ) : (
+            <>
+              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 5 }}>TOP CONTRACTS BY NOTIONAL</div>
+              {flow.slice(0, 10).map((r, i) => (
+                <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "5px 0", borderBottom: `1px solid ${C.border}` }}>
+                  <span style={{ fontFamily: MONO, fontSize: 11.5, color: r.side === "CALL" ? "#0d9465" : "#c8282a", fontWeight: 700 }}>{r.side} ${r.strike}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{r.expiry || "—"} · vol {r.volume?.toLocaleString() ?? "—"} · OI {r.openInterest?.toLocaleString() ?? "—"}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, padding: "1px 6px", borderRadius: 4, color: C.accent, background: `${C.accent}18` }}>{r.tradeType}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.text }}>{big(r.notional)}</span>
                 </div>
               ))}
             </>
