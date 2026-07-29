@@ -56,6 +56,18 @@ const CATEGORIES = [
   { id: "rvol", label: "🔥 High RVOL" },
   { id: "momentum", label: "📈 Momentum Leaders" },
   { id: "reversal", label: "🔄 Reversal Watch" },
+  // Early Warning — "before it pops / before it drops" (2026-07-29,
+  // explicit user request, extending the same idea already shipped in
+  // Smart Scan). RhProScanner's rows come from a different real pipeline
+  // (screenTrendTemplate's VCP/pivot analysis, no RSI/52-week data), so
+  // this uses that pipeline's own real precursor fields instead of copying
+  // Smart Scan's RSI-based thresholds: real VCP base contraction
+  // (`tightening`, same field the VCP report itself surfaces) and real
+  // distance from the pivot buy point (`abovePivotPct`/`extended`, the
+  // exact same >10%-above-pivot "chasing risk" definition already used
+  // everywhere else in this app for the extended flag).
+  { id: "prepop", label: "🚀 Pre-Pop" },
+  { id: "extended", label: "📉 Extended" },
   { id: "avoid", label: "🚫 Avoid List" },
   { id: "gap", label: "⚡ Gap Up/Down" },
   { id: "daytrade", label: "⏱ Day Trade" },
@@ -175,6 +187,16 @@ export default function RhProScanner({ C, MONO, SANS, macroData, sectorData, set
   } else if (category === "reversal") {
     categorized = rows.filter(r => (r.pctFromHigh || 0) <= -20 && (r.volRatio || 0) >= 1.4);
     categoryNote = "Simplified heuristic: ≥20% off the 52-week high with volume picking up — real data, but not the same as Green Light's full bottom-score model (that needs live quote data this scan doesn't fetch).";
+  } else if (category === "prepop") {
+    // Requires BOTH real signals together (was OR — too broad, ~half the
+    // universe has a contracting base at any given time on its own).
+    // Actionable + tightening + right at the pivot edge is a genuinely
+    // higher-conviction "about to break" read than either alone.
+    categorized = rows.filter(r => r.actionable && !r.atBuyPoint && !r.extended && r.tightening && r.abovePivotPct != null && r.abovePivotPct < 0 && r.abovePivotPct > -5);
+    categoryNote = "Real VCP base contracting AND within 5% below the real pivot buy point, not triggered yet — the base is coiled right at the edge. Before it pops.";
+  } else if (category === "extended") {
+    categorized = [...rows].filter(r => r.extended).sort((a, b) => (b.abovePivotPct || 0) - (a.abovePivotPct || 0));
+    categoryNote = "More than 10% above the real pivot buy point (the same real \"chasing risk\" definition used everywhere else in this app) — often due for a pullback before the next leg. Before it drops.";
   } else if (category === "avoid") {
     categorized = [...rows].filter(r => r.aplus).sort((a, b) => (a.aplus.score || 0) - (b.aplus.score || 0)).slice(0, 10);
     categoryNote = "The real bottom of this scan by A+ Score — same pattern as Dashboard's Stocks to Avoid card.";
