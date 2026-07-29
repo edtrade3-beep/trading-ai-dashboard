@@ -2098,6 +2098,19 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
     }
   }
 
+  // Real trigger history for the 5 watchlist-institutional-alerts.js
+  // categories (Phase 5 of the Institutional Research Upgrade, 2026-07-29)
+  // — an in-app view of what actually fired, not just Telegram.
+  if (pathname === "/api/market/watchlist-institutional-alerts" && req.method === "GET") {
+    try {
+      const { getHistory } = require("../watchlist-institutional-alerts");
+      const limit = Math.max(1, Math.min(200, Number(searchParams.get("limit")) || 50));
+      return writeJson(res, 200, { ok: true, rows: getHistory().slice(0, limit) });
+    } catch (err) {
+      return writeJson(res, 200, { ok: false, error: err instanceof Error ? err.message : "failed", rows: [] });
+    }
+  }
+
   // Real US 10Y/2Y Treasury yields + real Brent spot — from FRED (fred.js),
   // a free public source with no API key or paid tier. Closes the gaps
   // where this app could only show ETF proxies (IEF/SHY/BNO) because none

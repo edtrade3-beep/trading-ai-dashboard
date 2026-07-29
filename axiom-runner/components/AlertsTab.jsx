@@ -1,4 +1,81 @@
+import { useState, useEffect } from "react";
 import { Badge, ScoreBar } from "./ui-atoms.jsx";
+
+// Real trigger history for the 5 Watchlist institutional alert categories
+// (Phase 5 of the Institutional Research Upgrade, 2026-07-29 — added after
+// explicit user feedback that the checker only pinged Telegram with nothing
+// to see in the app). Self-fetching (own useState/useEffect) rather than
+// threaded through axiom-live.jsx's central polling loop — this history
+// changes on a 15-min server cadence, not something that needs to ride the
+// same fast refresh as live quotes.
+const CATEGORY_META = {
+  "smart-money-detected": { label: "SMART MONEY", icon: "🧠", color: "#7c5cff" },
+  "dark-pool-spike": { label: "DARK POOL", icon: "🐋", color: "#3b82f6" },
+  "options-flow-unusual": { label: "OPTIONS FLOW", icon: "⚡", color: "#d6a312" },
+  "earnings-released": { label: "EARNINGS", icon: "💰", color: "#0d9465" },
+  "news-sentiment-change": { label: "SENTIMENT", icon: "📣", color: "#c8282a" },
+};
+
+function InstitutionalAlertsHistoryCard({ C, MONO, setTerminalSymbol, setActiveTab }) {
+  const [rows, setRows] = useState(null); // null = loading
+  useEffect(() => {
+    let alive = true;
+    const load = () => fetch("/api/market/watchlist-institutional-alerts?limit=50")
+      .then(r => r.json())
+      .then(j => { if (alive) setRows(j.ok ? j.rows : []); })
+      .catch(() => { if (alive) setRows([]); });
+    load();
+    const id = setInterval(load, 5 * 60_000);
+    return () => { alive = false; clearInterval(id); };
+  }, []);
+
+  return (
+    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden", marginBottom: 14 }}>
+      <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+        <span style={{ fontFamily: MONO, fontSize: 12, color: C.accent, fontWeight: 700 }}>INSTITUTIONAL ALERTS — SMART MONEY / DARK POOL / OPTIONS FLOW / EARNINGS / SENTIMENT</span>
+        <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Watchlist only · checked every 15 min · also pings Telegram</span>
+      </div>
+      {rows === null ? (
+        <div style={{ padding: "14px 14px", color: C.textDim, fontSize: 12, fontFamily: MONO }}>Loading…</div>
+      ) : rows.length === 0 ? (
+        <div style={{ padding: "14px 14px", color: C.textDim, fontSize: 12, fontFamily: MONO }}>No real triggers yet — the first check after each restart seeds silently rather than alerting on whatever state your Watchlist already happens to be in. This fills in as real changes happen.</div>
+      ) : (
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ background: C.surface }}>
+                <th style={{ padding: "7px 10px", textAlign: "left", fontFamily: MONO, fontSize: 12, color: C.textDim }}>TIME</th>
+                <th style={{ padding: "7px 10px", textAlign: "left", fontFamily: MONO, fontSize: 12, color: C.textDim }}>SYMBOL</th>
+                <th style={{ padding: "7px 10px", textAlign: "left", fontFamily: MONO, fontSize: 12, color: C.textDim }}>CATEGORY</th>
+                <th style={{ padding: "7px 10px", textAlign: "left", fontFamily: MONO, fontSize: 12, color: C.textDim }}>DETAIL</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, i) => {
+                const meta = CATEGORY_META[row.category] || { label: row.category, icon: "•", color: C.textDim };
+                return (
+                  <tr key={i} style={{ borderTop: `1px solid ${C.border}` }}>
+                    <td style={{ padding: "7px 10px", fontFamily: MONO, fontSize: 12, color: C.textDim, whiteSpace: "nowrap" }}>
+                      {row.at ? new Date(row.at).toLocaleString(undefined, { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—"}
+                    </td>
+                    <td style={{ padding: "7px 10px", fontFamily: MONO, fontSize: 12, fontWeight: 800 }}>
+                      <button onClick={() => { setTerminalSymbol(row.symbol); try { localStorage.setItem("mterminal_load_sym", row.symbol); } catch {} setActiveTab("mterminal"); }}
+                        style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: 12, fontWeight: 800, cursor: "pointer", padding: 0 }}>{row.symbol}</button>
+                    </td>
+                    <td style={{ padding: "7px 10px" }}>
+                      <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: meta.color, background: `${meta.color}18`, borderRadius: 6, padding: "2px 7px", whiteSpace: "nowrap" }}>{meta.icon} {meta.label}</span>
+                    </td>
+                    <td style={{ padding: "7px 10px", fontSize: 12, color: C.textSec, maxWidth: 340, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.text}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function AlertsTab({
   C, MONO,
@@ -194,6 +271,8 @@ export default function AlertsTab({
                 </table>
               )}
             </div>
+
+            <InstitutionalAlertsHistoryCard C={C} MONO={MONO} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
 
             {tvWebhookRows.length > 0 && (
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
