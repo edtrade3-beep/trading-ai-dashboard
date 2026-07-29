@@ -288,6 +288,29 @@ export function institutionalLetterGrade(score) {
   return "F";
 }
 
+// Bull Case / Bear Case — free, deterministic (explicit user request,
+// 2026-07-29, "use free data" — the paid Claude version hit the account's
+// API usage limit, so this replaces it entirely, same "Free, deterministic,
+// not an AI call" framing the Quick Read prediction card already uses).
+// Reuses computeInstitutionalGrade's own real per-dimension reasons —
+// zero new computation, zero new fetch, zero API cost. A dimension scoring
+// >=65% of its max real points becomes a bull point; <=35% becomes a bear
+// point; the real middle ground is left out of both (it's genuinely
+// neutral, not a weak case for either side).
+export function computeBullBearCase(institutionalGrade, dimensions) {
+  if (!institutionalGrade || !dimensions) return { bull: [], bear: [] };
+  const bull = [], bear = [];
+  dimensions.forEach((d, i) => {
+    const pts = institutionalGrade.breakdown[d.key];
+    const reason = institutionalGrade.reasons[i];
+    if (pts == null || !reason) return;
+    const ratio = pts / d.max;
+    if (ratio >= 0.65) bull.push(`${d.label}: ${reason}`);
+    else if (ratio <= 0.35) bear.push(`${d.label}: ${reason}`);
+  });
+  return { bull, bear };
+}
+
 // Strong Buy / Buy / Hold / Sell / Strong Sell + star count — a real,
 // deterministic label on computeInstitutionalGrade's real 0-100 score
 // (explicit user request, 2026-07-29, "AI Score Card" concept). Not a

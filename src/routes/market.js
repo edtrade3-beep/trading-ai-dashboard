@@ -1794,48 +1794,10 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
     } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
   }
 
-  // AI Bull Case / Bear Case — Phase 4 of the Institutional Research Upgrade
-  // (2026-07-29). Same pattern as /api/market/ai-why (Claude, real data,
-  // never invents numbers) but the opposite grounding strategy: instead of
-  // a tool call to go fetch context, the client hands over the exact real
-  // data bundle it already has on screen (fundamentals, technicals, smart
-  // money, options flow, macro regime, sector rank — the same real fields
-  // Phase 1-3 already wired into Market Terminal), and the model is
-  // instructed to reason ONLY from those real numbers. No web_search tool
-  // — cheaper, and removes any chance of the model citing an invented
-  // number instead of a real one. Manual, button-gated (not auto-fired),
-  // same cost-control convention as AiWhyPanel/AiPredictPanel above.
-  if (pathname === "/api/market/ai-bull-bear" && req.method === "POST") {
-    const key = (process.env.ANTHROPIC_API_KEY || "").trim();
-    if (!key) return writeJson(res, 200, { ok: false, error: "ANTHROPIC_API_KEY not set" });
-    let b; try { b = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { ok: false, error: "bad json" }); }
-    const symbol = String(b.symbol || "").trim().toUpperCase();
-    if (!symbol) return writeJson(res, 400, { ok: false, error: "symbol required" });
-    const d = b.data || {};
-    const na = (v) => (v == null || v === "" ? "unavailable" : v);
-    const ctx = `Real data for ${symbol}, do not use any number not listed here:
-- Price: $${na(d.price)} · Stage: ${na(d.stage)} · Minervini trend template: ${na(d.passCount)}/8 · RS rating: ${na(d.rsRating)} · % from 52w high: ${na(d.pctFromHigh)}%
-- Fundamentals: P/E ${na(d.pe)} · Forward EPS growth vs TTM: ${na(d.epsGrowth)}% · Market cap ${na(d.marketCap)}
-- Technicals: ADX ${na(d.adx)} (${na(d.adxStrength)}, ${na(d.adxDirection)}) · Donchian 20d position ${na(d.donchianPos)}% of range · Bollinger %B ${na(d.bollingerPctB)}%
-- Smart Money: ${na(d.smcSummary)}
-- Options Flow: ${na(d.optionsFlowSummary)}
-- Macro regime: ${na(d.regimeLabel)} (${na(d.regimeScore)}/100) · Sector rank: #${na(d.sectorRank)}/${na(d.sectorOf)} today
-- Institutional Grade: ${na(d.institutionalGrade)}/100 (${na(d.institutionalRec)})`;
-    const system = `You are an institutional equity analyst. You are given a fixed real-data bundle for one stock and must write a Bull Case and a Bear Case grounded ONLY in that data — never invent a number, price, or fact not given to you. If a field says "unavailable", do not guess a value for it or mention it. Respond in EXACTLY this format, nothing else:\nBULL:\n- <reason>\n- <reason>\n(up to 6 tight reasons, strongest first, each under 20 words, each tied to a specific real data point above)\nBEAR:\n- <reason>\n- <reason>\n(up to 6 tight reasons, strongest first, each under 20 words, each tied to a specific real data point above)\nIf the real data is too thin for 6 real distinct reasons on either side, give fewer rather than padding with filler. No preamble, no disclaimers, no "as an AI".`;
-    try {
-      const messages = [{ role: "user", content: `${ctx}\n\nWrite the Bull Case and Bear Case for ${symbol}.` }];
-      const resp = await anthropicRequest({ model: MODELS.haiku, max_tokens: 600,
-        system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }], messages }, key, 45000, "ai-bull-bear");
-      const content = resp.content || [];
-      const text = content.filter(c => c.type === "text").map(c => c.text).join("").trim();
-      const bullMatch = text.match(/BULL:\s*([\s\S]*?)(?=BEAR:|$)/i);
-      const bearMatch = text.match(/BEAR:\s*([\s\S]*)/i);
-      const parseBullets = (s) => (s || "").split("\n").map(l => l.replace(/^[-•*]\s*/, "").trim()).filter(Boolean);
-      const bull = parseBullets(bullMatch && bullMatch[1]);
-      const bear = parseBullets(bearMatch && bearMatch[1]);
-      return writeJson(res, 200, { ok: true, symbol, bull, bear, raw: text });
-    } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
-  }
+  // /api/market/ai-bull-bear removed (2026-07-29, "use free data") — the
+  // paid Claude version hit the account's API usage limit. Replaced with
+  // computeBullBearCase (market-helpers.js), a free, deterministic split of
+  // the real Institutional Grade dimensions, computed entirely client-side.
 
   // AI "why is this moving" — short, web-searched explanation for one symbol.
   if (pathname === "/api/market/ai-why" && req.method === "POST") {
