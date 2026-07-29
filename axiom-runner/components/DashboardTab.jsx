@@ -3,6 +3,7 @@ import MonitorSection from "./MonitorSection.jsx";
 import FedInterpreter from "./FedInterpreter.jsx";
 import FedWatchWidget from "./FedWatchWidget.jsx";
 import MacroEventsWidget from "./MacroEventsWidget.jsx";
+import FedWatchTab from "./FedWatchTab.jsx";
 import RhProScanner from "./RhProScanner.jsx";
 import GreenLightTab from "./GreenLightTab.jsx";
 import { BestOpportunities } from "./terminal-panels.jsx";
@@ -642,6 +643,7 @@ const DASH_TABS = [
   { id: "best-opportunities", label: "BEST OPP" },
   { id: "flow",         label: "OPTIONS FLOW" },
   { id: "news",        label: "NEWS & EVENTS" },
+  { id: "fedwatch",    label: "FED / FOMC" },
   { id: "portfolio",   label: "PORTFOLIO" },
 ];
 
@@ -926,6 +928,18 @@ export default function DashboardTab({
             </MonitorSection>
           )}
         </>
+      )}
+
+      {/* ── FED / FOMC WATCH ── dedicated always-available Fed tab
+          (2026-07-29, "create tab under dashboard" -> "Fed / FOMC watch").
+          Real implied rate/lean, real 10Y/2Y yields + spread, the real
+          published 2026 meeting calendar, and the statement interpreter —
+          the same pieces already real and wired elsewhere in this app
+          (FedWatchWidget/FedInterpreter, previously buried inside the News
+          & Events sub-tab's collapsed Catalysts section), just given their
+          own destination instead of requiring a meeting-day search. */}
+      {dashTab === "fedwatch" && (
+        <FedWatchTab C={C} MONO={MONO} SANS={SANS} />
       )}
 
     </>

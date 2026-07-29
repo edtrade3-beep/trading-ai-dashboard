@@ -157,6 +157,27 @@ async function handleMonitorExtras(req, res, pathname, requestUrl) {
     const events = getEventCountdowns();
     return writeJson(res, 200, { ok: true, events });
   }
+  // Real, full FOMC 2026 meeting calendar (same FIXED_EVENTS.FOMC dates
+  // already used above for the single-next-event countdown) — for the
+  // dedicated Fed/FOMC Watch dashboard sub-tab (2026-07-29, "create tab
+  // under dashboard" -> "Fed / FOMC watch"), which wants the whole
+  // schedule (past + upcoming), not just the nearest date.
+  if (pathname === "/api/market/fomc-calendar") {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const fomc = FIXED_EVENTS.find(e => e.name === "FOMC");
+    const dates = fomc ? fomc.dates : [];
+    const meetings = dates.map(d => {
+      // "T00:00:00" (local midnight), not a bare date string (which
+      // `new Date()` parses as UTC midnight) — off by a day in any
+      // timezone west of UTC, which would misreport a same-day meeting
+      // as "passed" for the whole afternoon.
+      const dt = new Date(`${d}T00:00:00`);
+      const dte = Math.round((dt - today) / 86400000);
+      return { date: d, dte, isPast: dte < 0 };
+    }).sort((a, b) => a.date.localeCompare(b.date));
+    const next = meetings.find(m => !m.isPast) || null;
+    return writeJson(res, 200, { ok: true, meetings, next });
+  }
   return null;
 }
 
