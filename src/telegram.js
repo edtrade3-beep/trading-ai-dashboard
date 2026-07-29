@@ -45,8 +45,40 @@ async function sendTelegramAlert(alert) {
   }
 }
 
+// Global send-level throttle — a real, unmissable safety net on top of the
+// existing per-category shouldSendAlert budgets (telegram-bot.js). Several
+// real alert sources (market-scanner.js's ~15 call sites, trailing-stops.js,
+// server-autopilot.js, market-recap.js, premarket-alerts.js) send directly
+// and never go through that gate at all, so their combined volume was
+// effectively uncapped. Explicit user complaint (2026-07-29, "i get too
+// much notifications in telegram fix it") — rather than auditing and
+// re-routing every one of those call sites individually (and re-missing
+// the next one that gets added later), this throttles the one function
+// every single Telegram send in this app actually funnels through, so
+// nothing can bypass it. Silently drops (never queues/delays) over the
+// cap — a dropped low-priority ping beats a backlog of stale ones arriving
+// late, same philosophy shouldSendAlert already uses.
+let lastSentAt = 0;
+let dailyCount = 0;
+let dailyDate = "";
+const MIN_INTERVAL_MS = 60_000; // 60s floor between ANY two messages, any source
+const MAX_DAILY_TOTAL = 40;     // hard ceiling across every category combined, every source
+
 async function sendTelegramMessage(text) {
   if (!isConfigured()) return;
+  const today = new Date().toLocaleDateString("en-US", { timeZone: "America/New_York" });
+  if (today !== dailyDate) { dailyDate = today; dailyCount = 0; }
+  const now = Date.now();
+  if (dailyCount >= MAX_DAILY_TOTAL) {
+    console.log("[Telegram] global daily cap reached — message dropped");
+    return;
+  }
+  if (now - lastSentAt < MIN_INTERVAL_MS) {
+    console.log("[Telegram] global cooldown active — message dropped");
+    return;
+  }
+  lastSentAt = now;
+  dailyCount++;
   const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
   try {
     const res = await fetch(url, {
