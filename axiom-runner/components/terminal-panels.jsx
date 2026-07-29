@@ -663,6 +663,7 @@ export function InvestorsPanel({ symbol, C, MONO, SANS }) {
   const inst = d && d.institutional || {};
   const holders = (inst.institutions || []);
   const txns = (d && d.insiderTransactions && d.insiderTransactions.transactions) || (d && d.insiderTransactions) || [];
+  const insiderSource = d && d.insiderSource; // "yahoo" | "sec-edgar" — real fallback source, honestly labeled (2026-07-29)
   const big = (v) => !v ? "—" : v >= 1e9 ? "$" + (v / 1e9).toFixed(1) + "B" : v >= 1e6 ? "$" + (v / 1e6).toFixed(0) + "M" : "$" + v.toFixed(0);
   const hasData = holders.length || (Array.isArray(txns) && txns.length) || inst.institutionsPct;
   return (
@@ -695,7 +696,12 @@ export function InvestorsPanel({ symbol, C, MONO, SANS }) {
           )}
           {Array.isArray(txns) && txns.length > 0 && (
             <>
-              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, margin: "12px 0 5px" }}>RECENT INSIDER TRANSACTIONS</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, margin: "12px 0 5px" }}>
+                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>RECENT INSIDER TRANSACTIONS</div>
+                {insiderSource === "sec-edgar" && (
+                  <span style={{ fontFamily: MONO, fontSize: 8.5, fontWeight: 700, color: C.textDim, border: `1px solid ${C.border}`, borderRadius: 3, padding: "1px 5px" }} title="Yahoo returned no data for this symbol — fetched directly from SEC EDGAR's real Form 4 filings instead.">via SEC EDGAR</span>
+                )}
+              </div>
               {txns.slice(0, 6).map((t, i) => (
                 <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "5px 0", borderBottom: `1px solid ${C.border}` }}>
                   <span style={{ fontFamily: SANS, fontSize: 11.5, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.name} <span style={{ color: C.textDim }}>{t.role}</span></span>

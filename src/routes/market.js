@@ -23,6 +23,7 @@ const { fetchPolygonQuotes, fetchPolygonNews } = require("../providers/polygon")
 const { applyMomentum } = require("../quote-momentum");
 const SECTOR_THEME_MAP = require("../sector-theme-map");
 const { fetchTradierOptionsFlow } = require("../providers/tradier");
+const { fetchSecInsiderTransactions } = require("../providers/sec-edgar");
 
 // --- Quote helpers ---
 
@@ -2589,11 +2590,25 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
   if (pathname === "/api/market/insider" && req.method === "GET") {
     const ticker = (searchParams.get("ticker") || "").trim().toUpperCase();
     if (!ticker) return writeJson(res, 400, { error: "ticker required" });
-    const [txns, inst] = await Promise.all([
+    let [txns, inst] = await Promise.all([
       fetchYahooInsiderTransactions(ticker).catch(() => ({ symbol: ticker, transactions: [], holders: [] })),
       fetchYahooInstitutional(ticker).catch(() => ({ symbol: ticker, institutions: [], funds: [], insidersPct: 0, institutionsPct: 0 })),
     ]);
-    return writeJson(res, 200, { ok: true, ticker, insiderTransactions: txns, institutional: inst, fetchedAt: new Date().toISOString() });
+    let source = "yahoo";
+    // Real free fallback (CTO audit item #13): Yahoo's insider endpoint
+    // returns the identical empty shape whether a symbol genuinely has no
+    // recent filings or Yahoo itself is unreachable/IP-blocked — those two
+    // real cases were indistinguishable before. SEC EDGAR is the primary
+    // source Yahoo's own data ultimately comes from, so a real empty
+    // Yahoo response is worth double-checking directly against SEC rather
+    // than trusting it as "no filings." Institutional holders has no SEC
+    // fallback (13F is bulk-only, see providers/sec-edgar.js) so `inst`
+    // stays whatever Yahoo returned either way.
+    if (!txns.transactions.length) {
+      const secTxns = await fetchSecInsiderTransactions(ticker).catch(() => null);
+      if (secTxns?.transactions.length) { txns = secTxns; source = "sec-edgar"; }
+    }
+    return writeJson(res, 200, { ok: true, ticker, insiderTransactions: txns, institutional: inst, insiderSource: source, fetchedAt: new Date().toISOString() });
   }
 
   // GET /api/market/analyst?tickers=BBAI,PLTR
