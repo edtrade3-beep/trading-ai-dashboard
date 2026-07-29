@@ -64,9 +64,9 @@ async function checkWatchlistInstitutionalAlerts() {
   const { symbols } = loadWatchlist();
   if (!Array.isArray(symbols) || !symbols.length) return { ok: true, checked: 0, alerts: [] };
 
-  let screenTrendTemplate, fetchOptionsFlow, fetchDarkPoolPrints;
+  let screenWatchlistCached, fetchOptionsFlow, fetchDarkPoolPrints;
   try {
-    ({ screenTrendTemplate, fetchOptionsFlow, fetchDarkPoolPrints } = require("./routes/market"));
+    ({ screenWatchlistCached, fetchOptionsFlow, fetchDarkPoolPrints } = require("./routes/market"));
   } catch { return { ok: false, checked: 0, alerts: [] }; }
 
   const prev = loadState();
@@ -75,7 +75,10 @@ async function checkWatchlistInstitutionalAlerts() {
 
   // 1 & 4: smart-money-detected + earnings-released — one shared batched
   // scan, same real engine every other real scanner on this platform uses.
-  const rows = await screenTrendTemplate(symbols).catch(() => []);
+  // screenWatchlistCached (not screenTrendTemplate directly) — shares one
+  // real scan with watchlist-setup-alerts.js's identical watchlist sweep
+  // when both land in the same 15-min tick (CTO audit item #4).
+  const rows = await screenWatchlistCached(symbols).catch(() => []);
   for (const row of rows) {
     if (row.error) continue;
     const symbol = row.symbol;

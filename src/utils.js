@@ -87,6 +87,26 @@ function writeJson(res, statusCode, payload) {
 // Forgiving env-flag check: on/true/1/yes/enabled (trimmed, case-insensitive).
 function isOn(v) { return ["on", "true", "1", "yes", "enabled"].includes(String(v || "").trim().toLowerCase()); }
 
+// Generic TTL-cache-by-key, one shared implementation instead of the same
+// Map-wrapper pattern reimplemented independently in several places
+// (providers/stocktwits.js, providers/reddit-news.js, routes/monitor-extras.js
+// each had their own copy — CTO audit, 2026-07-29, item #12). Caches the
+// in-flight/settled PROMISE, not just the resolved value, so two callers
+// that both miss within the same tick (e.g. two 15-min background jobs
+// registered at boot and firing within milliseconds of each other every
+// cycle) share one real fetch instead of two — not just a cache of past
+// results. A rejected fetch is evicted immediately rather than remembered
+// as a cached failure for the rest of the TTL window.
+const _cacheStore = new Map();
+function cached(key, ttlMs, fn) {
+  const hit = _cacheStore.get(key);
+  const now = Date.now();
+  if (hit && now - hit.ts < ttlMs) return hit.promise;
+  const promise = Promise.resolve().then(fn).catch((err) => { _cacheStore.delete(key); throw err; });
+  _cacheStore.set(key, { ts: now, promise });
+  return promise;
+}
+
 // Constant-time secret comparison — shared by every place in this app that
 // checks a submitted secret against a configured one (APP_PASSWORD,
 // TV_WEBHOOK_SECRET, ...), so there's one place to get this right instead
@@ -106,5 +126,5 @@ function safeCompare(submitted, stored) {
 module.exports = {
   round2, average, trimText, stripHtml, decodeXmlEntities, extractXmlTag,
   withTimeout, fetchJsonSafe, readRequestBody, readRequestBodyBuffer, writeJson, isOn,
-  safeCompare
+  safeCompare, cached
 };

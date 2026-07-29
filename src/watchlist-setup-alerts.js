@@ -39,15 +39,18 @@ async function checkWatchlistSetupAlerts() {
   const { symbols } = loadWatchlist();
   if (!Array.isArray(symbols) || !symbols.length) return { ok: true, checked: 0, alerts: [] };
 
-  let screenTrendTemplate, fetchMarketQuotes, computeRegime, computeAPlusScore;
+  let screenWatchlistCached, fetchMarketQuotes, computeRegime, computeAPlusScore;
   try {
-    ({ screenTrendTemplate, fetchMarketQuotes } = require("./routes/market"));
+    ({ screenWatchlistCached, fetchMarketQuotes } = require("./routes/market"));
     ({ computeRegime, computeAPlusScore } = require("./trade-planner-scoring"));
   } catch { return { ok: false, checked: 0, alerts: [] }; }
 
   const macroRows = await fetchMarketQuotes(["SPY", "QQQ", "VIXY"], resolveProviderKeys(new URLSearchParams())).catch(() => []);
   const regime = computeRegime(Array.isArray(macroRows) ? macroRows : []);
-  const results = await screenTrendTemplate(symbols).catch(() => []);
+  // screenWatchlistCached (not screenTrendTemplate directly) — shares one
+  // real scan with watchlist-institutional-alerts.js's identical watchlist
+  // sweep when both land in the same 15-min tick (CTO audit item #4).
+  const results = await screenWatchlistCached(symbols).catch(() => []);
 
   const prev = loadState();
   const next = { ...prev };

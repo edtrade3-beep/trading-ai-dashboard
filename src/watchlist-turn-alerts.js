@@ -1,7 +1,12 @@
 // watchlist-turn-alerts.js — real Telegram alert when a Watchlist symbol's
-// chart verdict (GO/WAIT/AVOID from buildTrendTemplate, the same real signal
-// shown as the chart's "OVERALL RATING" badge) changes state. "Turned GO" =
-// real buy signal; "turned away from GO" = real sell/exit signal.
+// chart verdict (GO/WAIT/AVOID, the same real signal shown as the chart's
+// "OVERALL RATING" badge) changes state. "Turned GO" = real buy signal;
+// "turned away from GO" = real sell/exit signal. Reads the flattened
+// row.verdict from screenWatchlistCached's batched scan (routes/market.js)
+// rather than looping buildTrendTemplate per symbol (switched 2026-07-29,
+// CTO audit item #4 — the old loop redundantly refetched SPY bars once per
+// symbol with no shared cache across this file's own run, let alone across
+// the other two watchlist-*-alerts.js jobs scanning the same symbols).
 //
 // Scope is explicitly the user's Watchlist only (2026-07-26, explicit user
 // choice over an AskUserQuestion) — NOT open positions, which already have
@@ -41,17 +46,26 @@ async function checkWatchlistTurns() {
   const { symbols } = loadWatchlist();
   if (!Array.isArray(symbols) || !symbols.length) return { ok: true, checked: 0, turns: [] };
 
-  let buildTrendTemplate;
-  try { ({ buildTrendTemplate } = require("./routes/market")); } catch { return { ok: false, checked: 0, turns: [] }; }
+  let screenWatchlistCached;
+  try { ({ screenWatchlistCached } = require("./routes/market")); } catch { return { ok: false, checked: 0, turns: [] }; }
 
   const prev = loadVerdicts();
   const next = { ...prev };
   const turns = [];
 
-  for (const symbol of symbols) {
-    let tt;
-    try { tt = await buildTrendTemplate(symbol, { light: true }); } catch { continue; }
-    const verdict = tt && tt.setup && tt.setup.verdict; // GO / WAIT / AVOID
+  // screenWatchlistCached (batched, cached), not a per-symbol
+  // buildTrendTemplate loop — the old loop called buildTrendTemplate once
+  // per symbol without passing spyMom, so every single symbol independently
+  // refetched real SPY bars just to compute its own RS rating (CTO audit
+  // item #4: N redundant SPY fetches per run, before even counting the
+  // other two watchlist jobs' separate re-scans of the same symbols).
+  // screenTrendTemplate's row.verdict is the identical real field
+  // (row.setup.verdict flattened) the old per-symbol tt.setup.verdict read.
+  const rows = await screenWatchlistCached(symbols).catch(() => []);
+  for (const row of rows) {
+    if (row.error) continue;
+    const symbol = row.symbol;
+    const verdict = row.verdict; // GO / WAIT / AVOID
     if (!verdict) continue;
     const last = prev[symbol];
     next[symbol] = verdict;

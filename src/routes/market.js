@@ -1,4 +1,4 @@
-const { writeJson, readRequestBody, withTimeout, fetchJsonSafe, round2, average, trimText } = require("../utils");
+const { writeJson, readRequestBody, withTimeout, fetchJsonSafe, round2, average, trimText, cached } = require("../utils");
 const { callAnthropicApi, MODELS, anthropicRequest } = require("../anthropic");
 const { PORT, MARKET_QUOTE_TIMEOUT_MS, MACRO_SYMBOLS, TIMEFRAME_CONFIG, resolveProviderKeys } = require("../config");
 const { detectFVGs, detectOrderBlocks, detectBOSChoCh, detectLiquidityLevels } = require("../smc-engine");
@@ -1430,6 +1430,26 @@ async function screenTrendTemplate(symbols, filters = {}) {
   const rank = (x) => x.error ? -1 : (x.atBuyPoint ? 1000 : 0) + x.passCount * 100 + (x.rsRating || 0);
   out.sort((a, b) => rank(b) - rank(a));
   return out;
+}
+
+// Shared cache in front of screenTrendTemplate, for the real Watchlist
+// background jobs only (CTO audit, 2026-07-29, item #4) — NOT used by the
+// live /api/market/screen-trend-template route (Best Opportunities/Sniper
+// Scanner manual refresh), which stays uncached on purpose. watchlist-
+// setup-alerts.js, watchlist-institutional-alerts.js, and watchlist-turn-
+// alerts.js each independently called screenTrendTemplate/buildTrendTemplate
+// for the identical real watchlist symbol list on their own 15-min
+// setInterval, registered within milliseconds of each other at boot — so in
+// practice they were re-running the same real scan (SPY momentum fetch +
+// per-symbol trend data + the fundamentals-overlay Yahoo quote batch) 3x
+// every cycle. A 3-min TTL (comfortably shorter than the 15-min job
+// interval, so every new cycle still gets a fresh scan; comfortably longer
+// than the sub-second gap between these jobs' near-simultaneous fires) lets
+// whichever job runs first do the real work and the other two get it free.
+const WATCHLIST_SCREEN_CACHE_TTL_MS = 3 * 60_000;
+async function screenWatchlistCached(symbols) {
+  const key = `watchlist-screen:${symbols.slice().sort().join(",")}`;
+  return cached(key, WATCHLIST_SCREEN_CACHE_TTL_MS, () => screenTrendTemplate(symbols));
 }
 
 // 🗣️ TRADING COPILOT tool — lets the model actually RUN a live scan instead
@@ -4107,3 +4127,4 @@ module.exports.fetchMarketQuotes = fetchMarketQuotes; // exposed for the same jo
 module.exports.buildTrendTemplate = buildTrendTemplate; // exposed for trailing-stops.js's real-position invalidation check — { light: true } skips bars/series but keeps setup.sellSignals
 module.exports.fetchOptionsFlow = fetchOptionsFlow; // exposed for watchlist-institutional-alerts.js's real options-flow-unusual alert (Phase 5)
 module.exports.fetchDarkPoolPrints = fetchDarkPoolPrints; // exposed for the same file's real dark-pool-spike alert
+module.exports.screenWatchlistCached = screenWatchlistCached; // exposed for the 3 watchlist-*-alerts.js background jobs (CTO audit item #4) — shared cache, not for live/manual-refresh routes
