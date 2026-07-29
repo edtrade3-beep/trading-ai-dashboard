@@ -826,7 +826,7 @@ export function PerformanceCard({ C, MONO, SANS }) {
     fetch("/api/alpaca/closed-trades").then(r => r.json()).then(d => setTrades(Array.isArray(d.trades) ? d.trades : [])).catch(() => setTrades([]));
   }, []);
   if (!acct && !trades) return null;
-  const { n, winRate, expectancy, profitFactor: pf, edgeReady, totalPnl } = computeTradeStats(trades);
+  const { n, winRate, expectancy, profitFactor: pf, edgeReady, totalPnl, sharpe, maxDrawdown } = computeTradeStats(trades);
   const best = n ? (trades || []).reduce((a, b) => b.pnl > a.pnl ? b : a) : null;
   const worst = n ? (trades || []).reduce((a, b) => b.pnl < a.pnl ? b : a) : null;
   const eq = acct ? Number(acct.equity) : null;
@@ -852,6 +852,8 @@ export function PerformanceCard({ C, MONO, SANS }) {
         {box("TRADES", String(n))}
         {box("EXPECTANCY/TRADE", n === 0 ? "—" : money(expectancy), n === 0 ? null : expectancy >= 0 ? "#0d9465" : "#c8282a")}
         {box("PROFIT FACTOR", pf == null ? "—" : pf === Infinity ? "∞" : pf.toFixed(2), pf == null ? null : pf >= 1.5 ? "#0d9465" : pf >= 1 ? "#d6a312" : "#c8282a")}
+        {box("MAX DRAWDOWN", maxDrawdown > 0 ? money(-maxDrawdown) : "—", maxDrawdown > 0 ? "#c8282a" : null)}
+        {box("SHARPE", n >= MIN_TRADES_FOR_EDGE && sharpe != null ? sharpe.toFixed(2) : "—", sharpe == null ? null : sharpe >= 1 ? "#0d9465" : sharpe >= 0 ? "#d6a312" : "#c8282a")}
       </div>
       {n > 0 ? (
         <div style={{ fontFamily: MONO, fontSize: 10.5, color: C.textDim, marginTop: 8 }}>

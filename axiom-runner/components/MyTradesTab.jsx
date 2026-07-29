@@ -116,7 +116,7 @@ function AlpacaReportCard({ C, MONO, SANS }) {
   if (err) return wrap(<div style={{ fontFamily: SANS, fontSize: 12, color: C.red }}>Couldn't load closed trades — {err}.</div>);
 
   const closed = trades;
-  const { n, winRate, avgWin, avgLoss, totalPnl, expectancy, profitFactor, edgeReady } = computeTradeStats(closed);
+  const { n, winRate, avgWin, avgLoss, totalPnl, expectancy, profitFactor, edgeReady, sharpe, sortino, maxDrawdown } = computeTradeStats(closed);
   const chrono = [...closed].sort((a, b) => new Date(a.closedAt) - new Date(b.closedAt));
   let cum = 0; const eq = chrono.map(t => (cum += t.pnl));
 
@@ -128,6 +128,12 @@ function AlpacaReportCard({ C, MONO, SANS }) {
     ["EXPECTANCY/TRADE", (expectancy >= 0 ? "+" : "") + "$" + expectancy.toFixed(0), expectancy >= 0 ? C.green : C.red],
     ["PROFIT FACTOR", profitFactor === Infinity ? "∞" : profitFactor.toFixed(2), profitFactor >= 1.5 ? C.green : profitFactor >= 1 ? C.amber : C.red],
     ["TOTAL P&L", (totalPnl >= 0 ? "+" : "") + "$" + Math.round(totalPnl), totalPnl >= 0 ? C.green : C.red],
+    ["MAX DRAWDOWN", maxDrawdown > 0 ? "-$" + Math.round(maxDrawdown) : "—", maxDrawdown > 0 ? C.red : C.textDim],
+    // Sharpe/Sortino are statistically noisy below the same 20-trade sample
+    // this app already requires before calling an "edge" real — shown as
+    // "—" rather than a misleadingly precise number until then.
+    ["SHARPE (per-trade)", n >= MIN_TRADES_FOR_EDGE && sharpe != null ? sharpe.toFixed(2) : "—", sharpe >= 1 ? C.green : sharpe >= 0 ? C.amber : C.red],
+    ["SORTINO (per-trade)", n >= MIN_TRADES_FOR_EDGE && sortino != null ? (sortino === Infinity ? "∞" : sortino.toFixed(2)) : "—", sortino >= 1 ? C.green : sortino >= 0 ? C.amber : C.red],
   ];
   return wrap(<>
     <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>

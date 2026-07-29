@@ -192,7 +192,7 @@ export default function JournalTab({
             {journalEntries.length > 0 && (() => {
               const closed = journalEntries.filter(e => e.status === "closed" && e.pnl != null).sort((a, b) => new Date(a.closedAt) - new Date(b.closedAt));
               if (closed.length < 2) return null;
-              const { avgWin, avgLoss, profitFactor, expectancy, edgeReady } = computeTradeStats(closed);
+              const { avgWin, avgLoss, profitFactor, expectancy, edgeReady, sharpe, sortino, maxDrawdown } = computeTradeStats(closed);
               const rFactor = avgLoss > 0 ? avgWin / avgLoss : 0;
               let curStreak = 0, maxWinStreak = 0, maxLossStreak = 0, curWin = 0, curLoss = 0;
               closed.forEach(e => {
@@ -202,18 +202,18 @@ export default function JournalTab({
               const lastPnl = closed[closed.length - 1].pnl;
               curStreak = closed.slice().reverse().findIndex(e => lastPnl > 0 ? e.pnl <= 0 : e.pnl > 0);
               if (curStreak === -1) curStreak = closed.length;
-              let peak = 0, runningPnl = 0, maxDd = 0;
-              closed.forEach(e => { runningPnl += e.pnl; if (runningPnl > peak) peak = runningPnl; const dd = peak - runningPnl; if (dd > maxDd) maxDd = dd; });
               return (
                 <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px", marginBottom: 12 }}>
                   <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>PERFORMANCE ANALYTICS ({closed.length} closed trades)</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 8 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(90px, 1fr))", gap: 8 }}>
                     <div><div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>AVG WIN</div><div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.green }}>+${avgWin.toFixed(0)}</div></div>
                     <div><div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>AVG LOSS</div><div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.red }}>-${avgLoss.toFixed(0)}</div></div>
                     <div><div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>R-FACTOR</div><div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: rFactor >= 1.5 ? C.green : rFactor >= 1 ? C.amber : C.red }}>{isFinite(rFactor) ? rFactor.toFixed(2) : "∞"}</div></div>
                     <div><div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>PROFIT FACTOR</div><div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: profitFactor >= 1.5 ? C.green : profitFactor >= 1 ? C.amber : C.red }}>{isFinite(profitFactor) ? profitFactor.toFixed(2) : "∞"}</div></div>
                     <div><div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>EXPECTANCY</div><div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: expectancy >= 0 ? C.green : C.red }}>{expectancy >= 0 ? "+" : ""}${expectancy.toFixed(0)}</div></div>
-                    <div><div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>MAX DRAWDOWN</div><div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: maxDd > 0 ? C.red : C.textDim }}>{maxDd > 0 ? `-$${maxDd.toFixed(0)}` : "—"}</div></div>
+                    <div><div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>MAX DRAWDOWN</div><div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: maxDrawdown > 0 ? C.red : C.textDim }}>{maxDrawdown > 0 ? `-$${maxDrawdown.toFixed(0)}` : "—"}</div></div>
+                    <div><div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>SHARPE</div><div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: sharpe >= 1 ? C.green : sharpe >= 0 ? C.amber : C.red }}>{closed.length >= MIN_TRADES_FOR_EDGE && sharpe != null ? sharpe.toFixed(2) : "—"}</div></div>
+                    <div><div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>SORTINO</div><div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: sortino >= 1 ? C.green : sortino >= 0 ? C.amber : C.red }}>{closed.length >= MIN_TRADES_FOR_EDGE && sortino != null ? (sortino === Infinity ? "∞" : sortino.toFixed(2)) : "—"}</div></div>
                     <div>
                       <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>STREAKS</div>
                       <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700 }}>

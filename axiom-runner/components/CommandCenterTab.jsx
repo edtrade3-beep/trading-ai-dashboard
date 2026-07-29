@@ -429,6 +429,11 @@ export default function CommandCenterTab({ C, MONO, SANS }) {
               </div>
               <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginTop: 10, fontFamily: MONO, fontSize: 11, color: C.textDim }}>
                 {brief.portfolioRisk.weightedBeta != null && <span>Weighted Beta <b style={{ color: C.text }}>{brief.portfolioRisk.weightedBeta}</b></span>}
+                {brief.portfolioRisk.realBeta != null && (
+                  <span title={brief.portfolioRisk.realBetaAllReal ? "Real OLS regression vs SPY daily returns, every holding" : "Real OLS regression vs SPY where there's enough history; thin-history names fall back to a vol-ratio estimate"}>
+                    Beta (regression) <b style={{ color: C.text }}>{brief.portfolioRisk.realBeta}</b>{!brief.portfolioRisk.realBetaAllReal && <span style={{ color: C.amber }}> *</span>}
+                  </span>
+                )}
                 {brief.portfolioRisk.var95 != null && <span>VaR 95% (1-day) <b style={{ color: C.red }}>-${brief.portfolioRisk.var95.toLocaleString()}</b></span>}
                 {brief.portfolioRisk.var99 != null && <span>VaR 99% (1-day) <b style={{ color: C.red }}>-${brief.portfolioRisk.var99.toLocaleString()}</b></span>}
               </div>

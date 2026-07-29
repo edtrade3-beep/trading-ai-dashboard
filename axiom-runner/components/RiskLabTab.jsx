@@ -1,33 +1,34 @@
 export default function RiskLabTab({
-  C, MONO, portfolioRows, scanDeepData,
+  C, MONO, portfolioRows,
 }) {
         const card = (extra = {}) => ({ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, ...extra });
-        // Compute portfolio metrics from positions
-        const totalValue = portfolioRows.reduce((s, p) => s + p.shares * (p.currentPrice || p.avgCost || 0), 0);
-        const positions = portfolioRows.map(p => {
-          const val = p.shares * (p.currentPrice || p.avgCost || 0);
-          const weight = totalValue > 0 ? val / totalValue : 0;
-          const pnlPct = p.avgCost > 0 && p.currentPrice ? (p.currentPrice - p.avgCost) / p.avgCost : 0;
-          // Use deep scan ATR if available, else estimate 2% daily vol
-          const bars = scanDeepData[p.ticker]?.candles || [];
-          let vol = 0.02;
-          if (bars.length >= 14) {
-            const highs = bars.map(b => b.high), lows = bars.map(b => b.low), closes = bars.map(b => b.close);
-            const trs = [];
-            for (let i = 1; i < Math.min(bars.length, 20); i++) {
-              trs.push(Math.max(highs[i] - lows[i], Math.abs(highs[i] - closes[i-1]), Math.abs(lows[i] - closes[i-1])));
-            }
-            const atr = trs.reduce((a, b) => a + b, 0) / trs.length;
-            vol = (p.currentPrice || p.avgCost) > 0 ? atr / (p.currentPrice || p.avgCost) : 0.02;
-          }
-          return { ticker: p.ticker, val, weight, pnlPct, vol };
-        });
-        // Portfolio VaR (95%, 1-day) — simplified parametric
-        const portVol = positions.length > 0 ? positions.reduce((s, p) => s + p.weight * p.vol, 0) : 0;
-        const var95 = totalValue * portVol * 1.645;
-        const var99 = totalValue * portVol * 2.326;
-        // Beta: weighted sum (SPY beta = 1 baseline; use vol ratio as proxy if no beta data)
-        const approxBeta = positions.length > 0 ? positions.reduce((s, p) => s + p.weight * (p.vol / 0.015), 0) : 1;
+        // Real portfolio VaR/beta — server-side computeRiskLab (same real
+        // regression-beta-vs-SPY math command-center-ai.js uses for live
+        // Alpaca positions, Phase 3 of the Institutional Research Upgrade,
+        // 2026-07-29). Was previously an inline client vol-ratio proxy
+        // duplicated from risk-lab-calc.js; now one real source for both.
+        const [riskLab, setRiskLab] = React.useState(null);
+        const [riskLabState, setRiskLabState] = React.useState("idle"); // idle | loading | ok | err
+        const posKey = portfolioRows.map(p => `${p.ticker}:${p.shares}:${p.currentPrice || p.avgCost}`).join(",");
+        React.useEffect(() => {
+          if (!portfolioRows.length) { setRiskLab(null); setRiskLabState("idle"); return; }
+          setRiskLabState("loading");
+          fetch("/api/market/portfolio-risk", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ positions: portfolioRows.map(p => ({ symbol: p.ticker, shares: p.shares, currentPrice: p.currentPrice, avgCost: p.avgCost })) }),
+          }).then(r => r.json()).then(d => {
+            if (d.ok && d.riskLab) { setRiskLab(d.riskLab); setRiskLabState("ok"); }
+            else setRiskLabState("err");
+          }).catch(() => setRiskLabState("err"));
+          // eslint-disable-next-line react-hooks/exhaustive-deps
+        }, [posKey]);
+
+        const totalValue = riskLab ? riskLab.totalValue : portfolioRows.reduce((s, p) => s + p.shares * (p.currentPrice || p.avgCost || 0), 0);
+        const loading = riskLabState === "loading" || (riskLabState === "idle" && portfolioRows.length > 0);
+        const var95 = riskLab ? riskLab.var95 : 0;
+        const var99 = riskLab ? riskLab.var99 : 0;
+        const approxBeta = riskLab ? riskLab.beta : 1;
+        const portVol = riskLab ? riskLab.avgDailyVolatilityPct / 100 : 0;
         // Stress scenarios
         const scenarios = [
           { name: "Flash Crash -10%", spyShock: -0.10, label: "2020 COVID Flash" },
@@ -59,25 +60,29 @@ export default function RiskLabTab({
                 {/* VaR + Beta row */}
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10 }}>
                   <div style={{ ...card({ padding: 18, textAlign: "center", borderLeft: `4px solid ${C.red}` }) }}>
-                    <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.red }}>-${var95.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.red }}>{loading ? "…" : riskLab ? "-$" + var95.toLocaleString(undefined, { maximumFractionDigits: 0 }) : "—"}</div>
                     <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>VaR 95% (1-DAY)</div>
                   </div>
                   <div style={{ ...card({ padding: 18, textAlign: "center", borderLeft: `4px solid ${C.red}` }) }}>
-                    <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.red }}>-${var99.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.red }}>{loading ? "…" : riskLab ? "-$" + var99.toLocaleString(undefined, { maximumFractionDigits: 0 }) : "—"}</div>
                     <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>VaR 99% (1-DAY)</div>
                   </div>
-                  <div style={{ ...card({ padding: 18, textAlign: "center", borderLeft: `4px solid ${C.amber}` }) }}>
-                    <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.amber }}>{approxBeta.toFixed(2)}</div>
-                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>PORTFOLIO BETA</div>
+                  <div style={{ ...card({ padding: 18, textAlign: "center", borderLeft: `4px solid ${C.amber}` }) }} title={riskLab && !riskLab.betaAllReal ? "One or more holdings lack enough real history for a regression beta — falls back to a vol-ratio estimate for those" : "Real OLS regression vs SPY daily returns"}>
+                    <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.amber }}>{loading ? "…" : riskLab ? approxBeta.toFixed(2) : "—"}{riskLab && !riskLab.betaAllReal && <span style={{ fontSize: 12 }}> *</span>}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>PORTFOLIO BETA{riskLab && !riskLab.betaAllReal ? " *" : ""}</div>
                   </div>
                   <div style={{ ...card({ padding: 18, textAlign: "center" }) }}>
-                    <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.text }}>{(portVol * 100).toFixed(1)}%</div>
+                    <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.text }}>{loading ? "…" : riskLab ? (portVol * 100).toFixed(1) + "%" : "—"}</div>
                     <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>AVG DAILY VOLATILITY</div>
                   </div>
                 </div>
+                {riskLabState === "err" && <div style={{ fontFamily: MONO, fontSize: 11, color: C.red }}>⚠ Couldn't compute real risk metrics — try again shortly.</div>}
                 {/* Stress tests */}
                 <div style={{ ...card({ padding: 16 }) }}>
                   <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.amber, marginBottom: 12 }}>STRESS TEST SCENARIOS</div>
+                  {!riskLab ? (
+                    <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, padding: "8px 0" }}>{loading ? "Computing real beta…" : "Real beta unavailable — can't project a stress scenario."}</div>
+                  ) : (
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10 }}>
                     {scenarios.map((sc, i) => {
                       const impact = totalValue * approxBeta * sc.spyShock;
@@ -92,6 +97,7 @@ export default function RiskLabTab({
                       );
                     })}
                   </div>
+                  )}
                 </div>
                 {/* Tax-loss harvesting */}
                 <div style={{ ...card({ padding: 16 }) }}>

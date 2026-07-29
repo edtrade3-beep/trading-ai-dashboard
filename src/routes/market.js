@@ -1494,6 +1494,34 @@ async function handleMarket(req, res, requestUrl) {
     } catch (e) { return writeJson(res, 200, { ok: false, error: e instanceof Error ? e.message : "fedwatch failed" }); }
   }
 
+  // Real portfolio VaR/beta for any manually-tracked position list (Risk
+  // Lab), reusing the exact same computeRiskLab/computeRegressionBeta math
+  // command-center-ai.js already uses for live Alpaca positions — one real
+  // source instead of RiskLabTab.jsx's own duplicated client-side vol-ratio
+  // proxy (Phase 3 of the Institutional Research Upgrade, 2026-07-29).
+  if (pathname === "/api/market/portfolio-risk" && req.method === "POST") {
+    let b; try { b = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { ok: false, error: "bad json" }); }
+    const positions = Array.isArray(b.positions) ? b.positions.slice(0, 60) : [];
+    if (!positions.length) return writeJson(res, 200, { ok: true, riskLab: null });
+    try {
+      const { computeRiskLab } = require("../risk-lab-calc");
+      const [barsArr, spyBars] = await Promise.all([
+        Promise.all(positions.map((p) => fetchYahooBars(String(p.symbol || "").toUpperCase(), "3mo", "1d").catch(() => []))),
+        fetchYahooBars("SPY", "3mo", "1d").catch(() => null),
+      ]);
+      const barsBySymbol = {};
+      positions.forEach((p, i) => { barsBySymbol[String(p.symbol || "").toUpperCase()] = barsArr[i]; });
+      const riskLab = computeRiskLab(
+        positions.map((p) => ({ symbol: String(p.symbol || "").toUpperCase(), shares: Number(p.shares) || 0, currentPrice: Number(p.currentPrice) || 0, avgCost: Number(p.avgCost) || 0 })),
+        barsBySymbol,
+        spyBars
+      );
+      return writeJson(res, 200, { ok: true, riskLab });
+    } catch (e) {
+      return writeJson(res, 200, { ok: false, error: e instanceof Error ? e.message : "failed" });
+    }
+  }
+
   // AI second-opinion on a Green Light setup — cheap (Haiku) + cached trader persona.
   if (pathname === "/api/market/ai-setup-review" && req.method === "POST") {
     const key = (process.env.ANTHROPIC_API_KEY || "").trim();

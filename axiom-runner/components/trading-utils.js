@@ -409,7 +409,55 @@ export function computeTradeStats(closedTrades) {
   const expectancy = n ? totalPnl / n : 0;
   const profitFactor = avgLoss > 0 && losses.length ? (avgWin * wins.length) / (avgLoss * losses.length) : (wins.length ? Infinity : null);
   const edgeReady = n >= MIN_TRADES_FOR_EDGE && expectancy > 0;
-  return { n, wins: wins.length, losses: losses.length, winRate, avgWin, avgLoss, totalPnl, expectancy, profitFactor, edgeReady };
+
+  // Sharpe / Sortino / Max Drawdown — real, from the actual chronological
+  // trade sequence (2026-07-29, Phase 3 of the Institutional Research
+  // Upgrade — was independently reimplemented as a bare max-drawdown-only
+  // calc in JournalTab.jsx; folded in here so all 3 performance cards share
+  // one real source, same reasoning as the expectancy/profit-factor unify).
+  // Per-trade % return = pnl ÷ position basis (entry × qty) — a trade-level
+  // read, not a daily-bar one, since holding periods here are irregular
+  // swing trades rather than fixed daily bars. Deliberately NOT scaled by
+  // sqrt(n) — that only means "annualized" for a fixed sampling frequency
+  // (e.g. sqrt(252) for daily bars), and trades don't happen on a fixed
+  // schedule, so a raw mean/stdev ratio is the honest number here, not an
+  // implied-precision annualization.
+  const chrono = [...trades].sort((a, b) => new Date(a.closedAt || 0) - new Date(b.closedAt || 0));
+  // Alpaca closed-trades rows carry `qty`; JournalTab's manually-logged
+  // entries carry `size` for the same real concept — accept either so both
+  // real trade sources this function is called on (not just Alpaca) get a
+  // real Sharpe/Sortino instead of an unnecessary null.
+  const pctReturns = chrono
+    .map(t => { const basis = Math.abs(Number(t.entry) * Number(t.qty ?? t.size)); return basis > 0 ? Number(t.pnl) / basis : null; })
+    .filter(v => v != null);
+  let sharpe = null, sortino = null;
+  if (pctReturns.length >= 2) {
+    const meanRet = pctReturns.reduce((a, b) => a + b, 0) / pctReturns.length;
+    const variance = pctReturns.reduce((s, r) => s + (r - meanRet) ** 2, 0) / pctReturns.length;
+    const stdev = Math.sqrt(variance);
+    sharpe = stdev > 0 ? +(meanRet / stdev).toFixed(2) : null;
+    const downside = pctReturns.filter(r => r < 0);
+    const downsideDev = downside.length ? Math.sqrt(downside.reduce((s, r) => s + r * r, 0) / downside.length) : 0;
+    sortino = downsideDev > 0 ? +(meanRet / downsideDev).toFixed(2) : (downside.length === 0 && meanRet > 0 ? Infinity : null);
+  }
+  // Max drawdown off the real dollar equity curve — every trade with a real
+  // pnl counts here even if it's missing entry/qty (unlike Sharpe above,
+  // a $ drawdown doesn't need the position-basis field).
+  let cum = 0, peak = 0, maxDD = 0, maxDDPct = 0;
+  for (const t of chrono) {
+    cum += Number(t.pnl) || 0;
+    if (cum > peak) peak = cum;
+    const dd = peak - cum;
+    if (dd > maxDD) maxDD = dd;
+    if (peak > 0 && (dd / peak) * 100 > maxDDPct) maxDDPct = (dd / peak) * 100;
+  }
+  const maxDrawdown = chrono.length ? +maxDD.toFixed(2) : null;
+  const maxDrawdownPct = peak > 0 ? +maxDDPct.toFixed(1) : null;
+
+  return {
+    n, wins: wins.length, losses: losses.length, winRate, avgWin, avgLoss, totalPnl, expectancy, profitFactor, edgeReady,
+    sharpe, sortino, maxDrawdown, maxDrawdownPct,
+  };
 }
 
 export const GL_TRADES_KEY = "axiom_gl_trades_v1";

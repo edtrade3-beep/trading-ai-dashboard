@@ -355,12 +355,20 @@ async function buildCommandCenter() {
   const posArr = Array.isArray(positions?.positions) ? positions.positions : [];
   let riskLab = null;
   if (posArr.length) {
-    const barsArr = await Promise.all(posArr.map((p) => fetchYahooBars(p.symbol, "3mo", "1d").catch(() => [])));
+    // Real SPY bars alongside each holding's, so computeRiskLab can run a
+    // real regression beta instead of the vol-ratio proxy (Phase 3 of the
+    // Institutional Research Upgrade, 2026-07-29) — one extra fetch, reused
+    // across every holding.
+    const [barsArr, spyBars] = await Promise.all([
+      Promise.all(posArr.map((p) => fetchYahooBars(p.symbol, "3mo", "1d").catch(() => []))),
+      fetchYahooBars("SPY", "3mo", "1d").catch(() => null),
+    ]);
     const barsBySymbol = {};
     posArr.forEach((p, i) => { barsBySymbol[p.symbol] = barsArr[i]; });
     riskLab = computeRiskLab(
       posArr.map((p) => ({ symbol: p.symbol, shares: Number(p.qty || 0), currentPrice: Number(p.current || 0), avgCost: Number(p.avgEntry || 0) })),
-      barsBySymbol
+      barsBySymbol,
+      spyBars
     );
   }
 
@@ -535,7 +543,7 @@ Search for real, current news now and return the JSON.`;
     bearishIdeas: bearishCards,
     sectorRotation: capitalFlow,
     institutional,
-    portfolioRisk: { ...riskCC, ...(riskLab ? { var95: riskLab.var95, var99: riskLab.var99, portfolioValue: riskLab.totalValue } : {}) },
+    portfolioRisk: { ...riskCC, ...(riskLab ? { var95: riskLab.var95, var99: riskLab.var99, portfolioValue: riskLab.totalValue, realBeta: riskLab.beta, realBetaAllReal: riskLab.betaAllReal } : {}) },
     // Real, free, zero-new-AI-cost data — Chief Market Strategist scope.
     breadth: breadth?.summary || null,
     sentiment: feargreed ? { score: feargreed.score, label: feargreed.label, vix: feargreed.vix } : null,
