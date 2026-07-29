@@ -58,14 +58,21 @@ export const SIDEBAR_ITEMS = [
   // into Dashboard, one mount point each" pass) — it's now Dashboard's real
   // "NEWS & EVENTS" sub-tab (the same NewsTab component, not a rebuild/
   // duplicate). Still reachable via the command palette (NEWS). Market
-  // (single-symbol chart + fundamentals/earnings/analyst/news/SMC panels),
-  // Market Pulse, and Market Health were all combined 2026-07-28 (explicit
-  // user request) — Market via a real 📈 chart link on every Sniper Scanner
-  // row (same MarketTerminalTab component, not a duplicate); Market Pulse
-  // and Market Health as real condensed report summaries embedded directly
-  // in CEO AI (same real components/data via a new `compact` prop, not
-  // rebuilt). All three stay reachable via the command palette (TERMINAL /
-  // MARKETPULSE / MARKETHEALTH) for their full standalone versions.
+  // Pulse and Market Health were folded into CEO AI 2026-07-28 (explicit
+  // user request) as real condensed report summaries (same real
+  // components/data via a new `compact` prop, not rebuilt) — still
+  // reachable via the command palette (MARKETPULSE / MARKETHEALTH) for
+  // their full standalone versions. Market Terminal (single-symbol chart +
+  // fundamentals/earnings/analyst/news/SMC/options-flow/institutional-grade
+  // panels — everything built this session lives here) was ALSO removed
+  // from the sidebar that same day, reachable only via a chart-link from
+  // Sniper Scanner or the command palette — restored 2026-07-29 after real,
+  // repeated user difficulty finding it that way ("dont see market
+  // terminal"). The desktop-only top-bar ticker search doesn't reach it
+  // either (opens a DeepDive modal on Dashboard instead), and there's no
+  // mobile equivalent of that search bar at all — this sidebar entry is
+  // the one path that reliably works on both.
+  { id: "mterminal", label: "Market Terminal", icon: "📈", tab: "mterminal", section: "Research & Intel" },
   { id: "cot",       label: "COT",           icon: "🏦", tab: "cot", section: "Research & Intel" },
 
   // 5. OPPORTUNITIES — turning research into real candidate trades.
