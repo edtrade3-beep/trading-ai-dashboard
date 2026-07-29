@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { RH_UNIVERSE, rhScore, stockQualityBreakdown, rhScreenProgressive } from "./rhpro-shared.jsx";
-import { computeRegime, computeAPlusScore, computeNextAction, computePrediction, winProbFor } from "./market-helpers.js";
+import { computeRegime, computeAPlusScore, computeNextAction, computePrediction, winProbFor, MIN_WIN_SAMPLE } from "./market-helpers.js";
 import AiScoreExplainer, { TRADE_SETUP_DIMENSIONS, STOCK_QUALITY_DIMENSIONS } from "./AiScoreExplainer.jsx";
 import GapScanner from "./GapScanner.jsx";
 import DayTradeTab from "./DayTradeTab.jsx";
