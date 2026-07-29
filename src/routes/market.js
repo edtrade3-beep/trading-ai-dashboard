@@ -333,6 +333,40 @@ function filterFlowRows(rows, filters) {
   });
 }
 
+// Real dark pool / block trade prints via Unusual Whales — extracted so
+// both the /api/market/darkpool route and watchlist-institutional-alerts.js
+// (the real dark-pool-spike alert, Phase 5 of the Institutional Research
+// Upgrade, 2026-07-29) share one real fetch instead of two copies. Honest
+// empty result (never a guess) when no key is configured.
+async function fetchDarkPoolPrints(symbol) {
+  const { UNUSUAL_WHALES_API_KEY } = require("../config");
+  const uwKey = UNUSUAL_WHALES_API_KEY;
+  if (!uwKey) return { ok: false, error: "Unusual Whales API key not configured", prints: [] };
+  try {
+    const endpoint = symbol
+      ? `https://api.unusualwhales.com/api/darkpool/${encodeURIComponent(symbol)}`
+      : `https://api.unusualwhales.com/api/darkpool/recent`;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    const r = await fetch(endpoint, { headers: { Authorization: `Bearer ${uwKey}`, Accept: "application/json" }, signal: controller.signal });
+    clearTimeout(timer);
+    if (!r.ok) throw new Error(`UW HTTP ${r.status}`);
+    const data = await r.json();
+    const raw = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+    const prints = raw.slice(0, 30).map((p) => ({
+      ticker: String(p.ticker || p.symbol || "—").toUpperCase(),
+      price: Number(p.price || p.executed_at_price || 0),
+      size: Number(p.size || p.volume || 0),
+      value: Number(p.premium || p.total_value || (p.price * p.size) || 0),
+      time: p.executed_at || p.date || p.timestamp || "",
+      dark: true,
+    })).filter((p) => p.value > 500_000);
+    return { ok: true, symbol: symbol || "MARKET", prints };
+  } catch (e) {
+    return { ok: false, error: e.message, prints: [] };
+  }
+}
+
 async function fetchOptionsFlow(symbols, options = {}) {
   const limit = Math.max(3, Math.min(60, Number(options?.limit || 20)));
   const flowType = String(options?.flowType || "all").toLowerCase();
@@ -3425,37 +3459,9 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
   // ── GET /api/market/darkpool?symbol=NVDA (optional) ──────────────────────
   // Returns recent dark pool / block trade prints via Unusual Whales API.
   if (pathname === "/api/market/darkpool" && req.method === "GET") {
-    const { UNUSUAL_WHALES_API_KEY } = require("../config");
     const symbol = (requestUrl.searchParams.get("symbol") || "").trim().toUpperCase();
-    const uwKey  = UNUSUAL_WHALES_API_KEY;
-    if (!uwKey) return writeJson(res, 200, { ok: false, error: "Unusual Whales API key not configured", prints: [] });
-
-    try {
-      const endpoint = symbol
-        ? `https://api.unusualwhales.com/api/darkpool/${encodeURIComponent(symbol)}`
-        : `https://api.unusualwhales.com/api/darkpool/recent`;
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 8000);
-      const r = await fetch(endpoint, {
-        headers: { Authorization: `Bearer ${uwKey}`, Accept: "application/json" },
-        signal: controller.signal,
-      });
-      clearTimeout(timer);
-      if (!r.ok) throw new Error(`UW HTTP ${r.status}`);
-      const data = await r.json();
-      const raw  = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
-      const prints = raw.slice(0, 30).map(p => ({
-        ticker:   String(p.ticker || p.symbol || "—").toUpperCase(),
-        price:    Number(p.price || p.executed_at_price || 0),
-        size:     Number(p.size || p.volume || 0),
-        value:    Number(p.premium || p.total_value || (p.price * p.size) || 0),
-        time:     p.executed_at || p.date || p.timestamp || "",
-        dark:     true,
-      })).filter(p => p.value > 500_000); // only blocks > $500K
-      return writeJson(res, 200, { ok: true, symbol: symbol || "MARKET", prints, scannedAt: new Date().toISOString() });
-    } catch (e) {
-      return writeJson(res, 200, { ok: false, error: e.message, prints: [] });
-    }
+    const result = await fetchDarkPoolPrints(symbol);
+    return writeJson(res, 200, { ...result, scannedAt: new Date().toISOString() });
   }
 
   // ── GET /api/market/darkpool/ai-take — last persisted AI take ────────────
@@ -4086,3 +4092,5 @@ module.exports.runAiScanTool = runAiScanTool; // exposed for reuse/testing — h
 module.exports.screenTrendTemplate = screenTrendTemplate; // exposed for aplus-score-history.js's daily snapshot job
 module.exports.fetchMarketQuotes = fetchMarketQuotes; // exposed for the same job's regime calc + forward-return current-price lookup
 module.exports.buildTrendTemplate = buildTrendTemplate; // exposed for trailing-stops.js's real-position invalidation check — { light: true } skips bars/series but keeps setup.sellSignals
+module.exports.fetchOptionsFlow = fetchOptionsFlow; // exposed for watchlist-institutional-alerts.js's real options-flow-unusual alert (Phase 5)
+module.exports.fetchDarkPoolPrints = fetchDarkPoolPrints; // exposed for the same file's real dark-pool-spike alert

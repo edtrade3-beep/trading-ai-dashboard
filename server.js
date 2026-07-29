@@ -342,6 +342,14 @@ server.listen(PORT, HOST, () => {
   setInterval(() => require("./src/watchlist-setup-alerts").checkWatchlistSetupAlerts().catch(() => {}), 15 * 60_000);
   console.log("[Watchlist setup] Trade Setup Score + buy-zone alerts active — every 15 min, market hours only");
 
+  // Watchlist institutional alerts — Phase 5 of the Institutional Research
+  // Upgrade (2026-07-29): 5 more real, previously-missing alert categories
+  // (smart-money BOS, dark-pool spike, unusual options flow, earnings
+  // released, sentiment shift), same persisted-diff pattern + Watchlist-only
+  // scope as the two alert files above, read-only.
+  setInterval(() => require("./src/watchlist-institutional-alerts").checkWatchlistInstitutionalAlerts().catch(() => {}), 15 * 60_000);
+  console.log("[Watchlist institutional] Smart money / dark pool / options flow / earnings / sentiment alerts active — every 15 min, market hours only");
+
   // Market auto-watchlist — real, continuous scan of a curated ~96-symbol
   // universe that auto-adds any GO (ready to pop) or WATCH (actionable,
   // building) setup to the Watchlist (2026-07-26, explicit user request:
