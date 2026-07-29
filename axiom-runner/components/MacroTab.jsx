@@ -33,6 +33,26 @@ const REAL_OVERRIDES = {
   BNO: (fred) => fred.brent && { label: "Brent Oil", value: fred.brent.value, changePct: fred.brent.changePct, unit: "$" },
 };
 
+// Curated risk-lens tiles shown first, with plain-English labels
+// (US EQUITY RISK, GROWTH BETA, ...). The full-instrument grid below used
+// to also render every one of these same symbols a second time in a
+// different card style — real duplication, not complementary detail
+// (CTO audit, 2026-07-29, product/UX pass). CURATED_RISK_LENS_KEYS lets
+// the full grid exclude them instead of repeating them.
+const CURATED_RISK_LENS = [
+  { k: "SPY", t: "US EQUITY RISK" },
+  { k: "QQQ", t: "GROWTH BETA" },
+  { k: "IWM", t: "SMALL-CAP BREADTH" },
+  { k: "UUP", t: "USD PRESSURE" },
+  { k: "USO", t: "OIL / INFLATION" },
+  { k: "GLD", t: "DEFENSIVE METAL" },
+  { k: "TLT", t: "LONG DURATION" },
+  { k: "BTCUSD", t: "RISK SENTIMENT" },
+  { k: "ETHUSD", t: "ALT LEADER" },
+  { k: "SOLUSD", t: "HIGH-BETA ALT" },
+];
+const CURATED_RISK_LENS_KEYS = new Set(CURATED_RISK_LENS.map((r) => r.k));
+
 function formatCountdown(ms) {
   const n = Math.max(0, Number(ms || 0));
   const totalSec = Math.floor(n / 1000);
@@ -101,36 +121,17 @@ export default function MacroTab({
                 </div>
               </div>
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 10 }}>
-                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>AUTO RISK ACTIONS</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>NEXT EVENT</div>
                 <div style={{ fontSize: 12, color: C.textSec, marginBottom: 6 }}>
-                  Next event: <span style={{ fontFamily: MONO, color: C.text, fontWeight: 700 }}>{macroEventCalendar[0]?.title || "N/A"}</span>
+                  <span style={{ fontFamily: MONO, color: C.text, fontWeight: 700 }}>{macroEventCalendar[0]?.title || "N/A"}</span>
                 </div>
-                <div style={{ fontSize: 12, color: C.textSec, marginBottom: 8 }}>
+                <div style={{ fontSize: 12, color: C.textSec }}>
                   Countdown: <span style={{ fontFamily: MONO, color: C.accent, fontWeight: 700 }}>{macroEventCalendar[0] ? formatCountdown(macroEventCalendar[0].tteMs) : "—"}</span>
-                </div>
-                <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 8, display: "grid", gap: 6 }}>
-                  <div style={{ fontSize: 12, color: C.textSec }}>1. T-90m: no new oversized entries.</div>
-                  <div style={{ fontSize: 12, color: C.textSec }}>2. T-30m: reduce beta and tighten stops.</div>
-                  <div style={{ fontSize: 12, color: C.textSec }}>3. T+15m: wait for post-release structure before adds.</div>
-                  <div style={{ fontSize: 12, color: C.textDim, marginTop: 2 }}>
-                    Fed/CPI/Jobs/PCE/Minutes are estimated recurring schedule until provider calendar API is connected.
-                  </div>
                 </div>
               </div>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 10, marginBottom: 12 }}>
-              {[
-                { k: "SPY", t: "US EQUITY RISK" },
-                { k: "QQQ", t: "GROWTH BETA" },
-                { k: "IWM", t: "SMALL-CAP BREADTH" },
-                { k: "UUP", t: "USD PRESSURE" },
-                { k: "USO", t: "OIL / INFLATION" },
-                { k: "GLD", t: "DEFENSIVE METAL" },
-                { k: "TLT", t: "LONG DURATION" },
-                { k: "BTCUSD", t: "RISK SENTIMENT" },
-                { k: "ETHUSD", t: "ALT LEADER" },
-                { k: "SOLUSD", t: "HIGH-BETA ALT" },
-              ].map(({ k, t }) => {
+              {CURATED_RISK_LENS.map(({ k, t }) => {
                 const q = macroData.find((m) => m.symbol === k);
                 if (!q) return null;
                 const d1 = q.delta1d ?? q.changesPercentage ?? 0;
@@ -205,7 +206,11 @@ export default function MacroTab({
               Regime filter: use macro tone first, then sector/stock relative strength, then entry trigger.
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12 }}>
-              {macroData.map((q) => {
+              {/* Excludes CURATED_RISK_LENS_KEYS — those already have their
+                  own tiles above; this grid is the rest of macroData
+                  (rates/credit/breadth instruments not in the curated risk
+                  lens), not a second copy of the same ~10 symbols. */}
+              {macroData.filter((q) => !CURATED_RISK_LENS_KEYS.has(q.symbol)).map((q) => {
                 const override = REAL_OVERRIDES[q.symbol]?.(fred);
                 const chg = override ? (override.changePct ?? 0) : (q.changesPercentage || 0);
                 const up = chg >= 0;

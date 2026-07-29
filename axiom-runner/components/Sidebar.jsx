@@ -73,6 +73,11 @@ export const SIDEBAR_ITEMS = [
   // mobile equivalent of that search bar at all — this sidebar entry is
   // the one path that reliably works on both.
   { id: "mterminal", label: "Market Terminal", icon: "📈", tab: "mterminal", section: "Research & Intel" },
+  // Macro (10Y/2Y/Brent/BTC-dominance, econ calendar+countdown, curated
+  // risk-lens grid) was reachable only via the command palette (MACRO),
+  // never in this sidebar — same bug class as Market Terminal above, just
+  // not yet noticed by the user (found in a 2026-07-29 product/UX audit).
+  { id: "macro",     label: "Macro",         icon: "🌐", tab: "macro", section: "Research & Intel" },
   { id: "cot",       label: "COT",           icon: "🏦", tab: "cot", section: "Research & Intel" },
 
   // 5. OPPORTUNITIES — turning research into real candidate trades.

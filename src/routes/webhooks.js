@@ -94,9 +94,13 @@ async function handleWebhooks(req, res, requestUrl) {
   const { pathname } = requestUrl;
 
   if (pathname === "/api/market/tv-alerts") {
-    if (!isTradingViewWebhookAuthorized(requestUrl, req)) {
-      return writeJson(res, 401, { error: "Unauthorized." });
-    }
+    // No auth gate here (2026-07-29 fix) — this endpoint only views/manages
+    // already-stored history, it never accepts a new alert as if it were
+    // real, so it isn't the thing the fail-open fix below is about.
+    // Gating it on TV_WEBHOOK_SECRET was an accidental side effect of that
+    // fix: it blocked this app's own Alerts tab from loading its own
+    // webhook history whenever the secret is unset (the common case,
+    // confirmed live: production has no TV_WEBHOOK_SECRET configured).
 
     // DELETE — clear all persisted TV webhook history
     if (req.method === "DELETE") {
