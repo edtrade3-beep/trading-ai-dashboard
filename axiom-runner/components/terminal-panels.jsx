@@ -148,6 +148,67 @@ export function AiWhyPanel({ symbol, price, changePct, C, MONO, SANS }) {
   );
 }
 
+// AI Bull Case / Bear Case — Phase 4 of the Institutional Research Upgrade
+// (2026-07-29). On-demand (button), same cost-control convention as
+// AiWhyPanel above. `data` is the real fundamentals/technicals/smart-money/
+// options-flow/macro/sector bundle MarketTerminalTab already has in scope
+// (nothing new fetched here) — the server route grounds the model in
+// exactly those real numbers, never inventing one. Resets when the symbol
+// changes so a stale case from a different stock never lingers.
+export function BullBearPanel({ symbol, data, C, MONO, SANS }) {
+  const [result, setResult] = useState(null); // { bull, bear } | null
+  const [state, setState] = useState("idle"); // idle | loading | ok | err
+  const [err, setErr] = useState("");
+
+  useEffect(() => { setResult(null); setState("idle"); setErr(""); }, [symbol]);
+
+  const generate = () => {
+    setState("loading"); setErr("");
+    fetch("/api/market/ai-bull-bear", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ symbol, data }),
+    })
+      .then(r => r.json())
+      .then(j => { if (j.ok) { setResult({ bull: j.bull, bear: j.bear }); setState("ok"); } else { setErr(j.error || "failed"); setState("err"); } })
+      .catch(e => { setErr(e.message); setState("err"); });
+  };
+
+  return (
+    <div style={{ marginTop: 14, border: `1px solid ${C.border}`, borderRadius: 12, padding: "12px 14px", background: C.card }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+        <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 800, color: C.text }}>⚖ Bull Case / Bear Case — {symbol}</div>
+        <button onClick={generate} disabled={state === "loading"}
+          style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "6px 12px", borderRadius: 8, cursor: state === "loading" ? "wait" : "pointer",
+            border: `1px solid #7c5cff`, background: "rgba(124,92,255,0.14)", color: "#a78bfa" }}>
+          {state === "loading" ? "Thinking…" : state === "ok" ? "↻ Regenerate" : "Generate"}
+        </button>
+      </div>
+      {state === "err" && <div style={{ fontFamily: MONO, fontSize: 12, color: "#ef4444", marginTop: 8 }}>⚠ {err}</div>}
+      {state === "idle" && <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginTop: 8 }}>Grounded in this stock's real fundamentals/technicals/smart-money/flow/macro data already on this page — click Generate.</div>}
+      {result && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14, marginTop: 12 }}>
+          <div>
+            <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: "#0d9465", letterSpacing: "0.05em", marginBottom: 6 }}>▲ BULL CASE</div>
+            {result.bull.length ? (
+              <ul style={{ margin: 0, paddingLeft: 18 }}>
+                {result.bull.map((r, i) => <li key={i} style={{ fontFamily: SANS, fontSize: 12.5, color: C.text, lineHeight: 1.6, marginBottom: 3 }}>{r}</li>)}
+              </ul>
+            ) : <div style={{ fontFamily: MONO, fontSize: 11.5, color: C.textDim }}>No real bullish reasons stood out.</div>}
+          </div>
+          <div>
+            <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: "#c8282a", letterSpacing: "0.05em", marginBottom: 6 }}>▼ BEAR CASE</div>
+            {result.bear.length ? (
+              <ul style={{ margin: 0, paddingLeft: 18 }}>
+                {result.bear.map((r, i) => <li key={i} style={{ fontFamily: SANS, fontSize: 12.5, color: C.text, lineHeight: 1.6, marginBottom: 3 }}>{r}</li>)}
+              </ul>
+            ) : <div style={{ fontFamily: MONO, fontSize: 11.5, color: C.textDim }}>No real bearish reasons stood out.</div>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Latest headlines for the selected symbol. Reads /api/market/news.
 export function NewsPanel({ symbol, C, MONO, SANS }) {
   const [items, setItems] = useState(null);

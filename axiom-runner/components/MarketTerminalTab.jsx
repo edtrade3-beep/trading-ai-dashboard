@@ -3,7 +3,7 @@ import TrendChart from "./TrendChart.jsx";
 import TrendSetupPanel from "./TrendSetupPanel.jsx";
 import SmartScanPanel from "./SmartScanPanel.jsx";
 import {
-  EarningsSnapshot, EarningsBars, AiWhyPanel, NewsPanel, SectorHeatStrip,
+  EarningsSnapshot, EarningsBars, AiWhyPanel, BullBearPanel, NewsPanel, SectorHeatStrip,
   MarketPulseBar, SentimentRow, MarketNewsWire, AnalystPeerPanel,
   FundamentalsPanel, CompanyProfile, AiPredictPanel, COTPanel,
   PredictionMarkets, SocialFeed, InvestorsPanel, TradeExtrasPanel,
@@ -319,6 +319,38 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   const prediction = chart ? computePrediction(chart, chart) : null;
   const winProb = (symTrend && aplusTrack) ? winProbFor(aplusTrack, computeAPlusScore(symTrend, regime).score) : null;
   const riskLevel = symTrend?.riskPct != null ? (symTrend.riskPct <= 5 ? "Low" : symTrend.riskPct <= 8 ? "Medium" : "High") : null;
+
+  // Real data bundle for the Bull/Bear case generator (Phase 4) — every
+  // field here is something already computed above on this page, turned
+  // into short human-readable strings so the server prompt never has to
+  // reason about raw object shapes. Nothing new fetched.
+  const bullBearData = (() => {
+    const mc = fund && Number(fund.marketCap) > 0 ? Number(fund.marketCap) : null;
+    const pe = fund && Number(fund.pe || fund.trailingPE) > 0 ? Number(fund.pe || fund.trailingPE) : null;
+    const smc = symTrend?.smc;
+    const smcParts = [];
+    if (smc?.bos?.type) smcParts.push(smc.bos.label);
+    if (smc?.choch?.type) smcParts.push(smc.choch.label);
+    if (smc?.openFVGCount) smcParts.push(`${smc.openFVGCount} open FVG(s)`);
+    if (smc?.nearestOB?.type) smcParts.push(`nearest order block: ${smc.nearestOB.type === "BULL_OB" ? "bullish" : "bearish"}`);
+    const adx = chart?.technicals?.adx, don = chart?.technicals?.donchian, bb = chart?.technicals?.bollinger;
+    const flowTotal = symOptionsFlow ? (Number(symOptionsFlow.callNotional) || 0) + (Number(symOptionsFlow.putNotional) || 0) : 0;
+    return {
+      price: chart?.price ?? null, stage: chart?.stage ?? null, passCount: symTrend?.passCount ?? null,
+      rsRating: symTrend?.rsRating ?? null, pctFromHigh: chart?.pctFromHigh ?? null,
+      pe: pe != null ? pe.toFixed(1) : null,
+      epsGrowth: symTrend?.epsGrowth ?? null,
+      marketCap: mc != null ? (mc >= 1e12 ? "$" + (mc / 1e12).toFixed(2) + "T" : mc >= 1e9 ? "$" + (mc / 1e9).toFixed(1) + "B" : "$" + (mc / 1e6).toFixed(0) + "M") : null,
+      adx: adx?.adx ?? null, adxStrength: adx?.strength ?? null, adxDirection: adx?.direction ?? null,
+      donchianPos: don?.pctPosition ?? null, bollingerPctB: bb?.percentB ?? null,
+      smcSummary: smcParts.length ? smcParts.join("; ") : null,
+      optionsFlowSummary: flowTotal > 0 ? `${Math.round((symOptionsFlow.callNotional / flowTotal) * 100)}% call-weighted notional` : null,
+      regimeLabel: regime?.label ?? null, regimeScore: regime?.score ?? null,
+      sectorRank: symSectorInfo?.rank ?? null, sectorOf: symSectorInfo?.of ?? null,
+      institutionalGrade: institutionalGrade?.score ?? null,
+      institutionalRec: institutionalGrade ? institutionalRecommendation(institutionalGrade.score).label : null,
+    };
+  })();
   const pct = (v) => v == null ? "—" : (v > 0 ? "+" : "") + v.toFixed(2) + "%";
   const col = (v) => v == null ? C.textDim : v > 0 ? "#22d47e" : v < 0 ? "#ef4444" : C.text;
   // Day-change % for the loaded symbol, looked up across all movers buckets.
@@ -653,6 +685,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             <TrendSetupPanel data={chart} C={C} MONO={MONO} SANS={SANS} />
             <TradeExtrasPanel data={chart} macroData={macroData} C={C} MONO={MONO} SANS={SANS} />
             <AiWhyPanel symbol={sym} price={chart && chart.price} changePct={symDayPct} C={C} MONO={MONO} SANS={SANS} />
+            {chart && <BullBearPanel symbol={sym} data={bullBearData} C={C} MONO={MONO} SANS={SANS} />}
             {chart && (() => {
               // Real, free, deterministic ~1-week read — the same engine
               // formerly the standalone Predictions tab (moved 2026-07-28
