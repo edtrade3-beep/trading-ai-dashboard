@@ -22,8 +22,8 @@ export default function QuotesTab({
   setWlistRenameVal, setWlistRenaming, setWlSearchFocused, setWlSearchQuery,
   fetchAll, openTradingView, loadDeepDive, loadDeepSocial,
 }) {
-  const SortH = ({ col, children, align = "left" }) => (
-    <th onClick={() => handleSort(col)} style={{
+  const SortH = ({ col, children, align = "left", title }) => (
+    <th onClick={() => handleSort(col)} title={title} style={{
       padding: "10px 8px", fontSize: 12, fontFamily: MONO, letterSpacing: "0.04em",
       color: sortCol === col ? C.accent : C.textDim, textAlign: align, cursor: "pointer",
       borderBottom: `1px solid ${C.border}`, userSelect: "none", whiteSpace: "nowrap",
@@ -443,7 +443,16 @@ export default function QuotesTab({
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
                           <span style={{ fontFamily: MONO, fontSize: isTablet ? 12 : 11, color: trendCol }}>{trendArrow} {trend.replace(" Up","").replace(" Down","").replace("Strong","").trim() || trend}</span>
                           <span style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                            <span style={{ fontFamily: MONO, fontSize: isTablet ? 12 : 11, color: C.textDim }}>S:{Math.round(scores.composite)}</span>
+                            {/* Quick Score — a real, honest 0-100 blend of technical(45%)/
+                                fundamental(35%)/macro(20%) factors from cheap quote-only
+                                data (no trend-template fetch needed, unlike A+). Used to be
+                                a bare "S:XX" with no explanation anywhere it rendered —
+                                every other score in this app is explainable; this wasn't
+                                (2026-07-29 fix). Tooltip-only, not a full modal like A+,
+                                since its internal math isn't additive-fixed-max dimensions
+                                the way A+/Stock Quality/Institutional Grade are. */}
+                            <span title={`Quick Score ${Math.round(scores.composite)}/100 — ${scores.reasons.join(" · ") || "neutral, not enough real data yet"}`}
+                              style={{ fontFamily: MONO, fontSize: isTablet ? 12 : 11, color: C.textDim, cursor: "help" }}>Q:{Math.round(scores.composite)}</span>
                             {/* WATCH/BUY setup verdict — see const next above */}
                             <span title={next.reason} style={{ fontFamily: MONO, fontSize: isTablet ? 11 : 10, fontWeight: 900, color: "#fff", cursor: "help",
                               background: next.color, borderRadius: 4, padding: "1px 5px" }}>{next.action}</span>
@@ -525,9 +534,9 @@ export default function QuotesTab({
                         <SortH col="rvol" align="right">RVOL</SortH>
                         <SortH col="volume" align="right">VOLUME</SortH>
                         {!isTablet && <SortH col="mktcap" align="right">MKT CAP</SortH>}
-                        <SortH col="composite">SCORE</SortH>
-                        <SortH col="tech">TECH</SortH>
-                        {!isTablet && <SortH col="fund">FUND</SortH>}
+                        <SortH col="composite" title="Quick Score — a real 0-100 blend of Technical(45%)/Fundamental(35%)/Macro(20%), from cheap quote-only data. Hover a row's score for the real reasons.">SCORE</SortH>
+                        <SortH col="tech" title="Technical sub-score (MA alignment, 52W range, volume, momentum) — the largest weight (45%) in SCORE.">TECH</SortH>
+                        {!isTablet && <SortH col="fund" title="Fundamental sub-score (P/E, market cap, beta, EPS) — 35% weight in SCORE.">FUND</SortH>}
                         {/* A+ — the platform's separate 9-dimension trend/RS/regime/setup/
                             volume/risk/volatility/catalyst/fundamental score (market-helpers.js),
                             deliberately NOT merged into the Composite/Tech/Fund system above —
@@ -672,13 +681,13 @@ export default function QuotesTab({
                             {!isTablet && <td style={{ padding: "8px 8px", fontFamily: MONO, fontSize: 13, color: C.textSec, textAlign: "right", borderBottom: `1px solid ${C.border}`, verticalAlign: "middle" }}>
                               {formatNum(q.marketCap)}
                             </td>}
-                            <td style={{ padding: "7px 6px", borderBottom: `1px solid ${C.border}`, minWidth: 65 }}>
+                            <td title={`Quick Score ${Math.round(scores.composite)}/100 — ${scores.reasons.join(" · ") || "neutral, not enough real data yet"}`} style={{ padding: "7px 6px", borderBottom: `1px solid ${C.border}`, minWidth: 65, cursor: "help" }}>
                               <ScoreBar value={scores.composite} />
                             </td>
-                            <td style={{ padding: "7px 6px", borderBottom: `1px solid ${C.border}`, minWidth: 55 }}>
+                            <td title={`Technical ${scores.tech}/100 — ${scores.reasons.join(" · ") || "neutral, not enough real data yet"}`} style={{ padding: "7px 6px", borderBottom: `1px solid ${C.border}`, minWidth: 55, cursor: "help" }}>
                               <ScoreBar value={scores.tech} color={C.cyan} />
                             </td>
-                            {!isTablet && <td style={{ padding: "7px 6px", borderBottom: `1px solid ${C.border}`, minWidth: 55 }}>
+                            {!isTablet && <td title={`Fundamental ${scores.fund}/100 — ${scores.reasons.join(" · ") || "neutral, not enough real data yet"}`} style={{ padding: "7px 6px", borderBottom: `1px solid ${C.border}`, minWidth: 55, cursor: "help" }}>
                               <ScoreBar value={scores.fund} color={C.purple} />
                             </td>}
                             {!isTablet && <td style={{ padding: "7px 6px", borderBottom: `1px solid ${C.border}`, textAlign: "center", minWidth: 50 }}>

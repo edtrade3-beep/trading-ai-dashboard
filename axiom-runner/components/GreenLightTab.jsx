@@ -569,13 +569,18 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
         // (same root cause fixed elsewhere this session) — t.ma50/t.ma200
         // above are real, independently computed from actual 1y chart
         // closes, so reuse them here instead of a second fetch.
-        const mom = (() => { try { return computeScores(t ? { ...(r.q || {}), priceAvg50: t.ma50, priceAvg200: t.ma200 } : (r.q || {})).composite; } catch { return null; } })();
+        const momScores = (() => { try { return computeScores(t ? { ...(r.q || {}), priceAvg50: t.ma50, priceAvg200: t.ma200 } : (r.q || {})); } catch { return null; } })();
+        const mom = momScores?.composite ?? null;
+        // Real reasons tooltip (2026-07-29 fix) — this Momentum row used to
+        // show a bare 0-100 number with no explanation, same gap as
+        // QuotesTab's "S:XX" badge for the identical computeScores() call.
+        const momTitle = mom != null ? `Quick Score ${mom}/100 — ${(momScores.reasons || []).join(" · ") || "neutral, not enough real data yet"}` : undefined;
         const rsiV = t?.rsi != null ? t.rsi : (r.rsi || null);
         const ld = glDeepLoad ? "…" : "—";
         const card = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 14 };
         const hdr = (icon, label, col) => <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: col, letterSpacing: "0.06em", marginBottom: 10 }}>{icon} {label}</div>;
-        const Row = ({ l, v, col }) => (
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "5px 0", borderBottom: `1px solid ${C.border}22` }}>
+        const Row = ({ l, v, col, title }) => (
+          <div title={title} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "5px 0", borderBottom: `1px solid ${C.border}22`, cursor: title ? "help" : "default" }}>
             <span style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>{l}</span>
             <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: col || C.text, textAlign: "right" }}>{v}</span>
           </div>
@@ -621,7 +626,7 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
                 <Row l="vs MA50" v={t ? `$${t.ma50.toFixed(2)} ${t.px >= t.ma50 ? "above" : "below"}` : ld} col={t ? vsCol(t.px >= t.ma50) : C.textDim} />
                 <Row l="vs MA200" v={t ? `$${t.ma200.toFixed(2)} ${t.px >= t.ma200 ? "above" : "below"}` : ld} col={t ? vsCol(t.px >= t.ma200) : C.textDim} />
                 <Row l="vs VWAP" v={t?.vwap ? `$${t.vwap.toFixed(2)} ${t.px >= t.vwap ? "above ✓" : "below"}` : (glDeepLoad ? "…" : "—")} col={t?.vwap ? vsCol(t.px >= t.vwap) : C.textDim} />
-                <Row l="Momentum" v={mom != null ? `${mom}/100` : "—"} col={mom == null ? C.textDim : mom >= 60 ? C.green : mom <= 40 ? C.red : C.amber} />
+                <Row l="Momentum" v={mom != null ? `${mom}/100` : "—"} col={mom == null ? C.textDim : mom >= 60 ? C.green : mom <= 40 ? C.red : C.amber} title={momTitle} />
                 <Row l="Rel volume" v={r.rvol > 0 ? `${r.rvol.toFixed(2)}x ${r.rvol > 1.5 ? "🔥" : ""}` : "—"} col={r.rvol > 1.5 ? C.amber : C.text} />
               </div>
 

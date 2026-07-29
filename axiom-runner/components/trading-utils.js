@@ -50,7 +50,7 @@ function _trendSignals(trend) {
 }
 
 export function computeScores(q, trend) {
-  if (!q) return { tech: 0, fund: 0, macro: 0, composite: 0 };
+  if (!q) return { tech: 0, fund: 0, macro: 0, composite: 0, reasons: [] };
 
   const price  = Number(q.price  || q.regularMarketPrice || 0);
   const chgPct = Number(q.changesPercentage || q.regularMarketChangePercent || 0);
@@ -63,91 +63,97 @@ export function computeScores(q, trend) {
   const mcap   = Number(q.marketCap   || 0);
   const beta   = Number(q.beta        || 0);
   const { inUptrend, inDowntrend, distToHigh, abovePivotPct } = _trendSignals(trend);
+  // Real, honest reason strings for whichever branches actually fire below —
+  // this used to be an unexplained "S:XX" number with no tooltip anywhere it
+  // rendered (QuotesTab.jsx card/table views); every other score in this app
+  // is explained, this one wasn't (2026-07-29 fix). Appended alongside the
+  // existing scoring logic, never changes the actual point math.
+  const reasons = [];
 
   // ── TECHNICAL SCORE (0-100) ────────────────────────────────────────────────
   let tech = 40; // neutral base
 
   // MA alignment — most important signal (doesn't depend on today's change)
   if (price > 0 && ma50 > 0 && ma200 > 0) {
-    if (price > ma50 && ma50 > ma200)      tech += 20; // perfect uptrend
-    else if (price > ma50 && price > ma200) tech += 12; // above both, mixed
-    else if (price > ma200)                 tech += 6;  // above 200 only
-    else if (price < ma50 && ma50 < ma200) tech -= 15; // perfect downtrend
-    else                                    tech -= 6;  // mixed bearish
+    if (price > ma50 && ma50 > ma200)      { tech += 20; reasons.push("Above 50D & 200D MA (uptrend)"); } // perfect uptrend
+    else if (price > ma50 && price > ma200) { tech += 12; reasons.push("Above 50D & 200D MA (mixed structure)"); } // above both, mixed
+    else if (price > ma200)                 { tech += 6;  reasons.push("Above 200D MA only"); }  // above 200 only
+    else if (price < ma50 && ma50 < ma200) { tech -= 15; reasons.push("Below 50D & 200D MA (downtrend)"); } // perfect downtrend
+    else                                    { tech -= 6;  reasons.push("Mixed bearish MA structure"); }  // mixed bearish
   } else if (trend) {
     // ma50/ma200 dead — fall back to real Weinstein-stage structure instead
     // of silently losing the whole factor. Ambiguous stages (e.g. "Stage
     // 1/3 — Transition") intentionally get neither bonus nor penalty.
-    if (inUptrend)        tech += 18; // real confirmed uptrend (analog of "perfect uptrend")
-    else if (inDowntrend) tech -= 15; // real confirmed downtrend
+    if (inUptrend)        { tech += 18; reasons.push("Real confirmed Stage 2 uptrend"); } // real confirmed uptrend (analog of "perfect uptrend")
+    else if (inDowntrend) { tech -= 15; reasons.push("Real confirmed downtrend"); } // real confirmed downtrend
   }
 
   // Distance from MA50 — stretched or at support
   if (price > 0 && ma50 > 0) {
     const d50 = (price - ma50) / ma50 * 100;
-    if (d50 > -2 && d50 < 5)   tech += 8;  // testing / just above MA50
-    else if (d50 > 5 && d50 < 15) tech += 5; // healthy above
-    else if (d50 > 20)          tech -= 5;  // stretched too high
-    else if (d50 < -15)         tech -= 8;  // far below
+    if (d50 > -2 && d50 < 5)   { tech += 8; reasons.push("Testing/just above 50D MA"); }  // testing / just above MA50
+    else if (d50 > 5 && d50 < 15) { tech += 5; reasons.push("Healthy distance above 50D MA"); } // healthy above
+    else if (d50 > 20)          { tech -= 5; reasons.push("Stretched too far above 50D MA"); }  // stretched too high
+    else if (d50 < -15)         { tech -= 8; reasons.push("Far below 50D MA"); }  // far below
   } else if (abovePivotPct !== null) {
     // Real distance above the trend-screen's own technical pivot, same idea
-    if (abovePivotPct > -2 && abovePivotPct < 5)   tech += 8;
-    else if (abovePivotPct > 5 && abovePivotPct < 15) tech += 5;
-    else if (abovePivotPct > 20)          tech -= 5;
-    else if (abovePivotPct < -15)         tech -= 8;
+    if (abovePivotPct > -2 && abovePivotPct < 5)   { tech += 8; reasons.push("Fresh, unextended breakout above pivot"); }
+    else if (abovePivotPct > 5 && abovePivotPct < 15) { tech += 5; reasons.push("Healthy distance above pivot"); }
+    else if (abovePivotPct > 20)          { tech -= 5; reasons.push("Extended too far above pivot"); }
+    else if (abovePivotPct < -15)         { tech -= 8; reasons.push("Well below the pivot"); }
   }
 
   // 52W range position
   if (hi52 > lo52 && price > 0) {
     const pos = (price - lo52) / (hi52 - lo52);
-    if (pos > 0.80)      tech += 10; // near highs — strength
-    else if (pos > 0.55) tech += 5;
-    else if (pos < 0.20) tech -= 8;  // near lows — weakness
-    else if (pos < 0.35) tech -= 3;
+    if (pos > 0.80)      { tech += 10; reasons.push(`52W range ${Math.round(pos * 100)}% (near highs)`); } // near highs — strength
+    else if (pos > 0.55) { tech += 5; reasons.push(`52W range ${Math.round(pos * 100)}%`); }
+    else if (pos < 0.20) { tech -= 8; reasons.push(`52W range ${Math.round(pos * 100)}% (near lows)`); }  // near lows — weakness
+    else if (pos < 0.35) { tech -= 3; reasons.push(`52W range ${Math.round(pos * 100)}% (weak)`); }
   } else if (distToHigh !== null) {
     // No real 52w-low analog from trend-screen (pctFromHigh only), so the
     // "near lows — weakness" branch is dropped rather than fabricated —
     // same precedent as EarlyEntryScanner/TradeAdvisorTab this session.
-    if (distToHigh <= 3)       tech += 10; // real near-high strength
-    else if (distToHigh <= 15) tech += 5;
+    if (distToHigh <= 3)       { tech += 10; reasons.push(`${distToHigh.toFixed(1)}% from 52W high`); } // real near-high strength
+    else if (distToHigh <= 15) { tech += 5; reasons.push(`${distToHigh.toFixed(1)}% from 52W high`); }
   }
 
   // Volume confirmation
   const rvol = computeRvol(q, trend);
   if (vol > 0 && rvol > 0) {
-    if (rvol > 2 && chgPct > 0)   tech += 10;
-    else if (rvol > 1.5 && chgPct > 0) tech += 6;
-    else if (rvol > 1.5 && chgPct < 0) tech -= 8;
-    else if (rvol < 0.5)           tech -= 3;
+    if (rvol > 2 && chgPct > 0)   { tech += 10; reasons.push(`RVOL ${rvol.toFixed(1)}x on an up day`); }
+    else if (rvol > 1.5 && chgPct > 0) { tech += 6; reasons.push(`RVOL ${rvol.toFixed(1)}x on an up day`); }
+    else if (rvol > 1.5 && chgPct < 0) { tech -= 8; reasons.push(`RVOL ${rvol.toFixed(1)}x on a down day`); }
+    else if (rvol < 0.5)           { tech -= 3; reasons.push(`Light volume (RVOL ${rvol.toFixed(1)}x)`); }
   }
 
   // Daily momentum (bonus, not the main signal)
-  if (chgPct > 3)       tech += 8;
-  else if (chgPct > 1)  tech += 4;
-  else if (chgPct < -3) tech -= 8;
-  else if (chgPct < -1) tech -= 4;
+  if (chgPct > 3)       { tech += 8; reasons.push(`Up ${chgPct.toFixed(1)}% today`); }
+  else if (chgPct > 1)  { tech += 4; reasons.push(`Up ${chgPct.toFixed(1)}% today`); }
+  else if (chgPct < -3) { tech -= 8; reasons.push(`Down ${Math.abs(chgPct).toFixed(1)}% today`); }
+  else if (chgPct < -1) { tech -= 4; reasons.push(`Down ${Math.abs(chgPct).toFixed(1)}% today`); }
 
   // ── FUNDAMENTAL SCORE (0-100) ─────────────────────────────────────────────
   let fund = 45;
 
-  if (pe > 0 && pe < 15)       fund += 18; // value
-  else if (pe > 0 && pe < 25)  fund += 12;
-  else if (pe > 0 && pe < 40)  fund += 4;
-  else if (pe > 50)            fund -= 8;
+  if (pe > 0 && pe < 15)       { fund += 18; reasons.push(`P/E ${pe.toFixed(1)} (value)`); } // value
+  else if (pe > 0 && pe < 25)  { fund += 12; reasons.push(`P/E ${pe.toFixed(1)} (reasonable value)`); }
+  else if (pe > 0 && pe < 40)  { fund += 4; reasons.push(`P/E ${pe.toFixed(1)}`); }
+  else if (pe > 50)            { fund -= 8; reasons.push(`P/E ${pe.toFixed(1)} (expensive)`); }
 
-  if (mcap > 500e9)     fund += 12; // mega cap quality
-  else if (mcap > 100e9) fund += 8;
-  else if (mcap > 10e9)  fund += 4;
-  else if (mcap > 0 && mcap < 500e6) fund -= 5;
+  if (mcap > 500e9)     { fund += 12; reasons.push("Mega-cap"); } // mega cap quality
+  else if (mcap > 100e9) { fund += 8; reasons.push("Large-cap"); }
+  else if (mcap > 10e9)  { fund += 4; reasons.push("Mid-cap"); }
+  else if (mcap > 0 && mcap < 500e6) { fund -= 5; reasons.push("Micro-cap"); }
 
-  if (beta > 0 && beta < 1)   fund += 5; // lower volatility
-  else if (beta > 2.5)        fund -= 5;
+  if (beta > 0 && beta < 1)   { fund += 5; reasons.push(`Beta ${beta.toFixed(2)} (lower volatility)`); } // lower volatility
+  else if (beta > 2.5)        { fund -= 5; reasons.push(`Beta ${beta.toFixed(2)} (high volatility)`); }
 
   // EPS proxy from PE + price
   if (pe > 0 && price > 0) {
     const eps = price / pe;
-    if (eps > 5)  fund += 6;
-    else if (eps > 1) fund += 3;
+    if (eps > 5)  { fund += 6; reasons.push(`EPS ~$${eps.toFixed(2)}`); }
+    else if (eps > 1) { fund += 3; reasons.push(`EPS ~$${eps.toFixed(2)}`); }
   }
 
   // ── MACRO SCORE (0-100) ───────────────────────────────────────────────────
@@ -155,18 +161,18 @@ export function computeScores(q, trend) {
 
   // Stock above 200D MA = macro aligned
   if (price > 0 && ma200 > 0) {
-    if (price > ma200) macro += 15;
-    else               macro -= 10;
+    if (price > ma200) { macro += 15; reasons.push("Above 200D MA (macro aligned)"); }
+    else               { macro -= 10; reasons.push("Below 200D MA (macro misaligned)"); }
   } else if (trend) {
-    if (inUptrend)        macro += 15;
-    else if (inDowntrend) macro -= 10;
+    if (inUptrend)        { macro += 15; reasons.push("Real confirmed uptrend (macro aligned)"); }
+    else if (inDowntrend) { macro -= 10; reasons.push("Real confirmed downtrend (macro misaligned)"); }
   }
 
   // Trend strength from weekly + monthly signals
-  if (chgPct > 0 && price > ma50)              macro += 8;
-  else if (chgPct > 0 && abovePivotPct !== null && abovePivotPct > 0) macro += 8;
-  if (hi52 > 0 && price > hi52 * 0.85)         macro += 7; // near highs = market likes it
-  else if (distToHigh !== null && distToHigh <= 15) macro += 7;
+  if (chgPct > 0 && price > ma50)              { macro += 8; reasons.push("Up today, above 50D MA"); }
+  else if (chgPct > 0 && abovePivotPct !== null && abovePivotPct > 0) { macro += 8; reasons.push("Up today, above pivot"); }
+  if (hi52 > 0 && price > hi52 * 0.85)         { macro += 7; reasons.push("Within 15% of 52W high"); } // near highs = market likes it
+  else if (distToHigh !== null && distToHigh <= 15) { macro += 7; reasons.push("Within 15% of 52W high"); }
 
   // Clamp all
   tech  = Math.max(0, Math.min(100, Math.round(tech)));
@@ -174,7 +180,7 @@ export function computeScores(q, trend) {
   macro = Math.max(0, Math.min(100, Math.round(macro)));
   const composite = Math.round(tech * 0.45 + fund * 0.35 + macro * 0.2);
 
-  return { tech, fund, macro, composite };
+  return { tech, fund, macro, composite, reasons };
 }
 
 // trend: optional row from /api/market/trend-screen ({stage, pctFromHigh,
