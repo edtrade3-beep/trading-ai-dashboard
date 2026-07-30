@@ -438,6 +438,73 @@ export function computePrediction(q, trend) {
   return { px, chg, dir, conf: Math.round(conf), score, why: why.slice(0, 3), target, movePct, atrPct: cappedAtr };
 }
 
+// Six-score consolidation — presentation layer ONLY (institutional redesign,
+// 2026-07-29, explicit user spec: "Six core scores only: Market, Sector,
+// Stock Quality, Institutional, Technical, Timing"). Deliberately does NOT
+// touch computeInstitutionalGrade/computeAPlusScore/stockQualityBreakdown's
+// own math — every one of the six below is either a direct passthrough of
+// an already-computed real number, or a light re-weighting of already-
+// computed real sub-dimensions. Zero new fetches, zero new API cost.
+//
+// Real, known overlap, not a bug: Institutional Grade's own Macro Regime(10)
+// and Sector Strength(10) sub-dimensions ARE the same real numbers behind
+// the Market/Sector scores below — Institutional already weighs them as two
+// of its seven inputs. They're surfaced separately here so a user can see
+// *why* Institutional moved, not as additional independent signals. Same
+// "these can legitimately disagree, that's not a bug" framing already
+// shipped for Trend & Base Rating vs the AI Score Card.
+export function deriveTopLevelScores({ regime, sectorInfo, technicals, institutionalGrade, stockQuality, aPlusScore }) {
+  const clamp = (n) => Math.max(0, Math.min(100, Math.round(n)));
+  const bandOf = (score) => score == null
+    ? { label: "—", color: "#94a3b8" }
+    : score >= 70 ? { label: "Strong", color: "#22a06b" }
+    : score >= 45 ? { label: "Neutral", color: "#d6a312" }
+    : { label: "Weak", color: "#c8282a" };
+
+  // Market — real regime score (computeRegime), passed through unchanged.
+  const marketScore = Number.isFinite(Number(regime?.score)) ? clamp(regime.score) : null;
+
+  // Sector — real 1-11 sector-ETF rank vs SPY (same rank Institutional
+  // Grade's own Sector Strength dimension uses), rescaled so rank 1 = 100.
+  const sectorScore = sectorInfo?.rank ? clamp(100 - ((sectorInfo.rank - 1) / 10) * 100) : null;
+
+  // Stock Quality / Institutional — already complete, standalone 0-100
+  // scores; pure passthrough, no re-derivation.
+  const stockQualityScore = Number.isFinite(Number(stockQuality?.score)) ? clamp(stockQuality.score) : null;
+  const institutionalScore = Number.isFinite(Number(institutionalGrade?.score)) ? clamp(institutionalGrade.score) : null;
+
+  // Technical (new) — 60% Institutional Grade's own real ADX-based
+  // Technical Confirmation dimension (trend strength/direction), 40% a real
+  // Donchian-channel/Bollinger-%B blend (both already computed on the same
+  // daily bars, `chart.technicals` — where price sits in its recent real
+  // range, a genuine complementary read to ADX's trend-strength/direction).
+  const technicalPts = institutionalGrade?.breakdown?.technicalPts;
+  const adxComponent = technicalPts != null ? (technicalPts / 15) * 100 : null;
+  const rangeReads = [technicals?.donchian?.pctPosition, technicals?.bollinger?.percentB]
+    .filter((v) => Number.isFinite(Number(v)));
+  const rangeComponent = rangeReads.length ? rangeReads.reduce((s, v) => s + Number(v), 0) / rangeReads.length : null;
+  const technicalScore = adxComponent != null && rangeComponent != null ? clamp(adxComponent * 0.6 + rangeComponent * 0.4)
+    : adxComponent != null ? clamp(adxComponent)
+    : rangeComponent != null ? clamp(rangeComponent)
+    : null;
+
+  // Timing (new) — strict subset-sum of Trade Setup Score's OWN Entry
+  // Timing(20) + Breakout Confirmation(15) + Volatility/Base Tightness(5)
+  // sub-dimensions (40 raw points total), rescaled to 0-100. No cross-
+  // function blending — the lowest-risk of the two new derived scores.
+  const ab = aPlusScore?.breakdown;
+  const timingScore = ab ? clamp(((ab.entryPts + ab.breakoutPts + ab.volatilityPts) / 40) * 100) : null;
+
+  return {
+    market: { score: marketScore, ...bandOf(marketScore) },
+    sector: { score: sectorScore, ...bandOf(sectorScore) },
+    stockQuality: { score: stockQualityScore, ...bandOf(stockQualityScore) },
+    institutional: { score: institutionalScore, ...bandOf(institutionalScore) },
+    technical: { score: technicalScore, ...bandOf(technicalScore) },
+    timing: { score: timingScore, ...bandOf(timingScore) },
+  };
+}
+
 // Next Action — a plain one-word verdict for new-money decisions (not position
 // management — no REDUCE/REMOVE, this doesn't know what you already own).
 // Same row shape as computeAPlusScore. Always returns a `reason`.
