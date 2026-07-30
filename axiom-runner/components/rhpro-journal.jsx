@@ -1,9 +1,12 @@
 import { useState } from "react";
 
-// Manual, localStorage-backed trade journal. Shared by the (currently
-// orphaned-from-nav) standalone rhpro-journal tab and embedded live inside
-// GreenLightTab's "Trade Journal" section. rhLoadJournal/rhSaveJournal are
-// also used by RhProCoach (grades each journal entry A+ to F).
+// Manual, localStorage-backed trade journal. Promoted to its own real
+// sidebar destination ("Journal", institutional redesign, 2026-07-29) —
+// previously reachable only via this same standalone tab (orphaned from
+// nav) plus a second live mount inside GreenLightTab's "Trade Journal"
+// section, retired in favor of a redirect link now that there's exactly
+// one mount point. rhLoadJournal/rhSaveJournal are also used by
+// RhProCoach (grades each journal entry A+ to F).
 
 export function rhLoadJournal() { try { return JSON.parse(localStorage.getItem("rhpro_journal")) || []; } catch { return []; } }
 export function rhSaveJournal(a) { try { localStorage.setItem("rhpro_journal", JSON.stringify(a)); } catch {} }

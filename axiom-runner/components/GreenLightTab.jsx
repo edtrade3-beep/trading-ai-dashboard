@@ -4,7 +4,6 @@ import {
   computeScores, computeGreenLight, logTradeNote, addPaperTrade,
   addPaperOption, alpacaOption,
 } from "./trading-utils.js";
-import RhProJournal from "./rhpro-journal.jsx";
 
 // ── 🤖 Ask Claude — real AI second-opinion on a setup (cheap Haiku call) ──
 // State lives in the parent (out/setOut props) so it survives card remounts.
@@ -1035,10 +1034,23 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
         </div>
       )}
 
-      {/* Trade Journal — log your Green Light trades right here */}
-      <div style={{ marginTop: 24, borderTop: `2px solid ${C.border}`, paddingTop: 16 }}>
-        <RhProJournal C={C} MONO={MONO} SANS={SANS} />
-      </div>
+      {/* Trade Journal — was embedded live here as a second real mount of
+          RhProJournal; retired 2026-07-29 (institutional redesign) now that
+          Journal has its own real sidebar destination — same "exactly one
+          mount point" convention already used for every other consolidated
+          tool this session. Redirect link instead of silently removing the
+          affordance. */}
+      {setActiveTab && (
+        <div style={{ marginTop: 24, borderTop: `2px solid ${C.border}`, paddingTop: 16, textAlign: "center" }}>
+          <button onClick={() => setActiveTab("rhpro-journal")} style={{
+            fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent,
+            background: "transparent", border: `1px solid ${C.border}`, borderRadius: 8,
+            padding: "8px 16px", cursor: "pointer",
+          }}>
+            📓 Log this trade in Journal →
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -163,6 +163,7 @@ import BriefingTab from "./components/BriefingTab.jsx";
 import IpoTab from "./components/IpoTab.jsx";
 import CalendarTab from "./components/CalendarTab.jsx";
 import EconCalTab from "./components/EconCalTab.jsx";
+import FedWatchTab from "./components/FedWatchTab.jsx";
 import DarkPoolTab from "./components/DarkPoolTab.jsx";
 import DpHeatmapTab from "./components/DpHeatmapTab.jsx";
 import CotTab from "./components/CotTab.jsx";
@@ -1282,8 +1283,32 @@ const Pill = ({ active, onClick, children }) => (
   }}>{children}</button>
 );
 
-
-
+// Generic in-page sub-nav for the 3 new composite sidebar destinations
+// (Market/Calendar/Settings — institutional redesign, 2026-07-29). Same
+// horizontal-scroll-not-flexWrap pattern as DashboardTab.jsx's own
+// DashSubNav (standardized 2026-07-22 after flexWrap was confirmed to wrap
+// into the fixed FAB cluster on mobile) — each composite page folds
+// several previously-scattered real destinations into one sidebar item
+// without rebuilding any of the underlying components.
+function PageSubNav({ C, MONO, tabs, active, setActive }) {
+  return (
+    <div style={{ display: "flex", gap: 6, flexWrap: "nowrap", overflowX: "auto", scrollbarWidth: "none", marginBottom: 14 }}>
+      {tabs.map(t => (
+        <button key={t.id} onClick={() => setActive(t.id)}
+          style={{
+            fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.04em",
+            padding: "7px 13px", borderRadius: 7, cursor: "pointer",
+            whiteSpace: "nowrap", flexShrink: 0, minHeight: 40,
+            border: `1px solid ${active === t.id ? C.accent : C.border}`,
+            background: active === t.id ? `${C.accent}18` : C.card,
+            color: active === t.id ? C.accent : C.textSec,
+          }}>
+          {t.label}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 export default function App() {
   // First-run defaults: route autopilot to the Alpaca paper account and turn it ON.
@@ -1525,6 +1550,15 @@ export default function App() {
   });
   // Save tab on change
   React.useEffect(() => { try { localStorage.setItem("last_tab", activeTab); } catch {} }, [activeTab]);
+  // Local sub-tab state for the 3 new composite nav destinations
+  // (institutional redesign, 2026-07-29) — Market/Calendar/Settings each
+  // fold several previously-scattered real destinations into one sidebar
+  // item via a simple in-page sub-nav, reusing the existing full
+  // components unchanged (no prop re-threading into a new wrapper file,
+  // no rebuild of any of them).
+  const [marketSubTab, setMarketSubTab] = useState("macro");
+  const [calendarSubTab, setCalendarSubTab] = useState("events");
+  const [settingsSubTab, setSettingsSubTab] = useState("tools");
   // Real, confirmed live bug (2026-07-26, found checking Smart Scan on
   // mobile): the mobile hamburger menu's own nav-grid buttons explicitly
   // call setMobileMenuOpen(false) alongside setActiveTab(...), but in-page
@@ -2140,8 +2174,8 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (activeTab === "cot") fetchCOTData();
-  }, [activeTab, fetchCOTData]);
+    if (activeTab === "cot" || (activeTab === "market" && marketSubTab === "cot")) fetchCOTData();
+  }, [activeTab, marketSubTab, fetchCOTData]);
 
   const runDealsSearch = useCallback(() => {
     setDealsLoading(true); setDealsError(""); setDealsResults([]); setDealsSearched(false); setDealsSources({});
@@ -3787,7 +3821,8 @@ export default function App() {
 
   useEffect(() => {
     let cancelled = false;
-    if (activeTab !== "earnings" || !apiKey) return () => { cancelled = true; };
+    const onEarnings = activeTab === "earnings" || (activeTab === "calendar" && calendarSubTab === "earnings");
+    if (!onEarnings || !apiKey) return () => { cancelled = true; };
 
     const loadEarningsCalendar = async () => {
       setEarningsLoading(true);
@@ -3849,7 +3884,7 @@ export default function App() {
     });
 
     return () => { cancelled = true; };
-  }, [activeTab, apiKey, watchlistSymbols, watchlistData, providerKeys, earningsRefreshTick]);
+  }, [activeTab, calendarSubTab, apiKey, watchlistSymbols, watchlistData, providerKeys, earningsRefreshTick]);
 
   const runPaletteCommand = useCallback((raw) => {
     const q = String(raw || "").trim().toUpperCase();
@@ -3865,6 +3900,13 @@ export default function App() {
       GREENLIGHT: "greenlight",
       GREEN: "greenlight",
       TERMINAL: "mterminal",
+      // CHARTS/MARKET/SETTINGS added 2026-07-29 (institutional redesign) —
+      // the new sidebar's own labels, plus MARKET as the new home for what
+      // MACRO used to mean standalone (MACRO alias kept pointing at its own
+      // still-real standalone tab too, "hide don't delete").
+      CHARTS: "mterminal",
+      MARKET: "market",
+      SETTINGS: "settings",
       MACRO: "macro",
       NEWS: "news",
       // Added 2026-07-12 with the nav trim above — these lost their subnav
@@ -3876,6 +3918,8 @@ export default function App() {
       DECK: "rhpro",
       SECTORHEAT: "rhpro-heat",
       WATCHLISTS: "rhpro-lists",
+      CALENDAR: "calendar",
+      FEDWATCH: "calendar",
       HOLDINGS: "holdings",
       AICOACH: "rhpro-coach",
       // rhpro-apex/rhpro-scan had real labeled entries ("TRADE PRO AI",
@@ -3883,9 +3927,9 @@ export default function App() {
       // isn't rendered anywhere anymore (replaced by Sidebar.jsx) and
       // these two never got a palette keyword when it was — same
       // unreachable-by-oversight pattern already found/fixed for
-      // darkpool/daytrade. (rhpro-journal is deliberately NOT aliased
-      // here — its own file comment says it's intentionally orphaned,
-      // superseded by the journal embedded live inside GreenLightTab.)
+      // darkpool/daytrade. (rhpro-journal has no palette alias of its own —
+      // it's the real sidebar "Journal" destination now, reachable there
+      // directly; JOURNAL below is a different, unrelated feature.)
       APEX: "rhpro-apex",
       SNIPER: "rhpro-scan",
       // Added with the SMART MONEY trim — SMARTMONEY (13F Lookup) already
@@ -3907,9 +3951,19 @@ export default function App() {
       AI: "agent",
       WORKFLOW: "workflow",
       FLOW: "flow",
-      PORTFOLIO: "portfolio",
+      // PORTFOLIO/SCANNER repointed 2026-07-29 (institutional redesign) to
+      // match what those words now mean in the sidebar — the real Alpaca-
+      // backed Portfolio (portfolio-tab) and Sniper Scanner (rhpro-scan),
+      // not the older legacy CSV-import PortfolioTab / standalone
+      // ScannerTab this text used to reach. Both older tools are still
+      // real and still reachable, just via less ambiguous aliases now
+      // (OLDPORTFOLIO / OLDSCANNER) so a user reading the sidebar label
+      // and typing the same word in the palette lands in the same place.
+      PORTFOLIO: "portfolio-tab",
+      OLDPORTFOLIO: "portfolio",
       FIVEX: "fivex",
-      SCANNER: "scanner",
+      SCANNER: "rhpro-scan",
+      OLDSCANNER: "scanner",
       BACKTEST: "backtest",
       ROTATION: "rotation",
       TOOLS: "tools",
@@ -5960,13 +6014,12 @@ export default function App() {
               Sidebar, mobile gets the same flat 13-item list here instead. */}
           <div style={{ padding: "10px 12px 0", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
             {SIDEBAR_ITEMS.map(item => {
-              const isActive = item.tab && activeTab === item.tab;
+              const isActive = activeTab === item.tab;
               return (
                 <button
                   key={item.id}
                   onClick={() => {
-                    if (item.tab) setActiveTab(item.tab);
-                    else if (item.id === "copilot") window.dispatchEvent(new Event("open-ai-copilot"));
+                    setActiveTab(item.tab);
                     setMobileMenuOpen(false);
                   }}
                   style={{
@@ -6257,10 +6310,16 @@ export default function App() {
             layout. Same real cards/data as before, same "own sidebar spot"
             pattern already used for CEO AI above — not rebuilt, just given
             a dedicated, discoverable location. */}
+        {/* PORTFOLIO — sidebar destination, now also folding in real
+            Portfolio Risk (institutional redesign, 2026-07-29) — same real
+            PortfolioRiskCard previously only reachable under the hidden
+            mission-status palette destination, given a canonical home
+            instead of a second, separate risk surface. */}
         {activeTab === "portfolio-tab" && (
           <div style={{ padding: "16px 20px", maxWidth: 700, margin: "0 auto", display: "flex", flexDirection: "column", gap: 12 }}>
             <PortfolioSnapshotCard C={C} MONO={MONO} SANS={SANS} />
             <ActivePositionsCard C={C} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
+            <PortfolioRiskCard C={C} MONO={MONO} SANS={SANS} />
           </div>
         )}
 
@@ -6448,14 +6507,39 @@ export default function App() {
         )}
 
       {/* Deep Dive */}
-        {activeTab === "macro" && (
-          <MacroTab
-            C={C} MONO={MONO} macroTone={macroTone} macroData={macroData}
-            macroEventCalendar={macroEventCalendar} macroEventAlerts={macroEventAlerts}
-            cryptoSnapshot={cryptoSnapshot}
-            watchlistSymbols={watchlistSymbols} setWatchlistSymbols={setWatchlistSymbols}
-            setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab}
-          />
+        {/* MARKET — composite sidebar destination (institutional redesign,
+            2026-07-29) folding Macro/COT/Sector Heat/Breadth into one nav
+            item, per the approved plan's "Market" mapping. Each sub-tab is
+            the exact same real component/data this app already had at its
+            own standalone activeTab (macro/cot/rhpro-heat/market-health) —
+            still reachable there too via the palette, "hide don't delete". */}
+        {activeTab === "market" && (
+          <>
+            <PageSubNav C={C} MONO={MONO} active={marketSubTab} setActive={setMarketSubTab} tabs={[
+              { id: "macro", label: "MACRO" },
+              { id: "cot", label: "COT POSITIONING" },
+              { id: "sector", label: "SECTOR HEAT" },
+              { id: "breadth", label: "BREADTH" },
+            ]} />
+            {marketSubTab === "macro" && (
+              <MacroTab
+                C={C} MONO={MONO} macroTone={macroTone} macroData={macroData}
+                macroEventCalendar={macroEventCalendar} macroEventAlerts={macroEventAlerts}
+                cryptoSnapshot={cryptoSnapshot}
+                watchlistSymbols={watchlistSymbols} setWatchlistSymbols={setWatchlistSymbols}
+                setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab}
+              />
+            )}
+            {marketSubTab === "cot" && (
+              <CotTab
+                C={C} MONO={MONO} SANS={SANS} cotData={cotData} cotError={cotError} cotLastSent={cotLastSent}
+                cotLoading={cotLoading} cotRunning={cotRunning} isMobile={isMobile}
+                setCotData={setCotData} setCotLastSent={setCotLastSent} setCotRunning={setCotRunning}
+              />
+            )}
+            {marketSubTab === "sector" && <RhProHeatMap C={C} MONO={MONO} SANS={SANS} sectorData={sectorData} macroData={macroData} />}
+            {marketSubTab === "breadth" && <MarketHealthTab C={C} MONO={MONO} SANS={SANS} />}
+          </>
         )}
 
         {activeTab === "alerts" && (
@@ -6572,8 +6656,30 @@ export default function App() {
           />
         )}
 
+        {/* CALENDAR — composite sidebar destination (institutional
+            redesign, 2026-07-29) folding Economic Events/Fed-FOMC/Earnings
+            into one nav item. Each sub-tab is the same real
+            component/data this app already had standalone (calendar/
+            fedwatch-in-Dashboard/earnings) — still reachable at their own
+            routes too via the palette, "hide don't delete". */}
         {activeTab === "calendar" && (
-          <CalendarTab C={C} MONO={MONO} isMobile={isMobile} themeMode={themeMode} />
+          <>
+            <PageSubNav C={C} MONO={MONO} active={calendarSubTab} setActive={setCalendarSubTab} tabs={[
+              { id: "events", label: "ECONOMIC EVENTS" },
+              { id: "fed", label: "FED / FOMC" },
+              { id: "earnings", label: "EARNINGS" },
+            ]} />
+            {calendarSubTab === "events" && <CalendarTab C={C} MONO={MONO} isMobile={isMobile} themeMode={themeMode} />}
+            {calendarSubTab === "fed" && <FedWatchTab C={C} MONO={MONO} SANS={SANS} />}
+            {calendarSubTab === "earnings" && (
+              <EarningsTab
+                C={C} MONO={MONO} SANS={SANS} earningsUpdatedAt={earningsUpdatedAt} setEarningsRefreshTick={setEarningsRefreshTick}
+                earningsLoading={earningsLoading} earningsRows={earningsRows}
+                watchlistSymbols={watchlistSymbols} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab}
+                setQuickLogModal={setQuickLogModal} setWatchlistSymbols={setWatchlistSymbols}
+              />
+            )}
+          </>
         )}
 
         {activeTab === "rotation" && (
@@ -6740,6 +6846,78 @@ export default function App() {
       {activeTab === "holdings" && <HoldingsTab C={C} MONO={MONO} SANS={SANS} macroData={macroData} />}
       {activeTab === "gl-backtest" && <GLBacktestTab C={C} MONO={MONO} SANS={SANS} watchlistSymbols={watchlistSymbols} />}
       {activeTab === "predictions" && <PredictionsTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} macroData={macroData} />}
+      {/* SETTINGS — composite sidebar destination (institutional redesign,
+          2026-07-29) folding Coach/Learn/Quran/account-risk settings into
+          one nav item, per the approved plan's "Settings" mapping — Tools
+          (ToolsTab) is where account size/risk % already lived as real
+          inputs backed by the same axiom_acct_size/axiom_risk_pct
+          localStorage keys TradeExtrasPanel reads on Charts; it just never
+          had a visible nav slot before. Each sub-tab is the same real
+          component this app already had standalone (coach/education/
+          quran/tools) — still reachable there too via the palette. */}
+      {activeTab === "settings" && (
+        <>
+          <PageSubNav C={C} MONO={MONO} active={settingsSubTab} setActive={setSettingsSubTab} tabs={[
+            { id: "tools", label: "ACCOUNT & RISK" },
+            { id: "coach", label: "COACH" },
+            { id: "learn", label: "LEARN" },
+            { id: "quran", label: "QURAN" },
+          ]} />
+          {settingsSubTab === "tools" && (
+            <ToolsTab
+              C={C} MONO={MONO} riskPlan={riskPlan}
+              riskAccount={riskAccount} setRiskAccount={setRiskAccount} riskPct={riskPct} setRiskPct={setRiskPct}
+              riskEntry={riskEntry} setRiskEntry={setRiskEntry} riskStop={riskStop} setRiskStop={setRiskStop}
+              riskSide={riskSide} setRiskSide={setRiskSide} riskMaxPosPct={riskMaxPosPct} setRiskMaxPosPct={setRiskMaxPosPct}
+              riskCorrCap={riskCorrCap} setRiskCorrCap={setRiskCorrCap}
+              riskAtrPct={riskAtrPct} setRiskAtrPct={setRiskAtrPct} riskSlipBps={riskSlipBps} setRiskSlipBps={setRiskSlipBps}
+              riskSetupQuality={riskSetupQuality} setRiskSetupQuality={setRiskSetupQuality}
+              terminalSymbol={terminalSymbol} selectedStock={selectedStock} scannerRank={scannerRank}
+              providerKeys={providerKeys} setProviderKeys={setProviderKeys} apiKey={apiKey} setLoading={setLoading}
+              fetchAll={fetchAll}
+              tvWebhookSecured={tvWebhookSecured} tvWebhookRows={tvWebhookRows} tvWebhookToken={tvWebhookToken}
+              setSettings={setSettings} runTvWebhookTest={runTvWebhookTest} tvWebhookUrl={tvWebhookUrl}
+            />
+          )}
+          {settingsSubTab === "coach" && (
+            <>
+              <CoachTab C={C} MONO={MONO} SANS={SANS} />
+              <div style={{ padding: "0 18px 18px", maxWidth: 700, margin: "0 auto" }}>
+                <TradingLessonCard C={C} MONO={MONO} SANS={SANS} />
+              </div>
+            </>
+          )}
+          {settingsSubTab === "learn" && <EducationTab C={C} MONO={MONO} SANS={SANS} />}
+          {settingsSubTab === "quran" && (
+            <>
+              <div style={{ maxWidth: 760, margin: "0 auto 14px" }}>
+                <MonitorSection C={C} MONO={MONO} label="🕌 PRAYER TIMES" storeKey="mon_prayer" defaultOpen={true}>
+                  <MonitorAthan C={C} MONO={MONO} SANS={SANS}
+                    times={athanTimes} athanCity={athanLocationLabel} soundOn={athanSoundOn} setSoundOn={setAthanSoundOn} playAthan={playAthan} />
+                </MonitorSection>
+              </div>
+              <QuranTab
+                C={C} MONO={MONO} SANS={SANS}
+                quranSurah={quranSurah} setQuranSurah={setQuranSurah}
+                quranSearchQuery={quranSearchQuery} setQuranSearchQuery={setQuranSearchQuery}
+                quranDuration={quranDuration} quranCurrentTime={quranCurrentTime} setQuranCurrentTime={setQuranCurrentTime}
+                quranAudioRef={quranAudioRef}
+                quranPlaying={quranPlaying} quranWasPlaying={quranWasPlaying} quranAutoPlay={quranAutoPlay} quranUsedFallback={quranUsedFallback}
+                quranAudioError={quranAudioError} setQuranAudioError={setQuranAudioError}
+                quranLoading={quranLoading} setQuranLoading={setQuranLoading}
+                quranReciter={quranReciter} setQuranReciter={setQuranReciter}
+                quranVolume={quranVolume} setQuranVolume={setQuranVolume}
+                quranRepeat={quranRepeat} setQuranRepeat={setQuranRepeat}
+                quranAutoNext={quranAutoNext} setQuranAutoNext={setQuranAutoNext}
+                quranShowText={quranShowText} setQuranShowText={setQuranShowText}
+                quranText={quranText}
+                hasanat={hasanat} setHasanat={setHasanat} HASANAT_GOAL={HASANAT_GOAL} creditSurah={creditSurah}
+              />
+            </>
+          )}
+        </>
+      )}
+
       {activeTab === "coach" && (
         <>
           <CoachTab C={C} MONO={MONO} SANS={SANS} />
