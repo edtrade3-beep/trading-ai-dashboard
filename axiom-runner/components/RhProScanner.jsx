@@ -4,6 +4,7 @@ import { computeRegime, computeAPlusScore, computeNextAction, computePrediction,
 import AiScoreExplainer, { TRADE_SETUP_DIMENSIONS, STOCK_QUALITY_DIMENSIONS } from "./AiScoreExplainer.jsx";
 import GapScanner from "./GapScanner.jsx";
 import DayTradeTab from "./DayTradeTab.jsx";
+import { BestOpportunities } from "./terminal-panels.jsx";
 // winProbFor/bucketOf/MIN_WIN_SAMPLE moved to market-helpers.js (2026-07-29)
 // so MarketTerminalTab's new AI Score Card can reuse the exact same real
 // win-probability lookup instead of re-deriving it independently.
@@ -21,6 +22,16 @@ import DayTradeTab from "./DayTradeTab.jsx";
 // doesn't fetch — never claim more sophistication than what's actually run.
 const CATEGORIES = [
   { id: "all", label: "All / Ranked" },
+  // Best Opportunities — folded in as a category (2026-07-29, product/UX
+  // redesign audit: 5 separate "find me an opportunity" screens with no
+  // stated hierarchy). Same real BestOpportunities component/scan, embedded
+  // as-is (matching the existing Gap/Day Trade pattern below), not
+  // rewritten — its real notification/auto-watchlist/live-price/"why is it
+  // moving" logic is untouched. BEST_OPP_UNIVERSE already equals this
+  // scanner's own RH_UNIVERSE (terminal-panels.jsx's own comment confirms
+  // this was already verified), so this is genuinely the same scan, just a
+  // curated top-5 view instead of the full ranked table.
+  { id: "bestopp", label: "🎯 Best Opportunities" },
   { id: "breakout", label: "🚀 Breakout" },
   { id: "pullback", label: "↩️ Pullback" },
   { id: "rvol", label: "🔥 High RVOL" },
@@ -85,7 +96,18 @@ export default function RhProScanner({ C, MONO, SANS, macroData, sectorData, set
   // needing a manual RESCAN.
   const [rawRows, setRawRows] = useState([]); const [loading, setLoading] = useState(false);
   const [err, setErr] = useState(""); const [filter, setFilter] = useState(60); const [ranAt, setRanAt] = useState(null);
-  const [category, setCategory] = useState("all");
+  // Real one-time handoff from the BESTOPP/BESTOPPORTUNITIES palette
+  // redirect (axiom-live.jsx) — same localStorage-handoff convention
+  // mterminal_load_sym already uses to pass a symbol across a tab switch.
+  // Consumed once, not re-read on every render, so navigating away and
+  // choosing a different category isn't overridden on the next mount.
+  const [category, setCategory] = useState(() => {
+    try {
+      const hint = localStorage.getItem("rhpro_scan_category");
+      if (hint) { localStorage.removeItem("rhpro_scan_category"); return hint; }
+    } catch {}
+    return "all";
+  });
   const [track, setTrack] = useState(null); // real win-probability forward-return log
   const [explain, setExplain] = useState(null); // { symbol, aplus, dimensions, label } | null
   const [search, setSearch] = useState("");
@@ -224,8 +246,12 @@ export default function RhProScanner({ C, MONO, SANS, macroData, sectorData, set
 
       {category === "gap" && <GapScanner C={C} MONO={MONO} SANS={SANS} />}
       {category === "daytrade" && <DayTradeTab C={C} MONO={MONO} SANS={SANS} />}
+      {category === "bestopp" && (
+        <BestOpportunities C={C} MONO={MONO} SANS={SANS} macroData={macroData} setActiveTab={setActiveTab}
+          onPick={(sym) => openChart(sym)} />
+      )}
 
-      {category !== "gap" && category !== "daytrade" && (
+      {category !== "gap" && category !== "daytrade" && category !== "bestopp" && (
       <>
       {category === "all" && (
         <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>

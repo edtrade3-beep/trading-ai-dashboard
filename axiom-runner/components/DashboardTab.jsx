@@ -6,7 +6,6 @@ import MacroEventsWidget from "./MacroEventsWidget.jsx";
 import FedWatchTab from "./FedWatchTab.jsx";
 import RhProScanner from "./RhProScanner.jsx";
 import GreenLightTab from "./GreenLightTab.jsx";
-import { BestOpportunities } from "./terminal-panels.jsx";
 import FlowTab from "./FlowTab.jsx";
 import NewsTab from "./NewsTab.jsx";
 import ActivePositionsCard from "./ActivePositionsCard.jsx";
@@ -640,7 +639,6 @@ const DASH_TABS = [
   { id: "watchlist",   label: "WATCHLIST & CHART" },
   { id: "sniper",       label: "AI SNIPER" },
   { id: "greenlight",   label: "GREEN LIGHT" },
-  { id: "best-opportunities", label: "BEST OPP" },
   { id: "flow",         label: "OPTIONS FLOW" },
   { id: "news",        label: "NEWS & EVENTS" },
   { id: "fedwatch",    label: "FED / FOMC" },
@@ -703,10 +701,15 @@ export default function DashboardTab({
   // request: "default in ai sniper") -- was Opportunities (2026-07-19,
   // "need opportunities right away... not late"), before that Overview.
   const [dashTab, setDashTab] = useState(() => {
-    // "more" was removed (2026-07-19, split into existing tabs) — stale
-    // localStorage from before that change must not resolve to a
-    // dead/blank sub-tab.
-    try { const saved = localStorage.getItem("dash_subtab"); return (saved && saved !== "more") ? saved : "sniper"; } catch { return "sniper"; }
+    // "more" was removed (2026-07-19, split into existing tabs); "best-
+    // opportunities" was retired (2026-07-29, folded into Sniper Scanner
+    // as a category) — stale localStorage from before either change must
+    // not resolve to a dead/blank sub-tab.
+    try {
+      const saved = localStorage.getItem("dash_subtab");
+      if (saved === "best-opportunities") return "sniper";
+      return (saved && saved !== "more") ? saved : "sniper";
+    } catch { return "sniper"; }
   });
   const setDashTabPersist = (id) => {
     setDashTab(id);
@@ -864,14 +867,9 @@ export default function DashboardTab({
         <GreenLightTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} macroData={macroData} openDeepDiveFor={openDeepDiveFor} scanResults={scanResults} sectorData={sectorData} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
       )}
 
-      {/* ── BEST OPPORTUNITIES ── real BestOpportunities component, moved
-          into Dashboard (2026-07-28), same real scan as before. */}
-      {dashTab === "best-opportunities" && (
-        <div style={{ maxWidth: 900, margin: "0 auto" }}>
-          <BestOpportunities C={C} MONO={MONO} SANS={SANS} macroData={macroData} setActiveTab={setActiveTab}
-            onPick={(sym) => { setTerminalSymbol?.(sym); try { localStorage.setItem("mterminal_load_sym", sym); } catch {} setActiveTab?.("mterminal"); }} />
-        </div>
-      )}
+      {/* Best Opportunities as its own sub-tab retired (2026-07-29,
+          product/UX redesign audit item #5) — folded into Sniper Scanner's
+          "🎯 Best Opportunities" category, same real component/scan. */}
 
       {/* ── OPTIONS FLOW ── real FlowTab, moved into Dashboard (2026-07-28). */}
       {dashTab === "flow" && (

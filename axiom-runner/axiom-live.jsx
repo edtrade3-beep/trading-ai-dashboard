@@ -111,7 +111,7 @@ import PortfolioRiskCard from "./components/PortfolioRiskCard.jsx";
 import TradingLessonCard from "./components/TradingLessonCard.jsx";
 import AplusScoreTrackCard from "./components/AplusScoreTrackCard.jsx";
 import DashboardTab, { MarketPulseCard, PortfolioSnapshotCard, computeRegimeLabel, Card } from "./components/DashboardTab.jsx";
-import { BestOpportunities, PerformanceCard } from "./components/terminal-panels.jsx";
+import { PerformanceCard } from "./components/terminal-panels.jsx";
 import TopOpportunityCard from "./components/TopOpportunityCard.jsx";
 import CapitalAllocationCard from "./components/CapitalAllocationCard.jsx";
 import DailyTargetCalculator from "./components/DailyTargetCalculator.jsx";
@@ -3931,8 +3931,14 @@ export default function App() {
       CEOAI: "ceo-ai",
       COMMANDCENTER: "command-center",
       XINTEL: "x-intel",
-      BESTOPPORTUNITIES: "best-opportunities",
-      BESTOPP: "best-opportunities",
+      // Best Opportunities retired as its own destination (2026-07-29,
+      // product/UX redesign audit item #5 — folded into Sniper Scanner as
+      // a category, same real scan/component, not rebuilt). Palette
+      // aliases redirect here rather than being removed outright, same
+      // "hide, don't delete" convention as every other retired-destination
+      // alias in this app.
+      BESTOPPORTUNITIES: "rhpro-scan",
+      BESTOPP: "rhpro-scan",
       // New sidebar tabs (2026-07-19). PORTFOLIO above already maps to the
       // legacy "portfolio" tab (PortfolioTab.jsx) — PORTFOLIOTAB avoids
       // colliding with it while still reaching the new Portfolio Snapshot
@@ -4003,6 +4009,9 @@ export default function App() {
     };
 
     if (toTab[normalized]) {
+      if (normalized === "BESTOPPORTUNITIES" || normalized === "BESTOPP") {
+        try { localStorage.setItem("rhpro_scan_category", "bestopp"); } catch {}
+      }
       setActiveTab(toTab[normalized]);
       return;
     }
@@ -6230,16 +6239,11 @@ export default function App() {
             Center's event feed. See XIntelTab.jsx/x-intel-ai.js headers. */}
         {activeTab === "x-intel" && <XIntelTab C={C} MONO={MONO} SANS={SANS} macroData={macroData} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} />}
 
-        {/* Best Opportunities — moved out of the Dashboard Opportunities
-            sub-tab into its own dedicated sidebar spot, right under CEO AI
-            (2026-07-19, user request). Same real BestOpportunities
-            component/scan MarketTerminalTab already uses, not rebuilt. */}
-        {activeTab === "best-opportunities" && (
-          <div style={{ padding: "16px 20px", maxWidth: 900, margin: "0 auto" }}>
-            <BestOpportunities C={C} MONO={MONO} SANS={SANS} macroData={macroData} setActiveTab={setActiveTab}
-              onPick={(sym) => { setTerminalSymbol?.(sym); try { localStorage.setItem("mterminal_load_sym", sym); } catch {} setActiveTab?.("mterminal"); }} />
-          </div>
-        )}
+        {/* Best Opportunities as its own destination retired (2026-07-29,
+            product/UX redesign audit item #5) — folded into Sniper Scanner
+            ("rhpro-scan") as a real category tab instead, same component/
+            scan, not rebuilt. BESTOPP/BESTOPPORTUNITIES palette commands
+            now redirect there. */}
 
         {/* Portfolio / Capital Allocation / Mission Status / Market Pulse —
             restored as their own sidebar tabs (2026-07-19, user request:
