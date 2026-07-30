@@ -27,6 +27,7 @@ import AiScoreExplainer, {
 } from "./AiScoreExplainer.jsx";
 import { stockQualityBreakdown } from "./rhpro-shared.jsx";
 import { mapToAiAction } from "./ai-actions.js";
+import SmartMoneyPanel from "./SmartMoneyPanel.jsx";
 
 // Combined Market-Terminal page: movers leaderboard on the left, pro chart with
 // AI overlays on the right. Click a mover → it loads in the chart.
@@ -220,6 +221,19 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   useEffect(() => {
     fetch("/api/market/aplus-track").then(r => r.json()).then(d => { if (d?.ok) setAplusTrack(d); }).catch(() => {});
   }, []);
+
+  // Section 7 (Catalysts, institutional redesign 2026-07-29) — real
+  // per-symbol insider transactions + analyst ratings, same existing
+  // endpoints InsiderTab/AnalystPeerPanel already use market-wide, scoped
+  // here to just the loaded symbol. No new backend routes.
+  const [symInsider, setSymInsider] = useState(null);
+  const [symAnalyst, setSymAnalyst] = useState(null);
+  useEffect(() => {
+    if (!sym) return;
+    setSymInsider(null); setSymAnalyst(null);
+    fetch(`/api/market/insider?ticker=${encodeURIComponent(sym)}`).then(r => r.json()).then(j => setSymInsider(j?.ok ? j : null)).catch(() => {});
+    fetch(`/api/market/analyst?tickers=${encodeURIComponent(sym)}`).then(r => r.json()).then(j => setSymAnalyst(Array.isArray(j?.results) ? j.results[0] : (Array.isArray(j) ? j[0] : null))).catch(() => {});
+  }, [sym]);
 
   const [wlMsg, setWlMsg] = useState("");
   const addToWatchlist = useCallback(() => {
@@ -728,6 +742,69 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                 ? <TrendChart data={chart} C={C} MONO={MONO} SANS={SANS} height="fill" />
                 : <div style={{ height: 620, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: 13, color: C.textDim, border: `1px solid ${C.border}`, borderRadius: 12 }}>Select a mover to load the chart…</div>}
             </div>
+            {/* SECTION 6 — Smart Money panel (institutional redesign,
+                2026-07-29, explicit user spec: "Order Blocks, Fair Value
+                Gaps, Liquidity, VWAP, Volume Profile, Dark Pool Activity").
+                New standalone component extracting/generalizing the SMC
+                surface that was previously scattered (Institutional Grade's
+                own dimension, the scanner's hover badge) — same real
+                src/smc-engine.js detectors this app already used everywhere
+                else, via the existing standalone /api/market/smc + the
+                existing per-symbol /api/market/darkpool filter. */}
+            {chart && sym && (
+              <div style={{ marginTop: 14, marginBottom: 14 }}>
+                <SectionHeader icon="🧱" label="SMART MONEY" />
+                <SmartMoneyPanel symbol={sym} chart={chart} C={C} MONO={MONO} SANS={SANS} />
+              </div>
+            )}
+            {/* SECTION 7 — Catalysts (institutional redesign, 2026-07-29,
+                explicit user spec: "Earnings, Analyst Upgrades/Downgrades,
+                Insider Activity, Options Flow, News, Economic Events").
+                Real per-symbol insider transactions + analyst ratings
+                (existing endpoints, previously only market-wide list-scoped
+                — InsiderTab/AnalystPeerPanel — now filtered here to just
+                this symbol), real options-flow bias (symOptionsFlow, already
+                fetched for the AI Score Card above), real earnings date
+                (fund.earningsDate). News/Economic Events stay one click away
+                via the existing "Symbol News" sub-tab and Calendar page
+                rather than duplicating that real data a second time here. */}
+            {chart && sym && (
+              <div style={{ marginBottom: 14 }}>
+                <SectionHeader icon="📅" label="CATALYSTS" />
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12 }}>
+                  <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 14px", background: C.card }}>
+                    <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 6 }}>EARNINGS</div>
+                    <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text }}>{fund?.earningsDate ? new Date(fund.earningsDate).toLocaleDateString() : "—"}</div>
+                  </div>
+                  <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 14px", background: C.card }}>
+                    <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 6 }}>ANALYSTS</div>
+                    {symAnalyst?.numAnalysts ? (
+                      <>
+                        <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text }}>{symAnalyst.recommendation || "—"} · {symAnalyst.numAnalysts} analysts</div>
+                        <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>Target ${symAnalyst.targetLow}–${symAnalyst.targetHigh} (mean ${symAnalyst.targetMean})</div>
+                        {symAnalyst.history?.[0] && <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, marginTop: 3 }}>{symAnalyst.history[0].firm}: {symAnalyst.history[0].action} ({symAnalyst.history[0].toGrade}) {symAnalyst.history[0].date}</div>}
+                      </>
+                    ) : <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim }}>—</div>}
+                  </div>
+                  <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 14px", background: C.card }}>
+                    <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 6 }}>INSIDER ACTIVITY</div>
+                    {symInsider?.insiderTransactions?.transactions?.length ? symInsider.insiderTransactions.transactions.slice(0, 2).map((t, i) => (
+                      <div key={i} style={{ fontFamily: SANS, fontSize: 11, color: t.type === "BUY" ? C.green : C.red, marginBottom: 2 }}>
+                        {t.type === "BUY" ? "🟢" : "🔴"} {t.name} — {t.type} {t.shares ? t.shares.toLocaleString() + " sh" : ""} {t.date}
+                      </div>
+                    )) : <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim }}>No recent real filings</div>}
+                  </div>
+                  <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 14px", background: C.card }}>
+                    <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 6 }}>OPTIONS FLOW</div>
+                    {symOptionsFlow ? (
+                      <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: Number(symOptionsFlow.callNotional) > Number(symOptionsFlow.putNotional) ? C.green : C.red }}>
+                        {Number(symOptionsFlow.callNotional) > Number(symOptionsFlow.putNotional) ? "Call-weighted" : "Put-weighted"}
+                      </div>
+                    ) : <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim }}>—</div>}
+                  </div>
+                </div>
+              </div>
+            )}
             <AiWhyPanel symbol={sym} price={chart && chart.price} changePct={symDayPct} C={C} MONO={MONO} SANS={SANS} />
             {chart && (() => {
               // Real, free, deterministic ~1-week read — the same engine
