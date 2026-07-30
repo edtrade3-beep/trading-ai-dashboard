@@ -1,7 +1,11 @@
 import { useState, useEffect, useMemo } from "react";
 import { RH_UNIVERSE, rhScore, stockQualityBreakdown, rhScreenProgressive } from "./rhpro-shared.jsx";
-import { computeRegime, computeAPlusScore, computeNextAction, computePrediction, winProbFor, MIN_WIN_SAMPLE } from "./market-helpers.js";
-import AiScoreExplainer, { TRADE_SETUP_DIMENSIONS, STOCK_QUALITY_DIMENSIONS } from "./AiScoreExplainer.jsx";
+import {
+  computeRegime, computeAPlusScore, computeNextAction, computePrediction, winProbFor, MIN_WIN_SAMPLE,
+  computeInstitutionalGrade, institutionalLetterGrade, institutionalRecommendation, SECTOR_ETFS, STOCK_TO_SECTOR,
+} from "./market-helpers.js";
+import AiScoreExplainer, { TRADE_SETUP_DIMENSIONS, STOCK_QUALITY_DIMENSIONS, INSTITUTIONAL_GRADE_DIMENSIONS } from "./AiScoreExplainer.jsx";
+import { mapToAiAction } from "./ai-actions.js";
 import GapScanner from "./GapScanner.jsx";
 import DayTradeTab from "./DayTradeTab.jsx";
 import { BestOpportunities } from "./terminal-panels.jsx";
@@ -120,6 +124,12 @@ export default function RhProScanner({ C, MONO, SANS, macroData, sectorData, wat
   });
   const [track, setTrack] = useState(null); // real win-probability forward-return log
   const [explain, setExplain] = useState(null); // { symbol, aplus, dimensions, label } | null
+  // Row expand-in-place — institutional redesign (2026-07-29), same real
+  // pattern SmartScanTab.jsx already uses for its own per-row deep-dive,
+  // reused here rather than inventing a new interaction model. Secondary
+  // metrics (Stock Quality/Trade Setup/Win%/Pred/Risk/RS/SMC) move here so
+  // the main table stays to the spec's 7 primary columns.
+  const [expandedSymbol, setExpandedSymbol] = useState(null);
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState(null); // null = default score-ranked order
   const [sortDir, setSortDir] = useState("desc");
@@ -133,6 +143,21 @@ export default function RhProScanner({ C, MONO, SANS, macroData, sectorData, wat
   const spyQuote = (macroData || []).find(m => (m.symbol || "").toUpperCase() === "SPY");
   if (spyQuote) sectorPerf.SPY = chg(spyQuote);
   const sectorPerfKey = JSON.stringify(sectorPerf);
+
+  // Real sector-ETF rank (1-11) per symbol, same pattern MarketTerminalTab
+  // uses for its own single-symbol Institutional Grade — reused here so
+  // every scanner row's Overall Grade can weigh real Sector Strength too,
+  // not just the market-wide regime. Cheap: sectorPerf is already fetched.
+  const rankedSectors = useMemo(() => (
+    [...SECTOR_ETFS].map(se => ({ ...se, chg: sectorPerf[se.symbol] ?? 0 })).sort((a, b) => b.chg - a.chg)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  ), [sectorPerfKey]);
+  const sectorInfoFor = (symbol) => {
+    const etf = STOCK_TO_SECTOR[symbol];
+    if (!etf) return null;
+    const rank = rankedSectors.findIndex(se => se.symbol === etf) + 1;
+    return rank > 0 ? { rank, of: rankedSectors.length } : null;
+  };
 
   const scan = () => {
     setLoading(true); setErr(""); setRawRows([]);
@@ -161,12 +186,20 @@ export default function RhProScanner({ C, MONO, SANS, macroData, sectorData, wat
     return rawRows.map(x => {
       const quality = stockQualityBreakdown(x, sectorPerf);
       const aplus = computeAPlusScore(x, regime);
+      // Institutional Grade — same real 7-dimension function MarketTerminalTab's
+      // AI Score Card uses (Overall Grade/AI Conviction below), computed here
+      // for every scanned row instead of just one symbol. Technicals/options-flow
+      // aren't part of this bulk scan's payload, so those two dimensions honestly
+      // fall back to computeInstitutionalGrade's own neutral midpoint (same
+      // "honest null, never fabricated" discipline as everywhere else) — the
+      // other five (trend/smart-money/fundamentals/macro/sector) stay fully real.
+      const institutionalGrade = computeInstitutionalGrade(x, null, regime, sectorInfoFor(x.symbol), null);
       // Real prediction reused from PredictionsTab's engine, run on this
       // same row (x doubles as both the quote and the trend input — no
       // separate live-quote fetch here, so today's %-change/day-range
       // component honestly defaults to neutral; the dominant Stage/RS/
       // volume-driven scoring still runs in full).
-      return { ...x, score: quality.score, quality, aplus, next: computeNextAction(x), prediction: computePrediction(x, x) };
+      return { ...x, score: quality.score, quality, aplus, institutionalGrade, next: computeNextAction(x), prediction: computePrediction(x, x) };
     }).sort((a, b) => (b.score - a.score) || ((b.rsRating || 0) - (a.rsRating || 0)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rawRows, sectorPerfKey, regime?.score]);
@@ -216,6 +249,7 @@ export default function RhProScanner({ C, MONO, SANS, macroData, sectorData, wat
   const SORTABLE = {
     quality: r => r.score,
     setup: r => r.aplus?.score ?? -1,
+    grade: r => r.institutionalGrade?.score ?? -1,
     win: r => (track ? winProbFor(track, r.aplus?.score ?? r.score)?.winRate : null) ?? -1,
     confidence: r => r.confidence ?? -1,
     price: r => Number(r.price) || 0,
@@ -277,11 +311,14 @@ export default function RhProScanner({ C, MONO, SANS, macroData, sectorData, wat
       {err && <div style={{ fontFamily: SANS, fontSize: 12, color: C.red, marginBottom: 10 }}>⚠ {err}</div>}
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, overflow: "auto", maxHeight: "70vh" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          {/* 7 primary columns (institutional redesign, 2026-07-29, explicit
+              user spec) — Stock Quality/Trade Setup/Win%/Pred/Risk/RS/SMC
+              detail moved into a tap-to-expand row below, same real pattern
+              SmartScanTab.jsx's own per-row deep-dive already uses. */}
           <thead><tr>
             {[
-              ["#", null], ["SYMBOL", null], ["STOCK QUALITY", "quality"], ["TRADE SETUP", "setup"], ["WIN%", "win"],
-              ["PRED (1WK)", null], ["CONFIDENCE", "confidence"], ["RISK", null], ["PRICE", "price"], ["RS", "rs"],
-              ["TREND (8pt)", "trend"], ["STAGE", null], ["SMC", null], ["ACTION", null], ["ENTRY → STOP", null],
+              ["#", null], ["TICKER", null], ["GRADE", "grade"], ["CONVICTION", null],
+              ["TREND", "trend"], ["ACTION", null], ["ENTRY → STOP", null],
             ].map(([h, key]) => (
               <th key={h} style={{ ...th, cursor: key ? "pointer" : "default" }} onClick={key ? () => toggleSort(key) : undefined} title={key ? "Click to sort" : undefined}>
                 {h}{sortBy === key && key ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
@@ -291,78 +328,107 @@ export default function RhProScanner({ C, MONO, SANS, macroData, sectorData, wat
           <tbody>
             {shown.map((r, i) => {
               const win = track ? winProbFor(track, r.aplus?.score ?? r.score) : null;
+              const grade = r.institutionalGrade ? institutionalLetterGrade(r.institutionalGrade.score) : "—";
+              const rec = r.institutionalGrade ? institutionalRecommendation(r.institutionalGrade.score) : null;
+              const action = mapToAiAction({ institutionalScore: r.institutionalGrade?.score, nextAction: r.next?.action });
+              const expanded = expandedSymbol === r.symbol;
               return (
-              <tr key={r.symbol} style={{ background: i % 2 ? "transparent" : `${C.surface}55` }}>
+              <React.Fragment key={r.symbol}>
+              <tr style={{ background: i % 2 ? "transparent" : `${C.surface}55`, cursor: "pointer" }}
+                onClick={() => setExpandedSymbol(expanded ? null : r.symbol)}>
                 <td style={{ ...cell, color: C.textDim }}>{i + 1}</td>
-                <td style={{ ...cell, fontWeight: 900, color: C.text }}>
+                <td style={{ ...cell, fontWeight: 900, color: C.text }} onClick={e => e.stopPropagation()}>
+                  <span style={{ marginRight: 4, fontSize: 10, color: C.textDim }}>{expanded ? "▾" : "▸"}</span>
                   {r.symbol}
                   <button onClick={() => openChart(r.symbol)} title={`Open ${r.symbol}'s full chart — trend, fundamentals, earnings, analysts, news, SMC`}
                     style={{ marginLeft: 6, fontSize: 10, border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "1px 5px", cursor: "pointer" }}>📈 chart</button>
                   <button onClick={() => planTrade(r)} title={`Plan this trade — opens Trade Planner with ${r.symbol}'s real entry/stop from this scan already filled in`}
                     style={{ marginLeft: 4, fontSize: 10, border: `1px solid ${C.accent}`, background: `${C.accent}14`, color: C.accent, borderRadius: 4, padding: "1px 5px", cursor: "pointer" }}>🎯 plan</button>
                 </td>
-                <td style={cell}>
-                  {r.quality && (
-                    <button onClick={() => setExplain({ symbol: r.symbol, aplus: r.quality, dimensions: STOCK_QUALITY_DIMENSIONS, label: "STOCK QUALITY SCORE" })}
-                      title="Click to see why this score, and what would raise it"
-                      style={{ font: "inherit", fontWeight: 900, color: scoreCol(r.score), background: "transparent", border: "none", cursor: "pointer", padding: 0 }}>
-                      {r.score} <span style={{ fontSize: 9, opacity: 0.7 }}>▸</span>
+                <td style={cell} onClick={e => e.stopPropagation()}>
+                  {r.institutionalGrade && (
+                    <button onClick={() => setExplain({ symbol: r.symbol, aplus: r.institutionalGrade, dimensions: INSTITUTIONAL_GRADE_DIMENSIONS, label: "INSTITUTIONAL GRADE", note: "Technical Confirmation and Options Flow use an honest neutral midpoint in this bulk scan view (not part of this scan's payload) — open the full Charts page for this symbol for the real read on those two." })}
+                      title="Click to see why this grade, and what would raise it"
+                      style={{ font: "inherit", fontWeight: 900, color: "#fff", background: grade.startsWith("A") ? "#0d9465" : grade.startsWith("B") ? "#22a06b" : grade === "C" ? "#d6a312" : grade === "D" ? "#e07b1a" : "#c8282a", border: "none", borderRadius: 4, padding: "1px 8px", cursor: "pointer" }}>
+                      {grade}
                     </button>
                   )}
-                  {r.atBuyPoint && <span style={{ marginLeft: 6, fontSize: 10, color: C.green }}>🎯</span>}
-                </td>
-                <td style={cell}>{r.aplus && (
-                  <button onClick={() => setExplain({ symbol: r.symbol, aplus: r.aplus, dimensions: TRADE_SETUP_DIMENSIONS, label: "TRADE SETUP SCORE" })}
-                    title="Click to see why this score, and what would raise it"
-                    style={{ font: "inherit", fontWeight: 900, color: "#fff", background: r.aplus.score >= 80 ? "#0d9465" : r.aplus.score >= 60 ? "#d6a312" : "#c8282a", border: "none", borderRadius: 4, padding: "1px 7px", cursor: "pointer" }}>{r.aplus.score}</button>
-                )}</td>
-                <td style={cell}>
-                  {win == null ? <span style={{ color: C.textDim, fontSize: 10 }}>—</span>
-                    : win.winRate != null ? <span title={`${win.count} real observations, ${win.horizon}-day forward, same score band`} style={{ fontWeight: 800, color: win.winRate >= 60 ? C.green : win.winRate >= 45 ? C.amber : C.red, cursor: "help" }}>{win.winRate}%</span>
-                    : <span title="Real forward-return log, but not enough observations yet in this score band" style={{ fontSize: 10, color: C.textDim, cursor: "help" }}>{win.count}/{MIN_WIN_SAMPLE} obs</span>}
                 </td>
                 <td style={cell}>
-                  {r.prediction && (() => {
-                    const p = r.prediction;
-                    const dirCol = p.dir.includes("BULL") || p.dir === "LEAN UP" ? C.green : p.dir.includes("BEAR") || p.dir === "LEAN DOWN" ? C.red : C.textDim;
-                    const dirIcon = p.dir.includes("BULL") || p.dir === "LEAN UP" ? "📈" : p.dir.includes("BEAR") || p.dir === "LEAN DOWN" ? "📉" : "➡️";
-                    return (
-                      <span title={`${p.why.join(" · ") || "No strong real signal either way"} · target $${p.target} (${p.movePct >= 0 ? "+" : ""}${p.movePct}%) · ${p.conf}% confidence`}
-                        style={{ fontSize: 11, fontWeight: 800, color: dirCol, cursor: "help" }}>
-                        {dirIcon} {p.dir}
-                      </span>
-                    );
-                  })()}
+                  {rec && <span title={`Institutional Grade ${r.institutionalGrade.score}/100`} style={{ fontSize: 11, fontWeight: 800, color: rec.color }}>{rec.label} {"★".repeat(rec.stars)}{"☆".repeat(5 - rec.stars)}</span>}
                 </td>
-                <td style={cell}>{r.confidence != null && <span title="Breakout-engine confidence — base quality + how ready the setup is right now" style={{ fontWeight: 800, color: r.confidence >= 70 ? C.green : r.confidence >= 40 ? C.amber : C.textDim }}>{r.confidence}%</span>}</td>
-                <td style={cell}>{r.riskState && <span title="From the VCP risk report — base quality + breakout readiness" style={{ fontSize: 10, fontWeight: 900, color: r.riskState === "LOW" ? C.green : r.riskState === "MEDIUM" ? C.amber : C.red, border: `1px solid ${r.riskState === "LOW" ? C.green : r.riskState === "MEDIUM" ? C.amber : C.red}`, borderRadius: 4, padding: "1px 6px" }}>{r.riskState}</span>}</td>
-                <td style={{ ...cell, color: C.textSec }}>${Number(r.price || 0).toFixed(2)}</td>
-                <td style={{ ...cell, color: (r.rsRating || 0) >= 70 ? C.green : C.textSec }}>{r.rsRating ?? "—"}</td>
-                <td style={{ ...cell, color: C.textSec }}>{r.passCount ?? "?"}/8</td>
-                <td style={{ ...cell, fontSize: 11, color: (r.stage || "").includes("2") ? C.green : (r.stage || "").includes("4") ? C.red : C.textDim }}>{(r.stage || "").replace(/ —.*/, "").slice(0, 18) || "—"}</td>
-                <td style={cell}>
-                  {r.smc && (() => {
-                    const bull = r.smc.bos?.type === "BULL_BOS";
-                    const bear = r.smc.bos?.type === "BEAR_BOS";
-                    const tip = [
-                      r.smc.bos?.label, r.smc.choch?.label,
-                      r.smc.nearestOB ? `Nearest ${r.smc.nearestOB.type === "BULL_OB" ? "bullish" : "bearish"} order block ~$${r.smc.nearestOB.mid}` : null,
-                      r.smc.openFVGCount ? `${r.smc.openFVGCount} open fair value gap${r.smc.openFVGCount === 1 ? "" : "s"}` : null,
-                      r.smc.nearestLiquidity ? `Nearest liquidity: ${r.smc.nearestLiquidity.label} @ $${r.smc.nearestLiquidity.price}` : null,
-                    ].filter(Boolean).join(" · ") || "No real SMC signal right now";
-                    return (
-                      <span title={tip} style={{ fontSize: 10, fontWeight: 900, cursor: "help", color: bull ? C.green : bear ? C.red : C.textDim, border: `1px solid ${bull ? C.green : bear ? C.red : C.border}`, borderRadius: 4, padding: "1px 6px" }}>
-                        {bull ? "BOS ▲" : bear ? "BOS ▼" : "—"}
-                      </span>
-                    );
-                  })()}
+                <td style={{ ...cell, fontSize: 11, color: (r.stage || "").includes("2") ? C.green : (r.stage || "").includes("4") ? C.red : C.textDim }}>
+                  {r.passCount ?? "?"}/8 · {(r.stage || "").replace(/ —.*/, "").slice(0, 14) || "—"}
                 </td>
-                <td style={cell}>{r.next && <span title={r.next.reason} style={{ fontSize: 11, fontWeight: 900, color: r.next.color, border: `1px solid ${r.next.color}`, borderRadius: 4, padding: "1px 6px", cursor: "help" }}>{r.next.action}</span>}</td>
+                <td style={cell}>{action && <span title="Unified AI Action — reduces this row's real institutional score + verdict to one shared label" style={{ fontSize: 11, fontWeight: 900, color: action.color, border: `1px solid ${action.color}`, borderRadius: 4, padding: "1px 6px" }}>{action.label}</span>}</td>
                 <td style={{ ...cell, fontSize: 11, color: C.textSec }}>{r.entry ? `$${Number(r.entry).toFixed(2)} → $${Number(r.stop).toFixed(2)}` : "—"}</td>
               </tr>
+              {expanded && (
+                <tr>
+                  <td colSpan="7" style={{ padding: "12px 16px", background: C.surface, borderBottom: `1px solid ${C.border}` }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 14 }}>
+                      <div>
+                        <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 3 }}>STOCK QUALITY</div>
+                        {r.quality && (
+                          <button onClick={() => setExplain({ symbol: r.symbol, aplus: r.quality, dimensions: STOCK_QUALITY_DIMENSIONS, label: "STOCK QUALITY SCORE" })}
+                            style={{ font: "inherit", fontWeight: 900, fontSize: 14, color: scoreCol(r.score), background: "transparent", border: "none", cursor: "pointer", padding: 0 }}>
+                            {r.score} <span style={{ fontSize: 9, opacity: 0.7 }}>▸ why?</span>
+                          </button>
+                        )}
+                      </div>
+                      <div>
+                        <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 3 }}>TRADE SETUP</div>
+                        {r.aplus && (
+                          <button onClick={() => setExplain({ symbol: r.symbol, aplus: r.aplus, dimensions: TRADE_SETUP_DIMENSIONS, label: "TRADE SETUP SCORE" })}
+                            style={{ font: "inherit", fontWeight: 900, fontSize: 14, color: r.aplus.score >= 80 ? "#0d9465" : r.aplus.score >= 60 ? "#d6a312" : "#c8282a", background: "transparent", border: "none", cursor: "pointer", padding: 0 }}>
+                            {r.aplus.score} <span style={{ fontSize: 9, opacity: 0.7 }}>▸ why?</span>
+                          </button>
+                        )}
+                      </div>
+                      <div>
+                        <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 3 }}>WIN%</div>
+                        {win == null ? <span style={{ color: C.textDim, fontSize: 12 }}>—</span>
+                          : win.winRate != null ? <span title={`${win.count} real observations, ${win.horizon}-day forward, same score band`} style={{ fontWeight: 800, fontSize: 14, color: win.winRate >= 60 ? C.green : win.winRate >= 45 ? C.amber : C.red }}>{win.winRate}%</span>
+                          : <span title="Real forward-return log, but not enough observations yet in this score band" style={{ fontSize: 11, color: C.textDim }}>{win.count}/{MIN_WIN_SAMPLE} obs</span>}
+                      </div>
+                      <div>
+                        <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 3 }}>PRED (1WK)</div>
+                        {r.prediction && (() => {
+                          const p = r.prediction;
+                          const dirCol = p.dir.includes("BULL") || p.dir === "LEAN UP" ? C.green : p.dir.includes("BEAR") || p.dir === "LEAN DOWN" ? C.red : C.textDim;
+                          return <span title={p.why.join(" · ") || "No strong real signal either way"} style={{ fontSize: 12, fontWeight: 800, color: dirCol }}>{p.dir} → ${p.target} ({p.conf}%)</span>;
+                        })()}
+                      </div>
+                      <div>
+                        <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 3 }}>RISK</div>
+                        {r.riskState && <span style={{ fontSize: 12, fontWeight: 900, color: r.riskState === "LOW" ? C.green : r.riskState === "MEDIUM" ? C.amber : C.red, border: `1px solid ${r.riskState === "LOW" ? C.green : r.riskState === "MEDIUM" ? C.amber : C.red}`, borderRadius: 4, padding: "1px 6px" }}>{r.riskState}</span>}
+                      </div>
+                      <div>
+                        <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 3 }}>RS</div>
+                        <span style={{ fontSize: 14, fontWeight: 800, color: (r.rsRating || 0) >= 70 ? C.green : C.textSec }}>{r.rsRating ?? "—"}</span>
+                      </div>
+                      <div style={{ gridColumn: "1 / -1" }}>
+                        <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 3 }}>SMART MONEY</div>
+                        {r.smc ? (() => {
+                          const bull = r.smc.bos?.type === "BULL_BOS";
+                          const bear = r.smc.bos?.type === "BEAR_BOS";
+                          const parts = [
+                            r.smc.bos?.label, r.smc.choch?.label,
+                            r.smc.nearestOB ? `Nearest ${r.smc.nearestOB.type === "BULL_OB" ? "bullish" : "bearish"} order block ~$${r.smc.nearestOB.mid}` : null,
+                            r.smc.openFVGCount ? `${r.smc.openFVGCount} open fair value gap${r.smc.openFVGCount === 1 ? "" : "s"}` : null,
+                            r.smc.nearestLiquidity ? `Nearest liquidity: ${r.smc.nearestLiquidity.label} @ $${r.smc.nearestLiquidity.price}` : null,
+                          ].filter(Boolean);
+                          return <span style={{ fontSize: 12, fontWeight: 700, color: bull ? C.green : bear ? C.red : C.textSec }}>{parts.length ? parts.join(" · ") : "No real SMC signal right now"}</span>;
+                        })() : <span style={{ fontSize: 12, color: C.textDim }}>No real SMC signal right now</span>}
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              )}
+              </React.Fragment>
               );
             })}
-            {!shown.length && !loading && <tr><td colSpan="15" style={{ ...cell, textAlign: "center", color: C.textDim }}>{search.trim() ? `No symbol matching "${search.trim().toUpperCase()}" in this scan.` : "No setups meet this filter right now — lower the threshold or rescan."}</td></tr>}
+            {!shown.length && !loading && <tr><td colSpan="7" style={{ ...cell, textAlign: "center", color: C.textDim }}>{search.trim() ? `No symbol matching "${search.trim().toUpperCase()}" in this scan.` : "No setups meet this filter right now — lower the threshold or rescan."}</td></tr>}
           </tbody>
         </table>
       </div>
@@ -371,7 +437,7 @@ export default function RhProScanner({ C, MONO, SANS, macroData, sectorData, wat
         Trade Setup = Market Regime 20 · Entry Timing 20 · Breakout Confirmation 15 · Volume Confirmation 10 · Risk Discipline 20 · Support 10 · Volatility 5.
         Win% = real forward-return log, same score band, min {MIN_WIN_SAMPLE} observations. Pred = real deterministic ~1-week direction/target off this same scan (Stage/RS/volume), not a paid AI call — hover for why. Analysis only — execute manually.
       </div>
-      {explain && <AiScoreExplainer C={C} MONO={MONO} SANS={SANS} symbol={explain.symbol} aplus={explain.aplus} dimensions={explain.dimensions} label={explain.label} onClose={() => setExplain(null)} />}
+      {explain && <AiScoreExplainer C={C} MONO={MONO} SANS={SANS} symbol={explain.symbol} aplus={explain.aplus} dimensions={explain.dimensions} label={explain.label} note={explain.note} onClose={() => setExplain(null)} />}
       </>
       )}
     </div>
