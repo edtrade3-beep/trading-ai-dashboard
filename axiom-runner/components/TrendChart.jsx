@@ -299,9 +299,16 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
   if (typeof window !== "undefined" && !window.LightweightCharts) {
     return <div style={{ height: H, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: SANS, fontSize: 12, color: C.textDim }}>Loading interactive chart…</div>;
   }
-  // Overall Rating (0–100): blends trend gears (score/8) with VCP base quality,
-  // then penalizes a deep base — a wide/deep base has poor breakout odds even
-  // when the trend template scores well.
+  // Trend & Base Rating (0–100): blends trend gears (score/8) with VCP base
+  // quality, then penalizes a deep base — a wide/deep base has poor
+  // breakout odds even when the trend template scores well. Renamed from
+  // "OVERALL RATING" (2026-07-29, real user-reported confusion: this and
+  // the AI Score Card above compute genuinely different real things —
+  // trend-template/VCP structure here vs. the 7-dimension Institutional
+  // Grade there — but the old "OVERALL" framing read as one absolute
+  // verdict competing with the other. Neither one is wrong; they can
+  // legitimately disagree. Glossary entry below explains the relationship
+  // instead of pretending only one score exists.
   const passC = Number(data && data.score) || 0;
   const vcpS = Number(data && data.setup && data.setup.report && data.setup.report.score) || 0;
   const baseDepth = Number(data && data.setup && data.setup.vcp && data.setup.vcp.baseDepth);
@@ -318,6 +325,7 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
   const verdict = su && su.verdict;   // GO / WAIT / AVOID
   const vColor = verdict === "GO" ? "#22d47e" : verdict === "WAIT" ? "#d6a312" : "#ef4444";
   const glossary = [
+    ["📊 TREND & BASE RATING", "Blends the 8-point trend-template pass rate with real VCP base quality, penalized for a deep base. A different real lens than the AI Score Card above (which grades 7 broader factors — smart money, options flow, fundamentals, macro, sector). The two can legitimately disagree; neither overrides the other."],
     ["🔵 PIVOT", "Top of the recent base — buy on a break ABOVE it with volume ≥1.4× average. The breakout trigger."],
     ["⚪ BASE LOW", "Bottom of the base. If price falls back here the setup has failed — often where the stop goes."],
     ["🔴 STOP", "Where you exit if wrong — the tighter of −8% or just under the base low."],
@@ -354,10 +362,15 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
         // Top-LEFT so it never collides with the right price axis or the AI-TARGET label.
         // Fully opaque background (not ~95%) — the chart's horizontal price-
         // level reference lines span the full width and were faintly visible
-        // through the card, crossing right through the "OVERALL RATING" text.
+        // through the card, crossing right through the rating text.
         <div style={{ position: "absolute", top: 10, left: 12, pointerEvents: "none",
           background: C.card || "#fff", border: `1px solid ${rColor}`, borderRadius: 12, padding: "8px 14px", boxShadow: "0 2px 10px rgba(0,0,0,0.18)", minWidth: 132 }}>
-          <div style={{ fontFamily: SANS, fontSize: 9, fontWeight: 700, color: C.textDim, letterSpacing: 1 }}>OVERALL RATING</div>
+          {/* "OVERALL RATING" renamed (2026-07-29, real user-reported
+              confusion) — read as THE single verdict, directly competing
+              with the AI Score Card's own recommendation above even though
+              they're two different real scores that can legitimately
+              disagree. See the glossary entry (ⓘ) for the full explanation. */}
+          <div style={{ fontFamily: SANS, fontSize: 9, fontWeight: 700, color: C.textDim, letterSpacing: 1 }}>TREND & BASE RATING</div>
           <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
             <span style={{ fontFamily: SANS, fontSize: 30, fontWeight: 900, color: rColor, lineHeight: 1 }}>{rating}</span>
             <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 800, color: rColor, letterSpacing: 0.5 }}>{rWord}</span>

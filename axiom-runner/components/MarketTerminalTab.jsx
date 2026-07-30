@@ -596,13 +596,25 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                 </span>
               </div>
               <div style={{ display: "flex", gap: 22, rowGap: 10, flexWrap: "wrap" }}>
-                {stat("CONFIDENCE", prediction ? `${prediction.conf}%` : "—", null, prediction ? "Real confidence from the same trend/volume/momentum engine as the Quick Read below" : null)}
+                {/* Renamed from bare "CONFIDENCE" (2026-07-29, real
+                    user-reported confusion) — read next to PROB. OF SUCCESS
+                    as if the two should agree. They measure different real
+                    things: this is how sure the prediction engine is in its
+                    own directional call; Prob. of Success is the real
+                    historical win rate for setups scoring this well. A
+                    confident call can still have a middling real track
+                    record — that's not a contradiction, it just wasn't
+                    labeled clearly enough to tell them apart. */}
+                {stat("PREDICTION CONFIDENCE", prediction ? `${prediction.conf}%` : "—", null, prediction ? "How sure the trend/volume/momentum engine is in its own directional call — not the same as Prob. of Success's real historical win rate, and the two can disagree" : null)}
                 {stat("EXPECTED MOVE (1WK)", prediction ? `${prediction.movePct >= 0 ? "+" : ""}${prediction.movePct}%` : "—", prediction ? (prediction.movePct > 0 ? "#22d47e" : prediction.movePct < 0 ? "#ef4444" : C.text) : null, prediction ? `Target $${prediction.target} — real, deterministic, trend-template based` : null)}
                 {stat("RISK LEVEL", riskLevel || "—", riskLevel ? riskCol : null, symTrend?.riskPct != null ? `${symTrend.riskPct.toFixed(1)}% real ATR-based distance to stop` : null)}
                 {stat("PROB. OF SUCCESS", winProb?.winRate != null ? `${winProb.winRate}%` : winProb?.count != null ? `n=${winProb.count} (need ${10})` : "—",
                   winProb?.winRate != null ? (winProb.winRate >= 55 ? "#22d47e" : winProb.winRate >= 45 ? "#d6a312" : "#ef4444") : C.textDim,
-                  winProb?.winRate != null ? `Real forward ${winProb.horizon}-day win rate for this Trade Setup Score band, n=${winProb.count}` : "Real forward-return log exists but sample is below the honest floor for this score band")}
+                  winProb?.winRate != null ? `Real forward ${winProb.horizon}-day win rate for this Trade Setup Score band, n=${winProb.count} — a different real measurement than Prediction Confidence, the two can disagree` : "Real forward-return log exists but sample is below the honest floor for this score band")}
                 {stat("HOLDING TIME", "—", C.textDim, "Not built — no real per-stock time-to-target dataset exists in this app to draw an honest number from")}
+              </div>
+              <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, marginTop: 10, lineHeight: 1.4 }}>
+                Prediction Confidence and Prob. of Success measure different things — the model's certainty in its own call vs. the real historical win rate for setups graded this well — and can legitimately disagree. Also see 📊 Trend & Base Rating on the chart below: a different real lens (trend-template/VCP structure) from this card's 7-dimension Institutional Grade — the two can disagree too, that's not a bug.
               </div>
             </div>
           );
