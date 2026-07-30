@@ -19,9 +19,14 @@ import {
 import {
   computeAPlusScore, computeRegime, computePrediction, STOCK_TO_SECTOR, SECTOR_ETFS,
   computeInstitutionalGrade, institutionalLetterGrade, institutionalRecommendation, winProbFor, computeBullBearCase,
+  deriveTopLevelScores,
 } from "./market-helpers.js";
-import AiScoreExplainer, { AplusBadge, TRADE_SETUP_DIMENSIONS, STOCK_QUALITY_DIMENSIONS, INSTITUTIONAL_GRADE_DIMENSIONS } from "./AiScoreExplainer.jsx";
+import AiScoreExplainer, {
+  AplusBadge, TRADE_SETUP_DIMENSIONS, STOCK_QUALITY_DIMENSIONS, INSTITUTIONAL_GRADE_DIMENSIONS,
+  TECHNICAL_DIMENSIONS, TIMING_DIMENSIONS, INSTITUTIONAL_GRADE_NOTE,
+} from "./AiScoreExplainer.jsx";
 import { stockQualityBreakdown } from "./rhpro-shared.jsx";
+import { mapToAiAction } from "./ai-actions.js";
 
 // Combined Market-Terminal page: movers leaderboard on the left, pro chart with
 // AI overlays on the right. Click a mover → it loads in the chart.
@@ -317,8 +322,19 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   // time-to-target dataset in this app to draw it from honestly.
   const institutionalGrade = (symTrend && chart) ? computeInstitutionalGrade(symTrend, chart.technicals, regime, symSectorInfo, symOptionsFlow) : null;
   const prediction = chart ? computePrediction(chart, chart) : null;
-  const winProb = (symTrend && aplusTrack) ? winProbFor(aplusTrack, computeAPlusScore(symTrend, regime).score) : null;
+  const stockQuality = symTrend ? stockQualityBreakdown(symTrend, sectorPerf) : null;
+  const aPlusScore = symTrend ? computeAPlusScore(symTrend, regime) : null;
+  const winProb = (symTrend && aplusTrack) ? winProbFor(aplusTrack, aPlusScore.score) : null;
   const riskLevel = symTrend?.riskPct != null ? (symTrend.riskPct <= 5 ? "Low" : symTrend.riskPct <= 8 ? "Medium" : "High") : null;
+
+  // Six-score consolidation (institutional redesign, 2026-07-29) — the
+  // first real consumer of Phase 0/3's deriveTopLevelScores. Presentation
+  // layer only, same real inputs computed just above; none of the four
+  // underlying scoring functions are touched.
+  const topScores = (symTrend && institutionalGrade && stockQuality && aPlusScore) ? deriveTopLevelScores({
+    regime, sectorInfo: symSectorInfo, technicals: chart?.technicals, institutionalGrade, stockQuality, aPlusScore,
+  }) : null;
+  const primaryAction = institutionalGrade ? mapToAiAction({ institutionalScore: institutionalGrade.score }) : null;
 
   // Bull Case / Bear Case — free, deterministic (2026-07-29, "use free
   // data": the paid Claude version hit the account's API usage limit, so
@@ -502,32 +518,113 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             })()}
           </div>
         )}
-        {/* Score + macro/sector context strip — real Stock Quality + Trade
-            Setup scores for the loaded symbol (click to see the full real
-            breakdown, same AiScoreExplainer used in Sniper Scanner), plus
-            the already-computed real market regime and this symbol's real
-            sector rank today. Symbol-relative context that previously only
-            existed market-wide (2026-07-28, Phase 1 institutional research
-            consolidation). Renders once symTrend arrives; no fabricated
-            placeholders while loading. */}
-        {symTrend && (
-          <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap", alignItems: "center" }}>
-            <AplusBadge C={C} MONO={MONO} aplus={stockQualityBreakdown(symTrend, sectorPerf)}
-              onClick={() => setExplain({ symbol: sym, aplus: stockQualityBreakdown(symTrend, sectorPerf), dimensions: STOCK_QUALITY_DIMENSIONS, label: "STOCK QUALITY SCORE" })} />
-            <AplusBadge C={C} MONO={MONO} aplus={computeAPlusScore(symTrend, regime)}
-              onClick={() => setExplain({ symbol: sym, aplus: computeAPlusScore(symTrend, regime), dimensions: TRADE_SETUP_DIMENSIONS, label: "TRADE SETUP SCORE" })} />
-            <span title={(regime.factors || []).map(f => `${f.pass ? "✓" : "✗"} ${f.label}`).join(" · ")}
-              style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 10px", borderRadius: 7, cursor: "help",
-                border: `1px solid ${regime.color}55`, color: regime.color, background: `${regime.color}14` }}>
-              {regime.label} ({regime.score}/100)
-            </span>
-            {symSectorInfo && (
-              <span title="Real sector ETF %chg rank today, out of all 11 S&P sectors"
-                style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 10px", borderRadius: 7,
-                  border: `1px solid ${C.border}`, color: symSectorInfo.rank <= 3 ? "#22d47e" : symSectorInfo.rank >= 9 ? "#ef4444" : C.textDim }}>
-                {symSectorInfo.name} #{symSectorInfo.rank}/{symSectorInfo.of} ({pct(symSectorInfo.chg)})
-              </span>
-            )}
+        {/* SECTION 1 — Ticker / Overall Grade / AI Conviction / Primary
+            Action (institutional redesign, 2026-07-29, explicit user spec).
+            Overall Grade is the real, additive Institutional Grade
+            (computeInstitutionalGrade) — Stock Quality/Trade Setup below are
+            untouched. Recommendation/stars are a deterministic label on that
+            same real score. Primary Action is Phase 0's unified AI_ACTIONS
+            reducer applied to this same score. Confidence/Expected Move
+            reuse the real computePrediction engine (Quick Read card below).
+            Probability of Success reuses the real aplus-track forward-return
+            win-rate log, honestly gated below its real sample floor. No
+            fabricated metrics (no DCF, no gamma exposure, no 13F, etc — see
+            the plan's "explicitly NOT building" list). */}
+        {institutionalGrade && (() => {
+          const rec = institutionalRecommendation(institutionalGrade.score);
+          const letter = institutionalLetterGrade(institutionalGrade.score);
+          const stat = (label, val, col, title) => (
+            <div title={title} style={{ minWidth: 110, cursor: title ? "help" : "default" }}>
+              <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim, letterSpacing: 0.5 }}>{label}</div>
+              <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 800, color: col || C.text }}>{val}</div>
+            </div>
+          );
+          const riskCol = riskLevel === "Low" ? "#22d47e" : riskLevel === "Medium" ? "#d6a312" : riskLevel === "High" ? "#ef4444" : C.text;
+          return (
+            <div style={{ marginBottom: 10, border: `1px solid ${rec.color}55`, borderRadius: 12, padding: "14px 16px", background: `${rec.color}0c` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
+                <div style={{ fontFamily: SANS, fontSize: 18, fontWeight: 900, color: C.text }}>{sym}</div>
+                <button onClick={() => setExplain({ symbol: sym, aplus: institutionalGrade, dimensions: INSTITUTIONAL_GRADE_DIMENSIONS, label: "INSTITUTIONAL GRADE" })}
+                  title="Click to see the full real breakdown"
+                  style={{ display: "inline-flex", alignItems: "baseline", gap: 8, fontFamily: MONO, fontWeight: 900, color: rec.color, background: `${rec.color}18`,
+                    border: `1px solid ${rec.color}55`, borderRadius: 8, padding: "4px 12px", cursor: "pointer" }}>
+                  <span style={{ fontSize: 20 }}>{letter}</span>
+                  <span style={{ fontSize: 13 }}>{institutionalGrade.score}/100</span>
+                  <span style={{ fontSize: 11, opacity: 0.85 }}>▸ why?</span>
+                </button>
+                <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: rec.color }}>
+                  {"★".repeat(rec.stars)}{"☆".repeat(5 - rec.stars)} {rec.label}
+                </span>
+                {primaryAction && (
+                  <span title="Unified AI Action — reduces this same real institutional score to one shared label used app-wide" style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: primaryAction.color, border: `1px solid ${primaryAction.color}`, borderRadius: 6, padding: "3px 10px" }}>
+                    {primaryAction.label}
+                  </span>
+                )}
+              </div>
+              <div style={{ display: "flex", gap: 22, rowGap: 10, flexWrap: "wrap" }}>
+                {/* Renamed from bare "CONFIDENCE" (2026-07-29, real
+                    user-reported confusion) — read next to PROB. OF SUCCESS
+                    as if the two should agree. They measure different real
+                    things: this is how sure the prediction engine is in its
+                    own directional call; Prob. of Success is the real
+                    historical win rate for setups scoring this well. A
+                    confident call can still have a middling real track
+                    record — that's not a contradiction, it just wasn't
+                    labeled clearly enough to tell them apart. */}
+                {stat("PREDICTION CONFIDENCE", prediction ? `${prediction.conf}%` : "—", null, prediction ? "How sure the trend/volume/momentum engine is in its own directional call — not the same as Prob. of Success's real historical win rate, and the two can disagree" : null)}
+                {stat("EXPECTED MOVE (1WK)", prediction ? `${prediction.movePct >= 0 ? "+" : ""}${prediction.movePct}%` : "—", prediction ? (prediction.movePct > 0 ? "#22d47e" : prediction.movePct < 0 ? "#ef4444" : C.text) : null, prediction ? `Target $${prediction.target} — real, deterministic, trend-template based` : null)}
+                {stat("RISK LEVEL", riskLevel || "—", riskLevel ? riskCol : null, symTrend?.riskPct != null ? `${symTrend.riskPct.toFixed(1)}% real ATR-based distance to stop` : null)}
+                {stat("PROB. OF SUCCESS", winProb?.winRate != null ? `${winProb.winRate}%` : winProb?.count != null ? `n=${winProb.count} (need ${10})` : "—",
+                  winProb?.winRate != null ? (winProb.winRate >= 55 ? "#22d47e" : winProb.winRate >= 45 ? "#d6a312" : "#ef4444") : C.textDim,
+                  winProb?.winRate != null ? `Real forward ${winProb.horizon}-day win rate for this Trade Setup Score band, n=${winProb.count} — a different real measurement than Prediction Confidence, the two can disagree` : "Real forward-return log exists but sample is below the honest floor for this score band")}
+                {stat("HOLDING TIME", "—", C.textDim, "Not built — no real per-stock time-to-target dataset exists in this app to draw an honest number from")}
+              </div>
+              <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, marginTop: 10, lineHeight: 1.4 }}>
+                Prediction Confidence and Prob. of Success measure different things — the model's certainty in its own call vs. the real historical win rate for setups graded this well — and can legitimately disagree.
+              </div>
+            </div>
+          );
+        })()}
+        {/* SECTION 2 — Six core scores (institutional redesign, 2026-07-29,
+            explicit user spec: "Market, Sector, Stock Quality, Institutional,
+            Technical, Timing"), each clickable into a real breakdown.
+            deriveTopLevelScores (market-helpers.js) is presentation-layer
+            only — Stock Quality/Institutional pass through the exact same
+            real objects computed above (their own real dimension arrays,
+            unchanged); Technical/Timing are the two genuinely new derived
+            scores (Phase 0/3), each with its own real breakdown/reasons
+            wired into the same AiScoreExplainer pattern. Market/Sector are
+            single real numbers with no sub-dimension breakdown, so they get
+            a plain tooltip instead of the full modal. */}
+        {topScores && (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 8, marginBottom: 10 }}>
+            {[
+              { key: "market", label: "MARKET", tile: topScores.market, onClick: null,
+                title: `Real market regime score (SPY/QQQ/VIX-derived) — ${regime.label}` },
+              { key: "sector", label: "SECTOR", tile: topScores.sector, onClick: null,
+                title: symSectorInfo ? `${symSectorInfo.name} ranked #${symSectorInfo.rank} of ${symSectorInfo.of} S&P sectors today` : "Sector rank unavailable" },
+              { key: "stockQuality", label: "STOCK QUALITY", tile: topScores.stockQuality,
+                onClick: () => setExplain({ symbol: sym, aplus: stockQuality, dimensions: STOCK_QUALITY_DIMENSIONS, label: "STOCK QUALITY SCORE" }) },
+              { key: "institutional", label: "INSTITUTIONAL", tile: topScores.institutional,
+                onClick: () => setExplain({ symbol: sym, aplus: institutionalGrade, dimensions: INSTITUTIONAL_GRADE_DIMENSIONS, label: "INSTITUTIONAL GRADE", note: INSTITUTIONAL_GRADE_NOTE }) },
+              { key: "technical", label: "TECHNICAL", tile: topScores.technical,
+                onClick: () => setExplain({ symbol: sym, aplus: topScores.technical, dimensions: TECHNICAL_DIMENSIONS, label: "TECHNICAL" }) },
+              { key: "timing", label: "TIMING", tile: topScores.timing,
+                onClick: () => setExplain({ symbol: sym, aplus: topScores.timing, dimensions: TIMING_DIMENSIONS, label: "TIMING" }) },
+            ].map(({ key, label, tile, onClick, title }) => {
+              const Tag = onClick ? "button" : "div";
+              return (
+                <Tag key={key} onClick={onClick || undefined} title={title}
+                  style={{ font: "inherit", textAlign: "left", border: `1px solid ${C.border}`, borderRadius: 10, padding: "9px 12px",
+                    background: C.card, cursor: onClick ? "pointer" : title ? "help" : "default" }}>
+                  <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 3 }}>{label}</div>
+                  <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: tile.color }}>
+                    {tile.score ?? "—"}{tile.score != null && <span style={{ fontSize: 11, color: C.textDim }}> /100</span>}
+                  </div>
+                  <div style={{ fontFamily: SANS, fontSize: 10, color: tile.color, fontWeight: 700 }}>{tile.label}</div>
+                </Tag>
+              );
+            })}
           </div>
         )}
         {/* Real technical indicators — ADX (trend strength/direction),
@@ -557,68 +654,6 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             })()}
           </div>
         )}
-        {/* AI SCORE CARD — explicit user request 2026-07-29 ("institutional
-            AI grade"). Overall Grade is the new, additive Institutional
-            Grade (computeInstitutionalGrade, market-helpers.js) — Stock
-            Quality Score and Trade Setup Score above are untouched.
-            Recommendation/stars are a deterministic label on that same real
-            score. Confidence and Expected Move reuse the real computePrediction
-            engine (same one driving the Quick Read card below). Probability
-            of Success reuses the real aplus-track forward-return win-rate
-            log, honestly gated below its real sample floor. Risk Level
-            reuses the real ATR-based riskPct already on every trend-screen
-            row. No fabricated metrics (no DCF, no gamma exposure, no 13F,
-            etc — see the plan's "explicitly NOT building" list). */}
-        {institutionalGrade && (() => {
-          const rec = institutionalRecommendation(institutionalGrade.score);
-          const letter = institutionalLetterGrade(institutionalGrade.score);
-          const stat = (label, val, col, title) => (
-            <div title={title} style={{ minWidth: 110, cursor: title ? "help" : "default" }}>
-              <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim, letterSpacing: 0.5 }}>{label}</div>
-              <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 800, color: col || C.text }}>{val}</div>
-            </div>
-          );
-          const riskCol = riskLevel === "Low" ? "#22d47e" : riskLevel === "Medium" ? "#d6a312" : riskLevel === "High" ? "#ef4444" : C.text;
-          return (
-            <div style={{ marginBottom: 10, border: `1px solid ${rec.color}55`, borderRadius: 12, padding: "14px 16px", background: `${rec.color}0c` }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
-                <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 900, color: C.text }}>🏛 AI SCORE CARD</div>
-                <button onClick={() => setExplain({ symbol: sym, aplus: institutionalGrade, dimensions: INSTITUTIONAL_GRADE_DIMENSIONS, label: "INSTITUTIONAL GRADE" })}
-                  title="Click to see the full real breakdown"
-                  style={{ display: "inline-flex", alignItems: "baseline", gap: 8, fontFamily: MONO, fontWeight: 900, color: rec.color, background: `${rec.color}18`,
-                    border: `1px solid ${rec.color}55`, borderRadius: 8, padding: "4px 12px", cursor: "pointer" }}>
-                  <span style={{ fontSize: 20 }}>{letter}</span>
-                  <span style={{ fontSize: 13 }}>{institutionalGrade.score}/100</span>
-                  <span style={{ fontSize: 11, opacity: 0.85 }}>▸ why?</span>
-                </button>
-                <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: rec.color }}>
-                  {"★".repeat(rec.stars)}{"☆".repeat(5 - rec.stars)} {rec.label}
-                </span>
-              </div>
-              <div style={{ display: "flex", gap: 22, rowGap: 10, flexWrap: "wrap" }}>
-                {/* Renamed from bare "CONFIDENCE" (2026-07-29, real
-                    user-reported confusion) — read next to PROB. OF SUCCESS
-                    as if the two should agree. They measure different real
-                    things: this is how sure the prediction engine is in its
-                    own directional call; Prob. of Success is the real
-                    historical win rate for setups scoring this well. A
-                    confident call can still have a middling real track
-                    record — that's not a contradiction, it just wasn't
-                    labeled clearly enough to tell them apart. */}
-                {stat("PREDICTION CONFIDENCE", prediction ? `${prediction.conf}%` : "—", null, prediction ? "How sure the trend/volume/momentum engine is in its own directional call — not the same as Prob. of Success's real historical win rate, and the two can disagree" : null)}
-                {stat("EXPECTED MOVE (1WK)", prediction ? `${prediction.movePct >= 0 ? "+" : ""}${prediction.movePct}%` : "—", prediction ? (prediction.movePct > 0 ? "#22d47e" : prediction.movePct < 0 ? "#ef4444" : C.text) : null, prediction ? `Target $${prediction.target} — real, deterministic, trend-template based` : null)}
-                {stat("RISK LEVEL", riskLevel || "—", riskLevel ? riskCol : null, symTrend?.riskPct != null ? `${symTrend.riskPct.toFixed(1)}% real ATR-based distance to stop` : null)}
-                {stat("PROB. OF SUCCESS", winProb?.winRate != null ? `${winProb.winRate}%` : winProb?.count != null ? `n=${winProb.count} (need ${10})` : "—",
-                  winProb?.winRate != null ? (winProb.winRate >= 55 ? "#22d47e" : winProb.winRate >= 45 ? "#d6a312" : "#ef4444") : C.textDim,
-                  winProb?.winRate != null ? `Real forward ${winProb.horizon}-day win rate for this Trade Setup Score band, n=${winProb.count} — a different real measurement than Prediction Confidence, the two can disagree` : "Real forward-return log exists but sample is below the honest floor for this score band")}
-                {stat("HOLDING TIME", "—", C.textDim, "Not built — no real per-stock time-to-target dataset exists in this app to draw an honest number from")}
-              </div>
-              <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, marginTop: 10, lineHeight: 1.4 }}>
-                Prediction Confidence and Prob. of Success measure different things — the model's certainty in its own call vs. the real historical win rate for setups graded this well — and can legitimately disagree. Also see 📊 Trend & Base Rating on the chart below: a different real lens (trend-template/VCP structure) from this card's 7-dimension Institutional Grade — the two can disagree too, that's not a bug.
-              </div>
-            </div>
-          );
-        })()}
         {/* ── Per-symbol detail tabs ──
             "Symbol News" not bare "News" — this is a per-symbol detail
             tab, and the Sidebar has its own separate, global "📰 News"
@@ -659,20 +694,41 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                 </button>
               ))}
             </div>
-            {/* Right padding reserves clearance for the fixed bottom-right FAB
-                cluster (Copilot/QuickTrade/RealityCheck, right:18, ~54-70px
-                wide each) — the chart's own right price scale/PIVOT-STOP-
-                BASE LOW labels would otherwise render directly under those
-                icons and get covered (confirmed live). */}
+            {/* SECTION 3 — AI Summary (institutional redesign, 2026-07-29).
+                Same real, free, deterministic BullBearPanel — splits the
+                real Institutional Grade dimensions by which side of the
+                case they support, zero new fetch/API cost. Moved ahead of
+                the chart to match the spec's section order (Header→Scores→
+                Summary→Trade Plan→Chart). */}
+            {chart && (
+              <div style={{ marginBottom: 14 }}>
+                <SectionHeader icon="🧠" label="AI SUMMARY" />
+                <BullBearPanel symbol={sym} bullBear={bullBear} C={C} MONO={MONO} SANS={SANS} />
+              </div>
+            )}
+            {/* SECTION 4 — Trade Plan (institutional redesign, 2026-07-29):
+                Entry/Stop/Targets (TrendSetupPanel, real _buildTrendTemplate
+                pivot/stop/2R/3R) + position sizing (TradeExtrasPanel, real
+                account-size/risk% from Settings). Visual consolidation only
+                — no new computation, moved ahead of the chart to match the
+                spec's section order. */}
+            <div style={{ marginBottom: 14 }}>
+              <SectionHeader icon="🎯" label="TRADE PLAN" />
+              <TrendSetupPanel data={chart} C={C} MONO={MONO} SANS={SANS} />
+              <TradeExtrasPanel data={chart} macroData={macroData} C={C} MONO={MONO} SANS={SANS} />
+            </div>
+            {/* SECTION 5 — large interactive chart. Right padding reserves
+                clearance for the fixed bottom-right FAB cluster (Copilot/
+                QuickTrade/RealityCheck, right:18, ~54-70px wide each) — the
+                chart's own right price scale/PIVOT-STOP-BASE LOW labels
+                would otherwise render directly under those icons and get
+                covered (confirmed live). */}
             <div style={{ paddingRight: 90 }}>
               {chart
                 ? <TrendChart data={chart} C={C} MONO={MONO} SANS={SANS} height="fill" />
                 : <div style={{ height: 620, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: 13, color: C.textDim, border: `1px solid ${C.border}`, borderRadius: 12 }}>Select a mover to load the chart…</div>}
             </div>
-            <TrendSetupPanel data={chart} C={C} MONO={MONO} SANS={SANS} />
-            <TradeExtrasPanel data={chart} macroData={macroData} C={C} MONO={MONO} SANS={SANS} />
             <AiWhyPanel symbol={sym} price={chart && chart.price} changePct={symDayPct} C={C} MONO={MONO} SANS={SANS} />
-            {chart && <BullBearPanel symbol={sym} bullBear={bullBear} C={C} MONO={MONO} SANS={SANS} />}
             {chart && (() => {
               // Real, free, deterministic ~1-week read — the same engine
               // formerly the standalone Predictions tab (moved 2026-07-28
