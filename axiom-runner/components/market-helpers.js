@@ -478,30 +478,54 @@ export function deriveTopLevelScores({ regime, sectorInfo, technicals, instituti
   // Donchian-channel/Bollinger-%B blend (both already computed on the same
   // daily bars, `chart.technicals` — where price sits in its recent real
   // range, a genuine complementary read to ADX's trend-strength/direction).
+  // Breakdown/reasons shaped to plug directly into AiScoreExplainer's
+  // existing {breakdown, reasons} convention (TECHNICAL_DIMENSIONS below).
   const technicalPts = institutionalGrade?.breakdown?.technicalPts;
   const adxComponent = technicalPts != null ? (technicalPts / 15) * 100 : null;
-  const rangeReads = [technicals?.donchian?.pctPosition, technicals?.bollinger?.percentB]
-    .filter((v) => Number.isFinite(Number(v)));
-  const rangeComponent = rangeReads.length ? rangeReads.reduce((s, v) => s + Number(v), 0) / rangeReads.length : null;
-  const technicalScore = adxComponent != null && rangeComponent != null ? clamp(adxComponent * 0.6 + rangeComponent * 0.4)
-    : adxComponent != null ? clamp(adxComponent)
-    : rangeComponent != null ? clamp(rangeComponent)
+  const donchianPos = Number(technicals?.donchian?.pctPosition);
+  const bollingerB = Number(technicals?.bollinger?.percentB);
+  const rangeReads = [donchianPos, bollingerB].filter((v) => Number.isFinite(v));
+  const rangeComponent = rangeReads.length ? rangeReads.reduce((s, v) => s + v, 0) / rangeReads.length : null;
+  const adxPts = adxComponent != null ? Math.round(adxComponent * 0.6) : null;
+  const rangePts = rangeComponent != null ? Math.round(rangeComponent * 0.4) : null;
+  const technicalScore = adxPts != null && rangePts != null ? clamp(adxPts + rangePts)
+    : adxPts != null ? clamp(adxPts / 0.6)
+    : rangePts != null ? clamp(rangePts / 0.4)
     : null;
+  const technicalReasons = [
+    institutionalGrade?.reasons?.[1] || "ADX unavailable (insufficient history)",
+    rangeComponent != null
+      ? `Donchian ${Number.isFinite(donchianPos) ? donchianPos.toFixed(0) : "—"}% of the 20-day range, Bollinger %B ${Number.isFinite(bollingerB) ? bollingerB.toFixed(0) : "—"} — where price sits in its recent real range`
+      : "Donchian/Bollinger range position unavailable (insufficient history)",
+  ];
 
   // Timing (new) — strict subset-sum of Trade Setup Score's OWN Entry
   // Timing(20) + Breakout Confirmation(15) + Volatility/Base Tightness(5)
-  // sub-dimensions (40 raw points total), rescaled to 0-100. No cross-
-  // function blending — the lowest-risk of the two new derived scores.
+  // sub-dimensions, each rescaled proportionally into a 0-100 total
+  // (50/38/12 max split) so the breakdown modal's parts sum to the same
+  // scale as the headline score. No cross-function blending — the
+  // lowest-risk of the two new derived scores.
   const ab = aPlusScore?.breakdown;
-  const timingScore = ab ? clamp(((ab.entryPts + ab.breakoutPts + ab.volatilityPts) / 40) * 100) : null;
+  const timingMax = { entryPts: 50, breakoutPts: 38, volatilityPts: 12 };
+  const timingBreakdown = ab ? {
+    entryPts: Math.round((ab.entryPts / 20) * timingMax.entryPts),
+    breakoutPts: Math.round((ab.breakoutPts / 15) * timingMax.breakoutPts),
+    volatilityPts: Math.round((ab.volatilityPts / 5) * timingMax.volatilityPts),
+  } : null;
+  const timingScore = timingBreakdown ? clamp(timingBreakdown.entryPts + timingBreakdown.breakoutPts + timingBreakdown.volatilityPts) : null;
+  const timingReasons = [
+    aPlusScore?.reasons?.[1] || "Pivot distance unavailable",
+    aPlusScore?.reasons?.[2] || "Breakout confirmation unavailable",
+    aPlusScore?.reasons?.[6] || "VCP base data unavailable",
+  ];
 
   return {
     market: { score: marketScore, ...bandOf(marketScore) },
     sector: { score: sectorScore, ...bandOf(sectorScore) },
     stockQuality: { score: stockQualityScore, ...bandOf(stockQualityScore) },
     institutional: { score: institutionalScore, ...bandOf(institutionalScore) },
-    technical: { score: technicalScore, ...bandOf(technicalScore) },
-    timing: { score: timingScore, ...bandOf(timingScore) },
+    technical: { score: technicalScore, ...bandOf(technicalScore), breakdown: { adxPts, rangePts }, reasons: technicalReasons },
+    timing: { score: timingScore, ...bandOf(timingScore), breakdown: timingBreakdown, reasons: timingReasons, timingMax },
   };
 }
 

@@ -53,6 +53,35 @@ export const INSTITUTIONAL_GRADE_DIMENSIONS = [
 ];
 const INSTITUTIONAL_GRADE_LABEL = "INSTITUTIONAL GRADE";
 
+// Real, known overlap — Institutional Grade's own Macro Regime(10) and
+// Sector Strength(10) sub-dimensions above ARE the same real numbers
+// behind the standalone Market/Sector scores in the six-score row
+// (deriveTopLevelScores, market-helpers.js). Shown here so a user opening
+// Institutional's own "Why?" isn't left wondering why two of its seven
+// inputs look identical to two sibling scores — they're not double
+// jeopardy, Institutional was just built to weigh them as part of its own
+// broader read. Same "these can legitimately disagree, not a bug" framing
+// already shipped for Trend & Base Rating vs the AI Score Card.
+export const INSTITUTIONAL_GRADE_NOTE = "Institutional Grade already weighs Market and Sector as two of its seven inputs (Macro Regime + Sector Strength above) — they're also shown as their own scores elsewhere so you can see why Institutional moved, not as additional independent signals.";
+
+// Technical / Timing — the two genuinely NEW derived scores in the
+// six-score consolidation (2026-07-29); everything else in that row is a
+// passthrough of an existing real score. Key order MUST match
+// deriveTopLevelScores' technical.breakdown / timing.breakdown key order
+// AND their reasons[] array order, same rule as the three configs above.
+export const TECHNICAL_DIMENSIONS = [
+  { key: "adxPts", max: 60, label: "Trend Strength (ADX)", improve: "Real ADX trend strength/direction needs to turn more clearly bullish — the same read Institutional Grade's own Technical Confirmation dimension uses." },
+  { key: "rangePts", max: 40, label: "Range Position", improve: "Needs to sit in a healthier spot within its real recent Donchian/Bollinger range — not pinned at an extreme." },
+];
+const TECHNICAL_LABEL = "TECHNICAL";
+
+export const TIMING_DIMENSIONS = [
+  { key: "entryPts", max: 50, label: "Entry Timing", improve: "Needs to sit closer to the real pivot buy zone (0-5% above pivot) — not yet broken out, or already extended." },
+  { key: "breakoutPts", max: 38, label: "Breakout Confirmation", improve: "Needs to reach a real buy point with volume confirmation, or get closer to actionable." },
+  { key: "volatilityPts", max: 12, label: "Volatility / Base Tightness", improve: "Needs a real VCP base where each pullback contracts tighter than the last." },
+];
+const TIMING_LABEL = "TIMING";
+
 // Back-compat default — existing call sites (Trade Planner) that don't pass
 // a dimensions/title prop keep the original A+ Score framing untouched.
 const DIMENSIONS = TRADE_SETUP_DIMENSIONS;
@@ -81,7 +110,7 @@ export function AplusBadge({ C, MONO, aplus, onClick, size = "md" }) {
   );
 }
 
-export default function AiScoreExplainer({ C, MONO, SANS, symbol, aplus, onClose, dimensions = DIMENSIONS, label = DEFAULT_LABEL }) {
+export default function AiScoreExplainer({ C, MONO, SANS, symbol, aplus, onClose, dimensions = DIMENSIONS, label = DEFAULT_LABEL, note }) {
   const b = band(aplus.score);
   const rows = dimensions.map((d, i) => ({ ...d, pts: aplus.breakdown[d.key], reason: aplus.reasons[i] }));
   const deficits = rows.map(r => ({ ...r, gap: r.max - r.pts })).filter(r => r.gap > 0).sort((a, b2) => b2.gap - a.gap);
@@ -108,6 +137,12 @@ export default function AiScoreExplainer({ C, MONO, SANS, symbol, aplus, onClose
           </div>
           <button onClick={onClose} style={{ border: "none", background: "transparent", color: C.textDim, fontSize: 20, cursor: "pointer", lineHeight: 1 }}>×</button>
         </div>
+
+        {note && (
+          <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.textSec, lineHeight: 1.5, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "9px 12px", marginBottom: 16 }}>
+            ℹ️ {note}
+          </div>
+        )}
 
         <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 900, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>SCORE BREAKDOWN</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 18 }}>
