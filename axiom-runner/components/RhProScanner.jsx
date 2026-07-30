@@ -5,6 +5,7 @@ import AiScoreExplainer, { TRADE_SETUP_DIMENSIONS, STOCK_QUALITY_DIMENSIONS } fr
 import GapScanner from "./GapScanner.jsx";
 import DayTradeTab from "./DayTradeTab.jsx";
 import { BestOpportunities } from "./terminal-panels.jsx";
+import EarlyEntryScanner from "./EarlyEntryScanner.jsx";
 // winProbFor/bucketOf/MIN_WIN_SAMPLE moved to market-helpers.js (2026-07-29)
 // so MarketTerminalTab's new AI Score Card can reuse the exact same real
 // win-probability lookup instead of re-deriving it independently.
@@ -48,13 +49,22 @@ const CATEGORIES = [
   // exact same >10%-above-pivot "chasing risk" definition already used
   // everywhere else in this app for the extended flag).
   { id: "prepop", label: "🚀 Pre-Pop" },
+  // Early Entry Scanner — folded in as a category (2026-07-29, product/UX
+  // redesign audit item #5, second scanner consolidated after Best
+  // Opportunities). Genuinely distinct from Pre-Pop above: its own real
+  // computeEarlyScore precursor logic (EarlyEntryScanner.jsx), and scoped
+  // to the real Watchlist, not this scanner's 100-symbol RH_UNIVERSE — the
+  // label says so explicitly rather than silently changing what "Early
+  // Entry" means. Embedded as-is (same pattern as Gap/Day Trade/Best
+  // Opportunities above), real logic untouched.
+  { id: "earlyentry", label: "⏱ Early Entry (Watchlist)" },
   { id: "extended", label: "📉 Extended" },
   { id: "avoid", label: "🚫 Avoid List" },
   { id: "gap", label: "⚡ Gap Up/Down" },
   { id: "daytrade", label: "⏱ Day Trade" },
 ];
 
-export default function RhProScanner({ C, MONO, SANS, macroData, sectorData, setActiveTab }) {
+export default function RhProScanner({ C, MONO, SANS, macroData, sectorData, watchlistData, setActiveTab }) {
   const regime = computeRegime(macroData);
   // "plan" used to hand off only the symbol, so Trade Planner would silently
   // recompute its OWN ATR-based entry/stop/targets — often disagreeing with
@@ -250,8 +260,12 @@ export default function RhProScanner({ C, MONO, SANS, macroData, sectorData, set
         <BestOpportunities C={C} MONO={MONO} SANS={SANS} macroData={macroData} setActiveTab={setActiveTab}
           onPick={(sym) => openChart(sym)} />
       )}
+      {category === "earlyentry" && (
+        <EarlyEntryScanner watchlistData={watchlistData} macroData={macroData} sectorData={sectorData}
+          onSelectSymbol={(sym) => openChart(sym)} />
+      )}
 
-      {category !== "gap" && category !== "daytrade" && category !== "bestopp" && (
+      {category !== "gap" && category !== "daytrade" && category !== "bestopp" && category !== "earlyentry" && (
       <>
       {category === "all" && (
         <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>

@@ -858,7 +858,7 @@ export default function DashboardTab({
           easy to use" declutter) — same real component, exactly one
           mount point now (no duplicate copy on Opportunities anymore). */}
       {dashTab === "sniper" && (
-        <RhProScanner C={C} MONO={MONO} SANS={SANS} macroData={macroData} sectorData={sectorData} setActiveTab={setActiveTab} />
+        <RhProScanner C={C} MONO={MONO} SANS={SANS} macroData={macroData} sectorData={sectorData} watchlistData={watchlistData} setActiveTab={setActiveTab} />
       )}
 
       {/* ── GREEN LIGHT ── real GreenLightTab, same component/props the

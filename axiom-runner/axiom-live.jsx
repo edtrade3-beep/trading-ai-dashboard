@@ -75,7 +75,6 @@ import XIntelTab from "./components/XIntelTab.jsx";
 import CeoAiCard from "./components/CeoAiCard.jsx";
 import CashGoldSilverAdvisor from "./components/CashGoldSilverAdvisor.jsx";
 import TrendTemplateTab from "./components/TrendTemplateTab.jsx";
-import EarlyEntryScanner from "./components/EarlyEntryScanner.jsx";
 import ChallengeTab from "./components/ChallengeTab.jsx";
 import Adol22Tab from "./components/Adol22Tab.jsx";
 import GapScanner from "./components/GapScanner.jsx";
@@ -3959,7 +3958,10 @@ export default function App() {
       // is now covered by Sniper Scanner. Components/routes untouched.
       COMPRESSION: "compression",
       TRENDTEMPLATE: "trendtemplate",
-      EARLY: "early",
+      // Early Entry Scanner retired as its own destination (2026-07-29,
+      // product/UX redesign audit item #5) — folded into Sniper Scanner as
+      // a real category, same real component/logic, not rebuilt.
+      EARLY: "rhpro-scan",
       CHALLENGE: "challenge",
       START: "start",
       AILAB: "ailab",
@@ -4011,6 +4013,9 @@ export default function App() {
     if (toTab[normalized]) {
       if (normalized === "BESTOPPORTUNITIES" || normalized === "BESTOPP") {
         try { localStorage.setItem("rhpro_scan_category", "bestopp"); } catch {}
+      }
+      if (normalized === "EARLY") {
+        try { localStorage.setItem("rhpro_scan_category", "earlyentry"); } catch {}
       }
       setActiveTab(toTab[normalized]);
       return;
@@ -6542,14 +6547,10 @@ export default function App() {
           />
         )}
 
-        {activeTab === "early" && (
-          <EarlyEntryScanner
-            watchlistData={watchlistData}
-            macroData={macroData}
-            sectorData={sectorData}
-            onSelectSymbol={(sym) => { setTerminalSymbol(sym); try { localStorage.setItem("mterminal_load_sym", sym); } catch {} setActiveTab("mterminal"); }}
-          />
-        )}
+        {/* Early Entry Scanner as its own destination retired (2026-07-29,
+            product/UX redesign audit item #5) — folded into Sniper
+            Scanner's "⏱ Early Entry (Watchlist)" category, same real
+            component/logic. EARLY palette command now redirects there. */}
 
         {activeTab === "backtest" && (
           <BacktestTab
@@ -6755,7 +6756,7 @@ export default function App() {
       )}
       {activeTab === "rhpro" && <RhProDashboard C={C} MONO={MONO} SANS={SANS} macroData={macroData} sectorData={sectorData} />}
       {activeTab === "rhpro-apex" && <RhProApex C={C} MONO={MONO} SANS={SANS} macroData={macroData} sectorData={sectorData} />}
-      {activeTab === "rhpro-scan" && <RhProScanner C={C} MONO={MONO} SANS={SANS} macroData={macroData} sectorData={sectorData} setActiveTab={setActiveTab} />}
+      {activeTab === "rhpro-scan" && <RhProScanner C={C} MONO={MONO} SANS={SANS} macroData={macroData} sectorData={sectorData} watchlistData={watchlistData} setActiveTab={setActiveTab} />}
       {activeTab === "rhpro-lists" && <RhProWatchlists C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} macroData={macroData} />}
       {activeTab === "rhpro-heat" && <RhProHeatMap C={C} MONO={MONO} SANS={SANS} sectorData={sectorData} macroData={macroData} />}
       {activeTab === "rhpro-journal" && <RhProJournal C={C} MONO={MONO} SANS={SANS} />}
