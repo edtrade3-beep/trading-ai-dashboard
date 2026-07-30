@@ -20,6 +20,8 @@ import OpportunityQueueCard from "./OpportunityQueueCard.jsx";
 import AskAiBar from "./AskAiBar.jsx";
 import MarketIntelCard from "./MarketIntelCard.jsx";
 import CeoAiCard from "./CeoAiCard.jsx";
+import PortfolioRiskCard from "./PortfolioRiskCard.jsx";
+import { AI_ACTIONS, mapToAiAction } from "./ai-actions.js";
 
 // ── Shared card shell — every Dashboard card except CeoAiCard (which stays
 // its own deliberately-elevated hero treatment) renders through this, so
@@ -87,6 +89,70 @@ function MarketRegimeCard({ C, MONO, SANS, macroData, distData, factors, bias, b
         ))}
       </div>
     </Card>
+  );
+}
+
+// ── Market Command Center strip — institutional redesign (2026-07-29,
+// explicit user spec: "Top section should always display a Market Command
+// Center"). Every cell reuses a real value already computed elsewhere on
+// this page or a real prop already fetched for it — zero new API calls.
+// Implemented inline here (not a separate file) since every input it needs
+// is already in this component's own scope, same pattern as every other
+// card in this file. Confirmed with the user: scoped to Dashboard's home
+// screen, not a global bar on every page.
+function MarketCommandCenterStrip({ C, MONO, SANS, macroData, distData, sectorData, eventCountdowns, regime, regLabel, regColor, breadthPct, setActiveTab }) {
+  const spy = (macroData || []).find(m => m.symbol === "SPY");
+  const qqq = (macroData || []).find(m => m.symbol === "QQQ");
+  const vixy = (macroData || []).find(m => m.symbol === "VIXY");
+  const tlt = (macroData || []).find(m => m.symbol === "TLT");
+  const uup = (macroData || []).find(m => m.symbol === "UUP");
+  const hyg = (macroData || []).find(m => m.symbol === "HYG");
+  const chg = q => Number(q?.changesPercentage || 0);
+
+  // Risk ON/OFF — the exact same real formula RiskTrafficLight.jsx uses
+  // (SPY/QQQ/VIXY/TLT/UUP/HYG weighted score), condensed to a compact
+  // badge here; the full playbook/sound version stays reachable standalone.
+  let riskScore = 50 + chg(spy) * 8 + chg(qqq) * 6 - chg(vixy) * 3 + chg(tlt) * 2 - chg(uup) * 3 + chg(hyg) * 4;
+  riskScore = Math.max(0, Math.min(100, Math.round(riskScore)));
+  const riskState = !spy ? { label: "—", col: C.textDim } : riskScore >= 65 ? { label: "RISK ON", col: C.green } : riskScore < 40 ? { label: "RISK OFF", col: C.red } : { label: "CAUTION", col: C.amber };
+
+  // Best Trading Strategy Today — a real, deterministic mapping off the
+  // same regime label the rest of this page already shows (not a separate
+  // fabricated signal) — a simpler, lower-risk stand-in for scanning every
+  // Sniper Scanner category's live qualifying-row count, which would need
+  // exporting that tab's internal filter logic; revisit if more precision
+  // is wanted here later.
+  const strategy = regLabel === "RISK ON" ? "Momentum Breakouts" : regLabel === "CAUTIOUS BULL" ? "Selective Pullback Buys"
+    : regLabel === "CHOP" ? "Reduce Size, Take Profits Faster" : regLabel === "DEFENSIVE" ? "Defensive Sectors Only" : "Cash / Wait for Confirmation";
+
+  const sectorRows = (sectorData || []).filter(s => s.symbol && Number.isFinite(Number(s.changesPercentage)))
+    .map(s => ({ name: s._sectorName || s.symbol, chg: Number(s.changesPercentage) })).sort((a, b) => b.chg - a.chg);
+  const strongestSector = sectorRows[0];
+  const weakestSector = sectorRows[sectorRows.length - 1];
+
+  const nextEvent = (eventCountdowns || [])[0];
+
+  const cell = (label, value, color, onClick) => (
+    <div onClick={onClick} style={{ minWidth: 110, cursor: onClick ? "pointer" : "default" }}>
+      <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 3 }}>{label}</div>
+      <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: color || C.text, lineHeight: 1.2 }}>{value}</div>
+    </div>
+  );
+
+  return (
+    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: "14px 18px", marginBottom: 14,
+      display: "flex", flexWrap: "wrap", gap: 18, alignItems: "center" }}>
+      {cell("MARKET PERMISSION", `${regime?.score ?? "—"}/100`, regColor)}
+      {cell("RISK", riskState.label, riskState.col)}
+      {cell("MARKET TREND", regLabel, regColor)}
+      {cell("BEST STRATEGY TODAY", strategy, C.accent)}
+      {cell("STRONGEST SECTOR", strongestSector ? `${strongestSector.name} +${strongestSector.chg.toFixed(1)}%` : "—", C.green, () => setActiveTab?.("market"))}
+      {cell("WEAKEST SECTOR", weakestSector ? `${weakestSector.name} ${weakestSector.chg.toFixed(1)}%` : "—", C.red, () => setActiveTab?.("market"))}
+      {cell("VIX", distData?.vix ? distData.vix.toFixed(1) : "—", distData?.vix > 25 ? C.red : distData?.vix < 16 ? C.green : C.amber)}
+      {cell("BREADTH", `${breadthPct}% up`, breadthPct >= 60 ? C.green : breadthPct <= 35 ? C.red : C.amber)}
+      {cell("FED STATUS", "View →", C.accent, () => setActiveTab?.("calendar"))}
+      {cell("NEXT EVENT", nextEvent ? `${nextEvent.name} (${nextEvent.days === 0 ? "today" : nextEvent.days === 1 ? "tomorrow" : nextEvent.days + "d"})` : "—", C.textSec, () => setActiveTab?.("calendar"))}
+    </div>
   );
 }
 
@@ -546,19 +612,24 @@ function AiTopOpportunitiesCard({ C, MONO, SANS, fullScan, setActiveTab, setTerm
       <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 10 }}>AI TOP OPPORTUNITIES</div>
       {rows.length ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "26px 1fr 60px auto 70px 60px", gap: 8, fontFamily: MONO, fontSize: 9.5, fontWeight: 800, color: C.textDim, letterSpacing: "0.04em", padding: "0 0 6px" }}>
-            <span>#</span><span>TICKER</span><span>SCORE</span><span></span><span style={{ textAlign: "right" }}>PRICE</span><span style={{ textAlign: "right" }}>CHG</span>
+          <div style={{ display: "grid", gridTemplateColumns: "26px 1fr 60px 90px auto 70px 60px", gap: 8, fontFamily: MONO, fontSize: 9.5, fontWeight: 800, color: C.textDim, letterSpacing: "0.04em", padding: "0 0 6px" }}>
+            <span>#</span><span>TICKER</span><span>SCORE</span><span>ACTION</span><span></span><span style={{ textAlign: "right" }}>PRICE</span><span style={{ textAlign: "right" }}>CHG</span>
           </div>
           {rows.map((r, i) => {
             const chg = chgMap[r.symbol];
             const hasChg = Number.isFinite(chg);
             const scoreCol = r._aplus.score >= 85 ? C.gold : r._aplus.score >= 70 ? C.green : r._aplus.score >= 55 ? C.amber : C.textDim;
+            // Unified AI Actions vocabulary (institutional redesign,
+            // 2026-07-29) — replaces the app's ~7 previously-fragmented
+            // Buy/Sell/Watch enums with one shared reducer.
+            const action = mapToAiAction({ institutionalScore: r._aplus.score });
             return (
               <div key={r.symbol} onClick={() => { setTerminalSymbol?.(r.symbol); try { localStorage.setItem("mterminal_load_sym", r.symbol); } catch {} setActiveTab?.("mterminal"); }}
-                style={{ display: "grid", gridTemplateColumns: "26px 1fr 60px auto 70px 60px", gap: 8, alignItems: "center", padding: "7px 0", borderTop: `1px solid ${C.border}55`, cursor: "pointer" }}>
+                style={{ display: "grid", gridTemplateColumns: "26px 1fr 60px 90px auto 70px 60px", gap: 8, alignItems: "center", padding: "7px 0", borderTop: `1px solid ${C.border}55`, cursor: "pointer" }}>
                 <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{i + 1}</span>
                 <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text }}>{r.symbol}</span>
                 <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "2px 6px", borderRadius: 5, background: `${scoreCol}18`, color: scoreCol, textAlign: "center" }}>{r._aplus.score}</span>
+                <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, padding: "2px 6px", borderRadius: 5, background: `${action.color}18`, color: action.color, textAlign: "center" }}>{action.label}</span>
                 <span style={{ fontFamily: MONO, fontSize: 13, color: hasChg ? (chg >= 0 ? C.green : C.red) : C.textDim }}>{hasChg ? (chg >= 0 ? "↗" : "↘") : "—"}</span>
                 <span style={{ fontFamily: MONO, fontSize: 12, color: C.textSec, textAlign: "right" }}>${r.price}</span>
                 <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: hasChg ? (chg >= 0 ? C.green : C.red) : C.textDim, textAlign: "right" }}>{hasChg ? `${chg >= 0 ? "+" : ""}${chg.toFixed(1)}%` : "—"}</span>
@@ -772,7 +843,8 @@ export default function DashboardTab({
   }
   const bias = score >= 25 ? "BULLISH" : score >= 5 ? "LEAN BULLISH" : score <= -25 ? "BEARISH" : score <= -5 ? "LEAN BEARISH" : "NEUTRAL";
   const biasCol = score >= 25 ? C.green : score >= 5 ? C.greenLight : score <= -25 ? C.red : score <= -5 ? C.redLight : C.amber;
-  const { regLabel: overviewRegLabel } = computeRegimeLabel(C, { spy, qqq, vix, loaded: !!spy });
+  const { regLabel: overviewRegLabel, regColor: overviewRegColor } = computeRegimeLabel(C, { spy, qqq, vix, loaded: !!spy });
+  const overviewRegime = computeRegime(macroData);
   const conf = Number(topPick?.confidence);
   const confColor = conf >= 70 ? C.green : conf >= 40 ? C.amber : C.red;
 
@@ -788,37 +860,34 @@ export default function DashboardTab({
       {/* nothing fabricated to fill a gauge. */}
       {dashTab === "overview" && (
         <>
-          {/* New reference-design layout — real data throughout (see the
-              component definitions above for exactly which real source
-              feeds each card; one real gap deliberately left out rather
-              than fabricated: market-wide Confidence%/Risk Level — the
-              other flagged gap, real US 10Y yield, is now closed via
-              fred.js/Us10yKpi). The previous Overview cards (CEO AI
-              brief, Market Health/Capital Allocation/AI Confidence/Mission
-              Status row, Top Opportunity hero, Momentum Leaders/Money Flow/
-              Avoid, Ask AI bar, Portfolio Snapshot/Active Positions) are
-              trimmed from this view per explicit request to match the
-              reference mockup closer -- not deleted, and several are now
-              their own top-level sidebar tabs instead (same "hide, don't
-              delete" precedent, just relocated rather than only hidden).
-              TopOpportunityCard's real scan (topPick/fullScan) is now
-              mounted once at the axiom-live.jsx level instead of hidden
-              inside this tab, so it keeps running no matter which
-              top-level tab is active. */}
+          {/* Institutional redesign (2026-07-29, explicit user spec): a
+              Market Command Center strip always up top, then exactly 4
+              primary cards (Market Health / Sector Rotation / AI Best
+              Opportunities / Portfolio Risk). Replaces the prior 3-row,
+              10-card Overview layout — real data throughout, same sources,
+              consolidated rather than fabricated. The strip itself already
+              covers what AiMarketBiasCard/WatchlistBreadthCard/
+              TopSectorsTodayCard/UpcomingEventsCard/VolatilityIndexCard
+              used to show separately (market trend, breadth, strongest/
+              weakest sector, next event, VIX) — those cards stay real,
+              defined, and reusable, just not duplicated here anymore
+              ("remove duplicates, merge overlapping metrics" per the
+              redesign spec). NewsSentimentCard and AiCopilotLauncherCard
+              don't overlap with the strip, so they stay as supporting
+              detail below the 4-card grid. */}
           <KpiStrip C={C} MONO={MONO} SANS={SANS} macroData={macroData} />
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12, marginBottom: 14, alignItems: "stretch" }}>
-            <AiMarketBiasCard C={C} MONO={MONO} SANS={SANS} bias={bias} biasCol={biasCol} factors={factors} />
-            <WatchlistBreadthCard C={C} MONO={MONO} SANS={SANS} breadthPct={breadthPct} advCount={advForBreadth} declCount={declForBreadth} unchCount={unchForBreadth} total={wlForBreadth.length} />
-            <TopSectorsTodayCard C={C} MONO={MONO} SANS={SANS} sectorData={sectorData} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} />
-          </div>
+          <MarketCommandCenterStrip C={C} MONO={MONO} SANS={SANS}
+            macroData={macroData} distData={distData} sectorData={sectorData} eventCountdowns={eventCountdowns}
+            regime={overviewRegime} regLabel={overviewRegLabel} regColor={overviewRegColor} breadthPct={breadthPct}
+            setActiveTab={setActiveTab} />
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 12, marginBottom: 14, alignItems: "stretch" }}>
-            <AiTopOpportunitiesCard C={C} MONO={MONO} SANS={SANS} fullScan={fullScan} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} />
+            <MarketRegimeCard C={C} MONO={MONO} SANS={SANS} macroData={macroData} distData={distData} factors={factors} bias={bias} biasColor={biasCol} />
             <MarketHeatmapGrid C={C} MONO={MONO} SANS={SANS} sectorData={sectorData} />
+            <AiTopOpportunitiesCard C={C} MONO={MONO} SANS={SANS} fullScan={fullScan} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} />
+            <PortfolioRiskCard C={C} MONO={MONO} SANS={SANS} />
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, marginBottom: 14 }}>
-            <UpcomingEventsCard C={C} MONO={MONO} SANS={SANS} eventCountdowns={eventCountdowns} />
             <NewsSentimentCard C={C} MONO={MONO} SANS={SANS} newsSentiment={newsSentiment} setActiveTab={setActiveTab} />
-            <VolatilityIndexCard C={C} MONO={MONO} SANS={SANS} distData={distData} setActiveTab={setActiveTab} />
             <AiCopilotLauncherCard C={C} MONO={MONO} SANS={SANS} />
           </div>
         </>
