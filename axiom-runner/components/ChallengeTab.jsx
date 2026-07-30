@@ -284,13 +284,13 @@ export default function ChallengeTab({ C, MONO, SANS, fetchTradeSetup: _ft }) {
                   <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text }}>🤖 WEEKLY AI COACHING REVIEW</div>
                   <button onClick={genWeekReview} disabled={reviewLoading}
                     style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "6px 16px", borderRadius: 7, border: "none",
-                      background: reviewLoading ? C.surface : C.purple, color: reviewLoading ? C.textDim : "#fff", cursor: reviewLoading ? "default" : "pointer" }}>
+                      background: reviewLoading ? C.surface : C.accent, color: reviewLoading ? C.textDim : "#fff", cursor: reviewLoading ? "default" : "pointer" }}>
                     {reviewLoading ? "⏳ Analyzing…" : "Generate Review"}
                   </button>
                 </div>
                 {weekReview ? (
                   <div style={{ fontFamily: SANS, fontSize: 13, color: C.text, lineHeight: 1.8, padding: "12px 14px",
-                    background: `${C.purple}10`, borderRadius: 8, border: `1px solid ${C.purple}33`, whiteSpace: "pre-wrap" }}>
+                    background: `${C.accent}10`, borderRadius: 8, border: `1px solid ${C.accent}33`, whiteSpace: "pre-wrap" }}>
                     {weekReview}
                   </div>
                 ) : (

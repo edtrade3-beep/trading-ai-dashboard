@@ -291,7 +291,7 @@ export function MarketPulseCard({ C, MONO, SANS, rotationRank, flowBias, flowCal
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12 }}>
-      <Card C={C} title="🔄 MOMENTUM LEADERS" accent={C.purple}>
+      <Card C={C} title="🔄 MOMENTUM LEADERS" accent={C.accent}>
         {rr.length > 0 ? (
           <>
             <div style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 800, color: C.textDim, letterSpacing: "0.05em", marginBottom: 4 }}>LEADERS</div>
@@ -313,7 +313,7 @@ export function MarketPulseCard({ C, MONO, SANS, rotationRank, flowBias, flowCal
         ) : <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>Scanning…</div>}
       </Card>
 
-      <Card C={C} title="💰 MONEY FLOW" accent={C.purple}>
+      <Card C={C} title="💰 MONEY FLOW" accent={C.accent}>
         <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: flowColor, marginBottom: 6 }}>{flowBias || "—"}</div>
         {(flowCallNotional || flowPutNotional) ? (
           <div style={{ fontFamily: MONO, fontSize: 11.5, color: C.textDim }}>

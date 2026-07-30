@@ -236,7 +236,7 @@ export default function XIntelOverview({ C, MONO, SANS, items, state, trackRecor
           </div>
         </div>
         <div style={{ ...cardStyle(C, { background: C.card }), padding: 14 }}>
-          <SectionLabel icon="🎯" text="AI CONFIDENCE" color={C.purple} C={C} MONO={MONO} />
+          <SectionLabel icon="🎯" text="AI CONFIDENCE" color={C.accent} C={C} MONO={MONO} />
           <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
             <span style={{ fontFamily: MONO, fontSize: 26, fontWeight: 900, color: avgConfidence == null ? C.textDim : avgConfidence >= 70 ? C.green : avgConfidence >= 45 ? C.amber : C.red }}>{avgConfidence ?? "—"}</span>
             <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>avg over {items.length} recent items · {breakingCount} breaking</span>

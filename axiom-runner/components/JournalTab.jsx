@@ -24,9 +24,9 @@ function CoachNotesPanel({ C, MONO, SANS }) {
       <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 10 }}>COACH'S NOTES</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {entries.slice(0, 4).map(([type, entry]) => (
-          <div key={type} style={{ borderLeft: `3px solid ${C.purple}`, paddingLeft: 10 }}>
+          <div key={type} style={{ borderLeft: `3px solid ${C.accent}`, paddingLeft: 10 }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
-              <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.purple }}>{COACH_LABELS[type]}</span>
+              <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.accent }}>{COACH_LABELS[type]}</span>
               <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>{entry.savedAt ? new Date(entry.savedAt).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : ""}</span>
             </div>
             <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.text, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{entry.text}</div>
@@ -57,8 +57,8 @@ export default function JournalTab({
               </div>
               <button onClick={fetchJournalReview} disabled={journalRevLoad || journalEntries.filter(e => e.closedAt).length < 3}
                 style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 12, fontWeight: 700,
-                  background: journalRevLoad ? C.surface : `${C.purple}22`,
-                  border: `1px solid ${C.purple}66`, color: journalRevLoad ? C.textDim : C.purple,
+                  background: journalRevLoad ? C.surface : `${C.accent}22`,
+                  border: `1px solid ${C.accent}66`, color: journalRevLoad ? C.textDim : C.accent,
                   borderRadius: 6, padding: "7px 14px", cursor: journalRevLoad ? "default" : "pointer" }}>
                 {journalRevLoad ? "🤖 ANALYZING…" : "🤖 AI COACHING REVIEW"}
               </button>
@@ -66,14 +66,14 @@ export default function JournalTab({
 
             {/* AI Journal Review panel */}
             {(journalReview || journalRevError) && (
-              <div style={{ background: C.card, border: `1px solid ${C.purple}44`, borderLeft: `3px solid ${C.purple}`,
+              <div style={{ background: C.card, border: `1px solid ${C.accent}44`, borderLeft: `3px solid ${C.accent}`,
                 borderRadius: 10, padding: 16, marginBottom: 14 }}>
                 {journalRevError ? (
                   <div style={{ fontFamily: MONO, fontSize: 12, color: C.red }}>{journalRevError}</div>
                 ) : (
                   <>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                      <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.purple }}>🤖 AI COACHING REVIEW</div>
+                      <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.accent }}>🤖 AI COACHING REVIEW</div>
                       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                         <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{journalReview?.at ? new Date(journalReview.at).toLocaleString() : ""}</span>
                         <button onClick={() => setJournalReview(null)} style={{ background: "none", border: "none", color: C.textDim, cursor: "pointer", fontSize: 12 }}>✕</button>
@@ -298,7 +298,7 @@ export default function JournalTab({
               });
               const topSetup  = Object.entries(byStyle).sort((a,b) => b[1].pnl - a[1].pnl)[0];
               return (
-                <div style={{ background: C.card, border: `1px solid ${C.purple}44`, borderRadius: 10,
+                <div style={{ background: C.card, border: `1px solid ${C.accent}44`, borderRadius: 10,
                   padding: 16, marginBottom: 14 }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
                     marginBottom: 12, flexWrap: "wrap", gap: 10 }}>
@@ -312,9 +312,9 @@ export default function JournalTab({
                     </div>
                     <button onClick={fetchJournalReview} disabled={journalRevLoad || weekTrades.length < 2}
                       style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "8px 16px",
-                        borderRadius: 7, border: `1px solid ${C.purple}66`, cursor: "pointer",
-                        background: journalRevLoad ? C.surface : `${C.purple}22`,
-                        color: journalRevLoad ? C.textDim : C.purple }}>
+                        borderRadius: 7, border: `1px solid ${C.accent}66`, cursor: "pointer",
+                        background: journalRevLoad ? C.surface : `${C.accent}22`,
+                        color: journalRevLoad ? C.textDim : C.accent }}>
                       {journalRevLoad ? "🤖 Analyzing…" : "🤖 Generate AI Review"}
                     </button>
                   </div>
@@ -342,8 +342,8 @@ export default function JournalTab({
                   )}
                   {/* AI Review output */}
                   {journalReview?.text && (
-                    <div style={{ marginTop: 12, padding: 12, background: `${C.purple}10`,
-                      border: `1px solid ${C.purple}33`, borderRadius: 8,
+                    <div style={{ marginTop: 12, padding: 12, background: `${C.accent}10`,
+                      border: `1px solid ${C.accent}33`, borderRadius: 8,
                       fontFamily: SANS, fontSize: 13, color: C.text, lineHeight: 1.7,
                       whiteSpace: "pre-wrap" }}>
                       {journalReview.text}
@@ -479,7 +479,7 @@ export default function JournalTab({
                 style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 12, padding: "6px 8px", width: 120, borderRadius: 6 }}
               />
               <select value={journalStyleFilter} onChange={e => setJournalStyleFilter(e.target.value)}
-                style={{ background: C.surface, border: `1px solid ${journalStyleFilter !== "all" ? C.purple : C.border}`, color: journalStyleFilter !== "all" ? C.purple : C.textSec, fontFamily: MONO, fontSize: 12, padding: "6px 8px", borderRadius: 6 }}>
+                style={{ background: C.surface, border: `1px solid ${journalStyleFilter !== "all" ? C.accent : C.border}`, color: journalStyleFilter !== "all" ? C.accent : C.textSec, fontFamily: MONO, fontSize: 12, padding: "6px 8px", borderRadius: 6 }}>
                 <option value="all">All Styles</option>
                 {["Breakout","Pullback","Reversal","Momentum","Scalp","Swing","Day Trade","Watchlist","Scanner","Workflow","Terminal","Backtest","Analyzer"].map(s => <option key={s} value={s}>{s}</option>)}
               </select>

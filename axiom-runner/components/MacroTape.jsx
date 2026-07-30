@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { C, MONO } from "./theme.js";
 
 const SESSION_LABEL = { REGULAR: "MARKET OPEN", PREMARKET: "PRE-MARKET", AFTERMARKET: "AFTER-HOURS", OVERNIGHT: "MARKET CLOSED" };
-const SESSION_COLOR = { REGULAR: C.green, PREMARKET: C.amber, AFTERMARKET: C.purple, OVERNIGHT: C.textDim };
+const SESSION_COLOR = { REGULAR: C.green, PREMARKET: C.amber, AFTERMARKET: C.accent, OVERNIGHT: C.textDim };
 
 export default function MacroTape({ data, cryptoSnapshot, marketSession }) {
   const [now, setNow] = useState(() => new Date());

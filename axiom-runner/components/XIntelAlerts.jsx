@@ -37,8 +37,8 @@ export default function XIntelAlerts({ C, MONO, SANS }) {
             <div><span style={{ color: C.textDim }}>Top mention delta</span><br /><b style={{ color: C.text, fontSize: 16 }}>{digest.topMentionDeltas?.[0] ? `${digest.topMentionDeltas[0].symbol} +${digest.topMentionDeltas[0].velocityPct}%` : "—"}</b></div>
           </div>
           {digest.fedStanceChange && (
-            <div style={{ marginTop: 12, padding: "8px 10px", background: `${C.purple}0c`, borderLeft: `3px solid ${C.purple}`, borderRadius: 4 }}>
-              <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.purple, marginBottom: 3 }}>FED — MOST RECENT VS PRIOR</div>
+            <div style={{ marginTop: 12, padding: "8px 10px", background: `${C.accent}0c`, borderLeft: `3px solid ${C.accent}`, borderRadius: 4 }}>
+              <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.accent, marginBottom: 3 }}>FED — MOST RECENT VS PRIOR</div>
               <div style={{ fontFamily: SANS, fontSize: 12, color: C.text }}>{digest.fedStanceChange.latest}</div>
               <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 2 }}>Prior: {digest.fedStanceChange.prior}</div>
             </div>

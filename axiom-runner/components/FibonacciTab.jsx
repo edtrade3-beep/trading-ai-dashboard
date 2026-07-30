@@ -110,9 +110,9 @@ export default function FibonacciTab({
                         background: isCurrent ? `${C.amber}18` : lvl.isKey ? `${C.accent}08` : "transparent" }}>
                         {/* Level indicator bar */}
                         <div style={{ width: 4, height: 28, borderRadius: 2, flexShrink: 0,
-                          background: lvl.isExt ? C.purple : lvl.isKey ? C.amber : lvl.ratio === 0 || lvl.ratio === 1 ? C.textDim : C.border }} />
+                          background: lvl.isExt ? C.accent : lvl.isKey ? C.amber : lvl.ratio === 0 || lvl.ratio === 1 ? C.textDim : C.border }} />
                         <div style={{ flex: "1 1 90px", minWidth: 90 }}>
-                          <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: lvl.isKey ? C.amber : lvl.isExt ? C.purple : C.textSec }}>
+                          <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: lvl.isKey ? C.amber : lvl.isExt ? C.accent : C.textSec }}>
                             {lvl.label} {isCurrent && <span style={{ color: C.amber }}>◄ PRICE IS HERE</span>}
                           </div>
                         </div>

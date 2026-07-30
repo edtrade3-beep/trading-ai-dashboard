@@ -115,7 +115,7 @@ export default function CeoAiCard({ C, MONO, SANS }) {
             </div>
             {brief.contrarianTake && (
               <div style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
-                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.purple, flexShrink: 0 }}>🔭 TAKE</span>
+                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent, flexShrink: 0 }}>🔭 TAKE</span>
                 <span style={{ fontFamily: SANS, fontSize: 14, color: C.text, lineHeight: 1.4, fontStyle: "italic" }}>{brief.contrarianTake}</span>
               </div>
             )}

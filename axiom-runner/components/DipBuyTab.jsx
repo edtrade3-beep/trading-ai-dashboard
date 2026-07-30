@@ -333,7 +333,7 @@ export default function DipBuyTab({ C, MONO, SANS, watchlistData, macroData, ope
 
                     {/* Key levels */}
                     <div style={{ background:C.surface, borderRadius:8, padding:12, border:`1px solid ${C.border}` }}>
-                      <div style={{ fontFamily:MONO, fontSize:11, fontWeight:900, color:C.cyan, marginBottom:8 }}>
+                      <div style={{ fontFamily:MONO, fontSize:11, fontWeight:900, color:C.accent, marginBottom:8 }}>
                         📊 KEY LEVELS
                       </div>
                       {[

@@ -55,7 +55,7 @@ export default function SmartMoneyTab({
                   </div>
                   {/* Institutional Ownership */}
                   <div style={{ ...card({ padding: 16 }) }}>
-                    <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.purple, marginBottom: 12, letterSpacing: "0.05em" }}>INSTITUTIONAL OWNERSHIP</div>
+                    <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent, marginBottom: 12, letterSpacing: "0.05em" }}>INSTITUTIONAL OWNERSHIP</div>
                     {ins.error ? <div style={{ color: C.red, fontFamily: MONO, fontSize: 12 }}>{ins.error}</div> : (
                       <>
                         {(ins.insidersPct != null || ins.institutionsPct != null) && (
@@ -68,7 +68,7 @@ export default function SmartMoneyTab({
                             )}
                             {ins.institutionsPct != null && (
                               <div style={{ textAlign: "center" }}>
-                                <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.purple }}>{Number(ins.institutionsPct).toFixed(1)}%</div>
+                                <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.accent }}>{Number(ins.institutionsPct).toFixed(1)}%</div>
                                 <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>INSTITUTIONS HELD</div>
                               </div>
                             )}

@@ -305,11 +305,11 @@ Risk small and follow the stop.`
   };
 
   const SetupBadge = ({ setup }) => {
-    const col = setup === "VWAP Reclaim" ? C.cyan :
+    const col = setup === "VWAP Reclaim" ? C.accent :
                 setup === "21 EMA Pullback" ? C.green :
                 setup === "Pre-Breakout Compression" ? C.amber :
                 setup === "Relative Strength Leader" ? C.accent :
-                setup === "Volume Before Price" ? C.purple :
+                setup === "Volume Before Price" ? C.accent :
                 setup === "Breakout Retest" ? "#f0c040" :
                 setup === "Avoid / Trap Zone" ? C.red : C.textDim;
     return (
@@ -342,7 +342,7 @@ Risk small and follow the stop.`
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "stretch" }}>
         <SummaryCard label="MARKET BIAS"       value={marketBias.label}                 color={marketBias.color}  sub={`SPY ${spyChg >= 0 ? "+" : ""}${spyChg.toFixed(2)}%  QQQ ${qqqChg >= 0 ? "+" : ""}${qqqChg.toFixed(2)}%`} />
         <SummaryCard label="BEST EARLY ENTRY"  value={bestEntry?.q.symbol || "—"}       color={C.accent}          sub={bestEntry ? `Score ${bestEntry.scored.score} · ${bestEntry.setup}` : "No setups yet"} onClick={() => bestEntry && onSelectSymbol(bestEntry.q.symbol)} />
-        <SummaryCard label="STRONGEST SECTOR"  value={bestSector.split(" ")[0] || "—"}  color={C.cyan}            sub={bestSector} />
+        <SummaryCard label="STRONGEST SECTOR"  value={bestSector.split(" ")[0] || "—"}  color={C.accent}            sub={bestSector} />
         <SummaryCard label="A+ EARLY SETUPS"   value={aPlusCount}                        color={aPlusCount > 0 ? C.green : C.textDim}  sub="Score ≥ 85 — act now" />
         <SummaryCard label="NEAR BREAKOUT"     value={nearBreakout}                      color={C.amber}           sub="Within 3% of 52W high" />
         <SummaryCard label="TRAP / AVOID"      value={trapZones.length}                  color={trapZones.length > 0 ? C.red : C.textDim}  sub="Flagged — do not chase" />
@@ -492,7 +492,7 @@ Risk small and follow the stop.`
         {/* VWAP Reclaim */}
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
           <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, background: C.surface }}>
-            <SectionHeader title="VWAP RECLAIM SCANNER" count={vwapReclaims.length} color={C.cyan} badge="price reclaimed above open" />
+            <SectionHeader title="VWAP RECLAIM SCANNER" count={vwapReclaims.length} color={C.accent} badge="price reclaimed above open" />
           </div>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead><tr><TH>TICKER</TH><TH right>PRICE</TH><TH right>CHG%</TH><TH right>RVOL</TH><TH right>SCORE</TH><TH>SEND</TH></tr></thead>

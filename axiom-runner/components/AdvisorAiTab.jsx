@@ -427,7 +427,7 @@ export default function AdvisorAiTab({ C, MONO, SANS }) {
                           {a.confidence && <span style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 800, color: a.confidence.composite >= 70 ? C.green : a.confidence.composite >= 50 ? C.amber : C.textDim }}>conf {a.confidence.composite}</span>}
                           {a.weightPct != null && <span style={{ fontFamily: MONO, fontSize: 10.5, color: C.textDim, minWidth: 90 }}>{a.weightPct}% of book</span>}
                           {a.unrealizedPLpc != null && <span style={{ fontFamily: MONO, fontSize: 10.5, color: a.unrealizedPLpc >= 0 ? C.green : C.red }}>{a.unrealizedPLpc >= 0 ? "+" : ""}{a.unrealizedPLpc.toFixed(1)}%</span>}
-                          {a.held && <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.purple, background: `${C.purple}18`, borderRadius: 4, padding: "1px 5px" }}>HELD</span>}
+                          {a.held && <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.accent, background: `${C.accent}18`, borderRadius: 4, padding: "1px 5px" }}>HELD</span>}
                           <span style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, flex: 1, minWidth: 160 }}>{a.reason}</span>
                         </div>
                       );
@@ -473,7 +473,7 @@ export default function AdvisorAiTab({ C, MONO, SANS }) {
               {/* Portfolio Manager — real live Alpaca account, only renders when connected */}
               {brief.portfolio && (
                 <div style={{ ...cardStyle(C, { background: C.card }), padding: 16 }}>
-                  <SectionLabel icon="💼" text="PORTFOLIO" color={C.purple} C={C} MONO={MONO} />
+                  <SectionLabel icon="💼" text="PORTFOLIO" color={C.accent} C={C} MONO={MONO} />
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
                     <StatPill label="EQUITY" value={`$${Math.round(brief.portfolio.equity).toLocaleString()}`} color={C.text} C={C} MONO={MONO} />
                     <StatPill label="CASH" value={`$${Math.round(brief.portfolio.cash).toLocaleString()}`} color={C.textDim} C={C} MONO={MONO} />
@@ -564,10 +564,10 @@ export default function AdvisorAiTab({ C, MONO, SANS }) {
               {/* 5-year thematic thesis */}
               {brief.thesis5y?.length > 0 && (
                 <div style={{ ...cardStyle(C, { background: C.card }), padding: 16 }}>
-                  <SectionLabel icon="🔭" text="5-YEAR THEMATIC THESIS" color={C.purple} C={C} MONO={MONO} />
+                  <SectionLabel icon="🔭" text="5-YEAR THEMATIC THESIS" color={C.accent} C={C} MONO={MONO} />
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12 }}>
                     {brief.thesis5y.map((t, i) => (
-                      <div key={i} style={{ background: `${C.purple}0c`, border: `1px solid ${C.purple}33`, borderRadius: 9, padding: 13 }}>
+                      <div key={i} style={{ background: `${C.accent}0c`, border: `1px solid ${C.accent}33`, borderRadius: 9, padding: 13 }}>
                         <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 6 }}>{t.theme}</div>
                         <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, lineHeight: 1.5, marginBottom: 9 }}>{t.why}</div>
                         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -597,7 +597,7 @@ export default function AdvisorAiTab({ C, MONO, SANS }) {
                   score, explicitly labeled illustrative, not a statistical fit */}
               {brief.scenarios && (
                 <div style={{ ...cardStyle(C, { background: C.card }), padding: 16 }}>
-                  <SectionLabel icon="🔀" text="SCENARIO ENGINE" color={C.purple} C={C} MONO={MONO} />
+                  <SectionLabel icon="🔀" text="SCENARIO ENGINE" color={C.accent} C={C} MONO={MONO} />
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10, marginBottom: 10 }}>
                     {[["best", C.green], ["base", C.textDim], ["worst", C.red]].map(([k, col]) => {
                       const s = brief.scenarios[k];

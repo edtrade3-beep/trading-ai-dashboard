@@ -5416,7 +5416,7 @@ export default function App() {
     };
   }, [riskAccount, riskPct, riskEntry, riskStop, riskMaxPosPct, riskCorrCap, riskAtrPct, riskSlipBps, riskSide, riskSetupQuality, regime]);
   const regimeColor = {
-    "Risk-On": C.green, "Risk-Off": C.red, "Growth": C.cyan,
+    "Risk-On": C.green, "Risk-Off": C.red, "Growth": C.accent,
     "Goldilocks": C.green, "Defensive": C.amber, "Neutral": C.textSec, "Loading…": C.textDim,
   };
   const dataFreshSec = lastUpdate ? Math.max(0, Math.floor((Date.now() - lastUpdate.getTime()) / 1000)) : null;
@@ -5855,7 +5855,7 @@ export default function App() {
               <span style={{ color: C.accent, fontWeight: 700 }}>WEATHER {WEATHER_ZIP}</span>
               {weatherData ? (
                 <>
-                  <span style={{ fontWeight: 800, color: weatherData.temp >= 85 ? C.red : weatherData.temp <= 40 ? C.cyan : C.text }}>{weatherData.temp.toFixed(0)}°F</span>
+                  <span style={{ fontWeight: 800, color: weatherData.temp >= 85 ? C.red : weatherData.temp <= 40 ? C.accent : C.text }}>{weatherData.temp.toFixed(0)}°F</span>
                   <span style={{ color: C.textDim }}>{weatherCodeLabel(weatherData.code)}</span>
                 </>
               ) : <span style={{ color: C.textDim }}>—</span>}

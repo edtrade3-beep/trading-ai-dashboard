@@ -52,7 +52,7 @@ export default function AcademyTab({
             tagline: "You can't improve what you don't measure.",
             body: `The journal is the most underused feature on the platform.\n\nWhat to log after EVERY trade:\n1. Setup type (Bull Flag, Breakout, etc.)\n2. Entry, Stop, Target\n3. Outcome (Win/Loss)\n4. Why you took it\n5. What you would do differently\n\nAfter 30 trades, the analytics show you:\n• Your win rate by setup type → trade only your best setup\n• Your best day of week → trade more on those days\n• Your biggest mistakes → stop repeating them\n\nMost traders spend 10 hours studying charts and 0 hours studying themselves. The journal reverses this. Your patterns are in your data.`,
             rule: "Log every trade within 1 hour of closing it. Every single one.",
-            color: C.purple,
+            color: C.accent,
           },
           {
             id: "patience", icon: "⏳", title: "The Most Profitable Trade Is No Trade",
@@ -84,7 +84,7 @@ export default function AcademyTab({
             tagline: "Price can lie. Volume cannot.",
             body: `Price moves mean nothing without volume context.\n\nHigh volume + price up = REAL buying (institutions)\nHigh volume + price down = REAL selling (institutions)\nLow volume + price up = FAKE rally (retail only, will reverse)\nLow volume + price down = NORMAL pullback (healthy)\n\nRVOL (Relative Volume) explained:\n• RVOL 1.0 = normal volume\n• RVOL 1.5 = 50% more than average — something is happening\n• RVOL 2.0 = 2× average — big players are moving\n• RVOL 3.0+ = major institutional activity — could be breakout or breakdown\n\nThe platform calculates RVOL for every stock in the scanner.\nNEVER buy a breakout on RVOL below 1.2. Breakouts on low volume almost always fail.\n\nVolume Pace (VOL PACE column):\nThe scanner shows projected end-of-day volume based on time elapsed.\n• 1.0× = on pace for normal day\n• 2.0× = tracking for double normal volume\n• 3.0×+ = extraordinary volume — A+ setup territory\n\nVolume before price:\nInstitutions can't buy large positions without revealing themselves through volume. Smart money CANNOT be hidden. That's why volume leads price — you see them buying before price moves.`,
             rule: "Only take breakouts on RVOL ≥ 1.5. Low volume breakouts fail. High volume breakouts stick.",
-            color: C.cyan,
+            color: C.accent,
             try: "In the scanner, sort by VOL PACE column. Stocks at top = highest current volume activity."
           },
           {
@@ -116,7 +116,7 @@ export default function AcademyTab({
             tagline: "The market doesn't hurt you. You hurt yourself.",
             body: `Every trader has two enemies:\n1. The market (manageable with a system)\n2. Their own emotions (the real danger)\n\nTHE 4 EMOTIONS THAT DESTROY ACCOUNTS:\n\n1. FEAR OF MISSING OUT (FOMO)\n   "Everyone is making money on this stock!"\n   You chase the stock after it's already up 10%\n   You pay the worst price\n   The stock reverses and you're immediately down\n   Fix: if you missed the setup, let it go. There's always another one.\n\n2. REVENGE TRADING\n   You just lost $200\n   You feel angry and want to make it back NOW\n   You take a bad setup with double size\n   You lose $400\n   Fix: after a losing trade, walk away for 30 minutes minimum.\n\n3. OVERCONFIDENCE\n   You had 3 winning trades in a row\n   You feel invincible\n   You take a risky setup with large size\n   It fails. You give back all your gains in one trade.\n   Fix: same rules every trade. Win or lose.\n\n4. PARALYSIS\n   A perfect A+ setup appears\n   You hesitate because you're afraid of losing\n   You miss the entry\n   You watch it move without you\n   Fix: trust your system. If the checklist is complete — enter.\n\nPsychology check before every trade:\nAsk yourself: "Am I trading because this is a great setup, or because I feel something?"`,
             rule: "If you feel excitement, anger, or fear about a trade — reduce size by 50% or don't trade at all.",
-            color: C.purple,
+            color: C.accent,
             try: "After your next loss, set a timer for 30 minutes before your next trade. Notice what you feel during that time."
           },
           {

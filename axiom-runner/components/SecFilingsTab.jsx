@@ -24,7 +24,7 @@ export default function SecFilingsTab({ C, MONO, SANS, watchlistSymbols }) {
   const typeColor = (t) => {
     if (t === "4") return C.amber;
     if (t === "8-K") return C.accent;
-    if (t?.startsWith("13F")) return C.purple;
+    if (t?.startsWith("13F")) return C.accent;
     return C.textDim;
   };
 

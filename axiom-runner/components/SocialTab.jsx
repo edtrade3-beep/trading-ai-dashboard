@@ -7,7 +7,7 @@ export default function SocialTab({
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div style={{ ...card({ padding: "14px 18px" }), display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
               <div>
-                <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.cyan }}>💬 SOCIAL SENTIMENT</div>
+                <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.accent }}>💬 SOCIAL SENTIMENT</div>
                 <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 2 }}>StockTwits bull/bear + Reddit WallStreetBets mentions</div>
               </div>
               <div style={{ display: "flex", gap: 8, alignItems: "center", marginLeft: "auto", flexWrap: "wrap" }}>
@@ -16,7 +16,7 @@ export default function SocialTab({
                   placeholder="Ticker…"
                   style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, background: C.surface, border: `1px solid ${C.border}`, color: C.text, borderRadius: 6, padding: "7px 12px", width: 120, outline: "none" }} />
                 <button onClick={() => socialInput.trim() && fetchSocialSentiment(socialInput.trim())} disabled={socialLoading}
-                  style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, background: socialLoading ? C.surface : C.cyan, border: "none", color: socialLoading ? C.textDim : "#000", borderRadius: 6, padding: "9px 16px", cursor: socialLoading ? "default" : "pointer" }}>
+                  style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, background: socialLoading ? C.surface : C.accent, border: "none", color: socialLoading ? C.textDim : "#000", borderRadius: 6, padding: "9px 16px", cursor: socialLoading ? "default" : "pointer" }}>
                   {socialLoading ? "LOADING…" : "FETCH"}
                 </button>
               </div>
@@ -24,7 +24,7 @@ export default function SocialTab({
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               {SOC_TICKERS.map(t => (
                 <button key={t} onClick={() => { setSocialInput(t); fetchSocialSentiment(t); }}
-                  style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, background: socialTicker === t && socialData ? `${C.cyan}22` : C.surface, border: `1px solid ${socialTicker === t && socialData ? C.cyan : C.border}`, color: socialTicker === t && socialData ? C.cyan : C.textDim, borderRadius: 6, padding: "5px 10px", cursor: "pointer" }}>{t}</button>
+                  style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, background: socialTicker === t && socialData ? `${C.accent}22` : C.surface, border: `1px solid ${socialTicker === t && socialData ? C.accent : C.border}`, color: socialTicker === t && socialData ? C.accent : C.textDim, borderRadius: 6, padding: "5px 10px", cursor: "pointer" }}>{t}</button>
               ))}
             </div>
             {socialLoading && <div style={{ ...card({ padding: 40, textAlign: "center" }) }}><span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Fetching social data…</span></div>}
@@ -82,7 +82,7 @@ export default function SocialTab({
                   {/* Recent messages */}
                   {msgs.length > 0 && (
                     <div style={{ ...card({ padding: 16 }) }}>
-                      <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.cyan, marginBottom: 10 }}>RECENT POSTS — {stwits.symbol || socialData.ticker}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent, marginBottom: 10 }}>RECENT POSTS — {stwits.symbol || socialData.ticker}</div>
                       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                         {msgs.slice(0, 8).map((m, i) => (
                           <div key={i} style={{ padding: "10px 12px", background: C.surface, borderRadius: 6, borderLeft: `3px solid ${m.sentiment === "Bullish" ? C.green : m.sentiment === "Bearish" ? C.red : C.border}` }}>

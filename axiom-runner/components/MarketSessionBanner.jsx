@@ -3,7 +3,7 @@ export default function MarketSessionBanner({ C, MONO, SANS, marketSession }) {
   if (marketSession === "REGULAR") return null;
   const cfg = {
     PREMARKET:   { label: "PRE-MARKET", col: C.amber, bg: `${C.amber}14`, msg: "Market opens 9:30 AM ET · Pre-market prices may differ" },
-    AFTERMARKET: { label: "AFTER-HOURS", col: C.purple, bg: `${C.purple}12`, msg: "Market closed · After-hours trading 4:00–8:00 PM ET" },
+    AFTERMARKET: { label: "AFTER-HOURS", col: C.accent, bg: `${C.accent}12`, msg: "Market closed · After-hours trading 4:00–8:00 PM ET" },
     OVERNIGHT:   { label: "MARKET CLOSED", col: C.textDim, bg: C.surface, msg: "Market opens 9:30 AM ET · Pre-market starts 4:00 AM ET" },
   }[marketSession] || null;
   if (!cfg) return null;

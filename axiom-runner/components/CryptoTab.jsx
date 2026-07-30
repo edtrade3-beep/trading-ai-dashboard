@@ -417,7 +417,7 @@ export default function CryptoTab({ C, MONO, SANS }) {
               <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", marginBottom: 14 }}>MARKET DOMINANCE</div>
               {[
                 ["BTC Dominance", `${g.btcDominance}%`, C.amber],
-                ["ETH Dominance", `${g.ethDominance}%`, C.purple],
+                ["ETH Dominance", `${g.ethDominance}%`, C.accent],
                 ["Total Mkt Cap", fmt(g.totalMarketCap), C.text],
                 ["24h Volume",    fmt(g.totalVolume24h), C.text],
                 ["Mkt Cap Δ 24h", `${g.marketCapChange24h > 0 ? "+" : ""}${g.marketCapChange24h}%`, g.marketCapChange24h >= 0 ? C.green : C.red],
@@ -442,8 +442,8 @@ export default function CryptoTab({ C, MONO, SANS }) {
             <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", marginBottom: 14 }}>DOMINANCE BREAKDOWN</div>
             {[
               { label: "BTC", pct: data.globalMacro.btcDominance, col: C.amber },
-              { label: "ETH", pct: data.globalMacro.ethDominance, col: C.purple },
-              { label: "ALTs", pct: Math.max(0, 100 - data.globalMacro.btcDominance - data.globalMacro.ethDominance), col: C.cyan },
+              { label: "ETH", pct: data.globalMacro.ethDominance, col: C.accent },
+              { label: "ALTs", pct: Math.max(0, 100 - data.globalMacro.btcDominance - data.globalMacro.ethDominance), col: C.accent },
             ].map(({ label, pct, col }) => (
               <div key={label} style={{ marginBottom: 12 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>

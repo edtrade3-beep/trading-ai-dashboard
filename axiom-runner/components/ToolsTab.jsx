@@ -152,7 +152,7 @@ export default function ToolsTab({
             </div>
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 14, marginBottom: 12 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                <div style={{ fontFamily: MONO, fontSize: 12, color: C.cyan }}>TradingView Webhook Bridge</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, color: C.accent }}>TradingView Webhook Bridge</div>
                 <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                   <Badge color={tvWebhookSecured ? C.green : C.amber}>{tvWebhookSecured ? "SECURED" : "OPEN"}</Badge>
                   <Badge color={tvWebhookRows.length ? C.green : C.amber}>{tvWebhookRows.length ? `${tvWebhookRows.length} RECEIVED` : "WAITING"}</Badge>

@@ -227,7 +227,7 @@ export default function WorkflowTab({
                   {!prePostMovers.pre?.length && <div style={{ fontSize: 12, color: C.textDim }}>No premarket movers yet.</div>}
                 </div>
                 <div style={{ display: "grid", gap: 6, marginTop: 10 }}>
-                  <div style={{ fontFamily: MONO, fontSize: 12, color: C.purple, fontWeight: 700 }}>AFTERHOURS</div>
+                  <div style={{ fontFamily: MONO, fontSize: 12, color: C.accent, fontWeight: 700 }}>AFTERHOURS</div>
                   {(prePostMovers.post || []).map((q) => (
                     <div key={`wf-post-${q.symbol}`} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: `1px solid ${C.border}`, padding: "3px 0" }}>
                       <button onClick={() => { setTerminalSymbol(q.symbol); try { localStorage.setItem("mterminal_load_sym", q.symbol); } catch {} setActiveTab("mterminal"); }} style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer", padding: 0 }}>{q.symbol}</button>
@@ -269,7 +269,7 @@ export default function WorkflowTab({
               {[
                 { key: "premarket", title: "PREMARKET PLAN", color: C.accent, subtitle: "Build bias before open" },
                 { key: "live", title: "LIVE EXECUTION", color: C.green, subtitle: "Only validated setups" },
-                { key: "postmarket", title: "POSTMARKET REVIEW", color: C.purple, subtitle: "Close loop and improve" },
+                { key: "postmarket", title: "POSTMARKET REVIEW", color: C.accent, subtitle: "Close loop and improve" },
               ].map((section) => (
                 <div key={section.key} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>

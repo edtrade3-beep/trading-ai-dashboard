@@ -685,10 +685,10 @@ export default function QuotesTab({
                               <ScoreBar value={scores.composite} />
                             </td>
                             <td title={`Technical ${scores.tech}/100 — ${scores.reasons.join(" · ") || "neutral, not enough real data yet"}`} style={{ padding: "7px 6px", borderBottom: `1px solid ${C.border}`, minWidth: 55, cursor: "help" }}>
-                              <ScoreBar value={scores.tech} color={C.cyan} />
+                              <ScoreBar value={scores.tech} color={C.accent} />
                             </td>
                             {!isTablet && <td title={`Fundamental ${scores.fund}/100 — ${scores.reasons.join(" · ") || "neutral, not enough real data yet"}`} style={{ padding: "7px 6px", borderBottom: `1px solid ${C.border}`, minWidth: 55, cursor: "help" }}>
-                              <ScoreBar value={scores.fund} color={C.purple} />
+                              <ScoreBar value={scores.fund} color={C.accent} />
                             </td>}
                             {!isTablet && <td style={{ padding: "7px 6px", borderBottom: `1px solid ${C.border}`, textAlign: "center", minWidth: 50 }}>
                               <span title={aplus.reasons.join(" · ")} style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: "#fff",

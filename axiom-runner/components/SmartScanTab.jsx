@@ -807,7 +807,7 @@ export default function SmartScanTab({
 
                                   // REBOUND SETUP — was down hard, now recovering
                                   if (chg1w < -10 && chg1d > 0 && rsi != null && rsi < 50)
-                                    chips.push({ txt: "↩ REBOUND", col: C.cyan, title: "Down hard last week, bouncing today — rebound setup" });
+                                    chips.push({ txt: "↩ REBOUND", col: C.accent, title: "Down hard last week, bouncing today — rebound setup" });
 
                                   // OVERSOLD BOUNCE — RSI < 30 + price up today
                                   if (rsi != null && rsi < 32 && chg1d > 0)
@@ -827,11 +827,11 @@ export default function SmartScanTab({
 
                                   // TREND REVERSAL — EMA crossover + volume
                                   if (ema9 && ema21 && Math.abs(ema9 - ema21) / ema21 * 100 < 1 && rvol > 1.5)
-                                    chips.push({ txt: "🔀 EMA CROSS", col: C.purple || "#9c27b0", title: "EMA 9 and 21 crossing — trend change forming" });
+                                    chips.push({ txt: "🔀 EMA CROSS", col: C.accent || "#9c27b0", title: "EMA 9 and 21 crossing — trend change forming" });
 
                                   // DEEP VALUE — RSI < 40 + far below MA50 + above MA200
                                   if (rsi != null && rsi < 40 && ma50 > 0 && (px - ma50) / ma50 * 100 < -10 && ma200 > 0 && px > ma200)
-                                    chips.push({ txt: "💎 DEEP VALUE", col: C.cyan, title: "Oversold, below 50MA, but above 200MA — quality dip" });
+                                    chips.push({ txt: "💎 DEEP VALUE", col: C.accent, title: "Oversold, below 50MA, but above 200MA — quality dip" });
 
                                   // PULLBACK TO MA — price just touched MA50
                                   if (ma50 > 0 && Math.abs((px - ma50) / ma50 * 100) < 1.5 && ema9 && ema21 && ema9 > ema21)
@@ -953,7 +953,7 @@ export default function SmartScanTab({
                                 else if (hi52 > 0 && px >= hi52 * 0.97 && rvol >= 1.5 && chg2 > 0) { pat = '🚀 BREAKOUT'; patCol = "#ffd700"; }
                                 else if (hi52 > 0 && px >= hi52 * 0.93 && e9 > e21 && rsi >= 55 && rsi <= 72) { pat = '☕ CUP HDL'; patCol = C.green; }
                                 else if (chg2 > 3 && rvol >= 1.5 && e9 > e21 && rsi < 72) { pat = '🏈 BULL FLAG'; patCol = '#4caf50'; }
-                                else if (yPos > 0.65 && e9 > e21 && rsi >= 50 && rsi <= 65) { pat = '📐 TREND'; patCol = C.cyan; }
+                                else if (yPos > 0.65 && e9 > e21 && rsi >= 50 && rsi <= 65) { pat = '📐 TREND'; patCol = C.accent; }
                                 else if (rsi < 32 && px < e21) { pat = '🔄 OVERSOLD'; patCol = C.amber; }
                                 return (
                                   <td style={{ padding: "12px 10px", borderBottom: `1px solid ${C.border}22`, whiteSpace: "nowrap" }}>
@@ -2205,9 +2205,9 @@ export default function SmartScanTab({
                                               onClick={() => { if (!deepData) { loadDeepDive(row.ticker).then(() => fetchTradeSetup(row.ticker, row)); } else { fetchTradeSetup(row.ticker, row); } }}
                                               disabled={tradeSetupLoad[row.ticker]}
                                               style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700,
-                                                background: tradeSetupLoad[row.ticker] ? C.surface : `${C.purple}18`,
-                                                border: `1px solid ${tradeSetupLoad[row.ticker] ? C.border : C.purple}`,
-                                                color: tradeSetupLoad[row.ticker] ? C.textDim : C.purple,
+                                                background: tradeSetupLoad[row.ticker] ? C.surface : `${C.accent}18`,
+                                                border: `1px solid ${tradeSetupLoad[row.ticker] ? C.border : C.accent}`,
+                                                color: tradeSetupLoad[row.ticker] ? C.textDim : C.accent,
                                                 borderRadius: 6, padding: "4px 12px",
                                                 cursor: tradeSetupLoad[row.ticker] ? "default" : "pointer" }}>
                                               {tradeSetupLoad[row.ticker] ? "⌛ Generating…" : "▶ GENERATE"}
@@ -2231,8 +2231,8 @@ export default function SmartScanTab({
                                         )}
 
                                         {tradeSetupLoad[row.ticker] && (
-                                          <div style={{ fontFamily: MONO, fontSize: 12, color: C.purple,
-                                            background: `${C.purple}10`, borderRadius: 6, padding: "12px 10px",
+                                          <div style={{ fontFamily: MONO, fontSize: 12, color: C.accent,
+                                            background: `${C.accent}10`, borderRadius: 6, padding: "12px 10px",
                                             textAlign: "center" }}>
                                             ⌛ Claude is analysing {row.ticker}…
                                           </div>
@@ -2244,7 +2244,7 @@ export default function SmartScanTab({
                                           const sections = plan.split(/\n(?=[A-Z /]{4,}$)/m);
                                           const SECTION_COLORS = {
                                             "VERDICT": C.amber, "ENTRY": C.green, "STOP": C.red,
-                                            "PRICE TARGETS": C.cyan, "RISK": C.amber, "KEY": C.accent,
+                                            "PRICE TARGETS": C.accent, "RISK": C.amber, "KEY": C.accent,
                                             "RED": C.red, "SETUP": C.text,
                                           };
                                           const getCol = (line) => {
@@ -2285,13 +2285,13 @@ export default function SmartScanTab({
 
                                         {!tradeSetups[row.ticker] && !tradeSetupLoad[row.ticker] && !tradeSetupError[row.ticker] && (
                                           <div style={{ flex: 1, fontFamily: SANS, fontSize: 13, color: C.textDim,
-                                            background: `${C.purple}08`, border: `1px dashed ${C.purple}44`,
+                                            background: `${C.accent}08`, border: `1px dashed ${C.accent}44`,
                                             borderRadius: 8, padding: "16px 14px", textAlign: "center",
                                             display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8 }}>
                                             <div style={{ fontSize: 20 }}>🤖</div>
                                             <div style={{ color: C.textDim, fontSize: 12, lineHeight: 1.6 }}>
                                               Auto-generating trade plan…<br/>
-                                              <span style={{ color: C.purple }}>entry · stop · targets · R:R · risks</span>
+                                              <span style={{ color: C.accent }}>entry · stop · targets · R:R · risks</span>
                                             </div>
                                           </div>
                                         )}

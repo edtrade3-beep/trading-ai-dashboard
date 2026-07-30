@@ -400,7 +400,7 @@ export default function CommandCenterTab({ C, MONO, SANS }) {
           {/* Institutional activity */}
           {(brief.institutional?.insider || brief.institutional?.darkPool || brief.institutional?.shortChanges) && (
             <div style={{ ...cardStyle(C, { background: C.card }), padding: 16 }}>
-              <SectionLabel icon="🏦" text="INSTITUTIONAL ACTIVITY" color={C.purple} C={C} MONO={MONO} />
+              <SectionLabel icon="🏦" text="INSTITUTIONAL ACTIVITY" color={C.accent} C={C} MONO={MONO} />
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {brief.institutional.insider && <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, lineHeight: 1.5 }}><b style={{ color: C.text }}>Insider buying:</b> {brief.institutional.insider}</div>}
                 {brief.institutional.darkPool && <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, lineHeight: 1.5 }}><b style={{ color: C.text }}>Dark pool:</b> {brief.institutional.darkPool}</div>}
@@ -446,7 +446,7 @@ export default function CommandCenterTab({ C, MONO, SANS }) {
           {/* Scenario / macro outlook */}
           {brief.scenarios && (
             <div style={{ ...cardStyle(C, { background: C.card }), padding: 16 }}>
-              <SectionLabel icon="🔀" text="MACRO OUTLOOK — SCENARIO ENGINE" color={C.purple} C={C} MONO={MONO} />
+              <SectionLabel icon="🔀" text="MACRO OUTLOOK — SCENARIO ENGINE" color={C.accent} C={C} MONO={MONO} />
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
                 {[["best", C.green], ["base", C.textDim], ["worst", C.red]].map(([k, col]) => {
                   const s = brief.scenarios[k];

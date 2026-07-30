@@ -5,6 +5,21 @@
 // on theme switch, and every importer of this module shares that one object
 // by reference, so the mutation is visible everywhere without re-rendering
 // plumbing.
+//
+// 4-color status system (institutional redesign, 2026-07-29, explicit user
+// spec: "Use only four colors: Green=Bullish, Yellow=Caution, Red=Bearish,
+// Gray=Neutral"). Applies to STATUS/semantic color only — `green`/`amber`/
+// `red`/`textDim` are the 4 status slots (reusing existing keys rather than
+// inventing new ones); `bg`/`surface`/`card`/`border`/`text`/etc stay a
+// separate neutral "chrome" system. `cyan`/`purple` (formerly used ad hoc
+// for confidence badges, AI-content branding, session labels, chart legend
+// swatches — never a real bull/bear signal) were retired and every call
+// site remapped to `accent` (routine info/navigation blue, outside the
+// status system) after a full per-usage grep audit found none of them were
+// actually encoding a bullish/bearish/caution/neutral read. `gold` stays as
+// a 5th non-status "spotlight" token — it marks the single highest-
+// conviction idea on a page regardless of direction, so collapsing it into
+// `green` would falsely imply "highest conviction" always means "bullish."
 
 export const THEME_LIGHT = {
   // Backgrounds — clean bright white page with faint-grey cards (no foggy haze)
@@ -31,8 +46,6 @@ export const THEME_LIGHT = {
   redLight:   "#d9636a",   // mild/tentative bearish — lighter than `red`, for multi-tier bias scales
   amber:      "#c96f00",   // warm amber
   amberBg:    "rgba(201,111,0,0.10)",
-  cyan:       "#0882a8",
-  purple:     "#6d32cc",
   // Highest-conviction / CEO-pick marker — distinct from `accent` (routine
   // info/navigation blue) and from `amber` (caution). Reserved for the
   // single best idea on a page, not general emphasis.
@@ -69,8 +82,6 @@ export const THEME_DARK = {
   redLight:   "#eb98a0",   // mild/tentative bearish — lighter than `red`, for multi-tier bias scales
   amber:      "#f0a830",   // warm amber
   amberBg:    "rgba(240,168,48,0.13)",
-  cyan:       "#42c9d8",   // teal-cyan — softer
-  purple:     "#a57ff0",   // soft violet
   // Highest-conviction / CEO-pick marker — see THEME_LIGHT.gold for rationale.
   gold:       "#d6ac47",
   goldBg:     "rgba(214,172,71,0.14)",

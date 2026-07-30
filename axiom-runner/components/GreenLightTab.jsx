@@ -644,14 +644,14 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
 
               {/* Key stats */}
               <div style={card}>
-                {hdr("🏢", "KEY STATS", C.purple)}
+                {hdr("🏢", "KEY STATS", C.accent)}
                 {stats.map(([l, v]) => <Row key={l} l={l} v={v} />)}
               </div>
 
               {/* News */}
               {(d?.news?.length > 0 || glDeepLoad) && (
                 <div style={card}>
-                  {hdr("📰", "RECENT NEWS", C.cyan || "#06b6d4")}
+                  {hdr("📰", "RECENT NEWS", C.accent || "#06b6d4")}
                   {d?.news?.length ? d.news.map((n, i) => (
                     <a key={i} href={n.url || n.link || "#"} target="_blank" rel="noopener"
                       style={{ display: "block", fontFamily: SANS, fontSize: 12, color: C.textSec, textDecoration: "none", padding: "5px 0", borderBottom: `1px solid ${C.border}22`, lineHeight: 1.4 }}>

@@ -1041,7 +1041,7 @@ export default function EducationTab({ C, MONO, SANS }) {
         <div style={{ display:"grid", gridTemplateColumns:"360px 1fr", gap:14 }}>
           {/* Entry form */}
           <div style={{ ...card }}>
-            <div style={{ fontFamily:MONO, fontSize:12, fontWeight:900, color:C.cyan, marginBottom:12 }}>🧘 TODAY'S CHECK-IN</div>
+            <div style={{ fontFamily:MONO, fontSize:12, fontWeight:900, color:C.accent, marginBottom:12 }}>🧘 TODAY'S CHECK-IN</div>
             <div style={{ marginBottom:12 }}>
               <div style={{ fontFamily:MONO, fontSize:10, color:C.textDim, marginBottom:6 }}>MOOD</div>
               <div style={{ display:"flex", gap:8 }}>
@@ -1072,7 +1072,7 @@ export default function EducationTab({ C, MONO, SANS }) {
             <button onClick={() => {
               saveJournal([{ id:Date.now(), ...journalForm, ts:new Date().toISOString() }, ...journalEntries].slice(0,90));
               setJournalForm({ mood:"😊", focus:"5", discipline:"5", note:"" });
-            }} style={{ width:"100%", marginTop:10, background:C.cyan||C.accent, color:"#fff", border:"none", borderRadius:8,
+            }} style={{ width:"100%", marginTop:10, background:C.accent||C.accent, color:"#fff", border:"none", borderRadius:8,
               fontFamily:MONO, fontSize:12, fontWeight:700, padding:"10px", cursor:"pointer" }}>
               SAVE CHECK-IN
             </button>
