@@ -2,6 +2,15 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { C, MONO, SANS } from "./theme.js";
 import { computeScores } from "./trading-utils.js";
 import { STOCK_TO_SECTOR } from "./market-helpers.js";
+import { AI_ACTIONS } from "./ai-actions.js";
+
+// Display-label unification only (institutional redesign Phase 7,
+// 2026-07-30) — this file's own composite-score thresholds (sig/sig2/qs,
+// 72/55/40 cutoffs) are untouched and still drive color; only the word
+// shown to the user maps onto the shared AI_ACTIONS vocabulary. HOLD has
+// no direct AI_ACTIONS equivalent — same semantic slot as WATCH (no
+// strong signal either way), so it maps there.
+const actionLabel = (s) => s === "BUY" ? AI_ACTIONS.BUY.label : s === "HOLD" ? AI_ACTIONS.WATCH.label : s === "WATCH" ? AI_ACTIONS.WATCH.label : AI_ACTIONS.AVOID.label;
 
 export default function TerminalWorkspace({
   watchlistData, macroData, sectorData, newsData, alerts,
@@ -384,7 +393,7 @@ export default function TerminalWorkspace({
                         )}
                         <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: sigColor,
                           background: `${sigColor}18`, borderRadius: 3, padding: "1px 5px" }}>
-                          {sig}
+                          {actionLabel(sig)}
                         </span>
                       </div>
                     </div>
@@ -417,7 +426,7 @@ export default function TerminalWorkspace({
           <span style={{ fontFamily: MONO, fontSize: 15, color: C.text }}>${px2.toFixed(2)}</span>
           <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: chg2 >= 0 ? C.green : C.red }}>{chg2 >= 0 ? "+" : ""}{chg2.toFixed(2)}%</span>
           {rvolV > 1.5 && <span style={{ fontFamily: MONO, fontSize: 10, color: C.amber, background: `${C.amber}18`, borderRadius: 4, padding: "1px 6px", fontWeight: 700 }}>RVOL {rvolV.toFixed(1)}x</span>}
-          <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: sigCol2, background: `${sigCol2}18`, borderRadius: 4, padding: "1px 8px" }}>{sig2}</span>
+          <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: sigCol2, background: `${sigCol2}18`, borderRadius: 4, padding: "1px 8px" }}>{actionLabel(sig2)}</span>
           <div style={{ marginLeft: "auto", display: "flex", gap: 4 }}>
             {["1","5","15","60","D","W"].map(tf => (
               <button key={tf} onClick={() => setChartTf(tf)}
@@ -472,7 +481,7 @@ export default function TerminalWorkspace({
             <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: sigCol2, lineHeight: 1 }}>{scores2.composite}<span style={{ fontSize: 11, color: C.textDim }}>/100</span></div>
           </div>
           <div style={{ textAlign: "right" }}>
-            <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: sigCol2, background: `${sigCol2}18`, borderRadius: 5, padding: "3px 10px" }}>{sig2}</div>
+            <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: sigCol2, background: `${sigCol2}18`, borderRadius: 5, padding: "3px 10px" }}>{actionLabel(sig2)}</div>
             <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 3 }}>T:{scores2.tech} F:{scores2.fund} M:{scores2.macro}</div>
           </div>
         </div>
@@ -552,7 +561,7 @@ export default function TerminalWorkspace({
                     style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 0", borderBottom: `1px solid ${C.border}22`, cursor: "pointer" }}>
                     <div>
                       <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: q.symbol === selected.symbol ? C.accent : C.text }}>{q.symbol}</span>
-                      <span style={{ fontFamily: MONO, fontSize: 9, color: qcol, background: `${qcol}18`, borderRadius: 3, padding: "1px 4px", marginLeft: 5 }}>{qs}</span>
+                      <span style={{ fontFamily: MONO, fontSize: 9, color: qcol, background: `${qcol}18`, borderRadius: 3, padding: "1px 4px", marginLeft: 5 }}>{actionLabel(qs)}</span>
                     </div>
                     <span style={{ fontFamily: MONO, fontSize: 12, color: qc >= 0 ? C.green : C.red }}>{qc >= 0 ? "+" : ""}{qc.toFixed(1)}%</span>
                   </div>

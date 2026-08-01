@@ -3,6 +3,7 @@ import ColoredIntradayChart from "./ColoredIntradayChart.jsx";
 import SmartScanPanel from "./SmartScanPanel.jsx";
 import TrendSetupPanel from "./TrendSetupPanel.jsx";
 import { cardStyle, buttonChrome, colorForChange, formatPct } from "./ui-helpers.js";
+import { AI_ACTIONS } from "./ai-actions.js";
 
 // Intraday momentum scanner (scans 100+ stocks, top 15 by score — gap % /
 // RVOL / VWAP / opening-range breakout / 9-21 EMA stack on 15m, GET
@@ -86,9 +87,13 @@ export default function DayTradeTab({ C, MONO, SANS, onDeepDive }) {
             const G = "#0d9465", R = "#c8282a", GR = "#6b7280", PU = "#7c5cff";
             const trend = r.bull5 ? ["BULL", G] : (r.aboveVwap ? ["MIXED", "#d6a312"] : ["BEAR", R]);
             const risk = (r.bull5 && r.aboveVwap) ? ["ON", G] : ["OFF", GR];
-            const buy = (r.bull5 && r.aboveVwap && (r.orBreakout || (r.rvol || 0) >= 1.5)) ? ["READY", G] : ["WAIT", GR];
-            const exit = (!r.aboveVwap || !r.bull5) ? ["EXIT", R] : ["WAIT", GR];
-            const stop = ["WAIT", PU];
+            {/* Labels unified to the shared AI_ACTIONS vocabulary
+                (institutional redesign Phase 7, 2026-07-30) — same real
+                trigger logic, only the displayed word changed
+                (READY -> Buy, WAIT/EXIT already matched exactly). */}
+            const buy = (r.bull5 && r.aboveVwap && (r.orBreakout || (r.rvol || 0) >= 1.5)) ? [AI_ACTIONS.BUY.label, G] : [AI_ACTIONS.WAIT.label, GR];
+            const exit = (!r.aboveVwap || !r.bull5) ? [AI_ACTIONS.EXIT.label, R] : [AI_ACTIONS.WAIT.label, GR];
+            const stop = [AI_ACTIONS.WAIT.label, PU];
             const rvolCell = [(r.rvol == null ? "—" : r.rvol.toFixed(2)), (r.rvol || 0) >= 1.5 ? G : (r.rvol || 0) >= 1 ? "#d6a312" : R];
             const close = r.closeStrong ? ["STRONG", G] : ["WEAK", R];
             const cell = (label, val, col) => (

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { C, MONO, SANS } from "./theme.js";
+import { AI_ACTIONS } from "./ai-actions.js";
 
 // ─────────────────────────────────────────────────────────────────────────
 // REALITY CHECK — a self-contained floating overlay widget.
@@ -80,21 +81,28 @@ function positionVerdict(direction, flowBias, narrScore) {
       reason: "Not enough real options-flow data to grade this position — manage it by your own stop and plan.",
     };
   }
+  // Labels for the 3 "something needs to change" verdicts unified to the
+  // shared AI_ACTIONS vocabulary (institutional redesign Phase 7,
+  // 2026-07-30), restricted to its EXIT/REDUCE/WATCH subset — this is a
+  // position-management read, not a new-entry recommendation, so
+  // "Strong Buy"/"Accumulate" don't apply. UNKNOWN/HOLD below don't fit
+  // that subset (honest-null and "no action needed" aren't real AI_ACTIONS
+  // tiers) so they stay as this widget's own real concepts.
   if (support <= -40) {
     return {
-      verdict: "EXIT / REDUCE", color: C.red,
+      verdict: `${AI_ACTIONS.EXIT.label} / ${AI_ACTIONS.REDUCE.label}`, color: C.red,
       reason: `Real options flow has turned firmly against your ${direction.toLowerCase()} — the money is now leaning the other way.`,
     };
   }
   if (support < 0) {
     return {
-      verdict: "TIGHTEN STOP", color: C.amber,
+      verdict: `${AI_ACTIONS.REDUCE.label} · Tighten Stop`, color: C.amber,
       reason: `Real flow has softened against your ${direction.toLowerCase()} — not a red flag yet, but worth tightening risk.`,
     };
   }
   if (crowdSupport != null && crowdSupport >= 60 && support < 40) {
     return {
-      verdict: "WATCH CLOSELY", color: C.amber,
+      verdict: `${AI_ACTIONS.WATCH.label} Closely`, color: C.amber,
       reason: "The crowd is euphoric in your direction but real flow isn't confirming as strongly — euphoria without confirmation is a classic late-stage warning.",
     };
   }

@@ -4,6 +4,7 @@ import {
   computeScores, computeGreenLight, logTradeNote, addPaperTrade,
   addPaperOption, alpacaOption,
 } from "./trading-utils.js";
+import { AI_ACTIONS } from "./ai-actions.js";
 
 // ── 🤖 Ask Claude — real AI second-opinion on a setup (cheap Haiku call) ──
 // State lives in the parent (out/setOut props) so it survives card remounts.
@@ -316,8 +317,12 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
         <div style={{ background: sigBg(r.signal), border: `1px solid ${sigCol(r.signal)}44`,
           borderRadius: 8, padding: "6px 12px", textAlign: "center", minWidth: 80 }}>
           <div style={{ fontSize: 18 }}>{sigIcon(r.signal)}</div>
+          {/* Label unified to the shared AI_ACTIONS vocabulary
+              (institutional redesign Phase 7, 2026-07-30) — same real
+              GREEN/YELLOW/RED signal drives the color (sigCol/sigBg/sigIcon,
+              untouched), only the displayed word changed. */}
           <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 900, color: sigCol(r.signal) }}>
-            {r.signal === "GREEN" ? "GO" : r.signal === "YELLOW" ? "WAIT" : "SKIP"}
+            {r.signal === "GREEN" ? AI_ACTIONS.BUY.label : r.signal === "YELLOW" ? AI_ACTIONS.WAIT.label : AI_ACTIONS.AVOID.label}
           </div>
           <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{r.passed}/5</div>
         </div>
@@ -358,6 +363,10 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
           {(() => {
             const decision = r.aPlus ? "BUY" : (r.atEntry ? "WAIT" : "SKIP");
             const dCol = decision === "BUY" ? C.green : decision === "WAIT" ? C.amber : C.red;
+            // Display label unified to the shared AI_ACTIONS vocabulary
+            // (institutional redesign Phase 7, 2026-07-30) — `decision`
+            // itself is untouched, still drives dCol/comparisons below.
+            const decisionLabel = decision === "BUY" ? AI_ACTIONS.BUY.label : decision === "WAIT" ? AI_ACTIONS.WAIT.label : AI_ACTIONS.AVOID.label;
             const risk = r.aScore >= 95 ? "Very Low" : r.aScore >= 90 ? "Low" : r.aScore >= 85 ? "Medium" : "High";
             const reasons = [
               [r.marketPass, "Market regime green"],
@@ -372,7 +381,7 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
               <div style={{ marginTop: 10, background: `${dCol}0c`, border: `1px solid ${dCol}44`, borderRadius: 8, padding: "10px 12px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
                   <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em" }}>🤖 AI REVIEW</span>
-                  <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: dCol }}>{decision}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: dCol }}>{decisionLabel}</span>
                   <span style={{ fontFamily: MONO, fontSize: 11, color: C.textSec }}>Confidence <strong style={{ color: dCol }}>{r.aScore}%</strong></span>
                   <span style={{ fontFamily: MONO, fontSize: 11, color: C.textSec }}>Grade <strong style={{ color: dCol }}>{r.grade}</strong></span>
                   <span style={{ fontFamily: MONO, fontSize: 11, color: C.textSec }}>Risk <strong style={{ color: risk === "Very Low" || risk === "Low" ? C.green : risk === "Medium" ? C.amber : C.red }}>{risk}</strong></span>
