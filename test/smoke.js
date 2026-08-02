@@ -93,6 +93,36 @@ ok("aggregateSentimentForSymbol: honest neutral with no headlines", () => {
   assert.strictEqual(out.total, 0);
 });
 
+console.log("Checking gamma-exposure.js (Phase 2, options redesign)…");
+ok("computeGammaExposure: honest unavailable with no contracts or no underlying", () => {
+  const { computeGammaExposure } = require("../src/gamma-exposure");
+  assert.strictEqual(computeGammaExposure([], 100).available, false);
+  assert.strictEqual(computeGammaExposure([{ strike: 100, gamma: 0.05, openInterest: 10, type: "call" }], null).available, false);
+});
+ok("computeGammaExposure: honest unavailable when no contract has real gamma (e.g. Yahoo fallback chain)", () => {
+  const { computeGammaExposure } = require("../src/gamma-exposure");
+  const out = computeGammaExposure([{ strike: 100, gamma: null, openInterest: 500, type: "call" }], 100);
+  assert.strictEqual(out.available, false);
+  assert.ok(out.reason.includes("Polygon"), "reason should point at the real fix (a Polygon-sourced chain)");
+});
+ok("computeGammaExposure: real per-strike math, net GEX, flip point, call/put walls", () => {
+  const { computeGammaExposure } = require("../src/gamma-exposure");
+  const contracts = [
+    { strike: 95, gamma: 0.02, openInterest: 100, type: "call" },
+    { strike: 95, gamma: 0.03, openInterest: 50, type: "put" },
+    { strike: 100, gamma: 0.05, openInterest: 200, type: "call" },
+    { strike: 100, gamma: 0.05, openInterest: 200, type: "put" },
+    { strike: 105, gamma: 0.02, openInterest: 50, type: "call" },
+    { strike: 105, gamma: 0.05, openInterest: 300, type: "put" },
+  ];
+  const out = computeGammaExposure(contracts, 100);
+  assert.strictEqual(out.available, true);
+  assert.strictEqual(out.netGEX, -135000, "net GEX must be the exact sum of real per-strike call-minus-put contributions");
+  assert.strictEqual(out.callWall, 100, "call wall = strike with the largest real call gamma*OI contribution");
+  assert.strictEqual(out.putWall, 105, "put wall = strike with the largest real put gamma*OI contribution");
+  assert.ok(out.gammaFlipPoint > 100 && out.gammaFlipPoint < 105, "flip point must fall between the two strikes where cumulative GEX crosses zero");
+});
+
 console.log("Checking institutional-redesign presentation-layer modules (ESM, loaded via dynamic import)…");
 (async () => {
   const { AI_ACTIONS, mapToAiAction } = await import("../axiom-runner/components/ai-actions.js");

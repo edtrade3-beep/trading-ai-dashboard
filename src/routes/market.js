@@ -2,6 +2,7 @@ const { writeJson, readRequestBody, withTimeout, fetchJsonSafe, round2, average,
 const { callAnthropicApi, MODELS, anthropicRequest } = require("../anthropic");
 const { PORT, MARKET_QUOTE_TIMEOUT_MS, MACRO_SYMBOLS, TIMEFRAME_CONFIG, resolveProviderKeys } = require("../config");
 const { detectFVGs, detectOrderBlocks, detectBOSChoCh, detectLiquidityLevels } = require("../smc-engine");
+const { computeGammaExposure } = require("../gamma-exposure");
 const {
   computeEMA, computeRSI, computeVWAP,
   computeADX, computeDonchian, computeBollinger,
@@ -3103,6 +3104,84 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
     } catch (err) {
       console.error("[market/options] Polygon error:", err?.message);
       return writeJson(res, 502, { error: "Options data unavailable: " + err?.message });
+    }
+  }
+
+  // GET /api/market/gamma?symbol=AAPL — real dealer Gamma Exposure (GEX),
+  // options platform redesign Phase 2. Hard-gated on POLYGON_API_KEY + real
+  // per-contract gamma (Yahoo's fallback chain has none) — reuses the exact
+  // same 2-request Polygon fetch pattern /api/market/options already uses
+  // (underlying snapshot + first page of up to 250 contracts sorted by
+  // expiration_date) rather than an additional fetch, to stay inside
+  // Polygon's free-tier rate limit (5 req/min). That first page naturally
+  // covers the nearest-dated contracts across however many expiries fit in
+  // 250 rows (typically the next several weekly/monthly expiries) — a
+  // documented near-dated aggregation, not the full multi-expiry chain,
+  // since near-dated gamma is what actually dominates dealer hedging flow.
+  if (pathname === "/api/market/gamma" && req.method === "GET") {
+    const symbol = (searchParams.get("symbol") || "").trim().toUpperCase();
+    if (!symbol) return writeJson(res, 400, { error: "symbol required" });
+    const polyKey = process.env.POLYGON_API_KEY || "";
+
+    if (!polyKey) {
+      return writeJson(res, 200, {
+        ok: true, symbol, available: false,
+        reason: "Gamma data requires a real options chain with Greeks (Polygon) — unavailable without POLYGON_API_KEY.",
+        generatedAt: new Date().toISOString(),
+      });
+    }
+
+    try {
+      const PH = { "Accept": "application/json" };
+      const snapRes = await withTimeout(
+        fetch(`https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers/${symbol}?apiKey=${polyKey}`, { headers: PH }),
+        8000, null
+      );
+      const snapJson = snapRes?.ok ? await snapRes.json().catch(() => ({})) : {};
+      const underlying = round2(
+        snapJson?.ticker?.lastTrade?.p ||
+        snapJson?.ticker?.day?.c ||
+        snapJson?.ticker?.prevDay?.c || 0
+      );
+
+      const contractsUrl = `https://api.polygon.io/v3/snapshot/options/${symbol}?limit=250&sort=expiration_date&apiKey=${polyKey}`;
+      const contractsRes = await withTimeout(fetch(contractsUrl, { headers: PH }), 12000, null);
+      if (!contractsRes?.ok) {
+        const errBody = contractsRes ? await contractsRes.text().catch(() => "") : "timeout";
+        throw new Error(`Polygon returned ${contractsRes?.status || "timeout"}: ${errBody.slice(0, 120)}`);
+      }
+      const contractsJson = await contractsRes.json().catch(() => ({}));
+      const results = contractsJson?.results || [];
+
+      if (results.length === 0 || !underlying) {
+        return writeJson(res, 200, {
+          ok: true, symbol, available: false,
+          reason: `No real options chain data for ${symbol}.`,
+          generatedAt: new Date().toISOString(),
+        });
+      }
+
+      const normalized = results.map(r => ({
+        strike: Number(r.details?.strike_price),
+        gamma: r.greeks?.gamma != null ? Number(r.greeks.gamma) : null,
+        openInterest: Number(r.open_interest) || 0,
+        type: r.details?.contract_type,
+      }));
+
+      const expiriesInSample = [...new Set(results.map(r => r.details?.expiration_date).filter(Boolean))].sort();
+      const gex = computeGammaExposure(normalized, underlying);
+
+      return writeJson(res, 200, {
+        ok: true, symbol, underlying,
+        expirySampleRange: expiriesInSample.length ? { from: expiriesInSample[0], to: expiriesInSample[expiriesInSample.length - 1] } : null,
+        contractsSampled: results.length,
+        ...gex,
+        source: "polygon",
+        generatedAt: new Date().toISOString(),
+      });
+    } catch (err) {
+      console.error("[market/gamma] Polygon error:", err?.message);
+      return writeJson(res, 502, { error: "Gamma data unavailable: " + err?.message });
     }
   }
 
