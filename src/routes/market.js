@@ -3286,6 +3286,23 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
     return writeJson(res, 200, { ok: true, symbol, currentIv: Number.isFinite(currentIv) ? currentIv : null, ...result });
   }
 
+  // GET /api/market/iv-rank-batch?symbols=AAPL,TSLA,... — same real
+  // ivRankFor() as the single-symbol route above, but for many symbols at
+  // once WITHOUT a live fetchAtmIv() per symbol (that would be N live
+  // Polygon/Yahoo round trips — too expensive for the Scanner's ~100-name
+  // universe on every scan). Uses each symbol's real LAST-RECORDED daily
+  // snapshot from iv-history-store.js's already-accumulated log (a pure
+  // local read, zero new network calls) — Scanner's Phase 15 Low IV/High IV
+  // categories, options platform redesign.
+  if (pathname === "/api/market/iv-rank-batch" && req.method === "GET") {
+    const symbols = (searchParams.get("symbols") || "").split(",").map(s => s.trim().toUpperCase()).filter(Boolean).slice(0, 200);
+    if (!symbols.length) return writeJson(res, 400, { error: "symbols required" });
+    const { ivRankFor } = require("../iv-history-store");
+    const ranks = {};
+    for (const symbol of symbols) ranks[symbol] = ivRankFor(symbol, null);
+    return writeJson(res, 200, { ok: true, ranks });
+  }
+
   // GET /api/market/volatility?symbol=AAPL — Volatility Lab, options
   // platform redesign Phase 8. HV20/HV60/RV10 are pure math over real
   // daily bars (any provider, no Polygon needed). IV Rank/Percentile/Trend

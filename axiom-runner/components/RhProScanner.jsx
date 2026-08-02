@@ -10,6 +10,20 @@ import GapScanner from "./GapScanner.jsx";
 import DayTradeTab from "./DayTradeTab.jsx";
 import { BestOpportunities } from "./terminal-panels.jsx";
 import EarlyEntryScanner from "./EarlyEntryScanner.jsx";
+// Phase 15 (Scanner category additions, options platform redesign) — 6 of
+// the plan's 12 new categories fold in already-real, already-built
+// standalone tabs as-is (same embed pattern as Gap/Day Trade/Best
+// Opportunities/Early Entry above), 2 more (Short Squeeze, Insider Buying)
+// are self-fetching so need zero extra props; the other 4 (Options Sweep/
+// Dark Pool/Earnings/Sector Rotation) need their real already-computed
+// parent state threaded through from axiom-live.jsx (see this component's
+// new props below).
+import SqueezeTab from "./SqueezeTab.jsx";
+import InsiderTab from "./InsiderTab.jsx";
+import FlowTab from "./FlowTab.jsx";
+import DarkPoolTab from "./DarkPoolTab.jsx";
+import EarningsTab from "./EarningsTab.jsx";
+import RotationTab from "./RotationTab.jsx";
 // winProbFor/bucketOf/MIN_WIN_SAMPLE moved to market-helpers.js (2026-07-29)
 // so MarketTerminalTab's new AI Score Card can reuse the exact same real
 // win-probability lookup instead of re-deriving it independently.
@@ -71,9 +85,46 @@ const CATEGORIES = [
   // existing pivot/swing-high logic, applied to lows instead). Genuinely
   // missing category identified in the Green Light AI spec gap-audit.
   { id: "higherlows", label: "📶 Building Higher Lows" },
+  // Phase 15 (Scanner category additions) — genuinely missing categories
+  // per the plan's gap-audit. Relative Strength is a real, already-computed
+  // field (rsRating) just never its own sortable category before now.
+  // Low IV/High IV are real IV Rank buckets off iv-history-store.js's
+  // already-accumulated daily log (Phase 5/8), read via a new batch
+  // endpoint (GET /api/market/iv-rank-batch) that costs zero live fetches —
+  // pure local reads of the same real history the daily snapshot job
+  // already collects for this exact universe. The remaining 6 fold in
+  // already-real, already-built standalone tabs (Short Squeeze/Options
+  // Sweep/Dark Pool/Earnings/Insider Buying/Sector Rotation) rather than
+  // reimplementing any of their real data.
+  { id: "relstrength", label: "💪 Relative Strength" },
+  { id: "lowiv", label: "🔵 Low IV" },
+  { id: "highiv", label: "🔴 High IV" },
+  { id: "shortsqueeze", label: "🩳 Short Squeeze" },
+  { id: "optionssweep", label: "🌊 Options Sweep" },
+  { id: "darkpool", label: "🐋 Dark Pool" },
+  { id: "earnings", label: "💰 Earnings" },
+  { id: "insider", label: "🕴️ Insider Buying" },
+  { id: "sectorrotation", label: "🔁 Sector Rotation" },
 ];
 
-export default function RhProScanner({ C, MONO, SANS, macroData, sectorData, watchlistData, setActiveTab }) {
+// Categories that render an embedded standalone component instead of this
+// scanner's own ranked table — kept as one list so both the render-branch
+// and the "hide the table" exclusion below stay in sync automatically.
+const EMBEDDED_CATEGORIES = ["gap", "daytrade", "bestopp", "earlyentry", "shortsqueeze", "optionssweep", "darkpool", "earnings", "insider", "sectorrotation"];
+
+export default function RhProScanner({
+  C, MONO, SANS, macroData, sectorData, watchlistData, setActiveTab,
+  // Phase 15 — real already-computed parent state for the 4 folded tabs
+  // that aren't self-fetching (Options Sweep/Dark Pool/Earnings/Sector
+  // Rotation), threaded through unchanged from axiom-live.jsx's existing
+  // top-level state, same values those tabs' own standalone mounts use.
+  setTerminalSymbol, watchlistSymbols, setWatchlistSymbols,
+  optionsFlow, flowBias, flowCallNotional, flowPutNotional, flowFilters, setFlowFilters,
+  setLoading: setFlowLoading, fetchAll, apiKey, flowBySymbol, flowRows,
+  dpSym, setDpSym, dpLoad, setDpLoad, dpData, setDpData, dpErr, setDpErr,
+  earningsUpdatedAt, setEarningsRefreshTick, earningsLoading, earningsRows, setQuickLogModal,
+  rotationRank,
+}) {
   const regime = computeRegime(macroData);
   // "chart" and "plan" used to be two separate buttons/destinations —
   // "chart" opened Market Terminal, "plan" opened a standalone Trade
@@ -112,6 +163,13 @@ export default function RhProScanner({ C, MONO, SANS, macroData, sectorData, wat
   // needing a manual RESCAN.
   const [rawRows, setRawRows] = useState([]); const [loading, setLoading] = useState(false);
   const [err, setErr] = useState(""); const [filter, setFilter] = useState(60); const [ranAt, setRanAt] = useState(null);
+  // Real IV Rank per symbol (Phase 15's Low IV/High IV categories) — lazy-
+  // fetched only when one of those 2 categories is actually opened (never
+  // on every scan, since most sessions never touch this view), via the
+  // batch endpoint that reads iv-history-store.js's already-accumulated
+  // daily log with zero live fetches.
+  const [ivRanks, setIvRanks] = useState({});
+  const [ivRanksState, setIvRanksState] = useState("idle"); // idle | loading | ok | error
   // Real one-time handoff from the BESTOPP/BESTOPPORTUNITIES palette
   // redirect (axiom-live.jsx) — same localStorage-handoff convention
   // mterminal_load_sym already uses to pass a symbol across a tab switch.
@@ -206,6 +264,15 @@ export default function RhProScanner({ C, MONO, SANS, macroData, sectorData, wat
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rawRows, sectorPerfKey, regime?.score]);
 
+  useEffect(() => {
+    if ((category !== "lowiv" && category !== "highiv") || ivRanksState !== "idle") return;
+    setIvRanksState("loading");
+    fetch(`/api/market/iv-rank-batch?symbols=${RH_UNIVERSE.join(",")}`)
+      .then(r => r.json())
+      .then(d => { if (d?.ok) { setIvRanks(d.ranks || {}); setIvRanksState("ok"); } else setIvRanksState("error"); })
+      .catch(() => setIvRanksState("error"));
+  }, [category, ivRanksState]);
+
   // Category derivation — all real, all off fields the scan already returns.
   let categorized = rows;
   let categoryNote = null;
@@ -240,6 +307,18 @@ export default function RhProScanner({ C, MONO, SANS, macroData, sectorData, wat
   } else if (category === "higherlows") {
     categorized = rows.filter(r => r.higherLows);
     categoryNote = "Real swing-low sequence: each of the last 3 real swing lows is strictly above the one before it — the base is being built on rising support, not just consolidating.";
+  } else if (category === "relstrength") {
+    categorized = [...rows].filter(r => Number.isFinite(r.rsRating)).sort((a, b) => (b.rsRating || 0) - (a.rsRating || 0));
+    categoryNote = "Sorted by real RS Rating (vs SPY, same field every other real card in this app already uses), highest first.";
+  } else if (category === "lowiv" || category === "highiv") {
+    categorized = [...rows]
+      .filter(r => ivRanks[r.symbol]?.available)
+      .sort((a, b) => category === "lowiv"
+        ? (ivRanks[a.symbol].rank - ivRanks[b.symbol].rank)
+        : (ivRanks[b.symbol].rank - ivRanks[a.symbol].rank));
+    categoryNote = ivRanksState === "loading"
+      ? "Loading real IV Rank history…"
+      : `Real IV Rank (0-100, off iv-history-store.js's accumulated daily log) — ${category === "lowiv" ? "lowest" : "highest"} first. Symbols without ≥10 real trading days of history yet are excluded (honestly still "building").`;
   }
   let shown = category === "all" ? categorized.filter(r => filter === "buy" ? r.atBuyPoint : r.score >= filter) : categorized;
   if (search.trim()) {
@@ -303,8 +382,37 @@ export default function RhProScanner({ C, MONO, SANS, macroData, sectorData, wat
         <EarlyEntryScanner watchlistData={watchlistData} macroData={macroData} sectorData={sectorData}
           onSelectSymbol={(sym) => openChartWithPlan(sym)} />
       )}
+      {/* Phase 15 fold-ins — same real embed pattern as the 4 above, just
+          6 more already-real, already-built standalone tabs given a home
+          as Scanner categories instead of reimplementing any of their
+          real data/fetches. */}
+      {category === "shortsqueeze" && <SqueezeTab C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} />}
+      {category === "insider" && <InsiderTab C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} />}
+      {category === "optionssweep" && (
+        <FlowTab C={C} MONO={MONO} optionsFlow={optionsFlow} flowBias={flowBias}
+          flowCallNotional={flowCallNotional} flowPutNotional={flowPutNotional}
+          flowFilters={flowFilters} setFlowFilters={setFlowFilters} setLoading={setFlowLoading}
+          fetchAll={fetchAll} apiKey={apiKey}
+          flowBySymbol={flowBySymbol} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab}
+          setWatchlistSymbols={setWatchlistSymbols} watchlistSymbols={watchlistSymbols} flowRows={flowRows} />
+      )}
+      {category === "darkpool" && (
+        <DarkPoolTab C={C} MONO={MONO} SANS={SANS} dpSym={dpSym} setDpSym={setDpSym} dpLoad={dpLoad} setDpLoad={setDpLoad}
+          dpData={dpData} setDpData={setDpData} dpErr={dpErr} setDpErr={setDpErr}
+          setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
+      )}
+      {category === "earnings" && (
+        <EarningsTab C={C} MONO={MONO} SANS={SANS} earningsUpdatedAt={earningsUpdatedAt} setEarningsRefreshTick={setEarningsRefreshTick}
+          earningsLoading={earningsLoading} earningsRows={earningsRows}
+          watchlistSymbols={watchlistSymbols} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab}
+          setQuickLogModal={setQuickLogModal} setWatchlistSymbols={setWatchlistSymbols} />
+      )}
+      {category === "sectorrotation" && (
+        <RotationTab C={C} MONO={MONO} rotationRank={rotationRank} watchlistSymbols={watchlistSymbols}
+          setWatchlistSymbols={setWatchlistSymbols} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
+      )}
 
-      {category !== "gap" && category !== "daytrade" && category !== "bestopp" && category !== "earlyentry" && (
+      {!EMBEDDED_CATEGORIES.includes(category) && (
       <>
       {category === "all" && (
         <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
