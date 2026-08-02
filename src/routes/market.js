@@ -2,8 +2,8 @@ const { writeJson, readRequestBody, withTimeout, fetchJsonSafe, round2, average,
 const { callAnthropicApi, MODELS, anthropicRequest } = require("../anthropic");
 const { PORT, MARKET_QUOTE_TIMEOUT_MS, MACRO_SYMBOLS, TIMEFRAME_CONFIG, resolveProviderKeys } = require("../config");
 const { detectFVGs, detectOrderBlocks, detectBOSChoCh, detectLiquidityLevels } = require("../smc-engine");
-const { computeGammaExposure } = require("../gamma-exposure");
-const { rankContracts, interpretFlowRow } = require("../options-math");
+const { computeGammaExposure, computeGammaLabReads } = require("../gamma-exposure");
+const { rankContracts, interpretFlowRow, gammaSqueezeProbability } = require("../options-math");
 const {
   computeEMA, computeRSI, computeVWAP,
   computeADX, computeDonchian, computeBollinger,
@@ -3190,12 +3190,25 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
 
       const expiriesInSample = [...new Set(results.map(r => r.details?.expiration_date).filter(Boolean))].sort();
       const gex = computeGammaExposure(normalized, underlying);
+      // Gamma Lab derived reads (Phase 7) — Expected Pin/Magnet/Dealer Bias,
+      // all real extensions of the same gex output above, zero new fetches.
+      const labReads = computeGammaLabReads(gex, underlying);
+      // Gamma Squeeze Probability (Phase 5's real composite, options-math.js)
+      // needs real short-float % alongside gex — one extra real fetch,
+      // reused nowhere else on this route.
+      let gammaSqueezeProb = null;
+      try {
+        const shortInfo = await fetchYahooShortInterest(symbol);
+        gammaSqueezeProb = gammaSqueezeProbability({ gammaExposure: gex, shortFloatPct: shortInfo?.shortFloat, rvol: null });
+      } catch {}
 
       return writeJson(res, 200, {
         ok: true, symbol, underlying,
         expirySampleRange: expiriesInSample.length ? { from: expiriesInSample[0], to: expiriesInSample[expiriesInSample.length - 1] } : null,
         contractsSampled: results.length,
         ...gex,
+        ...labReads,
+        gammaSqueezeProbability: gammaSqueezeProb,
         source: "polygon",
         generatedAt: new Date().toISOString(),
       });

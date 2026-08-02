@@ -123,6 +123,32 @@ ok("computeGammaExposure: real per-strike math, net GEX, flip point, call/put wa
   assert.ok(out.gammaFlipPoint > 100 && out.gammaFlipPoint < 105, "flip point must fall between the two strikes where cumulative GEX crosses zero");
 });
 
+console.log("Checking computeGammaLabReads (Phase 7, Gamma Lab derived reads)…");
+ok("computeGammaLabReads: honest unavailable when the underlying GEX itself is unavailable", () => {
+  const { computeGammaLabReads } = require("../src/gamma-exposure");
+  const out = computeGammaLabReads({ available: false, reason: "No real per-contract gamma available." }, 100);
+  assert.strictEqual(out.available, false);
+  assert.ok(out.reason.includes("gamma"));
+});
+ok("computeGammaLabReads: real Expected Pin/Magnet/Dealer Bias derived from real GEX output", () => {
+  const { computeGammaExposure } = require("../src/gamma-exposure");
+  const { computeGammaLabReads } = require("../src/gamma-exposure");
+  const contracts = [
+    { strike: 95, gamma: 0.02, openInterest: 100, type: "call" },
+    { strike: 95, gamma: 0.03, openInterest: 50, type: "put" },
+    { strike: 100, gamma: 0.05, openInterest: 200, type: "call" },
+    { strike: 100, gamma: 0.05, openInterest: 200, type: "put" },
+    { strike: 105, gamma: 0.02, openInterest: 50, type: "call" },
+    { strike: 105, gamma: 0.05, openInterest: 300, type: "put" },
+  ];
+  const gex = computeGammaExposure(contracts, 100);
+  const labReads = computeGammaLabReads(gex, 100);
+  assert.strictEqual(labReads.available, true);
+  assert.ok([95, 100, 105].includes(labReads.expectedPin), "Expected Pin must be a real strike from the real chain, not an arbitrary number");
+  assert.strictEqual(labReads.expectedMagnet, gex.callWall, "underlying=100 is closer to the call wall (100) than the put wall (105) in this fixture");
+  assert.strictEqual(labReads.dealerBias.sign, "negative", "this fixture's real net GEX is negative (confirmed -135000 by the Phase 2 GEX test)");
+});
+
 console.log("Checking options-math.js Phase 5 additions (EV, contract ranking, squeeze/crush/assignment risk)…");
 ok("dteFromExpiry: real calendar-day math off a real expiry string", () => {
   const { dteFromExpiry } = require("../src/options-math");

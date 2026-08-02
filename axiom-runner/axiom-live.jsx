@@ -84,6 +84,7 @@ import NotesTab from "./components/NotesTab.jsx";
 import AutoExecPanel from "./components/AutoExecPanel.jsx";
 import CombinedTab from "./components/CombinedTab.jsx";
 import OptionsChainTab from "./components/OptionsChainTab.jsx";
+import GammaLabTab from "./components/GammaLabTab.jsx";
 import Under10Tab from "./components/Under10Tab.jsx";
 import RhProDashboard from "./components/RhProDashboard.jsx";
 import RhProScanner from "./components/RhProScanner.jsx";
@@ -4046,6 +4047,12 @@ export default function App() {
       // Compression alone (kept, real distinct VCP-style contraction scan)
       // already covers the real remaining half.
       OPTIONS: "options",
+      // Gamma Lab — options platform redesign Phase 7. Palette-only, same
+      // "supplementary tool, not a core 11-item sidebar slot" convention
+      // already used for CEO AI/Command Center — reachable here and from
+      // the AI Trade Card/Gamma Squeeze Probability reads that point to it.
+      GAMMALAB: "gamma-lab",
+      GAMMA: "gamma-lab",
       UNDER10: "under10",
       GAPFILL: "gapfill",
       SQUEEZE: "squeeze",
@@ -6230,6 +6237,10 @@ export default function App() {
             defaultSymbol={terminalSymbol || watchlistSymbols[0] || "AAPL"}
             onOpenTerminal={(sym) => { setTerminalSymbol(sym); try { localStorage.setItem("mterminal_load_sym", sym); } catch {} setActiveTab("mterminal"); }}
           />
+        )}
+
+        {activeTab === "gamma-lab" && (
+          <GammaLabTab C={C} MONO={MONO} SANS={SANS} defaultSymbol={terminalSymbol || watchlistSymbols[0] || "AAPL"} setActiveTab={setActiveTab} />
         )}
 
         {activeTab === "sec-filings" && (
