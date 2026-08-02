@@ -477,6 +477,90 @@ console.log("Checking institutional-redesign presentation-layer modules (ESM, lo
     assert.strictEqual(volRecommendation({}), "Insufficient Data");
   });
 
+  console.log("Checking strategy-selector.js (Phase 9, AI Strategy Selector)…");
+  ok("selectStrategy: trending bullish + low IV Rank -> Long Calls; + high IV Rank -> Bull Call Spread", () => {
+    const { selectStrategy } = require("../src/strategy-selector");
+    assert.strictEqual(selectStrategy({ bias: "Bullish", character: "Trending", ivRank: 20 }).strategy, "Long Calls");
+    assert.strictEqual(selectStrategy({ bias: "Bullish", character: "Trending", ivRank: 75 }).strategy, "Bull Call Spread");
+  });
+  ok("selectStrategy: trending bearish + low IV Rank -> Long Puts; + high IV Rank -> Bear Put Spread", () => {
+    const { selectStrategy } = require("../src/strategy-selector");
+    assert.strictEqual(selectStrategy({ bias: "Bearish", character: "Trending", ivRank: 20 }).strategy, "Long Puts");
+    assert.strictEqual(selectStrategy({ bias: "Bearish", character: "Trending", ivRank: 75 }).strategy, "Bear Put Spread");
+  });
+  ok("selectStrategy: range-bound + high IV Rank -> Iron Condor; + low IV Rank -> Avoid / Wait", () => {
+    const { selectStrategy } = require("../src/strategy-selector");
+    assert.strictEqual(selectStrategy({ bias: "Neutral", character: "Range", ivRank: 65 }).strategy, "Iron Condor");
+    assert.strictEqual(selectStrategy({ bias: "Neutral", character: "Range", ivRank: 20 }).strategy, "Avoid / Wait");
+  });
+  ok("selectStrategy: null IV Rank degrades to a directional-only pick, never guesses an IV regime", () => {
+    const { selectStrategy } = require("../src/strategy-selector");
+    assert.strictEqual(selectStrategy({ bias: "Bullish", character: "Trending", ivRank: null }).strategy, "Long Calls");
+  });
+  ok("selectStrategy: honest Wait for Confirmation for a real character with no defined rule (Volatile/Low Volatility)", () => {
+    const { selectStrategy } = require("../src/strategy-selector");
+    const out = selectStrategy({ bias: "Bullish", character: "Volatile", ivRank: 50 });
+    assert.strictEqual(out.strategy, "Wait for Confirmation");
+    assert.ok(out.reason.includes("Volatile"));
+  });
+
+  const callChain = [
+    { strike: 95, expiry: "2026-09-18", contractSymbol: "C95", bid: 6.0, ask: 6.4, lastPrice: 6.2, delta: 0.62, pop: 58, liquidityScore: 80, rankScore: 70 },
+    { strike: 100, expiry: "2026-09-18", contractSymbol: "C100", bid: 3.0, ask: 3.2, lastPrice: 3.1, delta: 0.48, pop: 50, liquidityScore: 85, rankScore: 75 },
+    { strike: 105, expiry: "2026-09-18", contractSymbol: "C105", bid: 1.2, ask: 1.4, lastPrice: 1.3, delta: 0.30, pop: 32, liquidityScore: 60, rankScore: 55 },
+    { strike: 110, expiry: "2026-09-18", contractSymbol: "C110", bid: 0.4, ask: 0.5, lastPrice: 0.45, delta: 0.14, pop: 15, liquidityScore: 45, rankScore: 30 },
+    { strike: 115, expiry: "2026-09-18", contractSymbol: "C115", bid: 0.1, ask: 0.15, lastPrice: 0.12, delta: 0.05, pop: 8, liquidityScore: 50, rankScore: 20 },
+  ];
+  const putChain = [
+    { strike: 85, expiry: "2026-09-18", contractSymbol: "P85", bid: 0.1, ask: 0.15, lastPrice: 0.12, delta: -0.05, pop: 8, liquidityScore: 50, rankScore: 20 },
+    { strike: 90, expiry: "2026-09-18", contractSymbol: "P90", bid: 0.5, ask: 0.6, lastPrice: 0.55, delta: -0.15, pop: 16, liquidityScore: 55, rankScore: 32 },
+    { strike: 95, expiry: "2026-09-18", contractSymbol: "P95", bid: 1.3, ask: 1.5, lastPrice: 1.4, delta: -0.30, pop: 33, liquidityScore: 60, rankScore: 55 },
+    { strike: 100, expiry: "2026-09-18", contractSymbol: "P100", bid: 3.1, ask: 3.3, lastPrice: 3.2, delta: -0.50, pop: 51, liquidityScore: 85, rankScore: 74 },
+  ];
+
+  ok("buildLegs: Long Calls picks the real highest-rankScore call, honest gate below the liquidity floor", () => {
+    const { buildLegs } = require("../src/strategy-selector");
+    const out = buildLegs("Long Calls", { calls: callChain, puts: putChain, underlying: 100 });
+    assert.strictEqual(out.available, true);
+    assert.strictEqual(out.legs[0].strike, 100, "rankScore 75 (strike 100) beats rankScore 70 (strike 95)");
+    assert.strictEqual(out.legs[0].action, "BUY");
+  });
+  ok("buildLegs: Bull Call Spread constructs a real 2-leg long+short with a real net debit", () => {
+    const { buildLegs } = require("../src/strategy-selector");
+    const out = buildLegs("Bull Call Spread", { calls: callChain, puts: putChain, underlying: 100 });
+    assert.strictEqual(out.available, true);
+    assert.strictEqual(out.legs.length, 2);
+    assert.strictEqual(out.legs[0].action, "BUY");
+    assert.strictEqual(out.legs[1].action, "SELL");
+    assert.ok(out.legs[1].strike > out.legs[0].strike, "short leg must be further OTM than the long leg");
+    assert.ok(out.netDebit > 0, "a bull call spread's real net debit must be positive");
+  });
+  ok("buildLegs: Iron Condor constructs a real 4-leg structure with a real net credit", () => {
+    const { buildLegs } = require("../src/strategy-selector");
+    const out = buildLegs("Iron Condor", { calls: callChain, puts: putChain, underlying: 100 });
+    assert.strictEqual(out.available, true);
+    assert.strictEqual(out.legs.length, 4);
+    assert.strictEqual(out.legs.filter(l => l.action === "SELL").length, 2);
+    assert.strictEqual(out.legs.filter(l => l.action === "BUY").length, 2);
+  });
+  ok("buildLegs: honest unavailable when a real leg's liquidity is below the fill-reasonably floor", () => {
+    const { buildLegs, MIN_LIQUIDITY } = require("../src/strategy-selector");
+    const thinChain = [
+      { strike: 100, expiry: "2026-09-18", contractSymbol: "C100", bid: 3.0, ask: 3.2, lastPrice: 3.1, delta: 0.48, pop: 50, liquidityScore: 85, rankScore: 75 },
+      // Only real OTM candidate is illiquid (liquidityScore 20 < MIN_LIQUIDITY) — must gate, not silently trade it.
+      { strike: 105, expiry: "2026-09-18", contractSymbol: "C105", bid: 1.2, ask: 1.4, lastPrice: 1.3, delta: 0.30, pop: 32, liquidityScore: 20, rankScore: 55 },
+    ];
+    const out = buildLegs("Bull Call Spread", { calls: thinChain, puts: putChain, underlying: 100 });
+    assert.strictEqual(out.available, false);
+    assert.ok(out.reason.includes("liquidity"));
+    assert.ok(MIN_LIQUIDITY > 20, "fixture's illiquid leg must actually be below the real floor");
+  });
+  ok("buildLegs: honest unavailable with no real underlying price", () => {
+    const { buildLegs } = require("../src/strategy-selector");
+    const out = buildLegs("Long Calls", { calls: callChain, puts: putChain, underlying: 0 });
+    assert.strictEqual(out.available, false);
+  });
+
   const { OPTIONS_ACTIONS, mapToOptionsAction, optionsExecutionNote } = await import("../axiom-runner/components/options-actions.js");
   ok("mapToOptionsAction: strong/regular call-buy and put-buy tiers match trade-signals' own bands", () => {
     assert.strictEqual(mapToOptionsAction({ score: 90, chgPct: 2 }), OPTIONS_ACTIONS.STRONG_CALL_BUY);

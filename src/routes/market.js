@@ -5,6 +5,7 @@ const { detectFVGs, detectOrderBlocks, detectBOSChoCh, detectLiquidityLevels } =
 const { computeGammaExposure, computeGammaLabReads } = require("../gamma-exposure");
 const { rankContracts, interpretFlowRow, gammaSqueezeProbability } = require("../options-math");
 const { computeHvRv, computeSkew, computeTermStructure, ivRankTrend, volRecommendation } = require("../volatility-lab");
+const { selectStrategy, buildLegs } = require("../strategy-selector");
 const {
   computeEMA, computeRSI, computeVWAP,
   computeADX, computeDonchian, computeBollinger,
@@ -3316,6 +3317,82 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
       source: polyKey ? "polygon" : "yahoo",
       generatedAt: new Date().toISOString(),
     });
+  }
+
+  // GET /api/market/strategy?symbol=AAPL&bias=Bullish&character=Trending&ivRank=45
+  // AI Strategy Selector, options platform redesign Phase 9. bias/character
+  // are real values the caller already computed via computeMarketBias
+  // (Phase 1, client-side market-helpers.js) — not re-derived server-side,
+  // to avoid a second regime formula silently diverging from the one the
+  // rest of the app already shows. ivRank is optional (Phase 8's real IV
+  // Rank, may be the honest "building" null). Fetches its own real ranked
+  // chain the same way /api/market/options does (Polygon-preferred,
+  // Yahoo-fallback, single nearest expiry) — the strategy-selector.js
+  // leg-construction math never touches score internals, only real
+  // strike/premium/delta/pop/liquidity fields this same chain already has.
+  if (pathname === "/api/market/strategy" && req.method === "GET") {
+    const symbol = (searchParams.get("symbol") || "").trim().toUpperCase();
+    if (!symbol) return writeJson(res, 400, { error: "symbol required" });
+    const bias = searchParams.get("bias") || null;
+    const character = searchParams.get("character") || null;
+    const ivRankParam = searchParams.get("ivRank");
+    const ivRank = ivRankParam != null && ivRankParam !== "null" ? Number(ivRankParam) : null;
+    if (!bias || !character) {
+      return writeJson(res, 400, { error: "bias and character required (from computeMarketBias)" });
+    }
+
+    const pick = selectStrategy({ bias, character, ivRank });
+    if (pick.strategy === "Wait for Confirmation" || pick.strategy === "Avoid / Wait") {
+      return writeJson(res, 200, { ok: true, symbol, ...pick, construction: { available: false, reason: "No strategy selected — no real legs to construct." }, generatedAt: new Date().toISOString() });
+    }
+
+    try {
+      const polyKey = process.env.POLYGON_API_KEY || "";
+      let underlying = 0, calls = [], puts = [];
+
+      if (polyKey) {
+        const PH = { "Accept": "application/json" };
+        const snapRes = await withTimeout(
+          fetch(`https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers/${symbol}?apiKey=${polyKey}`, { headers: PH }),
+          8000, null
+        );
+        const snapJson = snapRes?.ok ? await snapRes.json().catch(() => ({})) : {};
+        underlying = round2(snapJson?.ticker?.lastTrade?.p || snapJson?.ticker?.day?.c || snapJson?.ticker?.prevDay?.c || 0);
+
+        const contractsUrl = `https://api.polygon.io/v3/snapshot/options/${symbol}?limit=250&sort=expiration_date&apiKey=${polyKey}`;
+        const contractsRes = await withTimeout(fetch(contractsUrl, { headers: PH }), 12000, null);
+        if (contractsRes?.ok) {
+          const contractsJson = await contractsRes.json().catch(() => ({}));
+          const results = contractsJson?.results || [];
+          const expiryDates = [...new Set(results.map(r => r.details?.expiration_date).filter(Boolean))].sort();
+          const nearestExpiry = expiryDates[0];
+          const forExpiry = results.filter(r => r.details?.expiration_date === nearestExpiry);
+          const mapP = (r) => {
+            const d = r.details || {}, day = r.day || {}, greeks = r.greeks || {};
+            return {
+              contractSymbol: d.ticker || r.ticker || "", strike: round2(d.strike_price || 0),
+              lastPrice: round2(day.last_price || day.close || 0), bid: round2(r.last_quote?.bid || 0), ask: round2(r.last_quote?.ask || 0),
+              volume: Number(day.volume) || 0, openInterest: Number(r.open_interest) || 0,
+              iv: round2((r.implied_volatility || 0) * 100), expiry: d.expiration_date || nearestExpiry,
+              delta: greeks.delta != null ? round2(greeks.delta) : null,
+            };
+          };
+          calls = rankContracts(forExpiry.filter(r => r.details?.contract_type === "call").map(mapP), { underlying, isCall: true });
+          puts = rankContracts(forExpiry.filter(r => r.details?.contract_type === "put").map(mapP), { underlying, isCall: false });
+        }
+      } else {
+        const chain = await fetchYahooOptionsChain(symbol, null);
+        underlying = chain.underlying;
+        calls = rankContracts(chain.calls, { underlying, isCall: true });
+        puts = rankContracts(chain.puts, { underlying, isCall: false });
+      }
+
+      const construction = buildLegs(pick.strategy, { calls, puts, underlying });
+      return writeJson(res, 200, { ok: true, symbol, underlying, ...pick, construction, source: polyKey ? "polygon" : "yahoo", generatedAt: new Date().toISOString() });
+    } catch (err) {
+      console.error("[market/strategy] error:", err?.message);
+      return writeJson(res, 502, { error: "Strategy data unavailable: " + err?.message });
+    }
   }
 
   // GET /api/market/sec?symbol=AAPL — recent SEC filings from EDGAR RSS

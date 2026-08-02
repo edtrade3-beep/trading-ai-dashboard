@@ -19,7 +19,7 @@ import {
 import {
   computeAPlusScore, computeRegime, computePrediction, STOCK_TO_SECTOR, SECTOR_ETFS,
   computeInstitutionalGrade, institutionalLetterGrade, institutionalRecommendation, winProbFor, computeBullBearCase,
-  deriveTopLevelScores, computeAiTradeScore, computeInstitutionScore,
+  deriveTopLevelScores, computeAiTradeScore, computeInstitutionScore, computeMarketBias,
 } from "./market-helpers.js";
 import AiScoreExplainer, {
   AplusBadge, TRADE_SETUP_DIMENSIONS, STOCK_QUALITY_DIMENSIONS, INSTITUTIONAL_GRADE_DIMENSIONS,
@@ -29,10 +29,11 @@ import { stockQualityBreakdown } from "./rhpro-shared.jsx";
 import { mapToAiAction } from "./ai-actions.js";
 import SmartMoneyPanel from "./SmartMoneyPanel.jsx";
 import AiTradeCard from "./AiTradeCard.jsx";
+import StrategySelectorCard from "./StrategySelectorCard.jsx";
 
 // Combined Market-Terminal page: movers leaderboard on the left, pro chart with
 // AI overlays on the right. Click a mover → it loads in the chart.
-export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData, onDeepDive, setActiveTab }) {
+export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData, distData, onDeepDive, setActiveTab }) {
   const [lb, setLb] = useState(null);
   const [view, setView] = useState("moversUp");
   const [sym, setSym] = useState("NVDA");
@@ -786,6 +787,16 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
               gammaExposure={symGamma} shortFloatPct={symShortInterest?.shortFloat} rvol={symTrend?.volRatio}
               earningsDte={symTrend?.earningsDte} C={C} MONO={MONO} SANS={SANS}
             />
+          </div>
+        )}
+        {/* AI Strategy Selector — options platform redesign Phase 9.
+            Real Market Bias (computeMarketBias, Phase 1) computed here and
+            passed down so the server route never re-derives its own regime
+            formula. Self-contained beyond that: fetches its own real IV
+            Rank + strategy/legs. */}
+        {sym && (
+          <div style={{ marginBottom: 10 }}>
+            <StrategySelectorCard symbol={sym} marketBias={computeMarketBias({ macroData, distData })} C={C} MONO={MONO} SANS={SANS} />
           </div>
         )}
         {/* Real technical indicators — ADX (trend strength/direction),
