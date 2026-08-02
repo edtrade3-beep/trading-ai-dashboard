@@ -1913,7 +1913,21 @@ Return ONLY valid JSON, no markdown: {"firstName":"","customerEmail":"","custome
     const wl = (ctx.watchlist || []).slice(0, 40).join(", ");
     const pos = (ctx.positions || []).slice(0, 30).map(p => `${p.symbol} ${p.qty}@${p.avgEntry} (${p.unrealizedPL >= 0 ? "+" : ""}${Math.round(p.unrealizedPL)})`).join(", ");
     const setups = (ctx.setups || []).slice(0, 10).map(s => `${s.symbol} A+${s.aScore}`).join(", ");
+    // 3-tier Explain depth (Phase 16, options platform redesign) — a system-
+    // prompt instruction only, reusing this exact same real call rather than
+    // firing 3x for the 3 levels. Defaults to "intermediate" for any request
+    // that doesn't specify one (existing callers unaffected).
+    const depth = ["beginner", "intermediate", "professional"].includes(b.depth) ? b.depth : "intermediate";
+    const depthInstruction = {
+      beginner: "The user selected BEGINNER depth: explain like they're new to options — define any jargon (gamma, IV, open interest, etc.) in plain English the first time you use it, use simple analogies, keep it short.",
+      intermediate: "The user selected INTERMEDIATE depth (default): assume they know basic options terms (calls/puts/strike/expiry) but explain more advanced concepts (gamma exposure, IV rank, unusual flow) when they come up.",
+      professional: "The user selected PROFESSIONAL depth: skip basic definitions entirely, use precise terminology, get straight to the mechanics and the actionable read.",
+    }[depth];
     const system = `You are the user's trading copilot inside their platform. Be concise, direct, and practical — like a sharp trading desk colleague, not a chatbot. You can use web_search for anything time-sensitive (why a stock is moving today, latest news, earnings reactions), and run_scan to actually RUN a live scan of the platform's real tracked universe (find/filter/rank real stocks by price, score, or momentum — never guess a ticker or number from memory when run_scan can get you the real one). Always tie answers to their actual context below.
+
+You can also explain options concepts using this platform's own real features when asked (why a stock looks bullish/bearish, why calls vs puts, what a gamma squeeze is and how this platform's Gamma Lab reads one, what unusual options flow means and how this platform's Options Flow page flags it, what IV crush is and how this platform's Volatility Lab's IV Rank relates, what open interest means). Ground these explanations in the platform's real data/context above when it's relevant to the specific question, not just textbook theory.
+
+${depthInstruction}
 
 THEIR CONTEXT:
 - Account: $${ctx.account || "?"} · risk ${ctx.riskPct || 1}% per trade

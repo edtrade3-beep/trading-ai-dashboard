@@ -11,6 +11,12 @@ export default function TradingCopilot({ C, MONO, SANS, macroData, watchlistSymb
   const [positions, setPositions] = useState([]);
   const [setups, setSetups] = useState([]);
   const [queuedQuery, setQueuedQuery] = useState(null);
+  // 3-tier Explain depth (Phase 16) — persisted like the other real per-
+  // browser prefs this app already keeps in localStorage (axiom_acct_size/
+  // axiom_risk_pct above), so it sticks across sessions instead of
+  // resetting to intermediate every time the panel reopens.
+  const [depth, setDepth] = useState(() => localStorage.getItem("axiom_copilot_depth") || "intermediate");
+  useEffect(() => { try { localStorage.setItem("axiom_copilot_depth", depth); } catch {} }, [depth]);
   const endRef = useRef(null);
   useEffect(() => { if (open) fetch("/api/alpaca/positions").then(r => r.json()).then(d => { if (d?.ok) setPositions(d.positions || []); }).catch(() => {}); }, [open]);
   // The system prompt (src/routes/market.js POST /api/market/ai-copilot)
@@ -81,7 +87,7 @@ export default function TradingCopilot({ C, MONO, SANS, macroData, watchlistSymb
       positions,
       setups,
     };
-    fetch("/api/market/ai-copilot", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: next, context: ctx }) })
+    fetch("/api/market/ai-copilot", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: next, context: ctx, depth }) })
       .then(async r => {
         const ct = r.headers.get("content-type") || "";
         if (!ct.includes("application/json")) {
@@ -111,7 +117,18 @@ export default function TradingCopilot({ C, MONO, SANS, macroData, watchlistSymb
       {open && (
         <div style={{ position: "fixed", bottom: 82 + statusBarH, right: 18, zIndex: 9999, width: "min(400px, 92vw)", height: "min(560px, 78vh)",
           display: "flex", flexDirection: "column", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 14, boxShadow: "0 10px 40px rgba(0,0,0,0.4)", overflow: "hidden" }}>
-          <div style={{ padding: "12px 14px", borderBottom: `1px solid ${C.border}`, fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.accent }}>🗣️ TRADING COPILOT <span style={{ fontFamily: SANS, fontSize: 10, fontWeight: 400, color: C.textDim }}>· knows your watchlist & positions</span></div>
+          <div style={{ padding: "12px 14px", borderBottom: `1px solid ${C.border}` }}>
+            <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.accent, marginBottom: 8 }}>🗣️ TRADING COPILOT <span style={{ fontFamily: SANS, fontSize: 10, fontWeight: 400, color: C.textDim }}>· knows your watchlist & positions</span></div>
+            {/* Explain depth (Phase 16) — a system-prompt instruction only,
+                same real call, not 3x the calls. */}
+            <div style={{ display: "flex", gap: 4 }}>
+              {[["beginner", "Beginner"], ["intermediate", "Intermediate"], ["professional", "Pro"]].map(([v, l]) => (
+                <button key={v} onClick={() => setDepth(v)} title="Explain depth for options-education answers"
+                  style={{ flex: 1, fontFamily: SANS, fontSize: 10, fontWeight: 700, padding: "4px 6px", borderRadius: 6, cursor: "pointer",
+                    border: `1px solid ${depth === v ? C.accent : C.border}`, background: depth === v ? C.accent : C.surface, color: depth === v ? "#fff" : C.textDim }}>{l}</button>
+              ))}
+            </div>
+          </div>
           <div style={{ flex: 1, overflowY: "auto", padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
             {msgs.length === 0 && (
               <div>
