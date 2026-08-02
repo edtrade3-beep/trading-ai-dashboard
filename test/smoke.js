@@ -754,6 +754,32 @@ console.log("Checking institutional-redesign presentation-layer modules (ESM, lo
     assert.strictEqual(out.netGamma, null);
   });
 
+  console.log("Checking watchlist-institutional-alerts.js (Phase 14, Gamma Breakout + Volume Spike)…");
+  const { gammaFlipSide, volumeSpikeTriggered } = require("../src/watchlist-institutional-alerts");
+  ok("gammaFlipSide: real above/below read off price vs the real gamma flip point", () => {
+    assert.strictEqual(gammaFlipSide(105, 100), "above");
+    assert.strictEqual(gammaFlipSide(95, 100), "below");
+    assert.strictEqual(gammaFlipSide(100, 100), "above", "exactly at the flip point counts as above (>=), a documented tie-break not a guess");
+  });
+  ok("gammaFlipSide: honest null when either real input isn't a finite number", () => {
+    assert.strictEqual(gammaFlipSide(null, 100), null);
+    assert.strictEqual(gammaFlipSide(105, NaN), null);
+    assert.strictEqual(gammaFlipSide(105, undefined), null);
+  });
+  ok("volumeSpikeTriggered: real edge-trigger only fires crossing INTO a spike, not while already elevated", () => {
+    assert.strictEqual(volumeSpikeTriggered(1.5, 3.5), true, "real prior 1.5x -> real current 3.5x crosses the 3.0x band");
+    assert.strictEqual(volumeSpikeTriggered(3.2, 3.5), false, "already above threshold last check — not a new crossing");
+    assert.strictEqual(volumeSpikeTriggered(1.5, 2.0), false, "current still below threshold");
+  });
+  ok("volumeSpikeTriggered: honest false with no real prior baseline (first-ever check seeds silently)", () => {
+    assert.strictEqual(volumeSpikeTriggered(undefined, 5.0), false);
+    assert.strictEqual(volumeSpikeTriggered(NaN, 5.0), false);
+  });
+  ok("volumeSpikeTriggered: real custom threshold is respected", () => {
+    assert.strictEqual(volumeSpikeTriggered(1.0, 2.2, 2.0), true);
+    assert.strictEqual(volumeSpikeTriggered(1.0, 1.8, 2.0), false);
+  });
+
   const { OPTIONS_ACTIONS, mapToOptionsAction, optionsExecutionNote } = await import("../axiom-runner/components/options-actions.js");
   ok("mapToOptionsAction: strong/regular call-buy and put-buy tiers match trade-signals' own bands", () => {
     assert.strictEqual(mapToOptionsAction({ score: 90, chgPct: 2 }), OPTIONS_ACTIONS.STRONG_CALL_BUY);

@@ -14,6 +14,10 @@ const CATEGORY_META = {
   "options-flow-unusual": { label: "OPTIONS FLOW", icon: "⚡", color: "#d6a312" },
   "earnings-released": { label: "EARNINGS", icon: "💰", color: "#0d9465" },
   "news-sentiment-change": { label: "SENTIMENT", icon: "📣", color: "#c8282a" },
+  // Phase 14 of the options platform redesign (2026-08-03) — 2 more real
+  // categories added to the same watchlist-institutional-alerts.js checker.
+  "gamma-breakout": { label: "GAMMA BREAKOUT", icon: "🧲", color: "#7c5cff" },
+  "volume-spike": { label: "VOLUME SPIKE", icon: "📊", color: "#0d9465" },
 };
 
 function InstitutionalAlertsHistoryCard({ C, MONO, setTerminalSymbol, setActiveTab }) {

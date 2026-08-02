@@ -19,6 +19,22 @@
 //      negative (the date has now passed).
 //   5. news-sentiment-change — real StockTwits net sentiment (bullPct -
 //      bearPct) swings by 30+ points since the last check.
+//   6. gamma-breakout — real dealer gamma-flip-point crossing (Phase 14 of
+//      the options platform redesign, 2026-08-03) — src/gamma-exposure.js's
+//      real GEX, extracted from the /api/market/gamma route into a shared
+//      fetchGammaForSymbol() so this file doesn't duplicate the real 2-
+//      request Polygon fetch pattern. Hard-gated on POLYGON_API_KEY, same
+//      honest-unavailable convention as the route itself. Paced ~24s/symbol
+//      (2 Polygon requests per symbol, spread to stay under the documented
+//      5 req/min free-tier limit noted in gamma-exposure.js's own route) —
+//      a full watchlist sweep fits comfortably inside the 15-min cycle.
+//   7. volume-spike — real RVOL crossing into "huge institutional interest"
+//      territory (>=3.0x, the same real band screenTrendTemplate's own
+//      score already uses) — promoted from what was previously only a
+//      confirmation GATE on the price-target alert (price-alert-monitor.js's
+//      VOL_CONFIRM) into its own standalone, edge-triggered signal. Zero
+//      new fetch — reuses the real volRatio already returned by the same
+//      batched screenWatchlistCached scan category 1/4 above already calls.
 "use strict";
 
 const path = require("node:path");
@@ -34,6 +50,28 @@ const HISTORY_PATH = path.join(ROOT, "data", "watchlist-institutional-history.js
 const HISTORY_MAX = 200;
 const FLOW_ALERT_MIN_NOTIONAL = 250_000; // matches NewsAlertTape's own default "alert-worthy" flow threshold
 const SENTIMENT_SWING_THRESHOLD = 30; // net bullPct-bearPct points
+const VOLUME_SPIKE_THRESHOLD = 3.0; // matches screenTrendTemplate's own "RVOL >= 3.0 — huge institutional interest" band
+const GAMMA_CHECK_SPACING_MS = 24_000; // ~2 Polygon requests/symbol, stays under the documented 5 req/min free-tier limit
+
+function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
+
+// Real gamma-flip-point side — 'above'/'below' the real flip point, or null
+// when either input isn't a real finite number (gamma unavailable for this
+// symbol). Pure so it's independently testable.
+function gammaFlipSide(price, gammaFlipPoint) {
+  if (!Number.isFinite(price) || !Number.isFinite(gammaFlipPoint)) return null;
+  return price >= gammaFlipPoint ? "above" : "below";
+}
+
+// Real volume-spike edge-trigger — fires only on the crossing INTO a real
+// spike (current real RVOL >= threshold, with a real known prior RVOL below
+// it), never on every check while volume stays elevated, and never on the
+// very first check for a symbol (no real baseline yet). Pure so it's
+// independently testable.
+function volumeSpikeTriggered(lastVolRatio, volRatio, threshold = VOLUME_SPIKE_THRESHOLD) {
+  if (!Number.isFinite(volRatio) || !Number.isFinite(lastVolRatio)) return false;
+  return volRatio >= threshold && lastVolRatio < threshold;
+}
 
 function loadState() {
   return readJsonSafe(STORE_PATH, {});
@@ -64,14 +102,14 @@ async function checkWatchlistInstitutionalAlerts() {
   const { symbols } = loadWatchlist();
   if (!Array.isArray(symbols) || !symbols.length) return { ok: true, checked: 0, alerts: [] };
 
-  let screenWatchlistCached, fetchOptionsFlow, fetchDarkPoolPrints;
+  let screenWatchlistCached, fetchOptionsFlow, fetchDarkPoolPrints, fetchGammaForSymbol;
   try {
-    ({ screenWatchlistCached, fetchOptionsFlow, fetchDarkPoolPrints } = require("./routes/market"));
+    ({ screenWatchlistCached, fetchOptionsFlow, fetchDarkPoolPrints, fetchGammaForSymbol } = require("./routes/market"));
   } catch { return { ok: false, checked: 0, alerts: [] }; }
 
   const prev = loadState();
   const next = { ...prev };
-  const smartMoney = [], darkPool = [], optionsFlow = [], earnings = [], sentiment = [];
+  const smartMoney = [], darkPool = [], optionsFlow = [], earnings = [], sentiment = [], volumeSpike = [], gammaBreakout = [];
 
   // 1 & 4: smart-money-detected + earnings-released — one shared batched
   // scan, same real engine every other real scanner on this platform uses.
@@ -100,6 +138,13 @@ async function checkWatchlistInstitutionalAlerts() {
       earnings.push({ symbol, price: row.price });
     }
     if (dte != null) next[symbol].earningsDte = dte;
+
+    // 7: volume-spike — real RVOL from the same batched scan, zero new fetch.
+    const volRatio = Number.isFinite(row.volRatio) ? row.volRatio : null;
+    if (volRatio != null && volumeSpikeTriggered(last.volRatio, volRatio)) {
+      volumeSpike.push({ symbol, volRatio, price: row.price });
+    }
+    if (volRatio != null) next[symbol].volRatio = volRatio;
   }
 
   // 2 & 3: dark-pool-spike + options-flow-unusual — real per-symbol fetches,
@@ -137,6 +182,29 @@ async function checkWatchlistInstitutionalAlerts() {
         }
       }
       next[symbol].flowSeenIds = unusual.map((c) => `${c.side}${c.strike}${c.expiry}`).slice(0, 40);
+    }
+  }
+
+  // 6: gamma-breakout — real dealer gamma-flip-point crossing. Hard-gated
+  // on POLYGON_API_KEY (fetchGammaForSymbol itself honestly no-ops without
+  // one) — skip the whole loop rather than pay for N honest-unavailable
+  // round trips when there's no real key configured.
+  if (keys.polygon) {
+    for (const symbol of symbols) {
+      const last = prev[symbol] || {};
+      next[symbol] = next[symbol] || { ...last };
+      const gamma = await fetchGammaForSymbol(symbol).catch(() => null);
+      if (gamma?.available !== false && Number.isFinite(gamma?.underlying) && Number.isFinite(gamma?.gammaFlipPoint)) {
+        const side = gammaFlipSide(gamma.underlying, gamma.gammaFlipPoint);
+        // Real prior baseline required (last.gammaSide !== undefined) —
+        // first-ever check seeds silently, same convention as every other
+        // category in this file.
+        if (side && last.gammaSide !== undefined && last.gammaSide !== side) {
+          gammaBreakout.push({ symbol, side, price: gamma.underlying, flipPoint: gamma.gammaFlipPoint });
+        }
+        next[symbol].gammaSide = side;
+      }
+      await sleep(GAMMA_CHECK_SPACING_MS);
     }
   }
 
@@ -182,13 +250,22 @@ async function checkWatchlistInstitutionalAlerts() {
   await send("news-sentiment-change", "📣 *SENTIMENT SHIFT*", sentiment,
     (a) => `${a.symbol}: net sentiment ${a.from >= 0 ? "+" : ""}${a.from} → ${a.to >= 0 ? "+" : ""}${a.to} (${a.label})`,
     (a) => `Net sentiment ${a.from >= 0 ? "+" : ""}${a.from} → ${a.to >= 0 ? "+" : ""}${a.to} (${a.label})`);
+  await send("gamma-breakout", "🧲 *GAMMA BREAKOUT*", gammaBreakout,
+    (a) => `${a.symbol}: crossed ${a.side} the real gamma flip point ($${a.flipPoint.toFixed(2)}) — now $${a.price.toFixed(2)}`,
+    (a) => `Crossed ${a.side} the real gamma flip point ($${a.flipPoint.toFixed(2)}) — now $${a.price.toFixed(2)}`);
+  await send("volume-spike", "📊 *VOLUME SPIKE*", volumeSpike,
+    (a) => `${a.symbol}: RVOL ${a.volRatio.toFixed(1)}× — huge institutional interest, $${Number(a.price).toFixed(2)}`,
+    (a) => `RVOL ${a.volRatio.toFixed(1)}× — huge institutional interest, $${Number(a.price).toFixed(2)}`);
 
   appendHistory(historyEntries);
 
   return {
     ok: true, checked: symbols.length,
-    alerts: { smartMoney, darkPool, optionsFlow, earnings, sentiment },
+    alerts: { smartMoney, darkPool, optionsFlow, earnings, sentiment, gammaBreakout, volumeSpike },
   };
 }
 
-module.exports = { checkWatchlistInstitutionalAlerts, getHistory: loadHistory };
+module.exports = {
+  checkWatchlistInstitutionalAlerts, getHistory: loadHistory,
+  gammaFlipSide, volumeSpikeTriggered, // exposed for smoke test fixtures
+};

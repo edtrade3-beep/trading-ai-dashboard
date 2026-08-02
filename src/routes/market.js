@@ -372,6 +372,85 @@ async function fetchDarkPoolPrints(symbol) {
   }
 }
 
+// Real dealer Gamma Exposure (GEX) for one symbol — extracted from the
+// /api/market/gamma route body so watchlist-institutional-alerts.js's real
+// gamma-breakout alert (Phase 14 of the options platform redesign) can
+// share the exact same real 2-request Polygon fetch + computeGammaExposure
+// call instead of a second copy. Hard-gated on POLYGON_API_KEY + real
+// per-contract gamma — honest {ok:true, available:false, reason} (never a
+// guess) without a key or without a real chain for this symbol.
+async function fetchGammaForSymbol(symbol) {
+  const polyKey = process.env.POLYGON_API_KEY || "";
+  if (!polyKey) {
+    return {
+      ok: true, symbol, available: false,
+      reason: "Gamma data requires a real options chain with Greeks (Polygon) — unavailable without POLYGON_API_KEY.",
+      generatedAt: new Date().toISOString(),
+    };
+  }
+
+  const PH = { "Accept": "application/json" };
+  const snapRes = await withTimeout(
+    fetch(`https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers/${symbol}?apiKey=${polyKey}`, { headers: PH }),
+    8000, null
+  );
+  const snapJson = snapRes?.ok ? await snapRes.json().catch(() => ({})) : {};
+  const underlying = round2(
+    snapJson?.ticker?.lastTrade?.p ||
+    snapJson?.ticker?.day?.c ||
+    snapJson?.ticker?.prevDay?.c || 0
+  );
+
+  const contractsUrl = `https://api.polygon.io/v3/snapshot/options/${symbol}?limit=250&sort=expiration_date&apiKey=${polyKey}`;
+  const contractsRes = await withTimeout(fetch(contractsUrl, { headers: PH }), 12000, null);
+  if (!contractsRes?.ok) {
+    const errBody = contractsRes ? await contractsRes.text().catch(() => "") : "timeout";
+    throw new Error(`Polygon returned ${contractsRes?.status || "timeout"}: ${errBody.slice(0, 120)}`);
+  }
+  const contractsJson = await contractsRes.json().catch(() => ({}));
+  const results = contractsJson?.results || [];
+
+  if (results.length === 0 || !underlying) {
+    return {
+      ok: true, symbol, available: false,
+      reason: `No real options chain data for ${symbol}.`,
+      generatedAt: new Date().toISOString(),
+    };
+  }
+
+  const normalized = results.map(r => ({
+    strike: Number(r.details?.strike_price),
+    gamma: r.greeks?.gamma != null ? Number(r.greeks.gamma) : null,
+    openInterest: Number(r.open_interest) || 0,
+    type: r.details?.contract_type,
+  }));
+
+  const expiriesInSample = [...new Set(results.map(r => r.details?.expiration_date).filter(Boolean))].sort();
+  const gex = computeGammaExposure(normalized, underlying);
+  // Gamma Lab derived reads (Phase 7) — Expected Pin/Magnet/Dealer Bias,
+  // all real extensions of the same gex output above, zero new fetches.
+  const labReads = computeGammaLabReads(gex, underlying);
+  // Gamma Squeeze Probability (Phase 5's real composite, options-math.js)
+  // needs real short-float % alongside gex — one extra real fetch, reused
+  // nowhere else on this route.
+  let gammaSqueezeProb = null;
+  try {
+    const shortInfo = await fetchYahooShortInterest(symbol);
+    gammaSqueezeProb = gammaSqueezeProbability({ gammaExposure: gex, shortFloatPct: shortInfo?.shortFloat, rvol: null });
+  } catch {}
+
+  return {
+    ok: true, symbol, underlying,
+    expirySampleRange: expiriesInSample.length ? { from: expiriesInSample[0], to: expiriesInSample[expiriesInSample.length - 1] } : null,
+    contractsSampled: results.length,
+    ...gex,
+    ...labReads,
+    gammaSqueezeProbability: gammaSqueezeProb,
+    source: "polygon",
+    generatedAt: new Date().toISOString(),
+  };
+}
+
 async function fetchOptionsFlow(symbols, options = {}) {
   const limit = Math.max(3, Math.min(60, Number(options?.limit || 20)));
   const flowType = String(options?.flowType || "all").toLowerCase();
@@ -3179,77 +3258,9 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
   if (pathname === "/api/market/gamma" && req.method === "GET") {
     const symbol = (searchParams.get("symbol") || "").trim().toUpperCase();
     if (!symbol) return writeJson(res, 400, { error: "symbol required" });
-    const polyKey = process.env.POLYGON_API_KEY || "";
-
-    if (!polyKey) {
-      return writeJson(res, 200, {
-        ok: true, symbol, available: false,
-        reason: "Gamma data requires a real options chain with Greeks (Polygon) — unavailable without POLYGON_API_KEY.",
-        generatedAt: new Date().toISOString(),
-      });
-    }
-
     try {
-      const PH = { "Accept": "application/json" };
-      const snapRes = await withTimeout(
-        fetch(`https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers/${symbol}?apiKey=${polyKey}`, { headers: PH }),
-        8000, null
-      );
-      const snapJson = snapRes?.ok ? await snapRes.json().catch(() => ({})) : {};
-      const underlying = round2(
-        snapJson?.ticker?.lastTrade?.p ||
-        snapJson?.ticker?.day?.c ||
-        snapJson?.ticker?.prevDay?.c || 0
-      );
-
-      const contractsUrl = `https://api.polygon.io/v3/snapshot/options/${symbol}?limit=250&sort=expiration_date&apiKey=${polyKey}`;
-      const contractsRes = await withTimeout(fetch(contractsUrl, { headers: PH }), 12000, null);
-      if (!contractsRes?.ok) {
-        const errBody = contractsRes ? await contractsRes.text().catch(() => "") : "timeout";
-        throw new Error(`Polygon returned ${contractsRes?.status || "timeout"}: ${errBody.slice(0, 120)}`);
-      }
-      const contractsJson = await contractsRes.json().catch(() => ({}));
-      const results = contractsJson?.results || [];
-
-      if (results.length === 0 || !underlying) {
-        return writeJson(res, 200, {
-          ok: true, symbol, available: false,
-          reason: `No real options chain data for ${symbol}.`,
-          generatedAt: new Date().toISOString(),
-        });
-      }
-
-      const normalized = results.map(r => ({
-        strike: Number(r.details?.strike_price),
-        gamma: r.greeks?.gamma != null ? Number(r.greeks.gamma) : null,
-        openInterest: Number(r.open_interest) || 0,
-        type: r.details?.contract_type,
-      }));
-
-      const expiriesInSample = [...new Set(results.map(r => r.details?.expiration_date).filter(Boolean))].sort();
-      const gex = computeGammaExposure(normalized, underlying);
-      // Gamma Lab derived reads (Phase 7) — Expected Pin/Magnet/Dealer Bias,
-      // all real extensions of the same gex output above, zero new fetches.
-      const labReads = computeGammaLabReads(gex, underlying);
-      // Gamma Squeeze Probability (Phase 5's real composite, options-math.js)
-      // needs real short-float % alongside gex — one extra real fetch,
-      // reused nowhere else on this route.
-      let gammaSqueezeProb = null;
-      try {
-        const shortInfo = await fetchYahooShortInterest(symbol);
-        gammaSqueezeProb = gammaSqueezeProbability({ gammaExposure: gex, shortFloatPct: shortInfo?.shortFloat, rvol: null });
-      } catch {}
-
-      return writeJson(res, 200, {
-        ok: true, symbol, underlying,
-        expirySampleRange: expiriesInSample.length ? { from: expiriesInSample[0], to: expiriesInSample[expiriesInSample.length - 1] } : null,
-        contractsSampled: results.length,
-        ...gex,
-        ...labReads,
-        gammaSqueezeProbability: gammaSqueezeProb,
-        source: "polygon",
-        generatedAt: new Date().toISOString(),
-      });
+      const result = await fetchGammaForSymbol(symbol);
+      return writeJson(res, result.ok ? 200 : 502, result);
     } catch (err) {
       console.error("[market/gamma] Polygon error:", err?.message);
       return writeJson(res, 502, { error: "Gamma data unavailable: " + err?.message });
@@ -4470,4 +4481,5 @@ module.exports.fetchMarketQuotes = fetchMarketQuotes; // exposed for the same jo
 module.exports.buildTrendTemplate = buildTrendTemplate; // exposed for trailing-stops.js's real-position invalidation check — { light: true } skips bars/series but keeps setup.sellSignals
 module.exports.fetchOptionsFlow = fetchOptionsFlow; // exposed for watchlist-institutional-alerts.js's real options-flow-unusual alert (Phase 5)
 module.exports.fetchDarkPoolPrints = fetchDarkPoolPrints; // exposed for the same file's real dark-pool-spike alert
+module.exports.fetchGammaForSymbol = fetchGammaForSymbol; // exposed for the same file's real gamma-breakout alert (Phase 14)
 module.exports.screenWatchlistCached = screenWatchlistCached; // exposed for the 3 watchlist-*-alerts.js background jobs (CTO audit item #4) — shared cache, not for live/manual-refresh routes
