@@ -150,6 +150,37 @@ async function handleAiHub(req, res, requestUrl) {
     return writeJson(res, 200, snapshot);
   }
 
+  // GET /api/ai-hub/risk-lab — real VaR95/99 + regression beta + portfolio
+  // volatility on the account's actual live Alpaca positions
+  // (src/risk-lab-calc.js's computeRiskLab, already built for
+  // command-center-ai.js's narrative but never exposed as its own
+  // queryable snapshot before this). Risk Engine composite, options
+  // platform redesign Phase 13. Same "needs a real historical-bars fetch
+  // per held symbol, so button-gated rather than auto-polled" discipline
+  // the correlation route right below already uses.
+  if (pathname === "/api/ai-hub/risk-lab" && req.method === "GET") {
+    const posResp = await getJson("/api/alpaca/positions");
+    if (!posResp || !posResp.ok) return writeJson(res, 200, { ok: false, reason: "no-alpaca-key" });
+    const positions = posResp.positions || [];
+    if (!positions.length) return writeJson(res, 200, { ok: true, riskLab: null, reason: "no-open-positions" });
+    try {
+      const { fetchYahooBars } = require("../providers/yahoo");
+      const { computeRiskLab } = require("../risk-lab-calc");
+      const normPositions = positions.map(p => ({ symbol: p.symbol, shares: Math.abs(Number(p.qty) || 0), currentPrice: Number(p.current || p.avgEntry) || 0, avgCost: Number(p.avgEntry) || 0 }));
+      const symbols = [...new Set(normPositions.map(p => p.symbol))];
+      const [barsResults, spyBars] = await Promise.all([
+        Promise.all(symbols.map(s => fetchYahooBars(s, "3mo", "1d").catch(() => null))),
+        fetchYahooBars("SPY", "3mo", "1d").catch(() => null),
+      ]);
+      const barsBySymbol = {};
+      symbols.forEach((s, i) => { barsBySymbol[s] = barsResults[i] || []; });
+      const riskLab = computeRiskLab(normPositions, barsBySymbol, spyBars);
+      return writeJson(res, 200, { ok: true, riskLab, computedAt: new Date().toISOString() });
+    } catch (e) {
+      return writeJson(res, 200, { ok: false, error: e.message });
+    }
+  }
+
   // GET /api/ai-hub/portfolio-correlation — real correlation/sector/factor
   // analysis on the account's actual live Alpaca positions. Deliberately
   // NOT part of risk-snapshot (which PortfolioRiskCard polls every 60s) —

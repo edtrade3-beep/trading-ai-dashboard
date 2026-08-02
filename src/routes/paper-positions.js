@@ -38,12 +38,15 @@ async function repriceOne(position) {
           Number(r.details?.strike_price) === Number(position.strike)
         );
         if (match) {
-          const day = match.day || {};
+          const day = match.day || {}, g = match.greeks || {};
           contract = {
             lastPrice: round2(day.last_price || day.close || 0),
             bid: round2(match.last_quote?.bid || 0), ask: round2(match.last_quote?.ask || 0),
             iv: round2((match.implied_volatility || 0) * 100),
-            delta: match.greeks?.delta != null ? round2(match.greeks.delta) : null,
+            delta: g.delta != null ? round2(g.delta) : null,
+            gamma: g.gamma != null ? round2(g.gamma) : null,
+            theta: g.theta != null ? round2(g.theta) : null,
+            vega: g.vega != null ? round2(g.vega) : null,
           };
         }
       }
@@ -52,7 +55,8 @@ async function repriceOne(position) {
       underlying = chain.underlying;
       const pool = position.type === "call" ? chain.calls : chain.puts;
       const match = (pool || []).find(c => Number(c.strike) === Number(position.strike));
-      if (match) contract = { lastPrice: match.lastPrice, bid: match.bid, ask: match.ask, iv: match.iv, delta: null };
+      // Yahoo's chain has no greeks — honest null, never a guess.
+      if (match) contract = { lastPrice: match.lastPrice, bid: match.bid, ask: match.ask, iv: match.iv, delta: null, gamma: null, theta: null, vega: null };
     }
   } catch (err) {
     console.error("[paper-positions] reprice fetch error:", err?.message);
@@ -67,7 +71,11 @@ async function repriceOne(position) {
     { ...position, currentPremium: premium },
     { ivRank: null, daysToEarnings: null, delta: contract.delta }
   );
-  return updatePositionPricing(position.id, { currentPremium: premium, currentUnderlying: underlying, exitSignals });
+  // Real per-contract Greeks (Polygon-only, honest null on Yahoo fallback)
+  // — persisted so Phase 13's portfolio-level Greeks aggregation can sum
+  // them across open positions with zero new fetches.
+  const greeks = { delta: contract.delta, gamma: contract.gamma, theta: contract.theta, vega: contract.vega };
+  return updatePositionPricing(position.id, { currentPremium: premium, currentUnderlying: underlying, exitSignals, greeks });
 }
 
 function serialize(position) {

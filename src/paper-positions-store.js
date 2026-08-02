@@ -64,6 +64,10 @@ function openPosition({ symbol, type, strike, expiry, contractSymbol, qty, entry
     exitPremium: null,
     exitDate: null,
     exitReason: null,
+    // Real per-contract Greeks, populated on first real reprice (Polygon-
+    // only, honest null until then / on Yahoo fallback) — Phase 13's
+    // portfolio Greeks aggregation.
+    greeks: null,
   };
   positions.push(position);
   saveStore(positions);
@@ -93,7 +97,7 @@ function closePosition(id, { exitPremium, exitReason } = {}) {
 // signals. Never invents a price when the real fetch failed — callers
 // simply skip the update for that position rather than call this with a
 // guessed value.
-function updatePositionPricing(id, { currentPremium, currentUnderlying, exitSignals } = {}) {
+function updatePositionPricing(id, { currentPremium, currentUnderlying, exitSignals, greeks } = {}) {
   const positions = loadPositions();
   const idx = positions.findIndex(p => p.id === id);
   if (idx === -1) return null;
@@ -102,6 +106,7 @@ function updatePositionPricing(id, { currentPremium, currentUnderlying, exitSign
     currentPremium: currentPremium != null ? Number(currentPremium) : positions[idx].currentPremium,
     currentUnderlying: currentUnderlying != null ? Number(currentUnderlying) : positions[idx].currentUnderlying,
     exitSignals: exitSignals ?? positions[idx].exitSignals,
+    greeks: greeks !== undefined ? greeks : positions[idx].greeks,
     lastPriced: new Date().toISOString(),
   };
   saveStore(positions);

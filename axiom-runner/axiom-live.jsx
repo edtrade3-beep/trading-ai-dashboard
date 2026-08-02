@@ -6346,7 +6346,7 @@ export default function App() {
           <div style={{ padding: "16px 20px", maxWidth: 700, margin: "0 auto", display: "flex", flexDirection: "column", gap: 12 }}>
             <PortfolioSnapshotCard C={C} MONO={MONO} SANS={SANS} />
             <ActivePositionsCard C={C} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
-            <PortfolioRiskCard C={C} MONO={MONO} SANS={SANS} />
+            <PortfolioRiskCard C={C} MONO={MONO} SANS={SANS} distData={distData} />
           </div>
         )}
 
@@ -6386,7 +6386,7 @@ export default function App() {
               {/* Portfolio Risk + A+ Score Track — moved out of MORE, same
                   reasoning: these are both performance/risk-health cards,
                   a natural fit right below Mission Status. */}
-              <PortfolioRiskCard C={C} MONO={MONO} SANS={SANS} />
+              <PortfolioRiskCard C={C} MONO={MONO} SANS={SANS} distData={distData} />
               <AplusScoreTrackCard C={C} MONO={MONO} SANS={SANS} />
               {/* My Performance — moved off Market Terminal (2026-07-25, user
                   request), same reasoning as the two cards above: a real

@@ -701,6 +701,59 @@ console.log("Checking institutional-redesign presentation-layer modules (ESM, lo
     assert.strictEqual(evaluateRotation(open, { symbol: "NVDA", quality: 85 }, { minImprovement: 10 }), null);
   });
 
+  console.log("Checking risk-composite.js (Phase 13, Risk Engine composite / Portfolio AI)…");
+  const { computeCompositeRiskScore, aggregatePortfolioGreeks } = await import("../axiom-runner/components/risk-composite.js");
+  ok("computeCompositeRiskScore: honest null with zero real dimensions available", () => {
+    const out = computeCompositeRiskScore({});
+    assert.strictEqual(out.score, null);
+    assert.strictEqual(out.dimensionsUsed, 0);
+  });
+  ok("computeCompositeRiskScore: single real dimension (open risk only) still produces a real weighted score", () => {
+    const out = computeCompositeRiskScore({ riskSnapshot: { openRiskPct: 0, topPositionPct: null } });
+    assert.strictEqual(out.dimensionsUsed, 1);
+    assert.strictEqual(out.score, 100, "0% open risk against the 6% cap is a perfect real safety score");
+    assert.strictEqual(out.label, "Low Risk");
+  });
+  ok("computeCompositeRiskScore: real blend across all 5 dimensions when every real input is present", () => {
+    const out = computeCompositeRiskScore({
+      riskSnapshot: { openRiskPct: 3, topPositionPct: 20 },
+      riskLab: { totalValue: 10000, var95: 400 },
+      correlation: { clusters: [{ a: "AAPL", b: "MSFT", correlation: 0.8 }] },
+      marketRiskScore: 30,
+    });
+    assert.strictEqual(out.dimensionsUsed, 5);
+    assert.ok(out.score > 0 && out.score < 100);
+  });
+  ok("computeCompositeRiskScore: high real open-risk% + concentration correctly drags the score into a lower band", () => {
+    const out = computeCompositeRiskScore({ riskSnapshot: { openRiskPct: 6, topPositionPct: 40 } });
+    assert.strictEqual(out.score, 0);
+    assert.strictEqual(out.label, "High Risk");
+  });
+  ok("aggregatePortfolioGreeks: honest unavailable with no open positions", () => {
+    assert.strictEqual(aggregatePortfolioGreeks([]).available, false);
+    assert.strictEqual(aggregatePortfolioGreeks(null).available, false);
+  });
+  ok("aggregatePortfolioGreeks: honest unavailable when no open position has real Greeks yet", () => {
+    const out = aggregatePortfolioGreeks([{ symbol: "AAPL", qty: 1, greeks: null }, { symbol: "TSLA", qty: 1, greeks: { delta: null, gamma: null, theta: null, vega: null } }]);
+    assert.strictEqual(out.available, false);
+  });
+  ok("aggregatePortfolioGreeks: real qty×100-weighted sum across open positions with real Greeks", () => {
+    const out = aggregatePortfolioGreeks([
+      { symbol: "AAPL", qty: 2, greeks: { delta: 0.5, gamma: 0.02, theta: -0.1, vega: 0.15 } },
+      { symbol: "TSLA", qty: 1, greeks: { delta: -0.3, gamma: 0.01, theta: -0.05, vega: 0.1 } },
+    ]);
+    assert.strictEqual(out.available, true);
+    assert.strictEqual(out.positionsWithGreeks, 2);
+    assert.strictEqual(out.netDelta, 2 * 0.5 * 100 + 1 * -0.3 * 100);
+    assert.strictEqual(out.netTheta, 2 * -0.1 * 100 + 1 * -0.05 * 100);
+  });
+  ok("aggregatePortfolioGreeks: real partial-availability skip — a position missing one Greek doesn't zero out the others' real sum", () => {
+    const out = aggregatePortfolioGreeks([{ symbol: "AAPL", qty: 1, greeks: { delta: 0.4, gamma: null, theta: null, vega: null } }]);
+    assert.strictEqual(out.available, true);
+    assert.strictEqual(out.netDelta, 40);
+    assert.strictEqual(out.netGamma, null);
+  });
+
   const { OPTIONS_ACTIONS, mapToOptionsAction, optionsExecutionNote } = await import("../axiom-runner/components/options-actions.js");
   ok("mapToOptionsAction: strong/regular call-buy and put-buy tiers match trade-signals' own bands", () => {
     assert.strictEqual(mapToOptionsAction({ score: 90, chgPct: 2 }), OPTIONS_ACTIONS.STRONG_CALL_BUY);
