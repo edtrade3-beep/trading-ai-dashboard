@@ -104,6 +104,16 @@ function MarketRegimeCard({ C, MONO, SANS, macroData, distData, factors, bias, b
           </div>
         </div>
       )}
+      {/* AI Market Summary — options platform redesign, second spec pass
+          (2026-08-02): "one sentence explaining today's market." A
+          templated one-liner over marketBias's own real fields — zero new
+          computation, same "free, deterministic, not an AI call" framing
+          as every other "AI ___" label already in this app. */}
+      {marketBias.bias && (
+        <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, marginBottom: 8, padding: "0 2px", lineHeight: 1.4 }}>
+          🧭 {marketBias.bias} market, {marketBias.confidence}% confidence, {marketBias.character.toLowerCase()}{strategyHint ? ` — favors ${strategyHint.toLowerCase()}` : ""}.
+        </div>
+      )}
       {aPlus.pct != null && (
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontFamily: MONO, fontSize: 11, color: C.textSec, marginBottom: 8, padding: "0 2px" }}>
           <span>A+ MARKET SCORE</span>

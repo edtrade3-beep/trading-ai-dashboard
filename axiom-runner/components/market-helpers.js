@@ -528,6 +528,87 @@ export function computeAiTradeScore({ row, optionsFlow, darkPool, newsSentiment,
   return { score, breakdown, reasons, recommendation };
 }
 
+// Institution Score — options platform redesign Phase 4 (spec: "combine
+// Dark Pools, Option Sweeps, Blocks, Open Interest, Call/Put Ratio, 13F
+// Filings, Insider Transactions into one Institution Score 0-100" with
+// Accumulation/Distribution/Aggressive Buying/Aggressive Selling labels).
+// A NEW standalone composite, distinct from computeAiTradeScore (Phase 3)
+// — that score uses dark pool/options flow as 2 of 10 general trade-quality
+// inputs; this is a dedicated "what is institutional money doing right
+// now" read, combining real signals scattered across separate app
+// surfaces that were never combined into one score before.
+//
+// Real 13F-derived institutional position data: confirmed real via
+// fetchYahooInstitutional() (src/providers/yahoo.js, already wired to
+// GET /api/market/insider's `institutional` field) — each real institution
+// row carries a real per-institution share-count `change` since its last
+// filing. Real-time ETF flow direction, by contrast, genuinely isn't
+// available (Yahoo's fund-ownership data has no `change` field, only a
+// snapshot) — the `disclosure` field below says so explicitly rather than
+// silently omitting it.
+export function computeInstitutionScore({ darkPool, optionsFlow, insiderData, shortInterest } = {}) {
+  // Dark pool (0-30) — real block-print notional magnitude (same source/
+  // cap as computeAiTradeScore's Dark Pool dimension, reused not re-derived).
+  const darkPoolNotional = (darkPool?.prints || []).reduce((s, p) => s + (Number(p.value) || 0), 0);
+  const darkPoolPts = darkPool ? Math.round(Math.max(0, Math.min(1, darkPoolNotional / 20_000_000)) * 30) : 15;
+
+  // Options flow (0-25) — real call/put notional skew (same source as
+  // computeInstitutionalGrade's Options Flow dimension).
+  const callN = Number(optionsFlow?.callNotional), putN = Number(optionsFlow?.putNotional);
+  const flowTotal = (Number.isFinite(callN) ? callN : 0) + (Number.isFinite(putN) ? putN : 0);
+  const flowRatio = flowTotal > 0 ? callN / flowTotal : null;
+  const flowPts = flowRatio != null ? Math.round(flowRatio * 25) : 12;
+
+  // Insider transactions (0-20) — real Form 4 buy-vs-sell dollar notional
+  // skew over the real recent transactions list.
+  const txns = insiderData?.insiderTransactions?.transactions || [];
+  const buyVal = txns.filter(t => t.type === "BUY").reduce((s, t) => s + (Number(t.value) || 0), 0);
+  const sellVal = txns.filter(t => t.type === "SELL").reduce((s, t) => s + (Number(t.value) || 0), 0);
+  const insiderTotal = buyVal + sellVal;
+  const insiderRatio = insiderTotal > 0 ? buyVal / insiderTotal : null;
+  const insiderPts = insiderRatio != null ? Math.round(insiderRatio * 20) : 10;
+
+  // 13F-derived institutional position change (0-15) — real net
+  // share-count change across the real institutions Yahoo reports,
+  // normalized -1..1 (net selling..net buying) then rescaled to 0-15.
+  const institutions = insiderData?.institutional?.institutions || [];
+  const netChange = institutions.reduce((s, i) => s + (Number(i.change) || 0), 0);
+  const totalAbsChange = institutions.reduce((s, i) => s + Math.abs(Number(i.change) || 0), 0);
+  const instRatio = totalAbsChange > 0 ? (netChange / totalAbsChange + 1) / 2 : null;
+  const instPts = instRatio != null ? Math.round(Math.max(0, Math.min(1, instRatio)) * 15) : 8;
+
+  // Short interest cross-check (0-10) — real shares-short vs. prior month
+  // (falling short interest = real covering/accumulation signal, rising =
+  // real distribution signal).
+  const sharesShort = Number(shortInterest?.sharesShort), sharesShortPrior = Number(shortInterest?.sharesShortPrior);
+  const shortChangePct = (Number.isFinite(sharesShort) && Number.isFinite(sharesShortPrior) && sharesShortPrior > 0)
+    ? ((sharesShort - sharesShortPrior) / sharesShortPrior) * 100 : null;
+  const shortPts = shortChangePct != null ? Math.round(Math.max(0, Math.min(1, (10 - shortChangePct) / 20)) * 10) : 5;
+
+  const breakdown = { darkPoolPts, flowPts, insiderPts, instPts, shortPts };
+  const score = Math.max(0, Math.min(100, Object.values(breakdown).reduce((a, b) => a + b, 0)));
+
+  let label;
+  if (score >= 80) label = "Aggressive Buying";
+  else if (score >= 60) label = "Accumulation";
+  else if (score <= 20) label = "Aggressive Selling";
+  else if (score <= 40) label = "Distribution";
+  else label = "Neutral";
+
+  const reasons = [
+    darkPool ? (darkPoolNotional > 0 ? `$${(darkPoolNotional / 1e6).toFixed(1)}M in real dark pool block prints` : "No real block prints above $500K") : "Dark pool data unavailable",
+    flowRatio != null ? `Real options flow ${Math.round(flowRatio * 100)}% call-weighted notional` : "Options flow data unavailable",
+    insiderTotal > 0 ? `Real insider transactions ${Math.round(insiderRatio * 100)}% buy-weighted ($${(insiderTotal / 1e6).toFixed(1)}M total)` : "No real recent insider transactions",
+    institutions.length ? `Real 13F-derived institutional position change: ${netChange >= 0 ? "+" : ""}${netChange.toLocaleString()} shares net across ${institutions.length} reporting institutions` : "No real institutional position-change data",
+    shortChangePct != null ? `Real short interest ${shortChangePct >= 0 ? "+" : ""}${shortChangePct.toFixed(1)}% vs. prior month` : "Short interest data unavailable",
+  ];
+
+  return {
+    score, breakdown, label, reasons,
+    disclosure: "Real-time ETF flow data isn't available — not included in this score.",
+  };
+}
+
 // Letter-grade read for computeInstitutionalGrade's 0-100 score — a
 // bond/institutional-rating style label (distinct visual language from the
 // numeric-only Stock Quality/Trade Setup badges) since this score is

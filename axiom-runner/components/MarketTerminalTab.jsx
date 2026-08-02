@@ -19,7 +19,7 @@ import {
 import {
   computeAPlusScore, computeRegime, computePrediction, STOCK_TO_SECTOR, SECTOR_ETFS,
   computeInstitutionalGrade, institutionalLetterGrade, institutionalRecommendation, winProbFor, computeBullBearCase,
-  deriveTopLevelScores, computeAiTradeScore,
+  deriveTopLevelScores, computeAiTradeScore, computeInstitutionScore,
 } from "./market-helpers.js";
 import AiScoreExplainer, {
   AplusBadge, TRADE_SETUP_DIMENSIONS, STOCK_QUALITY_DIMENSIONS, INSTITUTIONAL_GRADE_DIMENSIONS,
@@ -226,11 +226,16 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   const [symDarkPool, setSymDarkPool] = useState(null);
   const [symNewsSentiment, setSymNewsSentiment] = useState(null);
   const [symGamma, setSymGamma] = useState(null);
+  // Institution Score input (Phase 4) — real shares-short vs. prior month,
+  // same real Yahoo-sourced field short-interest tools elsewhere in this
+  // app already use.
+  const [symShortInterest, setSymShortInterest] = useState(null);
   useEffect(() => {
     if (!sym) return;
-    setSymDarkPool(null); setSymNewsSentiment(null); setSymGamma(null);
+    setSymDarkPool(null); setSymNewsSentiment(null); setSymGamma(null); setSymShortInterest(null);
     fetch(`/api/market/darkpool?symbol=${encodeURIComponent(sym)}`).then(r => r.json()).then(j => setSymDarkPool(j?.ok ? j : null)).catch(() => {});
     fetch(`/api/market/gamma?symbol=${encodeURIComponent(sym)}`).then(r => r.json()).then(j => setSymGamma(j?.ok ? j : null)).catch(() => {});
+    fetch(`/api/market/short-interest?tickers=${encodeURIComponent(sym)}`).then(r => r.json()).then(j => setSymShortInterest(j?.ok ? (j.results || [])[0] || null : null)).catch(() => {});
     fetch(`/api/market/news?tickers=${encodeURIComponent(sym)}&limit=20`).then(r => r.json())
       .then(j => {
         // /api/market/news returns a bare array of {title, publisher, ...} — see fetchMarketNews, routes/market.js.
@@ -385,6 +390,17 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   // Phase 4's Option Recommender will wire a real one in.
   const aiTradeScore = symTrend ? computeAiTradeScore({
     row: symTrend, optionsFlow: symOptionsFlow, darkPool: symDarkPool, newsSentiment: symNewsSentiment, gammaExposure: symGamma,
+  }) : null;
+
+  // Institution Score (options platform redesign, Phase 4) — "what is
+  // institutional money doing right now," combining real dark pool +
+  // options flow + insider transactions + 13F-derived institutional
+  // position change + short interest into one score. symInsider already
+  // carries both real insider transactions AND real 13F-derived
+  // institutional data (fetchYahooInstitutional) from the existing fetch
+  // above — no duplicate fetch needed for that part.
+  const institutionScore = symOptionsFlow || symDarkPool || symInsider || symShortInterest ? computeInstitutionScore({
+    darkPool: symDarkPool, optionsFlow: symOptionsFlow, insiderData: symInsider, shortInterest: symShortInterest,
   }) : null;
 
   // Bull Case / Bear Case — free, deterministic (2026-07-29, "use free
@@ -701,6 +717,32 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
               </span>
             </div>
           </button>
+        )}
+        {/* Institution Score — options platform redesign, Phase 4. "What is
+            institutional money doing right now": real dark pool + options
+            flow + insider transactions + 13F-derived institutional
+            position change + short interest, combined into one score with
+            an honest disclosure of the one real gap (real-time ETF flow
+            data isn't available). */}
+        {institutionScore && (
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10,
+            border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 14px", marginBottom: 10, background: C.card }}
+            title={institutionScore.reasons.join(" · ")}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div>
+                <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.5 }}>INSTITUTION SCORE — hover for real signals</div>
+                <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: institutionScore.score >= 60 ? C.green : institutionScore.score <= 40 ? C.red : C.amber }}>
+                  {institutionScore.score}<span style={{ fontSize: 12, color: C.textDim }}> /100</span>
+                </div>
+              </div>
+              <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "5px 10px", borderRadius: 6,
+                background: institutionScore.score >= 60 ? `${C.green}18` : institutionScore.score <= 40 ? `${C.red}18` : `${C.amber}18`,
+                color: institutionScore.score >= 60 ? C.green : institutionScore.score <= 40 ? C.red : C.amber }}>
+                {institutionScore.label}
+              </span>
+            </div>
+            <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, maxWidth: 260 }}>{institutionScore.disclosure}</div>
+          </div>
         )}
         {/* Real technical indicators — ADX (trend strength/direction),
             Donchian Channel (20d), Bollinger Bands (20d) — all computed

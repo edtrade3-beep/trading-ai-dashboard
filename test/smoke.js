@@ -244,6 +244,41 @@ console.log("Checking institutional-redesign presentation-layer modules (ESM, lo
     assert.ok(bigPrints.breakdown.darkPoolPts > smallPrints.breakdown.darkPoolPts, "more real block-print notional should score higher");
   });
 
+  const { computeInstitutionScore } = await import("../axiom-runner/components/market-helpers.js");
+  ok("computeInstitutionScore: real buy-skewed inputs across dark pool/flow/insider/13F/short-interest -> high score, Accumulation/Aggressive Buying label", () => {
+    const out = computeInstitutionScore({
+      darkPool: { prints: [{ value: 15_000_000 }] },
+      optionsFlow: { callNotional: 9_000_000, putNotional: 1_000_000 },
+      insiderData: {
+        insiderTransactions: { transactions: [{ type: "BUY", value: 5_000_000 }, { type: "SELL", value: 500_000 }] },
+        institutional: { institutions: [{ change: 200_000 }, { change: 150_000 }, { change: -20_000 }] },
+      },
+      shortInterest: { sharesShort: 900_000, sharesShortPrior: 1_000_000 },
+    });
+    assert.ok(out.score > 60, "unanimous real buy-side signals should score high");
+    assert.ok(["Accumulation", "Aggressive Buying"].includes(out.label));
+    assert.strictEqual(out.reasons.length, 5);
+    assert.ok(out.disclosure.includes("ETF flow"), "must honestly disclose the one real gap (ETF flow), not silently omit it");
+  });
+  ok("computeInstitutionScore: honest neutral midpoints with no real inputs, never fabricated", () => {
+    const out = computeInstitutionScore({});
+    assert.strictEqual(out.breakdown.darkPoolPts, 15);
+    assert.strictEqual(out.breakdown.flowPts, 12);
+    assert.strictEqual(out.breakdown.insiderPts, 10);
+    assert.strictEqual(out.breakdown.instPts, 8);
+    assert.strictEqual(out.breakdown.shortPts, 5);
+    assert.strictEqual(out.label, "Neutral");
+  });
+  ok("computeInstitutionScore: sell-skewed real inputs score low with a Distribution/Aggressive Selling label", () => {
+    const out = computeInstitutionScore({
+      optionsFlow: { callNotional: 1_000_000, putNotional: 9_000_000 },
+      insiderData: { insiderTransactions: { transactions: [{ type: "SELL", value: 8_000_000 }] }, institutional: { institutions: [{ change: -300_000 }] } },
+      shortInterest: { sharesShort: 1_300_000, sharesShortPrior: 1_000_000 },
+    });
+    assert.ok(out.score < 40, "unanimous real sell-side signals should score low");
+    assert.ok(["Distribution", "Aggressive Selling"].includes(out.label));
+  });
+
   const { OPTIONS_ACTIONS, mapToOptionsAction, optionsExecutionNote } = await import("../axiom-runner/components/options-actions.js");
   ok("mapToOptionsAction: strong/regular call-buy and put-buy tiers match trade-signals' own bands", () => {
     assert.strictEqual(mapToOptionsAction({ score: 90, chgPct: 2 }), OPTIONS_ACTIONS.STRONG_CALL_BUY);
