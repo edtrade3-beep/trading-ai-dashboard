@@ -409,7 +409,16 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   useEffect(() => {
     if (aiTradeScore && scrollToPlanPendingRef.current) {
       scrollToPlanPendingRef.current = false;
+      // Real content above the AI Trade Card (chart panels, catalysts,
+      // prediction markets) keeps loading asynchronously after
+      // aiTradeScore itself resolves — an immediate single scroll can land
+      // short because the page is still growing taller above the target.
+      // A corrective re-scroll ~900ms later (after that slower content has
+      // settled) fixes the final resting position without needing to gate
+      // the first scroll behind every other fetch on the page.
       tradePlanRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      const t = setTimeout(() => tradePlanRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 900);
+      return () => clearTimeout(t);
     }
   }, [aiTradeScore]);
 
