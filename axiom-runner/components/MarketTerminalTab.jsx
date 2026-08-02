@@ -139,7 +139,10 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   }, [chartTf]);
   useEffect(() => {
     let pending = null;
-    try { pending = localStorage.getItem("mterminal_load_sym"); if (pending) localStorage.removeItem("mterminal_load_sym"); } catch {}
+    try {
+      pending = localStorage.getItem("mterminal_load_sym"); if (pending) localStorage.removeItem("mterminal_load_sym");
+      if (localStorage.getItem("mterminal_scroll_to") === "plan") { scrollToPlanPendingRef.current = true; localStorage.removeItem("mterminal_scroll_to"); }
+    } catch {}
     // A real handoff (Sniper Scanner's chart button, Rotation/Sectors'
     // CHART button, etc) IS a real "click on a stock chart" and should
     // notify even though it lands on this component's own first mount;
@@ -175,6 +178,16 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   const scrollToChart = useCallback(() => {
     chartZoneRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
+
+  // Real "jump straight to the plan" behavior (2026-08-02, explicit user
+  // request: merging Sniper Scanner's old separate "chart"/"plan" buttons
+  // into one). Same deferred-scroll pattern as scrollToChart above, but
+  // fires once after this symbol's real AI Trade Card content has actually
+  // loaded (not on click, since the handoff lands on first mount before
+  // any real data exists yet to scroll to) — consumed once, then cleared,
+  // so later silent refreshes/timeframe changes don't re-trigger it.
+  const tradePlanRef = useRef(null);
+  const scrollToPlanPendingRef = useRef(false);
 
   // Market cap + P/E from fundamentals (Yahoo local / FMP on cloud). Best-effort.
   const [fund, setFund] = useState(null);
@@ -392,6 +405,13 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   const aiTradeScore = symTrend ? computeAiTradeScore({
     row: symTrend, optionsFlow: symOptionsFlow, darkPool: symDarkPool, newsSentiment: symNewsSentiment, gammaExposure: symGamma,
   }) : null;
+
+  useEffect(() => {
+    if (aiTradeScore && scrollToPlanPendingRef.current) {
+      scrollToPlanPendingRef.current = false;
+      tradePlanRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [aiTradeScore]);
 
   // Institution Score (options platform redesign, Phase 4) — "what is
   // institutional money doing right now," combining real dark pool +
@@ -751,7 +771,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             scores/gamma/short-interest/earnings-DTE as props rather than
             re-deriving them. */}
         {sym && (
-          <div style={{ marginBottom: 10 }}>
+          <div ref={tradePlanRef} style={{ marginBottom: 10 }}>
             <AiTradeCard
               symbol={sym} price={chart?.price} aiTradeScore={aiTradeScore} institutionScore={institutionScore}
               gammaExposure={symGamma} shortFloatPct={symShortInterest?.shortFloat} rvol={symTrend?.volRatio}

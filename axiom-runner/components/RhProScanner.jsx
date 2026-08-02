@@ -70,36 +70,33 @@ const CATEGORIES = [
 
 export default function RhProScanner({ C, MONO, SANS, macroData, sectorData, watchlistData, setActiveTab }) {
   const regime = computeRegime(macroData);
-  // "plan" used to hand off only the symbol, so Trade Planner would silently
-  // recompute its OWN ATR-based entry/stop/targets — often disagreeing with
-  // the real VCP pivot entry/stop this same row already shows in ENTRY →
-  // STOP. Handing off the actual computed row (2026-07-28, "combine chart
-  // with plan... give me best result") means chart and plan now agree on
-  // one real trade instead of showing two different ones for the same
-  // symbol. Falls back to the plain symbol when this row has no valid
-  // real entry/stop (Trade Planner then does its own live calc, same as
-  // before) instead of forcing a bad plan.
-  const planTrade = (r) => {
+  // "chart" and "plan" used to be two separate buttons/destinations —
+  // "chart" opened Market Terminal, "plan" opened a standalone Trade
+  // Planner that silently recomputed its OWN ATR-based entry/stop/targets,
+  // which could disagree with the real VCP pivot entry/stop this same row
+  // already shows in ENTRY → STOP. A 2026-07-28 pass already fixed the
+  // NUMBERS disagreeing (handing off the real computed plan so Trade
+  // Planner's ATR fallback got overridden), but left two separate buttons
+  // and two separate pages for what's really one real trade. Merged into
+  // one button (2026-08-02, explicit user request: "we have chart and
+  // plan do you think combine them will be good") — Market Terminal
+  // already independently computes the same real entry/stop/target for
+  // whatever symbol is loaded (via its own real _buildTrendTemplate fetch,
+  // same underlying real calculation as this row's own ENTRY → STOP), so
+  // no plan-data handoff is needed anymore, just the symbol plus a real
+  // scroll-to-plan signal so the merged action lands the user directly on
+  // the real Trade Plan section instead of the top of the page. Trade
+  // Planner itself isn't deleted — still reachable via the existing
+  // TRADEPLANNER command-palette alias, same "hide, don't delete"
+  // convention as every other folded destination in this app.
+  const openChartWithPlan = (sym) => {
     try {
-      const validPlan = Number.isFinite(Number(r.entry)) && Number.isFinite(Number(r.stop)) && Number(r.entry) > Number(r.stop);
-      if (validPlan) {
-        localStorage.setItem("tradeplanner_load_plan", JSON.stringify({
-          symbol: r.symbol, entry: Number(r.entry), stop: Number(r.stop),
-          target: Number.isFinite(Number(r.target2)) ? Number(r.target2) : null,
-          aplus: r.aplus || null, next: r.next || null, source: "AI Sniper Scanner",
-        }));
-      } else {
-        localStorage.setItem("tradeplanner_load_sym", r.symbol);
-      }
+      localStorage.setItem("mterminal_load_sym", sym);
+      localStorage.setItem("mterminal_back_to", "rhpro-scan");
+      localStorage.setItem("mterminal_scroll_to", "plan");
     } catch {}
-    setActiveTab && setActiveTab("tradeplanner");
+    setActiveTab && setActiveTab("mterminal");
   };
-  // Market Terminal combined into Sniper Scanner (2026-07-28, explicit user
-  // request) — same real handoff pattern RotationTab/SectorsTab already use
-  // to open a symbol's full chart + fundamentals/earnings/analyst/news/SMC
-  // panels, reusing MarketTerminalTab as-is rather than duplicating any of
-  // its real data or building a second chart.
-  const openChart = (sym) => { try { localStorage.setItem("mterminal_load_sym", sym); localStorage.setItem("mterminal_back_to", "rhpro-scan"); } catch {} setActiveTab && setActiveTab("mterminal"); };
   // rawRows holds only the real trend-screen data from the network — score
   // computation is derived separately below (useMemo) so it always reflects
   // the LATEST regime/sector data instead of freezing at scan time. Fixes a
@@ -292,11 +289,11 @@ export default function RhProScanner({ C, MONO, SANS, macroData, sectorData, wat
       {category === "daytrade" && <DayTradeTab C={C} MONO={MONO} SANS={SANS} />}
       {category === "bestopp" && (
         <BestOpportunities C={C} MONO={MONO} SANS={SANS} macroData={macroData} setActiveTab={setActiveTab}
-          onPick={(sym) => openChart(sym)} />
+          onPick={(sym) => openChartWithPlan(sym)} />
       )}
       {category === "earlyentry" && (
         <EarlyEntryScanner watchlistData={watchlistData} macroData={macroData} sectorData={sectorData}
-          onSelectSymbol={(sym) => openChart(sym)} />
+          onSelectSymbol={(sym) => openChartWithPlan(sym)} />
       )}
 
       {category !== "gap" && category !== "daytrade" && category !== "bestopp" && category !== "earlyentry" && (
@@ -340,10 +337,8 @@ export default function RhProScanner({ C, MONO, SANS, macroData, sectorData, wat
                 <td style={{ ...cell, fontWeight: 900, color: C.text }} onClick={e => e.stopPropagation()}>
                   <span style={{ marginRight: 4, fontSize: 10, color: C.textDim }}>{expanded ? "▾" : "▸"}</span>
                   {r.symbol}
-                  <button onClick={() => openChart(r.symbol)} title={`Open ${r.symbol}'s full chart — trend, fundamentals, earnings, analysts, news, SMC`}
-                    style={{ marginLeft: 6, fontSize: 10, border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 4, padding: "1px 5px", cursor: "pointer" }}>📈 chart</button>
-                  <button onClick={() => planTrade(r)} title={`Plan this trade — opens Trade Planner with ${r.symbol}'s real entry/stop from this scan already filled in`}
-                    style={{ marginLeft: 4, fontSize: 10, border: `1px solid ${C.accent}`, background: `${C.accent}14`, color: C.accent, borderRadius: 4, padding: "1px 5px", cursor: "pointer" }}>🎯 plan</button>
+                  <button onClick={() => openChartWithPlan(r.symbol)} title={`Open ${r.symbol}'s full chart + real trade plan — trend, fundamentals, earnings, analysts, news, SMC, entry/stop/targets`}
+                    style={{ marginLeft: 6, fontSize: 10, border: `1px solid ${C.accent}`, background: `${C.accent}14`, color: C.accent, borderRadius: 4, padding: "1px 5px", cursor: "pointer" }}>📈 chart + plan</button>
                 </td>
                 <td style={cell} onClick={e => e.stopPropagation()}>
                   {r.institutionalGrade && (
