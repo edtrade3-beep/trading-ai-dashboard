@@ -613,6 +613,57 @@ console.log("Checking institutional-redesign presentation-layer modules (ESM, lo
     assert.strictEqual(out.dots.find(d => d.label.includes("Call Flow")).pass, false, "30% call-side notional is bearish-skewed flow, not bullish");
   });
 
+  console.log("Checking position-manager-engine.js (Phase 11, AI Exit Engine)…");
+  ok("computePositionPnl: real premium×100×contracts math, honest null with no real current premium", () => {
+    const { computePositionPnl } = require("../src/position-manager-engine");
+    const out = computePositionPnl({ entryPremium: 5, currentPremium: 8, qty: 2 });
+    assert.strictEqual(out.pnl, 600, "(8-5)*100*2 = 600");
+    assert.strictEqual(out.pnlPct, 60);
+    assert.strictEqual(computePositionPnl({ entryPremium: 5, currentPremium: null, qty: 1 }).pnl, null);
+  });
+  ok("computeExitSignals: real profit + far expiry + no earnings nearby -> Hold", () => {
+    const { computeExitSignals } = require("../src/position-manager-engine");
+    const future = new Date(Date.now() + 90 * 86_400_000).toISOString().slice(0, 10);
+    const out = computeExitSignals({ entryPremium: 5, currentPremium: 8, qty: 1, expiry: future }, { ivRank: 40, daysToEarnings: 60, delta: 0.5 });
+    assert.strictEqual(out.recommendation, "Hold");
+    assert.strictEqual(out.ivCrushRisk, null, "60 real days to earnings is outside the 10-day IV crush window — honest null, not a guess");
+  });
+  ok("computeExitSignals: real large loss + near expiry -> Exit Now, with real reasons", () => {
+    const { computeExitSignals } = require("../src/position-manager-engine");
+    const soon = new Date(Date.now() + 3 * 86_400_000).toISOString().slice(0, 10);
+    const out = computeExitSignals({ entryPremium: 10, currentPremium: 4, qty: 1, expiry: soon }, {});
+    assert.strictEqual(out.recommendation, "Exit Now");
+    assert.strictEqual(out.timeDecayWarning, true);
+    assert.ok(out.reasons.length >= 2, "both the real P/L and real time-decay reasons should be recorded");
+  });
+
+  console.log("Checking paper-positions-store.js (Phase 11, Position Manager)…");
+  {
+    const store = require("../src/paper-positions-store");
+    ok("openPosition/closePosition: real CRUD lifecycle, never fabricates a premium", () => {
+      const pos = store.openPosition({ symbol: "test_aapl", type: "call", strike: 300, expiry: "2026-12-18", entryPremium: 5, entryUnderlying: 295, qty: 1 });
+      assert.strictEqual(pos.status, "open");
+      assert.strictEqual(pos.currentPremium, 5, "current premium starts equal to the real entry premium, never a guessed different number");
+      assert.ok(store.listOpenPositions().some(p => p.id === pos.id));
+
+      const repriced = store.updatePositionPricing(pos.id, { currentPremium: 7.5 });
+      assert.strictEqual(repriced.currentPremium, 7.5);
+
+      const closed = store.closePosition(pos.id, { exitPremium: 8, exitReason: "target-hit" });
+      assert.strictEqual(closed.status, "closed");
+      assert.strictEqual(closed.exitPremium, 8);
+      assert.ok(!store.listOpenPositions().some(p => p.id === pos.id), "closed position must leave the open list");
+      assert.ok(store.listClosedPositions().some(p => p.id === pos.id));
+
+      // Test hygiene — leave the real on-disk store exactly as found.
+      const remaining = store.loadPositions().filter(p => p.id !== pos.id);
+      const { writeJsonAtomic } = require("../src/atomic-write");
+      const path = require("node:path");
+      const { ROOT } = require("../src/config");
+      writeJsonAtomic(path.join(ROOT, "data", "paper-positions.json"), { positions: remaining, updatedAt: new Date().toISOString() });
+    });
+  }
+
   const { OPTIONS_ACTIONS, mapToOptionsAction, optionsExecutionNote } = await import("../axiom-runner/components/options-actions.js");
   ok("mapToOptionsAction: strong/regular call-buy and put-buy tiers match trade-signals' own bands", () => {
     assert.strictEqual(mapToOptionsAction({ score: 90, chgPct: 2 }), OPTIONS_ACTIONS.STRONG_CALL_BUY);

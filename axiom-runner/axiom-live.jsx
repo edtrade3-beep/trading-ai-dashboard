@@ -86,6 +86,7 @@ import CombinedTab from "./components/CombinedTab.jsx";
 import OptionsChainTab from "./components/OptionsChainTab.jsx";
 import GammaLabTab from "./components/GammaLabTab.jsx";
 import VolatilityLabTab from "./components/VolatilityLabTab.jsx";
+import PositionManagerTab from "./components/PositionManagerTab.jsx";
 import Under10Tab from "./components/Under10Tab.jsx";
 import RhProDashboard from "./components/RhProDashboard.jsx";
 import RhProScanner from "./components/RhProScanner.jsx";
@@ -4057,6 +4058,9 @@ export default function App() {
       VOLLAB: "vol-lab",
       VOL: "vol-lab",
       VOLATILITY: "vol-lab",
+      POSITIONS: "position-manager",
+      POSMGR: "position-manager",
+      PAPERPOSITIONS: "position-manager",
       UNDER10: "under10",
       GAPFILL: "gapfill",
       SQUEEZE: "squeeze",
@@ -6249,6 +6253,10 @@ export default function App() {
 
         {activeTab === "vol-lab" && (
           <VolatilityLabTab C={C} MONO={MONO} SANS={SANS} defaultSymbol={terminalSymbol || watchlistSymbols[0] || "AAPL"} setActiveTab={setActiveTab} />
+        )}
+
+        {activeTab === "position-manager" && (
+          <PositionManagerTab C={C} MONO={MONO} SANS={SANS} />
         )}
 
         {activeTab === "sec-filings" && (

@@ -12,6 +12,47 @@ export function rhLoadJournal() { try { return JSON.parse(localStorage.getItem("
 export function rhSaveJournal(a) { try { localStorage.setItem("rhpro_journal", JSON.stringify(a)); } catch {} }
 export function rhPnl(t) { const dir = t.side === "short" ? -1 : 1; return +(((Number(t.exit) - Number(t.entry)) * dir) * Number(t.shares || 0)).toFixed(2); }
 
+// Real options P/L convention (premium × 100 × contracts) — distinct from
+// rhPnl's share-based equity formula, since this entry shape's
+// entry/exit fields hold real per-contract premium, not a share price.
+export function rhOptionPnl({ entry, exit, shares }) {
+  const e = Number(entry), x = Number(exit), qty = Number(shares) || 1;
+  if (!Number.isFinite(e) || !Number.isFinite(x)) return 0;
+  return +(((x - e) * 100 * qty)).toFixed(2);
+}
+
+// Auto-log a real closed paper option position (Position Manager, options
+// platform redesign Phase 11) into this same journal store — additive,
+// does not touch or require the manual-entry form above (which stays for
+// logging real Robinhood equity trades). Every field is real data already
+// returned by the closed position (src/paper-positions-store.js) — no
+// new computation, no guessed P/L.
+export function rhAutoLogClosedPosition(position) {
+  const trades = rhLoadJournal();
+  const entry = {
+    id: `auto_${position.id}`,
+    date: (position.exitDate || new Date().toISOString()).slice(0, 10),
+    symbol: position.symbol,
+    side: "long",
+    shares: position.qty,
+    entry: position.entryPremium,
+    exit: position.exitPremium,
+    aiScore: position.entryAiScore ?? "",
+    notes: `[Options: ${String(position.type || "").toUpperCase()} $${position.strike} exp ${position.expiry}]${position.entryStrategy ? ` Strategy: ${position.entryStrategy}.` : ""}${position.entryMarketBias?.bias ? ` Market at entry: ${position.entryMarketBias.bias}${position.entryMarketBias.character ? " / " + position.entryMarketBias.character : ""}.` : ""} Auto-logged on close (${position.exitReason || "manual"}).`,
+    mistakes: "",
+    emotion: "",
+    shot: "",
+    pnl: rhOptionPnl({ entry: position.entryPremium, exit: position.exitPremium, shares: position.qty }),
+    optType: position.type, strike: position.strike, expiry: position.expiry,
+    auto: true,
+  };
+  // Never duplicate — a position can only be auto-logged once.
+  if (trades.some(t => t.id === entry.id)) return trades;
+  const next = [entry, ...trades];
+  rhSaveJournal(next);
+  return next;
+}
+
 export default function RhProJournal({ C, MONO, SANS }) {
   const [trades, setTrades] = useState(rhLoadJournal);
   const blank = { date: new Date().toISOString().slice(0, 10), symbol: "", side: "long", shares: "", entry: "", exit: "", aiScore: "", notes: "", mistakes: "", emotion: "", shot: "" };

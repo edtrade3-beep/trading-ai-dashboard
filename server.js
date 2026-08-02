@@ -361,6 +361,16 @@ server.listen(PORT, HOST, () => {
   setInterval(() => require("./src/watchlist-institutional-alerts").checkWatchlistInstitutionalAlerts().catch(() => {}), 15 * 60_000);
   console.log("[Watchlist institutional] Smart money / dark pool / options flow / earnings / sentiment alerts active — every 15 min, market hours only");
 
+  // Paper Position Manager — AI Exit Engine, options platform redesign
+  // Phase 11. Repricess every real open paper position off a fresh real
+  // chain fetch every 15 min during market hours, same standalone-interval
+  // + market-hours-gate pattern as the watchlist alert jobs above (not the
+  // once-daily _sent!==today loop, since positions need continuous
+  // intraday repricing). Sends a real Telegram alert only on a genuine
+  // Exit Now transition.
+  setInterval(() => require("./src/routes/paper-positions").repriceAllOpenPositions().catch((e) => console.error("[Paper Positions] reprice failed:", e.message)), 15 * 60_000);
+  console.log("[Paper Positions] AI Exit Engine reprice active — every 15 min, market hours only");
+
   // Market auto-watchlist — real, continuous scan of a curated ~96-symbol
   // universe that auto-adds any GO (ready to pop) or WATCH (actionable,
   // building) setup to the Watchlist (2026-07-26, explicit user request:

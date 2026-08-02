@@ -152,7 +152,10 @@ function gammaSqueezeProbability({ gammaExposure, shortFloatPct, rvol } = {}) {
 // window IV crush actually applies to); null outside that window rather
 // than a low-but-fabricated number.
 function ivCrushRisk({ daysToEarnings, ivRank } = {}) {
-  const d = Number(daysToEarnings);
+  // daysToEarnings != null guards against Number(null/undefined) silently
+  // coercing to 0 — a real "no earnings date known" position must never
+  // be scored as if earnings were happening today.
+  const d = daysToEarnings != null ? Number(daysToEarnings) : NaN;
   if (!Number.isFinite(d) || d < 0 || d > 10) return null;
   const proximityScore = ((10 - d) / 10) * 60;
   const ivScore = Number.isFinite(Number(ivRank)) ? (Number(ivRank) / 100) * 40 : 20;
