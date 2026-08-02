@@ -30,6 +30,7 @@ import { mapToAiAction } from "./ai-actions.js";
 import SmartMoneyPanel from "./SmartMoneyPanel.jsx";
 import AiTradeCard from "./AiTradeCard.jsx";
 import StrategySelectorCard from "./StrategySelectorCard.jsx";
+import ChecklistCard from "./ChecklistCard.jsx";
 
 // Combined Market-Terminal page: movers leaderboard on the left, pro chart with
 // AI overlays on the right. Click a mover → it loads in the chart.
@@ -797,6 +798,20 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
         {sym && (
           <div style={{ marginBottom: 10 }}>
             <StrategySelectorCard symbol={sym} marketBias={computeMarketBias({ macroData, distData })} C={C} MONO={MONO} SANS={SANS} />
+          </div>
+        )}
+        {/* Trade Checklist — options platform redesign Phase 10. Reuses
+            this page's own already-loaded real data (chart.bars,
+            symTrend.volRatio, symNewsSentiment, symDarkPool,
+            symOptionsFlow, symGamma, chart.smc) — zero new fetches. */}
+        {sym && chart?.bars && (
+          <div style={{ marginBottom: 10 }}>
+            <ChecklistCard
+              bars={chart.bars} price={chart?.price} rvol={symTrend?.volRatio}
+              newsSentiment={symNewsSentiment} darkPool={symDarkPool} optionsFlow={symOptionsFlow}
+              gammaExposure={symGamma} smc={chart?.smc}
+              C={C} MONO={MONO} SANS={SANS}
+            />
           </div>
         )}
         {/* Real technical indicators — ADX (trend strength/direction),

@@ -561,6 +561,58 @@ console.log("Checking institutional-redesign presentation-layer modules (ESM, lo
     assert.strictEqual(out.available, false);
   });
 
+  console.log("Checking checklist-engine.js (Phase 10, Trade Checklist)…");
+  const { computeChecklist } = await import("../axiom-runner/components/checklist-engine.js");
+  const uptrendBars = Array.from({ length: 210 }, (_, i) => ({
+    time: i, high: 105 + i * 0.05, low: 95 + i * 0.05, close: 100 + i * 0.05, volume: 1_000_000,
+  }));
+  ok("computeChecklist: unanimous real bullish inputs pass every dot, A+ grade", () => {
+    const out = computeChecklist({
+      bars: uptrendBars, price: 120, rvol: 2.0,
+      newsSentiment: { score: 2, bulls: 5, bears: 1 },
+      darkPool: { prints: [{ value: 3_000_000 }] },
+      optionsFlow: { callNotional: 6_000_000, putNotional: 2_000_000 },
+      gammaExposure: { available: true, netGEX: 150_000 },
+      smc: { bos: { type: "BULL_BOS", label: "Bullish break of structure" } },
+    });
+    assert.strictEqual(out.total, 11, "all 11 checks should be real/gated-in with this fixture's complete real inputs");
+    assert.strictEqual(out.passCount, 11);
+    assert.strictEqual(out.grade, "A+");
+  });
+  ok("computeChecklist: unanimous real bearish/negative inputs fail every dot, Avoid grade", () => {
+    const downtrendBars = Array.from({ length: 210 }, (_, i) => ({
+      time: i, high: 205 - i * 0.05, low: 195 - i * 0.05, close: 200 - i * 0.05, volume: 1_000_000,
+    }));
+    const out = computeChecklist({
+      bars: downtrendBars, price: 50, rvol: 0.5,
+      newsSentiment: { score: -3, bulls: 1, bears: 6 },
+      darkPool: { prints: [{ value: 100_000 }] },
+      optionsFlow: { callNotional: 1_000_000, putNotional: 5_000_000 },
+      gammaExposure: { available: true, netGEX: -80_000 },
+      smc: { bos: { type: "BEAR_BOS", label: "Bearish break of structure" } },
+    });
+    assert.strictEqual(out.passCount, 0);
+    assert.strictEqual(out.grade, "Avoid");
+  });
+  ok("computeChecklist: honest null (not fabricated pass/fail) per-dot when real data is missing", () => {
+    const out = computeChecklist({ bars: uptrendBars.slice(-5), price: 120 });
+    const rvolDot = out.dots.find(d => d.label.includes("RVOL"));
+    assert.strictEqual(rvolDot.pass, null, "no real rvol provided — must be null, never guessed true/false");
+    const gammaDot = out.dots.find(d => d.label.includes("Gamma"));
+    assert.strictEqual(gammaDot.pass, null, "no real gammaExposure provided — must be null");
+    assert.ok(out.total < 11, "null dots must be excluded from the real pass/total count");
+  });
+  ok("computeChecklist: dark pool activity reuses the exact real $500K threshold, not a new invented one", () => {
+    const below = computeChecklist({ bars: uptrendBars, price: 120, darkPool: { prints: [{ value: 400_000 }] } });
+    const above = computeChecklist({ bars: uptrendBars, price: 120, darkPool: { prints: [{ value: 600_000 }] } });
+    assert.strictEqual(below.dots.find(d => d.label.includes("Dark Pool")).pass, false);
+    assert.strictEqual(above.dots.find(d => d.label.includes("Dark Pool")).pass, true);
+  });
+  ok("computeChecklist: call flow reuses the real >50% call-notional-ratio convention", () => {
+    const out = computeChecklist({ bars: uptrendBars, price: 120, optionsFlow: { callNotional: 3_000_000, putNotional: 7_000_000 } });
+    assert.strictEqual(out.dots.find(d => d.label.includes("Call Flow")).pass, false, "30% call-side notional is bearish-skewed flow, not bullish");
+  });
+
   const { OPTIONS_ACTIONS, mapToOptionsAction, optionsExecutionNote } = await import("../axiom-runner/components/options-actions.js");
   ok("mapToOptionsAction: strong/regular call-buy and put-buy tiers match trade-signals' own bands", () => {
     assert.strictEqual(mapToOptionsAction({ score: 90, chgPct: 2 }), OPTIONS_ACTIONS.STRONG_CALL_BUY);
