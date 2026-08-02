@@ -3,7 +3,7 @@ const { callAnthropicApi, MODELS, anthropicRequest } = require("../anthropic");
 const { PORT, MARKET_QUOTE_TIMEOUT_MS, MACRO_SYMBOLS, TIMEFRAME_CONFIG, resolveProviderKeys } = require("../config");
 const { detectFVGs, detectOrderBlocks, detectBOSChoCh, detectLiquidityLevels } = require("../smc-engine");
 const { computeGammaExposure } = require("../gamma-exposure");
-const { rankContracts } = require("../options-math");
+const { rankContracts, interpretFlowRow } = require("../options-math");
 const {
   computeEMA, computeRSI, computeVWAP,
   computeADX, computeDonchian, computeBollinger,
@@ -410,7 +410,14 @@ async function fetchOptionsFlow(symbols, options = {}) {
     rows.flatMap((entry) => entry.flowRows || []),
     { flowType, minNotional, unusualOnly }
   );
-  const flow = [...filteredFlow].sort((a, b) => (b.notional || 0) - (a.notional || 0)).slice(0, limit);
+  // Smart Options Flow interpretation (options platform redesign, Phase 6)
+  // — every real row gets a real institutional label/size bucket/
+  // execution/confidence/AI summary, derived from fields already on the
+  // row (interpretFlowRow, src/options-math.js). Applied once here so
+  // both the top-flow tape and the by-symbol breakdown below carry the
+  // same real interpretation, not two divergent reads of the same trade.
+  const interpretedFlow = filteredFlow.map((row) => ({ ...row, ...interpretFlowRow(row) }));
+  const flow = [...interpretedFlow].sort((a, b) => (b.notional || 0) - (a.notional || 0)).slice(0, limit);
 
   const summary = {
     totalContracts: flow.reduce((acc, row) => acc + (Number(row.volume) || 0), 0),
@@ -419,7 +426,7 @@ async function fetchOptionsFlow(symbols, options = {}) {
   };
 
   const filteredBySymbol = new Map();
-  for (const row of filteredFlow) {
+  for (const row of interpretedFlow) {
     const list = filteredBySymbol.get(row.symbol) || [];
     list.push(row);
     filteredBySymbol.set(row.symbol, list);

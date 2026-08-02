@@ -95,19 +95,38 @@ export default function FlowTab({
 
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
                 <div style={{ padding: "10px 12px", borderBottom: `1px solid ${C.border}`, fontFamily: MONO, fontSize: 12, color: C.textDim }}>
-                  TOP FLOW TAPE
+                  TOP FLOW TAPE — interpreted
                 </div>
                 <div>
                   {flowRows.map((row, idx) => (
-                    <div key={`${row.symbol}-${row.side}-${row.strike}-${idx}`} style={{ display: "grid", gridTemplateColumns: "62px 52px 70px 70px 72px 90px 88px 82px auto", gap: 8, alignItems: "center", padding: "9px 12px", borderBottom: `1px solid ${C.border}` }}>
-                      <span style={{ fontFamily: MONO, fontSize: 12, color: C.text, fontWeight: 700 }}>{row.symbol}</span>
-                      <Badge color={row.side === "CALL" ? C.green : C.red}>{row.side}</Badge>
-                      <span style={{ fontFamily: MONO, fontSize: 12, color: C.text }}>K {Number(row.strike || 0).toFixed(0)}</span>
-                      <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{row.expiry || "—"}</span>
-                      <span style={{ fontFamily: MONO, fontSize: 12, color: C.textSec }}>Vol {row.volume || 0}</span>
-                      <span style={{ fontFamily: MONO, fontSize: 12, color: C.textSec }}>OI {row.openInterest || 0}</span>
-                      <span style={{ fontFamily: MONO, fontSize: 12, color: C.text }}>{formatNum(row.notional || 0)}</span>
-                      <Badge color={row.unusual ? C.amber : C.textDim}>{row.tradeType || "TAPE"}</Badge>
+                    <div key={`${row.symbol}-${row.side}-${row.strike}-${idx}`} style={{ padding: "10px 12px", borderBottom: `1px solid ${C.border}` }}>
+                      {/* Smart Options Flow interpretation (options platform
+                          redesign, Phase 6): real institutional label + rating
+                          instead of raw CALL/strike/volume/OI numbers. Every
+                          field here (institutionalLabel/sizeBucket/execution/
+                          confidence/institutionalRating/summary) comes from
+                          interpretFlowRow (src/options-math.js), applied
+                          server-side to this same real row. */}
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 4 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ fontFamily: MONO, fontSize: 13, color: C.text, fontWeight: 800 }}>{row.symbol}</span>
+                          <Badge color={row.side === "CALL" ? C.green : C.red}>{row.side}</Badge>
+                          {row.institutionalRating && (
+                            <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "1px 6px", borderRadius: 4, color: "#fff",
+                              background: row.institutionalRating.startsWith("A") ? "#0d9465" : row.institutionalRating === "B+" || row.institutionalRating === "B" ? "#22a06b" : row.institutionalRating === "C" ? "#d6a312" : "#c8282a" }}>
+                              {row.institutionalRating}
+                            </span>
+                          )}
+                          {row.estimated && <Badge color={C.amber}>ESTIMATED</Badge>}
+                        </div>
+                        <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: (row.confidence || 0) >= 70 ? C.green : (row.confidence || 0) >= 45 ? C.amber : C.textDim }}>
+                          {row.confidence != null ? `${row.confidence}% confidence` : ""}
+                        </span>
+                      </div>
+                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.text, marginBottom: 4 }}>{row.institutionalLabel}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginBottom: 6 }}>
+                        Size {row.sizeBucket || "—"} · Premium {formatNum(row.notional || 0)} · Execution {row.execution || "—"} · K {Number(row.strike || 0).toFixed(0)} {row.expiry || "—"} · Vol {row.volume || 0} / OI {row.openInterest || 0} · {row.tradeType || "TAPE"}
+                      </div>
                       <div style={{ display: "flex", gap: 5 }}>
                         <button
                           onClick={() => { setTerminalSymbol(row.symbol); try { localStorage.setItem("mterminal_load_sym", row.symbol); } catch {} setActiveTab("mterminal"); }}
@@ -122,9 +141,9 @@ export default function FlowTab({
                                 body: JSON.stringify({
                                   ticker: row.symbol,
                                   side: row.side === "CALL" ? "BUY" : "SELL",
-                                  score: row.unusual ? 85 : 72,
+                                  score: row.confidence ?? (row.unusual ? 85 : 72),
                                   entry: Number(row.underlyingPrice || row.strike || 0),
-                                  notes: `${row.tradeType || "FLOW"} · K${Number(row.strike || 0).toFixed(0)} ${row.expiry || ""} · ${formatNum(row.notional || 0)} notional${row.unusual ? " · UNUSUAL" : ""}`,
+                                  notes: row.summary || `${row.tradeType || "FLOW"} · K${Number(row.strike || 0).toFixed(0)} ${row.expiry || ""} · ${formatNum(row.notional || 0)} notional${row.unusual ? " · UNUSUAL" : ""}`,
                                   timeframe: "1D",
                                   style: "Options",
                                 }),

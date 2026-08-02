@@ -170,7 +170,106 @@ function assignmentRisk({ delta, dte } = {}) {
   return Math.round(itmScore * (0.6 + 0.4 * dteFactor));
 }
 
+// Smart Options Flow interpretation — options platform redesign Phase 6
+// (spec: "interpret every options trade automatically" — Institutional
+// Bullish/Bearish label, Trade Size, Confidence %, Execution, one-sentence
+// AI Summary, per-trade bullish/bearish score). Takes one real flow row
+// (routes/market.js's fetchOptionsFlow — Tradier/Yahoo real, or the
+// honestly-flagged `estimated: true` fallback) and derives every field
+// from real data already on the row. Never claims more confidence than
+// the estimated fallback deserves — softened explicitly, not silently,
+// when `row.estimated` is true.
+function interpretFlowRow(row) {
+  const notional = Number(row?.notional) || 0;
+  const volume = Number(row?.volume) || 0;
+  const oi = Number(row?.openInterest) || 0;
+  const volOiRatio = oi > 0 ? Math.round((volume / oi) * 100) / 100 : null;
+
+  // Trade Size bucket — real notional thresholds, a documented judgment
+  // call (same convention as liquidityScore's weights).
+  let sizeBucket;
+  if (notional >= 5_000_000) sizeBucket = "Very Large";
+  else if (notional >= 1_000_000) sizeBucket = "Large";
+  else if (notional >= 250_000) sizeBucket = "Medium";
+  else sizeBucket = "Small";
+
+  // Execution — real bid/ask vs. real lastPrice, when both are present.
+  // Honest "Unavailable" (not a guess) on providers/fallback rows with no
+  // real bid/ask (e.g. the estimated fallback never has one).
+  const bid = Number(row?.bid), ask = Number(row?.ask), last = Number(row?.lastPrice);
+  let execution = "Unavailable";
+  if (Number.isFinite(bid) && Number.isFinite(ask) && bid > 0 && ask >= bid && Number.isFinite(last)) {
+    const mid = (bid + ask) / 2;
+    if (last >= ask) execution = "Above Ask";
+    else if (last > mid) execution = "At Ask";
+    else if (last === mid) execution = "Mid";
+    else if (last > bid) execution = "At Bid";
+    else execution = "Below Bid";
+  }
+
+  const isCall = row?.side === "CALL";
+  // Net directional read — accounts for real execution (buying vs.
+  // selling), not just real side. Buying calls or selling puts is
+  // bullish; buying puts or selling calls is bearish. When execution is
+  // unknown (Mid, or genuinely Unavailable), falls back to side alone —
+  // the only real signal available. Used consistently below (label,
+  // summary, signedScore) so they can never contradict each other the way
+  // an earlier draft of this function did (label correctly flipped
+  // direction on a sold call, but the summary sentence and score didn't).
+  const buying = execution === "Above Ask" || execution === "At Ask";
+  const selling = execution === "Below Bid" || execution === "At Bid";
+  const bullish = selling ? !isCall : isCall; // buying and "unknown" both default to raw side
+
+  // Confidence % — deterministic composite of real signals already on the
+  // row: the provider's own real `unusual` flag, real trade size, real
+  // execution (buying pressure at/above ask or selling pressure at/below
+  // bid is a stronger real signal than an ambiguous mid-market print), and
+  // real volume/OI ratio.
+  let confidence = 35;
+  if (row?.unusual) confidence += 20;
+  if (sizeBucket === "Very Large") confidence += 20;
+  else if (sizeBucket === "Large") confidence += 12;
+  else if (sizeBucket === "Medium") confidence += 5;
+  if (execution === "Above Ask" || execution === "Below Bid") confidence += 15;
+  else if (execution !== "Unavailable") confidence += 5;
+  if (volOiRatio != null && volOiRatio >= 3) confidence += 5;
+  confidence = Math.max(5, Math.min(99, Math.round(confidence)));
+  // The estimated fallback is a real reconstruction from price/volume, not
+  // an observed trade — never let it read as confidently as a real print.
+  if (row?.estimated) confidence = Math.min(confidence, 40);
+
+  const institutionalLabel = row?.estimated
+    ? `Estimated ${isCall ? "call" : "put"}-side positioning (no real options-flow provider available)`
+    : buying
+      ? `Institution opened large ${bullish ? "bullish" : "bearish"} position`
+      : selling
+        ? `Likely selling ${isCall ? "calls" : "puts"} (${bullish ? "bullish/neutral" : "bearish/neutral"} premium collection)`
+        : `Real ${isCall ? "call" : "put"}-side flow`;
+
+  const institutionalRating = confidence >= 90 ? "A+" : confidence >= 80 ? "A" : confidence >= 70 ? "B+" : confidence >= 60 ? "B" : confidence >= 45 ? "C" : "D";
+
+  const summaryParts = [
+    sizeBucket, row?.tradeType || "trade",
+    execution !== "Unavailable" ? execution.toLowerCase() : null,
+    `on ${row?.symbol || "?"} ${isCall ? "calls" : "puts"}`,
+    volOiRatio != null ? `${volOiRatio}x OI` : null,
+    `— ${confidence}% confidence ${bullish ? "bullish" : "bearish"}${row?.estimated ? " (estimated)" : ""}`,
+  ].filter(Boolean);
+  const summary = summaryParts.join(" ");
+
+  // Likely New Position — honestly "Unknown": this app doesn't track a
+  // real day-over-day open-interest history, so a real new-position read
+  // can't be derived. Never guessed.
+  const likelyNewPosition = "Unknown";
+
+  return {
+    sizeBucket, execution, institutionalLabel, confidence, institutionalRating, summary, likelyNewPosition,
+    signedScore: (bullish ? 1 : -1) * confidence,
+  };
+}
+
 module.exports = {
   normCdf, probabilityOfProfit, expectedMove, spreadPct, liquidityScore,
   dteFromExpiry, expectedValue, rankContracts, gammaSqueezeProbability, ivCrushRisk, assignmentRisk,
+  interpretFlowRow,
 };

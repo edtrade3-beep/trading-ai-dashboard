@@ -165,6 +165,45 @@ ok("assignmentRisk: real ITM-proximity weighted more heavily near real expiry", 
   assert.strictEqual(assignmentRisk({}), null);
 });
 
+console.log("Checking interpretFlowRow (Phase 6, Smart Options Flow interpretation)…");
+ok("interpretFlowRow: real above-ask execution + very large size + unusual flag -> high confidence, A-tier rating", () => {
+  const { interpretFlowRow } = require("../src/options-math");
+  const out = interpretFlowRow({ symbol: "NVDA", side: "CALL", notional: 8_000_000, volume: 4000, openInterest: 1000, bid: 2.0, ask: 2.2, lastPrice: 2.25, unusual: true, tradeType: "SWEEP" });
+  assert.strictEqual(out.sizeBucket, "Very Large");
+  assert.strictEqual(out.execution, "Above Ask");
+  assert.ok(out.confidence >= 80, "unanimous real bullish signals should score high confidence");
+  assert.ok(["A+", "A"].includes(out.institutionalRating));
+  assert.ok(out.institutionalLabel.includes("bullish"));
+  assert.strictEqual(out.signedScore, out.confidence, "a real CALL should have a positive signed score");
+});
+ok("interpretFlowRow: honest 'Unavailable' execution with no real bid/ask, never a guess", () => {
+  const { interpretFlowRow } = require("../src/options-math");
+  const out = interpretFlowRow({ symbol: "AAPL", side: "PUT", notional: 100_000, volume: 50, openInterest: 40, lastPrice: 1.5 });
+  assert.strictEqual(out.execution, "Unavailable");
+  assert.strictEqual(out.likelyNewPosition, "Unknown", "no real day-over-day OI history exists — must never guess YES/NO");
+});
+ok("interpretFlowRow: selling calls at/below bid nets bearish (covered/naked call writing caps upside), label/summary/score must all agree", () => {
+  const { interpretFlowRow } = require("../src/options-math");
+  const out = interpretFlowRow({ symbol: "NVDA", side: "CALL", notional: 24_000_000, volume: 98000, openInterest: 10000, bid: 2.5, ask: 2.61, lastPrice: 2.52, unusual: true, tradeType: "DARKPOOL" });
+  assert.strictEqual(out.execution, "At Bid");
+  assert.ok(out.institutionalLabel.includes("bearish/neutral"), "selling calls is a real bearish/neutral options-theory stance (caps upside) — the label must reflect that real net direction, not the raw CALL side alone");
+  assert.ok(out.summary.includes("bearish"), "summary must agree with the label's real net direction");
+  assert.ok(out.signedScore < 0, "signedScore must agree with the same real net-bearish direction as the label/summary");
+});
+ok("interpretFlowRow: selling puts at/below bid nets bullish (cash-secured put writing bets price holds above strike)", () => {
+  const { interpretFlowRow } = require("../src/options-math");
+  const out = interpretFlowRow({ symbol: "SPY", side: "PUT", notional: 6_000_000, volume: 20000, openInterest: 5000, bid: 1.0, ask: 1.1, lastPrice: 1.02, unusual: true, tradeType: "BLOCK" });
+  assert.strictEqual(out.execution, "At Bid");
+  assert.ok(out.institutionalLabel.includes("bullish/neutral"));
+  assert.ok(out.signedScore > 0);
+});
+ok("interpretFlowRow: the estimated fallback is softened, never reads as confidently as a real print", () => {
+  const { interpretFlowRow } = require("../src/options-math");
+  const out = interpretFlowRow({ symbol: "TSLA", side: "CALL", notional: 9_000_000, volume: 5000, openInterest: 100, unusual: true, tradeType: "BLOCK", estimated: true });
+  assert.ok(out.confidence <= 40, "the estimated fallback must never claim high confidence, regardless of its own inflated notional/unusual flag");
+  assert.ok(out.institutionalLabel.toLowerCase().includes("estimated"));
+});
+
 console.log("Checking iv-history-store.js Phase 5 honest-building-state…");
 ok("ivRankFor: honest building state with no real accumulated history yet", () => {
   const { ivRankFor } = require("../src/iv-history-store");

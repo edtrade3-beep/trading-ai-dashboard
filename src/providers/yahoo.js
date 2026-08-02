@@ -607,12 +607,19 @@ function normalizeOptionContract(symbol, raw, side) {
   const notional = last > 0 ? last * Math.max(volume, 0) * 100 : 0;
   let tradeType = volume >= 1000 ? "BLOCK" : volume >= 200 ? "SWEEP" : "TAPE";
   if (notional >= 500000 && volume >= 300) tradeType = "DARKPOOL";
+  // Real bid/ask — same real field Yahoo's options-chain endpoint already
+  // returns (used elsewhere by fetchYahooOptionsChain's mapRow), just not
+  // previously read here. Options platform redesign Phase 6 needs these
+  // for a real Execution classification.
+  const bid = Number(raw.bid), ask = Number(raw.ask);
   return {
     symbol, side,
     strike: round2(strike),
     volume: Math.max(0, Math.round(volume)),
     openInterest: Math.max(0, Math.round(oi)),
     lastPrice: round2(last),
+    bid: Number.isFinite(bid) && bid > 0 ? round2(bid) : null,
+    ask: Number.isFinite(ask) && ask > 0 ? round2(ask) : null,
     notional: round2(notional),
     expiry: raw.expiration ? new Date(raw.expiration * 1000).toISOString().slice(0, 10) : null,
     tradeType,

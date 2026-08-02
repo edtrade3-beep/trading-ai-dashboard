@@ -18,6 +18,12 @@ function normalizeTradierOptionContract(symbol, raw) {
   const notional = lastPrice > 0 ? lastPrice * Math.max(volume, 0) * 100 : 0;
   let tradeType = volume >= 1200 ? "BLOCK" : volume >= 200 ? "SWEEP" : "TAPE";
   if (notional >= 500000 && volume >= 300) tradeType = "DARKPOOL";
+  // Real bid/ask — a standard field on every Tradier option contract,
+  // independent of the `greeks=false` query param (that only omits the
+  // separate greeks sub-object). Options platform redesign Phase 6 needs
+  // these for a real Execution classification (above ask/at ask/mid/at
+  // bid/below bid) — previously fetched but never read.
+  const bid = Number(raw?.bid), ask = Number(raw?.ask);
   return {
     symbol,
     side,
@@ -25,6 +31,8 @@ function normalizeTradierOptionContract(symbol, raw) {
     volume: Math.max(0, Math.round(volume)),
     openInterest: Math.max(0, Math.round(openInterest)),
     lastPrice: round2(lastPrice),
+    bid: Number.isFinite(bid) && bid > 0 ? round2(bid) : null,
+    ask: Number.isFinite(ask) && ask > 0 ? round2(ask) : null,
     notional: round2(notional),
     expiry: raw?.expiration_date || null,
     tradeType,
