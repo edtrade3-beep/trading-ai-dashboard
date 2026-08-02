@@ -664,6 +664,35 @@ console.log("Checking institutional-redesign presentation-layer modules (ESM, lo
     });
   }
 
+  console.log("Checking portfolio-rotation-engine.js (Green Light AI gap — Portfolio Rotation)…");
+  const { findWeakestPosition, evaluateRotation } = await import("../axiom-runner/components/portfolio-rotation-engine.js");
+  ok("findWeakestPosition: real minimum-quality open position, honest null on empty input", () => {
+    assert.strictEqual(findWeakestPosition([]), null);
+    assert.strictEqual(findWeakestPosition(null), null);
+    const out = findWeakestPosition([{ symbol: "AAPL", quality: 80 }, { symbol: "TSLA", quality: 55 }, { symbol: "NVDA", quality: 92 }]);
+    assert.strictEqual(out.symbol, "TSLA");
+  });
+  ok("evaluateRotation: rotates only when the real quality improvement clears the documented threshold", () => {
+    const open = [{ symbol: "AAPL", quality: 80 }, { symbol: "TSLA", quality: 55 }];
+    const marginal = evaluateRotation(open, { symbol: "NVDA", quality: 65 }); // 65-55=10 < default 15
+    assert.strictEqual(marginal, null, "a 10-point improvement must not trigger rotation under the default 15-point threshold");
+    const real = evaluateRotation(open, { symbol: "NVDA", quality: 90 }); // 90-55=35 >= 15
+    assert.ok(real);
+    assert.strictEqual(real.close.symbol, "TSLA", "must always target the real weakest open position, never an arbitrary one");
+    assert.strictEqual(real.open.symbol, "NVDA");
+    assert.strictEqual(real.improvement, 35);
+  });
+  ok("evaluateRotation: honest null with no open positions or no real candidate quality", () => {
+    assert.strictEqual(evaluateRotation([], { symbol: "NVDA", quality: 90 }), null);
+    assert.strictEqual(evaluateRotation([{ symbol: "AAPL", quality: 50 }], null), null);
+    assert.strictEqual(evaluateRotation([{ symbol: "AAPL", quality: 50 }], { symbol: "NVDA", quality: NaN }), null);
+  });
+  ok("evaluateRotation: real custom minImprovement threshold is respected", () => {
+    const open = [{ symbol: "AAPL", quality: 80 }];
+    assert.strictEqual(evaluateRotation(open, { symbol: "NVDA", quality: 85 }, { minImprovement: 3 })?.close.symbol, "AAPL");
+    assert.strictEqual(evaluateRotation(open, { symbol: "NVDA", quality: 85 }, { minImprovement: 10 }), null);
+  });
+
   const { OPTIONS_ACTIONS, mapToOptionsAction, optionsExecutionNote } = await import("../axiom-runner/components/options-actions.js");
   ok("mapToOptionsAction: strong/regular call-buy and put-buy tiers match trade-signals' own bands", () => {
     assert.strictEqual(mapToOptionsAction({ score: 90, chgPct: 2 }), OPTIONS_ACTIONS.STRONG_CALL_BUY);

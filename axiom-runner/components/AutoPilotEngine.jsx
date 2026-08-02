@@ -4,6 +4,7 @@ import {
   computeGreenLight, logTradeNote, addPaperTrade, addPaperShort, optionValue,
   addPaperOption, alpacaPlace, alpacaClose, GL_TRADES_KEY,
 } from "./trading-utils.js";
+import { evaluateRotation } from "./portfolio-rotation-engine.js";
 
 // Real trend-reversal signal from /api/market/trend-screen's Stage
 // classification, replacing the always-empty q.priceAvg50 MA50 check used
@@ -44,6 +45,10 @@ export default function AutoPilotEngine({ watchlistData, macroData, scanResults 
       .catch(() => {});
   }, [(watchlistData || []).map(q => q.symbol).filter(Boolean).sort().join(",")]);
   const alpacaPosRef = useRef(0);
+  // Full real open-position list (symbol/qty/openedAt), not just a count —
+  // needed by the Portfolio Rotation engine below to re-score each real
+  // open position's CURRENT quality against a new candidate.
+  const alpacaPositionsRef = useRef([]);
   const serverAutoRef = useRef(false);   // true when the SERVER autopilot is trading (browser stands down)
   // Detect server-side autopilot so the browser engine doesn't double-trade the same account.
   useEffect(() => {
@@ -81,6 +86,7 @@ export default function AutoPilotEngine({ watchlistData, macroData, scanResults 
         if (!d?.ok) return;
         const pos = d.positions || [];
         alpacaPosRef.current = pos.length;
+        alpacaPositionsRef.current = pos;
         // Estimate total open risk = Σ |qty| × entry × assumed 5% stop (autopilot uses ATR≈1.5×).
         const eq = apStatsRef.current.equity || 0;
         const riskDollars = pos.reduce((s, p) => s + Math.abs(Number(p.qty) || 0) * (Number(p.avgEntry) || 0) * 0.05, 0);
@@ -217,18 +223,18 @@ export default function AutoPilotEngine({ watchlistData, macroData, scanResults 
           // option-order both unconditionally reject any order that would
           // open a short, on purpose, for every caller including this one
           // (see the "LONGS ONLY" comment in src/routes/alpaca.js). That
-          // guard is correct and isn't being touched here — but before this
-          // fix, this branch never checked for it: every scan cycle it would
-          // still size a full bracket short, mark the symbol as "shorted"
-          // for the day, and fire a real order that was guaranteed to be
-          // rejected, then quietly unmark it and try again next cycle.
-          // Nothing dangerous ever reached the journal (logTradeNote only
-          // fires on rr?.ok/r?.ok), but it burned a scan cycle and an API
-          // call on a broker path that can never succeed. Skip Alpaca here
-          // entirely and fall through to the local paper-short simulation
-          // below, which doesn't call the real broker and isn't blocked.
-          if (broker !== "alpaca") {
-            const key = `${today}:${q.symbol}:SH:${broker}`;
+          // guard is correct and isn't being touched here — shorts always
+          // fall through to the local paper-short simulation below, which
+          // doesn't call the real broker and isn't blocked.
+          // (Bug fix: this used to be gated behind `broker !== "alpaca"`,
+          // written back when `brokers` could contain "sim" too — since
+          // "SIM removed — autopilot is Alpaca-only" made `brokers` always
+          // `["alpaca"]`, that guard was permanently false and the "Auto
+          // Short" toggle silently did nothing even when enabled. The local
+          // paper-short path below never touches Alpaca regardless, so it
+          // doesn't need — and must not have — a broker gate at all.)
+          {
+            const key = `${today}:${q.symbol}:SH:paper`;
             if (!autoBoughtRef.current.has(key)) {
               const res = addPaperShort(q.symbol, gl.px, { atrPct: gl.atrPct, glScore: gl.shortPassed });
               if (res === "OK") { autoBoughtRef.current.add(key); slots--; }
@@ -281,16 +287,19 @@ export default function AutoPilotEngine({ watchlistData, macroData, scanResults 
         if (slots <= 0) return;
 
         // ── OPTIONS (CALLS only — puts are disabled) ──
-        // Same dead-branch pattern as the short-setup fix above: POST
-        // /api/alpaca/option-order rejects EVERY option order unconditionally
-        // ("OPTIONS DISABLED — opening option positions is turned off for
-        // safety... Long stocks only") — calls included, not just puts. The
-        // broker === "alpaca" branch below could never succeed; skip it and
-        // go straight to the local paper-option simulation, which doesn't
-        // touch the real broker and isn't affected by that guard.
-        if (doOptions && bullish && broker !== "alpaca") {
+        // POST /api/alpaca/option-order rejects EVERY option order
+        // unconditionally ("OPTIONS DISABLED — opening option positions is
+        // turned off for safety... Long stocks only") — calls included, not
+        // just puts. This always falls through to the local paper-option
+        // simulation, which doesn't touch the real broker.
+        // (Bug fix, same root cause as the short fix above: this used to be
+        // gated behind `broker !== "alpaca"` from before "SIM removed —
+        // autopilot is Alpaca-only" made `brokers` permanently `["alpaca"]`
+        // — the "Auto Options" toggle silently did nothing even when
+        // enabled. Removed the now-permanently-false guard.)
+        if (doOptions && bullish) {
           const kind = "CALL";
-          const key = `${today}:${q.symbol}:C:${broker}`;
+          const key = `${today}:${q.symbol}:C:paper`;
           if (!autoBoughtRef.current.has(key)) {
             const res = addPaperOption(q.symbol, gl.px, kind, { glScore: gl.passed });
             if (res === "OK") { autoBoughtRef.current.add(key); slots--; }
@@ -298,6 +307,69 @@ export default function AutoPilotEngine({ watchlistData, macroData, scanResults 
           }
         }
       });
+
+      // ── PORTFOLIO ROTATION (opt-in, default OFF) ──
+      // "Compare every open position against every new opportunity;
+      // replace the weakest open position with a stronger new one only
+      // when expected portfolio quality improves" — genuinely missing
+      // anywhere in this codebase before this (confirmed via the Green
+      // Light AI gap-audit; every prior real "rotation" in this app meant
+      // sector rotation, never this). Only runs when slots are full (a
+      // real opportunity was just skipped above) and only ever compares
+      // against Alpaca positions this app has REAL current quote/trend
+      // data for (still in the live watchlist) — a held symbol that's
+      // dropped out of the watchlist is never rotated on stale or guessed
+      // data, it's simply left to exit via its own real stop/target/
+      // trend-reversal path instead.
+      if (broker === "alpaca" && slots <= 0 && localStorage.getItem("axiom_autopilot_rotation") === "on") {
+        const heldSymbols = new Set((alpacaPositionsRef.current || []).map(p => p.symbol));
+        const bestUnplaced = candidates.find(c => c.bullish && !c.shortSetup && doShares && !heldSymbols.has(c.q.symbol));
+        if (bestUnplaced) {
+          const MIN_HOLD_MS = 30 * 60_000; // 30 real minutes — avoid flip-flopping on noise
+          const maxRotations = Number(localStorage.getItem("axiom_autopilot_maxrotations")) || 3;
+          const rKey = "axiom_ap_rotations_" + today;
+          const rotationsToday = Number(localStorage.getItem(rKey)) || 0;
+          if (rotationsToday < maxRotations) {
+            const now = Date.now();
+            // Rotation-eligible: real min hold time cleared AND this app
+            // has a real current quote for the held symbol (still in the
+            // live watchlist) to re-score it with.
+            const eligible = (alpacaPositionsRef.current || []).filter(p => {
+              if (!p.openedAt) return false;
+              if (now - new Date(p.openedAt).getTime() < MIN_HOLD_MS) return false;
+              return (watchlistData || []).some(w => w.symbol === p.symbol);
+            });
+            const scoredOpen = eligible.map(p => {
+              const wq = (watchlistData || []).find(w => w.symbol === p.symbol);
+              const scanRow = (scanResults || []).find(r => r.ticker === p.symbol);
+              const pgl = computeGreenLight(wq, spyChg, scanRow, regimeScore);
+              return { symbol: p.symbol, quality: aPlusMode ? pgl.aScore : pgl.passed * 10 };
+            });
+            const rotation = evaluateRotation(scoredOpen, { symbol: bestUnplaced.q.symbol, quality: bestUnplaced.quality });
+            if (rotation) {
+              const closeSym = rotation.close.symbol;
+              alpacaClose(closeSym).then(cr => {
+                if (!cr?.ok) return;
+                localStorage.setItem(rKey, String(rotationsToday + 1));
+                const gl2 = bestUnplaced.gl;
+                const entry = gl2.bestEntry || gl2.px;
+                const atr = Math.min(0.05, Math.max(0.01, Number(gl2.atrPct) || 0.025));
+                const stop = +(entry * (1 - atr * 1.5)).toFixed(2);
+                const take = +(entry * (1 + atr * 3)).toFixed(2);
+                const riskPerShare = Math.max(0.01, entry - stop);
+                const riskFrac = (aPlusMode && gl2.confRisk > 0 ? gl2.confRisk : riskPct) / 100;
+                const qty = Math.max(1, Math.min(Math.floor((acct * riskFrac) / riskPerShare), Math.floor(acct / entry)));
+                alpacaPlace(bestUnplaced.q.symbol, qty, stop, take).then(r => {
+                  if (r?.ok) {
+                    autoBoughtRef.current.add(`${today}:${bestUnplaced.q.symbol}:S:alpaca`);
+                    logTradeNote("buy", `🔄 ROTATION — closed ${closeSym} (real quality ${Math.round(rotation.close.quality)}) → opened ${bestUnplaced.q.symbol} (real quality ${Math.round(rotation.open.quality)}, +${Math.round(rotation.improvement)} improvement)\n${qty} sh @ ~$${entry} (paper · bracket)\nStop $${stop} · Target $${take}`);
+                  }
+                });
+              }).catch(() => {});
+            }
+          }
+        }
+      }
       } // end for each broker
     };
     tick();
@@ -346,6 +418,16 @@ export default function AutoPilotEngine({ watchlistData, macroData, scanResults 
       try { trades = JSON.parse(localStorage.getItem(GL_TRADES_KEY)) || []; } catch {}
       const trailOn = localStorage.getItem("axiom_autopilot_trail") !== "off"; // default ON
       const exitMode = localStorage.getItem("axiom_autopilot_exit") || "trail"; // targets | trend (default: sell when bearish)
+      // ── SCORE-DECAY EXIT setup (opt-in, default OFF) ── — real
+      // "close when the Green Light Score falls below an exit threshold"
+      // (Green Light AI gap-audit finding: no existing close trigger keys
+      // off a live re-scored quality, only price-based stop/target/trend-
+      // reversal). Computed once per tick, reused per position below.
+      const scoreDecayOn = localStorage.getItem("axiom_autopilot_scoredecay") === "on";
+      const scoreDecayMin = Number(localStorage.getItem("axiom_autopilot_scoredecay_min")) || 50;
+      const spyQ2 = (macroData || []).find(m => m.symbol === "SPY") || (watchlistData || []).find(w => w.symbol === "SPY");
+      const spyChg2 = Number(spyQ2?.changesPercentage || 0);
+      const regimeScore2 = scoreDecayOn ? computeRegime(macroData).score : 0;
       let changed = false;
       const updated = trades.map(tr => {
         if (tr.status !== "OPEN" || tr.mode !== "PAPER" || !tr.auto) return tr;
@@ -357,6 +439,24 @@ export default function AutoPilotEngine({ watchlistData, macroData, scanResults 
         x.remaining = x.remaining ?? x.shares;
         x.realized  = x.realized ?? 0;
         const third = Math.max(1, Math.floor(x.shares / 3));
+
+        // ── SCORE-DECAY EXIT — reuses the exact same real computeGreenLight
+        // the entry engine scores candidates with (an apples-to-apples read
+        // on whether THIS specific setup has genuinely deteriorated, not a
+        // new formula), independent of exitMode (trail/targets/trend). ──
+        if (scoreDecayOn && q) {
+          const scanRow = (scanResults || []).find(r => r.ticker === tr.ticker);
+          const pgl = computeGreenLight(q, spyChg2, scanRow, regimeScore2);
+          const currentQuality = x.side === "SHORT" ? pgl.bearScore : pgl.aScore;
+          if (Number.isFinite(currentQuality) && currentQuality < scoreDecayMin) {
+            const pnl = x.remaining * (px - x.entry) * (x.side === "SHORT" ? -1 : 1);
+            x.realized += pnl; x.remaining = 0; x.status = "CLOSED";
+            x.exit = +px.toFixed(2); x.closedAt = new Date().toISOString();
+            x.exitReason = "SCORE_DECAY"; changed = true;
+            logTradeNote("exit", `📉 SCORE DECAY EXIT — ${x.ticker}${x.glScore ? ` (${x.glScore}/5)` : ""}\nReal quality dropped to ${Math.round(currentQuality)} (< ${scoreDecayMin}) — closed @ $${x.exit} (paper) · P&L ${x.realized >= 0 ? "+" : ""}$${x.realized.toFixed(0)}`);
+            return x;
+          }
+        }
 
         // ── SHORT positions: mirrored management (stop above, targets below, cover on bullish) ──
         if (x.side === "SHORT") {
@@ -491,19 +591,45 @@ export default function AutoPilotEngine({ watchlistData, macroData, scanResults 
     return () => clearInterval(t);
   }, [watchlistData]);
 
-  // ALPACA trend-exit: close positions whose underlying turns bearish (stop/target handled by Alpaca bracket)
+  // ALPACA trend-exit + score-decay-exit: close positions whose underlying
+  // turns bearish (trend mode) or whose real re-scored quality falls below
+  // a real exit threshold (score-decay, independent opt-in — stop/target
+  // are always still handled by the Alpaca bracket order regardless).
   useEffect(() => {
     const t = setInterval(async () => {
       if (localStorage.getItem("axiom_autopilot") !== "on") return;
       if (!["alpaca","both"].includes(localStorage.getItem("axiom_autopilot_broker"))) return;
-      if ((localStorage.getItem("axiom_autopilot_exit") || "trail") !== "trend") return;
+      const trendExitOn = (localStorage.getItem("axiom_autopilot_exit") || "trail") === "trend";
+      const scoreDecayOn = localStorage.getItem("axiom_autopilot_scoredecay") === "on";
+      if (!trendExitOn && !scoreDecayOn) return;
       try {
         const r = await fetch("/api/alpaca/positions").then(x => x.json());
         if (!r?.ok) return;
+        const scoreDecayMin = Number(localStorage.getItem("axiom_autopilot_scoredecay_min")) || 50;
+        const spyQ2 = (macroData || []).find(m => m.symbol === "SPY") || (watchlistData || []).find(w => w.symbol === "SPY");
+        const spyChg2 = Number(spyQ2?.changesPercentage || 0);
+        const regimeScore2 = scoreDecayOn ? computeRegime(macroData).score : 0;
         for (const p of (r.positions || [])) {
           const q = (watchlistData || []).find(o => o.symbol === p.symbol);
-          const chg = Number(q?.changesPercentage || 0);
           const isShort = p.side === "short" || Number(p.qty) < 0;
+
+          // ── Score-decay: reuses the exact same real computeGreenLight
+          // the entry engine scores candidates with — Green Light AI
+          // gap-audit finding, no existing close trigger keyed off a live
+          // re-scored quality before this. ──
+          if (scoreDecayOn && q) {
+            const scanRow = (scanResults || []).find(sr => sr.ticker === p.symbol);
+            const pgl = computeGreenLight(q, spyChg2, scanRow, regimeScore2);
+            const currentQuality = isShort ? pgl.bearScore : pgl.aScore;
+            if (Number.isFinite(currentQuality) && currentQuality < scoreDecayMin) {
+              const cr = await alpacaClose(p.symbol);
+              if (cr?.ok) logTradeNote("exit", `📉 SCORE DECAY EXIT — ${p.symbol}\nReal quality dropped to ${Math.round(currentQuality)} (< ${scoreDecayMin}) — closed (paper) · P&L ${p.unrealizedPL >= 0 ? "+" : ""}$${p.unrealizedPL.toFixed(0)}`);
+              continue;  // already closed — skip the trend check below
+            }
+          }
+
+          if (!trendExitOn) continue;
+          const chg = Number(q?.changesPercentage || 0);
           const trend = trendMapRef.current[p.symbol];
           // long covers on bearish reversal; short covers on bullish reversal
           const reversed = isShort ? (trendReversed(trend, true) || chg > 3) : (trendReversed(trend, false) || chg < -3);
@@ -515,7 +641,7 @@ export default function AutoPilotEngine({ watchlistData, macroData, scanResults 
       } catch {}
     }, 30000);
     return () => clearInterval(t);
-  }, [watchlistData]);
+  }, [watchlistData, macroData, scanResults]);
 
   return null;
 }

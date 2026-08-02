@@ -285,6 +285,11 @@ export default function MyTradesTab({ C, MONO, SANS, watchlistData }) {
   const [shortOn, setShortOn] = useState(() => localStorage.getItem("axiom_autopilot_short") === "on");      // default OFF
   const [trailMode, setTrailMode] = useState(() => localStorage.getItem("axiom_autopilot_trail") !== "off");
   const [exitMode, setExitMode] = useState(() => localStorage.getItem("axiom_autopilot_exit") || "trail");
+  // Green Light AI gap-fill (2026-08-02): Portfolio Rotation + Score-Decay
+  // Exit — both opt-in, default OFF (new auto-close/auto-replace behavior
+  // should never silently activate for existing users).
+  const [rotationOn, setRotationOn] = useState(() => localStorage.getItem("axiom_autopilot_rotation") === "on");
+  const [scoreDecayOn, setScoreDecayOn] = useState(() => localStorage.getItem("axiom_autopilot_scoredecay") === "on");
   const broker = "alpaca";  // SIM removed — Alpaca-only
   const [maxPos, setMaxPos] = useState(() => Number(localStorage.getItem("axiom_autopilot_maxpos")) || 12);
   const [lastCheck, setLastCheck] = useState(() => Number(localStorage.getItem("axiom_autopilot_lastcheck")) || 0);
@@ -497,6 +502,12 @@ export default function MyTradesTab({ C, MONO, SANS, watchlistData }) {
           <Setting label="HOW TO EXIT" hint="TRAIL = the backtest-validated exit (+1.70R). Let winners run." value={exitMode}
             onPick={val => { setExitMode(val); localStorage.setItem("axiom_autopilot_exit", val); }}
             options={[["TRAIL ✓", "trail"], ["TARGETS", "targets"], ["TREND", "trend"]]} />
+          <Setting label="🔄 ROTATION" hint="ON = when position slots are full and a real new opportunity clearly outranks your real weakest open position (≥15pt quality gap, min 30min hold, max 3/day), automatically close the weak one and open the strong one." value={rotationOn}
+            onPick={on => { setRotationOn(on); localStorage.setItem("axiom_autopilot_rotation", on ? "on" : "off"); }}
+            options={[["ON", true], ["OFF ✓", false]]} />
+          <Setting label="📉 SCORE-DECAY EXIT" hint="ON = also close a position if its real re-scored quality falls below 50/100 — independent of your exit mode above. Same real scoring the entry engine uses." value={scoreDecayOn}
+            onPick={on => { setScoreDecayOn(on); localStorage.setItem("axiom_autopilot_scoredecay", on ? "on" : "off"); }}
+            options={[["ON", true], ["OFF ✓", false]]} />
           <div>
             <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: "0.05em", marginBottom: 6 }}>BROKER</div>
             <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: "#10b981", background: "#10b98118", border: "1px solid #10b98144", borderRadius: 6, padding: "5px 10px" }}>🅰 ALPACA PAPER</span>
