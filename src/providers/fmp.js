@@ -133,4 +133,34 @@ async function fetchFmpEarnings(symbol, fmpKey) {
   return annual.length ? { annual } : null;
 }
 
-module.exports = { normalizeFmpQuoteRow, fetchFmpQuotes, fetchFmpFundamentals, fetchFmpEarnings };
+// Real crypto-native news — FMP's v3 crypto_news endpoint (same family as
+// stock_news/general_news, unlocked at meaningful volume on the paid tier).
+// Genuinely different from CryptoTab.jsx's prior approach, which pulled
+// EQUITY headlines for crypto-adjacent tickers (COIN, MSTR, RIOT, MARA,
+// CLSK) as a proxy — this is real news about the coins themselves. Field
+// names mapped onto CryptoNews.jsx's existing fallback chain
+// (headline/publishedAt/url/source) so no client-side field-guessing is
+// needed. Real article `text` is truncated for a summary line, never
+// fabricated. Empty array (not an error) when no real key is configured.
+async function fetchFmpCryptoNews(fmpKey, limit = 30) {
+  if (!fmpKey) return [];
+  const n = Math.max(1, Math.min(100, Number(limit) || 30));
+  const url = `https://financialmodelingprep.com/api/v3/crypto_news?limit=${n}&apikey=${encodeURIComponent(fmpKey)}`;
+  const payload = await fetchJsonSafe(url);
+  if (!Array.isArray(payload)) return [];
+  return payload.map((r) => {
+    const headline = r.title || r.headline || "";
+    if (!headline) return null;
+    return {
+      symbol: r.symbol || null,
+      headline,
+      summary: r.text ? String(r.text).slice(0, 240) : "",
+      url: r.url || r.link || "",
+      source: r.site || r.source || "",
+      publishedAt: r.publishedDate || r.date || null,
+      image: r.image || null,
+    };
+  }).filter(Boolean);
+}
+
+module.exports = { normalizeFmpQuoteRow, fetchFmpQuotes, fetchFmpFundamentals, fetchFmpEarnings, fetchFmpCryptoNews };

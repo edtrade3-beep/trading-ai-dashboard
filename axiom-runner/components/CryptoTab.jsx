@@ -574,12 +574,16 @@ export default function CryptoTab({ C, MONO, SANS }) {
 function CryptoNews({ C, MONO, SANS }) {
   const [news, setNews] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [unavailable, setUnavailable] = useState(false);
 
   useEffect(() => {
     setLoading(true);
-    fetch("/api/market/news?tickers=COIN,MSTR,RIOT,MARA,CLSK&limit=20")
+    fetch("/api/market/crypto-news?limit=25")
       .then(r => r.json())
-      .then(d => { setNews(Array.isArray(d) ? d : (d.news || [])); })
+      .then(d => {
+        setNews(d?.news || []);
+        setUnavailable(d?.reason === "no-fmp-key");
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
@@ -590,10 +594,12 @@ function CryptoNews({ C, MONO, SANS }) {
     <div style={card}>
       <div style={{ padding: "14px 18px 10px", borderBottom: `1px solid ${C.border}` }}>
         <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text, letterSpacing: "0.08em" }}>📰 CRYPTO NEWS</span>
-        <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginLeft: 10 }}>BTC · ETH · COIN · MSTR</span>
+        <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginLeft: 10 }}>Real crypto-native headlines</span>
       </div>
       {loading ? (
         <div style={{ padding: "30px 0", textAlign: "center", fontFamily: MONO, fontSize: 12, color: C.textDim }}>Loading headlines…</div>
+      ) : unavailable ? (
+        <div style={{ padding: "30px 0", textAlign: "center", fontFamily: MONO, fontSize: 12, color: C.textDim }}>Crypto news requires an FMP API key — unavailable without FMP_API_KEY.</div>
       ) : news.length === 0 ? (
         <div style={{ padding: "30px 0", textAlign: "center", fontFamily: MONO, fontSize: 12, color: C.textDim }}>No headlines available</div>
       ) : news.slice(0, 15).map((n, i) => {

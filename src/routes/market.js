@@ -22,7 +22,7 @@ const {
   fetchStockTwitsSentiment,
 } = require("../providers/yahoo");
 const { fetchFinnhubQuotes, fetchFinnhubNews } = require("../providers/finnhub");
-const { fetchFmpQuotes, fetchFmpFundamentals, fetchFmpEarnings } = require("../providers/fmp");
+const { fetchFmpQuotes, fetchFmpFundamentals, fetchFmpEarnings, fetchFmpCryptoNews } = require("../providers/fmp");
 const { fetchPolygonQuotes, fetchPolygonNews } = require("../providers/polygon");
 const { applyMomentum } = require("../quote-momentum");
 const SECTOR_THEME_MAP = require("../sector-theme-map");
@@ -2841,6 +2841,26 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
       return writeJson(res, 200, { ok: true, ticker, timeframe, bars: bars.slice(-120) });
     } catch (err) {
       return writeJson(res, 422, { error: err?.message || "Candle fetch failed" });
+    }
+  }
+
+  // GET /api/market/crypto-news — real crypto-native news (FMP v3
+  // crypto_news, unlocked at meaningful volume on the user's paid FMP
+  // tier, 2026-08-02). Replaces CryptoTab.jsx's prior equity-ticker proxy
+  // (COIN/MSTR/RIOT/MARA/CLSK headlines standing in for crypto news) with
+  // real news about the coins themselves. Honest empty array (not an
+  // error) when no FMP key is configured — same convention as
+  // /api/market/econ-events's "no-fmp-key" gate.
+  if (pathname === "/api/market/crypto-news" && req.method === "GET") {
+    const limit = Math.max(1, Math.min(50, Number(searchParams.get("limit") || 25)));
+    const keys = resolveProviderKeys(searchParams);
+    if (!keys.fmp) return writeJson(res, 200, { ok: true, news: [], reason: "no-fmp-key" });
+    try {
+      const news = await fetchFmpCryptoNews(keys.fmp, limit);
+      return writeJson(res, 200, { ok: true, news, source: "fmp" });
+    } catch (err) {
+      console.error("[market/crypto-news] error:", err?.message);
+      return writeJson(res, 200, { ok: true, news: [] });
     }
   }
 
