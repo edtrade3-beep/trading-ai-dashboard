@@ -66,6 +66,11 @@ const CATEGORIES = [
   { id: "avoid", label: "🚫 Avoid List" },
   { id: "gap", label: "⚡ Gap Up/Down" },
   { id: "daytrade", label: "⏱ Day Trade" },
+  // Building Higher Lows — real swing-low sequence detector
+  // (buildTrendTemplate's higherLows, same swing-detection window as the
+  // existing pivot/swing-high logic, applied to lows instead). Genuinely
+  // missing category identified in the Green Light AI spec gap-audit.
+  { id: "higherlows", label: "📶 Building Higher Lows" },
 ];
 
 export default function RhProScanner({ C, MONO, SANS, macroData, sectorData, watchlistData, setActiveTab }) {
@@ -232,6 +237,9 @@ export default function RhProScanner({ C, MONO, SANS, macroData, sectorData, wat
   } else if (category === "avoid") {
     categorized = [...rows].filter(r => r.aplus).sort((a, b) => (a.aplus.score || 0) - (b.aplus.score || 0)).slice(0, 10);
     categoryNote = "The real bottom of this scan by A+ Score — same pattern as Dashboard's Stocks to Avoid card.";
+  } else if (category === "higherlows") {
+    categorized = rows.filter(r => r.higherLows);
+    categoryNote = "Real swing-low sequence: each of the last 3 real swing lows is strictly above the one before it — the base is being built on rising support, not just consolidating.";
   }
   let shown = category === "all" ? categorized.filter(r => filter === "buy" ? r.atBuyPoint : r.score >= filter) : categorized;
   if (search.trim()) {

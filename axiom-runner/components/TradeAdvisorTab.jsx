@@ -79,7 +79,17 @@ function generateSetup(q, trend) {
     // through to the plain ATR stop. trend.pivot is a real level.)
     const pivot   = Number(trend?.pivot || 0);
     const smaBuff = pivot > 0 && price - pivot < atr * 3 ? pivot - atr * 0.5 : null;
-    stop    = smaBuff ? Math.min(price - atr * 1.5, smaBuff) : price - atr * 1.5;
+    // Real swing-low stop candidate — trend.contractionLow (real 15-bar
+    // lowest-low, already computed server-side in buildTrendTemplate for
+    // pivot construction and exposed flatly by screenTrendTemplate, never
+    // a new fetch). Only used when it's a reasonably close real level
+    // (not some ancient far-away low), same sanity-cap convention the
+    // pivot candidate above already uses.
+    const swingLow  = Number(trend?.contractionLow || 0);
+    const swingBuff = swingLow > 0 && price - swingLow < atr * 4 ? swingLow - atr * 0.25 : null;
+    stop = price - atr * 1.5;
+    if (smaBuff != null) stop = Math.min(stop, smaBuff);
+    if (swingBuff != null) stop = Math.min(stop, swingBuff);
     target1 = price + (price - stop) * 2;   // 2:1 R:R
     target2 = price + (price - stop) * 3.5; // 3.5:1 R:R
     stopPct = ((stop - price) / price * 100).toFixed(1);

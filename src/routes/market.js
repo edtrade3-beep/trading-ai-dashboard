@@ -1148,6 +1148,20 @@ async function _buildTrendTemplate(symbol, opts = {}) {
   // Tightest recent contraction low (15 bars) — used for a tighter stop.
   const contractionLow = Math.min(...lows.slice(Math.max(0, last - 15)));
 
+  // Real "Building Higher Lows" read — same swing-detection window (W=3)
+  // as the swing-highs pivot logic above, applied to lows instead. A
+  // stock is "building higher lows" when each of its last 3 real swing
+  // lows is strictly above the one before it — a real, deterministic
+  // read off the same bars, not a fabricated pattern label.
+  const swingLows = [];
+  for (let i = Math.max(W, last - 50); i <= last - W; i += 1) {
+    let isLow = true;
+    for (let j = i - W; j <= i + W; j += 1) { if (lows[j] < lows[i]) { isLow = false; break; } }
+    if (isLow) swingLows.push({ i, l: lows[i] });
+  }
+  const recentSwingLows = swingLows.slice(-3);
+  const higherLows = recentSwingLows.length === 3 && recentSwingLows[1].l > recentSwingLows[0].l && recentSwingLows[2].l > recentSwingLows[1].l;
+
   const avgVol50 = avg(vols.slice(Math.max(0, last - 50)));
   const lastVol = vols[last];
   const volSurge = avgVol50 ? lastVol / avgVol50 : 0;
@@ -1215,6 +1229,7 @@ async function _buildTrendTemplate(symbol, opts = {}) {
     target2,
     target3,
     contractionLow: round2(contractionLow),
+    higherLows,
     tightnessPct,
     volDryup,
     volSurge: round2(volSurge),
@@ -1356,6 +1371,7 @@ async function screenTrendTemplate(symbols, filters = {}) {
           symbol: r.symbol, price: r.price, passCount: r.passCount, qualifies: r.qualifies,
           stage: r.stage, rsRating: r.rsRating, pctFromHigh: r.pctFromHigh,
           pivot: r.setup.pivot, entry: r.setup.entry, stop: r.setup.stop, riskPct: r.setup.riskPct,
+          contractionLow: r.setup.contractionLow, higherLows: r.setup.higherLows,
           target2: r.setup.target2, abovePivotPct: r.setup.abovePivotPct,
           breakoutConfirmed: r.setup.breakoutConfirmed, extended: r.setup.extended,
           setupStatus: r.setup.status, actionable: r.setup.actionable,
