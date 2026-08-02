@@ -145,7 +145,10 @@ async function fetchFmpEarnings(symbol, fmpKey) {
 async function fetchFmpCryptoNews(fmpKey, limit = 30) {
   if (!fmpKey) return [];
   const n = Math.max(1, Math.min(100, Number(limit) || 30));
-  const url = `https://financialmodelingprep.com/api/v3/crypto_news?limit=${n}&apikey=${encodeURIComponent(fmpKey)}`;
+  // FMP retired the legacy /api/v3/crypto_news endpoint (2025-08-31) —
+  // confirmed live via a 403 "Legacy Endpoint" error pointing at their
+  // current stable API. This is the replacement.
+  const url = `https://financialmodelingprep.com/stable/news/crypto?limit=${n}&apikey=${encodeURIComponent(fmpKey)}`;
   const payload = await fetchJsonSafe(url);
   if (!Array.isArray(payload)) return [];
   return payload.map((r) => {

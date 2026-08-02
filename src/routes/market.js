@@ -2859,7 +2859,7 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
       const news = await fetchFmpCryptoNews(keys.fmp, limit);
       const payload = { ok: true, news, source: "fmp" };
       if (searchParams.get("debug") === "1") {
-        const dbgRes = await fetch(`https://financialmodelingprep.com/api/v3/crypto_news?limit=3&apikey=${encodeURIComponent(keys.fmp)}`);
+        const dbgRes = await fetch(`https://financialmodelingprep.com/stable/news/crypto?limit=3&apikey=${encodeURIComponent(keys.fmp)}`);
         payload._debug = { status: dbgRes.status, body: (await dbgRes.text()).slice(0, 800) };
       }
       return writeJson(res, 200, payload);
