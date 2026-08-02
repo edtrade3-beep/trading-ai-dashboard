@@ -123,6 +123,56 @@ ok("computeGammaExposure: real per-strike math, net GEX, flip point, call/put wa
   assert.ok(out.gammaFlipPoint > 100 && out.gammaFlipPoint < 105, "flip point must fall between the two strikes where cumulative GEX crosses zero");
 });
 
+console.log("Checking options-math.js Phase 5 additions (EV, contract ranking, squeeze/crush/assignment risk)…");
+ok("dteFromExpiry: real calendar-day math off a real expiry string", () => {
+  const { dteFromExpiry } = require("../src/options-math");
+  const future = new Date(Date.now() + 10 * 86_400_000).toISOString().slice(0, 10);
+  const dte = dteFromExpiry(future);
+  assert.ok(dte >= 9 && dte <= 10, "10 real days out should compute to ~10 DTE");
+  assert.strictEqual(dteFromExpiry("not-a-date"), null);
+});
+ok("expectedValue: real POP × avgWin math, honest null with missing real inputs", () => {
+  const { expectedValue } = require("../src/options-math");
+  assert.strictEqual(expectedValue({ pop: 60, avgWinPct: 100, avgLossPct: 100 }), 20, "0.6*100 - 0.4*100 = 20");
+  assert.strictEqual(expectedValue({}), null);
+});
+ok("rankContracts: sorts by real composite opportunity score, not strike order", () => {
+  const { rankContracts } = require("../src/options-math");
+  const contracts = [
+    { strike: 100, delta: 0.15, bid: 0.5, ask: 0.9, openInterest: 20, volume: 5, expiry: new Date(Date.now() + 20 * 86_400_000).toISOString().slice(0, 10) },
+    { strike: 105, delta: 0.55, bid: 2.4, ask: 2.5, openInterest: 8000, volume: 3000, expiry: new Date(Date.now() + 20 * 86_400_000).toISOString().slice(0, 10) },
+  ];
+  const ranked = rankContracts(contracts, { isCall: true, aiTradeScore: 70 });
+  assert.strictEqual(ranked[0].strike, 105, "the real higher-POP, higher-liquidity contract should rank first despite the higher strike");
+  assert.ok(ranked[0].rankScore > ranked[1].rankScore);
+});
+ok("gammaSqueezeProbability: honest null when GEX unavailable, real composite when available", () => {
+  const { gammaSqueezeProbability } = require("../src/options-math");
+  assert.strictEqual(gammaSqueezeProbability({ gammaExposure: { available: false } }), null);
+  const score = gammaSqueezeProbability({ gammaExposure: { available: true, netGEX: -500000 }, shortFloatPct: 15, rvol: 2.5 });
+  assert.ok(score > 50, "negative real GEX + real high short float + real high RVOL should score high");
+});
+ok("ivCrushRisk: only meaningful within the real 10-day earnings window", () => {
+  const { ivCrushRisk } = require("../src/options-math");
+  assert.strictEqual(ivCrushRisk({ daysToEarnings: 30, ivRank: 90 }), null, "outside the real 10-day window, honest null not a guess");
+  assert.ok(ivCrushRisk({ daysToEarnings: 1, ivRank: 90 }) > ivCrushRisk({ daysToEarnings: 8, ivRank: 90 }), "closer to real earnings date should score higher");
+});
+ok("assignmentRisk: real ITM-proximity weighted more heavily near real expiry", () => {
+  const { assignmentRisk } = require("../src/options-math");
+  const near = assignmentRisk({ delta: 0.9, dte: 1 });
+  const far = assignmentRisk({ delta: 0.9, dte: 60 });
+  assert.ok(near > far, "same real delta closer to real expiry should score higher assignment risk");
+  assert.strictEqual(assignmentRisk({}), null);
+});
+
+console.log("Checking iv-history-store.js Phase 5 honest-building-state…");
+ok("ivRankFor: honest building state with no real accumulated history yet", () => {
+  const { ivRankFor } = require("../src/iv-history-store");
+  const out = ivRankFor("ZZZZ_NONEXISTENT_TEST_SYMBOL", 45);
+  assert.strictEqual(out.available, false);
+  assert.ok(out.reason.includes("building"), "must say it's honestly building, never fabricate a rank");
+});
+
 console.log("Checking institutional-redesign presentation-layer modules (ESM, loaded via dynamic import)…");
 (async () => {
   const { AI_ACTIONS, mapToAiAction } = await import("../axiom-runner/components/ai-actions.js");

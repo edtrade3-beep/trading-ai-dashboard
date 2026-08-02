@@ -91,4 +91,86 @@ function liquidityScore({ bid, ask, openInterest, volume } = {}) {
   return Math.round(score);
 }
 
-module.exports = { normCdf, probabilityOfProfit, expectedMove, spreadPct, liquidityScore };
+// Days-to-expiry from a real "YYYY-MM-DD" expiry string (UTC calendar days,
+// floor at 0). Null on an unparseable date rather than a guessed number.
+function dteFromExpiry(expiry) {
+  const exp = new Date(`${expiry}T00:00:00Z`);
+  if (Number.isNaN(exp.getTime())) return null;
+  const now = new Date();
+  const todayUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  return Math.max(0, Math.round((exp.getTime() - todayUtc) / 86_400_000));
+}
+
+// Expected Value — options platform redesign Phase 5 (spec: "Expected
+// Value" as one of the Option Intelligence fields). Real POP crossed with
+// real avg-win/avg-loss % (whatever the caller's own real trade-plan math
+// produced — this function does no target/stop math itself, only the EV
+// arithmetic over real inputs already computed elsewhere).
+function expectedValue({ pop, avgWinPct, avgLossPct } = {}) {
+  const p = Number(pop), w = Number(avgWinPct), l = Number(avgLossPct);
+  if (!Number.isFinite(p) || !Number.isFinite(w) || !Number.isFinite(l)) return null;
+  const prob = Math.max(0, Math.min(100, p)) / 100;
+  return Math.round((prob * w - (1 - prob) * Math.abs(l)) * 100) / 100;
+}
+
+// AI Contract Ranking — "sort by opportunity, not strike" (spec). Scores
+// every real contract by a weighted composite of real POP + real
+// liquidity + alignment with the symbol's real AI Trade Score (Phase 3,
+// passed in by the caller, not recomputed here) — one ranking engine, so
+// the Option Recommender's "top pick" and the Smart Option Chain's
+// sortable table are always consistent with each other. `contracts` is
+// the real chain array (mapP()'s output, routes/market.js).
+function rankContracts(contracts, { underlying, isCall, aiTradeScore } = {}) {
+  const alignment = Number.isFinite(Number(aiTradeScore)) ? Number(aiTradeScore) : 50;
+  return (contracts || []).map((c) => {
+    const dte = c.dte != null ? c.dte : dteFromExpiry(c.expiry);
+    const pop = probabilityOfProfit({ delta: c.delta, iv: c.iv, strike: c.strike, underlying, dte, isCall });
+    const liquidity = liquidityScore({ bid: c.bid, ask: c.ask, openInterest: c.openInterest, volume: c.volume });
+    const popScore = pop != null ? pop : 50;
+    const rankScore = Math.round(popScore * 0.45 + liquidity * 0.35 + alignment * 0.2);
+    return { ...c, dte, pop, liquidityScore: liquidity, rankScore };
+  }).sort((a, b) => b.rankScore - a.rankScore);
+}
+
+// Gamma Squeeze Probability — options platform redesign Phase 5. A
+// documented composite of real dealer-short-gamma (Phase 2's GEX, net
+// negative = dealers short gamma), real short-float %, and real RVOL —
+// not a single fabricated number. Null when GEX itself isn't available
+// (same hard gate Phase 2 established), since dealer positioning is the
+// core real signal this metric is built on.
+function gammaSqueezeProbability({ gammaExposure, shortFloatPct, rvol } = {}) {
+  if (!gammaExposure?.available) return null;
+  let score = 0;
+  if (Number(gammaExposure.netGEX) < 0) score += 40;
+  if (Number.isFinite(Number(shortFloatPct))) score += Math.max(0, Math.min(30, (Number(shortFloatPct) / 20) * 30));
+  if (Number.isFinite(Number(rvol))) score += Math.max(0, Math.min(30, ((Number(rvol) - 1) / 2) * 30));
+  return Math.max(0, Math.min(100, Math.round(score)));
+}
+
+// IV Crush Risk — real days-to-earnings crossed with real IV Rank. Only
+// meaningful within 10 real calendar days of a real earnings date (the
+// window IV crush actually applies to); null outside that window rather
+// than a low-but-fabricated number.
+function ivCrushRisk({ daysToEarnings, ivRank } = {}) {
+  const d = Number(daysToEarnings);
+  if (!Number.isFinite(d) || d < 0 || d > 10) return null;
+  const proximityScore = ((10 - d) / 10) * 60;
+  const ivScore = Number.isFinite(Number(ivRank)) ? (Number(ivRank) / 100) * 40 : 20;
+  return Math.round(proximityScore + ivScore);
+}
+
+// Assignment Risk — real ITM-proximity (a contract's own real delta
+// already approximates probability of expiring ITM) weighted more heavily
+// as real DTE shrinks (assignment risk concentrates near expiry).
+function assignmentRisk({ delta, dte } = {}) {
+  const d = Number(delta);
+  if (!Number.isFinite(d)) return null;
+  const itmScore = Math.min(100, Math.abs(d) * 100);
+  const dteFactor = Number.isFinite(Number(dte)) ? Math.max(0, Math.min(1, (10 - Number(dte)) / 10)) : 0.3;
+  return Math.round(itmScore * (0.6 + 0.4 * dteFactor));
+}
+
+module.exports = {
+  normCdf, probabilityOfProfit, expectedMove, spreadPct, liquidityScore,
+  dteFromExpiry, expectedValue, rankContracts, gammaSqueezeProbability, ivCrushRisk, assignmentRisk,
+};

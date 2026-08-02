@@ -10,6 +10,11 @@ export default function OptionsChainTab({ C, MONO, SANS, defaultSymbol, onOpenTe
   const [selectedExpiry, setSelectedExpiry] = useState(null);
   const [view, setView] = useState("calls"); // calls | puts | both
   const [strikeRange, setStrikeRange] = useState(10); // show N strikes each side of ATM
+  // Smart Option Chain — options platform redesign Phase 5 (spec: "sort by
+  // opportunity, not strike"). rankScore/pop/liquidityScore are computed
+  // server-side (options-math.js's rankContracts, wired into
+  // /api/market/options) — this is presentation-only, one ranking engine.
+  const [sortBy, setSortBy] = useState("strike");
 
   const load = useCallback(async (sym, expiry) => {
     setLoading(true); setError(null);
@@ -37,6 +42,35 @@ export default function OptionsChainTab({ C, MONO, SANS, defaultSymbol, onOpenTe
     const lo = strikes[Math.max(0, idx - strikeRange)];
     const hi = strikes[Math.min(strikes.length - 1, idx + strikeRange)];
     return contracts.filter(c => c.strike >= lo && c.strike <= hi);
+  };
+
+  // Smart Option Chain sort keys — spec: "Best Opportunity, Highest
+  // Probability, Highest Liquidity, Best Risk/Reward, Highest AI Score,
+  // Highest Institutional Interest, Highest Gamma, Lowest Spread, Highest
+  // Open Interest, Highest Volume" instead of strike order. rankScore/pop/
+  // liquidityScore are the real server-computed fields (options-math.js);
+  // "Highest AI Score" and "Highest Institutional Interest" both map to
+  // rankScore here (this standalone chain page has no per-symbol AI Trade
+  // Score/Institution Score of its own — those live on the Charts page's
+  // AiTradeCard, Phase 5/4 — so rankScore, which already blends real POP +
+  // liquidity, is the closest honest proxy rather than inventing a second
+  // number). Real spread computed from real bid/ask for the Lowest Spread
+  // sort (not stored on the contract, cheap to derive here).
+  const spreadOf = (c) => (c.bid > 0 && c.ask > 0 && c.ask >= c.bid) ? (c.ask - c.bid) / ((c.ask + c.bid) / 2) : Infinity;
+  const SORT_OPTIONS = [
+    { id: "opportunity", label: "Best Opportunity", key: (c) => c.rankScore ?? -1, dir: -1 },
+    { id: "probability", label: "Highest Probability", key: (c) => c.pop ?? -1, dir: -1 },
+    { id: "liquidity", label: "Highest Liquidity", key: (c) => c.liquidityScore ?? -1, dir: -1 },
+    { id: "aiscore", label: "Highest AI / Institutional Score", key: (c) => c.rankScore ?? -1, dir: -1 },
+    { id: "gamma", label: "Highest Gamma", key: (c) => Math.abs(c.gamma ?? 0), dir: -1 },
+    { id: "spread", label: "Lowest Spread", key: spreadOf, dir: 1 },
+    { id: "oi", label: "Highest Open Interest", key: (c) => c.openInterest ?? 0, dir: -1 },
+    { id: "volume", label: "Highest Volume", key: (c) => c.volume ?? 0, dir: -1 },
+    { id: "strike", label: "Strike", key: (c) => c.strike ?? 0, dir: 1 },
+  ];
+  const sortContracts = (contracts) => {
+    const opt = SORT_OPTIONS.find(o => o.id === sortBy) || SORT_OPTIONS[SORT_OPTIONS.length - 1];
+    return [...(contracts || [])].sort((a, b) => (opt.key(a) - opt.key(b)) * opt.dir);
   };
 
   const ColH = ({ children, align = "right" }) => (
@@ -73,6 +107,12 @@ export default function OptionsChainTab({ C, MONO, SANS, defaultSymbol, onOpenTe
         <td style={{ padding: "7px 10px", fontFamily: MONO, fontSize: 12, color: C.textDim, borderBottom: `1px solid ${C.border}`, textAlign: "right" }}>
           {c.vega != null ? c.vega : "—"}
         </td>
+        <td style={{ padding: "7px 10px", fontFamily: MONO, fontSize: 12, borderBottom: `1px solid ${C.border}`, textAlign: "right", color: c.pop != null && c.pop >= 60 ? C.green : C.textDim }} title="Real probability of profit — Black-Scholes when IV/strike/DTE are all real, else the contract's own real delta as an approximation">
+          {c.pop != null ? `${c.pop}%` : "—"}
+        </td>
+        <td style={{ padding: "7px 10px", fontFamily: MONO, fontSize: 12, fontWeight: 800, borderBottom: `1px solid ${C.border}`, textAlign: "right", color: c.rankScore >= 65 ? C.green : c.rankScore >= 40 ? C.amber : C.textDim }} title="Real composite of POP + liquidity — the Smart Option Chain's opportunity ranking">
+          {c.rankScore ?? "—"}
+        </td>
         <td style={{ padding: "7px 10px", borderBottom: `1px solid ${C.border}`, textAlign: "center" }}>
           {itm && <span style={{ fontFamily: MONO, fontSize: 12, color: type === "calls" ? C.green : C.red, fontWeight: 700 }}>ITM</span>}
         </td>
@@ -81,7 +121,7 @@ export default function OptionsChainTab({ C, MONO, SANS, defaultSymbol, onOpenTe
   };
 
   const ChainTable = ({ contracts, type }) => {
-    const filtered = filterStrikes(contracts);
+    const filtered = sortContracts(filterStrikes(contracts));
     return (
       <div style={{ overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -98,12 +138,14 @@ export default function OptionsChainTab({ C, MONO, SANS, defaultSymbol, onOpenTe
               <ColH>GAMMA</ColH>
               <ColH>THETA</ColH>
               <ColH>VEGA</ColH>
+              <ColH>POP</ColH>
+              <ColH>OPP</ColH>
               <ColH align="center"> </ColH>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0
-              ? <tr><td colSpan={12} style={{ padding: 20, textAlign: "center", color: C.textDim, fontFamily: MONO, fontSize: 12 }}>No contracts for this expiry</td></tr>
+              ? <tr><td colSpan={14} style={{ padding: 20, textAlign: "center", color: C.textDim, fontFamily: MONO, fontSize: 12 }}>No contracts for this expiry</td></tr>
               : filtered.map((c, i) => <ContractRow key={i} c={c} type={type} />)
             }
           </tbody>
@@ -171,6 +213,12 @@ export default function OptionsChainTab({ C, MONO, SANS, defaultSymbol, onOpenTe
             <select value={strikeRange} onChange={e => setStrikeRange(Number(e.target.value))}
               style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 12, padding: "3px 6px", borderRadius: 6 }}>
               {[5,10,15,20,30].map(n => <option key={n} value={n}>{n}</option>)}
+            </select>
+            <span style={{ width: 1, height: 16, background: C.border }} />
+            <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>SORT BY:</span>
+            <select value={sortBy} onChange={e => setSortBy(e.target.value)}
+              style={{ background: C.surface, border: `1px solid ${C.accent}66`, color: C.accent, fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "3px 6px", borderRadius: 6 }}>
+              {SORT_OPTIONS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
             </select>
           </div>
 

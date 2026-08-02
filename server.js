@@ -254,7 +254,7 @@ server.listen(PORT, HOST, () => {
 
   // AI Morning Game Plan (~9:40 AM ET) + AI Trade Coach (~4:15 PM ET) — weekdays, server-side.
   // Autopilot recap (~4:05 PM ET) — what the Alpaca paper autopilot did today.
-  let _gpSent = null, _coachSent = null, _recapAP = null, _weeklySent = null, _monthlyReview = null, _mrvPaper = null, _mrvSummary = null, _apexSent = null, _ceoSent = null, _aplusSnapshot = null, _cmdCenterSent = null;
+  let _gpSent = null, _coachSent = null, _recapAP = null, _weeklySent = null, _monthlyReview = null, _mrvPaper = null, _mrvSummary = null, _apexSent = null, _ceoSent = null, _aplusSnapshot = null, _cmdCenterSent = null, _ivSnapshot = null;
   setInterval(() => {
     const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
     const h = et.getHours(), m = et.getMinutes(), day = et.getDay();
@@ -291,6 +291,17 @@ server.listen(PORT, HOST, () => {
     if (h === 16 && m >= 40 && m < 46 && _aplusSnapshot !== today) {
       _aplusSnapshot = today;
       require("./src/aplus-score-history").logDailySnapshot().catch((e) => console.error("[A+ Score history] snapshot failed:", e.message));
+    }
+    // Real IV history snapshot — options platform redesign Phase 5. Same
+    // pure-forward-log pattern as the A+ Score snapshot above (fires
+    // right after close settles, ~4:45 PM ET). When a Polygon key is
+    // configured this runs strictly sequential with a real ~13s gap per
+    // symbol to honor Polygon's free-tier 5 req/min limit — a full run
+    // can honestly take 20-40 minutes, which is fine for a once-daily
+    // background job.
+    if (h === 16 && m >= 45 && m < 51 && _ivSnapshot !== today) {
+      _ivSnapshot = today;
+      require("./src/iv-history-store").logDailySnapshot().catch((e) => console.error("[IV history] snapshot failed:", e.message));
     }
   }, 60_000);
   console.log("[AI] Morning Brief 8:00 · CEO AI 8:10 · Game plan 9:40 · autopilot recap 4:05 · trade coach 4:15 PM — weekdays only");

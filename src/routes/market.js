@@ -3,6 +3,7 @@ const { callAnthropicApi, MODELS, anthropicRequest } = require("../anthropic");
 const { PORT, MARKET_QUOTE_TIMEOUT_MS, MACRO_SYMBOLS, TIMEFRAME_CONFIG, resolveProviderKeys } = require("../config");
 const { detectFVGs, detectOrderBlocks, detectBOSChoCh, detectLiquidityLevels } = require("../smc-engine");
 const { computeGammaExposure } = require("../gamma-exposure");
+const { rankContracts } = require("../options-math");
 const {
   computeEMA, computeRSI, computeVWAP,
   computeADX, computeDonchian, computeBollinger,
@@ -2994,6 +2995,11 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
     if (!polyKey) {
       try {
         const chain = await fetchYahooOptionsChain(symbol, requestedExpiry);
+        // Smart Option Chain ranking applies here too — Yahoo's chain has
+        // no delta, but does have real iv/strike/expiry, enough for
+        // rankContracts' Black-Scholes POP branch (options-math.js).
+        chain.calls = rankContracts(chain.calls, { underlying: chain.underlying, isCall: true });
+        chain.puts = rankContracts(chain.puts, { underlying: chain.underlying, isCall: false });
         return writeJson(res, 200, { ok: true, ...chain, generatedAt: new Date().toISOString() });
       } catch (err) {
         return writeJson(res, 502, { error: "Options data unavailable: " + err?.message });
@@ -3087,9 +3093,16 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
         };
       };
 
-      const calls = forExpiry.filter(r => r.details?.contract_type === "call").map(mapP)
+      // Smart Option Chain ranking (options platform redesign, Phase 5,
+      // spec: "sort by opportunity, not strike") — real POP + real
+      // liquidity composite via options-math.js's rankContracts, computed
+      // once here so the client can sort by rankScore/pop/liquidityScore
+      // (Best Opportunity/Highest Probability/Highest Liquidity) alongside
+      // the already-real strike/OI/volume/spread fields, without a second
+      // ranking implementation duplicated client-side.
+      const calls = rankContracts(forExpiry.filter(r => r.details?.contract_type === "call").map(mapP), { underlying: underlyingFinal, isCall: true })
         .sort((a, b) => a.strike - b.strike);
-      const puts  = forExpiry.filter(r => r.details?.contract_type === "put").map(mapP)
+      const puts  = rankContracts(forExpiry.filter(r => r.details?.contract_type === "put").map(mapP), { underlying: underlyingFinal, isCall: false })
         .sort((a, b) => a.strike - b.strike);
 
       return writeJson(res, 200, {
@@ -3183,6 +3196,25 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
       console.error("[market/gamma] Polygon error:", err?.message);
       return writeJson(res, 502, { error: "Gamma data unavailable: " + err?.message });
     }
+  }
+
+  // GET /api/market/iv-rank?symbol=AAPL — real IV Rank/Percentile off
+  // iv-history-store.js's real accumulated daily-snapshot log. Options
+  // platform redesign Phase 5. Honestly reports a "building" state (never
+  // a guessed number) until at least 10 real trading-day snapshots exist
+  // for this symbol — see ivRankFor()'s own doc comment.
+  if (pathname === "/api/market/iv-rank" && req.method === "GET") {
+    const symbol = (searchParams.get("symbol") || "").trim().toUpperCase();
+    if (!symbol) return writeJson(res, 400, { error: "symbol required" });
+    const { ivRankFor, fetchAtmIv } = require("../iv-history-store");
+    // searchParams.get() returns null when absent, and Number(null) is 0
+    // (not NaN) — checking the raw string first avoids treating "no
+    // currentIv provided" as a real IV reading of exactly 0.
+    const currentIvParam = searchParams.get("currentIv");
+    let currentIv = currentIvParam != null ? Number(currentIvParam) : NaN;
+    if (!Number.isFinite(currentIv)) currentIv = await fetchAtmIv(symbol).catch(() => null);
+    const result = ivRankFor(symbol, currentIv);
+    return writeJson(res, 200, { ok: true, symbol, currentIv: Number.isFinite(currentIv) ? currentIv : null, ...result });
   }
 
   // GET /api/market/sec?symbol=AAPL — recent SEC filings from EDGAR RSS

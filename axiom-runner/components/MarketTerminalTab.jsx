@@ -28,6 +28,7 @@ import AiScoreExplainer, {
 import { stockQualityBreakdown } from "./rhpro-shared.jsx";
 import { mapToAiAction } from "./ai-actions.js";
 import SmartMoneyPanel from "./SmartMoneyPanel.jsx";
+import AiTradeCard from "./AiTradeCard.jsx";
 
 // Combined Market-Terminal page: movers leaderboard on the left, pro chart with
 // AI overlays on the right. Click a mover → it loads in the chart.
@@ -742,6 +743,20 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
               </span>
             </div>
             <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, maxWidth: 260 }}>{institutionScore.disclosure}</div>
+          </div>
+        )}
+        {/* AI Trade Card — Option Contract Recommender's top-pick card,
+            options platform redesign Phase 5. Self-contained (fetches its
+            own real chain + IV rank); receives this page's already-real
+            scores/gamma/short-interest/earnings-DTE as props rather than
+            re-deriving them. */}
+        {sym && (
+          <div style={{ marginBottom: 10 }}>
+            <AiTradeCard
+              symbol={sym} price={chart?.price} aiTradeScore={aiTradeScore} institutionScore={institutionScore}
+              gammaExposure={symGamma} shortFloatPct={symShortInterest?.shortFloat} rvol={symTrend?.volRatio}
+              earningsDte={symTrend?.earningsDte} C={C} MONO={MONO} SANS={SANS}
+            />
           </div>
         )}
         {/* Real technical indicators — ADX (trend strength/direction),
