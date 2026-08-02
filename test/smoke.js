@@ -36,6 +36,63 @@ ok("bracket stop is below entry for a long", () => {
   assert.ok(stop < entry, "long stop must be below entry");
 });
 
+console.log("Checking options-math.js (Phase 0, options redesign)…");
+ok("probabilityOfProfit: Black-Scholes N(d2) used when iv/strike/underlying/dte are all real", () => {
+  const { probabilityOfProfit } = require("../src/options-math");
+  const pop = probabilityOfProfit({ iv: 30, strike: 100, underlying: 105, dte: 30, isCall: true });
+  assert.ok(pop > 50 && pop <= 100, "an ITM call with positive drift-free d2 should have POP > 50");
+});
+ok("probabilityOfProfit: falls back to |delta| approximation when IV/strike/dte are missing", () => {
+  const { probabilityOfProfit } = require("../src/options-math");
+  assert.strictEqual(probabilityOfProfit({ delta: 0.42 }), 42);
+  assert.strictEqual(probabilityOfProfit({ delta: -0.65 }), 65);
+});
+ok("probabilityOfProfit: honest null, never a fabricated number, with no real inputs", () => {
+  const { probabilityOfProfit } = require("../src/options-math");
+  assert.strictEqual(probabilityOfProfit({}), null);
+});
+ok("expectedMove: scales with IV, underlying, and sqrt(time)", () => {
+  const { expectedMove } = require("../src/options-math");
+  const move30 = expectedMove({ iv: 40, underlying: 100, dte: 30 });
+  const move60 = expectedMove({ iv: 40, underlying: 100, dte: 60 });
+  assert.ok(move30 > 0, "expected move should be positive");
+  assert.ok(move60 > move30, "more DTE should mean a larger expected move at the same IV");
+  assert.strictEqual(expectedMove({}), null, "honest null with no real inputs");
+});
+ok("spreadPct: real % of mid, honest null when bid/ask missing or crossed", () => {
+  const { spreadPct } = require("../src/options-math");
+  assert.strictEqual(spreadPct({ bid: 1.9, ask: 2.1 }), 10, "0.2 spread on 2.0 mid = 10%");
+  assert.strictEqual(spreadPct({}), null);
+  assert.strictEqual(spreadPct({ bid: 2.1, ask: 1.9 }), null, "crossed market should never yield a number");
+});
+ok("liquidityScore: tighter spread + higher OI/volume score higher, always bounded 0-100", () => {
+  const { liquidityScore } = require("../src/options-math");
+  const tight = liquidityScore({ bid: 1.98, ask: 2.02, openInterest: 8000, volume: 3000 });
+  const wide = liquidityScore({ bid: 1.0, ask: 3.0, openInterest: 5, volume: 1 });
+  assert.ok(tight > wide, "a tight, liquid contract should score higher than a wide, illiquid one");
+  assert.ok(tight >= 0 && tight <= 100 && wide >= 0 && wide <= 100, "score must stay within 0-100");
+});
+
+console.log("Checking agent.js's fixed AI Sentiment button + new per-symbol aggregator (Phase 0)…");
+ok("aggregateSentimentForSymbol: real bull/bear headline counts drive the verdict, templated one-liner", () => {
+  const { aggregateSentimentForSymbol } = require("../src/routes/agent");
+  const out = aggregateSentimentForSymbol([
+    "Company beats earnings, shares surge on strong guidance",
+    "Analyst upgrade sends stock higher on record growth",
+    "Regulators open probe into accounting practices",
+  ]);
+  assert.strictEqual(out.sentiment, "positive", "2 bullish vs 1 bearish headline should net positive");
+  assert.strictEqual(out.bulls, 2);
+  assert.strictEqual(out.bears, 1);
+  assert.ok(out.oneLiner.includes("2 bullish vs 1 bearish"), "one-liner must be templated from the real counts, not a Claude call");
+});
+ok("aggregateSentimentForSymbol: honest neutral with no headlines", () => {
+  const { aggregateSentimentForSymbol } = require("../src/routes/agent");
+  const out = aggregateSentimentForSymbol([]);
+  assert.strictEqual(out.sentiment, "neutral");
+  assert.strictEqual(out.total, 0);
+});
+
 console.log("Checking institutional-redesign presentation-layer modules (ESM, loaded via dynamic import)…");
 (async () => {
   const { AI_ACTIONS, mapToAiAction } = await import("../axiom-runner/components/ai-actions.js");
@@ -82,6 +139,29 @@ console.log("Checking institutional-redesign presentation-layer modules (ESM, lo
     assert.strictEqual(out.market.score, null);
     assert.strictEqual(out.market.label, "—");
     assert.strictEqual(out.timing.score, null);
+  });
+
+  const { OPTIONS_ACTIONS, mapToOptionsAction, optionsExecutionNote } = await import("../axiom-runner/components/options-actions.js");
+  ok("mapToOptionsAction: strong/regular call-buy and put-buy tiers match trade-signals' own bands", () => {
+    assert.strictEqual(mapToOptionsAction({ score: 90, chgPct: 2 }), OPTIONS_ACTIONS.STRONG_CALL_BUY);
+    assert.strictEqual(mapToOptionsAction({ score: 72, chgPct: 1 }), OPTIONS_ACTIONS.CALL_BUY);
+    assert.strictEqual(mapToOptionsAction({ score: 10, chgPct: -2 }), OPTIONS_ACTIONS.STRONG_PUT_BUY);
+    assert.strictEqual(mapToOptionsAction({ score: 30, chgPct: -1 }), OPTIONS_ACTIONS.PUT_BUY);
+  });
+  ok("mapToOptionsAction: direction must agree with score band, else Watch/Avoid", () => {
+    assert.strictEqual(mapToOptionsAction({ score: 90, chgPct: -1 }), OPTIONS_ACTIONS.AVOID, "high score but red day is a conflicting, unsupported signal — not a confirmed call, correctly falls to Avoid");
+    assert.strictEqual(mapToOptionsAction({ score: 60, chgPct: 1 }), OPTIONS_ACTIONS.WATCH, "developing bullish setup below the Call Buy threshold should Watch");
+    assert.strictEqual(mapToOptionsAction({ score: 50, chgPct: 0 }), OPTIONS_ACTIONS.AVOID, "no real edge either direction");
+  });
+  ok("mapToOptionsAction: honest Watch default with no real score", () => {
+    assert.strictEqual(mapToOptionsAction({}), OPTIONS_ACTIONS.WATCH);
+  });
+  ok("optionsExecutionNote: mirrors trade-signals' real IV-cheap/IV-rich branching", () => {
+    assert.strictEqual(optionsExecutionNote({ ivProxy: 25, direction: "bullish" }).strategy, "BUY CALLS");
+    assert.strictEqual(optionsExecutionNote({ ivProxy: 80, direction: "bullish" }).strategy, "SELL PUTS");
+    assert.strictEqual(optionsExecutionNote({ ivProxy: 25, direction: "bearish" }).strategy, "BUY PUTS");
+    assert.strictEqual(optionsExecutionNote({ ivProxy: 80, direction: "bearish" }).strategy, "SELL CALLS");
+    assert.strictEqual(optionsExecutionNote({}), null, "honest null with no real IV input");
   });
 
   console.log(`\n${passed} checks passed.`);

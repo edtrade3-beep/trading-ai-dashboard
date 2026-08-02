@@ -64,6 +64,15 @@ export default function OptionsChainTab({ C, MONO, SANS, defaultSymbol, onOpenTe
           color: Math.abs(c.delta || 0) > 0.5 ? C.text : C.textDim }}>
           {c.delta != null ? c.delta : "—"}
         </td>
+        <td style={{ padding: "7px 10px", fontFamily: MONO, fontSize: 12, color: C.textDim, borderBottom: `1px solid ${C.border}`, textAlign: "right" }}>
+          {c.gamma != null ? c.gamma : "—"}
+        </td>
+        <td style={{ padding: "7px 10px", fontFamily: MONO, fontSize: 12, color: C.textDim, borderBottom: `1px solid ${C.border}`, textAlign: "right" }}>
+          {c.theta != null ? c.theta : "—"}
+        </td>
+        <td style={{ padding: "7px 10px", fontFamily: MONO, fontSize: 12, color: C.textDim, borderBottom: `1px solid ${C.border}`, textAlign: "right" }}>
+          {c.vega != null ? c.vega : "—"}
+        </td>
         <td style={{ padding: "7px 10px", borderBottom: `1px solid ${C.border}`, textAlign: "center" }}>
           {itm && <span style={{ fontFamily: MONO, fontSize: 12, color: type === "calls" ? C.green : C.red, fontWeight: 700 }}>ITM</span>}
         </td>
@@ -86,12 +95,15 @@ export default function OptionsChainTab({ C, MONO, SANS, defaultSymbol, onOpenTe
               <ColH>OI</ColH>
               <ColH>IV</ColH>
               <ColH>DELTA</ColH>
+              <ColH>GAMMA</ColH>
+              <ColH>THETA</ColH>
+              <ColH>VEGA</ColH>
               <ColH align="center"> </ColH>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0
-              ? <tr><td colSpan={9} style={{ padding: 20, textAlign: "center", color: C.textDim, fontFamily: MONO, fontSize: 12 }}>No contracts for this expiry</td></tr>
+              ? <tr><td colSpan={12} style={{ padding: 20, textAlign: "center", color: C.textDim, fontFamily: MONO, fontSize: 12 }}>No contracts for this expiry</td></tr>
               : filtered.map((c, i) => <ContractRow key={i} c={c} type={type} />)
             }
           </tbody>

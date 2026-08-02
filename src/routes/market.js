@@ -3080,6 +3080,9 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
           inTheMoney: itm,
           expiry: d.expiration_date || chosenExpiry,
           delta: greeks.delta != null ? round2(greeks.delta) : null,
+          gamma: greeks.gamma != null ? round2(greeks.gamma) : null,
+          theta: greeks.theta != null ? round2(greeks.theta) : null,
+          vega: greeks.vega != null ? round2(greeks.vega) : null,
         };
       };
 

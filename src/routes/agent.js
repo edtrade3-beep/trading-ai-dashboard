@@ -26,6 +26,22 @@ function scoreSentiment(text) {
   return { s: "neutral", score: 0 };
 }
 
+// Per-symbol sentiment rollup — deterministic, template one-liner, no Claude call.
+// Given a symbol's headlines, count how many score bull vs. bear (each headline's
+// own scoreSentiment() call) and report the net as one sentence + a -5..5 score.
+function aggregateSentimentForSymbol(headlines) {
+  const scored = (headlines || []).map(h => scoreSentiment(typeof h === "string" ? h : (h?.title || h?.text || "")));
+  const bulls = scored.filter(s => s.s === "bull").length;
+  const bears = scored.filter(s => s.s === "bear").length;
+  const net = bulls - bears;
+  const sentiment = net > 0 ? "positive" : net < 0 ? "negative" : "neutral";
+  const score = Math.max(-5, Math.min(5, net));
+  const oneLiner = scored.length === 0
+    ? "No headlines to score."
+    : `${bulls} bullish vs ${bears} bearish headline${scored.length === 1 ? "" : "s"} — net ${sentiment.toUpperCase()}`;
+  return { sentiment, score, oneLiner, bulls, bears, total: scored.length };
+}
+
 // ── Technical pattern detection ───────────────────────────────────────────────
 function sma(arr, n) {
   if (arr.length < n) return null;
@@ -934,12 +950,28 @@ async function handleAgent(req, res, requestUrl) {
   }
 
   // ── POST /api/agent/sentiment ────────────────────────────────────────────
+  // Deterministic keyword scoring (scoreSentiment) — not a Claude call. Accepts
+  // either a flat headline-string array (`headlines`, the NewsTab.jsx caller)
+  // or the older `items`/bare-array shape for back-compat.
   if (pathname === "/api/agent/sentiment" && req.method === "POST") {
     let body;
     try { body = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { error: "Invalid JSON" }); }
-    const items = Array.isArray(body) ? body : (body.items || []);
-    const results = items.map(item => ({ ...item, ...scoreSentiment(item.s || item.text || "") }));
-    return writeJson(res, 200, results);
+    const rawItems = Array.isArray(body) ? body : (body.headlines || body.items || []);
+    const results = rawItems.map((item, idx) => {
+      const text = typeof item === "string" ? item : (item?.s || item?.text || "");
+      return { i: idx + 1, ...scoreSentiment(text) };
+    });
+    return writeJson(res, 200, { ok: true, results });
+  }
+
+  // ── POST /api/agent/sentiment-by-symbol ──────────────────────────────────
+  // Aggregates keyword sentiment across a symbol's headlines into one
+  // deterministic {sentiment, score, oneLiner} summary — not a Claude call.
+  if (pathname === "/api/agent/sentiment-by-symbol" && req.method === "POST") {
+    let body;
+    try { body = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { error: "Invalid JSON" }); }
+    const headlines = Array.isArray(body?.headlines) ? body.headlines : [];
+    return writeJson(res, 200, { ok: true, ...aggregateSentimentForSymbol(headlines) });
   }
 
   // ── POST /api/agent/halal ────────────────────────────────────────────────
@@ -1009,3 +1041,5 @@ async function handleAgent(req, res, requestUrl) {
 }
 
 module.exports = handleAgent;
+module.exports.scoreSentiment = scoreSentiment;
+module.exports.aggregateSentimentForSymbol = aggregateSentimentForSymbol;

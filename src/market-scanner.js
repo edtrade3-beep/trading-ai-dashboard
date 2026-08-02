@@ -421,11 +421,15 @@ async function analyzeSymbol(symbol) {
 
   const composite = Math.round(Math.max(0, Math.min(100, tech)));
 
+  // Real BOS/ChoCh off the same bars already fetched above — no extra fetch.
+  const { bos } = detectBOSChoCh(bars);
+  const hasBOS = bos?.type === "BULL_BOS";
+
   return {
     symbol, price, chgPct, rvol, rsi: round2(rsi),
     ema9: round2(ema9), ema21: round2(ema21), ema50: round2(ema50),
     trend, emaAligned, support, resistance, yearPos: round2(yearPos),
-    composite,
+    composite, hasBOS,
   };
 }
 
@@ -687,7 +691,7 @@ async function runScan(options = {}) {
         const { enqueueScanAlert, isQuietHours } = getBotHelpers();
         if (enqueueScanAlert && !isQuietHours?.()) {
           enqueueScanAlert({ symbol: sym, signal, score: a.composite,
-            chgPct: a.chgPct, rvol: a.rvol, trend: a.trend, hasBOS: false });
+            chgPct: a.chgPct, rvol: a.rvol, trend: a.trend, hasBOS: !!a.hasBOS });
         }
       } catch {}
 

@@ -37,7 +37,7 @@ export default function NewsTab({
                 <button
                   onClick={scoreNewsSentiment}
                   disabled={newsSentLoading || !newsData.length}
-                  title="AI-score each headline with Claude"
+                  title="Score each headline's sentiment (deterministic keyword scoring, not a Claude call)"
                   style={{ border: `1px solid ${C.accent}44`, background: `${C.accent}11`, color: newsSentLoading ? C.textDim : C.accent, borderRadius: 6, padding: "6px 10px", fontFamily: MONO, fontSize: 12, cursor: newsSentLoading || !newsData.length ? "default" : "pointer" }}
                 >
                   {newsSentLoading ? "🤖 SCORING…" : "🤖 AI SENTIMENT"}
