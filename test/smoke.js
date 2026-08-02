@@ -141,6 +141,52 @@ console.log("Checking institutional-redesign presentation-layer modules (ESM, lo
     assert.strictEqual(out.timing.score, null);
   });
 
+  const { computeMarketBias, computeAPlusMarketScore, classifyMacroStatus, regimeStrategyHint } = await import("../axiom-runner/components/market-helpers.js");
+  const bullishMacro = [
+    { symbol: "SPY", changesPercentage: 0.8 }, { symbol: "QQQ", changesPercentage: 0.9 },
+    { symbol: "VIXY", changesPercentage: -1 }, { symbol: "TLT", changesPercentage: 0.2 },
+    { symbol: "UUP", changesPercentage: -0.1 }, { symbol: "HYG", changesPercentage: 0.3 },
+  ];
+  ok("computeMarketBias: unanimous bullish real inputs -> Bullish, high confidence", () => {
+    const out = computeMarketBias({ macroData: bullishMacro, distData: { vix: 10 } });
+    assert.strictEqual(out.bias, "Bullish");
+    assert.strictEqual(out.confidence, 90, "all 3 real formulas agreeing should be the highest honest confidence");
+    assert.strictEqual(out.character, "Low Volatility");
+    assert.strictEqual(out.riskPosture, "Risk On");
+  });
+  ok("computeMarketBias: honest null with no real SPY data", () => {
+    const out = computeMarketBias({ macroData: [], distData: null });
+    assert.strictEqual(out.bias, null);
+    assert.strictEqual(out.confidence, null);
+  });
+  ok("regimeStrategyHint: real trending+bullish maps to Buy Calls, high VIX maps to Credit Spread", () => {
+    assert.strictEqual(regimeStrategyHint({ bias: "Bullish", character: "Trending", vix: 18 }), "Buy Calls");
+    assert.strictEqual(regimeStrategyHint({ bias: "Bearish", character: "Trending", vix: 18 }), "Buy Puts");
+    assert.strictEqual(regimeStrategyHint({ bias: "Neutral", character: "Volatile", vix: 30 }), "Credit Spread");
+    assert.strictEqual(regimeStrategyHint({ bias: "Neutral", character: "Range", vix: 18 }), "Iron Condor");
+  });
+  ok("computeAPlusMarketScore: counts real _aplus.score rows at the 70/85 thresholds already used elsewhere", () => {
+    const rows = [{ _aplus: { score: 90 } }, { _aplus: { score: 72 } }, { _aplus: { score: 40 } }, { symbol: "NOSCORE" }];
+    const out = computeAPlusMarketScore(rows);
+    assert.strictEqual(out.total, 3, "the row with no real _aplus.score must be excluded, not counted as 0");
+    assert.strictEqual(out.aPlusCount, 1);
+    assert.strictEqual(out.aCount, 2);
+    assert.strictEqual(out.pct, 67);
+  });
+  ok("computeAPlusMarketScore: honest null with no scored rows", () => {
+    assert.strictEqual(computeAPlusMarketScore([]).pct, null);
+  });
+  ok("classifyMacroStatus: VIX uses real absolute level, not %change", () => {
+    assert.strictEqual(classifyMacroStatus("VIX", { vixLevel: 30 }).status, "red");
+    assert.strictEqual(classifyMacroStatus("VIX", { vixLevel: 12 }).status, "green");
+    assert.strictEqual(classifyMacroStatus("VIX", { vixLevel: 20 }).status, "yellow");
+  });
+  ok("classifyMacroStatus: other instruments use real %change with a consistent, documented rule", () => {
+    assert.strictEqual(classifyMacroStatus("SPY", { chgPct: 1.2 }).status, "green");
+    assert.strictEqual(classifyMacroStatus("SPY", { chgPct: -0.8 }).status, "red");
+    assert.strictEqual(classifyMacroStatus("SPY", { chgPct: 0.1 }).status, "yellow");
+  });
+
   const { OPTIONS_ACTIONS, mapToOptionsAction, optionsExecutionNote } = await import("../axiom-runner/components/options-actions.js");
   ok("mapToOptionsAction: strong/regular call-buy and put-buy tiers match trade-signals' own bands", () => {
     assert.strictEqual(mapToOptionsAction({ score: 90, chgPct: 2 }), OPTIONS_ACTIONS.STRONG_CALL_BUY);

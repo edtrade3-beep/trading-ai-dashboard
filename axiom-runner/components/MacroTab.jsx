@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Badge } from "./ui-atoms.jsx";
+import { classifyMacroStatus } from "./market-helpers.js";
 
 // Real 10Y/2Y Treasury yields + real Brent spot (FRED) and real market-wide
 // BTC dominance (CoinGecko) — both free, no API key. These override the
@@ -53,6 +54,59 @@ const CURATED_RISK_LENS = [
 ];
 const CURATED_RISK_LENS_KEYS = new Set(CURATED_RISK_LENS.map((r) => r.k));
 
+// The exact 10-instrument list from the options platform redesign spec
+// ("SPY, QQQ, IWM, DIA, VIX, DXY, 10Y Treasury, Gold, Oil, BTC — show
+// Green/Yellow/Red instead of dozens of numbers"), Phase 1. `vix: true`
+// marks the one entry classified by real absolute level (distData.vix)
+// instead of %change; `fredKey` marks the one entry (10Y) that has a real
+// non-proxy override elsewhere in this file (useRealMacroOverrides' fred.us10y)
+// which this strip reuses instead of DIA... IEF's ETF-price %change, the
+// same override precedence the ALL INSTRUMENTS grid below already uses.
+const MACRO_STATUS_INSTRUMENTS = [
+  { symbol: "SPY", label: "S&P 500" },
+  { symbol: "QQQ", label: "Nasdaq 100" },
+  { symbol: "IWM", label: "Russell 2000" },
+  { symbol: "DIA", label: "Dow 30" },
+  { symbol: "VIX", label: "Volatility", vix: true },
+  { symbol: "UUP", label: "US Dollar (DXY proxy)" },
+  { symbol: "IEF", label: "10Y Treasury", fredKey: "us10y" },
+  { symbol: "GLD", label: "Gold" },
+  { symbol: "USO", label: "Oil" },
+  { symbol: "BTCUSD", label: "Bitcoin" },
+];
+
+const STATUS_DOT_COLOR = (C, status) =>
+  status === "green" ? C.green : status === "red" ? C.red : status === "yellow" ? C.amber : C.textDim;
+
+// A single at-a-glance Green/Yellow/Red strip for the spec's exact 10
+// instruments — real %change (or real VIX level) classified through
+// classifyMacroStatus, replacing "dozens of numbers" with one status dot
+// per instrument. The fuller curated tiles and ALL INSTRUMENTS grid below
+// still show the real numbers for anyone who wants them; this is an
+// additional glance layer, not a replacement.
+function MacroStatusStrip({ C, MONO, macroData, distData, fred }) {
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
+      {MACRO_STATUS_INSTRUMENTS.map(({ symbol, label, vix, fredKey }) => {
+        const q = (macroData || []).find(m => m.symbol === symbol);
+        const override = fredKey ? fred?.[fredKey] : null;
+        const chgPct = vix ? null : (override ? override.changePct : q?.changesPercentage);
+        const { status, label: statusLabel } = classifyMacroStatus(vix ? "VIX" : symbol, {
+          chgPct, vixLevel: vix ? Number(distData?.vix) || 0 : null,
+        });
+        const dot = STATUS_DOT_COLOR(C, status);
+        return (
+          <div key={symbol} style={{ display: "flex", alignItems: "center", gap: 6, background: C.card, border: `1px solid ${C.border}`, borderRadius: 20, padding: "6px 12px" }}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: dot, flexShrink: 0 }} />
+            <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.text }}>{label}</span>
+            <span style={{ fontFamily: MONO, fontSize: 10, color: dot }}>{statusLabel}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function formatCountdown(ms) {
   const n = Math.max(0, Number(ms || 0));
   const totalSec = Math.floor(n / 1000);
@@ -66,7 +120,7 @@ function formatCountdown(ms) {
 }
 
 export default function MacroTab({
-  C, MONO, macroTone, macroData, macroEventCalendar, macroEventAlerts, cryptoSnapshot,
+  C, MONO, macroTone, macroData, distData, macroEventCalendar, macroEventAlerts, cryptoSnapshot,
   watchlistSymbols, setWatchlistSymbols, setTerminalSymbol, setActiveTab,
 }) {
   const { fred, btcDom } = useRealMacroOverrides();
@@ -97,6 +151,7 @@ export default function MacroTab({
                 >PUSH BRIEF</button>
               </div>
             </div>
+            <MacroStatusStrip C={C} MONO={MONO} macroData={macroData} distData={distData} fred={fred} />
             <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 10, marginBottom: 12 }}>
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
                 <div style={{ padding: "9px 10px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>

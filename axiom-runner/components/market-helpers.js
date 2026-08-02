@@ -109,6 +109,147 @@ export function computeRegime(macroData) {
   return { score, label, color, factors, vixVal };
 }
 
+// Canonical Market Bias — options platform redesign Phase 1 (2026-08-02,
+// spec: "Market Bias: Bullish/Bearish/Neutral, Confidence %"). This app had
+// 3 real, independently-computed regime formulas that could legitimately
+// disagree with no reconciliation: computeRegime() above (0-100 SPY/QQQ/VIX
+// gauge), DashboardTab.jsx's computeRegimeLabel (rule-based RISK OFF/RISK
+// ON/CHOP/CAUTIOUS BULL/DEFENSIVE), and MarketCommandCenterStrip's own
+// SPY/QQQ/VIXY/TLT/UUP/HYG weighted risk score. None of the three are
+// touched or replaced here — this is a new presentation layer that reads
+// all three real outputs and reports where they agree (high confidence) or
+// diverge (lower confidence), the same "aggregate, don't rewrite" pattern
+// deriveTopLevelScores already established. computeRegimeLabel's own rule
+// logic is mirrored inline (not imported) purely to avoid a circular
+// import — DashboardTab.jsx already imports FROM this file — but the exact
+// same real conditions/thresholds are reproduced faithfully, quirks (e.g.
+// vix=0 when unloaded reads as "calm") included, since fixing that formula
+// is out of scope for a reconciliation layer.
+export function computeMarketBias({ macroData, distData } = {}) {
+  const find = s => (macroData || []).find(m => (m.symbol || "").toUpperCase() === s);
+  const spy = find("SPY"), qqq = find("QQQ");
+  const chg = q => Number(q?.changesPercentage || 0);
+  const vix = Number(distData?.vix) || 0;
+
+  if (!spy) return { bias: null, confidence: null, character: null, riskPosture: null, label: "—" };
+
+  const regime = computeRegime(macroData);
+  const regimeDir = regime.score >= 55 ? 1 : regime.score < 40 ? -1 : 0;
+
+  const spyChg = chg(spy), qqqChg = chg(qqq);
+  const ruleDir = (vix > 30 || spyChg < -1.5) ? -1
+    : (vix < 16 && spyChg > 0.3 && qqqChg > 0.3) ? 1
+    : (Math.abs(spyChg) < 0.3 && vix < 22) ? 0
+    : (spyChg > 0.5) ? 1
+    : -1; // DEFENSIVE fallback — "smaller size, favor defensive sectors" is bearish-leaning, not neutral
+
+  const vixy = find("VIXY"), tlt = find("TLT"), uup = find("UUP"), hyg = find("HYG");
+  let riskScore = 50 + chg(spy) * 8 + chg(qqq) * 6 - chg(vixy) * 3 + chg(tlt) * 2 - chg(uup) * 3 + chg(hyg) * 4;
+  riskScore = Math.max(0, Math.min(100, Math.round(riskScore)));
+  const riskDir = riskScore >= 65 ? 1 : riskScore < 40 ? -1 : 0;
+
+  const dirs = [regimeDir, ruleDir, riskDir];
+  const bullVotes = dirs.filter(d => d === 1).length;
+  const bearVotes = dirs.filter(d => d === -1).length;
+  const neutralVotes = dirs.filter(d => d === 0).length;
+  const bias = bullVotes > bearVotes ? "Bullish" : bearVotes > bullVotes ? "Bearish" : "Neutral";
+
+  // Confidence — an honest measure of how much the 3 real formulas agree,
+  // not a fabricated precision number: unanimous -> 90, 2-of-3 -> 65,
+  // no majority (e.g. 1/1/1 split) -> 40.
+  const maxAgree = Math.max(bullVotes, bearVotes, neutralVotes);
+  const confidence = maxAgree === 3 ? 90 : maxAgree === 2 ? 65 : 40;
+
+  // Character — Trending/Range/Volatile/Low Volatility. ADX (the real
+  // per-symbol trend-strength read used elsewhere in this file) isn't
+  // meaningful at a market-wide level, so this reuses computeRegime's own
+  // real "Trend day" factor (|SPY chg| > 0.4%) for trend-strength and real
+  // VIX level for volatility — both already-real inputs above, no new
+  // fetches.
+  const trendDayFactor = regime.factors?.find(f => f.label === "Trend day");
+  let character;
+  if (vix >= 25) character = "Volatile";
+  else if (vix > 0 && vix < 14) character = "Low Volatility";
+  else if (trendDayFactor?.pass) character = "Trending";
+  else character = "Range";
+
+  const riskPosture = riskScore >= 65 ? "Risk On" : riskScore < 40 ? "Risk Off" : "Caution";
+
+  return {
+    bias, confidence, character, riskPosture,
+    label: `${bias} · ${confidence}%`,
+    sources: { regimeScore: regime.score, regimeLabel: regime.label, riskScore, vix },
+  };
+}
+
+// Regime → options-strategy mapping table (spec item 6: "Trending → Buy
+// Calls", "High IV → Credit Spread", "Low IV → Long Calls", "Sideways →
+// Iron Condor"). A deterministic lookup, not a formula — genuinely missing
+// before this (the existing Command Center "Best Strategy Today" cell only
+// ever names an equity trading style, never an options structure). Takes
+// computeMarketBias()'s own real {bias, character} plus real VIX for the
+// IV-level split — a market-wide IV proxy, not a per-contract read; the
+// honest per-contract version is the options chain's own real IV field,
+// used once the Option Recommender (Phase 4) ships.
+export function regimeStrategyHint({ bias, character, vix } = {}) {
+  const v = Number(vix) || 0;
+  if (character === "Trending" && bias === "Bullish") return "Buy Calls";
+  if (character === "Trending" && bias === "Bearish") return "Buy Puts";
+  if (v >= 25) return "Credit Spread";
+  if (v > 0 && v < 15) return "Long Calls/Puts";
+  if (character === "Range") return "Iron Condor";
+  return "Wait for Confirmation";
+}
+
+// A+ Market Score — options platform redesign Phase 1 (spec: "A+ Market
+// Score" on the Home Dashboard). A market-wide aggregate: what % of the
+// tracked scan universe is currently scoring A+/A grade. Zero new
+// computation or fetch — `rows` is the app's existing `fullScan` array
+// (DashboardTab.jsx already receives it as a prop; it's TopOpportunityCard's
+// real per-symbol computeAPlusScore() results across the full SCAN_UNIVERSE,
+// refreshed every 60s for the existing AI Top Opportunities card). This
+// function only counts, using the same 85/70 score thresholds
+// AiTopOpportunitiesCard already renders with (gold/green tiers,
+// DashboardTab.jsx's scoreCol logic) — not new boundaries.
+export function computeAPlusMarketScore(rows) {
+  const scored = (rows || []).map(r => r?._aplus?.score).filter(s => Number.isFinite(s));
+  const total = scored.length;
+  if (total === 0) return { pct: null, aPlusCount: 0, aCount: 0, total: 0 };
+  const aPlusCount = scored.filter(s => s >= 85).length;
+  const aCount = scored.filter(s => s >= 70).length; // includes aPlusCount
+  const pct = Math.round((aCount / total) * 100);
+  return { pct, aPlusCount, aCount, total };
+}
+
+// Macro instrument status classifier — options platform redesign Phase 1
+// (spec: "SPY, QQQ, IWM, DIA, VIX, DXY, 10Y Treasury, Gold, Oil, BTC — show
+// Green/Yellow/Red instead of dozens of numbers"). VIX is a special case,
+// classified by real absolute level using the exact same thresholds
+// already established in DashboardTab.jsx's Command Center strip (red>25,
+// green<16, amber between) — this MUST be the real VIX index level
+// (distData.vix), not the VIXY ETF's own price, since VIXY's price scale
+// (roll-decay-driven, roughly $8-30) does not correspond to the VIX
+// index's 16/25 levels at all; passing VIXY's price here would silently
+// misclassify. Every other instrument uses one consistent, documented
+// %-change rule — the direction of that instrument's own move today, not
+// a judgment call about what the move "means" for other assets (e.g. DXY
+// strength/weakness is regime-dependent and out of scope for a simple
+// glance-status indicator).
+export function classifyMacroStatus(symbol, { chgPct, vixLevel } = {}) {
+  const sym = String(symbol || "").toUpperCase();
+  if (sym === "VIX") {
+    const level = Number(vixLevel) || 0;
+    if (level <= 0) return { status: "neutral", label: "—" };
+    if (level > 25) return { status: "red", label: "Elevated" };
+    if (level < 16) return { status: "green", label: "Calm" };
+    return { status: "yellow", label: "Mixed" };
+  }
+  const c = Number(chgPct) || 0;
+  if (c >= 0.5) return { status: "green", label: "Up" };
+  if (c <= -0.5) return { status: "red", label: "Down" };
+  return { status: "yellow", label: "Flat" };
+}
+
 // Trade Setup Score — "is TODAY the right time" (fast-changing timing/regime
 // read), as distinct from rhScore/stockQualityBreakdown's Stock Quality
 // Score — "is this a good STOCK" (slow-changing company/trend quality).

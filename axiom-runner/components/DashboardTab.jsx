@@ -13,7 +13,7 @@ import RadialGauge from "./RadialGauge.jsx";
 import DonutChart from "./DonutChart.jsx";
 import Sparkline from "./Sparkline.jsx";
 import TrendChart from "./TrendChart.jsx";
-import { computeRegime } from "./market-helpers.js";
+import { computeRegime, computeMarketBias, computeAPlusMarketScore, regimeStrategyHint } from "./market-helpers.js";
 import { COACH_LESSONS } from "./CoachTab.jsx";
 import AiMorningBriefCard from "./AiMorningBriefCard.jsx";
 import OpportunityQueueCard from "./OpportunityQueueCard.jsx";
@@ -71,17 +71,45 @@ export function computeRegimeLabel(C, { spy, qqq, vix, loaded }) {
 // separate bordered boxes answering the same underlying question; now
 // they're one card, gauge + top 3 (not 5) factors, so the duplication is
 // visual, not informational — nothing here was cut.
-function MarketRegimeCard({ C, MONO, SANS, macroData, distData, factors, bias, biasColor }) {
+function MarketRegimeCard({ C, MONO, SANS, macroData, distData, factors, bias, biasColor, fullScan }) {
   const spy = (macroData || []).find(m => m.symbol === "SPY");
   const qqq = (macroData || []).find(m => m.symbol === "QQQ");
   const vix = distData?.vix || 0;
   const loaded = !!spy;
   const regime = computeRegime(macroData);
   const { regLabel, regColor, playbook } = computeRegimeLabel(C, { spy, qqq, vix, loaded });
+
+  // Options platform redesign, Phase 1 (spec: "Market Bias: Bullish/
+  // Bearish/Neutral, Confidence %" + "A+ Market Score"). Both are pure
+  // aggregations over data this card (or its siblings) already has —
+  // computeMarketBias reconciles the 3 regime formulas already on this
+  // page, computeAPlusMarketScore counts fullScan's already-computed
+  // per-stock scores. Appended to the existing "Market Health" card rather
+  // than adding a 5th card to an already-4-card grid, per "reduce
+  // clutter, don't add cards" from the same redesign spec.
+  const marketBias = computeMarketBias({ macroData, distData });
+  const aPlus = computeAPlusMarketScore(fullScan);
+  const strategyHint = marketBias.bias ? regimeStrategyHint({ bias: marketBias.bias, character: marketBias.character, vix }) : null;
+  const biasDotColor = marketBias.bias === "Bullish" ? C.green : marketBias.bias === "Bearish" ? C.red : C.textDim;
+
   return (
     <Card C={C} title="MARKET HEALTH">
       <RadialGauge C={C} MONO={MONO} value={regime.score} label={regLabel} sublabel="regime score" color={regColor} />
       <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 8, marginBottom: 10, textAlign: "center" }}>{playbook}</div>
+      {marketBias.bias && (
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", border: `1px solid ${C.border}`, borderRadius: 8, padding: "7px 10px", marginBottom: 8, background: C.surface }}>
+          <div>
+            <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: biasDotColor }}>{marketBias.bias} · {marketBias.confidence}% confidence</div>
+            <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, marginTop: 1 }}>{marketBias.character} · {marketBias.riskPosture}{strategyHint ? ` · ${strategyHint}` : ""}</div>
+          </div>
+        </div>
+      )}
+      {aPlus.pct != null && (
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontFamily: MONO, fontSize: 11, color: C.textSec, marginBottom: 8, padding: "0 2px" }}>
+          <span>A+ MARKET SCORE</span>
+          <span style={{ fontWeight: 800, color: aPlus.pct >= 40 ? C.green : aPlus.pct >= 20 ? C.amber : C.textDim }}>{aPlus.pct}% ({aPlus.aCount}/{aPlus.total} A+/A)</span>
+        </div>
+      )}
       <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 8 }}>
         <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: biasColor, marginBottom: 4 }}>{bias}</div>
         {(factors || []).slice(0, 3).map((f, i) => (
@@ -881,7 +909,7 @@ export default function DashboardTab({
             regime={overviewRegime} regLabel={overviewRegLabel} regColor={overviewRegColor} breadthPct={breadthPct}
             setActiveTab={setActiveTab} />
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 12, marginBottom: 14, alignItems: "stretch" }}>
-            <MarketRegimeCard C={C} MONO={MONO} SANS={SANS} macroData={macroData} distData={distData} factors={factors} bias={bias} biasColor={biasCol} />
+            <MarketRegimeCard C={C} MONO={MONO} SANS={SANS} macroData={macroData} distData={distData} factors={factors} bias={bias} biasColor={biasCol} fullScan={fullScan} />
             <MarketHeatmapGrid C={C} MONO={MONO} SANS={SANS} sectorData={sectorData} />
             <AiTopOpportunitiesCard C={C} MONO={MONO} SANS={SANS} fullScan={fullScan} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} />
             <PortfolioRiskCard C={C} MONO={MONO} SANS={SANS} />

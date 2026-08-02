@@ -6523,7 +6523,7 @@ export default function App() {
             ]} />
             {marketSubTab === "macro" && (
               <MacroTab
-                C={C} MONO={MONO} macroTone={macroTone} macroData={macroData}
+                C={C} MONO={MONO} macroTone={macroTone} macroData={macroData} distData={distData}
                 macroEventCalendar={macroEventCalendar} macroEventAlerts={macroEventAlerts}
                 cryptoSnapshot={cryptoSnapshot}
                 watchlistSymbols={watchlistSymbols} setWatchlistSymbols={setWatchlistSymbols}
