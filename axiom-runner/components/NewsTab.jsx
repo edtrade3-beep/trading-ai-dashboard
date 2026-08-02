@@ -1,8 +1,70 @@
+import { useState, useEffect } from "react";
+
+// News Engine, options platform redesign Phase 12. Two additive features
+// on top of the existing flat headline list (untouched): a real
+// page-level per-symbol grouped view (real aggregateSentimentForSymbol,
+// batched via POST /api/agent/sentiment-by-symbols — the same real
+// keyword-scoring function /sentiment-by-symbol already used, no new
+// formula), and a real "market-moving only" filter (real |score|>=3 on
+// the existing -5..5 keyword-sentiment scale, POST /api/agent/sentiment's
+// new `marketMoving` field — not a fabricated "impact" model).
 export default function NewsTab({
   C, MONO, newsSymFilter, setNewsSymFilter, newsSentFilter, setNewsSentFilter,
   refreshNews, newsLoading, newsData, scoreNewsSentiment, newsSentLoading,
   watchlistSymbols, newsSentiments, setTerminalSymbol, setActiveTab, setQuickLogModal, setWatchlistSymbols,
 }) {
+  const [viewMode, setViewMode] = useState("headlines"); // headlines | bysymbol
+  const [symbolSentiment, setSymbolSentiment] = useState({}); // symbol -> {sentiment, score, oneLiner, bulls, bears, total}
+  const [symbolLoading, setSymbolLoading] = useState(false);
+  const [marketMovingOnly, setMarketMovingOnly] = useState(false);
+  const [marketMovingMap, setMarketMovingMap] = useState({}); // headline title -> bool
+  const [marketMovingLoading, setMarketMovingLoading] = useState(false);
+
+  // Real per-symbol grouped sentiment — fetched once per distinct symbol
+  // set whenever the "BY SYMBOL" view is opened or newsData changes while
+  // that view is active.
+  useEffect(() => {
+    if (viewMode !== "bysymbol" || !newsData.length) return;
+    const groups = {};
+    newsData.forEach(n => {
+      const sym = String(n.ticker || "").toUpperCase();
+      if (!sym) return;
+      (groups[sym] = groups[sym] || []).push(n.title || n.headline || "");
+    });
+    if (!Object.keys(groups).length) return;
+    setSymbolLoading(true);
+    fetch("/api/agent/sentiment-by-symbols", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ groups }),
+    }).then(r => r.json()).then(d => { if (d.ok) setSymbolSentiment(d.results || {}); })
+      .catch(() => {}).finally(() => setSymbolLoading(false));
+  }, [viewMode, newsData]);
+
+  // Real market-moving flag per headline — fetched whenever the toggle is
+  // switched on (or newsData changes while it's on).
+  useEffect(() => {
+    if (!marketMovingOnly || !newsData.length) return;
+    const headlines = newsData.map(n => n.title || n.headline || "");
+    setMarketMovingLoading(true);
+    fetch("/api/agent/sentiment", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ headlines }),
+    }).then(r => r.json()).then(d => {
+      if (!d.ok) return;
+      const map = {};
+      (d.results || []).forEach(r => { if (headlines[r.i - 1]) map[headlines[r.i - 1]] = !!r.marketMoving; });
+      setMarketMovingMap(map);
+    }).catch(() => {}).finally(() => setMarketMovingLoading(false));
+  }, [marketMovingOnly, newsData]);
+
+  const symbolGroups = {};
+  newsData.forEach(n => {
+    const sym = String(n.ticker || "").toUpperCase();
+    if (!sym) return;
+    (symbolGroups[sym] = symbolGroups[sym] || []).push(n);
+  });
+  const sortedSymbols = Object.keys(symbolGroups).sort((a, b) => symbolGroups[b].length - symbolGroups[a].length);
+
   return (
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
@@ -42,12 +104,66 @@ export default function NewsTab({
                 >
                   {newsSentLoading ? "🤖 SCORING…" : "🤖 AI SENTIMENT"}
                 </button>
+                <div style={{ display: "flex", border: `1px solid ${C.border}`, borderRadius: 6, overflow: "hidden" }}>
+                  <button onClick={() => setViewMode("headlines")}
+                    style={{ border: "none", background: viewMode === "headlines" ? C.accent : C.surface, color: viewMode === "headlines" ? "#fff" : C.text, fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "6px 10px", cursor: "pointer" }}>
+                    HEADLINES
+                  </button>
+                  <button onClick={() => setViewMode("bysymbol")}
+                    style={{ border: "none", background: viewMode === "bysymbol" ? C.accent : C.surface, color: viewMode === "bysymbol" ? "#fff" : C.text, fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "6px 10px", cursor: "pointer" }}>
+                    BY SYMBOL
+                  </button>
+                </div>
+                <label title="Only show headlines whose real keyword-sentiment magnitude is |score| ≥ 3 on the -5..5 scale" style={{ display: "flex", alignItems: "center", gap: 5, fontFamily: MONO, fontSize: 12, color: C.textDim, cursor: "pointer" }}>
+                  <input type="checkbox" checked={marketMovingOnly} onChange={e => setMarketMovingOnly(e.target.checked)} />
+                  {marketMovingLoading ? "SCORING…" : "MARKET-MOVING ONLY"}
+                </label>
               </div>
             </div>
+            {viewMode === "bysymbol" && (
+              <div style={{ display: "grid", gap: 10 }}>
+                {symbolLoading && <div style={{ color: C.textDim, fontSize: 13, fontFamily: MONO }}>Scoring real per-symbol sentiment…</div>}
+                {!symbolLoading && sortedSymbols.length === 0 && <div style={{ color: C.textDim, fontSize: 13 }}>No headlines loaded yet.</div>}
+                {!symbolLoading && sortedSymbols
+                  .filter(sym => !newsSymFilter || sym.includes(newsSymFilter))
+                  .map(sym => {
+                    const s = symbolSentiment[sym];
+                    const sentColor = s?.sentiment === "positive" ? C.green : s?.sentiment === "negative" ? C.red : C.textDim;
+                    return (
+                      <div key={sym} style={{ background: C.card, border: `1px solid ${C.border}`, borderLeft: `4px solid ${sentColor}`, borderRadius: 6, padding: 12 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, flexWrap: "wrap", gap: 8 }}>
+                          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                            <button onClick={() => { setTerminalSymbol(sym); try { localStorage.setItem("mterminal_load_sym", sym); } catch {} setActiveTab("mterminal"); }}
+                              style={{ background: "none", border: "none", color: C.accent, fontFamily: MONO, fontSize: 13, cursor: "pointer", padding: 0, fontWeight: 700 }}>
+                              {sym}
+                            </button>
+                            <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{symbolGroups[sym].length} headline{symbolGroups[sym].length === 1 ? "" : "s"}</span>
+                            {s && (
+                              <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: sentColor, background: `${sentColor}18`, borderRadius: 5, padding: "2px 6px", textTransform: "uppercase" }}>
+                                {s.sentiment} ({s.score > 0 ? "+" : ""}{s.score})
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        {s && <div style={{ fontSize: 13, color: C.text, marginBottom: 6 }}>{s.oneLiner}</div>}
+                        <div style={{ display: "grid", gap: 4 }}>
+                          {symbolGroups[sym].slice(0, 3).map((n, i) => (
+                            <a key={i} href={n.link} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: C.textSec, textDecoration: "none" }}>
+                              · {n.title}
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
+            {viewMode === "headlines" && (
             <div style={{ display: "grid", gap: 10 }}>
               {newsData
                 .filter((n) => {
                   if (newsSymFilter && !String(n.ticker || "").toUpperCase().includes(newsSymFilter)) return false;
+                  if (marketMovingOnly && !marketMovingMap[n.title || n.headline || ""]) return false;
                   if (newsSentFilter === "wl") {
                     if (!watchlistSymbols.includes(String(n.ticker || "").toUpperCase())) return false;
                   } else if (newsSentFilter !== "all") {
@@ -131,6 +247,7 @@ export default function NewsTab({
                 })}
               {!newsData.length && <div style={{ color: C.textDim, fontSize: 13 }}>No headlines loaded yet.</div>}
             </div>
+            )}
           </div>
   );
 }

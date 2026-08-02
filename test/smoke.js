@@ -92,6 +92,14 @@ ok("aggregateSentimentForSymbol: honest neutral with no headlines", () => {
   assert.strictEqual(out.sentiment, "neutral");
   assert.strictEqual(out.total, 0);
 });
+ok("scoreSentiment: real |score|>=3 threshold — News Engine Phase 12's market-moving filter", () => {
+  const { scoreSentiment } = require("../src/routes/agent");
+  // 4 real bull words -> score 4, |4|>=3 (mirrors the route's marketMoving derivation)
+  const strong = scoreSentiment("Company beats and exceeds record growth with a strong rally and upgrade");
+  assert.ok(strong.score >= 3, "a real multi-keyword bullish headline should score at least 3");
+  const mild = scoreSentiment("Shares gain slightly on light trading");
+  assert.ok(Math.abs(mild.score) < 3, "a single mild keyword must not be treated as market-moving");
+});
 
 console.log("Checking gamma-exposure.js (Phase 2, options redesign)…");
 ok("computeGammaExposure: honest unavailable with no contracts or no underlying", () => {

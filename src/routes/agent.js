@@ -959,7 +959,12 @@ async function handleAgent(req, res, requestUrl) {
     const rawItems = Array.isArray(body) ? body : (body.headlines || body.items || []);
     const results = rawItems.map((item, idx) => {
       const text = typeof item === "string" ? item : (item?.s || item?.text || "");
-      return { i: idx + 1, ...scoreSentiment(text) };
+      const scored = scoreSentiment(text);
+      // marketMoving — News Engine Phase 12: real keyword-sentiment
+      // magnitude crossing a documented threshold (|score| >= 3 on the
+      // existing -5..5 scale), reused as the "market-moving" filter
+      // rather than inventing a separate fabricated "impact" model.
+      return { i: idx + 1, ...scored, marketMoving: Math.abs(scored.score) >= 3 };
     });
     return writeJson(res, 200, { ok: true, results });
   }
@@ -972,6 +977,25 @@ async function handleAgent(req, res, requestUrl) {
     try { body = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { error: "Invalid JSON" }); }
     const headlines = Array.isArray(body?.headlines) ? body.headlines : [];
     return writeJson(res, 200, { ok: true, ...aggregateSentimentForSymbol(headlines) });
+  }
+
+  // ── POST /api/agent/sentiment-by-symbols (plural) ────────────────────────
+  // News Engine, options platform redesign Phase 12: the page-level
+  // per-symbol grouped view (NewsTab.jsx) needs a real aggregate for every
+  // symbol on the page at once — this batches aggregateSentimentForSymbol
+  // (the exact same real function /sentiment-by-symbol already uses) over
+  // however many symbol groups the client sends, in one request instead of
+  // one per symbol. Same real keyword scoring, no new formula.
+  if (pathname === "/api/agent/sentiment-by-symbols" && req.method === "POST") {
+    let body;
+    try { body = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { error: "Invalid JSON" }); }
+    const groups = body?.groups && typeof body.groups === "object" ? body.groups : {};
+    const results = {};
+    for (const symbol of Object.keys(groups)) {
+      const headlines = Array.isArray(groups[symbol]) ? groups[symbol] : [];
+      results[symbol] = aggregateSentimentForSymbol(headlines);
+    }
+    return writeJson(res, 200, { ok: true, results });
   }
 
   // ── POST /api/agent/halal ────────────────────────────────────────────────
