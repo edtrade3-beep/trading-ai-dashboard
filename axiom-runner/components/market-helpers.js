@@ -1,3 +1,5 @@
+import { mapToOptionsAction } from "./options-actions.js";
+
 // Small shared market-domain calculations and reference data used by
 // multiple components (both still in the axiom-live.jsx monolith and
 // split-out files) — kept separate from ui-helpers.js, which is purely
@@ -413,6 +415,117 @@ export function computeInstitutionalGrade(row, technicals, regime, sectorInfo, o
     score, reasons, cautions: [],
     breakdown: { trendPts, technicalPts, smartMoneyPts, optionsFlowPts, fundamentalPts, macroPts, sectorPts },
   };
+}
+
+// AI Trade Engine score — options platform redesign Phase 3 (spec: "AI
+// Score 0-100" with a Trend/Momentum/Volume/Relative Strength/Options
+// Flow/Dark Pool/News/Gamma/Liquidity/Institutional Activity breakdown +
+// Final Recommendation). A NEW sibling 10-dimension composite, not an
+// extension of computeInstitutionalGrade's own 100 points (its internals
+// are never touched, per the redesign's guiding constraint) — 6 of the 10
+// requested dimensions were already real, scored signals somewhere in this
+// app (Trend/Momentum/Volume/RS/Options Flow/Institutional Activity, via
+// computeInstitutionalGrade and real trend-screen row fields); this
+// function re-derives them at this score's own weighting and adds the 4
+// genuinely-missing dimensions (Dark Pool/News/Gamma/Liquidity) on real
+// inputs from Phase 0/2's new modules. Every dimension degrades to an
+// honest neutral midpoint (never a guess) when its real input isn't
+// available.
+export function computeAiTradeScore({ row, optionsFlow, darkPool, newsSentiment, gammaExposure, liquidityScore } = {}) {
+  // 1. Trend (15) — same real Minervini trend-template pass count computeInstitutionalGrade uses, rescaled 20->15.
+  const passCount = Number(row?.passCount);
+  const trendPts = Number.isFinite(passCount) ? Math.round((passCount / 8) * 15) : 8;
+
+  // 2. Momentum (10) — real IBD-style weighted momentum % already attached
+  // to every trend-screen row (src/routes/market.js's ttWeightedMomentum).
+  // Scaled with the same (x+10)/30 real-to-0-1 mapping computeInstitutionalGrade's
+  // own Fundamentals dimension already uses for a similarly-shaped real %.
+  const momentum = Number(row?.momentum);
+  const momentumPts = Number.isFinite(momentum) ? Math.round(Math.max(0, Math.min(1, (momentum + 10) / 30)) * 10) : 5;
+
+  // 3. Volume (10) — same real volRatio-vs-50-day-average computeAPlusScore uses.
+  const volRatio = Number(row?.volRatio);
+  const volumePts = Number.isFinite(volRatio) ? Math.round(Math.max(0, Math.min(1, volRatio / 2)) * 10) : 5;
+
+  // 4. Relative Strength (10) — the real 1-99 percentile RS rating already
+  // computed for every trend-screen row (percentile rank of weighted momentum
+  // across the whole scanned universe).
+  const rsRating = Number(row?.rsRating);
+  const rsPts = Number.isFinite(rsRating) ? Math.round((rsRating / 99) * 10) : 5;
+
+  // 5. Options Flow (10) — same real call/put notional bias computeInstitutionalGrade uses, rescaled 15->10.
+  const callN = Number(optionsFlow?.callNotional), putN = Number(optionsFlow?.putNotional);
+  const flowTotal = (Number.isFinite(callN) ? callN : 0) + (Number.isFinite(putN) ? putN : 0);
+  const flowRatio = flowTotal > 0 ? callN / flowTotal : null;
+  const optionsFlowPts = flowRatio != null ? Math.max(1, Math.min(10, Math.round(flowRatio * 9) + 1)) : 5;
+
+  // 6. Dark Pool (10) — real total notional value of real block prints
+  // (Unusual Whales, already $500K+-filtered by fetchDarkPoolPrints). This
+  // data source exposes no buy/sell side, so this is a real MAGNITUDE-of-
+  // institutional-participation read, not a directional call — never
+  // invents a bullish/bearish bias this data can't actually support.
+  const darkPoolNotional = (darkPool?.prints || []).reduce((s, p) => s + (Number(p.value) || 0), 0);
+  const darkPoolPts = darkPool ? Math.round(Math.max(0, Math.min(1, darkPoolNotional / 20_000_000)) * 10) : 5;
+
+  // 7. News (10) — Phase 0's real per-symbol headline sentiment aggregate
+  // (aggregateSentimentForSymbol, src/routes/agent.js), a real -5..5 score.
+  const newsScore = Number(newsSentiment?.score);
+  const newsPts = Number.isFinite(newsScore) ? Math.round(((newsScore + 5) / 10) * 10) : 5;
+
+  // 8. Gamma (10) — Phase 2's real GEX (src/gamma-exposure.js). Honest
+  // neutral midpoint when unavailable (no Polygon key, or no real gamma
+  // for this symbol). When available, scores structural significance —
+  // how close price sits to the real gamma flip point, a well-established
+  // "dealer hedging flips, moves can amplify" zone — rather than inventing
+  // a bullish/bearish read that GEX sign alone can't reliably support.
+  let gammaPts = 5;
+  if (gammaExposure?.available && Number.isFinite(gammaExposure.gammaFlipPoint) && Number.isFinite(row?.price) && row.price > 0) {
+    const distPct = Math.abs(row.price - gammaExposure.gammaFlipPoint) / row.price;
+    gammaPts = 5 + Math.round(Math.max(0, Math.min(1, (0.05 - Math.min(distPct, 0.05)) / 0.05)) * 5);
+  }
+
+  // 9. Liquidity (5) — Phase 0's real options-math.js liquidityScore (0-100)
+  // on the symbol's ATM contract, passed in by whichever page already
+  // fetched a real chain for this symbol. Smaller weight since it
+  // describes the options contract's tradability, not the underlying
+  // stock itself.
+  const liquidityPts = Number.isFinite(liquidityScore) ? Math.round((liquidityScore / 100) * 5) : 3;
+
+  // 10. Institutional Activity (10) — same real BOS/ChoCh/order-block
+  // structure (smc-engine.js) computeInstitutionalGrade uses, rescaled 15->10.
+  const smc = row?.smc;
+  let institutionalPts = 5;
+  if (smc?.bos?.type === "BULL_BOS") institutionalPts = 10;
+  else if (smc?.bos?.type === "BEAR_BOS") institutionalPts = 2;
+  else if (smc?.choch?.type === "CHOCH_BULL") institutionalPts = 8;
+  else if (smc?.choch?.type === "CHOCH_BEAR") institutionalPts = 3;
+  else if (smc?.nearestOB?.type === "BULL_OB") institutionalPts = 7;
+  else if (smc?.nearestOB?.type === "BEAR_OB") institutionalPts = 4;
+
+  const breakdown = { trendPts, momentumPts, volumePts, rsPts, optionsFlowPts, darkPoolPts, newsPts, gammaPts, liquidityPts, institutionalPts };
+  const score = Math.max(0, Math.min(100, Object.values(breakdown).reduce((a, b) => a + b, 0)));
+
+  const reasons = [
+    Number.isFinite(passCount) ? `${passCount}/8 real Minervini trend-template criteria pass` : "Trend template data unavailable",
+    Number.isFinite(momentum) ? `Weighted momentum ${momentum >= 0 ? "+" : ""}${momentum.toFixed(1)}%` : "Momentum data unavailable",
+    Number.isFinite(volRatio) ? `Volume ${volRatio.toFixed(1)}x the 50-day average` : "Volume data unavailable",
+    Number.isFinite(rsRating) ? `RS rating ${rsRating}/99` : "RS rating unavailable",
+    flowRatio != null ? `Real options flow ${Math.round(flowRatio * 100)}% call-weighted notional` : "Options flow data unavailable",
+    darkPool ? (darkPoolNotional > 0 ? `$${(darkPoolNotional / 1e6).toFixed(1)}M in real dark pool block prints` : "No real block prints above $500K") : "Dark pool data unavailable",
+    Number.isFinite(newsScore) ? `Real news sentiment ${newsScore >= 0 ? "+" : ""}${newsScore} (${newsSentiment.bulls} bull / ${newsSentiment.bears} bear headlines)` : "News sentiment unavailable",
+    gammaExposure?.available ? `Real gamma flip point $${gammaExposure.gammaFlipPoint}` : "Gamma data unavailable",
+    Number.isFinite(liquidityScore) ? `Options liquidity score ${liquidityScore}/100` : "Options liquidity data unavailable",
+    smc?.bos?.type ? smc.bos.label : smc?.choch?.type ? smc.choch.label : smc?.nearestOB?.type ? `Nearest real order block: ${smc.nearestOB.type === "BULL_OB" ? "bullish" : "bearish"}` : "No clear real market-structure signal",
+  ];
+
+  // Final Recommendation — options-actions.js's unified calls-vs-puts
+  // vocabulary applied to this composite score, not a new formula (closes
+  // the loop between the spec's "AI Score breakdown" and "Final
+  // Recommendation" asks).
+  const chgPct = Number(row?.chgPct) || 0;
+  const recommendation = mapToOptionsAction({ score, chgPct });
+
+  return { score, breakdown, reasons, recommendation };
 }
 
 // Letter-grade read for computeInstitutionalGrade's 0-100 score — a

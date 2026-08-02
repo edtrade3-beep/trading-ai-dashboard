@@ -217,6 +217,33 @@ console.log("Checking institutional-redesign presentation-layer modules (ESM, lo
     assert.strictEqual(classifyMacroStatus("SPY", { chgPct: 0.1 }).status, "yellow");
   });
 
+  const { computeAiTradeScore } = await import("../axiom-runner/components/market-helpers.js");
+  ok("computeAiTradeScore: real inputs across all 10 dimensions produce a valid 0-100 score + real recommendation", () => {
+    const out = computeAiTradeScore({
+      row: { passCount: 7, momentum: 15, volRatio: 1.8, rsRating: 90, chgPct: 1.2, price: 100, smc: { bos: { type: "BULL_BOS", label: "Bullish BOS" } } },
+      optionsFlow: { callNotional: 8_000_000, putNotional: 2_000_000 },
+      darkPool: { prints: [{ value: 3_000_000 }, { value: 4_000_000 }] },
+      newsSentiment: { score: 3, bulls: 4, bears: 1 },
+      gammaExposure: { available: true, gammaFlipPoint: 101 },
+    });
+    assert.ok(out.score > 0 && out.score <= 100, "score must stay within 0-100");
+    assert.strictEqual(Object.keys(out.breakdown).length, 10, "must score exactly the 10 spec’d dimensions");
+    assert.ok(out.recommendation && out.recommendation.label, "must produce a real Final Recommendation label");
+    assert.strictEqual(out.reasons.length, 10);
+  });
+  ok("computeAiTradeScore: honest neutral midpoints when the 4 new inputs are unavailable, never fabricated", () => {
+    const out = computeAiTradeScore({ row: { passCount: 4, price: 100 } });
+    assert.strictEqual(out.breakdown.darkPoolPts, 5, "no real dark pool data -> neutral midpoint, not 0 or a guess");
+    assert.strictEqual(out.breakdown.newsPts, 5);
+    assert.strictEqual(out.breakdown.gammaPts, 5, "no real GEX -> neutral midpoint");
+    assert.strictEqual(out.breakdown.liquidityPts, 3, "no real chain liquidity -> neutral-low midpoint");
+  });
+  ok("computeAiTradeScore: dark pool score reflects real notional magnitude, not a fabricated direction", () => {
+    const bigPrints = computeAiTradeScore({ row: { price: 100 }, darkPool: { prints: [{ value: 15_000_000 }, { value: 10_000_000 }] } });
+    const smallPrints = computeAiTradeScore({ row: { price: 100 }, darkPool: { prints: [{ value: 100_000 }] } });
+    assert.ok(bigPrints.breakdown.darkPoolPts > smallPrints.breakdown.darkPoolPts, "more real block-print notional should score higher");
+  });
+
   const { OPTIONS_ACTIONS, mapToOptionsAction, optionsExecutionNote } = await import("../axiom-runner/components/options-actions.js");
   ok("mapToOptionsAction: strong/regular call-buy and put-buy tiers match trade-signals' own bands", () => {
     assert.strictEqual(mapToOptionsAction({ score: 90, chgPct: 2 }), OPTIONS_ACTIONS.STRONG_CALL_BUY);

@@ -19,11 +19,11 @@ import {
 import {
   computeAPlusScore, computeRegime, computePrediction, STOCK_TO_SECTOR, SECTOR_ETFS,
   computeInstitutionalGrade, institutionalLetterGrade, institutionalRecommendation, winProbFor, computeBullBearCase,
-  deriveTopLevelScores,
+  deriveTopLevelScores, computeAiTradeScore,
 } from "./market-helpers.js";
 import AiScoreExplainer, {
   AplusBadge, TRADE_SETUP_DIMENSIONS, STOCK_QUALITY_DIMENSIONS, INSTITUTIONAL_GRADE_DIMENSIONS,
-  TECHNICAL_DIMENSIONS, TIMING_DIMENSIONS, INSTITUTIONAL_GRADE_NOTE,
+  TECHNICAL_DIMENSIONS, TIMING_DIMENSIONS, INSTITUTIONAL_GRADE_NOTE, AI_TRADE_ENGINE_DIMENSIONS,
 } from "./AiScoreExplainer.jsx";
 import { stockQualityBreakdown } from "./rhpro-shared.jsx";
 import { mapToAiAction } from "./ai-actions.js";
@@ -215,6 +215,32 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
       .catch(() => {});
   }, [sym]);
 
+  // AI Trade Engine inputs (options platform redesign, Phase 3) — real
+  // dark pool prints, real per-symbol news sentiment, and real gamma
+  // exposure, each already-real data this app fetches elsewhere for other
+  // pages, just also pulled here (same "additive, lightweight, no new
+  // backend" pattern as symOptionsFlow above) to feed
+  // computeAiTradeScore's 4 genuinely-new dimensions. Each honestly
+  // degrades to null on fetch failure — the score function itself already
+  // handles null inputs with a neutral midpoint, never a guess.
+  const [symDarkPool, setSymDarkPool] = useState(null);
+  const [symNewsSentiment, setSymNewsSentiment] = useState(null);
+  const [symGamma, setSymGamma] = useState(null);
+  useEffect(() => {
+    if (!sym) return;
+    setSymDarkPool(null); setSymNewsSentiment(null); setSymGamma(null);
+    fetch(`/api/market/darkpool?symbol=${encodeURIComponent(sym)}`).then(r => r.json()).then(j => setSymDarkPool(j?.ok ? j : null)).catch(() => {});
+    fetch(`/api/market/gamma?symbol=${encodeURIComponent(sym)}`).then(r => r.json()).then(j => setSymGamma(j?.ok ? j : null)).catch(() => {});
+    fetch(`/api/market/news?tickers=${encodeURIComponent(sym)}&limit=20`).then(r => r.json())
+      .then(j => {
+        // /api/market/news returns a bare array of {title, publisher, ...} — see fetchMarketNews, routes/market.js.
+        const headlines = (Array.isArray(j) ? j : []).map(a => a.title || "").filter(Boolean);
+        if (!headlines.length) return;
+        return fetch("/api/agent/sentiment-by-symbol", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ headlines }) })
+          .then(r => r.json()).then(d => { if (d?.ok) setSymNewsSentiment(d); });
+      }).catch(() => {});
+  }, [sym]);
+
   // Real forward-return win-probability log — market-wide, fetched once
   // (not per-symbol), same real source RhProScanner already uses.
   const [aplusTrack, setAplusTrack] = useState(null);
@@ -349,6 +375,17 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
     regime, sectorInfo: symSectorInfo, technicals: chart?.technicals, institutionalGrade, stockQuality, aPlusScore,
   }) : null;
   const primaryAction = institutionalGrade ? mapToAiAction({ institutionalScore: institutionalGrade.score }) : null;
+
+  // AI Trade Engine (options platform redesign, Phase 3) — the 10-dimension
+  // Trend/Momentum/Volume/RS/Options Flow/Dark Pool/News/Gamma/Liquidity/
+  // Institutional Activity score + calls-vs-puts Final Recommendation.
+  // liquidityScore is intentionally omitted here (this page hasn't fetched
+  // a real options chain for `sym`) — computeAiTradeScore already degrades
+  // that one dimension to an honest neutral midpoint rather than a guess;
+  // Phase 4's Option Recommender will wire a real one in.
+  const aiTradeScore = symTrend ? computeAiTradeScore({
+    row: symTrend, optionsFlow: symOptionsFlow, darkPool: symDarkPool, newsSentiment: symNewsSentiment, gammaExposure: symGamma,
+  }) : null;
 
   // Bull Case / Bear Case — free, deterministic (2026-07-29, "use free
   // data": the paid Claude version hit the account's API usage limit, so
@@ -640,6 +677,30 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
               );
             })}
           </div>
+        )}
+        {/* AI Trade Engine — options platform redesign, Phase 3 (spec: "AI
+            Score 0-100" + "Final Recommendation"). A NEW composite,
+            distinct from Institutional Grade above (that stays untouched)
+            — 10 real dimensions including the 4 genuinely-new ones this
+            redesign adds (Dark Pool/News/Gamma/Liquidity). Clickable into
+            the same real AiScoreExplainer modal pattern every other score
+            on this page uses. */}
+        {aiTradeScore && (
+          <button onClick={() => setExplain({ symbol: sym, aplus: aiTradeScore, dimensions: AI_TRADE_ENGINE_DIMENSIONS, label: "AI TRADE ENGINE" })}
+            style={{ font: "inherit", textAlign: "left", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10,
+              width: "100%", border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 14px", marginBottom: 10, background: C.card, cursor: "pointer" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div>
+                <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.5 }}>AI TRADE ENGINE — click for breakdown</div>
+                <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: aiTradeScore.score >= 70 ? C.green : aiTradeScore.score >= 45 ? C.amber : C.red }}>
+                  {aiTradeScore.score}<span style={{ fontSize: 12, color: C.textDim }}> /100</span>
+                </div>
+              </div>
+              <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "5px 10px", borderRadius: 6, background: `${aiTradeScore.recommendation.color}18`, color: aiTradeScore.recommendation.color }}>
+                {aiTradeScore.recommendation.label}
+              </span>
+            </div>
+          </button>
         )}
         {/* Real technical indicators — ADX (trend strength/direction),
             Donchian Channel (20d), Bollinger Bands (20d) — all computed

@@ -82,6 +82,27 @@ export const TIMING_DIMENSIONS = [
 ];
 const TIMING_LABEL = "TIMING";
 
+// AI Trade Engine — options platform redesign Phase 3 (spec: "AI Score
+// 0-100" with a Trend/Momentum/Volume/Relative Strength/Options Flow/Dark
+// Pool/News/Gamma/Liquidity/Institutional Activity breakdown). A NEW
+// 10-dimension composite (computeAiTradeScore, market-helpers.js) — not a
+// rename of Institutional Grade above, which stays untouched. Key order
+// MUST match that function's breakdown key order AND reasons[] array
+// order, same rule as every other config here.
+export const AI_TRADE_ENGINE_DIMENSIONS = [
+  { key: "trendPts", max: 15, label: "Trend", improve: "More of the 8 real Minervini trend-template criteria need to pass." },
+  { key: "momentumPts", max: 10, label: "Momentum", improve: "Real weighted momentum needs to strengthen." },
+  { key: "volumePts", max: 10, label: "Volume", improve: "Volume needs to climb toward 2x the 50-day average or higher." },
+  { key: "rsPts", max: 10, label: "Relative Strength", improve: "RS percentile needs to climb — this stock needs to outperform more of the screened universe." },
+  { key: "optionsFlowPts", max: 10, label: "Options Flow", improve: "Real options notional needs to skew more call-weighted." },
+  { key: "darkPoolPts", max: 10, label: "Dark Pool", improve: "Needs more real block-print activity (this reads real institutional participation, not direction — the data doesn't expose buy/sell side)." },
+  { key: "newsPts", max: 10, label: "News", improve: "Real recent headlines need to skew more bullish than bearish." },
+  { key: "gammaPts", max: 10, label: "Gamma", improve: "Needs a real Polygon options chain to compute — unavailable without a configured POLYGON_API_KEY, or price needs to sit closer to the real gamma flip point." },
+  { key: "liquidityPts", max: 5, label: "Liquidity", improve: "Needs a real options chain fetched for this symbol to score contract liquidity — not yet wired on this page." },
+  { key: "institutionalPts", max: 10, label: "Institutional Activity", improve: "Needs a real bullish break of structure or order block nearby." },
+];
+const AI_TRADE_ENGINE_LABEL = "AI TRADE ENGINE";
+
 // Back-compat default — existing call sites (Trade Planner) that don't pass
 // a dimensions/title prop keep the original A+ Score framing untouched.
 const DIMENSIONS = TRADE_SETUP_DIMENSIONS;
