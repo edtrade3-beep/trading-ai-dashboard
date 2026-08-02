@@ -2857,7 +2857,12 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
     if (!keys.fmp) return writeJson(res, 200, { ok: true, news: [], reason: "no-fmp-key" });
     try {
       const news = await fetchFmpCryptoNews(keys.fmp, limit);
-      return writeJson(res, 200, { ok: true, news, source: "fmp" });
+      const payload = { ok: true, news, source: "fmp" };
+      if (searchParams.get("debug") === "1") {
+        const dbgRes = await fetch(`https://financialmodelingprep.com/api/v3/crypto_news?limit=3&apikey=${encodeURIComponent(keys.fmp)}`);
+        payload._debug = { status: dbgRes.status, body: (await dbgRes.text()).slice(0, 800) };
+      }
+      return writeJson(res, 200, payload);
     } catch (err) {
       console.error("[market/crypto-news] error:", err?.message);
       return writeJson(res, 200, { ok: true, news: [] });
