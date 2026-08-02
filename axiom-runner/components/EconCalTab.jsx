@@ -25,7 +25,12 @@ function mergeEvents(approx, live) {
   }
   return (approx || []).map(e => {
     const real = liveByTag.get(e.tag);
-    if (!real || !real.date) return { ...e, approximate: true };
+    // OPEX/Quad Witching (Phase 18) arrive from the server already real —
+    // deterministic 3rd-Friday calendar math, not a guess FMP could ever
+    // supersede (FMP's economic calendar has no "OPEX" event to match).
+    // Only force approximate:true here for events that started as a real
+    // guess (server's own approximate:true) and found no live FMP match.
+    if (!real || !real.date) return e.approximate === false ? e : { ...e, approximate: true };
     const d = new Date(real.date);
     if (Number.isNaN(d.getTime())) return { ...e, approximate: true };
     const dte = Math.round((d - now) / 86400000);

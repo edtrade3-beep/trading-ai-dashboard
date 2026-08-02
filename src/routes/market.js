@@ -4418,6 +4418,24 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
       { name: "Retail Sales",   tag: "RTLS", impact: "MED",   note: "Consumer spending health. Weak → recession fears.",          date: new Date(y, m, 15) },
       { name: "GDP Estimate",   tag: "GDP",  impact: "MED",   note: "Economic growth. Two negatives = technical recession.",      date: new Date(y, m+1, 28) },
       { name: "FOMC Minutes",   tag: "MINS", impact: "MED",   note: "Full meeting notes — clues on future rate path.",            date: new Date(y, m+1, 20) },
+      // Real, deterministic calendar math (Phase 18, options platform
+      // redesign) — NOT a guess like the events above (they're all
+      // hardcoded placeholders per this route's own comment). Monthly
+      // options expiration is always the 3rd Friday of every month; Quad
+      // Witching is that same 3rd Friday specifically in March/June/
+      // September/December, when stock index futures + index options +
+      // stock options + single-stock futures all expire together — the
+      // heaviest real volume/volatility day of that quarter. Computed for
+      // this month + next 2 so the filter below always has real upcoming
+      // OPEX dates to show, matching how the other events above look 1-2
+      // months out.
+      ...[0, 1, 2].map(offset => {
+        const d = thirdFriday(y, m + offset);
+        const isQuad = [2, 5, 8, 11].includes(d.getMonth()); // Mar/Jun/Sep/Dec
+        return isQuad
+          ? { name: "Quad Witching", tag: "OPEX", impact: "HIGH", note: "Index futures + index options + stock options + single-stock futures all expire — heaviest volume day of the quarter, real pinning/volatility risk.", date: d }
+          : { name: "Monthly OPEX",  tag: "OPEX", impact: "MED",  note: "Monthly options expiration — real 3rd-Friday gamma unwind, elevated pin risk near heavy-OI strikes.", date: d };
+      }),
     ].map(ev => {
       const dte = Math.round((ev.date - now) / 86400000);
       return {
@@ -4431,8 +4449,11 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
         // EconCalTab) can visually distinguish these from the real dates
         // /api/market/econ-events returns when an FMP key is configured,
         // instead of showing a precise "TODAY" countdown + an actionable
-        // "reduce position size" directive off a guessed date.
-        approximate: true,
+        // "reduce position size" directive off a guessed date. OPEX/Quad
+        // Witching are the one exception — real deterministic calendar
+        // math (3rd Friday), never a guess, so they keep the confident
+        // countdown other real-dated events get.
+        approximate: ev.tag !== "OPEX",
       };
     }).filter(e => e.dte >= -1).sort((a,b) => a.dte - b.dte);
     return writeJson(res, 200, { ok: true, events });

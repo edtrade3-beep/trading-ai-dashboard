@@ -4354,15 +4354,6 @@ export default function App() {
     } catch {}
 
     try {
-      const flowSymbols = (wl?.length ? wl : watchlistSymbols.map((symbol) => ({ symbol })))
-        .slice(0, 8)
-        .map((row) => row.symbol)
-        .filter(Boolean);
-      const flow = await withClientTimeout(fetchOptionsFlow(flowSymbols, 28, providerKeys, flowFilters), 20000, null);
-      setOptionsFlow(flow && typeof flow === "object" ? flow : null);
-    } catch {}
-
-    try {
       const tv = await withClientTimeout(fetchTradingViewAlerts(30), 5000, { rows: [], secured: false });
       setTvWebhookRows(Array.isArray(tv?.rows) ? tv.rows : []);
       setTvWebhookSecured(Boolean(tv?.secured));
@@ -4391,6 +4382,30 @@ export default function App() {
   useEffect(() => {
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, []);
+
+  // Options Flow — dedicated ~12s refresh (Phase 18, options platform
+  // redesign, per the confirmed "faster polling, not WebSockets" decision:
+  // tighten cadence specifically on this time-sensitive surface without
+  // touching the shared settings.refreshMs cadence everything else in
+  // fetchAll() still uses). Previously ran only inside fetchAll's own
+  // 30s+ cadence — extracted into its own interval, same real
+  // fetchOptionsFlow() call/setOptionsFlow() target, not duplicated.
+  useEffect(() => {
+    const loadFlow = async () => {
+      try {
+        const flowSymbols = (watchlistData?.length ? watchlistData : watchlistSymbols.map((symbol) => ({ symbol })))
+          .slice(0, 8)
+          .map((row) => row.symbol)
+          .filter(Boolean);
+        const flow = await withClientTimeout(fetchOptionsFlow(flowSymbols, 28, providerKeys, flowFilters), 10000, null);
+        setOptionsFlow(flow && typeof flow === "object" ? flow : null);
+      } catch {}
+    };
+    loadFlow();
+    const iv = setInterval(loadFlow, 12000);
+    return () => clearInterval(iv);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [watchlistSymbols, flowFilters]);
 
   // Play a soft beep when new TV webhook alerts arrive
   const prevWebhookCount = useRef(0);

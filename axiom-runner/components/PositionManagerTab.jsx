@@ -25,7 +25,18 @@ export default function PositionManagerTab({ C, MONO, SANS }) {
     } finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  // ~15s refresh (Phase 18, options platform redesign — "faster polling,
+  // not WebSockets" decision, tightened specifically on this time-sensitive
+  // surface). Previously fetched once on mount only; the underlying real
+  // data (src/paper-positions-store.js) is a cheap local read — server.js's
+  // real reprice job (src/routes/paper-positions.js) writes to it every 15
+  // min during market hours, so this just shows whatever the last real
+  // write was sooner, at effectively no added server cost.
+  useEffect(() => {
+    load();
+    const iv = setInterval(load, 15000);
+    return () => clearInterval(iv);
+  }, [load]);
 
   const openPosition = async () => {
     if (!form.symbol || !form.strike || !form.expiry || !form.entryPremium) return;
