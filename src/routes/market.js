@@ -4,6 +4,7 @@ const { PORT, MARKET_QUOTE_TIMEOUT_MS, MACRO_SYMBOLS, TIMEFRAME_CONFIG, resolveP
 const { detectFVGs, detectOrderBlocks, detectBOSChoCh, detectLiquidityLevels } = require("../smc-engine");
 const { computeGammaExposure, computeGammaLabReads } = require("../gamma-exposure");
 const { rankContracts, interpretFlowRow, gammaSqueezeProbability } = require("../options-math");
+const { computeHvRv, computeSkew, computeTermStructure, ivRankTrend, volRecommendation } = require("../volatility-lab");
 const {
   computeEMA, computeRSI, computeVWAP,
   computeADX, computeDonchian, computeBollinger,
@@ -3235,6 +3236,86 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
     if (!Number.isFinite(currentIv)) currentIv = await fetchAtmIv(symbol).catch(() => null);
     const result = ivRankFor(symbol, currentIv);
     return writeJson(res, 200, { ok: true, symbol, currentIv: Number.isFinite(currentIv) ? currentIv : null, ...result });
+  }
+
+  // GET /api/market/volatility?symbol=AAPL — Volatility Lab, options
+  // platform redesign Phase 8. HV20/HV60/RV10 are pure math over real
+  // daily bars (any provider, no Polygon needed). IV Rank/Percentile/Trend
+  // reuse iv-history-store.js's real accumulated snapshots (Phase 5) — not
+  // re-derived. Skew and Term Structure require real per-contract
+  // delta/multi-expiry data and are hard-gated on POLYGON_API_KEY, same
+  // convention the Gamma route (Phase 2/7) already established — reuses
+  // that exact same 2-request Polygon fetch (underlying snapshot + first
+  // page of up to 250 near-dated contracts across whatever expiries fit)
+  // rather than issuing a separate request per expiry.
+  if (pathname === "/api/market/volatility" && req.method === "GET") {
+    const symbol = (searchParams.get("symbol") || "").trim().toUpperCase();
+    if (!symbol) return writeJson(res, 400, { error: "symbol required" });
+
+    const { ivRankFor, fetchAtmIv, loadHistory } = require("../iv-history-store");
+    const { dteFromExpiry } = require("../options-math");
+
+    let bars = [];
+    try { bars = await fetchYahooBars(symbol, "1y", "1d"); } catch {}
+    const hvRv = computeHvRv(bars);
+
+    let currentIv = await fetchAtmIv(symbol).catch(() => null);
+    const ivRank = ivRankFor(symbol, currentIv);
+    const trend = ivRankTrend(symbol, loadHistory());
+    const recommendation = ivRank?.available ? volRecommendation({ ivRank: ivRank.rank }) : "Insufficient Data";
+
+    const polyKey = process.env.POLYGON_API_KEY || "";
+    let skew = { available: false, reason: "Skew requires real per-contract delta (Polygon) — unavailable without POLYGON_API_KEY." };
+    let termStructure = { available: false, reason: "Term structure requires a real multi-expiry Polygon chain — unavailable without POLYGON_API_KEY." };
+    let underlying = null;
+
+    if (polyKey) {
+      try {
+        const PH = { "Accept": "application/json" };
+        const snapRes = await withTimeout(
+          fetch(`https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers/${symbol}?apiKey=${polyKey}`, { headers: PH }),
+          8000, null
+        );
+        const snapJson = snapRes?.ok ? await snapRes.json().catch(() => ({})) : {};
+        underlying = round2(
+          snapJson?.ticker?.lastTrade?.p || snapJson?.ticker?.day?.c || snapJson?.ticker?.prevDay?.c || 0
+        );
+
+        const contractsUrl = `https://api.polygon.io/v3/snapshot/options/${symbol}?limit=250&sort=expiration_date&apiKey=${polyKey}`;
+        const contractsRes = await withTimeout(fetch(contractsUrl, { headers: PH }), 12000, null);
+        if (contractsRes?.ok) {
+          const contractsJson = await contractsRes.json().catch(() => ({}));
+          const results = contractsJson?.results || [];
+          const contracts = results.map(r => ({
+            strike: Number(r.details?.strike_price),
+            expiry: r.details?.expiration_date || null,
+            dte: r.details?.expiration_date ? dteFromExpiry(r.details.expiration_date) : null,
+            type: r.details?.contract_type,
+            delta: r.greeks?.delta != null ? Number(r.greeks.delta) : null,
+            iv: (r.implied_volatility || 0) * 100,
+          }));
+          // Nearest-expiry slice only for skew (same-expiry convention).
+          const nearestExpiry = [...new Set(contracts.map(c => c.expiry).filter(Boolean))].sort()[0];
+          skew = computeSkew(contracts.filter(c => c.expiry === nearestExpiry));
+          if (underlying > 0) termStructure = computeTermStructure(contracts, underlying);
+        }
+      } catch (err) {
+        console.error("[market/volatility] Polygon error:", err?.message);
+      }
+    }
+
+    return writeJson(res, 200, {
+      ok: true, symbol, underlying,
+      ...hvRv,
+      ivRank: ivRank?.available ? ivRank.rank : null,
+      ivPercentile: ivRank?.available ? ivRank.percentile : null,
+      ivRankState: ivRank,
+      ivTrend: trend,
+      recommendation,
+      skew, termStructure,
+      source: polyKey ? "polygon" : "yahoo",
+      generatedAt: new Date().toISOString(),
+    });
   }
 
   // GET /api/market/sec?symbol=AAPL — recent SEC filings from EDGAR RSS

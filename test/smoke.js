@@ -394,6 +394,89 @@ console.log("Checking institutional-redesign presentation-layer modules (ESM, lo
     assert.ok(["Distribution", "Aggressive Selling"].includes(out.label));
   });
 
+  console.log("Checking volatility-lab.js (Phase 8, Volatility Lab)…");
+  ok("computeRealizedVol: real annualized stdev of daily log returns, honest null with too few real bars", () => {
+    const { computeRealizedVol } = require("../src/volatility-lab");
+    // 21 bars of a real steady +1%/day walk — the annualized vol of a
+    // constant daily log return is 0 (zero variance), a real deterministic
+    // check of the stdev math itself, not a magic-number fixture.
+    const bars = [];
+    let price = 100;
+    for (let i = 0; i <= 20; i++) { bars.push({ close: price }); price *= 1.01; }
+    const hv = computeRealizedVol(bars, 20);
+    assert.ok(hv !== null && hv < 1, "a perfectly steady walk should read ~0% realized vol");
+    assert.strictEqual(computeRealizedVol(bars, 60), null, "60d HV must be honest null with only 21 real bars, never estimated from less data");
+  });
+  ok("computeHvRv: independently-gated hv20/hv60/rv10, each null on its own when real history is short", () => {
+    const { computeHvRv } = require("../src/volatility-lab");
+    const bars = Array.from({ length: 25 }, (_, i) => ({ close: 100 + Math.sin(i) * 2 }));
+    const out = computeHvRv(bars);
+    assert.ok(out.hv20 !== null, "25 real bars should be enough for HV20");
+    assert.strictEqual(out.hv60, null, "25 real bars is not enough for HV60 — must not be fabricated");
+    assert.ok(out.rv10 !== null, "25 real bars should be enough for RV10");
+  });
+  ok("computeSkew: honest unavailable when no real per-contract delta present (Yahoo fallback chain)", () => {
+    const { computeSkew } = require("../src/volatility-lab");
+    const out = computeSkew([{ strike: 100, type: "call", delta: null, iv: 25 }, { strike: 100, type: "put", delta: null, iv: 28 }]);
+    assert.strictEqual(out.available, false);
+    assert.ok(out.reason.includes("delta"));
+  });
+  ok("computeSkew: real put-minus-call IV at the real contracts nearest 25-delta", () => {
+    const { computeSkew } = require("../src/volatility-lab");
+    const contracts = [
+      { strike: 90, type: "put", delta: -0.10, iv: 22 },
+      { strike: 95, type: "put", delta: -0.25, iv: 30 },
+      { strike: 100, type: "call", delta: 0.50, iv: 24 },
+      { strike: 105, type: "call", delta: 0.25, iv: 26 },
+      { strike: 110, type: "call", delta: 0.10, iv: 20 },
+    ];
+    const out = computeSkew(contracts);
+    assert.strictEqual(out.available, true);
+    assert.strictEqual(out.putStrike, 95);
+    assert.strictEqual(out.callStrike, 105);
+    assert.strictEqual(out.skew, 4, "30 (put) - 26 (call) = 4, real put skew");
+  });
+  ok("computeTermStructure: honest unavailable with only one real expiry sampled", () => {
+    const { computeTermStructure } = require("../src/volatility-lab");
+    const out = computeTermStructure([{ strike: 100, expiry: "2026-09-18", dte: 30, type: "call", iv: 25 }], 100);
+    assert.strictEqual(out.available, false);
+  });
+  ok("computeTermStructure: real contango/backwardation read off real ATM IV across real expiries", () => {
+    const { computeTermStructure } = require("../src/volatility-lab");
+    const contracts = [
+      { strike: 100, expiry: "2026-09-01", dte: 14, type: "call", iv: 40 },
+      { strike: 100, expiry: "2026-10-01", dte: 44, type: "call", iv: 25 },
+    ];
+    const out = computeTermStructure(contracts, 100);
+    assert.strictEqual(out.available, true);
+    assert.strictEqual(out.nearAtmIv, 40);
+    assert.strictEqual(out.farAtmIv, 25);
+    assert.ok(out.structure.includes("Backwardation"), "near-term IV (40) higher than far-term (25) is real backwardation");
+  });
+  ok("ivRankTrend: honest unavailable with fewer than 3 real daily snapshots", () => {
+    const { ivRankTrend } = require("../src/volatility-lab");
+    const out = ivRankTrend("AAPL", [{ symbols: [{ symbol: "AAPL", iv: 30 }] }]);
+    assert.strictEqual(out.available, false);
+  });
+  ok("ivRankTrend: real rising/falling read off real recent IV snapshot history", () => {
+    const { ivRankTrend } = require("../src/volatility-lab");
+    const history = [
+      { symbols: [{ symbol: "AAPL", iv: 20 }] },
+      { symbols: [{ symbol: "AAPL", iv: 22 }] },
+      { symbols: [{ symbol: "AAPL", iv: 30 }] },
+    ];
+    const out = ivRankTrend("AAPL", history);
+    assert.strictEqual(out.available, true);
+    assert.strictEqual(out.direction, "Rising", "20 -> 30 is a real +50% rise, well past the 10% threshold");
+  });
+  ok("volRecommendation: deterministic threshold table off real IV Rank, mirrors regimeStrategyHint's pattern", () => {
+    const { volRecommendation } = require("../src/volatility-lab");
+    assert.strictEqual(volRecommendation({ ivRank: 80 }), "Sell Premium");
+    assert.strictEqual(volRecommendation({ ivRank: 15 }), "Buy Premium");
+    assert.strictEqual(volRecommendation({ ivRank: 50 }), "Neutral / Avoid");
+    assert.strictEqual(volRecommendation({}), "Insufficient Data");
+  });
+
   const { OPTIONS_ACTIONS, mapToOptionsAction, optionsExecutionNote } = await import("../axiom-runner/components/options-actions.js");
   ok("mapToOptionsAction: strong/regular call-buy and put-buy tiers match trade-signals' own bands", () => {
     assert.strictEqual(mapToOptionsAction({ score: 90, chgPct: 2 }), OPTIONS_ACTIONS.STRONG_CALL_BUY);

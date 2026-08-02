@@ -85,6 +85,7 @@ import AutoExecPanel from "./components/AutoExecPanel.jsx";
 import CombinedTab from "./components/CombinedTab.jsx";
 import OptionsChainTab from "./components/OptionsChainTab.jsx";
 import GammaLabTab from "./components/GammaLabTab.jsx";
+import VolatilityLabTab from "./components/VolatilityLabTab.jsx";
 import Under10Tab from "./components/Under10Tab.jsx";
 import RhProDashboard from "./components/RhProDashboard.jsx";
 import RhProScanner from "./components/RhProScanner.jsx";
@@ -4053,6 +4054,9 @@ export default function App() {
       // the AI Trade Card/Gamma Squeeze Probability reads that point to it.
       GAMMALAB: "gamma-lab",
       GAMMA: "gamma-lab",
+      VOLLAB: "vol-lab",
+      VOL: "vol-lab",
+      VOLATILITY: "vol-lab",
       UNDER10: "under10",
       GAPFILL: "gapfill",
       SQUEEZE: "squeeze",
@@ -6241,6 +6245,10 @@ export default function App() {
 
         {activeTab === "gamma-lab" && (
           <GammaLabTab C={C} MONO={MONO} SANS={SANS} defaultSymbol={terminalSymbol || watchlistSymbols[0] || "AAPL"} setActiveTab={setActiveTab} />
+        )}
+
+        {activeTab === "vol-lab" && (
+          <VolatilityLabTab C={C} MONO={MONO} SANS={SANS} defaultSymbol={terminalSymbol || watchlistSymbols[0] || "AAPL"} setActiveTab={setActiveTab} />
         )}
 
         {activeTab === "sec-filings" && (
