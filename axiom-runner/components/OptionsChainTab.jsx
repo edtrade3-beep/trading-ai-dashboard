@@ -14,7 +14,11 @@ export default function OptionsChainTab({ C, MONO, SANS, defaultSymbol, onOpenTe
   // opportunity, not strike"). rankScore/pop/liquidityScore are computed
   // server-side (options-math.js's rankContracts, wired into
   // /api/market/options) — this is presentation-only, one ranking engine.
-  const [sortBy, setSortBy] = useState("strike");
+  // Default fixed 2026-08-04 (readability sweep) — this was hardcoded to
+  // "strike" the whole time, directly contradicting the spec quoted above:
+  // a first-time visitor saw strike-ordered contracts and had to know to
+  // switch SORT BY to see the real ranked read this page was built for.
+  const [sortBy, setSortBy] = useState("opportunity");
 
   const load = useCallback(async (sym, expiry) => {
     setLoading(true); setError(null);
