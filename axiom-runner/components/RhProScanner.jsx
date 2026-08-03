@@ -107,6 +107,18 @@ const CATEGORIES = [
   { id: "earnings", label: "💰 Earnings" },
   { id: "insider", label: "🕴️ Insider Buying" },
   { id: "sectorrotation", label: "🔁 Sector Rotation" },
+  // The 3 categories Phase 15 deliberately deferred — a live per-symbol
+  // Polygon/UW fetch on every category click across this scanner's full
+  // ~100-symbol RH_UNIVERSE was too rate-limit-risky (Polygon's free tier
+  // is 5 req/min). Real fix (2026-08-03, explicit user decision): scope to
+  // the real Watchlist instead — reuses watchlist-institutional-alerts.js's
+  // ALREADY-scheduled 15-min real sweep (zero new fetches, zero new rate-
+  // limit risk), just persisting a fuller snapshot from those same real
+  // calls. Labeled "(Watchlist)" like Early Entry above, honestly narrower
+  // scope than every other category here.
+  { id: "gammasqueeze", label: "🌀 Gamma Squeeze (Watchlist)" },
+  { id: "whaleactivity", label: "🐳 Whale Activity (Watchlist)" },
+  { id: "highoi", label: "📊 High Open Interest (Watchlist)" },
 ];
 
 // Categories that render an embedded standalone component instead of this
@@ -172,6 +184,13 @@ export default function RhProScanner({
   // daily log with zero live fetches.
   const [ivRanks, setIvRanks] = useState({});
   const [ivRanksState, setIvRanksState] = useState("idle"); // idle | loading | ok | error
+  // Real dark-pool/options-flow/gamma snapshot for the 3 deferred Scanner
+  // categories (Gamma Squeeze/Whale Activity/High Open Interest) — same
+  // lazy-fetch-on-category-open pattern as ivRanks above, reading the real
+  // already-accumulated store watchlist-institutional-alerts.js's existing
+  // 15-min job writes (zero new fetches).
+  const [instSnapshot, setInstSnapshot] = useState({});
+  const [instSnapshotState, setInstSnapshotState] = useState("idle"); // idle | loading | ok | error
   // Real open positions (Green Light AI spec — ROTATE as a per-row Scanner
   // Recommendation, not just the AutoPilot tick's own close/open pair).
   // Fetched unconditionally (cheap, applies across every category) so any
@@ -305,6 +324,17 @@ export default function RhProScanner({
       .catch(() => setIvRanksState("error"));
   }, [category, ivRanksState]);
 
+  const INST_SNAPSHOT_CATEGORIES = ["gammasqueeze", "whaleactivity", "highoi"];
+  useEffect(() => {
+    if (!INST_SNAPSHOT_CATEGORIES.includes(category) || instSnapshotState !== "idle") return;
+    setInstSnapshotState("loading");
+    fetch("/api/market/watchlist-institutional-snapshot")
+      .then(r => r.json())
+      .then(d => { if (d?.ok) { setInstSnapshot(d.snapshot || {}); setInstSnapshotState("ok"); } else setInstSnapshotState("error"); })
+      .catch(() => setInstSnapshotState("error"));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [category, instSnapshotState]);
+
   // Category derivation — all real, all off fields the scan already returns.
   let categorized = rows;
   let categoryNote = null;
@@ -351,6 +381,34 @@ export default function RhProScanner({
     categoryNote = ivRanksState === "loading"
       ? "Loading real IV Rank history…"
       : `Real IV Rank (0-100, off iv-history-store.js's accumulated daily log) — ${category === "lowiv" ? "lowest" : "highest"} first. Symbols without ≥10 real trading days of history yet are excluded (honestly still "building").`;
+  } else if (category === "gammasqueeze") {
+    const wl = new Set(watchlistSymbols || []);
+    categorized = [...rows]
+      .filter(r => wl.has(r.symbol) && Number.isFinite(instSnapshot[r.symbol]?.gammaSqueezeProbability))
+      .sort((a, b) => (instSnapshot[b.symbol].gammaSqueezeProbability) - (instSnapshot[a.symbol].gammaSqueezeProbability));
+    categoryNote = instSnapshotState === "loading"
+      ? "Loading real gamma data…"
+      : "Real Gamma Squeeze Probability (dealer short-gamma zones + real short interest, options-math.js) off watchlist-institutional-alerts.js's already-scheduled 15-min real sweep — scoped to your real Watchlist, not the full scanner universe (too rate-limit-risky on Polygon's free tier). Requires POLYGON_API_KEY.";
+  } else if (category === "whaleactivity") {
+    const wl = new Set(watchlistSymbols || []);
+    categorized = [...rows]
+      .filter(r => wl.has(r.symbol) && (Number.isFinite(instSnapshot[r.symbol]?.darkPoolValue) || Number.isFinite(instSnapshot[r.symbol]?.optionsFlowNotional)))
+      .sort((a, b) => {
+        const av = Math.max(instSnapshot[a.symbol]?.darkPoolValue || 0, instSnapshot[a.symbol]?.optionsFlowNotional || 0);
+        const bv = Math.max(instSnapshot[b.symbol]?.darkPoolValue || 0, instSnapshot[b.symbol]?.optionsFlowNotional || 0);
+        return bv - av;
+      });
+    categoryNote = instSnapshotState === "loading"
+      ? "Loading real whale activity…"
+      : "Real $250K+ dark-pool block prints and/or unusual options flow notional (Unusual Whales), off the same already-scheduled real Watchlist sweep — scoped to your real Watchlist. Requires UNUSUAL_WHALES_API_KEY.";
+  } else if (category === "highoi") {
+    const wl = new Set(watchlistSymbols || []);
+    categorized = [...rows]
+      .filter(r => wl.has(r.symbol) && Number.isFinite(instSnapshot[r.symbol]?.totalOpenInterest))
+      .sort((a, b) => (instSnapshot[b.symbol].totalOpenInterest) - (instSnapshot[a.symbol].totalOpenInterest));
+    categoryNote = instSnapshotState === "loading"
+      ? "Loading real open interest…"
+      : "Real total open interest summed across the full sampled options chain, off the same already-scheduled real Watchlist sweep. Requires POLYGON_API_KEY.";
   }
   let shown = category === "all" ? categorized.filter(r => filter === "buy" ? r.atBuyPoint : r.score >= filter) : categorized;
   if (search.trim()) {
@@ -572,6 +630,25 @@ export default function RhProScanner({
                             : <span style={{ fontSize: 12, color: C.textDim }}>—</span>;
                         })()}
                       </div>
+                      {instSnapshot[r.symbol] && (
+                        <div>
+                          <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 3 }}>WATCHLIST SNAPSHOT</div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 2, fontSize: 11 }}>
+                            {Number.isFinite(instSnapshot[r.symbol].gammaSqueezeProbability) && (
+                              <span title="Real Gamma Squeeze Probability — dealer short-gamma zones + real short interest">🌀 Squeeze {Math.round(instSnapshot[r.symbol].gammaSqueezeProbability)}%</span>
+                            )}
+                            {Number.isFinite(instSnapshot[r.symbol].totalOpenInterest) && (
+                              <span title="Real total open interest, summed across the full sampled options chain">📊 OI {instSnapshot[r.symbol].totalOpenInterest.toLocaleString()}</span>
+                            )}
+                            {Number.isFinite(instSnapshot[r.symbol].darkPoolValue) && (
+                              <span title={`Real dark-pool block print, ${instSnapshot[r.symbol].darkPoolTime || ""}`}>🐳 DP ${(instSnapshot[r.symbol].darkPoolValue / 1e6).toFixed(1)}M</span>
+                            )}
+                            {Number.isFinite(instSnapshot[r.symbol].optionsFlowNotional) && (
+                              <span title="Real unusual options flow notional">⚡ Flow ${(instSnapshot[r.symbol].optionsFlowNotional / 1e6).toFixed(1)}M {instSnapshot[r.symbol].optionsFlowSide || ""}</span>
+                            )}
+                          </div>
+                        </div>
+                      )}
                       <div style={{ gridColumn: "1 / -1" }}>
                         <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 3 }}>SMART MONEY</div>
                         {r.smc ? (() => {

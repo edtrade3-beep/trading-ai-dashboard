@@ -426,6 +426,11 @@ async function fetchGammaForSymbol(symbol) {
   }));
 
   const expiriesInSample = [...new Set(results.map(r => r.details?.expiration_date).filter(Boolean))].sort();
+  // Real total OI across the FULL sampled chain — deliberately not limited to
+  // the gamma-usable subset computeGammaExposure() filters to internally
+  // (Scanner's High Open Interest category, 2026-08-03) — a contract with no
+  // real Greeks still has real open interest.
+  const totalOpenInterest = normalized.reduce((s, c) => s + (Number(c.openInterest) || 0), 0);
   const gex = computeGammaExposure(normalized, underlying);
   // Gamma Lab derived reads (Phase 7) — Expected Pin/Magnet/Dealer Bias,
   // all real extensions of the same gex output above, zero new fetches.
@@ -446,6 +451,7 @@ async function fetchGammaForSymbol(symbol) {
     ...gex,
     ...labReads,
     gammaSqueezeProbability: gammaSqueezeProb,
+    totalOpenInterest,
     source: "polygon",
     generatedAt: new Date().toISOString(),
   };
@@ -2249,6 +2255,22 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
       return writeJson(res, 200, { ok: true, rows: getHistory().slice(0, limit) });
     } catch (err) {
       return writeJson(res, 200, { ok: false, error: err instanceof Error ? err.message : "failed", rows: [] });
+    }
+  }
+
+  // Real current per-symbol dark-pool/options-flow/gamma snapshot — same
+  // job/store as the alert history above, just the CURRENT-state view
+  // instead of the diff-triggered fire log. Powers the Scanner's real
+  // Gamma Squeeze/Whale Activity/High Open Interest categories (options
+  // platform redesign Phase 15's 3 deferred categories), deliberately
+  // scoped to the Watchlist this job already runs against — never the full
+  // Scanner universe (that's why they were deferred in the first place).
+  if (pathname === "/api/market/watchlist-institutional-snapshot" && req.method === "GET") {
+    try {
+      const { getSnapshot } = require("../watchlist-institutional-alerts");
+      return writeJson(res, 200, { ok: true, snapshot: getSnapshot() });
+    } catch (err) {
+      return writeJson(res, 200, { ok: false, error: err instanceof Error ? err.message : "failed", snapshot: {} });
     }
   }
 

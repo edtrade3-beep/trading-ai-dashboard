@@ -47,6 +47,18 @@ const { isMarketHoursET } = require("./risk-guardrails");
 
 const STORE_PATH = path.join(ROOT, "data", "watchlist-institutional-state.json");
 const HISTORY_PATH = path.join(ROOT, "data", "watchlist-institutional-history.json");
+// Real CURRENT per-symbol snapshot — distinct from STORE_PATH above (which
+// only keeps the minimal diffing fields an edge-triggered alert needs).
+// Added 2026-08-03 to power the Scanner's real Gamma Squeeze/Whale Activity/
+// High Open Interest categories (options platform redesign Phase 15's 3
+// deferred categories — deferred because a live per-symbol Polygon/UW fetch
+// on every Scanner category click was too rate-limit-risky across the full
+// ~100-symbol universe). Rather than a second parallel job duplicating the
+// same real dark-pool/options-flow/gamma fetches this file already makes
+// every 15 min for its alert diffing, this just persists a fuller real
+// snapshot from those SAME fetches — zero new provider calls, scoped to the
+// real Watchlist exactly like the alert diffing already is.
+const SNAPSHOT_PATH = path.join(ROOT, "data", "watchlist-institutional-snapshot.json");
 const HISTORY_MAX = 200;
 const FLOW_ALERT_MIN_NOTIONAL = 250_000; // matches NewsAlertTape's own default "alert-worthy" flow threshold
 const SENTIMENT_SWING_THRESHOLD = 30; // net bullPct-bearPct points
@@ -79,6 +91,12 @@ function loadState() {
 function saveState(s) {
   writeJsonAtomic(STORE_PATH, s);
 }
+function loadSnapshot() {
+  return readJsonSafe(SNAPSHOT_PATH, {});
+}
+function saveSnapshot(s) {
+  writeJsonAtomic(SNAPSHOT_PATH, s);
+}
 
 // Real history log (2026-07-29, "don't see what you just built" — the
 // checks above only pinged Telegram, with nothing to look at in the app
@@ -110,6 +128,10 @@ async function checkWatchlistInstitutionalAlerts() {
   const prev = loadState();
   const next = { ...prev };
   const smartMoney = [], darkPool = [], optionsFlow = [], earnings = [], sentiment = [], volumeSpike = [], gammaBreakout = [];
+  // Real current-state snapshot (see SNAPSHOT_PATH comment above) — built
+  // alongside the diffing loops below from the exact same real fetches,
+  // never a separate/duplicate call.
+  const snapshot = {};
 
   // 1 & 4: smart-money-detected + earnings-released — one shared batched
   // scan, same real engine every other real scanner on this platform uses.
@@ -164,6 +186,15 @@ async function checkWatchlistInstitutionalAlerts() {
       }
       const newestTime = dp.prints.reduce((mx, p) => (p.time > mx ? p.time : mx), lastSeenTime);
       next[symbol].darkPoolLastTime = newestTime;
+      // Whale Activity snapshot — the single biggest REAL print currently in
+      // this window at/above the same $250K "whale" bar every other
+      // category in this file already uses, regardless of whether it's
+      // "fresh" since the last check (current state, not a diff).
+      const whalePrints = dp.prints.filter((p) => p.value >= FLOW_ALERT_MIN_NOTIONAL);
+      if (whalePrints.length) {
+        const biggestDp = whalePrints.reduce((a, b) => (b.value > a.value ? b : a));
+        snapshot[symbol] = { ...snapshot[symbol], darkPoolValue: biggestDp.value, darkPoolTime: biggestDp.time };
+      }
     }
 
     // limit:20 (not the route's default 20->10 minimum) — a wider real
@@ -182,6 +213,10 @@ async function checkWatchlistInstitutionalAlerts() {
         }
       }
       next[symbol].flowSeenIds = unusual.map((c) => `${c.side}${c.strike}${c.expiry}`).slice(0, 40);
+      if (unusual.length) {
+        const biggestFlow = unusual.reduce((a, b) => (b.notional > a.notional ? b : a));
+        snapshot[symbol] = { ...snapshot[symbol], optionsFlowNotional: biggestFlow.notional, optionsFlowSide: biggestFlow.side };
+      }
     }
   }
 
@@ -194,6 +229,17 @@ async function checkWatchlistInstitutionalAlerts() {
       const last = prev[symbol] || {};
       next[symbol] = next[symbol] || { ...last };
       const gamma = await fetchGammaForSymbol(symbol).catch(() => null);
+      // Gamma Squeeze/High Open Interest snapshot — real current values,
+      // captured whenever available regardless of whether a real flip point
+      // exists to gate the (unrelated) gamma-breakout alert below.
+      if (gamma?.available !== false) {
+        snapshot[symbol] = {
+          ...snapshot[symbol],
+          netGEX: Number.isFinite(gamma?.netGEX) ? gamma.netGEX : null,
+          gammaSqueezeProbability: Number.isFinite(gamma?.gammaSqueezeProbability) ? gamma.gammaSqueezeProbability : null,
+          totalOpenInterest: Number.isFinite(gamma?.totalOpenInterest) ? gamma.totalOpenInterest : null,
+        };
+      }
       if (gamma?.available !== false && Number.isFinite(gamma?.underlying) && Number.isFinite(gamma?.gammaFlipPoint)) {
         const side = gammaFlipSide(gamma.underlying, gamma.gammaFlipPoint);
         // Real prior baseline required (last.gammaSide !== undefined) —
@@ -225,6 +271,12 @@ async function checkWatchlistInstitutionalAlerts() {
   }
 
   saveState(next);
+  // Timestamp every symbol that got a real snapshot update this run — lets
+  // the Scanner honestly distinguish "never checked" from "checked, no real
+  // whale-sized activity right now" for the same symbol.
+  const snapshotAt = new Date().toISOString();
+  for (const symbol of Object.keys(snapshot)) snapshot[symbol].updatedAt = snapshotAt;
+  saveSnapshot({ ...loadSnapshot(), ...snapshot });
 
   const now = new Date().toISOString();
   const historyEntries = [];
@@ -266,6 +318,6 @@ async function checkWatchlistInstitutionalAlerts() {
 }
 
 module.exports = {
-  checkWatchlistInstitutionalAlerts, getHistory: loadHistory,
+  checkWatchlistInstitutionalAlerts, getHistory: loadHistory, getSnapshot: loadSnapshot,
   gammaFlipSide, volumeSpikeTriggered, // exposed for smoke test fixtures
 };
