@@ -82,46 +82,42 @@ function AutopilotStatusCard({ C, MONO, SANS }) {
   };
   const statusCol = halted ? C.red : on ? C.green : C.textDim;
   const cell = (label, val, col) => (
-    <div style={{ textAlign: "center", minWidth: 74 }}>
-      <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: col || C.text }}>{val}</div>
-      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{label}</div>
+    <div style={{ textAlign: "center", minWidth: 70 }}>
+      <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: col || C.text, fontVariantNumeric: "tabular-nums" }}>{val}</div>
+      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginTop: 1 }}>{label}</div>
     </div>
   );
   return (
     <>
-    <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", padding: "10px 14px", marginBottom: 12,
-      borderRadius: 10, background: `${statusCol}10`, border: `1px solid ${statusCol}55` }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <span style={{ fontSize: 18 }}>{halted ? "🛑" : on ? "🤖" : "⏸️"}</span>
-        <div>
-          <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: statusCol }}>
-            AUTOPILOT {halted ? "HALTED" : on ? "ON" : "OFF"}</div>
-          <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>{serverMode ? "🖥️ server mode · trades 24/7 (no browser needed)" : `${broker} · paper`}{halted && haltReason ? ` · ${haltReason}` : ""}</div>
-        </div>
+    <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", padding: "11px 16px", marginBottom: 12,
+      background: C.card, border: `1px solid ${C.border}`, borderLeft: `3px solid ${statusCol}`, borderRadius: 8 }}>
+      <div>
+        <div style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 800, color: statusCol, letterSpacing: "0.02em" }}>
+          Autopilot {halted ? "Halted" : on ? "On" : "Off"}</div>
+        <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, marginTop: 1 }}>{serverMode ? "server mode · trades 24/7, no browser needed" : `${broker} · paper`}{halted && haltReason ? ` · ${haltReason}` : ""}</div>
       </div>
-      {cell("TODAY", money(dayPnl), dayPnl > 0 ? C.green : dayPnl < 0 ? C.red : C.text)}
-      {cell("OPEN", positions.length, C.text)}
-      {cell("LONG / SHORT", `${longs} / ${shorts}`, C.text)}
-      {cell(`RISK / ${maxRisk}%`, `${riskPct.toFixed(1)}%`, riskPct >= maxRisk ? C.red : riskPct >= maxRisk * 0.75 ? C.amber : C.green)}
-      {acct && cell("EQUITY", `$${Math.round(Number(acct.equity)).toLocaleString()}`, C.text)}
+      {cell("Today", money(dayPnl), dayPnl > 0 ? C.green : dayPnl < 0 ? C.red : C.text)}
+      {cell("Open", positions.length, C.text)}
+      {cell("Long / Short", `${longs} / ${shorts}`, C.text)}
+      {cell(`Risk / ${maxRisk}%`, `${riskPct.toFixed(1)}%`, riskPct >= maxRisk ? C.red : riskPct >= maxRisk * 0.75 ? C.amber : C.green)}
+      {acct && cell("Equity", `$${Math.round(Number(acct.equity)).toLocaleString()}`, C.text)}
       <button onClick={deepReview} disabled={reviewing} title="Top-tier Fable model judges whether the autopilot has a real edge"
-        style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 11, fontWeight: 800, cursor: reviewing ? "default" : "pointer",
-          padding: "9px 14px", borderRadius: 8, border: `1px solid #a855f7`, color: "#a855f7", background: `#a855f714` }}>
-        {reviewing ? "⏳ analyzing…" : "🔬 Deep Review"}</button>
-      <button onClick={toggle} style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, cursor: "pointer",
-        padding: "9px 18px", borderRadius: 8, border: "none", color: "#fff",
-        background: on ? C.red : C.green }}>{on ? "⏸ PAUSE" : "▶ RESUME"}</button>
+        style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 10.5, fontWeight: 700, cursor: reviewing ? "default" : "pointer",
+          padding: "7px 12px", borderRadius: 6, border: `1px solid ${C.border}`, color: C.textSec, background: "transparent" }}>
+        {reviewing ? "analyzing…" : "Deep Review"}</button>
+      <button onClick={toggle} style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, cursor: "pointer",
+        padding: "7px 16px", borderRadius: 6, border: `1px solid ${on ? C.red : C.green}`, color: on ? C.red : C.green,
+        background: `${on ? C.red : C.green}12` }}>{on ? "Pause" : "Resume"}</button>
       </div>
       {review && (
-        <div style={{ marginTop: -4, marginBottom: 12, padding: "12px 14px", borderRadius: 10,
-          background: "#a855f70d", border: "1px solid #a855f744", fontFamily: SANS, fontSize: 13,
+        <div style={{ marginTop: -4, marginBottom: 12, padding: "12px 14px", ...neutralCardStyle(C), fontFamily: SANS, fontSize: 12.5,
           color: C.text, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>
-          <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: "#a855f7", marginBottom: 6 }}>🔬 DEEP STRATEGY REVIEW · Fable</div>
+          <div style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 700, color: C.textDim, letterSpacing: "0.06em", marginBottom: 6, textTransform: "uppercase" }}>Deep Strategy Review · Fable</div>
           {review}
         </div>
       )}
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-        <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>🔒 API TOKEN</span>
+        <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>API TOKEN</span>
         <input type="password" defaultValue={localStorage.getItem("axiom_api_token") || ""}
           onBlur={e => localStorage.setItem("axiom_api_token", e.target.value.trim())}
           placeholder="only if API_AUTH_TOKEN set in Render"
@@ -131,6 +127,7 @@ function AutopilotStatusCard({ C, MONO, SANS }) {
     </>
   );
 }
+const neutralCardStyle = (C) => ({ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8 });
 
 export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData, openDeepDiveFor, scanResults, sectorData, setTerminalSymbol, setActiveTab }) {
   const spyQ   = (macroData || []).find(m => m.symbol === "SPY") || (watchlistData || []).find(w => w.symbol === "SPY");
@@ -309,42 +306,55 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
       volume: q.volume, avgVolume: q.avgVolume } : null);
   };
 
+  // ── Shared visual tokens (2026-08-03 professional redesign) ──
+  // The prior version tinted nearly every section's full background by its
+  // status color and led every header with 2-3 decorative emoji, reading as
+  // busy rather than institutional. This pass keeps every real number and
+  // signal exactly as computed above — only the presentation changes:
+  // neutral card surfaces everywhere, color reserved for a thin left-border
+  // accent + small inline badges (never a whole tinted panel), quiet
+  // uppercase section labels instead of bold colored ones, tabular figures
+  // for anything numeric so columns of prices/scores actually align.
+  const sectionLabel = { fontFamily: MONO, fontSize: 10.5, fontWeight: 700, color: C.textDim, letterSpacing: "0.09em", textTransform: "uppercase" };
+  const neutralCard = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 8 };
+  const accentCard = (col) => ({ background: C.card, border: `1px solid ${C.border}`, borderLeft: `3px solid ${col}`, borderRadius: 8 });
+  const num = { fontVariantNumeric: "tabular-nums" };
+  const badge = (col, filled) => ({ fontFamily: MONO, fontSize: 10.5, fontWeight: 700, padding: "2px 8px", borderRadius: 4,
+    color: filled ? "#fff" : col, background: filled ? col : `${col}12`, border: `1px solid ${col}40`, whiteSpace: "nowrap" });
+
   const Row = ({ r }) => (
-    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderLeft: `4px solid ${sigCol(r.signal)}`,
-      borderRadius: 10, padding: "12px 16px", marginBottom: 8 }}>
+    <div style={{ ...accentCard(sigCol(r.signal)), padding: "12px 16px", marginBottom: 8 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         {/* Signal badge */}
-        <div style={{ background: sigBg(r.signal), border: `1px solid ${sigCol(r.signal)}44`,
-          borderRadius: 8, padding: "6px 12px", textAlign: "center", minWidth: 80 }}>
-          <div style={{ fontSize: 18 }}>{sigIcon(r.signal)}</div>
+        <div style={{ textAlign: "center", minWidth: 64 }}>
           {/* Label unified to the shared AI_ACTIONS vocabulary
               (institutional redesign Phase 7, 2026-07-30) — same real
               GREEN/YELLOW/RED signal drives the color (sigCol/sigBg/sigIcon,
               untouched), only the displayed word changed. */}
-          <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 900, color: sigCol(r.signal) }}>
+          <div style={{ fontFamily: MONO, fontSize: 11.5, fontWeight: 800, color: sigCol(r.signal) }}>
             {r.signal === "GREEN" ? AI_ACTIONS.BUY.label : r.signal === "YELLOW" ? AI_ACTIONS.WAIT.label : AI_ACTIONS.AVOID.label}
           </div>
-          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{r.passed}/5</div>
+          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, ...num }}>{r.passed}/5</div>
         </div>
 
         {/* Ticker info */}
         <div style={{ flex: 1 }}>
           <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 6, flexWrap: "wrap" }}>
-            <span style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: C.accent }}>{r.symbol}</span>
-            <span style={{ fontFamily: MONO, fontSize: 14, color: C.text }}>${r.px.toFixed(2)}</span>
-            <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: r.chg >= 0 ? C.green : C.red }}>
+            <span style={{ fontFamily: MONO, fontSize: 17, fontWeight: 800, color: C.accent }}>{r.symbol}</span>
+            <span style={{ fontFamily: MONO, fontSize: 13.5, color: C.text, ...num }}>${r.px.toFixed(2)}</span>
+            <span style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 700, color: r.chg >= 0 ? C.green : C.red, ...num }}>
               {r.chg >= 0 ? "+" : ""}{r.chg.toFixed(2)}%
             </span>
-            {r.rvol > 1.5 && <span style={{ fontFamily: MONO, fontSize: 10, color: C.amber, background: `${C.amber}18`, borderRadius: 4, padding: "1px 6px" }}>VOL {r.rvol.toFixed(1)}x</span>}
-            {r.isLeader && <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: "#fff", background: C.green, borderRadius: 4, padding: "1px 7px" }}>💪 LEADER +{r.relStrength}% vs SPY</span>}
+            {r.rvol > 1.5 && <span style={badge(C.amber)}>VOL {r.rvol.toFixed(1)}x</span>}
+            {r.isLeader && <span style={badge(C.green, true)}>LEADER +{r.relStrength}% vs SPY</span>}
             {(() => { const gc = r.grade === "ELITE" ? "#7c3aed" : r.grade === "A+" ? "#16a34a" : r.grade === "GOOD" ? C.green : r.grade === "WATCH" ? C.amber : C.red;
               const sp = r.scoreParts;
               return <span title={`Trend ${sp.trend}/30 · Momentum ${sp.momentum}/20 · Volume ${sp.volume}/15 · Structure ${sp.structure}/20 · Risk ${sp.risk}/15${r.confRisk ? ` · size ${r.confRisk}%` : ""}`}
-                style={{ fontFamily: MONO, fontSize: 10, fontWeight: 900, color: "#fff", background: gc, borderRadius: 4, padding: "1px 7px" }}>{r.grade === "ELITE" ? "⭐" : ""}{r.grade} {r.aScore}</span>; })()}
-            {r.confRisk > 0 && <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.accent, background: `${C.accent}14`, border: `1px solid ${C.accent}44`, borderRadius: 4, padding: "1px 6px" }}>size {r.confRisk}%</span>}
+                style={badge(gc, true)}>{r.grade} {r.aScore}</span>; })()}
+            {r.confRisk > 0 && <span style={badge(C.accent)}>size {r.confRisk}%</span>}
             {r.signal !== "RED" && (r.atEntry
-              ? <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.green, background: `${C.green}18`, border: `1px solid ${C.green}44`, borderRadius: 4, padding: "1px 7px" }}>🎯 at buy zone</span>
-              : <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.amber, background: `${C.amber}18`, border: `1px solid ${C.amber}44`, borderRadius: 4, padding: "1px 7px" }}>⏳ wait for pullback ${r.bestEntry}</span>)}
+              ? <span style={badge(C.green)}>at buy zone</span>
+              : <span style={badge(C.amber)}>wait for pullback ${r.bestEntry}</span>)}
           </div>
           {/* Checklist */}
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -378,10 +388,10 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
               [r.atEntry, "At the buy zone (not extended)"],
             ];
             return (
-              <div style={{ marginTop: 10, background: `${dCol}0c`, border: `1px solid ${dCol}44`, borderRadius: 8, padding: "10px 12px" }}>
+              <div style={{ marginTop: 10, ...neutralCard, borderLeft: `2px solid ${dCol}`, padding: "10px 12px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
-                  <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em" }}>🤖 AI REVIEW</span>
-                  <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: dCol }}>{decisionLabel}</span>
+                  <span style={{ ...sectionLabel, fontSize: 9.5 }}>AI Review</span>
+                  <span style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 800, color: dCol }}>{decisionLabel}</span>
                   <span style={{ fontFamily: MONO, fontSize: 11, color: C.textSec }}>Confidence <strong style={{ color: dCol }}>{r.aScore}%</strong></span>
                   <span style={{ fontFamily: MONO, fontSize: 11, color: C.textSec }}>Grade <strong style={{ color: dCol }}>{r.grade}</strong></span>
                   <span style={{ fontFamily: MONO, fontSize: 11, color: C.textSec }}>Risk <strong style={{ color: risk === "Very Low" || risk === "Low" ? C.green : risk === "Medium" ? C.amber : C.red }}>{risk}</strong></span>
@@ -389,7 +399,7 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
                 </div>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                   {reasons.map(([ok, txt], i) => (
-                    <span key={i} style={{ fontFamily: SANS, fontSize: 10, color: ok ? C.green : C.textDim }}>{ok ? "✓" : "✗"} {txt}</span>
+                    <span key={i} style={{ fontFamily: SANS, fontSize: 10, color: ok ? C.textSec : C.textDim }}>{ok ? "✓" : "✗"} {txt}</span>
                   ))}
                 </div>
                 {decision !== "BUY" && <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginTop: 5 }}>
@@ -409,13 +419,13 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
             const t2 = Number(r.t2) || r.px * 1.1;
             const optGain = Math.round(((t2 - r.px) / r.px) * 5 * 100); // ~5x leverage if target hits
             return (
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8, alignItems: "center", fontFamily: MONO, fontSize: 10.5 }}>
-                <span style={{ color: col, fontWeight: 800, background: `${col}14`, border: `1px solid ${col}44`, borderRadius: 4, padding: "2px 8px" }}>
-                  {bullish ? "📈" : "📉"} {kind} ${atm} · ~${premium} · BE ${be}{optGain > 0 ? ` · ≈+${optGain}% if T2` : ""}
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 8, alignItems: "center", fontFamily: MONO, fontSize: 10.5, ...num }}>
+                <span style={badge(col)}>
+                  {kind} ${atm} · ~${premium} · BE ${be}{optGain > 0 ? ` · ≈+${optGain}% if T2` : ""}
                 </span>
-                <span style={{ color: C.green }}>🎯 Target ${r.t2} (+10%)</span>
-                <span style={{ color: C.red }}>🛑 Stop ${r.stop} (ATR)</span>
-                <span style={{ color: r.rrPass ? C.green : C.amber, fontWeight: 700 }}>⚖️ R:R {r.rr}:1{r.rrPass ? " ✓" : " (thin)"}</span>
+                <span style={{ color: C.green }}>Target ${r.t2} (+10%)</span>
+                <span style={{ color: C.red }}>Stop ${r.stop} (ATR)</span>
+                <span style={{ color: r.rrPass ? C.green : C.amber, fontWeight: 700 }}>R:R {r.rr}:1{r.rrPass ? " ✓" : " (thin)"}</span>
               </div>
             );
           })()}
@@ -426,21 +436,21 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
               (trend data loaded, genuinely zero invalidation signals firing). */}
           {r.invalidation !== null && (
             <div style={{ marginTop: 6, fontFamily: MONO, fontSize: 10.5, color: r.invalidation.length ? C.amber : C.textDim }}>
-              🚫 <b>Invalidation:</b> {r.invalidation.length ? r.invalidation.join(" · ") : "None — trend intact"}
+              <span style={{ fontWeight: 700 }}>Invalidation:</span> {r.invalidation.length ? r.invalidation.join(" · ") : "None — trend intact"}
             </div>
           )}
         </div>
 
         {/* Trade levels */}
         {(r.signal === "GREEN" || r.signal === "YELLOW") && (
-          <div style={{ textAlign: "right", borderLeft: `1px solid ${C.border}`, paddingLeft: 12, minWidth: 170 }}>
+          <div style={{ textAlign: "right", borderLeft: `1px solid ${C.border}`, paddingLeft: 12, minWidth: 170, ...num }}>
             {/* Best entry — highlighted */}
-            <div style={{ background: `${C.accent}15`, border: `1px solid ${C.accent}44`, borderRadius: 6, padding: "4px 8px", marginBottom: 6 }}>
-              <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>🎯 BEST ENTRY</div>
-              <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.accent }}>${r.bestEntry}</div>
+            <div style={{ ...neutralCard, borderLeft: `2px solid ${C.accent}`, padding: "4px 8px", marginBottom: 6 }}>
+              <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>Best Entry</div>
+              <div style={{ fontFamily: MONO, fontSize: 14.5, fontWeight: 800, color: C.accent }}>${r.bestEntry}</div>
               <div style={{ fontFamily: MONO, fontSize: 9, color: r.entryNote.includes("✅") ? C.green : C.amber }}>{r.entryNote}</div>
             </div>
-            {[["STOP", r.stop, C.red], ["T1 +5%", r.t1, C.green], ["T2 +10%", r.t2, C.green]].map(([l,v,col]) => (
+            {[["Stop", r.stop, C.red], ["T1 +5%", r.t1, C.green], ["T2 +10%", r.t2, C.green]].map(([l,v,col]) => (
               <div key={l} style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
                 <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>{l}</span>
                 <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: col }}>${v}</span>
@@ -585,8 +595,8 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
         const momTitle = mom != null ? `Quick Score ${mom}/100 — ${(momScores.reasons || []).join(" · ") || "neutral, not enough real data yet"}` : undefined;
         const rsiV = t?.rsi != null ? t.rsi : (r.rsi || null);
         const ld = glDeepLoad ? "…" : "—";
-        const card = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 14 };
-        const hdr = (icon, label, col) => <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: col, letterSpacing: "0.06em", marginBottom: 10 }}>{icon} {label}</div>;
+        const card = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 14 };
+        const hdr = (icon, label, col) => <div style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 700, color: col || C.textDim, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>{label}</div>;
         const Row = ({ l, v, col, title }) => (
           <div title={title} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "5px 0", borderBottom: `1px solid ${C.border}22`, cursor: title ? "help" : "default" }}>
             <span style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>{l}</span>
@@ -599,20 +609,20 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
         return (
           <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${C.border}` }}>
             {/* Entry plan banner */}
-            <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap", background: `${C.accent}0e`, border: `1px solid ${C.accent}33`, borderRadius: 10, padding: "10px 14px", marginBottom: 12 }}>
-              <div><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>🎯 ENTRY</div><div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.accent }}>${r.bestEntry}</div></div>
-              <div><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>🛑 STOP</div><div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 800, color: C.red }}>${r.stop}</div></div>
-              <div><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>🎯 T1</div><div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 800, color: C.green }}>${r.t1}</div></div>
-              <div><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>🎯 T2</div><div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 800, color: C.green }}>${r.t2}</div></div>
+            <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap", ...neutralCard, borderLeft: `3px solid ${C.accent}`, padding: "10px 14px", marginBottom: 12, ...num }}>
+              <div><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>Entry</div><div style={{ fontFamily: MONO, fontSize: 14.5, fontWeight: 800, color: C.accent }}>${r.bestEntry}</div></div>
+              <div><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>Stop</div><div style={{ fontFamily: MONO, fontSize: 14.5, fontWeight: 800, color: C.red }}>${r.stop}</div></div>
+              <div><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>T1</div><div style={{ fontFamily: MONO, fontSize: 14.5, fontWeight: 800, color: C.green }}>${r.t1}</div></div>
+              <div><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>T2</div><div style={{ fontFamily: MONO, fontSize: 14.5, fontWeight: 800, color: C.green }}>${r.t2}</div></div>
               <a href={`https://www.tradingview.com/chart/?symbol=${encodeURIComponent(r.symbol)}`} target="_blank" rel="noopener"
-                style={{ marginLeft: "auto", background: C.accent, color: "#fff", borderRadius: 7, fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "8px 16px", textDecoration: "none" }}>
-                📺 OPEN CHART
+                style={{ marginLeft: "auto", background: C.accent, color: "#fff", borderRadius: 6, fontFamily: MONO, fontSize: 11.5, fontWeight: 700, padding: "7px 14px", textDecoration: "none" }}>
+                Open Chart
               </a>
             </div>
 
             {/* 5-check recap */}
             <div style={{ ...card, marginBottom: 12 }}>
-              {hdr("✅", `GREEN LIGHT CHECKS · ${r.passed}/5`, r.passed >= 5 ? C.green : C.amber)}
+              {hdr(null, `Checks · ${r.passed}/5`, r.passed >= 5 ? C.green : C.amber)}
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                 {r.checks.map((c, i) => (
                   <span key={i} style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: c.pass ? C.green : C.red,
@@ -680,8 +690,8 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
                 const contractCost = Math.round(premium * 100);
                 const breakeven = bullish ? +(atm + premium).toFixed(2) : +(atm - premium).toFixed(2);
                 return (
-                  <div style={{ ...card, gridColumn: "1 / -1", borderLeft: `4px solid ${col}` }}>
-                    {hdr(bullish ? "📈" : "📉", `OPTIONS — LEARN + TRADE THIS ${kind}`, col)}
+                  <div style={{ ...card, gridColumn: "1 / -1", borderLeft: `3px solid ${col}` }}>
+                    {hdr(null, `${kind} — learn + trade this setup`, col)}
                     {/* The numbers */}
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "6px 18px", marginBottom: 12 }}>
                       <Row l="Contract" v={`${kind} $${atm}`} col={col} />
@@ -692,12 +702,12 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
                       <Row l="Expiry to use" v="30–60 days out" />
                     </div>
                     {/* Plain-English lesson tied to THIS setup */}
-                    <div style={{ background: `${col}0c`, border: `1px solid ${col}33`, borderRadius: 8, padding: "10px 12px", fontFamily: SANS, fontSize: 12.5, color: C.text, lineHeight: 1.7 }}>
-                      📖 <b>What this means:</b> A {kind} on {r.symbol} gives you the right to {bullish ? "BUY" : "SELL"} 100 shares at <b>${atm}</b>. You'd pay about <b>${premium.toFixed(2)}/share = ${contractCost}</b> for one contract.
+                    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px", fontFamily: SANS, fontSize: 12.5, color: C.textSec, lineHeight: 1.7 }}>
+                      <b style={{ color: C.text }}>What this means:</b> A {kind} on {r.symbol} gives you the right to {bullish ? "BUY" : "SELL"} 100 shares at <b>${atm}</b>. You'd pay about <b>${premium.toFixed(2)}/share = ${contractCost}</b> for one contract.
                       <br/>• You profit if {r.symbol} {bullish ? "rises above" : "falls below"} <b>${breakeven}</b> (your breakeven) before expiration.
                       <br/>• <b>Max loss = ${contractCost}</b> (the whole premium) — it can go to zero.
-                      <br/>• ⏳ It loses value <b>every day</b> from time decay, even if the stock is flat — so this is a bet the move happens <b>soon</b>.
-                      <br/>• ⚠️ {contractCost > Number(localStorage.getItem("axiom_acct_size") || 5000) * 0.1 ? "This is a big bite of a small account — size down." : "Risk only what you can lose; 1 contract is already leveraged."}
+                      <br/>• It loses value <b>every day</b> from time decay, even if the stock is flat — so this is a bet the move happens <b>soon</b>.
+                      <br/>• {contractCost > Number(localStorage.getItem("axiom_acct_size") || 5000) * 0.1 ? "This is a big bite of a small account — size down." : "Risk only what you can lose; 1 contract is already leveraged."}
                     </div>
                     {/* Paper trade it */}
                     <div style={{ display: "flex", gap: 8, marginTop: 12, alignItems: "center", flexWrap: "wrap" }}>
@@ -726,19 +736,18 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
   return (
     <div style={{ padding: "16px 20px", maxWidth: 1000, margin: "0 auto" }}>
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 16, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 18, flexWrap: "wrap" }}>
         <div>
-          <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.text }}>🟢 GREEN LIGHT SYSTEM</div>
-          <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, marginTop: 3 }}>
-            Your personal 5-check trading system — only trade GREEN LIGHT stocks
+          <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 800, color: C.text, letterSpacing: "-0.01em" }}>Green Light</div>
+          <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.textDim, marginTop: 2 }}>
+            5-check trading system — trade only what clears GREEN
           </div>
         </div>
-        <div style={{ marginLeft: "auto", display: "flex", gap: 10 }}>
-          {[["🟢", green.length, "READY TO BUY", C.green], ["🟡", yellow.length, "WATCH", C.amber], ["🔴", red.length, "SKIP", C.red]].map(([icon,n,l,col]) => (
-            <div key={l} style={{ background: `${col}12`, border: `1px solid ${col}33`, borderRadius: 8, padding: "8px 14px", textAlign: "center" }}>
-              <div style={{ fontSize: 18 }}>{icon}</div>
-              <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: col }}>{n}</div>
-              <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{l}</div>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+          {[[green.length, "Ready", C.green], [yellow.length, "Watch", C.amber], [red.length, "Skip", C.red]].map(([n,l,col]) => (
+            <div key={l} style={{ ...accentCard(col), padding: "7px 16px", textAlign: "center", minWidth: 66 }}>
+              <div style={{ ...num, fontFamily: MONO, fontSize: 19, fontWeight: 800, color: col, lineHeight: 1.1 }}>{n}</div>
+              <div style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim, marginTop: 1 }}>{l}</div>
             </div>
           ))}
         </div>
@@ -748,24 +757,20 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
       <AutopilotStatusCard C={C} MONO={MONO} SANS={SANS} />
 
       {/* Market regime score (0-100 across SPY/QQQ/VIX/breadth/trend) */}
-      <div style={{ padding: "10px 16px", marginBottom: 16, borderRadius: 8,
-        background: `${regime.color}14`, border: `1px solid ${regime.color}55`,
-        display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ fontSize: 22 }}>{regime.label === "GREEN" ? "✅" : regime.label === "YELLOW" ? "⚠️" : regime.label === "ORANGE" ? "🔶" : "🚨"}</span>
-          <div>
-            <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: regime.color }}>
-              MARKET {regime.label} — {regime.label === "GREEN" ? "trade freely" : regime.label === "YELLOW" ? "trade smaller / be selective" : regime.label === "ORANGE" ? "high-conviction only, small size" : "sit out — weak tape"}
-            </div>
-            <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>
-              Regime score <strong style={{ color: regime.color }}>{regime.score}/100</strong> · SPY {spyChg >= 0 ? "+" : ""}{spyChg.toFixed(2)}%{regime.vixVal ? ` · VIX ${regime.vixVal.toFixed(1)}` : ""}
-            </div>
+      <div style={{ padding: "11px 16px", marginBottom: 16, ...accentCard(regime.color),
+        display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+        <div>
+          <div style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 800, color: regime.color }}>
+            Market {regime.label} <span style={{ fontWeight: 500, color: C.textSec }}>— {regime.label === "GREEN" ? "trade freely" : regime.label === "YELLOW" ? "trade smaller, be selective" : regime.label === "ORANGE" ? "high-conviction only, small size" : "sit out, weak tape"}</span>
+          </div>
+          <div style={{ fontFamily: MONO, fontSize: 10.5, color: C.textDim, marginTop: 2, ...num }}>
+            Regime <strong style={{ color: regime.color, fontWeight: 700 }}>{regime.score}/100</strong> · SPY {spyChg >= 0 ? "+" : ""}{spyChg.toFixed(2)}%{regime.vixVal ? ` · VIX ${regime.vixVal.toFixed(1)}` : ""}
           </div>
         </div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginLeft: "auto" }}>
           {regime.factors.map(f => (
             <span key={f.label} style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, padding: "3px 7px", borderRadius: 5,
-              color: f.pass ? regime.color : C.textDim, background: f.pass ? `${regime.color}18` : C.surface, border: `1px solid ${f.pass ? regime.color + "44" : C.border}` }}>
+              color: f.pass ? regime.color : C.textDim, background: f.pass ? `${regime.color}12` : "transparent", border: `1px solid ${f.pass ? regime.color + "40" : C.border}` }}>
               {f.pass ? "✓" : "○"} {f.label}
             </span>
           ))}
@@ -775,50 +780,50 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
       {/* 5-check grid */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 8, marginBottom: 12 }}>
         {["Market safe","Above 50D MA","RSI 35–65","Volume active","Near EMA21"].map((r,i) => (
-          <div key={r} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 10px", textAlign: "center" }}>
-            <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: C.accent }}>#{i+1}</div>
+          <div key={r} style={{ ...neutralCard, padding: "9px 10px", textAlign: "center" }}>
+            <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.textDim }}>{i+1}</div>
             <div style={{ fontFamily: SANS, fontSize: 11, color: C.text, marginTop: 2 }}>{r}</div>
           </div>
         ))}
       </div>
 
       {/* ── MY TRADING RULES — always visible reminder ── */}
-      <div style={{ background: `${C.amber}10`, border: `2px solid ${C.amber}44`, borderRadius: 10, padding: "14px 18px", marginBottom: 16 }}>
-        <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.amber, marginBottom: 12, letterSpacing: "0.06em" }}>
-          📜 MY RULES — FOLLOW THESE OR DON'T TRADE
+      <div style={{ ...accentCard(C.amber), padding: "14px 18px", marginBottom: 16 }}>
+        <div style={{ ...sectionLabel, color: C.text, marginBottom: 12 }}>
+          My Rules — follow these or don't trade
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
           {/* Entry */}
           <div>
-            <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.green, marginBottom: 6 }}>🟢 BEFORE BUYING</div>
+            <div style={{ ...sectionLabel, color: C.green, marginBottom: 6 }}>Before Buying</div>
             {[
-              "Only buy 🟢 GREEN (4-5/5)",
+              "Only buy GREEN (4-5/5)",
               "Skip yellow. Skip red.",
               "No trading on red market days",
               "Never chase — no FOMO",
             ].map(r => (
-              <div key={r} style={{ fontFamily: SANS, fontSize: 12, color: C.text, padding: "3px 0", display: "flex", gap: 6 }}>
-                <span style={{ color: C.green }}>✓</span>{r}
+              <div key={r} style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, padding: "3px 0", display: "flex", gap: 6 }}>
+                <span style={{ color: C.green }}>·</span>{r}
               </div>
             ))}
           </div>
           {/* Size */}
           <div>
-            <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent, marginBottom: 6 }}>💰 SIZE</div>
+            <div style={{ ...sectionLabel, color: C.accent, marginBottom: 6 }}>Size</div>
             {[
               "Risk only 1% per trade",
-              "Use 📐 suggested shares",
+              "Use suggested shares",
               "Never go all-in",
               "Never 'bet big this once'",
             ].map(r => (
-              <div key={r} style={{ fontFamily: SANS, fontSize: 12, color: C.text, padding: "3px 0", display: "flex", gap: 6 }}>
-                <span style={{ color: C.accent }}>✓</span>{r}
+              <div key={r} style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, padding: "3px 0", display: "flex", gap: 6 }}>
+                <span style={{ color: C.accent }}>·</span>{r}
               </div>
             ))}
           </div>
           {/* Exit */}
           <div>
-            <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.red, marginBottom: 6 }}>🚪 EXIT</div>
+            <div style={{ ...sectionLabel, color: C.red, marginBottom: 6 }}>Exit</div>
             {[
               "Stop −3% — ALWAYS set it",
               "T1 +5% → sell HALF",
@@ -826,82 +831,82 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
               "2 losses = STOP for the day",
               "WEAKEST-tagged position? Rotate it for a stronger setup.",
             ].map(r => (
-              <div key={r} style={{ fontFamily: SANS, fontSize: 12, color: C.text, padding: "3px 0", display: "flex", gap: 6 }}>
-                <span style={{ color: C.red }}>✓</span>{r}
+              <div key={r} style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, padding: "3px 0", display: "flex", gap: 6 }}>
+                <span style={{ color: C.red }}>·</span>{r}
               </div>
             ))}
           </div>
         </div>
-        <div style={{ marginTop: 12, paddingTop: 10, borderTop: `1px solid ${C.amber}33`,
-          fontFamily: SANS, fontSize: 12, color: C.amber, fontWeight: 700, textAlign: "center" }}>
-          ⭐ Small losses + letting winners run = you get rich. You profit even being wrong 45% of the time — IF you follow the exits.
+        <div style={{ marginTop: 12, paddingTop: 10, borderTop: `1px solid ${C.border}`,
+          fontFamily: SANS, fontSize: 12, color: C.textSec, fontWeight: 600, textAlign: "center" }}>
+          Small losses + letting winners run = you get rich. You profit even being wrong 45% of the time — IF you follow the exits.
         </div>
       </div>
 
       {/* GREEN results */}
       {green.length > 0 && (
         <div style={{ marginBottom: 20 }}>
-          <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.green, marginBottom: 10, letterSpacing: "0.06em" }}>
-            🟢 READY TO TRADE ({green.length})
+          <div style={{ ...sectionLabel, color: C.green, marginBottom: 10 }}>
+            Ready to Trade ({green.length})
           </div>
           {green.map(r => <Row key={r.symbol} r={r} />)}
         </div>
       )}
 
-      {/* ── 🤖 AI SCAN — batched Claude triage of today's setups ── */}
-      <div style={{ marginBottom: 16, padding: "12px 14px", borderRadius: 10, background: `${C.accent}08`, border: `1px solid ${C.accent}33` }}>
+      {/* ── AI SCAN — batched Claude triage of today's setups ── */}
+      <div style={{ marginBottom: 16, padding: "12px 14px", ...neutralCard }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: C.accent }}>🤖 AI SCAN</span>
+          <span style={sectionLabel}>AI Scan</span>
           <button onClick={runAiScan} disabled={aiScan === "loading"}
-            style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "6px 14px", borderRadius: 7, cursor: "pointer", border: `1px solid ${C.accent}`, background: `${C.accent}18`, color: C.accent }}>
-            {aiScan === "loading" ? "⏳ analyzing…" : "▶ ANALYZE SETUPS"}
+            style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "6px 13px", borderRadius: 6, cursor: "pointer", border: `1px solid ${C.accent}`, background: `${C.accent}14`, color: C.accent }}>
+            {aiScan === "loading" ? "analyzing…" : "Analyze setups"}
           </button>
           <button onClick={() => { const v = !aiScanAuto; setAiScanAuto(v); localStorage.setItem("gl_aiscan_auto", v ? "on" : "off"); }}
             title="Auto-run the AI scan every ~30 min (cheap — one batched call)"
-            style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "6px 12px", borderRadius: 7, cursor: "pointer",
-              border: `1px solid ${aiScanAuto ? C.green : C.border}`, background: aiScanAuto ? C.green : "transparent", color: aiScanAuto ? "#fff" : C.textDim }}>
-            {aiScanAuto ? "🔁 AUTO: ON" : "AUTO: OFF"}
+            style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "6px 12px", borderRadius: 6, cursor: "pointer",
+              border: `1px solid ${aiScanAuto ? C.green : C.border}`, background: aiScanAuto ? `${C.green}14` : "transparent", color: aiScanAuto ? C.green : C.textDim }}>
+            {aiScanAuto ? "Auto: on" : "Auto: off"}
           </button>
           <button onClick={() => {
             setAiScan("loading");
             const top = results.filter(r => r.aScore >= 80).sort((a, b) => b.aScore - a.aScore).slice(0, 10).map(r => ({ symbol: r.symbol, aScore: r.aScore, sector: r.sector, atEntry: r.atEntry }));
             fetch("/api/market/ai-gameplan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ regime: regime.score, setups: top }) })
-              .then(res => res.json()).then(d => setAiScan(d && d.ok ? `🌅 MORNING GAME PLAN\n\n${d.plan}` : { error: (d && d.error) || "no response" })).catch(e => setAiScan({ error: e.message }));
+              .then(res => res.json()).then(d => setAiScan(d && d.ok ? `MORNING GAME PLAN\n\n${d.plan}` : { error: (d && d.error) || "no response" })).catch(e => setAiScan({ error: e.message }));
           }} title="Generate today's morning game plan and show it here"
-            style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "6px 11px", borderRadius: 7, cursor: "pointer", border: `1px solid ${C.border}`, background: C.surface, color: C.textSec }}>🌅 Game plan</button>
+            style={{ fontFamily: MONO, fontSize: 11, fontWeight: 600, padding: "6px 11px", borderRadius: 6, cursor: "pointer", border: `1px solid ${C.border}`, background: "transparent", color: C.textSec }}>Game plan</button>
           <button onClick={() => {
             setAiScan("loading");
             const etd = d => new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date(d));
             fetch("/api/alpaca/closed-trades").then(r => r.json()).then(ct => {
               const today = etd(new Date());
               const todayT = (ct && ct.ok ? ct.trades || [] : []).filter(t => etd(t.closedAt) === today);
-              if (!todayT.length) { setAiScan("🎯 AI TRADE COACH\n\nNo closed trades today — nothing to review. Sitting out is a valid result."); return; }
+              if (!todayT.length) { setAiScan("AI TRADE COACH\n\nNo closed trades today — nothing to review. Sitting out is a valid result."); return; }
               fetch("/api/market/ai-coach", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trades: todayT.map(t => ({ symbol: t.symbol, side: t.side, entry: t.entry, exit: t.exit, pnl: t.pnl })) }) })
-                .then(res => res.json()).then(d => setAiScan(d && d.ok ? `🎯 AI TRADE COACH\n\n${d.coach}` : { error: (d && d.error) || "no response" }));
+                .then(res => res.json()).then(d => setAiScan(d && d.ok ? `AI TRADE COACH\n\n${d.coach}` : { error: (d && d.error) || "no response" }));
             }).catch(e => setAiScan({ error: e.message }));
           }} title="Review today's closed trades and show the coaching here"
-            style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "6px 11px", borderRadius: 7, cursor: "pointer", border: `1px solid ${C.border}`, background: C.surface, color: C.textSec }}>🎯 Coach</button>
+            style={{ fontFamily: MONO, fontSize: 11, fontWeight: 600, padding: "6px 11px", borderRadius: 6, cursor: "pointer", border: `1px solid ${C.border}`, background: "transparent", color: C.textSec }}>Coach</button>
           <span style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginLeft: "auto" }}>one batched call · ranks your A+ names + market read</span>
         </div>
         {aiTrig && <div style={{ fontFamily: SANS, fontSize: 11, color: C.accent, marginTop: 8 }}>{aiTrig}</div>}
         {aiScan && aiScan.error && <div style={{ fontFamily: SANS, fontSize: 11, color: C.amber, marginTop: 8 }}>AI scan unavailable — {aiScan.error}</div>}
         {typeof aiScan === "string" && aiScan !== "loading" && (
-          <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.text, lineHeight: 1.6, whiteSpace: "pre-line", marginTop: 10, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px" }}>{aiScan}</div>
+          <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.text, lineHeight: 1.6, whiteSpace: "pre-line", marginTop: 10, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px" }}>{aiScan}</div>
         )}
       </div>
 
       {/* ── Sector strength (Step 2: trade leaders in strong sectors) ── */}
       {sectorsRanked.length > 0 && (
-        <div style={{ marginBottom: 16, padding: "10px 14px", borderRadius: 10, background: C.card, border: `1px solid ${C.border}` }}>
-          <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textSec, letterSpacing: "0.05em", marginBottom: 8 }}>🧭 SECTOR STRENGTH TODAY <span style={{ fontWeight: 500, color: C.textDim }}>— favor leaders in the green half</span></div>
+        <div style={{ marginBottom: 16, padding: "10px 14px", ...neutralCard }}>
+          <div style={{ ...sectionLabel, marginBottom: 8 }}>Sector Strength Today <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>— favor leaders in the green half</span></div>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             {sectorsRanked.map((s, i) => {
               const strong = i < Math.ceil(sectorsRanked.length / 2);
               const col = s.chg >= 0 ? C.green : C.red;
               return (
-                <span key={s.sym} title={s.name} style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 5,
-                  color: col, background: `${col}${strong ? "1a" : "0a"}`, border: `1px solid ${col}${strong ? "55" : "22"}`, opacity: strong ? 1 : 0.6 }}>
-                  {strong ? "🟢" : "🔴"} {s.sym} {s.chg >= 0 ? "+" : ""}{s.chg.toFixed(2)}%
+                <span key={s.sym} title={s.name} style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 5, ...num,
+                  color: col, background: strong ? `${col}14` : "transparent", border: `1px solid ${col}${strong ? "40" : "22"}`, opacity: strong ? 1 : 0.55 }}>
+                  {s.sym} {s.chg >= 0 ? "+" : ""}{s.chg.toFixed(2)}%
                 </span>
               );
             })}
@@ -909,12 +914,12 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
         </div>
       )}
 
-      {/* ── 🩸 BOTTOM SPOTTER — capitulation reversal candidates + AI knife-check ── */}
+      {/* ── BOTTOM SPOTTER — capitulation reversal candidates + AI knife-check ── */}
       {bottoms.length > 0 && (
-        <div style={{ marginBottom: 16, padding: "12px 14px", borderRadius: 10, background: "#0891b208", border: "1px solid #0891b233" }}>
+        <div style={{ marginBottom: 16, padding: "12px 14px", ...accentCard("#0891b2") }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
-            <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: "#0891b2" }}>🩸 BOTTOM SPOTTER ({bottoms.filter(b => b.bottomReady).length} ready)</span>
-            <span style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>✅ READY = washout bouncing & reclaiming · ⏳ WAIT = still falling</span>
+            <span style={sectionLabel}>Bottom Spotter ({bottoms.filter(b => b.bottomReady).length} ready)</span>
+            <span style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>Ready = washout bouncing &amp; reclaiming · Wait = still falling</span>
             <button onClick={() => {
               setAiBottom("loading");
               const spyQ2 = (macroData || []).find(m => m.symbol === "SPY");
@@ -924,49 +929,48 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
                   candidates: bottoms.map(r => ({ symbol: r.symbol, bottomScore: r.bottomScore, offHigh: r.offHigh, rvol: Number(r.rvol || 0).toFixed(1), chg: r.chg.toFixed(1) })) }) })
                 .then(res => res.json()).then(d => setAiBottom(d && d.ok ? d.analysis : { error: (d && d.error) || "no response" })).catch(e => setAiBottom({ error: e.message }));
             }} disabled={aiBottom === "loading"}
-              style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "6px 12px", borderRadius: 7, cursor: "pointer", border: "1px solid #0891b2", background: "#0891b218", color: "#0891b2" }}>
-              {aiBottom === "loading" ? "⏳ checking news…" : "🤖 IS THIS A BOTTOM?"}
+              style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "6px 12px", borderRadius: 6, cursor: "pointer", border: "1px solid #0891b2", background: "#0891b214", color: "#0891b2" }}>
+              {aiBottom === "loading" ? "checking news…" : "Is this a bottom?"}
             </button>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 6 }}>
             {bottoms.map(r => (
-              <div key={r.symbol} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 9px", borderRadius: 7,
-                background: r.bottomReady ? `${C.green}10` : C.surface, border: `1px solid ${r.bottomReady ? C.green + "55" : C.border}` }}>
-                <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: "#0891b2", minWidth: 30 }}>{r.bottomScore}</span>
-                <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.accent }}>{r.symbol}</span>
+              <div key={r.symbol} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 9px", borderRadius: 6, ...num,
+                background: C.surface, border: `1px solid ${r.bottomReady ? C.green + "40" : C.border}` }}>
+                <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: "#0891b2", minWidth: 28 }}>{r.bottomScore}</span>
+                <span style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 800, color: C.accent }}>{r.symbol}</span>
                 <span style={{ fontFamily: MONO, fontSize: 10, color: C.red }}>{r.offHigh != null ? `${r.offHigh}%` : "—"}</span>
                 <span style={{ fontFamily: MONO, fontSize: 10, color: r.chg >= 0 ? C.green : C.red }}>{r.chg >= 0 ? "+" : ""}{r.chg.toFixed(1)}%</span>
-                <span style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 8.5, fontWeight: 800, padding: "2px 6px", borderRadius: 4, whiteSpace: "nowrap",
-                  color: r.bottomReady ? "#fff" : C.amber, background: r.bottomReady ? C.green : `${C.amber}18`, border: `1px solid ${r.bottomReady ? C.green : C.amber + "55"}` }}>
-                  {r.bottomReady ? "✅ READY" : "⏳ WAIT"}
+                <span style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 8.5, fontWeight: 700, padding: "2px 6px", borderRadius: 4, whiteSpace: "nowrap",
+                  color: r.bottomReady ? C.green : C.amber, background: r.bottomReady ? `${C.green}14` : `${C.amber}14`, border: `1px solid ${r.bottomReady ? C.green : C.amber}40` }}>
+                  {r.bottomReady ? "READY" : "WAIT"}
                 </span>
               </div>
             ))}
           </div>
           {aiBottom && aiBottom.error && <div style={{ fontFamily: SANS, fontSize: 11, color: C.amber, marginTop: 8 }}>AI check unavailable — {aiBottom.error}</div>}
           {typeof aiBottom === "string" && aiBottom !== "loading" && (
-            <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.text, lineHeight: 1.6, whiteSpace: "pre-line", marginTop: 10, background: C.card, border: "1px solid #0891b233", borderRadius: 8, padding: "10px 12px" }}>{aiBottom}</div>
+            <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.text, lineHeight: 1.6, whiteSpace: "pre-line", marginTop: 10, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px" }}>{aiBottom}</div>
           )}
         </div>
       )}
 
       {/* ── MODE: Bull / Bear / Cash ── */}
       {mode === "CASH" ? (
-        <div style={{ marginBottom: 16, padding: "18px 20px", borderRadius: 12, textAlign: "center",
-          background: `${C.textDim}10`, border: `2px dashed ${C.textDim}66` }}>
-          <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: C.textSec, letterSpacing: "0.08em" }}>⚪ CASH MODE</div>
+        <div style={{ marginBottom: 16, padding: "16px 20px", borderRadius: 8, textAlign: "center",
+          background: C.card, border: `1px dashed ${C.border}` }}>
+          <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 800, color: C.textSec, letterSpacing: "0.05em" }}>Cash Mode</div>
           <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, marginTop: 6, lineHeight: 1.6 }}>
             No setups meet criteria. <strong style={{ color: C.text }}>Protect capital. Wait.</strong><br/>
             The best traders sit in cash more than they trade. No A+ setup = no trade.
           </div>
         </div>
       ) : (
-        <div style={{ marginBottom: 16, padding: "10px 16px", borderRadius: 10, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
-          background: `${modeColor}12`, border: `1px solid ${modeColor}55` }}>
-          <span style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: modeColor }}>
-            {mode === "BULL" ? "🟢 BULL MODE" : "🔴 BEAR MODE"}
+        <div style={{ marginBottom: 16, padding: "10px 16px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", ...accentCard(modeColor) }}>
+          <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: modeColor }}>
+            {mode === "BULL" ? "Bull Mode" : "Bear Mode"}
           </span>
-          <span style={{ fontFamily: MONO, fontSize: 12, color: C.textSec }}>
+          <span style={{ fontFamily: MONO, fontSize: 12, color: C.textSec, ...num }}>
             {mode === "BULL" ? "favor calls" : "favor puts"} · Calls <strong style={{ color: C.green }}>{tradeableCalls}</strong> · Puts <strong style={{ color: C.red }}>{tradeablePuts}</strong> tradeable
           </span>
           <span style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginLeft: "auto" }}>trade with the mode, not against it</span>
@@ -1008,32 +1012,32 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
           </div>
         );
         const colWrap = (accent, head, count, sub, body) => (
-          <div style={{ border: `1px solid ${accent}33`, borderRadius: 10, padding: "10px 11px", background: `${accent}06` }}>
-            <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: accent, letterSpacing: "0.04em" }}>{head} ({count})</div>
+          <div style={{ ...accentCard(accent), padding: "10px 11px" }}>
+            <div style={{ fontFamily: MONO, fontSize: 11.5, fontWeight: 800, color: accent }}>{head} ({count})</div>
             <div style={{ fontFamily: SANS, fontSize: 9.5, color: C.textDim, margin: "3px 0 9px", lineHeight: 1.4 }}>{sub}</div>
             {body}
           </div>
         );
         return (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 12, marginBottom: 20, alignItems: "start" }}>
-            {colWrap(C.green, "🟢 CALLS", calls.filter(c => c.aPlus).length, "Score ≥85 · market green · at buy zone (85–89 = half size).",
-              calls.length === 0 ? <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>nothing set up ⏳</div>
-                : calls.map(r => { const ok = r.aPlus; return card(r, { score: r.aScore, sc: r.aScore >= 90 ? C.green : r.aScore >= 85 ? "#5ab552" : C.textDim, ok, checks: r.checks, rr: r.rr, tint: C.green, badge: tag(ok ? `BUY ${r.confRisk}%` : r.atEntry ? "watch" : "wait entry", C.green, ok), lvls: `🎯 $${r.bestEntry} · 🛑 $${r.stop}` }); }))}
-            {colWrap(C.red, "🔻 PUTS", puts.filter(p => p.bearTradeable).length, "Bear Score >80 · R:R ≥2. Trade small, sit in cash if none.",
-              puts.length === 0 ? <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>nothing breaking down ✅</div>
-                : puts.map(r => { const ok = r.bearTradeable; return card(r, { score: r.bearScore, sc: r.bearScore >= 80 ? C.red : "#d6a312", ok, checks: r.bearChecks, rr: r.putRR, tint: C.red, badge: tag(ok ? "TRADE" : "watch", C.red, ok), lvls: `🛑 $${r.putStop} · 🎯 $${r.putTarget}` }); }))}
-            {colWrap(C.amber, "🟡 WATCH", yellow.length, "Almost ready (3/5) — wait for the 4th–5th check.",
+            {colWrap(C.green, "Calls", calls.filter(c => c.aPlus).length, "Score ≥85 · market green · at buy zone (85–89 = half size).",
+              calls.length === 0 ? <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>nothing set up</div>
+                : calls.map(r => { const ok = r.aPlus; return card(r, { score: r.aScore, sc: r.aScore >= 90 ? C.green : r.aScore >= 85 ? "#5ab552" : C.textDim, ok, checks: r.checks, rr: r.rr, tint: C.green, badge: tag(ok ? `buy ${r.confRisk}%` : r.atEntry ? "watch" : "wait entry", C.green, ok), lvls: `$${r.bestEntry} · $${r.stop}` }); }))}
+            {colWrap(C.red, "Puts", puts.filter(p => p.bearTradeable).length, "Bear Score >80 · R:R ≥2. Trade small, sit in cash if none.",
+              puts.length === 0 ? <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>nothing breaking down</div>
+                : puts.map(r => { const ok = r.bearTradeable; return card(r, { score: r.bearScore, sc: r.bearScore >= 80 ? C.red : "#d6a312", ok, checks: r.bearChecks, rr: r.putRR, tint: C.red, badge: tag(ok ? "trade" : "watch", C.red, ok), lvls: `$${r.putStop} · $${r.putTarget}` }); }))}
+            {colWrap(C.amber, "Watch", yellow.length, "Almost ready (3/5) — wait for the 4th–5th check.",
               yellow.length === 0 ? <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>nothing on watch</div>
-                : yellow.slice(0, 12).map(r => card(r, { score: r.passed * 20, sc: C.amber, ok: false, checks: r.checks, rr: r.rr, tint: C.amber, badge: tag("watch", C.amber, false), lvls: `🎯 $${r.bestEntry} · 🛑 $${r.stop}` })))}
+                : yellow.slice(0, 12).map(r => card(r, { score: r.passed * 20, sc: C.amber, ok: false, checks: r.checks, rr: r.rr, tint: C.amber, badge: tag("watch", C.amber, false), lvls: `$${r.bestEntry} · $${r.stop}` })))}
           </div>
         );
       })()}
 
       {/* RED — collapsed */}
       {red.length > 0 && (
-        <div style={{ padding: "10px 14px", background: `${C.red}08`, border: `1px solid ${C.red}22`, borderRadius: 8 }}>
-          <div style={{ fontFamily: MONO, fontSize: 12, color: C.red }}>
-            🔴 SKIP TODAY ({red.length}): {red.map(r => r.symbol).join(" · ")}
+        <div style={{ padding: "10px 14px", ...neutralCard }}>
+          <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, ...num }}>
+            <span style={{ color: C.red, fontWeight: 700 }}>Skip today</span> ({red.length}): {red.map(r => r.symbol).join(" · ")}
           </div>
         </div>
       )}
