@@ -52,12 +52,12 @@ const CATEGORIES = [
   // scanner's own RH_UNIVERSE (terminal-panels.jsx's own comment confirms
   // this was already verified), so this is genuinely the same scan, just a
   // curated top-5 view instead of the full ranked table.
-  { id: "bestopp", label: "🎯 Best Opportunities" },
-  { id: "breakout", label: "🚀 Breakout" },
-  { id: "pullback", label: "↩️ Pullback" },
-  { id: "rvol", label: "🔥 High RVOL" },
-  { id: "momentum", label: "📈 Momentum Leaders" },
-  { id: "reversal", label: "🔄 Reversal Watch" },
+  { id: "bestopp", label: "Best Opportunities" },
+  { id: "breakout", label: "Breakout" },
+  { id: "pullback", label: "Pullback" },
+  { id: "rvol", label: "High RVOL" },
+  { id: "momentum", label: "Momentum Leaders" },
+  { id: "reversal", label: "Reversal Watch" },
   // Early Warning — "before it pops / before it drops" (2026-07-29,
   // explicit user request, extending the same idea already shipped in
   // Smart Scan). RhProScanner's rows come from a different real pipeline
@@ -68,7 +68,7 @@ const CATEGORIES = [
   // distance from the pivot buy point (`abovePivotPct`/`extended`, the
   // exact same >10%-above-pivot "chasing risk" definition already used
   // everywhere else in this app for the extended flag).
-  { id: "prepop", label: "🚀 Pre-Pop" },
+  { id: "prepop", label: "Pre-Pop" },
   // Early Entry Scanner — folded in as a category (2026-07-29, product/UX
   // redesign audit item #5, second scanner consolidated after Best
   // Opportunities). Genuinely distinct from Pre-Pop above: its own real
@@ -77,16 +77,16 @@ const CATEGORIES = [
   // label says so explicitly rather than silently changing what "Early
   // Entry" means. Embedded as-is (same pattern as Gap/Day Trade/Best
   // Opportunities above), real logic untouched.
-  { id: "earlyentry", label: "⏱ Early Entry (Watchlist)" },
-  { id: "extended", label: "📉 Extended" },
-  { id: "avoid", label: "🚫 Avoid List" },
-  { id: "gap", label: "⚡ Gap Up/Down" },
-  { id: "daytrade", label: "⏱ Day Trade" },
+  { id: "earlyentry", label: "Early Entry (Watchlist)" },
+  { id: "extended", label: "Extended" },
+  { id: "avoid", label: "Avoid List" },
+  { id: "gap", label: "Gap Up/Down" },
+  { id: "daytrade", label: "Day Trade" },
   // Building Higher Lows — real swing-low sequence detector
   // (buildTrendTemplate's higherLows, same swing-detection window as the
   // existing pivot/swing-high logic, applied to lows instead). Genuinely
   // missing category identified in the Green Light AI spec gap-audit.
-  { id: "higherlows", label: "📶 Building Higher Lows" },
+  { id: "higherlows", label: "Building Higher Lows" },
   // Phase 15 (Scanner category additions) — genuinely missing categories
   // per the plan's gap-audit. Relative Strength is a real, already-computed
   // field (rsRating) just never its own sortable category before now.
@@ -98,15 +98,15 @@ const CATEGORIES = [
   // already-real, already-built standalone tabs (Short Squeeze/Options
   // Sweep/Dark Pool/Earnings/Insider Buying/Sector Rotation) rather than
   // reimplementing any of their real data.
-  { id: "relstrength", label: "💪 Relative Strength" },
-  { id: "lowiv", label: "🔵 Low IV" },
-  { id: "highiv", label: "🔴 High IV" },
-  { id: "shortsqueeze", label: "🩳 Short Squeeze" },
-  { id: "optionssweep", label: "🌊 Options Sweep" },
-  { id: "darkpool", label: "🐋 Dark Pool" },
-  { id: "earnings", label: "💰 Earnings" },
-  { id: "insider", label: "🕴️ Insider Buying" },
-  { id: "sectorrotation", label: "🔁 Sector Rotation" },
+  { id: "relstrength", label: "Relative Strength" },
+  { id: "lowiv", label: "Low IV" },
+  { id: "highiv", label: "High IV" },
+  { id: "shortsqueeze", label: "Short Squeeze" },
+  { id: "optionssweep", label: "Options Sweep" },
+  { id: "darkpool", label: "Dark Pool" },
+  { id: "earnings", label: "Earnings" },
+  { id: "insider", label: "Insider Buying" },
+  { id: "sectorrotation", label: "Sector Rotation" },
   // The 3 categories Phase 15 deliberately deferred — a live per-symbol
   // Polygon/UW fetch on every category click across this scanner's full
   // ~100-symbol RH_UNIVERSE was too rate-limit-risky (Polygon's free tier
@@ -116,9 +116,9 @@ const CATEGORIES = [
   // limit risk), just persisting a fuller snapshot from those same real
   // calls. Labeled "(Watchlist)" like Early Entry above, honestly narrower
   // scope than every other category here.
-  { id: "gammasqueeze", label: "🌀 Gamma Squeeze (Watchlist)" },
-  { id: "whaleactivity", label: "🐳 Whale Activity (Watchlist)" },
-  { id: "highoi", label: "📊 High Open Interest (Watchlist)" },
+  { id: "gammasqueeze", label: "Gamma Squeeze (Watchlist)" },
+  { id: "whaleactivity", label: "Whale Activity (Watchlist)" },
+  { id: "highoi", label: "High Open Interest (Watchlist)" },
 ];
 
 // Categories that render an embedded standalone component instead of this
@@ -440,17 +440,18 @@ export default function RhProScanner({
   };
 
   const scoreCol = s => s >= 80 ? C.green : s >= 65 ? "#5ab552" : s >= 50 ? C.amber : C.textDim;
+  const num = { fontVariantNumeric: "tabular-nums" };
   const cell = { fontFamily: MONO, fontSize: 12.5, padding: "8px 10px", borderBottom: `1px solid ${C.border}`, whiteSpace: "nowrap" };
   const th = { fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", padding: "6px 10px", textAlign: "left", position: "sticky", top: 0, background: C.card };
 
   return (
     <div style={{ padding: "8px 4px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 10 }}>
-        <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.text }}>🎯 AI SNIPER SCANNER PRO</div>
+        <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.text }}>AI SNIPER SCANNER PRO</div>
         <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>{RH_UNIVERSE.length} stocks · ranked 0–100 · full chart on every row · auto-refreshes every 10 min · {ranAt ? `scanned ${ranAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}</div>
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Find symbol…"
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Find symbol…"
           style={{ fontFamily: MONO, fontSize: 12, padding: "7px 10px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.surface, color: C.text, width: 140, marginLeft: "auto" }} />
-        <button onClick={scan} disabled={loading} style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "8px 16px", borderRadius: 8, border: "none", color: "#fff", background: loading ? C.textDim : C.accent, cursor: loading ? "default" : "pointer" }}>{loading ? "⏳ scanning…" : "↻ RESCAN"}</button>
+        <button onClick={scan} disabled={loading} style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "8px 16px", borderRadius: 8, border: "none", color: "#fff", background: loading ? C.textDim : C.accent, cursor: loading ? "default" : "pointer" }}>{loading ? "scanning…" : "↻ RESCAN"}</button>
       </div>
 
       {/* Category tabs — the "AI Ranking" categorized view */}
@@ -458,7 +459,7 @@ export default function RhProScanner({
         {CATEGORIES.map(cat => (
           <button key={cat.id} onClick={() => setCategory(cat.id)} style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, padding: "6px 12px", borderRadius: 7, cursor: "pointer", border: `1px solid ${category === cat.id ? C.accent : C.border}`, background: category === cat.id ? C.accent : C.surface, color: category === cat.id ? "#fff" : C.textSec }}>{cat.label}</button>
         ))}
-        <button onClick={() => setActiveTab && setActiveTab("rhpro-heat")} style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, padding: "6px 12px", borderRadius: 7, cursor: "pointer", border: `1px solid ${C.border}`, background: C.surface, color: C.textSec }}>🌡️ Sectors →</button>
+        <button onClick={() => setActiveTab && setActiveTab("rhpro-heat")} style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, padding: "6px 12px", borderRadius: 7, cursor: "pointer", border: `1px solid ${C.border}`, background: C.surface, color: C.textSec }}>Sectors →</button>
       </div>
       {categoryNote && <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginBottom: 10, lineHeight: 1.5 }}>{categoryNote}</div>}
 
@@ -506,13 +507,13 @@ export default function RhProScanner({
       <>
       {category === "all" && (
         <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
-          {[["buy", "🎯 At buy point"], [75, "≥ 75 elite"], [65, "≥ 65 strong"], [50, "≥ 50 all setups"]].map(([v, l]) => (
+          {[["buy", "At buy point"], [75, "≥ 75 elite"], [65, "≥ 65 strong"], [50, "≥ 50 all setups"]].map(([v, l]) => (
             <button key={String(v)} onClick={() => setFilter(v)} style={{ fontFamily: SANS, fontSize: 11, fontWeight: 700, padding: "6px 12px", borderRadius: 7, cursor: "pointer", border: `1px solid ${filter === v ? C.accent : C.border}`, background: filter === v ? C.accent : C.surface, color: filter === v ? "#fff" : C.textSec }}>{l}</button>
           ))}
         </div>
       )}
       {err && <div style={{ fontFamily: SANS, fontSize: 12, color: C.red, marginBottom: 10 }}>⚠ {err}</div>}
-      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, overflow: "auto", maxHeight: "70vh" }}>
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "auto", maxHeight: "70vh" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           {/* 7 primary columns (institutional redesign, 2026-07-29, explicit
               user spec) — Stock Quality/Trade Setup/Win%/Pred/Risk/RS/SMC
@@ -568,7 +569,7 @@ export default function RhProScanner({
                   <span style={{ marginRight: 4, fontSize: 10, color: C.textDim }}>{expanded ? "▾" : "▸"}</span>
                   {r.symbol}
                   <button onClick={() => openChartWithPlan(r.symbol)} title={`Open ${r.symbol}'s full chart + real trade plan — trend, fundamentals, earnings, analysts, news, SMC, entry/stop/targets`}
-                    style={{ marginLeft: 6, fontSize: 10, border: `1px solid ${C.accent}`, background: `${C.accent}14`, color: C.accent, borderRadius: 4, padding: "1px 5px", cursor: "pointer" }}>📈 chart + plan</button>
+                    style={{ marginLeft: 6, fontSize: 10, border: `1px solid ${C.accent}`, background: `${C.accent}14`, color: C.accent, borderRadius: 4, padding: "1px 5px", cursor: "pointer" }}>chart + plan</button>
                 </td>
                 <td style={cell} onClick={e => e.stopPropagation()}>
                   {r.institutionalGrade && (
@@ -582,11 +583,11 @@ export default function RhProScanner({
                 <td style={cell}>
                   {rec && <span title={`Institutional Grade ${r.institutionalGrade.score}/100 — business/setup quality, not a timing call. See ACTION for real entry timing.`} style={{ fontSize: 11, fontWeight: 800, color: rec.color }}>{QUALITY_WORD[rec.label] || rec.label} {"★".repeat(rec.stars)}{"☆".repeat(5 - rec.stars)}</span>}
                 </td>
-                <td style={{ ...cell, fontSize: 11, color: (r.stage || "").includes("2") ? C.green : (r.stage || "").includes("4") ? C.red : C.textDim }}>
+                <td style={{ ...cell, fontSize: 11, color: (r.stage || "").includes("2") ? C.green : (r.stage || "").includes("4") ? C.red : C.textDim, ...num }}>
                   {r.passCount ?? "?"}/8 · {(r.stage || "").replace(/ —.*/, "").slice(0, 14) || "—"}
                 </td>
                 <td style={cell}>{action && <span title={rotationInfo ? `Real quality ${Math.round(rotationInfo.open.quality)} beats your weakest holding ${rotationInfo.close.symbol} (real quality ${Math.round(rotationInfo.close.quality)}) by +${Math.round(rotationInfo.improvement)} — the same real check the live rotation tick uses` : "Unified AI Action — reduces this row's real institutional score + verdict to one shared label"} style={{ fontSize: 11, fontWeight: 900, color: action.color, border: `1px solid ${action.color}`, borderRadius: 4, padding: "1px 6px" }}>{action.label}</span>}</td>
-                <td style={{ ...cell, fontSize: 11, color: C.textSec }}>{r.entry ? `$${Number(r.entry).toFixed(2)} → $${Number(r.stop).toFixed(2)}` : "—"}</td>
+                <td style={{ ...cell, fontSize: 11, color: C.textSec, ...num }}>{r.entry ? `$${Number(r.entry).toFixed(2)} → $${Number(r.stop).toFixed(2)}` : "—"}</td>
               </tr>
               {expanded && (
                 <tr>
@@ -596,7 +597,7 @@ export default function RhProScanner({
                         <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 3 }}>STOCK QUALITY</div>
                         {r.quality && (
                           <button onClick={() => setExplain({ symbol: r.symbol, aplus: r.quality, dimensions: STOCK_QUALITY_DIMENSIONS, label: "STOCK QUALITY SCORE" })}
-                            style={{ font: "inherit", fontWeight: 900, fontSize: 14, color: scoreCol(r.score), background: "transparent", border: "none", cursor: "pointer", padding: 0 }}>
+                            style={{ font: "inherit", fontWeight: 900, fontSize: 14, color: scoreCol(r.score), background: "transparent", border: "none", cursor: "pointer", padding: 0, ...num }}>
                             {r.score} <span style={{ fontSize: 9, opacity: 0.7 }}>▸ why?</span>
                           </button>
                         )}
@@ -605,7 +606,7 @@ export default function RhProScanner({
                         <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 3 }}>TRADE SETUP</div>
                         {r.aplus && (
                           <button onClick={() => setExplain({ symbol: r.symbol, aplus: r.aplus, dimensions: TRADE_SETUP_DIMENSIONS, label: "TRADE SETUP SCORE" })}
-                            style={{ font: "inherit", fontWeight: 900, fontSize: 14, color: r.aplus.score >= 80 ? "#0d9465" : r.aplus.score >= 60 ? "#d6a312" : "#c8282a", background: "transparent", border: "none", cursor: "pointer", padding: 0 }}>
+                            style={{ font: "inherit", fontWeight: 900, fontSize: 14, color: r.aplus.score >= 80 ? "#0d9465" : r.aplus.score >= 60 ? "#d6a312" : "#c8282a", background: "transparent", border: "none", cursor: "pointer", padding: 0, ...num }}>
                             {r.aplus.score} <span style={{ fontSize: 9, opacity: 0.7 }}>▸ why?</span>
                           </button>
                         )}
@@ -613,8 +614,8 @@ export default function RhProScanner({
                       <div>
                         <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 3 }}>WIN%</div>
                         {win == null ? <span style={{ color: C.textDim, fontSize: 12 }}>—</span>
-                          : win.winRate != null ? <span title={`${win.count} real observations, ${win.horizon}-day forward, same score band`} style={{ fontWeight: 800, fontSize: 14, color: win.winRate >= 60 ? C.green : win.winRate >= 45 ? C.amber : C.red }}>{win.winRate}%</span>
-                          : <span title="Real forward-return log, but not enough observations yet in this score band" style={{ fontSize: 11, color: C.textDim }}>{win.count}/{MIN_WIN_SAMPLE} obs</span>}
+                          : win.winRate != null ? <span title={`${win.count} real observations, ${win.horizon}-day forward, same score band`} style={{ fontWeight: 800, fontSize: 14, color: win.winRate >= 60 ? C.green : win.winRate >= 45 ? C.amber : C.red, ...num }}>{win.winRate}%</span>
+                          : <span title="Real forward-return log, but not enough observations yet in this score band" style={{ fontSize: 11, color: C.textDim, ...num }}>{win.count}/{MIN_WIN_SAMPLE} obs</span>}
                       </div>
                       <div>
                         <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 3 }}>PRED (1WK)</div>
@@ -630,7 +631,7 @@ export default function RhProScanner({
                       </div>
                       <div>
                         <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 3 }}>RS</div>
-                        <span style={{ fontSize: 14, fontWeight: 800, color: (r.rsRating || 0) >= 70 ? C.green : C.textSec }}>{r.rsRating ?? "—"}</span>
+                        <span style={{ fontSize: 14, fontWeight: 800, color: (r.rsRating || 0) >= 70 ? C.green : C.textSec, ...num }}>{r.rsRating ?? "—"}</span>
                       </div>
                       <div>
                         <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 3 }}>ENTRY TYPE</div>
@@ -644,18 +645,18 @@ export default function RhProScanner({
                       {instSnapshot[r.symbol] && (
                         <div>
                           <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 3 }}>WATCHLIST SNAPSHOT</div>
-                          <div style={{ display: "flex", flexDirection: "column", gap: 2, fontSize: 11 }}>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 2, fontSize: 11, ...num }}>
                             {Number.isFinite(instSnapshot[r.symbol].gammaSqueezeProbability) && (
-                              <span title="Real Gamma Squeeze Probability — dealer short-gamma zones + real short interest">🌀 Squeeze {Math.round(instSnapshot[r.symbol].gammaSqueezeProbability)}%</span>
+                              <span title="Real Gamma Squeeze Probability — dealer short-gamma zones + real short interest">Squeeze {Math.round(instSnapshot[r.symbol].gammaSqueezeProbability)}%</span>
                             )}
                             {Number.isFinite(instSnapshot[r.symbol].totalOpenInterest) && (
-                              <span title="Real total open interest, summed across the full sampled options chain">📊 OI {instSnapshot[r.symbol].totalOpenInterest.toLocaleString()}</span>
+                              <span title="Real total open interest, summed across the full sampled options chain">OI {instSnapshot[r.symbol].totalOpenInterest.toLocaleString()}</span>
                             )}
                             {Number.isFinite(instSnapshot[r.symbol].darkPoolValue) && (
-                              <span title={`Real dark-pool block print, ${instSnapshot[r.symbol].darkPoolTime || ""}`}>🐳 DP ${(instSnapshot[r.symbol].darkPoolValue / 1e6).toFixed(1)}M</span>
+                              <span title={`Real dark-pool block print, ${instSnapshot[r.symbol].darkPoolTime || ""}`}>DP ${(instSnapshot[r.symbol].darkPoolValue / 1e6).toFixed(1)}M</span>
                             )}
                             {Number.isFinite(instSnapshot[r.symbol].optionsFlowNotional) && (
-                              <span title="Real unusual options flow notional">⚡ Flow ${(instSnapshot[r.symbol].optionsFlowNotional / 1e6).toFixed(1)}M {instSnapshot[r.symbol].optionsFlowSide || ""}</span>
+                              <span title="Real unusual options flow notional">Flow ${(instSnapshot[r.symbol].optionsFlowNotional / 1e6).toFixed(1)}M {instSnapshot[r.symbol].optionsFlowSide || ""}</span>
                             )}
                           </div>
                         </div>
