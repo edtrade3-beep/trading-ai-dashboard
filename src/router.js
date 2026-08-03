@@ -114,18 +114,23 @@ async function handleRequest(req, res) {
       const k = encodeURIComponent(keys.fmp);
       const sym = "AAPL";
       const candidates = [
-        ["quote (already used)", `https://financialmodelingprep.com/api/v3/quote/${sym}?apikey=${k}`],
-        ["stable real-time quote", `https://financialmodelingprep.com/stable/quote?symbol=${sym}&apikey=${k}`],
-        ["insider trading", `https://financialmodelingprep.com/api/v4/insider-trading?symbol=${sym}&page=0&apikey=${k}`],
-        ["institutional ownership (13F)", `https://financialmodelingprep.com/api/v4/institutional-ownership/symbol-ownership?symbol=${sym}&includeCurrentQuarter=false&apikey=${k}`],
-        ["SEC filings", `https://financialmodelingprep.com/api/v3/sec_filings/${sym}?apikey=${k}`],
-        ["stock screener", `https://financialmodelingprep.com/api/v3/stock-screener?marketCapMoreThan=1000000000&limit=5&apikey=${k}`],
-        ["sector performance", `https://financialmodelingprep.com/api/v3/sector-performance?apikey=${k}`],
-        ["stock news (equity)", `https://financialmodelingprep.com/api/v3/stock_news?tickers=${sym}&limit=1&apikey=${k}`],
-        ["earnings calendar", `https://financialmodelingprep.com/api/v3/earning_calendar?apikey=${k}`],
-        ["technical indicator (RSI)", `https://financialmodelingprep.com/api/v3/technical_indicator/daily/${sym}?type=rsi&period=14&apikey=${k}`],
-        ["price target consensus (already used)", `https://financialmodelingprep.com/api/v3/price-target-consensus/${sym}?apikey=${k}`],
-        ["historical price full", `https://financialmodelingprep.com/api/v3/historical-price-full/${sym}?timeseries=3&apikey=${k}`],
+        ["stable quote", `https://financialmodelingprep.com/stable/quote?symbol=${sym}&apikey=${k}`],
+        ["stable profile", `https://financialmodelingprep.com/stable/profile?symbol=${sym}&apikey=${k}`],
+        ["stable ratios-ttm", `https://financialmodelingprep.com/stable/ratios-ttm?symbol=${sym}&apikey=${k}`],
+        ["stable key-metrics-ttm", `https://financialmodelingprep.com/stable/key-metrics-ttm?symbol=${sym}&apikey=${k}`],
+        ["stable financial-growth", `https://financialmodelingprep.com/stable/financial-growth?symbol=${sym}&apikey=${k}`],
+        ["stable price-target-consensus", `https://financialmodelingprep.com/stable/price-target-consensus?symbol=${sym}&apikey=${k}`],
+        ["stable income-statement", `https://financialmodelingprep.com/stable/income-statement?symbol=${sym}&apikey=${k}`],
+        ["stable analyst-estimates", `https://financialmodelingprep.com/stable/analyst-estimates?symbol=${sym}&period=annual&apikey=${k}`],
+        ["stable insider-trading search", `https://financialmodelingprep.com/stable/insider-trading/search?symbol=${sym}&apikey=${k}`],
+        ["stable institutional-ownership", `https://financialmodelingprep.com/stable/institutional-ownership/symbol-ownership?symbol=${sym}&apikey=${k}`],
+        ["stable sec-filings-search", `https://financialmodelingprep.com/stable/sec-filings-search/symbol?symbol=${sym}&apikey=${k}`],
+        ["stable company-screener", `https://financialmodelingprep.com/stable/company-screener?marketCapMoreThan=1000000000&limit=5&apikey=${k}`],
+        ["stable sector-performance-snapshot", `https://financialmodelingprep.com/stable/sector-performance-snapshot?date=${new Date().toISOString().slice(0,10)}&apikey=${k}`],
+        ["stable news stock", `https://financialmodelingprep.com/stable/news/stock?symbols=${sym}&limit=1&apikey=${k}`],
+        ["stable earnings-calendar", `https://financialmodelingprep.com/stable/earnings-calendar?apikey=${k}`],
+        ["stable technical RSI", `https://financialmodelingprep.com/stable/technical-indicators/rsi?symbol=${sym}&periodLength=14&timeframe=1day&apikey=${k}`],
+        ["stable historical-price-eod full", `https://financialmodelingprep.com/stable/historical-price-eod/full?symbol=${sym}&apikey=${k}`],
       ];
       const results = await Promise.all(candidates.map(async ([label, url]) => {
         try {
