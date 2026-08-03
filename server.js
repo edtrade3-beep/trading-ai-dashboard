@@ -362,6 +362,15 @@ server.listen(PORT, HOST, () => {
   setInterval(() => require("./src/watchlist-greenlight-alerts").checkWatchlistGreenLightAlerts().catch(() => {}), 15 * 60_000);
   console.log("[Watchlist Green Light] Real entry-price-reached alerts active — every 15 min, market hours only");
 
+  // Best Opportunities "new GO" alerts (explicit user request, 2026-08-03:
+  // "alert me on go not working" — the existing button is a browser
+  // Notification, which silently fails once permission is denied or the tab
+  // is closed). This is the durable Telegram equivalent, scoped to the same
+  // ~100-symbol scan universe Best Opportunities uses (not just Watchlist),
+  // so it can surface names the user isn't watching yet.
+  setInterval(() => require("./src/best-opportunities-alerts").checkBestOpportunitiesAlerts().catch(() => {}), 15 * 60_000);
+  console.log("[Best Opportunities] Real new-GO-setup alerts active — every 15 min, market hours only");
+
   // Watchlist institutional alerts — Phase 5 of the Institutional Research
   // Upgrade (2026-07-29): 5 more real, previously-missing alert categories
   // (smart-money BOS, dark-pool spike, unusual options flow, earnings

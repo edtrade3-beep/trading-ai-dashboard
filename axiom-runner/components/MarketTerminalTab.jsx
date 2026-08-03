@@ -556,8 +556,6 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
           })}
         </div>
         <MarketNewsWire C={C} MONO={MONO} SANS={SANS} />
-        <COTPanel C={C} MONO={MONO} SANS={SANS} />
-        <PredictionMarkets C={C} MONO={MONO} SANS={SANS} />
       </div>
 
       {/* ── ZONE 2: pro chart ── */}
@@ -1043,6 +1041,13 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
       <MarketPulseBar C={C} MONO={MONO} SANS={SANS} />
       <SentimentRow C={C} MONO={MONO} SANS={SANS} />
       <SectorHeatStrip sectorData={sectorData} C={C} MONO={MONO} SANS={SANS} />
+      {/* Moved here from ZONE 1 "Movers & Watchlist" (2026-08-03, real user
+          report: "cot and prediction not in right place") — both are
+          market-wide/macro data, not per-stock, so they belong with the
+          other market-wide cards in this zone, not sandwiched into the
+          per-symbol movers list above the chart. */}
+      <COTPanel C={C} MONO={MONO} SANS={SANS} />
+      <PredictionMarkets C={C} MONO={MONO} SANS={SANS} />
     </div>
     {explain && <AiScoreExplainer C={C} MONO={MONO} SANS={SANS} symbol={explain.symbol} aplus={explain.aplus} dimensions={explain.dimensions} label={explain.label} onClose={() => setExplain(null)} />}
     </div>

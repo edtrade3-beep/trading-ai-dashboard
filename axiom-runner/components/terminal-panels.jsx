@@ -1071,10 +1071,10 @@ export function BestOpportunities({ C, MONO, SANS, onPick, macroData, setActiveT
               border: `1px solid ${onlyStrong ? "#0d9465" : C.border}`, background: onlyStrong ? "rgba(13,148,101,0.12)" : C.bg, color: onlyStrong ? "#0d9465" : C.textDim }}>
             {onlyStrong ? "✓ Leaders only (RS≥70)" : "All setups"}
           </button>
-          <button onClick={enableNotify} title="Get a desktop notification when a new GO buy-point appears"
+          <button onClick={enableNotify} title="Get an in-browser popup when a new GO buy-point appears (needs this tab open + notification permission granted). A real Telegram alert for the same event now runs on the server independently — that one works even with this tab closed."
             style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "8px 12px", borderRadius: 8, cursor: "pointer",
               border: `1px solid ${notifyOn ? "#7c5cff" : C.border}`, background: notifyOn ? "rgba(124,92,255,0.12)" : C.bg, color: notifyOn ? "#7c5cff" : C.textDim }}>
-            {notifyOn ? "🔔 Alerts ON" : "🔕 Alert me on new GO"}
+            {notifyOn ? "🔔 Browser alerts ON" : "🔕 Browser popup on new GO"}
           </button>
           <button onClick={() => { const v = !autoWatchlist; setAutoWatchlist(v); localStorage.setItem("bestopp_autowatchlist", v ? "on" : "off"); }}
             title="Automatically add every symbol that shows up in this ranked list to your Watchlist"
