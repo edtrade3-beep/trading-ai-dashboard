@@ -77,8 +77,18 @@ export default function RhProJournal({ C, MONO, SANS }) {
         <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>{trades.length} trades · {trades.length ? Math.round(wins / trades.length * 100) : 0}% win · net <b style={{ color: total >= 0 ? C.green : C.red }}>${Math.round(total).toLocaleString()}</b></div>
       </div>
 
-      {/* Entry form */}
+      {/* Entry form — equity trades only (audit fix, 2026-08-04): this form
+          always computes P&L via rhPnl's share-based formula
+          ((exit-entry) × shares) — logging a real options trade here
+          (entry/exit as per-contract premium) would silently be off by
+          ~100x, since rhOptionPnl (the correct premium × 100 × contracts
+          formula) exists but is only ever called by the separate auto-log
+          path (rhAutoLogClosedPosition, for Position Manager closes).
+          Labeled explicitly rather than silently risking a wrong number. */}
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, marginBottom: 16 }}>
+        <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginBottom: 10 }}>
+          Manual entry — <b>equity trades only</b> (P&amp;L = (exit − entry) × shares). For options trades, use Position Manager — closed positions log here automatically with correct contract math.
+        </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(110px,1fr))", gap: 10, marginBottom: 10 }}>
           <div><Lbl t="DATE" /><input type="date" value={f.date} onChange={e => set("date", e.target.value)} style={inp} /></div>
           <div><Lbl t="SYMBOL" /><input value={f.symbol} onChange={e => set("symbol", e.target.value)} placeholder="NVDA" style={inp} /></div>

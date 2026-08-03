@@ -52,8 +52,15 @@ export default function JournalTab({
   return (
           <div>
             <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 10 }}>
+              {/* Renamed 2026-08-04 (readability sweep) — this literally
+                  shared the title "TRADE JOURNAL" with the separate manual
+                  equity log (rhpro-journal.jsx, Sidebar's real "Journal"
+                  nav destination) despite being a different screen with a
+                  different purpose (real closed-trade performance stats +
+                  AI coaching review, not manual entry) — same class of
+                  naming collision already fixed on Charts/Green Light. */}
               <div style={{ fontSize: 12, fontFamily: MONO, color: C.textDim, letterSpacing: "0.08em" }}>
-                TRADE JOURNAL — PERFORMANCE TRACKER
+                AI TRADE COACH — PERFORMANCE REVIEW
               </div>
               <button onClick={fetchJournalReview} disabled={journalRevLoad || journalEntries.filter(e => e.closedAt).length < 3}
                 style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 12, fontWeight: 700,
