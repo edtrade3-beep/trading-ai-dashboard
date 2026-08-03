@@ -270,6 +270,27 @@ export default function PortfolioRiskCard({ C, MONO, SANS, distData }) {
               <span style={{ color: C.textDim }}>Avg daily volatility</span>
               <span style={{ fontWeight: 700, color: C.text }}>{riskLab.riskLab.avgDailyVolatilityPct?.toFixed(2)}%</span>
             </div>
+            {/* Real open-portfolio Sharpe/Sortino/MaxDD — honest-null below
+                20 real trading days (risk-lab-calc.js's own floor), never a
+                guess off a short series. */}
+            {riskLab.riskLab.sharpe != null ? (
+              <>
+                <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11 }}>
+                  <span style={{ color: C.textDim }}>Sharpe (annualized)</span>
+                  <span style={{ fontWeight: 700, color: riskLab.riskLab.sharpe >= 0 ? C.green : C.red }}>{riskLab.riskLab.sharpe.toFixed(2)}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11 }}>
+                  <span style={{ color: C.textDim }}>Sortino (annualized)</span>
+                  <span style={{ fontWeight: 700, color: riskLab.riskLab.sortino >= 0 ? C.green : C.red }}>{Number.isFinite(riskLab.riskLab.sortino) ? riskLab.riskLab.sortino.toFixed(2) : "∞"}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11 }}>
+                  <span style={{ color: C.textDim }}>Max drawdown</span>
+                  <span style={{ fontWeight: 700, color: C.text }}>{riskLab.riskLab.maxDrawdownPct?.toFixed(1)}%</span>
+                </div>
+              </>
+            ) : (
+              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 4 }}>Sharpe/Sortino/Max drawdown building — {riskLab.riskLab.performanceDaysUsed || 0}/20 real trading days.</div>
+            )}
           </div>
         )}
       </div>

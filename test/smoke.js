@@ -780,6 +780,45 @@ console.log("Checking institutional-redesign presentation-layer modules (ESM, lo
     assert.strictEqual(volumeSpikeTriggered(1.0, 1.8, 2.0), false);
   });
 
+  console.log("Checking risk-lab-calc.js computePortfolioPerformance (open-portfolio Sharpe/Sortino/MaxDD)…");
+  const { computePortfolioPerformance } = require("../src/risk-lab-calc");
+  const mkBars = (closes) => closes.map((close) => ({ close }));
+  ok("computePortfolioPerformance: honest null below the real 20-trading-day floor", () => {
+    const shortBars = mkBars(Array.from({ length: 10 }, (_, i) => 100 + i));
+    const out = computePortfolioPerformance([{ symbol: "AAPL", weight: 1 }], { AAPL: shortBars });
+    assert.strictEqual(out.sharpe, null);
+    assert.strictEqual(out.sortino, null);
+    assert.strictEqual(out.maxDrawdownPct, null);
+  });
+  ok("computePortfolioPerformance: honest null with no real bars for any holding", () => {
+    const out = computePortfolioPerformance([{ symbol: "AAPL", weight: 1 }], {});
+    assert.strictEqual(out.sharpe, null);
+    assert.strictEqual(out.daysUsed, 0);
+  });
+  ok("computePortfolioPerformance: real positive Sharpe off a real steadily-rising 25-day series, zero real drawdown", () => {
+    const closes = Array.from({ length: 26 }, (_, i) => 100 * Math.pow(1.01, i)); // steady +1%/day
+    const out = computePortfolioPerformance([{ symbol: "AAPL", weight: 1 }], { AAPL: mkBars(closes) });
+    assert.strictEqual(out.daysUsed, 25);
+    assert.ok(out.sharpe > 0, "steady real gains produce a real positive Sharpe");
+    assert.strictEqual(out.maxDrawdownPct, 0, "monotonic real gains never draw down");
+  });
+  ok("computePortfolioPerformance: real negative Sharpe + real nonzero drawdown off a steadily-falling series", () => {
+    const closes = Array.from({ length: 26 }, (_, i) => 100 * Math.pow(0.99, i)); // steady -1%/day
+    const out = computePortfolioPerformance([{ symbol: "AAPL", weight: 1 }], { AAPL: mkBars(closes) });
+    assert.ok(out.sharpe < 0, "steady real losses produce a real negative Sharpe");
+    assert.ok(out.maxDrawdownPct > 0, "steady real losses produce a real nonzero drawdown");
+  });
+  ok("computePortfolioPerformance: real $-weighted blend across 2 real holdings with different day-counts uses the shorter real overlap", () => {
+    const risingCloses = Array.from({ length: 30 }, (_, i) => 100 * Math.pow(1.01, i));
+    const shorterCloses = Array.from({ length: 22 }, (_, i) => 50 * Math.pow(1.005, i));
+    const out = computePortfolioPerformance(
+      [{ symbol: "AAPL", weight: 0.5 }, { symbol: "MSFT", weight: 0.5 }],
+      { AAPL: mkBars(risingCloses), MSFT: mkBars(shorterCloses) }
+    );
+    assert.strictEqual(out.daysUsed, 21, "real overlap is bounded by MSFT's shorter real series");
+    assert.ok(out.sharpe > 0);
+  });
+
   const { OPTIONS_ACTIONS, mapToOptionsAction, optionsExecutionNote } = await import("../axiom-runner/components/options-actions.js");
   ok("mapToOptionsAction: strong/regular call-buy and put-buy tiers match trade-signals' own bands", () => {
     assert.strictEqual(mapToOptionsAction({ score: 90, chgPct: 2 }), OPTIONS_ACTIONS.STRONG_CALL_BUY);

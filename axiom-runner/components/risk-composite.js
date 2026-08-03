@@ -11,14 +11,17 @@
 // passthrough of real values, honest null/skip when a dimension hasn't
 // been computed yet — never fabricated to fill a gap.
 //
-// Honest gap, confirmed during Phase 13 implementation and flagged
-// rather than silently worked around: risk-lab-calc.js only ever
-// computed VaR95/99 + beta + volatility — Sharpe/Sortino/MaxDD (despite
-// a past phase name suggesting otherwise) were never built for OPEN
-// portfolio holdings. Those 3 metrics DO exist for CLOSED trade history
-// (trading-utils.js's computeTradeStats, a genuinely different real
-// system) — not included in this composite, which is scoped to open
-// positions only.
+// Update (2026-08-03): risk-lab-calc.js's computeRiskLab() now also
+// returns real sharpe/sortino/maxDrawdownPct for OPEN holdings (a real
+// $-weighted daily portfolio return series off the same daily bars this
+// file's VaR/beta already use, honest-null below 20 real trading days) —
+// the gap flagged below when this file was first written is closed.
+// Deliberately NOT folded into the composite score itself: they're
+// performance/risk-adjusted-return reads, a different concept from this
+// score's "how much can I lose right now" framing — surfaced separately
+// wherever /api/ai-hub/risk-lab's response is shown. Closed-trade
+// history has its own, unrelated Sharpe/Sortino/MaxDD via
+// trading-utils.js's computeTradeStats — still a separate real system.
 
 // Real 0-100 sub-score, higher = safer, from real openRiskPct against
 // the real 6% cap both autopilot engines already enforce.

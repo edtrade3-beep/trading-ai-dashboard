@@ -52,6 +52,71 @@ function computeRegressionBeta(stockBars, spyBars) {
   return varSpy > 0 ? cov / varSpy : null;
 }
 
+// Real portfolio-level Sharpe/Sortino/MaxDrawdown for OPEN holdings —
+// a genuine gap flagged during the options platform redesign (Phase 13):
+// trading-utils.js's computeTradeStats() computes these same 3 metrics,
+// but only ever for CLOSED trade history, off irregular per-trade %
+// returns (deliberately unannualized there, since trades don't happen on
+// a fixed schedule). This is a different, real computation appropriate
+// for OPEN holdings: a real $-weighted DAILY portfolio return series off
+// the same real daily bars this file already fetches for VaR/beta above
+// — a fixed daily sampling frequency, so annualizing by sqrt(252) here is
+// legitimate (unlike the trade-level version's explicit choice not to).
+// Honest null below MIN_DAYS real overlapping trading days — never a
+// guess off a short, noisy series.
+const MIN_DAYS_FOR_PORTFOLIO_STATS = 20;
+function computePortfolioPerformance(withVol, barsBySymbol) {
+  const withReturns = withVol
+    .map((p) => {
+      const bars = barsBySymbol[p.symbol];
+      if (!Array.isArray(bars) || bars.length < 2) return null;
+      const closes = bars.map((b) => b.close);
+      const rets = [];
+      for (let i = 1; i < closes.length; i++) {
+        if (closes[i - 1] > 0) rets.push((closes[i] - closes[i - 1]) / closes[i - 1]);
+      }
+      return rets.length ? { weight: p.weight, rets } : null;
+    })
+    .filter(Boolean);
+  if (!withReturns.length) return { sharpe: null, sortino: null, maxDrawdownPct: null, daysUsed: 0 };
+
+  const n = Math.min(...withReturns.map((r) => r.rets.length));
+  if (n < MIN_DAYS_FOR_PORTFOLIO_STATS) return { sharpe: null, sortino: null, maxDrawdownPct: null, daysUsed: n };
+
+  // Real $-weighted daily portfolio return, day-aligned by index (same
+  // convention computeRegressionBeta above already uses — every holding's
+  // bars come from the same real fetch/lookback, so index i lines up
+  // across symbols in practice).
+  const portRet = [];
+  for (let i = 0; i < n; i++) {
+    let day = 0, weightSum = 0;
+    for (const { weight, rets } of withReturns) {
+      const r = rets[rets.length - n + i];
+      if (Number.isFinite(r)) { day += weight * r; weightSum += weight; }
+    }
+    portRet.push(weightSum > 0 ? day / weightSum : 0);
+  }
+
+  const mean = portRet.reduce((a, b) => a + b, 0) / portRet.length;
+  const variance = portRet.reduce((s, r) => s + (r - mean) ** 2, 0) / portRet.length;
+  const stdev = Math.sqrt(variance);
+  const sharpe = stdev > 0 ? round2((mean / stdev) * Math.sqrt(252)) : null;
+  const downside = portRet.filter((r) => r < 0);
+  const downsideDev = downside.length ? Math.sqrt(downside.reduce((s, r) => s + r * r, 0) / downside.length) : 0;
+  const sortino = downsideDev > 0 ? round2((mean / downsideDev) * Math.sqrt(252)) : (downside.length === 0 && mean > 0 ? Infinity : null);
+
+  // Real cumulative equity-curve drawdown off the same real daily returns.
+  let equity = 1, peak = 1, maxDDPct = 0;
+  for (const r of portRet) {
+    equity *= (1 + r);
+    if (equity > peak) peak = equity;
+    const ddPct = peak > 0 ? ((peak - equity) / peak) * 100 : 0;
+    if (ddPct > maxDDPct) maxDDPct = ddPct;
+  }
+
+  return { sharpe, sortino, maxDrawdownPct: round2(maxDDPct), daysUsed: n };
+}
+
 // positions: [{ symbol, shares, currentPrice, avgCost }]
 // barsBySymbol: { [symbol]: bars[] } — real daily candles, already fetched.
 // spyBars: real SPY daily candles over the same lookback, optional — when
@@ -80,6 +145,7 @@ function computeRiskLab(positions, barsBySymbol, spyBars) {
   const var99 = totalValue * portVol * 2.326;
   const beta = withVol.reduce((s, p) => s + p.weight * p.beta, 0);
   const betaAllReal = Object.values(betaBySymbol).every((b) => b.real);
+  const performance = computePortfolioPerformance(withVol, barsBySymbol);
 
   return {
     totalValue: round2(totalValue),
@@ -87,9 +153,13 @@ function computeRiskLab(positions, barsBySymbol, spyBars) {
     var99: round2(var99),
     beta: round2(beta),
     betaAllReal,
+    sharpe: performance.sharpe,
+    sortino: performance.sortino,
+    maxDrawdownPct: performance.maxDrawdownPct,
+    performanceDaysUsed: performance.daysUsed,
     betaBySymbol,
     avgDailyVolatilityPct: round2(portVol * 100),
   };
 }
 
-module.exports = { computeRiskLab, computeRegressionBeta, estimateVol };
+module.exports = { computeRiskLab, computeRegressionBeta, estimateVol, computePortfolioPerformance };
