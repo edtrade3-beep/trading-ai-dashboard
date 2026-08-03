@@ -529,7 +529,7 @@ export default function RhProScanner({
               SmartScanTab.jsx's own per-row deep-dive already uses. */}
           <thead><tr>
             {[
-              ["#", null], ["TICKER", null], ["GRADE", "grade"], ["QUALITY", null],
+              ["#", null], ["TICKER", null], ["GRADE", "grade"], ["WIN %", "win"],
               ["TREND", "trend"], ["ACTION", null], ["ENTRY → STOP", null],
             ].map(([h, key]) => (
               <th key={h} style={{ ...th, cursor: key ? "pointer" : "default" }} onClick={key ? () => toggleSort(key) : undefined} title={key ? "Click to sort" : undefined}>
@@ -579,17 +579,27 @@ export default function RhProScanner({
                   <button onClick={() => openChartWithPlan(r.symbol)} title={`Open ${r.symbol}'s full chart + real trade plan — trend, fundamentals, earnings, analysts, news, SMC, entry/stop/targets`}
                     style={{ marginLeft: 6, fontSize: 10, border: `1px solid ${C.accent}`, background: `${C.accent}14`, color: C.accent, borderRadius: 4, padding: "1px 5px", cursor: "pointer" }}>chart + plan</button>
                 </td>
+                {/* GRADE + QUALITY merged into one cell (2026-08-04, audit
+                    finding: both were pure functions of the identical
+                    institutionalGrade.score — a letter and a word+stars
+                    rendering of the same number, the same "duplicate
+                    information" class of issue already fixed on the Charts
+                    page). Freed column now shows real WIN % (already
+                    computed per-row for the expand panel below, just never
+                    exposed as its own sortable column). */}
                 <td style={cell} onClick={e => e.stopPropagation()}>
                   {r.institutionalGrade && (
                     <button onClick={() => setExplain({ symbol: r.symbol, aplus: r.institutionalGrade, dimensions: INSTITUTIONAL_GRADE_DIMENSIONS, label: "INSTITUTIONAL GRADE", note: "Technical Confirmation and Options Flow use an honest neutral midpoint in this bulk scan view (not part of this scan's payload) — open the full Charts page for this symbol for the real read on those two." })}
-                      title="Click to see why this grade, and what would raise it"
+                      title={`Click to see why this grade, and what would raise it. ${rec ? `${QUALITY_WORD[rec.label] || rec.label} — Institutional Grade ${r.institutionalGrade.score}/100, business/setup quality, not a timing call. See ACTION for real entry timing.` : ""}`}
                       style={{ font: "inherit", fontWeight: 900, color: "#fff", background: grade.startsWith("A") ? "#0d9465" : grade.startsWith("B") ? "#22a06b" : grade === "C" ? "#d6a312" : grade === "D" ? "#e07b1a" : "#c8282a", border: "none", borderRadius: 4, padding: "1px 8px", cursor: "pointer" }}>
-                      {grade}
+                      {grade}{rec && <span style={{ marginLeft: 5, fontSize: 9, opacity: 0.9 }}>{"★".repeat(rec.stars)}{"☆".repeat(5 - rec.stars)}</span>}
                     </button>
                   )}
                 </td>
-                <td style={cell}>
-                  {rec && <span title={`Institutional Grade ${r.institutionalGrade.score}/100 — business/setup quality, not a timing call. See ACTION for real entry timing.`} style={{ fontSize: 11, fontWeight: 800, color: rec.color }}>{QUALITY_WORD[rec.label] || rec.label} {"★".repeat(rec.stars)}{"☆".repeat(5 - rec.stars)}</span>}
+                <td style={{ ...cell, ...num }}>
+                  {win == null ? <span style={{ color: C.textDim, fontSize: 12 }}>—</span>
+                    : win.winRate != null ? <span title={`${win.count} real observations, ${win.horizon}-day forward, same score band`} style={{ fontWeight: 800, fontSize: 13, color: win.winRate >= 60 ? C.green : win.winRate >= 45 ? C.amber : C.red }}>{win.winRate}%</span>
+                    : <span title="Real forward-return log, but not enough observations yet in this score band" style={{ fontSize: 11, color: C.textDim }}>{win.count}/{MIN_WIN_SAMPLE} obs</span>}
                 </td>
                 <td style={{ ...cell, fontSize: 11, color: (r.stage || "").includes("2") ? C.green : (r.stage || "").includes("4") ? C.red : C.textDim, ...num }}>
                   {r.passCount ?? "?"}/8 · {(r.stage || "").replace(/ —.*/, "").slice(0, 14) || "—"}
