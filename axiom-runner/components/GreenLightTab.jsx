@@ -573,36 +573,43 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
               🎯 PLAN
             </button>
           )}
-          {/* Options buy disabled for now */}
-          {(() => {
-            if (true) return null;  // options paused
-            const bullish = r.signal === "GREEN";
-            const bearish = r.signal === "RED" && r.chg < 0;
-            if (!bullish && !bearish) return null;
-            const kind = bullish ? "CALL" : "PUT";
-            const col = bullish ? "#16a34a" : "#dc2626";
+          {/* One-click options buy — LONG ONLY (buys a CALL, never sells/writes
+              options, never a PUT here). Re-enabled 2026-08-04 per explicit
+              user request ("add options long only to Green Light") — this
+              was paused 2026-06-11 as part of a broader options+short pause
+              that no longer applies: the equity long-only guardrail
+              (src/routes/alpaca.js) already blocks shorts, and real bearish
+              setups now have their own separately-vetted system
+              (BearishSetups.jsx, real trade-signals scan) rather than being
+              inferred from a Green Light "RED = fails bullish checklist"
+              row — RED here means "not enough evidence to go long," not "a
+              confirmed short/put setup," so this button stays call-only and
+              GREEN-only, matching the tab's own "trade only what clears
+              GREEN" framing. */}
+          {r.signal === "GREEN" && (() => {
+            const col = "#16a34a";
             const useAlpaca = (localStorage.getItem("axiom_autopilot_broker") || "sim") === "alpaca";
-            const lbl = `${bullish ? "📈" : "📉"} BUY ${kind}${useAlpaca ? " 🦙" : " (sim)"}`;
+            const lbl = `📈 BUY CALL${useAlpaca ? " 🦙" : " (sim)"}`;
             return (
               <button onClick={(e) => {
                   const btn = e.currentTarget;
                   if (useAlpaca) {
                     btn.textContent = "⏳ ordering…";
-                    alpacaOption(r.symbol, kind.toLowerCase(), 1, r.px).then(res => {
-                      if (res?.ok) { btn.textContent = `✓ ${kind} @ $${res.order.strike}`; btn.style.background = col; btn.style.color = "#fff";
-                        logTradeNote && logTradeNote("buy", `${bullish ? "📈" : "📉"} ALPACA ${kind} — ${r.symbol}\n1 contract · strike $${res.order.strike} · exp ${res.order.expiry}`); }
+                    alpacaOption(r.symbol, "call", 1, r.px).then(res => {
+                      if (res?.ok) { btn.textContent = `✓ CALL @ $${res.order.strike}`; btn.style.background = col; btn.style.color = "#fff";
+                        logTradeNote && logTradeNote("buy", `📈 ALPACA CALL — ${r.symbol}\n1 contract · strike $${res.order.strike} · exp ${res.order.expiry}`); }
                       else { btn.textContent = "✗ " + (res?.error ? "see note" : "failed"); btn.style.background = C.red; btn.style.color = "#fff";
                         logTradeNote && logTradeNote("exit", `⚠️ ALPACA option rejected — ${r.symbol}\n${res?.error || "unknown"} (enable options on your Alpaca paper account)`); }
                       setTimeout(() => { btn.textContent = lbl; btn.style.background = `${col}18`; btn.style.color = col; }, 2600);
                     });
                   } else {
-                    const res = addPaperOption(r.symbol, r.px, kind, { glScore: r.passed });
-                    btn.textContent = res === "DUP" ? "already open" : `✓ ${kind} BOUGHT!`;
+                    const res = addPaperOption(r.symbol, r.px, "CALL", { glScore: r.passed });
+                    btn.textContent = res === "DUP" ? "already open" : "✓ CALL BOUGHT!";
                     btn.style.background = col; btn.style.color = "#fff";
                     setTimeout(() => { btn.textContent = lbl; btn.style.background = `${col}18`; btn.style.color = col; }, 1800);
                   }
                 }}
-                title={useAlpaca ? `Buy a real ${kind} on your Alpaca PAPER account (near-dated ATM, 1 contract). Requires options enabled on the account.` : `Buy a SIMULATED ${kind} (~5x leverage, modeled). For learning — higher risk.`}
+                title={useAlpaca ? "Buy a real CALL on your Alpaca PAPER account (near-dated ATM, 1 contract). Requires options enabled on the account." : "Buy a SIMULATED CALL (~5x leverage, modeled). For learning — higher risk. Long only — never sells or writes options."}
                 style={{ background: `${col}18`, border: `1px solid ${col}55`, color: col,
                   borderRadius: 6, fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "6px 12px", cursor: "pointer" }}>
                 {lbl}
