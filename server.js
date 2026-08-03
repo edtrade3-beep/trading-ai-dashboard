@@ -371,6 +371,12 @@ server.listen(PORT, HOST, () => {
   setInterval(() => require("./src/best-opportunities-alerts").checkBestOpportunitiesAlerts().catch(() => {}), 15 * 60_000);
   console.log("[Best Opportunities] Real new-GO-setup alerts active — every 15 min, market hours only");
 
+  // Bearish setups alerts (explicit user request, 2026-08-03: "when market
+  // is down what stocks to short") — the real bearish counterpart to the
+  // job above. Puts, not equity shorts (long-only guardrail stays intact).
+  setInterval(() => require("./src/bearish-setups-alerts").checkBearishSetupsAlerts().catch(() => {}), 15 * 60_000);
+  console.log("[Bearish Setups] Real new-put-candidate alerts active — every 15 min, market hours only");
+
   // Watchlist institutional alerts — Phase 5 of the Institutional Research
   // Upgrade (2026-07-29): 5 more real, previously-missing alert categories
   // (smart-money BOS, dark-pool spike, unusual options flow, earnings

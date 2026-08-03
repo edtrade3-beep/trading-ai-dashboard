@@ -4099,11 +4099,19 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
 
           if (!action) continue;
 
-          const entry   = round2(price);
-          const stopPct = action === "SHORT / AVOID" ? 1.08 : 0.92;
-          const stop    = round2(ma50 > 0 && action === "LONG" ? Math.max(ma50 * 0.97, price * 0.92) : price * stopPct);
-          const target1 = round2(action.startsWith("SHORT") ? price * 0.90 : (hi52 > price * 1.02 ? Math.min(price * 1.12, hi52) : price * 1.12));
-          const target2 = round2(action.startsWith("SHORT") ? price * 0.78 : (hi52 > price * 1.02 ? hi52 * 1.05 : price * 1.22));
+          // Real bug fixed 2026-08-03 (found live, first surfaced by a real
+          // UI for this data): "WATCH SHORT" was falling through to the
+          // bullish stop/target branches below, since it starts with
+          // "WATCH" not "SHORT" and isn't the exact "SHORT / AVOID" string
+          // — a bearish signal was getting its stop placed BELOW price and
+          // targets ABOVE price, backwards for a short/put. `includes` (not
+          // `===`/`startsWith`) catches both real bearish actions.
+          const entry    = round2(price);
+          const isBearish = action.includes("SHORT");
+          const stopPct  = isBearish ? 1.08 : 0.92;
+          const stop     = round2(ma50 > 0 && action === "LONG" ? Math.max(ma50 * 0.97, price * 0.92) : price * stopPct);
+          const target1  = round2(isBearish ? price * 0.90 : (hi52 > price * 1.02 ? Math.min(price * 1.12, hi52) : price * 1.12));
+          const target2  = round2(isBearish ? price * 0.78 : (hi52 > price * 1.02 ? hi52 * 1.05 : price * 1.22));
           const rr      = stop !== entry ? round2(Math.abs(target1 - entry) / Math.abs(entry - stop)) : 0;
 
           // ── Options-specific trade details ──────────────────────────────────

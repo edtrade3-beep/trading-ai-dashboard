@@ -11,6 +11,7 @@ import { findWeakestPosition, evaluateRotation } from "./portfolio-rotation-engi
 import GapScanner from "./GapScanner.jsx";
 import DayTradeTab from "./DayTradeTab.jsx";
 import { BestOpportunities } from "./terminal-panels.jsx";
+import { BearishSetups } from "./BearishSetups.jsx";
 import EarlyEntryScanner from "./EarlyEntryScanner.jsx";
 // Phase 15 (Scanner category additions, options platform redesign) — 6 of
 // the plan's 12 new categories fold in already-real, already-built
@@ -52,7 +53,7 @@ const CATEGORIES = [
   // scanner's own RH_UNIVERSE (terminal-panels.jsx's own comment confirms
   // this was already verified), so this is genuinely the same scan, just a
   // curated top-5 view instead of the full ranked table.
-  { id: "bestopp", label: "Best Opportunities" },
+  { id: "bestopp", label: "Best Opportunities (Long + Short)" },
   { id: "breakout", label: "Breakout" },
   { id: "pullback", label: "Pullback" },
   { id: "rvol", label: "High RVOL" },
@@ -467,6 +468,13 @@ export default function RhProScanner({
       {category === "daytrade" && <DayTradeTab C={C} MONO={MONO} SANS={SANS} />}
       {category === "bestopp" && (
         <BestOpportunities C={C} MONO={MONO} SANS={SANS} macroData={macroData} setActiveTab={setActiveTab}
+          onPick={(sym) => openChartWithPlan(sym)} />
+      )}
+      {category === "bestopp" && (
+        // Real bearish counterpart (2026-08-03, explicit user request: "when
+        // market is down what stocks to short") — puts, not equity shorts,
+        // confirmed via AskUserQuestion; long-only guardrail stays intact.
+        <BearishSetups C={C} MONO={MONO} SANS={SANS} macroData={macroData} setActiveTab={setActiveTab}
           onPick={(sym) => openChartWithPlan(sym)} />
       )}
       {category === "earlyentry" && (
