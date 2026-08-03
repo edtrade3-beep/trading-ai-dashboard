@@ -920,7 +920,14 @@ export default function DashboardTab({
             <MarketRegimeCard C={C} MONO={MONO} SANS={SANS} macroData={macroData} distData={distData} factors={factors} bias={bias} biasColor={biasCol} fullScan={fullScan} />
             <MarketHeatmapGrid C={C} MONO={MONO} SANS={SANS} sectorData={sectorData} />
             <AiTopOpportunitiesCard C={C} MONO={MONO} SANS={SANS} fullScan={fullScan} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} />
-            <PortfolioRiskCard C={C} MONO={MONO} SANS={SANS} />
+            {/* distData added 2026-08-04 (audit finding) — was silently
+                missing here (present on every other real mount of this
+                card). PortfolioRiskCard's Composite Score uses
+                distData?.riskScore as one of 5 real dimensions
+                (risk-composite.js), so without it this copy was quietly
+                capping its own "X/5 dimensions" count even when real
+                market risk data existed. */}
+            <PortfolioRiskCard C={C} MONO={MONO} SANS={SANS} distData={distData} />
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, marginBottom: 14 }}>
             <NewsSentimentCard C={C} MONO={MONO} SANS={SANS} newsSentiment={newsSentiment} setActiveTab={setActiveTab} />
@@ -988,12 +995,21 @@ export default function DashboardTab({
         />
       )}
 
-      {/* ── PORTFOLIO ── real PortfolioSnapshotCard + ActivePositionsCard,
-          moved into Dashboard (2026-07-28, "move portfolio to dashboard"). */}
+      {/* ── PORTFOLIO ── real PortfolioSnapshotCard + ActivePositionsCard +
+          PortfolioRiskCard, moved into Dashboard (2026-07-28, "move
+          portfolio to dashboard"). Real bug fixed 2026-08-04 (audit
+          finding): this copy was silently missing two props the Sidebar's
+          separate mount of the same cards (axiom-live.jsx) always passed —
+          ActivePositionsCard had no watchlistData/macroData (killed its
+          real "WEAKEST position" badge, whose scoredOpen array can't
+          populate without watchlistData) — and PortfolioRiskCard wasn't
+          mounted here at all. Both fixed to match the correct mount
+          exactly, so this is now a real duplicate, not a broken one. */}
       {dashTab === "portfolio" && (
         <div style={{ maxWidth: 700, margin: "0 auto", display: "flex", flexDirection: "column", gap: 12 }}>
           <PortfolioSnapshotCard C={C} MONO={MONO} SANS={SANS} />
-          <ActivePositionsCard C={C} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
+          <ActivePositionsCard C={C} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} watchlistData={watchlistData} macroData={macroData} />
+          <PortfolioRiskCard C={C} MONO={MONO} SANS={SANS} distData={distData} />
         </div>
       )}
 
