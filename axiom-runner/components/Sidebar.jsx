@@ -61,6 +61,16 @@ export const SIDEBAR_ITEMS = [
   // palette (PORTFOLIOTAB / MISSIONSTATUS for the fuller mission view).
   { id: "portfolio", label: "Portfolio",     icon: "💼", tab: "portfolio-tab" },
 
+  // Crypto — explicit user request (2026-08-03, "add crypto trading",
+  // built with a real scan+chart+paper-buy/sell section alongside the
+  // existing Fear&Greed/dominance/liquidations/news view). Originally left
+  // palette-only ("hide, don't delete", CRYPTO alias) per this file's
+  // "exact 11-item spec" convention — real live user report the same day
+  // ("i dont see crypto tab") confirmed a brand-new, explicitly-requested
+  // feature with zero visible nav entry point isn't discoverable, so it's
+  // promoted here instead, same as Scanner/Portfolio/News before it.
+  { id: "crypto",    label: "Crypto",        icon: "₿", tab: "crypto" },
+
   // News — re-promotes NewsTab (was Dashboard's "NEWS & EVENTS" sub-tab
   // only) to top-level nav per the redesign spec. Still reachable via the
   // palette (NEWS).
