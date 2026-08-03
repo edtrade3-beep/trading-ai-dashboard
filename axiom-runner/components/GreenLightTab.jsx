@@ -494,6 +494,37 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
               padding: "6px 12px", cursor: "pointer" }}>
             ⚡ PAPER BUY
           </button>
+          {/* Manual "push this setup to Telegram" (explicit user request,
+              2026-08-03, annotated screenshot: "add button to push buy to
+              telegram") — distinct from the automatic watchlist-greenlight-
+              alerts.js entry-reached alert built earlier the same day: that
+              one fires unattended on a real false→true entryNote crossing,
+              this one lets the user send THIS row's real current read to
+              their own phone on demand, whenever they want, regardless of
+              whether it's crossed yet. Reuses /api/notify — the same
+              generic real Telegram-send endpoint the rest of the platform
+              UI already uses (src/router.js), zero new backend. */}
+          <button onClick={(e) => {
+              const btn = e.currentTarget;
+              const lines = [
+                `📤 ${r.symbol} — $${r.px.toFixed(2)} (${r.chg >= 0 ? "+" : ""}${r.chg.toFixed(2)}%)`,
+                `Signal: ${r.signal} · Grade ${r.grade} (${r.aScore}/100)${r.altSetup ? ` · Alt Setup: ${r.altSetup.type}` : ""}`,
+                `Best entry $${r.bestEntry} — ${r.entryNote}`,
+                `Stop $${r.stop} · T1 $${r.t1} · T2 $${r.t2}`,
+              ];
+              btn.textContent = "…sending";
+              fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: lines.join("\n") }) })
+                .then(res => res.json())
+                .then(d => { btn.textContent = d?.ok ? "✓ sent" : "✗ failed"; })
+                .catch(() => { btn.textContent = "✗ failed"; })
+                .finally(() => { setTimeout(() => { btn.textContent = "✈ TELEGRAM"; }, 1800); });
+            }}
+            title={`Send ${r.symbol}'s real current Green Light setup to your Telegram right now`}
+            style={{ background: `${C.accent}18`, border: `1px solid ${C.accent}55`, color: C.accent,
+              borderRadius: 6, fontFamily: MONO, fontSize: 11, fontWeight: 800,
+              padding: "6px 12px", cursor: "pointer" }}>
+            ✈ TELEGRAM
+          </button>
           {/* Hand off this card's own real entry/stop/target to Trade
               Planner instead of just the symbol (2026-07-28, same fix as
               Sniper Scanner/Best Opportunities — "do the same for best
