@@ -278,7 +278,7 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
   // Bottom / reversal candidates — capitulation washouts.
   const bottoms = results.filter(r => r.bottomScore >= 60).sort((a, b) => b.bottomScore - a.bottomScore).slice(0, 10);
   // ── MODE: Bull (tradeable calls) · Bear (tradeable puts) · Cash (nothing qualifies) ──
-  const tradeableCalls = results.filter(r => r.aPlus).length;   // A+ (≥90) + market pass + at entry
+  const tradeableCalls = results.filter(r => r.qualifiesAPlus).length;   // A+ (≥90) + market pass + at entry
   const tradeablePuts  = results.filter(r => r.bearTradeable).length;                            // Bear Score > 80
   const mode = (tradeableCalls === 0 && tradeablePuts === 0) ? "CASH"
     : tradeableCalls >= tradeablePuts ? "BULL" : "BEAR";
@@ -333,7 +333,24 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
   const badge = (col, filled) => ({ fontFamily: MONO, fontSize: 10.5, fontWeight: 700, padding: "2px 8px", borderRadius: 4,
     color: filled ? "#fff" : col, background: filled ? col : `${col}12`, border: `1px solid ${col}40`, whiteSpace: "nowrap" });
 
-  const Row = ({ r }) => (
+  // Real bug fixed 2026-08-04 (readability/bug sweep): readyToTrade =
+  // green ∪ altQualified (L271), and altQualified only ever includes
+  // non-GREEN rows that have a real r.altSetup — and every altSetup
+  // pattern (trading-utils.js: BOS Breakout/RVOL Breakout/Higher Lows
+  // Continuation/MACD-EMA Cross) is bullish-only by construction. So every
+  // row that ever reaches this Row component is a real bullish candidate,
+  // whether via the classic GREEN signal or a real Alt Setup — but 3
+  // separate spots below still gated on raw r.signal alone (r.signal !==
+  // "RED" / r.signal === "GREEN" || "YELLOW"), which is only ever wrong
+  // for the RED+altSetup subset: those rows got the wrong (bearish PUT)
+  // options preview in the "Potential strip" AND had their entire Trade
+  // Levels panel (entry/stop/T1/T2) hidden — despite being shown here as
+  // ready to trade. One shared flag now drives all three checks; for
+  // every other row (GREEN, or YELLOW/RED handled elsewhere) this is
+  // unconditionally true, so behavior is unchanged there.
+  const Row = ({ r }) => {
+    const isBullishCandidate = r.signal === "GREEN" || !!r.altSetup;
+    return (
     <div style={{ ...accentCard(sigCol(r.signal)), padding: "12px 16px", marginBottom: 8 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         {/* Signal badge — a row here via a real Alt Setup (not the classic
@@ -372,7 +389,7 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
                 style={badge(gc, true)}>{r.grade} {r.aScore}</span>; })()}
             {r.altSetup && <span title={r.altSetup.reason} style={badge("#6d5dd3")}>{r.altSetup.type}</span>}
             {r.confRisk > 0 && <span style={badge(C.accent)}>size {r.confRisk}%</span>}
-            {r.signal !== "RED" && (r.atEntry
+            {isBullishCandidate && (r.atEntry
               ? <span style={badge(C.green)}>at buy zone</span>
               : <span style={badge(C.amber)}>wait for pullback ${r.bestEntry}</span>)}
           </div>
@@ -391,7 +408,7 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
           </div>
           {/* ── 🤖 AI REVIEW — deterministic verdict before you act ── */}
           {(() => {
-            const decision = r.aPlus ? "BUY" : (r.atEntry ? "WAIT" : "SKIP");
+            const decision = r.qualifiesAPlus ? "BUY" : (r.atEntry ? "WAIT" : "SKIP");
             const dCol = decision === "BUY" ? C.green : decision === "WAIT" ? C.amber : C.red;
             // Display label unified to the shared AI_ACTIONS vocabulary
             // (institutional redesign Phase 7, 2026-07-30) — `decision`
@@ -412,8 +429,11 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
                 <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
                   <span style={{ ...sectionLabel, fontSize: 9.5 }}>AI Review</span>
                   <span style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 800, color: dCol }}>{decisionLabel}</span>
-                  <span style={{ fontFamily: MONO, fontSize: 11, color: C.textSec }}>Confidence <strong style={{ color: dCol }}>{r.aScore}%</strong></span>
-                  <span style={{ fontFamily: MONO, fontSize: 11, color: C.textSec }}>Grade <strong style={{ color: dCol }}>{r.grade}</strong></span>
+                  {/* Confidence/Grade dropped here (2026-08-04, real
+                      duplicate-rendering fix) — pure restatement of the
+                      {r.grade} {r.aScore} badge already on the ticker line
+                      above, same score, same row. Risk/Size below are real
+                      new information, not shown anywhere else on this row. */}
                   <span style={{ fontFamily: MONO, fontSize: 11, color: C.textSec }}>Risk <strong style={{ color: risk === "Very Low" || risk === "Low" ? C.green : risk === "Medium" ? C.amber : C.red }}>{risk}</strong></span>
                   {r.confRisk > 0 && <span style={{ fontFamily: MONO, fontSize: 11, color: C.accent }}>Size <strong>{r.confRisk}%</strong></span>}
                 </div>
@@ -430,7 +450,7 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
           })()}
           {/* ── Potential strip: options · target · exit ── */}
           {(() => {
-            const bullish = r.signal !== "RED";
+            const bullish = isBullishCandidate;
             const kind = bullish ? "CALL" : "PUT";
             const col = bullish ? C.green : C.red;
             const atm = r.px >= 200 ? Math.round(r.px / 5) * 5 : r.px >= 50 ? Math.round(r.px) : Math.round(r.px * 2) / 2;
@@ -462,7 +482,7 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
         </div>
 
         {/* Trade levels */}
-        {(r.signal === "GREEN" || r.signal === "YELLOW") && (
+        {isBullishCandidate && (
           <div style={{ textAlign: "right", borderLeft: `1px solid ${C.border}`, paddingLeft: 12, minWidth: 170, ...num }}>
             {/* Best entry — highlighted */}
             <div style={{ ...neutralCard, borderLeft: `2px solid ${C.accent}`, padding: "4px 8px", marginBottom: 6 }}>
@@ -555,7 +575,7 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
               (this app's standing "keep parallel scoring systems separate"
               rule) so it isn't force-fit into Trade Setup Score's shape —
               Trade Planner just won't show that badge for these. */}
-          {(r.signal === "GREEN" || r.signal === "YELLOW") && Number.isFinite(Number(r.bestEntry)) && Number.isFinite(Number(r.stop)) && Number(r.bestEntry) > Number(r.stop) && (
+          {isBullishCandidate && Number.isFinite(Number(r.bestEntry)) && Number.isFinite(Number(r.stop)) && Number(r.bestEntry) > Number(r.stop) && (
             <button onClick={() => {
                 try {
                   localStorage.setItem("tradeplanner_load_plan", JSON.stringify({
@@ -759,7 +779,7 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
 
               {/* ── OPTIONS — learn + trade in one place ── */}
               {(() => {
-                const bullish = r.signal !== "RED";          // GREEN/YELLOW → call; RED → put
+                const bullish = isBullishCandidate;          // GREEN, or a real bullish Alt Setup → call; otherwise put
                 const kind = bullish ? "CALL" : "PUT";
                 const col = bullish ? C.green : C.red;
                 const px = r.px;
@@ -810,6 +830,7 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
       })()}
     </div>
   );
+  };
 
   return (
     <div style={{ padding: "16px 20px", maxWidth: 1000, margin: "0 auto" }}>
@@ -1098,9 +1119,9 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
         );
         return (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 12, marginBottom: 20, alignItems: "start" }}>
-            {colWrap(C.green, "Calls", calls.filter(c => c.aPlus).length, "Score ≥85 · market green · at buy zone (85–89 = half size).",
+            {colWrap(C.green, "Calls", calls.filter(c => c.qualifiesAPlus).length, "Score ≥85 · market green · at buy zone (85–89 = half size).",
               calls.length === 0 ? <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>nothing set up</div>
-                : calls.map(r => { const ok = r.aPlus; return card(r, { score: r.aScore, sc: r.aScore >= 90 ? C.green : r.aScore >= 85 ? "#5ab552" : C.textDim, ok, checks: r.checks, rr: r.rr, tint: C.green, badge: tag(ok ? `buy ${r.confRisk}%` : r.atEntry ? "watch" : "wait entry", C.green, ok), lvls: `$${r.bestEntry} · $${r.stop}` }); }))}
+                : calls.map(r => { const ok = r.qualifiesAPlus; return card(r, { score: r.aScore, sc: r.aScore >= 90 ? C.green : r.aScore >= 85 ? "#5ab552" : C.textDim, ok, checks: r.checks, rr: r.rr, tint: C.green, badge: tag(ok ? `buy ${r.confRisk}%` : r.atEntry ? "watch" : "wait entry", C.green, ok), lvls: `$${r.bestEntry} · $${r.stop}` }); }))}
             {colWrap(C.red, "Puts", puts.filter(p => p.bearTradeable).length, "Bear Score >80 · R:R ≥2. Trade small, sit in cash if none.",
               puts.length === 0 ? <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>nothing breaking down</div>
                 : puts.map(r => { const ok = r.bearTradeable; return card(r, { score: r.bearScore, sc: r.bearScore >= 80 ? C.red : "#d6a312", ok, checks: r.bearChecks, rr: r.putRR, tint: C.red, badge: tag(ok ? "trade" : "watch", C.red, ok), lvls: `$${r.putStop} · $${r.putTarget}` }); }))}

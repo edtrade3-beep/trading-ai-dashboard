@@ -333,7 +333,13 @@ export function computeGreenLight(q, spyChg, scanRow, regime = null, trend = nul
   const marketPass = regime == null ? spyChg > -0.3 : regime >= 75;
   // Tradeable (Balanced Flex): score ≥85 AND market passes AND at the buy zone.
   // 85–89 "GOOD" setups qualify but confRisk sizes them at HALF (0.5×) — more trades, less risk each.
-  const aPlus = aScore >= 85 && marketPass && atEntry;
+  // Named qualifiesAPlus (not aPlus) — real bug/collision-risk fix,
+  // 2026-08-04: this boolean flag and the separate real 9-dimension A+
+  // Score object (computeAPlusScore, merged onto the row elsewhere as
+  // `.aplus`) were one character-case apart on the same row object —
+  // genuinely confusing to read cold, real risk of a future edit silently
+  // swapping one for the other.
+  const qualifiesAPlus = aScore >= 85 && marketPass && atEntry;
 
   // ── BEAR SCORE — put-candidate quality (5 × 20). For momentum breakdowns on red days. ──
   // VWAP isn't available client-side, so EMA21 is used as the intraday-mean proxy; 50-MA = support.
@@ -413,7 +419,7 @@ export function computeGreenLight(q, spyChg, scanRow, regime = null, trend = nul
     shortChecks, shortPassed, shortSignal,
     bestEntry: +bestEntry.toFixed(2), entryNote, relStrength: +relStrength.toFixed(2), isLeader,
     rr: +rr.toFixed(1), rrPass, atEntry,
-    aScore, grade, confRisk, aPlus, marketPass,
+    aScore, grade, confRisk, qualifiesAPlus, marketPass,
     scoreParts: { trend: pTrend, momentum: pMom, volume: pVol, structure: pStruct, risk: pRisk },
     bearScore, bearChecks, putStop, putTarget, putRR, bearTradeable,
     bottomScore, bottomChecks, reversal, bottomReady, offHigh: offHigh !== null ? +offHigh.toFixed(1) : null,

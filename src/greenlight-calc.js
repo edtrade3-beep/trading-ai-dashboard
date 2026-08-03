@@ -133,7 +133,10 @@ function computeGreenLight(q, spyChg, scanRow, regime = null, trend = null) {
   const grade  = aScore >= 95 ? "ELITE" : aScore >= 90 ? "A+" : aScore >= 85 ? "GOOD" : aScore >= 80 ? "WATCH" : "IGNORE";
   const confRisk = aScore >= 95 ? 1.0 : aScore >= 90 ? 0.75 : aScore >= 85 ? 0.5 : 0;
   const marketPass = regime == null ? spyChg > -0.3 : regime >= 75;
-  const aPlus = aScore >= 85 && marketPass && atEntry;
+  // Named qualifiesAPlus, not aPlus — kept in parity with the client-side
+  // rename in trading-utils.js (2026-08-04 collision-risk fix vs. the
+  // separate real 9-dimension A+ Score object elsewhere in this app).
+  const qualifiesAPlus = aScore >= 85 && marketPass && atEntry;
 
   const invalidation = trend ? (Array.isArray(trend.setup && trend.setup.sellSignals) ? trend.setup.sellSignals : []) : null;
 
@@ -141,7 +144,7 @@ function computeGreenLight(q, spyChg, scanRow, regime = null, trend = null) {
     checks, passed, signal, altSetup, tradeable, px, chg, stop, t1, t2, rvol, rsi, atrPct, invalidation,
     bestEntry: +bestEntry.toFixed(2), entryNote, relStrength: +relStrength.toFixed(2), isLeader,
     rr: +rr.toFixed(1), rrPass, atEntry,
-    aScore, grade, confRisk, aPlus, marketPass,
+    aScore, grade, confRisk, qualifiesAPlus, marketPass,
   };
 }
 

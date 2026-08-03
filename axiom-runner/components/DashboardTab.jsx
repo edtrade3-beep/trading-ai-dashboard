@@ -6,6 +6,7 @@ import MacroEventsWidget from "./MacroEventsWidget.jsx";
 import FedWatchTab from "./FedWatchTab.jsx";
 import RhProScanner from "./RhProScanner.jsx";
 import GreenLightTab from "./GreenLightTab.jsx";
+import MyTradesTab from "./MyTradesTab.jsx";
 import FlowTab from "./FlowTab.jsx";
 import NewsTab from "./NewsTab.jsx";
 import ActivePositionsCard from "./ActivePositionsCard.jsx";
@@ -994,9 +995,16 @@ export default function DashboardTab({
       )}
 
       {/* ── GREEN LIGHT ── real GreenLightTab, same component/props the
-          Sidebar used, moved into Dashboard (2026-07-28). */}
+          Sidebar used, moved into Dashboard (2026-07-28). MyTradesTab added
+          2026-08-04 (audit fix) — the Sidebar's real "greenlight"/"mytrades"
+          route always renders GreenLightTab + MyTradesTab together as one
+          logical unit (account/positions/autopilot controls); this copy was
+          silently missing that second half. */}
       {dashTab === "greenlight" && (
-        <GreenLightTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} macroData={macroData} openDeepDiveFor={openDeepDiveFor} scanResults={scanResults} sectorData={sectorData} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
+        <>
+          <GreenLightTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} macroData={macroData} openDeepDiveFor={openDeepDiveFor} scanResults={scanResults} sectorData={sectorData} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
+          <MyTradesTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} />
+        </>
       )}
 
       {/* Best Opportunities as its own sub-tab retired (2026-07-29,

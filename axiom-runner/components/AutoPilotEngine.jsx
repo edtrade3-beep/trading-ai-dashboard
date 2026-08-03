@@ -222,9 +222,9 @@ export default function AutoPilotEngine({ watchlistData, macroData, scanResults 
         // existing classic-checklist gate rather than replacing it — the
         // user's own configurable `threshold` still applies unchanged to
         // the classic path. Only applies in non-A+ mode — A+ mode already
-        // has its own separate real institutional-score gate (gl.aPlus)
-        // and isn't loosened by this.
-        const bullish = gradeAllowed && (aPlusMode ? gl.aPlus : ((gl.signal === "GREEN" && gl.passed >= threshold) || gl.altSetup != null));
+        // has its own separate real institutional-score gate
+        // (gl.qualifiesAPlus) and isn't loosened by this.
+        const bullish = gradeAllowed && (aPlusMode ? gl.qualifiesAPlus : ((gl.signal === "GREEN" && gl.passed >= threshold) || gl.altSetup != null));
         const bearishPut = false;  // puts disabled — no bearish option buys
         const shortSetup = doShort && gl.shortSignal === "SHORT" && gl.shortPassed >= threshold;
         if (!bullish && !shortSetup) return;

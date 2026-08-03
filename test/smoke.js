@@ -913,7 +913,7 @@ console.log("Checking institutional-redesign presentation-layer modules (ESM, lo
   // fails loudly instead of the server alert quietly disagreeing with what
   // GreenLightTab shows in the app.
   const { computeGreenLight: computeGreenLightServer } = require("../src/greenlight-calc.js");
-  const PARITY_FIELDS = ["passed", "signal", "tradeable", "px", "chg", "stop", "t1", "t2", "bestEntry", "entryNote", "atEntry", "aScore", "grade", "aPlus"];
+  const PARITY_FIELDS = ["passed", "signal", "tradeable", "px", "chg", "stop", "t1", "t2", "bestEntry", "entryNote", "atEntry", "aScore", "grade", "qualifiesAPlus"];
   const assertParity = (label, q, spyChg, scanRow, regime, trend) => {
     ok(`greenlight-calc.js parity: ${label}`, () => {
       const client = computeGreenLight(q, spyChg, scanRow, regime, trend);
