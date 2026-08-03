@@ -102,60 +102,6 @@ async function handleRequest(req, res) {
       return writeJson(res, 200, { ok: true, state: getAlertState() });
     }
 
-    // Temporary diagnostic (2026-08-03) — real check of which FMP endpoints
-    // this app's actual configured key/plan can reach, so new features get
-    // built on confirmed-working endpoints instead of guessed-at ones.
-    // Read-only, no auth needed, safe to remove once the FMP expansion work
-    // this unblocks is done.
-    if (pathname === "/api/market/fmp-plan-check" && req.method === "GET") {
-      const { resolveProviderKeys } = require("./config");
-      const keys = resolveProviderKeys(requestUrl.searchParams);
-      if (!keys.fmp) return writeJson(res, 200, { ok: false, reason: "no-fmp-key" });
-      const k = encodeURIComponent(keys.fmp);
-      const sym = "AAPL";
-      const candidates = [
-        ["stable quote", `https://financialmodelingprep.com/stable/quote?symbol=${sym}&apikey=${k}`],
-        ["stable quote BATCH (2 symbols)", `https://financialmodelingprep.com/stable/quote?symbol=AAPL,MSFT&apikey=${k}`],
-        ["stable batch-quote-short", `https://financialmodelingprep.com/stable/batch-quote-short?symbols=AAPL,MSFT&apikey=${k}`],
-        ["stable profile", `https://financialmodelingprep.com/stable/profile?symbol=${sym}&apikey=${k}`],
-        ["stable ratios-ttm", `https://financialmodelingprep.com/stable/ratios-ttm?symbol=${sym}&apikey=${k}`],
-        ["stable key-metrics-ttm", `https://financialmodelingprep.com/stable/key-metrics-ttm?symbol=${sym}&apikey=${k}`],
-        ["stable financial-growth", `https://financialmodelingprep.com/stable/financial-growth?symbol=${sym}&apikey=${k}`],
-        ["stable price-target-consensus", `https://financialmodelingprep.com/stable/price-target-consensus?symbol=${sym}&apikey=${k}`],
-        ["stable income-statement", `https://financialmodelingprep.com/stable/income-statement?symbol=${sym}&apikey=${k}`],
-        ["stable analyst-estimates", `https://financialmodelingprep.com/stable/analyst-estimates?symbol=${sym}&period=annual&apikey=${k}`],
-        ["stable insider-trading search", `https://financialmodelingprep.com/stable/insider-trading/search?symbol=${sym}&apikey=${k}`],
-        ["stable institutional-ownership v2", `https://financialmodelingprep.com/stable/institutional-ownership/latest?symbol=${sym}&apikey=${k}`],
-        ["stable institutional-ownership v3", `https://financialmodelingprep.com/stable/institutional-ownership/extract?symbol=${sym}&year=2025&quarter=2&apikey=${k}`],
-        ["stable sec-filings-search v2", `https://financialmodelingprep.com/stable/sec-filings-search/symbol?symbol=${sym}&from=2024-01-01&to=2026-08-03&apikey=${k}`],
-        ["stable sec-filings-financials", `https://financialmodelingprep.com/stable/sec-filings-financials?symbol=${sym}&apikey=${k}`],
-        ["stable company-screener", `https://financialmodelingprep.com/stable/company-screener?marketCapMoreThan=1000000000&limit=5&apikey=${k}`],
-        ["stable sector-performance-snapshot", `https://financialmodelingprep.com/stable/sector-performance-snapshot?date=${new Date().toISOString().slice(0,10)}&apikey=${k}`],
-        ["stable news stock", `https://financialmodelingprep.com/stable/news/stock?symbols=${sym}&limit=1&apikey=${k}`],
-        ["stable earnings-calendar", `https://financialmodelingprep.com/stable/earnings-calendar?apikey=${k}`],
-        ["stable technical RSI", `https://financialmodelingprep.com/stable/technical-indicators/rsi?symbol=${sym}&periodLength=14&timeframe=1day&apikey=${k}`],
-        ["stable historical-price-eod full", `https://financialmodelingprep.com/stable/historical-price-eod/full?symbol=${sym}&apikey=${k}`],
-      ];
-      const dump = requestUrl.searchParams.get("dump");
-      const results = await Promise.all(candidates.map(async ([label, url]) => {
-        try {
-          const r = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
-          let body = null;
-          try { body = await r.json(); } catch {}
-          const locked = !r.ok || (body && typeof body === "object" && !Array.isArray(body) && body["Error Message"]);
-          const out = {
-            label, status: r.status, ok: r.ok && !locked,
-            note: locked ? (body?.["Error Message"] || `HTTP ${r.status}`) : `${Array.isArray(body) ? body.length : "object"} real result(s)`,
-          };
-          if (dump && !locked) out.sample = Array.isArray(body) ? body.slice(0, 1) : body;
-          return out;
-        } catch (e) {
-          return { label, status: null, ok: false, note: e.message };
-        }
-      }));
-      return writeJson(res, 200, { ok: true, results });
-    }
-
     if (pathname === "/api/webhooks/tradingview" || pathname === "/api/market/tv-alerts") {
       return await handleWebhooks(req, res, requestUrl);
     }
