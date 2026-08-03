@@ -682,6 +682,27 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             </div>
           );
         })()}
+        {/* "SUPPORTING DETAIL" divider — audit fix #4, 2026-08-04. Real
+            finding: the hero card above already IS a complete verdict
+            (letter grade + stars + Recommendation + Primary Action), but
+            the up to 8 cards below it (score grid, AI Trade Engine, Smart
+            Money Flow, AI Trade Card, Strategy Selector, Checklist) read as
+            visually co-equal peers with no signal that the hero already
+            answered the question — a user had to mentally average all of
+            them to decide. They can legitimately disagree (different real
+            math over different real inputs) by design, so this doesn't
+            reconcile them into one number; it just labels what's already
+            true: the hero is the answer, everything below is the evidence
+            for it. Nothing removed, nothing hidden — nothing to lose the
+            deep-dive. */}
+        {institutionalGrade && (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "4px 0 12px" }}>
+            <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: "0.1em", whiteSpace: "nowrap" }}>
+              SUPPORTING DETAIL — for the verdict above
+            </div>
+            <div style={{ flex: 1, height: 1, background: C.border }} />
+          </div>
+        )}
         {/* SECTION 2 — Six core scores (institutional redesign, 2026-07-29,
             explicit user spec: "Market, Sector, Stock Quality, Institutional,
             Technical, Timing"), each clickable into a real breakdown.
