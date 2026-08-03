@@ -876,3 +876,34 @@ export function computeNextAction(row) {
   if (row?.actionable) return { action: "WATCH", color: "#d6a312", reason: "Near the buy zone, building strength — not a trigger yet." };
   return { action: "WAIT", color: "#94a3b8", reason: "Not yet actionable — no clean entry right now." };
 }
+
+// Entry Engine — Green Light AI spec gap (2026-08-03): 5 named entry types
+// ("never chase — always prefer buying strength after confirmation or
+// quality pullbacks"). Presentation-layer only, zero new computation —
+// each type reuses the exact same real fields + boundary conditions the
+// Scanner's own Breakout/Pullback/Pre-Pop/Momentum categories already use
+// (RhProScanner.jsx CATEGORIES), so this never disagrees with what the
+// Scanner itself would call the same row. `aplusScore` is optional (the
+// real Trade Setup Score from computeAPlusScore, not present on a raw
+// trend-screen row) — Ideal Entry needs it to distinguish "at a confirmed
+// breakout" from "at a HIGH-CONVICTION confirmed breakout"; every other
+// type works off trend-screen fields alone.
+export function classifyEntryType(row, aplusScore) {
+  const stage = String(row?.stage || "");
+  if (row?.atBuyPoint && row?.volConfirmed && Number(aplusScore) >= 80) {
+    return { type: "Ideal Entry", color: "#0d9465", reason: "Confirmed breakout (volume-backed) at a high real Trade Setup Score — the textbook best entry." };
+  }
+  if (row?.atBuyPoint && row?.volConfirmed) {
+    return { type: "Breakout Entry", color: "#22a06b", reason: "Real buy point, confirmed by volume ≥1.4x the 50-day average." };
+  }
+  if (row?.actionable && !row?.atBuyPoint && !row?.extended && row?.tightening && row?.abovePivotPct != null && row?.abovePivotPct < 0 && row?.abovePivotPct > -5) {
+    return { type: "Early Entry", color: "#7c5cff", reason: "Real VCP base contracting, coiled within 5% below the real pivot — before it triggers." };
+  }
+  if ((row?.rsRating || 0) >= 80 && stage.includes("2")) {
+    return { type: "Trend Entry", color: "#2563eb", reason: "RS ≥80 in a confirmed Stage 2 uptrend — buying real established strength." };
+  }
+  if (row?.actionable && !row?.atBuyPoint && !row?.extended) {
+    return { type: "Pullback Entry", color: "#d6a312", reason: "Real actionable setup, not yet at the buy point, not extended — a quality pullback." };
+  }
+  return null;
+}

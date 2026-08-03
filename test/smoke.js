@@ -269,6 +269,10 @@ console.log("Checking institutional-redesign presentation-layer modules (ESM, lo
   ok("mapToAiAction: honest neutral default with no real data", () => {
     assert.strictEqual(mapToAiAction({}), AI_ACTIONS.WATCH);
   });
+  ok("mapToAiAction: real ROTATE positionState maps to the new AI_ACTIONS.ROTATE entry (Green Light AI spec gap)", () => {
+    assert.strictEqual(mapToAiAction({ positionState: "ROTATE" }), AI_ACTIONS.ROTATE);
+    assert.strictEqual(mapToAiAction({ positionState: "rotate — replaced by a stronger candidate" }), AI_ACTIONS.ROTATE);
+  });
 
   const { deriveTopLevelScores } = await import("../axiom-runner/components/market-helpers.js");
   ok("deriveTopLevelScores: passthrough scores match their real source values", () => {
@@ -817,6 +821,30 @@ console.log("Checking institutional-redesign presentation-layer modules (ESM, lo
     );
     assert.strictEqual(out.daysUsed, 21, "real overlap is bounded by MSFT's shorter real series");
     assert.ok(out.sharpe > 0);
+  });
+
+  console.log("Checking classifyEntryType (Green Light AI spec gap — 5 named Entry Engine types)…");
+  const { classifyEntryType } = await import("../axiom-runner/components/market-helpers.js");
+  ok("classifyEntryType: Ideal Entry requires a confirmed breakout AND a real high Trade Setup Score", () => {
+    const row = { atBuyPoint: true, volConfirmed: true };
+    assert.strictEqual(classifyEntryType(row, 85).type, "Ideal Entry");
+    assert.strictEqual(classifyEntryType(row, 65).type, "Breakout Entry", "same real breakout, but below the high-conviction score bar — Breakout, not Ideal");
+  });
+  ok("classifyEntryType: Early Entry matches the real Pre-Pop condition (tightening, coiled within 5% below pivot)", () => {
+    const row = { actionable: true, atBuyPoint: false, extended: false, tightening: true, abovePivotPct: -3 };
+    assert.strictEqual(classifyEntryType(row).type, "Early Entry");
+  });
+  ok("classifyEntryType: Trend Entry matches the real Momentum condition (RS>=80, Stage 2)", () => {
+    const row = { rsRating: 85, stage: "Stage 2 — Uptrend" };
+    assert.strictEqual(classifyEntryType(row).type, "Trend Entry");
+  });
+  ok("classifyEntryType: Pullback Entry matches the real Pullback condition (actionable, not at buy point, not extended)", () => {
+    const row = { actionable: true, atBuyPoint: false, extended: false, rsRating: 50, stage: "Stage 1" };
+    assert.strictEqual(classifyEntryType(row).type, "Pullback Entry");
+  });
+  ok("classifyEntryType: honest null when no real entry-type condition is met", () => {
+    const row = { actionable: false, atBuyPoint: false, extended: true };
+    assert.strictEqual(classifyEntryType(row), null);
   });
 
   const { OPTIONS_ACTIONS, mapToOptionsAction, optionsExecutionNote } = await import("../axiom-runner/components/options-actions.js");

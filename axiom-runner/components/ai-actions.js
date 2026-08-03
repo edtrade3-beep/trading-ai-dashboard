@@ -14,6 +14,14 @@
 // Color follows the app's 4-color status system (green=bullish,
 // yellow=caution, red=bearish, gray=neutral) — tier is a 1-9 ordinal for
 // sorting by conviction (9 = most bullish new-entry call, 1 = most bearish).
+// ROTATE (Green Light AI spec gap, 2026-08-03) — a real position-management
+// verdict for an existing holding that's the weakest link in the real
+// Portfolio Rotation Engine's comparison (portfolio-rotation-engine.js's
+// evaluateRotation/findWeakestPosition), closed only because a genuinely
+// stronger real opportunity exists — never a plain sell signal on its own
+// merit. Tier 2.5, between Exit and Take Profits — a rotation is closer to
+// "this position isn't wrong, something else is just better right now"
+// than an outright Exit.
 export const AI_ACTIONS = {
   STRONG_BUY:   { label: "Strong Buy",   color: "#0d9465", tier: 9 },
   BUY:          { label: "Buy",          color: "#22a06b", tier: 8 },
@@ -22,6 +30,7 @@ export const AI_ACTIONS = {
   WAIT:         { label: "Wait",         color: "#d6a312", tier: 5 },
   REDUCE:       { label: "Reduce",       color: "#d6a312", tier: 4 },
   TAKE_PROFITS: { label: "Take Profits", color: "#d6a312", tier: 3 },
+  ROTATE:       { label: "Rotate",       color: "#6d5dd3", tier: 2.5 },
   EXIT:         { label: "Exit",         color: "#c8282a", tier: 2 },
   AVOID:        { label: "Avoid",        color: "#c8282a", tier: 1 },
 };
@@ -39,6 +48,7 @@ export const AI_ACTIONS = {
 export function mapToAiAction({ institutionalScore, verdict, nextAction, positionState } = {}) {
   if (positionState) {
     const p = String(positionState).toUpperCase();
+    if (p.includes("ROTATE")) return AI_ACTIONS.ROTATE;
     if (p.includes("EXIT")) return AI_ACTIONS.EXIT;
     if (p.includes("REDUCE") || p.includes("TIGHTEN")) return AI_ACTIONS.REDUCE;
     if (p.includes("TAKE PROFIT") || p.includes("TAKE_PROFIT")) return AI_ACTIONS.TAKE_PROFITS;

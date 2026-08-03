@@ -5,6 +5,7 @@ import {
   addPaperOption, alpacaPlace, alpacaClose, GL_TRADES_KEY,
 } from "./trading-utils.js";
 import { evaluateRotation } from "./portfolio-rotation-engine.js";
+import { AI_ACTIONS } from "./ai-actions.js";
 
 // Real trend-reversal signal from /api/market/trend-screen's Stage
 // classification, replacing the always-empty q.priceAvg50 MA50 check used
@@ -362,7 +363,7 @@ export default function AutoPilotEngine({ watchlistData, macroData, scanResults 
                 alpacaPlace(bestUnplaced.q.symbol, qty, stop, take).then(r => {
                   if (r?.ok) {
                     autoBoughtRef.current.add(`${today}:${bestUnplaced.q.symbol}:S:alpaca`);
-                    logTradeNote("buy", `🔄 ROTATION — closed ${closeSym} (real quality ${Math.round(rotation.close.quality)}) → opened ${bestUnplaced.q.symbol} (real quality ${Math.round(rotation.open.quality)}, +${Math.round(rotation.improvement)} improvement)\n${qty} sh @ ~$${entry} (paper · bracket)\nStop $${stop} · Target $${take}`);
+                    logTradeNote("buy", `🔄 ${AI_ACTIONS.ROTATE.label.toUpperCase()} — closed ${closeSym} (real quality ${Math.round(rotation.close.quality)}) → opened ${bestUnplaced.q.symbol} (real quality ${Math.round(rotation.open.quality)}, +${Math.round(rotation.improvement)} improvement)\n${qty} sh @ ~$${entry} (paper · bracket)\nStop $${stop} · Target $${take}`);
                   }
                 });
               }).catch(() => {});

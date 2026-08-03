@@ -273,6 +273,47 @@ export default function JournalTab({
               );
             })()}
 
+            {/* Market Bias/Regime breakdown (Green Light AI spec gap, 2026-08-03)
+                — the Learning Engine's "Market Regime Performance" ask.
+                e.bias is real, already captured on every /api/journal entry
+                (sanitizeEntry's real bias field, defaults "Choppy") — never
+                displayed anywhere before now despite being real data since
+                this journal shipped. Same exact real breakdown pattern as
+                "Performance by Style" right above, just keyed on bias
+                instead of style. */}
+            {journalEntries.length > 2 && (() => {
+              const closed = journalEntries.filter(e => e.status === "closed" && e.pnl != null);
+              if (closed.length < 2) return null;
+              const byBias = {};
+              closed.forEach(e => {
+                const b = e.bias || "Choppy";
+                if (!byBias[b]) byBias[b] = { trades: 0, wins: 0, pnl: 0 };
+                byBias[b].trades++;
+                if (e.pnl > 0) byBias[b].wins++;
+                byBias[b].pnl += e.pnl;
+              });
+              const rows = Object.entries(byBias).sort((a, b) => b[1].pnl - a[1].pnl);
+              if (rows.length < 2) return null;
+              return (
+                <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px", marginBottom: 12 }}>
+                  <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>PERFORMANCE BY MARKET REGIME</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                    {rows.map(([bias, s]) => {
+                      const wr = Math.round((s.wins / s.trades) * 100);
+                      const pnlColor = s.pnl >= 0 ? C.green : C.red;
+                      return (
+                        <div key={bias} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: "6px 10px", minWidth: 100 }}>
+                          <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 3 }}>{bias.toUpperCase()}</div>
+                          <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: pnlColor }}>{s.pnl >= 0 ? "+" : ""}${Math.round(s.pnl)}</div>
+                          <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 1 }}>{s.trades} trades · <span style={{ color: wr >= 50 ? C.green : C.red }}>{wr}% WR</span></div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* ── Weekly Review Generator ── */}
             {(() => {
               const today     = new Date();

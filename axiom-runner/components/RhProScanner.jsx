@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { RH_UNIVERSE, rhScore, stockQualityBreakdown, rhScreenProgressive } from "./rhpro-shared.jsx";
 import {
-  computeRegime, computeAPlusScore, computeNextAction, computePrediction, winProbFor, MIN_WIN_SAMPLE,
+  computeRegime, computeAPlusScore, computeNextAction, classifyEntryType, computePrediction, winProbFor, MIN_WIN_SAMPLE,
   computeInstitutionalGrade, institutionalLetterGrade, institutionalRecommendation, SECTOR_ETFS, STOCK_TO_SECTOR,
 } from "./market-helpers.js";
 import AiScoreExplainer, { TRADE_SETUP_DIMENSIONS, STOCK_QUALITY_DIMENSIONS, INSTITUTIONAL_GRADE_DIMENSIONS } from "./AiScoreExplainer.jsx";
@@ -517,6 +517,15 @@ export default function RhProScanner({
                       <div>
                         <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 3 }}>RS</div>
                         <span style={{ fontSize: 14, fontWeight: 800, color: (r.rsRating || 0) >= 70 ? C.green : C.textSec }}>{r.rsRating ?? "—"}</span>
+                      </div>
+                      <div>
+                        <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 3 }}>ENTRY TYPE</div>
+                        {(() => {
+                          const et = classifyEntryType(r, r.aplus?.score);
+                          return et
+                            ? <span title={et.reason} style={{ fontSize: 11, fontWeight: 900, color: et.color, border: `1px solid ${et.color}`, borderRadius: 4, padding: "1px 6px" }}>{et.type}</span>
+                            : <span style={{ fontSize: 12, color: C.textDim }}>—</span>;
+                        })()}
                       </div>
                       <div style={{ gridColumn: "1 / -1" }}>
                         <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 3 }}>SMART MONEY</div>
