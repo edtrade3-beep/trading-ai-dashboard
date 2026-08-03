@@ -136,16 +136,19 @@ async function handleRequest(req, res) {
         ["stable technical RSI", `https://financialmodelingprep.com/stable/technical-indicators/rsi?symbol=${sym}&periodLength=14&timeframe=1day&apikey=${k}`],
         ["stable historical-price-eod full", `https://financialmodelingprep.com/stable/historical-price-eod/full?symbol=${sym}&apikey=${k}`],
       ];
+      const dump = requestUrl.searchParams.get("dump");
       const results = await Promise.all(candidates.map(async ([label, url]) => {
         try {
           const r = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
           let body = null;
           try { body = await r.json(); } catch {}
           const locked = !r.ok || (body && typeof body === "object" && !Array.isArray(body) && body["Error Message"]);
-          return {
+          const out = {
             label, status: r.status, ok: r.ok && !locked,
             note: locked ? (body?.["Error Message"] || `HTTP ${r.status}`) : `${Array.isArray(body) ? body.length : "object"} real result(s)`,
           };
+          if (dump && !locked) out.sample = Array.isArray(body) ? body.slice(0, 1) : body;
+          return out;
         } catch (e) {
           return { label, status: null, ok: false, note: e.message };
         }
