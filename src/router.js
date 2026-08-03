@@ -236,7 +236,13 @@ async function handleRequest(req, res) {
       return await handleWatchlist(req, res);
     }
 
-    // POST /api/notify — sends a freeform Telegram message from the platform UI
+    // POST /api/notify — sends a freeform Telegram message from the platform UI.
+    // Real success/failure now propagated (2026-08-03, real user report: "when
+    // you click on telegram it failes" — this route used to always report
+    // {ok:true} even when sendTelegramMessage silently dropped the send, e.g.
+    // the 60s global cooldown shared with every scheduled alert job in this
+    // app, or the 40/day cap — so a real failure looked identical to success
+    // and gave no way to tell the two apart from the UI).
     if (pathname === "/api/notify" && req.method === "POST") {
       if (!telegramConfigured()) {
         return writeJson(res, 503, { ok: false, error: "Telegram not configured." });
@@ -245,7 +251,15 @@ async function handleRequest(req, res) {
       for await (const chunk of req) body += chunk;
       const { text } = JSON.parse(body || "{}");
       if (!text) return writeJson(res, 400, { ok: false, error: "Missing text" });
-      await sendTelegramMessage(text);
+      const result = await sendTelegramMessage(text);
+      if (!result.ok) {
+        const msg = result.reason === "cooldown" ? `Rate limited — try again in ${Math.ceil((result.retryInMs || 0) / 1000)}s (shared 60s cooldown across every real alert this app sends).`
+          : result.reason === "daily-cap" ? "Daily Telegram message limit reached (40/day, shared across every real alert this app sends)."
+          : result.reason === "telegram-api-error" ? `Telegram rejected the message${result.detail ? `: ${result.detail}` : "."}`
+          : result.reason === "network-error" ? "Network error reaching Telegram."
+          : "Send failed.";
+        return writeJson(res, 502, { ok: false, error: msg });
+      }
       return writeJson(res, 200, { ok: true });
     }
 

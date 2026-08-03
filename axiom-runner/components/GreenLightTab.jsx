@@ -506,6 +506,7 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
               UI already uses (src/router.js), zero new backend. */}
           <button onClick={(e) => {
               const btn = e.currentTarget;
+              const defaultTitle = `Send ${r.symbol}'s real current Green Light setup to your Telegram right now`;
               const lines = [
                 `📤 ${r.symbol} — $${r.px.toFixed(2)} (${r.chg >= 0 ? "+" : ""}${r.chg.toFixed(2)}%)`,
                 `Signal: ${r.signal} · Grade ${r.grade} (${r.aScore}/100)${r.altSetup ? ` · Alt Setup: ${r.altSetup.type}` : ""}`,
@@ -513,11 +514,30 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
                 `Stop $${r.stop} · T1 $${r.t1} · T2 $${r.t2}`,
               ];
               btn.textContent = "…sending";
+              // Short reason shown right in the button label, not just the
+              // hover title (2026-08-03, real user report: "when you click
+              // on telegram it failes" — root cause was a real 401 from
+              // this route's API-token auth gate, src/router.js, but the
+              // old generic "✗ failed" gave no way to see why without
+              // hovering — easy to miss on a page that re-renders this
+              // often, e.g. from live price polling).
+              const shortReason = (err) => {
+                if (!err) return "✗ failed";
+                if (/unauthorized/i.test(err)) return "✗ no API token";
+                if (/rate limited/i.test(err)) return "✗ rate limited";
+                if (/daily/i.test(err)) return "✗ daily cap hit";
+                if (/not configured/i.test(err)) return "✗ Telegram not set up";
+                if (/rejected/i.test(err)) return "✗ Telegram rejected it";
+                return "✗ failed";
+              };
               fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: lines.join("\n") }) })
                 .then(res => res.json())
-                .then(d => { btn.textContent = d?.ok ? "✓ sent" : "✗ failed"; })
-                .catch(() => { btn.textContent = "✗ failed"; })
-                .finally(() => { setTimeout(() => { btn.textContent = "✈ TELEGRAM"; }, 1800); });
+                .then(d => {
+                  btn.textContent = d?.ok ? "✓ sent" : shortReason(d?.error);
+                  btn.title = d?.ok ? defaultTitle : (d?.error || "Send failed — see server logs.");
+                })
+                .catch(() => { btn.textContent = "✗ network error"; btn.title = "Network error reaching the server."; })
+                .finally(() => { setTimeout(() => { btn.textContent = "✈ TELEGRAM"; btn.title = defaultTitle; }, 5000); });
             }}
             title={`Send ${r.symbol}'s real current Green Light setup to your Telegram right now`}
             style={{ background: `${C.accent}18`, border: `1px solid ${C.accent}55`, color: C.accent,

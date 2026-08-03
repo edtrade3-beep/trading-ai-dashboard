@@ -64,18 +64,26 @@ let dailyDate = "";
 const MIN_INTERVAL_MS = 60_000; // 60s floor between ANY two messages, any source
 const MAX_DAILY_TOTAL = 40;     // hard ceiling across every category combined, every source
 
+// Real success/failure result (2026-08-03 — was always `undefined`, on
+// every path including a genuine success, so /api/notify's real caller
+// (GreenLightTab's manual "push to Telegram" button) had no way to tell a
+// silently-dropped send — daily cap, 60s cooldown shared with every other
+// alert job in this app, or a real Telegram API error — from an actual
+// delivery, and always reported "sent" regardless. Every existing caller
+// (the scheduled alert jobs) already ignores the return value, so widening
+// it from undefined to a real result object is backward-compatible.
 async function sendTelegramMessage(text) {
-  if (!isConfigured()) return;
+  if (!isConfigured()) return { ok: false, reason: "not-configured" };
   const today = new Date().toLocaleDateString("en-US", { timeZone: "America/New_York" });
   if (today !== dailyDate) { dailyDate = today; dailyCount = 0; }
   const now = Date.now();
   if (dailyCount >= MAX_DAILY_TOTAL) {
     console.log("[Telegram] global daily cap reached — message dropped");
-    return;
+    return { ok: false, reason: "daily-cap" };
   }
   if (now - lastSentAt < MIN_INTERVAL_MS) {
     console.log("[Telegram] global cooldown active — message dropped");
-    return;
+    return { ok: false, reason: "cooldown", retryInMs: MIN_INTERVAL_MS - (now - lastSentAt) };
   }
   lastSentAt = now;
   dailyCount++;
@@ -90,9 +98,12 @@ async function sendTelegramMessage(text) {
     const json = await res.json().catch(() => ({}));
     if (!json.ok) {
       console.error("[Telegram] sendTelegramMessage failed:", json.description || JSON.stringify(json));
+      return { ok: false, reason: "telegram-api-error", detail: json.description || null };
     }
+    return { ok: true };
   } catch (err) {
     console.error("[Telegram] sendTelegramMessage error:", err.message);
+    return { ok: false, reason: "network-error", detail: err.message };
   }
 }
 
