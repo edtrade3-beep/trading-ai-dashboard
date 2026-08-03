@@ -6360,7 +6360,7 @@ export default function App() {
         {activeTab === "portfolio-tab" && (
           <div style={{ padding: "16px 20px", maxWidth: 700, margin: "0 auto", display: "flex", flexDirection: "column", gap: 12 }}>
             <PortfolioSnapshotCard C={C} MONO={MONO} SANS={SANS} />
-            <ActivePositionsCard C={C} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
+            <ActivePositionsCard C={C} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} watchlistData={watchlistData} macroData={macroData} />
             <PortfolioRiskCard C={C} MONO={MONO} SANS={SANS} distData={distData} />
           </div>
         )}
