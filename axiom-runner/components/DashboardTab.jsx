@@ -111,20 +111,28 @@ function MarketRegimeCard({ C, MONO, SANS, macroData, distData, factors, bias, b
           as every other "AI ___" label already in this app. */}
       {marketBias.bias && (
         <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, marginBottom: 8, padding: "0 2px", lineHeight: 1.4 }}>
-          🧭 {marketBias.bias} market, {marketBias.confidence}% confidence, {marketBias.character.toLowerCase()}{strategyHint ? ` — favors ${strategyHint.toLowerCase()}` : ""}.
+          {marketBias.bias} market, {marketBias.confidence}% confidence, {marketBias.character.toLowerCase()}{strategyHint ? ` — favors ${strategyHint.toLowerCase()}` : ""}.
         </div>
       )}
       {aPlus.pct != null && (
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontFamily: MONO, fontSize: 11, color: C.textSec, marginBottom: 8, padding: "0 2px" }}>
           <span>A+ MARKET SCORE</span>
-          <span style={{ fontWeight: 800, color: aPlus.pct >= 40 ? C.green : aPlus.pct >= 20 ? C.amber : C.textDim }}>{aPlus.pct}% ({aPlus.aCount}/{aPlus.total} A+/A)</span>
+          <span style={{ fontWeight: 800, color: aPlus.pct >= 40 ? C.green : aPlus.pct >= 20 ? C.amber : C.textDim, fontVariantNumeric: "tabular-nums" }}>{aPlus.pct}% ({aPlus.aCount}/{aPlus.total} A+/A)</span>
         </div>
       )}
       <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 8 }}>
         <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: biasColor, marginBottom: 4 }}>{bias}</div>
-        {(factors || []).slice(0, 3).map((f, i) => (
-          <div key={i} style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, padding: "2px 0", lineHeight: 1.4 }}>{f}</div>
-        ))}
+        {/* Factor strings carry a leading emoji as their only pass/fail
+            signal (✅/🔴/⚠️/📰 + BULLISH|BEARISH substring) — real
+            information, so instead of just stripping it, map it to actual
+            color and drop the glyph, same "color carries the signal, not
+            emoji" rule applied across the rest of this redesign. */}
+        {(factors || []).slice(0, 3).map((f, i) => {
+          const col = f.startsWith("✅") ? C.green : f.startsWith("🔴") ? C.red : f.startsWith("⚠️") ? C.amber
+            : /BEARISH|bearish/.test(f) ? C.red : /BULLISH|bullish/.test(f) ? C.green : C.textSec;
+          const text = f.replace(/^(✅|🔴|⚠️|📰)\s*/, "");
+          return <div key={i} style={{ fontFamily: SANS, fontSize: 11, color: col, padding: "2px 0", lineHeight: 1.4 }}>{text}</div>;
+        })}
       </div>
     </Card>
   );
@@ -173,7 +181,7 @@ function MarketCommandCenterStrip({ C, MONO, SANS, macroData, distData, sectorDa
   const cell = (label, value, color, onClick) => (
     <div onClick={onClick} style={{ minWidth: 110, cursor: onClick ? "pointer" : "default" }}>
       <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 3 }}>{label}</div>
-      <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: color || C.text, lineHeight: 1.2 }}>{value}</div>
+      <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: color || C.text, lineHeight: 1.2, fontVariantNumeric: "tabular-nums" }}>{value}</div>
     </div>
   );
 
@@ -322,7 +330,7 @@ function CopilotInsightsCard({ C, MONO, SANS, watchlistData, setActiveTab, setTe
     <Card C={C} title="AI COPILOT INSIGHTS">
       {topPick && (
         <div onClick={() => { setTerminalSymbol?.(topPick.symbol); try { localStorage.setItem("mterminal_load_sym", topPick.symbol); } catch {} setActiveTab?.("mterminal"); }}
-          style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", background: C.goldBg, border: `1px solid ${C.gold}55`, borderRadius: 8, marginBottom: 10, cursor: "pointer" }}>
+          style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", background: C.card, border: `1px solid ${C.border}`, borderLeft: `3px solid ${C.gold}`, borderRadius: 8, marginBottom: 10, cursor: "pointer" }}>
           <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.gold }}>{topPick.symbol}</span>
           <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>top pick · A+ {topPick._aplus?.score ?? "—"}</span>
         </div>
@@ -663,7 +671,7 @@ function AiTopOpportunitiesCard({ C, MONO, SANS, fullScan, setActiveTab, setTerm
             const action = mapToAiAction({ institutionalScore: r._aplus.score });
             return (
               <div key={r.symbol} onClick={() => { setTerminalSymbol?.(r.symbol); try { localStorage.setItem("mterminal_load_sym", r.symbol); } catch {} setActiveTab?.("mterminal"); }}
-                style={{ display: "grid", gridTemplateColumns: "26px 1fr 60px 90px auto 70px 60px", gap: 8, alignItems: "center", padding: "7px 0", borderTop: `1px solid ${C.border}55`, cursor: "pointer" }}>
+                style={{ display: "grid", gridTemplateColumns: "26px 1fr 60px 90px auto 70px 60px", gap: 8, alignItems: "center", padding: "7px 0", borderTop: `1px solid ${C.border}55`, cursor: "pointer", fontVariantNumeric: "tabular-nums" }}>
                 <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{i + 1}</span>
                 <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text }}>{r.symbol}</span>
                 <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "2px 6px", borderRadius: 5, background: `${scoreCol}18`, color: scoreCol, textAlign: "center" }}>{r._aplus.score}</span>
@@ -1015,16 +1023,16 @@ export default function DashboardTab({
               setQuickLogModal={setQuickLogModal} setWatchlistSymbols={setWatchlistSymbols}
             />
           </div>
-          <MonitorSection C={C} MONO={MONO} label="🏛 CATALYSTS & EVENTS" storeKey="mon_catalysts" defaultOpen={true}>
+          <MonitorSection C={C} MONO={MONO} label="CATALYSTS & EVENTS" storeKey="mon_catalysts" defaultOpen={true}>
             <FedInterpreter C={C} MONO={MONO} SANS={SANS} />
             <FedWatchWidget C={C} MONO={MONO} SANS={SANS} />
             <MacroEventsWidget C={C} MONO={MONO} SANS={SANS} />
           </MonitorSection>
           {preMktMovers.length > 0 && (
-            <MonitorSection C={C} MONO={MONO} label="⚡ PRE-MARKET MOVERS" storeKey="mon_premkt" defaultOpen={true}>
+            <MonitorSection C={C} MONO={MONO} label="PRE-MARKET MOVERS" storeKey="mon_premkt" defaultOpen={true}>
               <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
                 {preMktMovers.slice(0, 8).map(m => (
-                  <div key={m.sym} style={{ textAlign: "center" }}>
+                  <div key={m.sym} style={{ textAlign: "center", fontVariantNumeric: "tabular-nums" }}>
                     <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.accent }}>{m.sym}</div>
                     <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: m.chg >= 0 ? C.green : C.red }}>{m.chg >= 0 ? "+" : ""}{m.chg.toFixed(1)}%</div>
                   </div>
