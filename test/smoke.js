@@ -906,6 +906,48 @@ console.log("Checking institutional-redesign presentation-layer modules (ESM, lo
     assert.strictEqual(gl.tradeable, true);
   });
 
+  // Parity check — src/greenlight-calc.js is a hand-ported server-side copy
+  // of this same computeGreenLight (2026-08-03, real Telegram entry alert
+  // needs it runnable outside the browser). Guards against silent drift: if
+  // either copy's real math ever changes without updating the other, this
+  // fails loudly instead of the server alert quietly disagreeing with what
+  // GreenLightTab shows in the app.
+  const { computeGreenLight: computeGreenLightServer } = require("../src/greenlight-calc.js");
+  const PARITY_FIELDS = ["passed", "signal", "tradeable", "px", "chg", "stop", "t1", "t2", "bestEntry", "entryNote", "atEntry", "aScore", "grade", "aPlus"];
+  const assertParity = (label, q, spyChg, scanRow, regime, trend) => {
+    ok(`greenlight-calc.js parity: ${label}`, () => {
+      const client = computeGreenLight(q, spyChg, scanRow, regime, trend);
+      const server = computeGreenLightServer(q, spyChg, scanRow, regime, trend);
+      for (const f of PARITY_FIELDS) {
+        assert.deepStrictEqual(server[f], client[f], `field "${f}" diverged — client=${JSON.stringify(client[f])} server=${JSON.stringify(server[f])}`);
+      }
+      assert.deepStrictEqual(server.altSetup?.type ?? null, client.altSetup?.type ?? null, "altSetup type diverged");
+    });
+  };
+  assertParity(
+    "wait-for-pullback row (CRWD-shaped: price above support, real trend data, no scanRow)",
+    { price: 196.20, priceAvg50: 185, priceAvg200: 170, volume: 3_000_000, avgVolume: 2_500_000, changesPercentage: 2.80, dayHigh: 197, dayLow: 193, yearHigh: 210, yearLow: 140 },
+    1.93, null, 78,
+    { stage: "Stage 2 uptrend", pctFromHigh: -6.6, abovePivotPct: 1.5, pivot: 193.26, volRatio: 1.8, higherLows: true, smc: null }
+  );
+  assertParity(
+    "real GREEN 5/5 setup with full scanRow (EMA/RSI/MACD present)",
+    { price: 100, priceAvg50: 90, priceAvg200: 80, volume: 2_000_000, avgVolume: 1_000_000, changesPercentage: 1 },
+    0.2, { ema21v: 98, ema9v: 99, macdBull: true, rsiVal: 55 }, null, null
+  );
+  assertParity(
+    "real BOS-breakout alt setup, RED classic signal",
+    { price: 100, volume: 1_000_000, changesPercentage: -1 },
+    0.5, { ema21v: 0, ema9v: 0, macdBull: false, rsiVal: 0 }, null,
+    { stage: "Stage 1", smc: { bos: { type: "BULL_BOS" } }, higherLows: false }
+  );
+  assertParity(
+    "price already at support (real 'at support' entry, honest-null scanRow)",
+    { price: 100, priceAvg50: 100.3, changesPercentage: 0.4 },
+    0.1, null, 60,
+    { stage: "Stage 2", pctFromHigh: -3, abovePivotPct: 0.2, pivot: 98, volRatio: 1.2 }
+  );
+
   console.log(`\n${passed} checks passed.`);
   if (process.exitCode) console.error("SMOKE TEST FAILED"); else console.log("SMOKE TEST OK");
 

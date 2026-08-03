@@ -353,6 +353,15 @@ server.listen(PORT, HOST, () => {
   setInterval(() => require("./src/watchlist-setup-alerts").checkWatchlistSetupAlerts().catch(() => {}), 15 * 60_000);
   console.log("[Watchlist setup] Trade Setup Score + buy-zone alerts active — every 15 min, market hours only");
 
+  // Watchlist Green Light entry alerts (explicit user request, 2026-08-03,
+  // annotated screenshot: "alert me when it goes to buy" on a real
+  // "wait for pullback $X" row) — real Telegram ping when a Watchlist
+  // symbol's real Green Light entryNote flips from "wait for pullback" to
+  // "at support" (price reaches its real EMA21/MA50/pivot entry level).
+  // Same persisted-diff pattern as the alert jobs above, read-only.
+  setInterval(() => require("./src/watchlist-greenlight-alerts").checkWatchlistGreenLightAlerts().catch(() => {}), 15 * 60_000);
+  console.log("[Watchlist Green Light] Real entry-price-reached alerts active — every 15 min, market hours only");
+
   // Watchlist institutional alerts — Phase 5 of the Institutional Research
   // Upgrade (2026-07-29): 5 more real, previously-missing alert categories
   // (smart-money BOS, dark-pool spike, unusual options flow, earnings
