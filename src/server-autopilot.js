@@ -6,6 +6,8 @@
 const { sendTelegramMessage, isConfigured } = require("./telegram");
 const { PORT } = require("./config");
 const { appendJournal } = require("./autopilot-journal");
+const { getClosedTrades } = require("./routes/alpaca");
+const { computeLearningGates, isAllowed } = require("./learning-engine");
 const { isOn } = require("./utils");
 const {
   isMarketHoursET, checkAccountHealth, dailyLossBreakerTripped,
@@ -98,6 +100,24 @@ async function runServerAutopilot() {
     .sort((a, b) => (a.tier === b.tier ? 0 : a.tier === "A" ? -1 : 1) || (b.passCount - a.passCount) || ((b.rsRating || 0) - (a.rsRating || 0)));
   if (!eligible.length) return;
 
+  // Learning Engine — real per-tier/per-sector win rate off actual closed
+  // trades, gating OUT only what's proven to genuinely lose (never boosts a
+  // tier/sector for a good streak). Best-effort: a fetch/compute failure
+  // falls back to fully-open gates rather than blocking trading over a
+  // diagnostic hiccup — this is a refinement on top of the real ranking
+  // below, not a dependency it can't run without.
+  let tierGates = {}, sectorGates = {};
+  try {
+    const { ok, trades } = await getClosedTrades();
+    if (ok) ({ tierGates, sectorGates } = computeLearningGates(trades));
+  } catch {}
+  const gatedOutTiers = eligible.filter(r => !isAllowed(tierGates[r.tier])).map(r => r.symbol);
+  const eligibleAfterLearning = eligible.filter(r => isAllowed(tierGates[r.tier]));
+  if (gatedOutTiers.length) {
+    console.log(`[Server autopilot] Learning Engine paused tier(s) for: ${gatedOutTiers.join(", ")}`);
+  }
+  if (!eligibleAfterLearning.length) return;
+
   const riskPct = Number(process.env.SERVER_AUTOPILOT_RISK) || 1;   // % of equity per FULL-size trade
   // Sector-correlation cap: don't hold more than N positions in one sector.
   const maxPerSector = Number(process.env.SERVER_AUTOPILOT_MAXSECTOR) || 3;
@@ -105,9 +125,11 @@ async function runServerAutopilot() {
   let slots = maxPos - positions.length;
   let placed = 0;
   let availCash = buyPower;   // running cash budget — decremented as buys are placed
-  for (const r of eligible) {
+  for (const r of eligibleAfterLearning) {
     if (slots <= 0) break;
     if (sectorCapExceeded({ positions: heldPositions, symbol: r.symbol, maxPerSector })) continue;
+    const sectorGate = sectorGates[sectorOf(r.symbol)];
+    if (!isAllowed(sectorGate)) { console.log(`[Server autopilot] Learning Engine paused sector for ${r.symbol}: ${sectorGate.reason}`); continue; }
     const entry = Number(r.entry), stop = Number(r.stop);
     const target = Number(r.target2) > entry ? Number(r.target2) : +(entry + (entry - stop) * 2).toFixed(2);
     const riskFrac = r.tier === "A" ? riskPct : riskPct * 0.5;   // Tier B trades at half size

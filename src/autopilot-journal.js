@@ -19,9 +19,10 @@ function appendJournal(entry) {
 }
 
 // Join journal entries (by symbol, most recent before close) with closed-trade P&L
-// and roll up win rate + avg R per TIER.
-function tierStats(closedTrades) {
-  const journal = readJournal();
+// and roll up win rate + avg R per TIER. `journalOverride` lets callers (tests,
+// learning-engine.js) inject a fixture journal instead of reading the real file.
+function tierStats(closedTrades, journalOverride) {
+  const journal = journalOverride || readJournal();
   const byTier = {};   // tier -> { n, wins, pnl, rSum }
   for (const t of (closedTrades || [])) {
     const closeTs = new Date(t.closedAt).getTime();

@@ -90,9 +90,11 @@ function avgHoldTime(closedTrades) {
 
 // Win rate / P&L grouped by sector — requires the sector tag added to
 // autopilot-journal.js entries; trades with no matching tagged sector are
-// excluded (not bucketed as a fake "unknown" pattern).
-function sectorPerformance(closedTrades) {
-  const journal = readJournal();
+// excluded (not bucketed as a fake "unknown" pattern). `journalOverride` lets
+// callers (tests, learning-engine.js) inject a fixture journal instead of
+// reading the real file.
+function sectorPerformance(closedTrades, journalOverride) {
+  const journal = journalOverride || readJournal();
   const buckets = {}; // sector -> { n, wins, pnl }
   for (const t of (closedTrades || [])) {
     const cand = journalMatchFor(t, journal);

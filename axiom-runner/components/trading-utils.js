@@ -643,10 +643,18 @@ export function addPaperOption(sym, uPrice, kind, opts = {}) {
 }
 
 // ── Alpaca PAPER order helpers (orders routed server-side; keys never in browser) ──
-export async function alpacaPlace(sym, qty, stop, take) {
+// setupTag/entry are optional — when passed, the server journals this buy under
+// that real setup tag (same store server-autopilot.js writes to) so the
+// Learning Engine's per-tier win rate covers browser-side buys too. Omitted by
+// callers that shouldn't be tagged (manual trades, Quick Trade) — unchanged
+// behavior for them.
+export async function alpacaPlace(sym, qty, stop, take, setupTag = null, entry = null) {
   try {
+    const body = { symbol: sym, qty, side: "buy", type: "market", stop_loss: stop, take_profit: take };
+    if (setupTag) body.setupTag = setupTag;
+    if (entry != null) body.entry = entry;
     const r = await fetch("/api/alpaca/order", { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ symbol: sym, qty, side: "buy", type: "market", stop_loss: stop, take_profit: take }) });
+      body: JSON.stringify(body) });
     return await r.json();
   } catch { return null; }
 }

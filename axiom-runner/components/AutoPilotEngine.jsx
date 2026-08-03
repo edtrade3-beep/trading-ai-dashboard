@@ -59,6 +59,20 @@ export default function AutoPilotEngine({ watchlistData, macroData, scanResults 
     return () => clearInterval(iv);
   }, []);
   const apStatsRef = useRef({ dayPnl: 0, lossStreak: 0, equity: 0 }); // Alpaca risk stats for the circuit breaker
+  // Learning Engine — real per-grade win rate off actual closed trades,
+  // shared with server-autopilot.js via the same /api/alpaca/learning-gates
+  // read (src/learning-engine.js). Client buys are tagged with gl.grade
+  // (A+/GOOD/etc, see alpacaPlace calls below) so they join the same real
+  // journal server-side buys already use — one shared statistics pool.
+  const learningGatesRef = useRef({ tierGates: {} });
+  useEffect(() => {
+    const poll = () => fetch("/api/alpaca/learning-gates").then(r => r.json()).then(d => {
+      if (d?.ok) learningGatesRef.current = { tierGates: d.tierGates || {} };
+    }).catch(() => {});
+    poll();
+    const t = setInterval(poll, 5 * 60_000);
+    return () => clearInterval(t);
+  }, []);
 
   // Keep the screen/tab awake while autopilot is ON so a laptop sleeping doesn't
   // pause trading. Re-acquires the lock when the tab becomes visible again.
@@ -180,7 +194,13 @@ export default function AutoPilotEngine({ watchlistData, macroData, scanResults 
         const scanRow = (scanResults || []).find(r => r.ticker === q.symbol);
         const gl = computeGreenLight(q, spyChg, scanRow, regimeScore);
         if (!(gl.px > 0)) return;
-        const bullish = aPlusMode ? gl.aPlus : (gl.signal === "GREEN" && gl.passed >= threshold);
+        // Learning Engine gate — real per-grade win rate off actual closed
+        // trades this app has tagged with gl.grade before. Cut-only: a grade
+        // is only ever paused by a real, sufficiently-sampled losing edge
+        // (src/learning-engine.js); with no real sample yet it stays open.
+        const gate = learningGatesRef.current?.tierGates?.[gl.grade];
+        const gradeAllowed = !gate || gate.allowed !== false;
+        const bullish = gradeAllowed && (aPlusMode ? gl.aPlus : (gl.signal === "GREEN" && gl.passed >= threshold));
         const bearishPut = false;  // puts disabled — no bearish option buys
         const shortSetup = doShort && gl.shortSignal === "SHORT" && gl.shortPassed >= threshold;
         if (!bullish && !shortSetup) return;
@@ -263,7 +283,7 @@ export default function AutoPilotEngine({ watchlistData, macroData, scanResults 
               const aiGate = localStorage.getItem("axiom_autopilot_aigate") === "on";
               const place = () => {
                 localStorage.setItem(tdayKey, String((Number(localStorage.getItem(tdayKey)) || 0) + 1));
-                return alpacaPlace(q.symbol, qty, stop, take).then(r => {
+                return alpacaPlace(q.symbol, qty, stop, take, gl.grade, entry).then(r => {
                   if (r?.ok) logTradeNote("buy", `🟢 ALPACA BUY — ${q.symbol} (A+ ${gl.aScore}, ${(riskFrac * 100).toFixed(2)}% risk)\n${qty} sh @ ~$${entry} (paper · bracket)\nStop $${stop} · Target $${take}`);
                   else { autoBoughtRef.current.delete(key); }
                 });
@@ -360,7 +380,7 @@ export default function AutoPilotEngine({ watchlistData, macroData, scanResults 
                 const riskPerShare = Math.max(0.01, entry - stop);
                 const riskFrac = (aPlusMode && gl2.confRisk > 0 ? gl2.confRisk : riskPct) / 100;
                 const qty = Math.max(1, Math.min(Math.floor((acct * riskFrac) / riskPerShare), Math.floor(acct / entry)));
-                alpacaPlace(bestUnplaced.q.symbol, qty, stop, take).then(r => {
+                alpacaPlace(bestUnplaced.q.symbol, qty, stop, take, gl2.grade, entry).then(r => {
                   if (r?.ok) {
                     autoBoughtRef.current.add(`${today}:${bestUnplaced.q.symbol}:S:alpaca`);
                     logTradeNote("buy", `🔄 ${AI_ACTIONS.ROTATE.label.toUpperCase()} — closed ${closeSym} (real quality ${Math.round(rotation.close.quality)}) → opened ${bestUnplaced.q.symbol} (real quality ${Math.round(rotation.open.quality)}, +${Math.round(rotation.improvement)} improvement)\n${qty} sh @ ~$${entry} (paper · bracket)\nStop $${stop} · Target $${take}`);

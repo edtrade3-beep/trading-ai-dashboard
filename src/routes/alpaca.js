@@ -1,7 +1,9 @@
 // Alpaca PAPER trading bridge — keys stay server-side, orders go to the paper API only.
 // Set ALPACA_KEY_ID and ALPACA_SECRET_KEY in the environment (use PAPER keys).
 const { writeJson } = require("../utils");
-const { tierStats } = require("../autopilot-journal");
+const { tierStats, appendJournal } = require("../autopilot-journal");
+const { computeLearningGates } = require("../learning-engine");
+const { sectorOf } = require("../risk-guardrails");
 const { resolveAlpacaKeys, alpacaTradingRequest } = require("../providers/alpaca-client");
 
 // keys()/alpaca() now thin aliases over the real shared client
@@ -146,6 +148,22 @@ async function handleAlpaca(req, res, requestUrl) {
     return writeJson(res, 200, { ok: true, tiers, totalTrades: trades.length });
   }
 
+  // Learning Engine — real tier/sector allow-gates derived from the same
+  // closed-trade + setup-tagged-journal join as tier-stats above, via
+  // src/learning-engine.js. Read by both autopilot buy loops (server-side
+  // directly; the client fetches this route) before opening new positions —
+  // this is the actual "use these statistics to improve future rankings"
+  // feedback loop the Green Light AI spec asks for. Cut-only: a tier/sector
+  // can only ever be paused by a real, sufficiently-sampled losing edge,
+  // never boosted by a good streak.
+  if (pathname === "/api/alpaca/learning-gates" && req.method === "GET") {
+    if (!configured) return writeJson(res, 200, { ok: false, reason: "no-alpaca-key", tierGates: {}, sectorGates: {} });
+    const { ok, trades, error } = await getClosedTrades();
+    if (!ok) return writeJson(res, 200, { ok: false, tierGates: {}, sectorGates: {}, error });
+    const { tierGates, sectorGates } = computeLearningGates(trades);
+    return writeJson(res, 200, { ok: true, tierGates, sectorGates, totalTrades: trades.length });
+  }
+
   if (pathname === "/api/alpaca/positions" && req.method === "GET") {
     if (!configured) return writeJson(res, 200, { ok: false, reason: "no-alpaca-key", positions: [] });
     const a = await alpaca("/v2/positions");
@@ -230,6 +248,19 @@ async function handleAlpaca(req, res, requestUrl) {
     if (order.type === "stop" && b.stop_price) order.stop_price = String(b.stop_price);
     const a = await alpaca("/v2/orders", "POST", order);
     if (!a._ok) return writeJson(res, 200, { ok: false, error: a.data?.message || "order rejected", status: a._status });
+    // Opt-in setup tagging — same real journal server-autopilot.js already
+    // writes to (autopilot-journal.js), joined against real closed-trade P&L
+    // by tierStats()/the Learning Engine. `b.setupTag` is caller-declared (the
+    // client AutoPilotEngine.jsx passes its real computeGreenLight() grade
+    // for aPlus-mode buys); untagged callers (manual trades, Quick Trade,
+    // mean-rev) are simply never journaled here, unchanged from before.
+    if (side === "buy" && b.setupTag) {
+      appendJournal({
+        ts: Date.now(), symbol, tier: String(b.setupTag).slice(0, 16), side: "long", qty,
+        entry: Number(b.entry) || 0, stop: Number(b.stop_loss) || 0, target: Number(b.take_profit) || 0,
+        source: "client", sector: sectorOf(symbol),
+      });
+    }
     return writeJson(res, 200, { ok: true, order: { id: a.data.id, symbol: a.data.symbol, qty: Number(a.data.qty), side: a.data.side, status: a.data.status } });
   }
 
@@ -273,4 +304,4 @@ async function handleAlpaca(req, res, requestUrl) {
   return writeJson(res, 404, { ok: false, error: "Unknown Alpaca endpoint" });
 }
 
-module.exports = { handleAlpaca };
+module.exports = { handleAlpaca, getClosedTrades };
