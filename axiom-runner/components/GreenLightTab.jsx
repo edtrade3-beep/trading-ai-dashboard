@@ -258,8 +258,19 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
   }).filter(r => r.px > 0).sort((a, b) => b.aScore - a.aScore || b.passed - a.passed);
 
   const green  = results.filter(r => r.signal === "GREEN");
-  const yellow = results.filter(r => r.signal === "YELLOW");
-  const red    = results.filter(r => r.signal === "RED");
+  // Alt Setup (2026-08-03, explicit user request for "more flexible logic" —
+  // does it have to be 4/5 to trade) — a real second qualifying path
+  // computeGreenLight now reports (BOS breakout / RVOL breakout / Higher
+  // Lows continuation / MACD+EMA momentum cross, always gated on the same
+  // real market-safe check). A stock that qualifies ONLY through this path
+  // (checklist itself is YELLOW/RED) is real and tradeable, so it moves up
+  // into Ready to Trade rather than sitting hidden in Watch/Skip — but
+  // never silently merged into `green` itself, since that would misreport
+  // WHY it qualifies (Row's badge below shows the real reason either way).
+  const altQualified = results.filter(r => r.signal !== "GREEN" && r.altSetup);
+  const readyToTrade = [...green, ...altQualified];
+  const yellow = results.filter(r => r.signal === "YELLOW" && !r.altSetup);
+  const red    = results.filter(r => r.signal === "RED" && !r.altSetup);
   // Put candidates — momentum breakdowns, ranked by Bear Score (only meaningful on red/weak tape).
   const puts   = results.filter(r => r.bearScore >= 60).sort((a, b) => b.bearScore - a.bearScore).slice(0, 12);
   // Call candidates — ranked by A+ Institutional Score.
@@ -325,15 +336,23 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
   const Row = ({ r }) => (
     <div style={{ ...accentCard(sigCol(r.signal)), padding: "12px 16px", marginBottom: 8 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        {/* Signal badge */}
+        {/* Signal badge — a row here via a real Alt Setup (not the classic
+            4-5/5 checklist) shows that real reason instead of the raw
+            checklist-derived Avoid/Wait, which would otherwise contradict
+            its place in Ready to Trade. The checklist itself (r.passed/
+            r.checks) is untouched and still shown below either way. */}
         <div style={{ textAlign: "center", minWidth: 64 }}>
           {/* Label unified to the shared AI_ACTIONS vocabulary
               (institutional redesign Phase 7, 2026-07-30) — same real
               GREEN/YELLOW/RED signal drives the color (sigCol/sigBg/sigIcon,
               untouched), only the displayed word changed. */}
-          <div style={{ fontFamily: MONO, fontSize: 11.5, fontWeight: 800, color: sigCol(r.signal) }}>
-            {r.signal === "GREEN" ? AI_ACTIONS.BUY.label : r.signal === "YELLOW" ? AI_ACTIONS.WAIT.label : AI_ACTIONS.AVOID.label}
-          </div>
+          {r.altSetup && r.signal !== "GREEN" ? (
+            <div title={r.altSetup.reason} style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 800, color: "#6d5dd3" }}>ALT SETUP</div>
+          ) : (
+            <div style={{ fontFamily: MONO, fontSize: 11.5, fontWeight: 800, color: sigCol(r.signal) }}>
+              {r.signal === "GREEN" ? AI_ACTIONS.BUY.label : r.signal === "YELLOW" ? AI_ACTIONS.WAIT.label : AI_ACTIONS.AVOID.label}
+            </div>
+          )}
           <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, ...num }}>{r.passed}/5</div>
         </div>
 
@@ -351,6 +370,7 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
               const sp = r.scoreParts;
               return <span title={`Trend ${sp.trend}/30 · Momentum ${sp.momentum}/20 · Volume ${sp.volume}/15 · Structure ${sp.structure}/20 · Risk ${sp.risk}/15${r.confRisk ? ` · size ${r.confRisk}%` : ""}`}
                 style={badge(gc, true)}>{r.grade} {r.aScore}</span>; })()}
+            {r.altSetup && <span title={r.altSetup.reason} style={badge("#6d5dd3")}>{r.altSetup.type}</span>}
             {r.confRisk > 0 && <span style={badge(C.accent)}>size {r.confRisk}%</span>}
             {r.signal !== "RED" && (r.atEntry
               ? <span style={badge(C.green)}>at buy zone</span>
@@ -744,7 +764,7 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
           </div>
         </div>
         <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
-          {[[green.length, "Ready", C.green], [yellow.length, "Watch", C.amber], [red.length, "Skip", C.red]].map(([n,l,col]) => (
+          {[[readyToTrade.length, "Ready", C.green], [yellow.length, "Watch", C.amber], [red.length, "Skip", C.red]].map(([n,l,col]) => (
             <div key={l} style={{ ...accentCard(col), padding: "7px 16px", textAlign: "center", minWidth: 66 }}>
               <div style={{ ...num, fontFamily: MONO, fontSize: 19, fontWeight: 800, color: col, lineHeight: 1.1 }}>{n}</div>
               <div style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim, marginTop: 1 }}>{l}</div>
@@ -797,8 +817,8 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
           <div>
             <div style={{ ...sectionLabel, color: C.green, marginBottom: 6 }}>Before Buying</div>
             {[
-              "Only buy GREEN (4-5/5)",
-              "Skip yellow. Skip red.",
+              "Buy GREEN (4-5/5), or a real Alt Setup",
+              "No Alt Setup? Skip yellow. Skip red.",
               "No trading on red market days",
               "Never chase — no FOMO",
             ].map(r => (
@@ -843,13 +863,13 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
         </div>
       </div>
 
-      {/* GREEN results */}
-      {green.length > 0 && (
+      {/* GREEN + real Alt Setup results */}
+      {readyToTrade.length > 0 && (
         <div style={{ marginBottom: 20 }}>
           <div style={{ ...sectionLabel, color: C.green, marginBottom: 10 }}>
-            Ready to Trade ({green.length})
+            Ready to Trade ({readyToTrade.length})
           </div>
-          {green.map(r => <Row key={r.symbol} r={r} />)}
+          {readyToTrade.map(r => <Row key={r.symbol} r={r} />)}
         </div>
       )}
 

@@ -236,6 +236,33 @@ export function computeGreenLight(q, spyChg, scanRow, regime = null, trend = nul
 
   const passed = checks.filter(c => c.pass).length;
   const signal = passed >= 4 ? "GREEN" : passed >= 3 ? "YELLOW" : "RED";
+
+  // ── Alt Setup — a second, independent real qualifying path (2026-08-03,
+  // explicit user request: "does it have to be 4/5 to trade, more flexible
+  // logic"). The 5-check system above stays exactly as-is (nothing about
+  // GREEN/passed changes) — this is additive: a stock can ALSO qualify as
+  // tradeable via a real technical setup even when it doesn't clear 4/5,
+  // as long as the market is still safe (never bypassed, same non-
+  // negotiable gate as check #1). Each candidate reuses data already
+  // computed above or already real elsewhere in this app — zero new
+  // fetches, zero fabricated signals. Only the single strongest real match
+  // is reported (checked in this priority order).
+  const marketSafeForAlt = spyChg > -0.5;
+  const bosBullish = trend?.smc?.bos?.type === "BULL_BOS";
+  const rvolBreakout = rvol >= 2.5 && chg > 1 && !(abovePivotPct != null && abovePivotPct > 10);
+  const higherLowsGoing = trend?.higherLows === true && (rsiKnown ? rsi >= 50 : chg > 0);
+  const macdEmaCross = macdBull === true && ema9 > 0 && ema21 > 0 && ema9 > ema21;
+  const altCandidates = [
+    { type: "BOS Breakout", pass: bosBullish, reason: "Real bullish break of structure (smc-engine)" },
+    { type: "RVOL Breakout", pass: rvolBreakout, reason: `RVOL ${rvol.toFixed(1)}x with a real ${chg >= 0 ? "+" : ""}${chg.toFixed(1)}% move` },
+    { type: "Higher Lows Continuation", pass: higherLowsGoing, reason: "Real rising swing-low sequence, momentum positive" },
+    { type: "MACD/EMA Momentum Cross", pass: macdEmaCross, reason: "Real MACD bullish crossover + EMA9 > EMA21" },
+  ];
+  const altMatch = marketSafeForAlt ? altCandidates.find(a => a.pass) : null;
+  const altSetup = altMatch ? { type: altMatch.type, reason: altMatch.reason } : null;
+  // Real, honest combined gate — GREEN via the classic checklist, OR a real
+  // Alt Setup. Never true just because the market happens to be calm.
+  const tradeable = signal === "GREEN" || altSetup != null;
   // ── ATR-based stop (volatility-sized, not flat 3%) with +5% / +10% targets ──
   const stop   = px > 0 ? (px * (1 - atrPct * 1.5)).toFixed(2) : 0;
   const t1     = px > 0 ? (px * 1.05).toFixed(2) : 0;
@@ -382,7 +409,7 @@ export function computeGreenLight(q, spyChg, scanRow, regime = null, trend = nul
   const invalidation = trend ? (Array.isArray(trend.setup && trend.setup.sellSignals) ? trend.setup.sellSignals : []) : null;
 
   return {
-    checks, passed, signal, px, chg, stop, t1, t2, rvol, rsi, atrPct, invalidation,
+    checks, passed, signal, altSetup, tradeable, px, chg, stop, t1, t2, rvol, rsi, atrPct, invalidation,
     shortChecks, shortPassed, shortSignal,
     bestEntry: +bestEntry.toFixed(2), entryNote, relStrength: +relStrength.toFixed(2), isLeader,
     rr: +rr.toFixed(1), rrPass, atEntry,

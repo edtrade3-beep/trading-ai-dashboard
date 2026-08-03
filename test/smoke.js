@@ -870,6 +870,42 @@ console.log("Checking institutional-redesign presentation-layer modules (ESM, lo
     assert.strictEqual(optionsExecutionNote({}), null, "honest null with no real IV input");
   });
 
+  const { computeGreenLight } = await import("../axiom-runner/components/trading-utils.js");
+  ok("computeGreenLight altSetup: real BOS breakout makes a RED (1/5) setup tradeable", () => {
+    const q = { price: 100, volume: 1_000_000, changesPercentage: -1 };
+    const scanRow = { ema21v: 0, ema9v: 0, macdBull: false, rsiVal: 0 };
+    const trend = { stage: "Stage 1", smc: { bos: { type: "BULL_BOS" } }, higherLows: false };
+    const gl = computeGreenLight(q, 0.5, scanRow, null, trend);
+    assert.strictEqual(gl.passed, 1);
+    assert.strictEqual(gl.signal, "RED");
+    assert.strictEqual(gl.altSetup?.type, "BOS Breakout");
+    assert.strictEqual(gl.tradeable, true);
+  });
+  ok("computeGreenLight altSetup: real RVOL breakout (5x + real +3% move) makes a non-GREEN setup tradeable", () => {
+    const q = { price: 50, volume: 5_000_000, avgVolume: 1_000_000, changesPercentage: 3 };
+    const scanRow = { ema21v: 0, ema9v: 0, macdBull: false, rsiVal: 0 };
+    const gl = computeGreenLight(q, 0.2, scanRow, null, null);
+    assert.notStrictEqual(gl.signal, "GREEN", "classic checklist alone must NOT already qualify this fixture — the alt path is what's under test");
+    assert.strictEqual(gl.altSetup?.type, "RVOL Breakout");
+    assert.strictEqual(gl.tradeable, true);
+  });
+  ok("computeGreenLight altSetup: an unsafe market blocks the alt path even with a real BOS breakout", () => {
+    const q = { price: 100, volume: 1_000_000, changesPercentage: -1 };
+    const scanRow = { ema21v: 0, ema9v: 0, macdBull: false, rsiVal: 0 };
+    const trend = { stage: "Stage 1", smc: { bos: { type: "BULL_BOS" } }, higherLows: false };
+    const gl = computeGreenLight(q, -1, scanRow, null, trend); // SPY -1% — market NOT safe
+    assert.strictEqual(gl.altSetup, null);
+    assert.strictEqual(gl.tradeable, false);
+  });
+  ok("computeGreenLight altSetup: a real GREEN (5/5) setup is tradeable via the classic path regardless", () => {
+    const q = { price: 100, priceAvg50: 90, priceAvg200: 80, volume: 2_000_000, avgVolume: 1_000_000, changesPercentage: 1 };
+    const scanRow = { ema21v: 98, ema9v: 99, macdBull: true, rsiVal: 55 };
+    const gl = computeGreenLight(q, 0.2, scanRow, null, null);
+    assert.strictEqual(gl.passed, 5);
+    assert.strictEqual(gl.signal, "GREEN");
+    assert.strictEqual(gl.tradeable, true);
+  });
+
   console.log(`\n${passed} checks passed.`);
   if (process.exitCode) console.error("SMOKE TEST FAILED"); else console.log("SMOKE TEST OK");
 

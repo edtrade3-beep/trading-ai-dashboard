@@ -18,6 +18,16 @@ import { AI_ACTIONS } from "./ai-actions.js";
 // mode" positions only ever exited via stop-loss or the >3%/<-3%
 // single-day fallback, silently never via the intended graceful
 // "underlying's real trend crossed against the position" signal.
+// Real setup tag for the Learning Engine journal — a buy through the
+// classic checklist tags with its real grade (unchanged); a buy through
+// the real Alt Setup path tags with a distinct short code instead, so
+// tierStats() can independently see whether each Alt Setup type actually
+// wins over time, rather than mixing its trades into the grade buckets.
+const ALT_TAG = { "BOS Breakout": "ALT:BOS", "RVOL Breakout": "ALT:RVOL", "Higher Lows Continuation": "ALT:HL", "MACD/EMA Momentum Cross": "ALT:MACD" };
+function setupTagFor(gl) {
+  return gl.altSetup ? (ALT_TAG[gl.altSetup.type] || "ALT:OTHER") : gl.grade;
+}
+
 function trendReversed(trend, wantsBullishExit) {
   const stage = String(trend?.stage || "");
   if (wantsBullishExit) return stage.startsWith("Stage 2");
@@ -192,7 +202,12 @@ export default function AutoPilotEngine({ watchlistData, macroData, scanResults 
       const candidates = [];
       (watchlistData || []).forEach(q => {
         const scanRow = (scanResults || []).find(r => r.ticker === q.symbol);
-        const gl = computeGreenLight(q, spyChg, scanRow, regimeScore);
+        // trendMapRef — same real /api/market/trend-screen data this file
+        // already fetches for its own exit-mode trend checks (zero new
+        // fetch) — threaded through so computeGreenLight's real Alt Setup
+        // BOS/Higher-Lows paths can actually fire here too, not just the
+        // RVOL/MACD ones that don't need a trend row.
+        const gl = computeGreenLight(q, spyChg, scanRow, regimeScore, trendMapRef.current[q.symbol]);
         if (!(gl.px > 0)) return;
         // Learning Engine gate — real per-grade win rate off actual closed
         // trades this app has tagged with gl.grade before. Cut-only: a grade
@@ -200,7 +215,16 @@ export default function AutoPilotEngine({ watchlistData, macroData, scanResults 
         // (src/learning-engine.js); with no real sample yet it stays open.
         const gate = learningGatesRef.current?.tierGates?.[gl.grade];
         const gradeAllowed = !gate || gate.allowed !== false;
-        const bullish = gradeAllowed && (aPlusMode ? gl.aPlus : (gl.signal === "GREEN" && gl.passed >= threshold));
+        // Alt Setup (2026-08-03, explicit user request for more flexible
+        // qualifying logic) — computeGreenLight's own real second path
+        // (BOS/RVOL/Higher-Lows/MACD breakout, always gated on the same
+        // real market-safe check as the classic checklist), OR'd onto the
+        // existing classic-checklist gate rather than replacing it — the
+        // user's own configurable `threshold` still applies unchanged to
+        // the classic path. Only applies in non-A+ mode — A+ mode already
+        // has its own separate real institutional-score gate (gl.aPlus)
+        // and isn't loosened by this.
+        const bullish = gradeAllowed && (aPlusMode ? gl.aPlus : ((gl.signal === "GREEN" && gl.passed >= threshold) || gl.altSetup != null));
         const bearishPut = false;  // puts disabled — no bearish option buys
         const shortSetup = doShort && gl.shortSignal === "SHORT" && gl.shortPassed >= threshold;
         if (!bullish && !shortSetup) return;
@@ -283,7 +307,7 @@ export default function AutoPilotEngine({ watchlistData, macroData, scanResults 
               const aiGate = localStorage.getItem("axiom_autopilot_aigate") === "on";
               const place = () => {
                 localStorage.setItem(tdayKey, String((Number(localStorage.getItem(tdayKey)) || 0) + 1));
-                return alpacaPlace(q.symbol, qty, stop, take, gl.grade, entry).then(r => {
+                return alpacaPlace(q.symbol, qty, stop, take, setupTagFor(gl), entry).then(r => {
                   if (r?.ok) logTradeNote("buy", `🟢 ALPACA BUY — ${q.symbol} (A+ ${gl.aScore}, ${(riskFrac * 100).toFixed(2)}% risk)\n${qty} sh @ ~$${entry} (paper · bracket)\nStop $${stop} · Target $${take}`);
                   else { autoBoughtRef.current.delete(key); }
                 });
@@ -380,7 +404,7 @@ export default function AutoPilotEngine({ watchlistData, macroData, scanResults 
                 const riskPerShare = Math.max(0.01, entry - stop);
                 const riskFrac = (aPlusMode && gl2.confRisk > 0 ? gl2.confRisk : riskPct) / 100;
                 const qty = Math.max(1, Math.min(Math.floor((acct * riskFrac) / riskPerShare), Math.floor(acct / entry)));
-                alpacaPlace(bestUnplaced.q.symbol, qty, stop, take, gl2.grade, entry).then(r => {
+                alpacaPlace(bestUnplaced.q.symbol, qty, stop, take, setupTagFor(gl2), entry).then(r => {
                   if (r?.ok) {
                     autoBoughtRef.current.add(`${today}:${bestUnplaced.q.symbol}:S:alpaca`);
                     logTradeNote("buy", `🔄 ${AI_ACTIONS.ROTATE.label.toUpperCase()} — closed ${closeSym} (real quality ${Math.round(rotation.close.quality)}) → opened ${bestUnplaced.q.symbol} (real quality ${Math.round(rotation.open.quality)}, +${Math.round(rotation.improvement)} improvement)\n${qty} sh @ ~$${entry} (paper · bracket)\nStop $${stop} · Target $${take}`);
