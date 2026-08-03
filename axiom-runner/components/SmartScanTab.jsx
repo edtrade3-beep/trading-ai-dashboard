@@ -564,9 +564,15 @@ export default function SmartScanTab({
                   <table style={{ width: "100%", borderCollapse: "collapse", minWidth: isTablet ? 900 : "auto" }}>
                     <thead>
                       <tr style={{ background: C.surface }}>
+                        {/* Column labels — must match the <td> sequence in each row exactly
+                            (real bug fixed 2026-08-03: this list used to be short by 2-3
+                            entries, so every header from PRICE onward sat over the wrong
+                            data column — e.g. "RSI" over the live Price cell. RSI/Upside/
+                            raw Thesis text columns were also dropped here since they only
+                            duplicated info already in the Ticker cell's Quick Read chips.) */}
                         {(isTablet
-                          ? ["#","SCORE","SIGNAL","TICKER","PRICE","ZONE",""]
-                          : ["#","SCORE","SIGNAL","TICKER","PRICE","RSI","ZONE","UPSIDE","THESIS",""]
+                          ? ["#","SCORE","SIGNAL","TICKER","PRICE","ZONE","PATTERN",""]
+                          : ["#","SCORE","SIGNAL","TICKER","SECTOR","PRICE","ZONE","PATTERN","SHORT %",""]
                         ).map(h => (
                           <th key={h} style={{ fontFamily: MONO, fontSize: isTablet ? 11 : 10, fontWeight: 700,
                             color: C.textDim, padding: isTablet ? "10px 10px" : "8px 10px",
@@ -898,16 +904,6 @@ export default function SmartScanTab({
                                 )}
                               </td>
 
-                              {/* RSI — shown inline in Quick Read, hidden as separate column */}
-                              {!isTablet && (
-                              <td style={{ fontFamily: MONO, fontSize: 12, textAlign: "center",
-                                padding: "12px 10px", borderBottom: `1px solid ${C.border}22`,
-                                color: row.rsiVal === null ? C.textDim : row.rsiVal < 30 ? C.green : row.rsiVal > 70 ? C.red : C.text,
-                                fontWeight: row.rsiVal !== null ? 700 : 400 }}>
-                                {row.rsiVal !== null ? row.rsiVal.toFixed(0) : "—"}
-                              </td>
-                              )}
-
                               {/* Zone */}
                               <td style={{ fontFamily: MONO, fontSize: 12, textAlign: "center",
                                 padding: "12px 10px", borderBottom: `1px solid ${C.border}22`,
@@ -978,22 +974,12 @@ export default function SmartScanTab({
                                 );
                               })()}
 
-                              {/* Upside — hidden on tablet */}
-                              {!isTablet && (
-                              <td style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800,
-                                textAlign: "center", padding: "12px 10px",
-                                borderBottom: `1px solid ${C.border}22`,
-                                color: C.amber }}>
-                                {ref?.upside || "—"}
-                              </td>
-                              )}
-
-                              {/* Thesis — tap to expand indicator */}
-                              <td style={{ fontFamily: MONO, fontSize: 12, color: C.textSec,
-                                padding: "12px 12px", borderBottom: `1px solid ${C.border}22`,
-                                whiteSpace: "nowrap" }}>
-                                {!isTablet && (ref?.thesis || "—")}
-                                <span style={{ marginLeft: isTablet ? 0 : 6, color: C.accent, fontSize: isTablet ? 18 : 11 }}>
+                              {/* Expand indicator — raw Thesis text + Upside% dropped here (both
+                                  already surfaced compactly in the Ticker cell's Quick Read chips
+                                  above; this column was pure duplication of that same data). */}
+                              <td style={{ padding: "12px 12px", borderBottom: `1px solid ${C.border}22`,
+                                textAlign: "center" }}>
+                                <span style={{ color: C.accent, fontSize: isTablet ? 18 : 13 }}>
                                   {isExpanded ? "▲" : "▼"}
                                 </span>
                               </td>
@@ -1002,7 +988,7 @@ export default function SmartScanTab({
                             {/* ── Deep Dive row ── */}
                             {isExpanded && (
                               <tr>
-                                <td colSpan={isTablet ? 10 : 15}
+                                <td colSpan={isTablet ? 8 : 10}
                                   style={{ background: C.bg,
                                     borderLeft: `3px solid ${row.sColor}`,
                                     borderBottom: `2px solid ${row.sColor}44`,
