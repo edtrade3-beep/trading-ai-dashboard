@@ -93,6 +93,15 @@ async function handleRequest(req, res) {
       return await handleHealth(req, res, requestUrl);
     }
 
+    // Real diagnostic for the Watchlist Green Light entry alert (2026-08-03,
+    // explicit user need — no way to confirm whether the automatic alert
+    // already fired for a given symbol without SSH access to Render's disk).
+    // Read-only, no auth needed (same category as /api/health).
+    if (pathname === "/api/market/greenlight-alert-status" && req.method === "GET") {
+      const { getAlertState } = require("./watchlist-greenlight-alerts");
+      return writeJson(res, 200, { ok: true, state: getAlertState() });
+    }
+
     if (pathname === "/api/webhooks/tradingview" || pathname === "/api/market/tv-alerts") {
       return await handleWebhooks(req, res, requestUrl);
     }

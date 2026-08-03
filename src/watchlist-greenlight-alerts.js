@@ -96,4 +96,14 @@ async function checkWatchlistGreenLightAlerts() {
   return { ok: true, checked: symbols.length, alerts };
 }
 
-module.exports = { checkWatchlistGreenLightAlerts };
+// Real diagnostic read for GET /api/market/greenlight-alert-status
+// (2026-08-03, explicit user need: no way to confirm whether this alert
+// already fired for a symbol without SSH access to Render's disk) — returns
+// the exact persisted state this job's own diff logic reads from, so
+// "will this fire" / "did this already fire" can be checked directly
+// instead of guessed at.
+function getAlertState() {
+  return loadState();
+}
+
+module.exports = { checkWatchlistGreenLightAlerts, getAlertState };
