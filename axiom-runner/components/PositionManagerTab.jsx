@@ -121,7 +121,15 @@ export default function PositionManagerTab({ C, MONO, SANS }) {
                     <td style={{ ...td, color: C.text }}>${p.currentPremium}</td>
                     <td style={{ ...td, fontWeight: 800, color: p.pnl >= 0 ? C.green : C.red }}>{p.pnl != null ? `$${p.pnl} (${p.pnlPct}%)` : "—"}</td>
                     <td style={{ ...td, color: C.textDim }}>{p.exitSignals?.exitScore ?? "—"}</td>
-                    <td style={{ ...td, fontWeight: 800, color: recColor(p.exitSignals?.recommendation) }}>{p.exitSignals?.recommendation || "Not yet priced"}</td>
+                    {/* Real reasons array (audit fix, 2026-08-04) — computeExitSignals
+                        already produces this (e.g. "3 real days to expiry — theta decay
+                        accelerating") and it was already used in the real Telegram exit
+                        alert, but never surfaced here — a user saw "Exit Now" in red
+                        with zero explanation of why. */}
+                    <td style={{ ...td, fontWeight: 800, color: recColor(p.exitSignals?.recommendation), cursor: p.exitSignals?.reasons?.length ? "help" : "default" }}
+                      title={p.exitSignals?.reasons?.length ? p.exitSignals.reasons.join(" · ") : undefined}>
+                      {p.exitSignals?.recommendation || "Not yet priced"}
+                    </td>
                     <td style={{ ...td, whiteSpace: "nowrap" }}>
                       <button disabled={busyId === p.id} onClick={() => reprice(p.id)} style={{ fontFamily: MONO, fontSize: 10, padding: "4px 8px", borderRadius: 6, border: `1px solid ${C.border}`, background: "transparent", color: C.text, cursor: "pointer", marginRight: 6 }}>Reprice</button>
                       <button disabled={busyId === p.id} onClick={() => closePos(p.id)} style={{ fontFamily: MONO, fontSize: 10, padding: "4px 8px", borderRadius: 6, border: "none", background: C.red, color: "#fff", cursor: "pointer" }}>Close</button>
