@@ -102,6 +102,48 @@ async function handleRequest(req, res) {
       return writeJson(res, 200, { ok: true, state: getAlertState() });
     }
 
+    // Temporary diagnostic (2026-08-03) — real check of which FMP endpoints
+    // this app's actual configured key/plan can reach, so new features get
+    // built on confirmed-working endpoints instead of guessed-at ones.
+    // Read-only, no auth needed, safe to remove once the FMP expansion work
+    // this unblocks is done.
+    if (pathname === "/api/market/fmp-plan-check" && req.method === "GET") {
+      const { resolveProviderKeys } = require("./config");
+      const keys = resolveProviderKeys(requestUrl.searchParams);
+      if (!keys.fmp) return writeJson(res, 200, { ok: false, reason: "no-fmp-key" });
+      const k = encodeURIComponent(keys.fmp);
+      const sym = "AAPL";
+      const candidates = [
+        ["quote (already used)", `https://financialmodelingprep.com/api/v3/quote/${sym}?apikey=${k}`],
+        ["stable real-time quote", `https://financialmodelingprep.com/stable/quote?symbol=${sym}&apikey=${k}`],
+        ["insider trading", `https://financialmodelingprep.com/api/v4/insider-trading?symbol=${sym}&page=0&apikey=${k}`],
+        ["institutional ownership (13F)", `https://financialmodelingprep.com/api/v4/institutional-ownership/symbol-ownership?symbol=${sym}&includeCurrentQuarter=false&apikey=${k}`],
+        ["SEC filings", `https://financialmodelingprep.com/api/v3/sec_filings/${sym}?apikey=${k}`],
+        ["stock screener", `https://financialmodelingprep.com/api/v3/stock-screener?marketCapMoreThan=1000000000&limit=5&apikey=${k}`],
+        ["sector performance", `https://financialmodelingprep.com/api/v3/sector-performance?apikey=${k}`],
+        ["stock news (equity)", `https://financialmodelingprep.com/api/v3/stock_news?tickers=${sym}&limit=1&apikey=${k}`],
+        ["earnings calendar", `https://financialmodelingprep.com/api/v3/earning_calendar?apikey=${k}`],
+        ["technical indicator (RSI)", `https://financialmodelingprep.com/api/v3/technical_indicator/daily/${sym}?type=rsi&period=14&apikey=${k}`],
+        ["price target consensus (already used)", `https://financialmodelingprep.com/api/v3/price-target-consensus/${sym}?apikey=${k}`],
+        ["historical price full", `https://financialmodelingprep.com/api/v3/historical-price-full/${sym}?timeseries=3&apikey=${k}`],
+      ];
+      const results = await Promise.all(candidates.map(async ([label, url]) => {
+        try {
+          const r = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
+          let body = null;
+          try { body = await r.json(); } catch {}
+          const locked = !r.ok || (body && typeof body === "object" && !Array.isArray(body) && body["Error Message"]);
+          return {
+            label, status: r.status, ok: r.ok && !locked,
+            note: locked ? (body?.["Error Message"] || `HTTP ${r.status}`) : `${Array.isArray(body) ? body.length : "object"} real result(s)`,
+          };
+        } catch (e) {
+          return { label, status: null, ok: false, note: e.message };
+        }
+      }));
+      return writeJson(res, 200, { ok: true, results });
+    }
+
     if (pathname === "/api/webhooks/tradingview" || pathname === "/api/market/tv-alerts") {
       return await handleWebhooks(req, res, requestUrl);
     }
