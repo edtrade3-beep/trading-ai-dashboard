@@ -824,6 +824,7 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
               "T1 +5% → sell HALF",
               "T2 +10% → sell the rest",
               "2 losses = STOP for the day",
+              "WEAKEST-tagged position? Rotate it for a stronger setup.",
             ].map(r => (
               <div key={r} style={{ fontFamily: SANS, fontSize: 12, color: C.text, padding: "3px 0", display: "flex", gap: 6 }}>
                 <span style={{ color: C.red }}>✓</span>{r}
