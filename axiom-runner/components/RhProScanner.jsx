@@ -520,7 +520,7 @@ export default function RhProScanner({
               SmartScanTab.jsx's own per-row deep-dive already uses. */}
           <thead><tr>
             {[
-              ["#", null], ["TICKER", null], ["GRADE", "grade"], ["CONVICTION", null],
+              ["#", null], ["TICKER", null], ["GRADE", "grade"], ["QUALITY", null],
               ["TREND", "trend"], ["ACTION", null], ["ENTRY → STOP", null],
             ].map(([h, key]) => (
               <th key={h} style={{ ...th, cursor: key ? "pointer" : "default" }} onClick={key ? () => toggleSort(key) : undefined} title={key ? "Click to sort" : undefined}>
@@ -532,7 +532,18 @@ export default function RhProScanner({
             {shown.map((r, i) => {
               const win = track ? winProbFor(track, r.aplus?.score ?? r.score) : null;
               const grade = r.institutionalGrade ? institutionalLetterGrade(r.institutionalGrade.score) : "—";
+              // institutionalRecommendation's own "Buy/Hold/Sell" wording is
+              // correct in isolation (MarketTerminalTab's standalone AI Score
+              // Card) but reads as a direct contradiction sitting next to
+              // this row's own real ACTION verdict (real user report,
+              // 2026-08-03: "action one says buy other one watch") — the two
+              // measure different things (business quality vs. real entry
+              // timing) and can legitimately disagree, same as TrendChart's
+              // documented GO/WAIT-vs-AI-Score-Card divergence. Re-labeled to
+              // quality words that can't be misread as a second, conflicting
+              // trade command; the real score/stars are unchanged.
               const rec = r.institutionalGrade ? institutionalRecommendation(r.institutionalGrade.score) : null;
+              const QUALITY_WORD = { "Strong Buy": "Excellent", "Buy": "Strong", "Hold": "Neutral", "Sell": "Weak", "Strong Sell": "Poor" };
               let action = mapToAiAction({ institutionalScore: r.institutionalGrade?.score, nextAction: r.next?.action });
               // ROTATE override — Green Light AI spec's Portfolio Manager
               // read as a per-row Scanner Recommendation, not just the
@@ -569,7 +580,7 @@ export default function RhProScanner({
                   )}
                 </td>
                 <td style={cell}>
-                  {rec && <span title={`Institutional Grade ${r.institutionalGrade.score}/100`} style={{ fontSize: 11, fontWeight: 800, color: rec.color }}>{rec.label} {"★".repeat(rec.stars)}{"☆".repeat(5 - rec.stars)}</span>}
+                  {rec && <span title={`Institutional Grade ${r.institutionalGrade.score}/100 — business/setup quality, not a timing call. See ACTION for real entry timing.`} style={{ fontSize: 11, fontWeight: 800, color: rec.color }}>{QUALITY_WORD[rec.label] || rec.label} {"★".repeat(rec.stars)}{"☆".repeat(5 - rec.stars)}</span>}
                 </td>
                 <td style={{ ...cell, fontSize: 11, color: (r.stage || "").includes("2") ? C.green : (r.stage || "").includes("4") ? C.red : C.textDim }}>
                   {r.passCount ?? "?"}/8 · {(r.stage || "").replace(/ —.*/, "").slice(0, 14) || "—"}

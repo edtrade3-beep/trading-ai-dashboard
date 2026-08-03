@@ -130,7 +130,14 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
       handleScroll: { mouseWheel: false, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
       handleScale: { mouseWheel: false, pinch: true, axisPressedMouseMove: true },
     });
-    const candle = chart.addCandlestickSeries({ upColor: C.green, downColor: C.red, borderUpColor: C.green, borderDownColor: C.red, wickUpColor: C.green, wickDownColor: C.red });
+    // priceLineVisible/lastValueVisible: false here too (real live bug,
+    // screenshot 2026-08-03: "confusion" — the library's own default
+    // last-price marker rendered with no text label at all, right next to
+    // the labeled STOP price line, and the two looked like one box with two
+    // stacked numbers). An explicit, clearly-labeled "PRICE" line is drawn
+    // below instead (same pl() helper PIVOT/STOP/etc. use), so the current
+    // price always carries a real title the way every other level does.
+    const candle = chart.addCandlestickSeries({ upColor: C.green, downColor: C.red, borderUpColor: C.green, borderDownColor: C.red, wickUpColor: C.green, wickDownColor: C.red, priceLineVisible: false, lastValueVisible: false });
     // priceLineVisible/lastValueVisible: false — every other overlay series
     // in this chart (MA50/150/200, Bollinger Bands, via mk() below) already
     // suppresses its own last-value label; volume never got the same
@@ -257,8 +264,14 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
 
     s.priceLines.forEach(pl => { try { s.candle.removePriceLine(pl); } catch {} }); s.priceLines = [];
     const su = data.setup, LS = window.LightweightCharts.LineStyle || {};
+    const pl = (price, color, title, style) => s.priceLines.push(s.candle.createPriceLine({ price, color, lineWidth: 1, lineStyle: style, axisLabelVisible: true, title }));
+    // Real current price, explicitly labeled — replaces the native
+    // candle-series marker disabled above. Same up/down coloring the volume
+    // histogram already uses (close vs. that bar's own open).
+    const lastBar = bars[n - 1];
+    const curPrice = Number(data.price) || (lastBar ? lastBar.close : null);
+    if (curPrice != null) pl(curPrice, lastBar && lastBar.close >= lastBar.open ? C.green : C.red, "PRICE", LS.Solid ?? 0);
     if (su) {
-      const pl = (price, color, title, style) => s.priceLines.push(s.candle.createPriceLine({ price, color, lineWidth: 1, lineStyle: style, axisLabelVisible: true, title }));
       pl(su.entry, C.accent, "PIVOT", LS.Dashed ?? 2);
       if (su.actionable) {
         pl(su.stop, C.red, "STOP", LS.Dashed ?? 2);
@@ -326,6 +339,7 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
   const vColor = verdict === "GO" ? "#22d47e" : verdict === "WAIT" ? "#d6a312" : "#ef4444";
   const glossary = [
     ["📊 TREND & BASE RATING", "Blends the 8-point trend-template pass rate with real VCP base quality, penalized for a deep base. A different real lens than the AI Score Card above (which grades 7 broader factors — smart money, options flow, fundamentals, macro, sector). The two can legitimately disagree; neither overrides the other."],
+    ["⬤ PRICE", "The real current/last price — green if today's candle is up, red if down."],
     ["🔵 PIVOT", "Top of the recent base — buy on a break ABOVE it with volume ≥1.4× average. The breakout trigger."],
     ["⚪ BASE LOW", "Bottom of the base. If price falls back here the setup has failed — often where the stop goes."],
     ["🔴 STOP", "Where you exit if wrong — the tighter of −8% or just under the base low."],
@@ -335,42 +349,52 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
   return (
     <div style={{ position: "relative", width: "100%", height: H }}>
       <div ref={elRef} style={{ width: "100%", height: H }} />
-      {/* ⓘ hover glossary — explains the levels drawn on the chart. */}
-      <div
-        onMouseEnter={() => setShowInfo(true)} onMouseLeave={() => setShowInfo(false)}
-        onClick={() => setShowInfo(v => !v)}
-        style={{ position: "absolute", top: 10, right: 60, zIndex: 5, cursor: "help",
-          width: 22, height: 22, borderRadius: "50%", background: (C.card || "#fff") + "f2",
-          border: `1px solid ${C.border}`, color: C.textDim, fontFamily: SANS, fontSize: 13, fontWeight: 800,
-          display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 1px 6px rgba(0,0,0,0.15)" }}>
-        ⓘ
-        {showInfo && (
-          <div style={{ position: "absolute", top: 26, right: 0, width: 288, textAlign: "left", cursor: "default",
-            background: (C.card || "#fff"), border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 12px",
-            boxShadow: "0 6px 24px rgba(0,0,0,0.28)" }}>
-            <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.text, marginBottom: 6 }}>CHART LEVELS</div>
-            {glossary.map(([k, v]) => (
-              <div key={k} style={{ marginBottom: 6 }}>
-                <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.text }}>{k}</span>
-                <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.textSec, lineHeight: 1.45 }}>{v}</div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
       {data && (
         // Top-LEFT so it never collides with the right price axis or the AI-TARGET label.
         // Fully opaque background (not ~95%) — the chart's horizontal price-
         // level reference lines span the full width and were faintly visible
         // through the card, crossing right through the rating text.
-        <div style={{ position: "absolute", top: 10, left: 12, pointerEvents: "none",
+        <div style={{ position: "absolute", top: 10, left: 12, pointerEvents: "none", zIndex: 5,
           background: C.card || "#fff", border: `1px solid ${rColor}`, borderRadius: 12, padding: "8px 14px", boxShadow: "0 2px 10px rgba(0,0,0,0.18)", minWidth: 132 }}>
           {/* "OVERALL RATING" renamed (2026-07-29, real user-reported
               confusion) — read as THE single verdict, directly competing
               with the AI Score Card's own recommendation above even though
               they're two different real scores that can legitimately
               disagree. See the glossary entry (ⓘ) for the full explanation. */}
-          <div style={{ fontFamily: SANS, fontSize: 9, fontWeight: 700, color: C.textDim, letterSpacing: 1 }}>TREND & BASE RATING</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <span style={{ fontFamily: SANS, fontSize: 9, fontWeight: 700, color: C.textDim, letterSpacing: 1 }}>TREND & BASE RATING</span>
+            {/* ⓘ hover glossary — moved inline here (2026-08-03, real live
+                confusion) from a floating top-right button, which sat
+                directly over the right price-scale axis, right where
+                PIVOT/T1/PRICE's own labels render, reading as if it were
+                attached to one of them. Now anchored to the exact metric it
+                explains. pointerEvents:auto overrides the card's own
+                pointerEvents:none (kept there so the card never blocks
+                chart mouse/scroll interaction underneath it). */}
+            <span style={{ position: "relative", display: "inline-flex", pointerEvents: "auto" }}>
+              <span
+                onMouseEnter={() => setShowInfo(true)} onMouseLeave={() => setShowInfo(false)}
+                onClick={() => setShowInfo(v => !v)}
+                style={{ cursor: "help", width: 14, height: 14, borderRadius: "50%", border: `1px solid ${C.textDim}`,
+                  color: C.textDim, fontFamily: SANS, fontSize: 9, fontWeight: 800,
+                  display: "flex", alignItems: "center", justifyContent: "center" }}>
+                ⓘ
+              </span>
+              {showInfo && (
+                <div style={{ position: "absolute", top: 18, left: 0, width: 288, textAlign: "left", cursor: "default",
+                  background: (C.card || "#fff"), border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 12px",
+                  boxShadow: "0 6px 24px rgba(0,0,0,0.28)", zIndex: 6 }}>
+                  <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.text, marginBottom: 6 }}>CHART LEVELS</div>
+                  {glossary.map(([k, v]) => (
+                    <div key={k} style={{ marginBottom: 6 }}>
+                      <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.text }}>{k}</span>
+                      <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.textSec, lineHeight: 1.45 }}>{v}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </span>
+          </div>
           <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
             <span style={{ fontFamily: SANS, fontSize: 30, fontWeight: 900, color: rColor, lineHeight: 1 }}>{rating}</span>
             <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 800, color: rColor, letterSpacing: 0.5 }}>{rWord}</span>
