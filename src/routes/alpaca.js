@@ -207,27 +207,37 @@ async function handleAlpaca(req, res, requestUrl) {
   }
 
   // Place an order. Body: { symbol, qty, side, type?, limit_price?, stop_loss?, take_profit? }
+  // Crypto (explicit user request, 2026-08-03): a pair like "BTC/USD" is
+  // detected by the real "/" the client sends (never guessed/inferred from a
+  // symbol list) — Alpaca's crypto trading goes through this same paper-api
+  // client/endpoint, just with a slash-bearing symbol, fractional qty
+  // (whole-share floor below would silently zero out e.g. 0.01 BTC), and gtc
+  // time-in-force (crypto has no daily session close, so Alpaca rejects "day").
   if (pathname === "/api/alpaca/order" && req.method === "POST") {
     if (!configured) return writeJson(res, 200, { ok: false, reason: "no-alpaca-key" });
     const b = await readBody(req);
-    const symbol = String(b.symbol || "").toUpperCase().replace(/[^A-Z.]/g, "");
-    const qty = Math.max(0, Math.floor(Number(b.qty) || 0));
+    const rawSymbol = String(b.symbol || "").toUpperCase();
+    const isCrypto = rawSymbol.includes("/");
+    const symbol = isCrypto ? rawSymbol.replace(/[^A-Z0-9/]/g, "") : rawSymbol.replace(/[^A-Z.]/g, "");
+    const qty = isCrypto
+      ? Math.max(0, Math.round((Number(b.qty) || 0) * 1e8) / 1e8)
+      : Math.max(0, Math.floor(Number(b.qty) || 0));
     const side = b.side === "sell" ? "sell" : "buy";
-    if (!symbol || qty < 1) return writeJson(res, 400, { ok: false, error: "symbol and qty required" });
-    // LONGS ONLY — a sell may only close/trim shares you actually hold. A sell
-    // with no long position (or one larger than the position) would open/increase
-    // a SHORT, so it is rejected here. This blocks shorting at the source no
-    // matter which caller (autopilot, mean-rev, manual) sends it.
+    if (!symbol || qty <= 0) return writeJson(res, 400, { ok: false, error: "symbol and qty required" });
+    // LONGS ONLY — a sell may only close/trim shares/coins you actually hold.
+    // A sell with no long position (or one larger than the position) would
+    // open/increase a SHORT, so it is rejected here. This blocks shorting at
+    // the source no matter which caller (autopilot, mean-rev, manual) sends it.
     if (side === "sell") {
       const posRes = await alpaca(`/v2/positions/${encodeURIComponent(symbol)}`);
-      const heldLong = posRes._ok ? Math.max(0, Math.floor(Number(posRes.data?.qty) || 0)) : 0;
-      if (heldLong < 1) return writeJson(res, 200, { ok: false, error: `Shorting disabled — no long position in ${symbol} to sell (long-only).` });
-      if (qty > heldLong) return writeJson(res, 200, { ok: false, error: `Long-only: can sell at most ${heldLong} sh of ${symbol} (would open a short).` });
+      const heldLong = posRes._ok ? Math.max(0, isCrypto ? (Number(posRes.data?.qty) || 0) : Math.floor(Number(posRes.data?.qty) || 0)) : 0;
+      if (heldLong <= 0) return writeJson(res, 200, { ok: false, error: `Shorting disabled — no long position in ${symbol} to sell (long-only).` });
+      if (qty > heldLong) return writeJson(res, 200, { ok: false, error: `Long-only: can sell at most ${heldLong} ${isCrypto ? "" : "sh "}of ${symbol} (would open a short).` });
     }
     const order = {
       symbol, qty: String(qty), side,
       type: b.type || "market",
-      time_in_force: b.time_in_force || "day",
+      time_in_force: b.time_in_force || (isCrypto ? "gtc" : "day"),
       // Idempotency: Alpaca rejects a duplicate client_order_id, so a retry or a
       // double-fire can't place the same order twice. Caller may pass one; else
       // derive a stable id from symbol+side+qty+minute.
@@ -274,11 +284,12 @@ async function handleAlpaca(req, res, requestUrl) {
     return writeJson(res, 200, { ok: false, error: "Options trading is disabled (long stocks only)." });
   }
 
-  // Close a full position (market sell everything). Allows option (OCC) symbols too.
+  // Close a full position (market sell everything). Allows option (OCC) and crypto pair symbols too.
   if (pathname === "/api/alpaca/close" && req.method === "POST") {
     if (!configured) return writeJson(res, 200, { ok: false, reason: "no-alpaca-key" });
     const b = await readBody(req);
-    const symbol = String(b.symbol || "").toUpperCase().replace(/[^A-Z0-9.]/g, "");  // keep digits for options
+    const rawCloseSymbol = String(b.symbol || "").toUpperCase();
+    const symbol = rawCloseSymbol.includes("/") ? rawCloseSymbol.replace(/[^A-Z0-9/]/g, "") : rawCloseSymbol.replace(/[^A-Z0-9.]/g, "");  // keep digits for options
     if (!symbol) return writeJson(res, 400, { ok: false, error: "symbol required" });
     const a = await alpaca(`/v2/positions/${encodeURIComponent(symbol)}`, "DELETE");
     if (!a._ok) return writeJson(res, 200, { ok: false, error: a.data?.message || "close failed", status: a._status });

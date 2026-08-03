@@ -1,4 +1,179 @@
 import { useState, useEffect, useCallback } from "react";
+import TrendChart from "./TrendChart.jsx";
+
+// ─── CryptoScanTrade — real scan + chart + paper buy/sell ───────────────────
+// Explicit user request (2026-08-03, "add crypto trading", scoped via
+// AskUserQuestion to "trade crypto through existing screens", then refined
+// — "scanning different tab chart and news all in one tab" — into this one
+// unified section, added alongside the existing Fear&Greed/dominance/
+// liquidations/news content below rather than replacing any of it).
+//
+// Universe reuses market-scanner.js's own real CRYPTO_SYMBOLS list in Yahoo
+// dash format ("BTC-USD") — the exact format fetchYahooBars/
+// screenTrendTemplate/buildTrendTemplate already accept for ANY symbol with
+// no crypto exclusion (confirmed: they just fetch ~200 real daily bars and
+// run the same real Minervini-template/VCP math regardless of asset class).
+// Real order placement needs Alpaca's own crypto pair format ("BTC/USD",
+// slash not dash) — toAlpacaSymbol() is the only place that conversion
+// happens. Zero new backend scoring/scanning code: /api/market/trend-screen
+// and /api/market/trend-template are the exact same real endpoints Scanner/
+// Green Light/Charts already use, just called with crypto symbols. The one
+// real gap this closes is src/routes/alpaca.js's order route, which used to
+// strip the "/" and floor qty to whole numbers — fixed alongside this.
+const CRYPTO_SCAN_UNIVERSE = ["BTC-USD", "ETH-USD", "SOL-USD", "BNB-USD", "XRP-USD", "DOGE-USD", "ADA-USD"];
+const toAlpacaSymbol = (yahooSym) => yahooSym.replace("-", "/");
+const coinOf = (yahooSym) => yahooSym.split("-")[0];
+
+function CryptoScanTrade({ C, MONO, SANS }) {
+  const sectionLabel = { fontFamily: MONO, fontSize: 10.5, fontWeight: 700, color: C.textDim, letterSpacing: "0.09em", textTransform: "uppercase" };
+  const neutralCard = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 8 };
+  const num = { fontVariantNumeric: "tabular-nums" };
+
+  const [scan, setScan] = useState([]);
+  const [scanState, setScanState] = useState("loading"); // loading | ok | error
+  const [selected, setSelected] = useState("BTC-USD");
+  const [chart, setChart] = useState(null);
+  const [chartState, setChartState] = useState("loading");
+  const [positions, setPositions] = useState([]);
+  const [usdAmount, setUsdAmount] = useState("100");
+  const [orderState, setOrderState] = useState("idle"); // idle | placing | ok | error
+  const [orderMsg, setOrderMsg] = useState("");
+
+  useEffect(() => {
+    const load = () => {
+      fetch(`/api/market/trend-screen?symbols=${CRYPTO_SCAN_UNIVERSE.join(",")}`)
+        .then(r => r.json())
+        .then(d => { if (Array.isArray(d?.results)) { setScan(d.results); setScanState("ok"); } else setScanState("error"); })
+        .catch(() => setScanState("error"));
+    };
+    load();
+    const t = setInterval(load, 5 * 60_000); // crypto trades 24/7 — refresh more often than the stock scan
+    return () => clearInterval(t);
+  }, []);
+
+  useEffect(() => {
+    setChartState("loading");
+    fetch(`/api/market/trend-template?symbol=${encodeURIComponent(selected)}`)
+      .then(r => r.json())
+      .then(d => { if (d && !d.error) { setChart(d); setChartState("ok"); } else setChartState("error"); })
+      .catch(() => setChartState("error"));
+  }, [selected]);
+
+  const loadPositions = useCallback(() => {
+    fetch("/api/alpaca/positions").then(r => r.json()).then(d => {
+      if (d?.ok) setPositions((d.positions || []).filter(p => p.symbol.includes("/")));
+    }).catch(() => {});
+  }, []);
+  useEffect(() => { loadPositions(); const t = setInterval(loadPositions, 60_000); return () => clearInterval(t); }, [loadPositions]);
+
+  const selectedRow = scan.find(r => r.symbol === selected);
+  const livePrice = Number(chart?.price || selectedRow?.price || 0);
+  const alpacaSym = toAlpacaSymbol(selected);
+  const heldPosition = positions.find(p => p.symbol === alpacaSym);
+  const estQty = livePrice > 0 ? (Number(usdAmount) || 0) / livePrice : 0;
+
+  const placeOrder = async (side) => {
+    setOrderState("placing"); setOrderMsg("");
+    const qty = side === "sell" ? Number(heldPosition?.qty || 0) : estQty;
+    if (!(qty > 0)) { setOrderState("error"); setOrderMsg(side === "sell" ? "No open position to sell." : "Enter a real USD amount first."); return; }
+    try {
+      const r = await fetch("/api/alpaca/order", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ symbol: alpacaSym, qty: qty.toFixed(8), side }),
+      });
+      const d = await r.json();
+      if (d?.ok) {
+        setOrderState("ok");
+        setOrderMsg(`${side === "buy" ? "Bought" : "Sold"} ${Number(d.order.qty)} ${coinOf(selected)} (paper).`);
+        loadPositions();
+      } else {
+        setOrderState("error"); setOrderMsg(d?.error || d?.reason || "Order failed.");
+      }
+    } catch { setOrderState("error"); setOrderMsg("Order failed."); }
+  };
+
+  return (
+    <div style={{ marginBottom: 20 }}>
+      <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
+        {CRYPTO_SCAN_UNIVERSE.map(sym => {
+          const row = scan.find(r => r.symbol === sym);
+          const active = sym === selected;
+          return (
+            <button key={sym} onClick={() => setSelected(sym)}
+              style={{ ...neutralCard, borderColor: active ? C.accent : C.border, padding: "8px 12px", cursor: "pointer", textAlign: "left", minWidth: 108 }}>
+              <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: active ? C.accent : C.text }}>{coinOf(sym)}</div>
+              {row ? (
+                <>
+                  <div style={{ fontFamily: MONO, fontSize: 11, color: C.textSec, ...num }}>${Number(row.price).toLocaleString(undefined, { maximumFractionDigits: row.price < 10 ? 4 : 2 })}</div>
+                  <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, ...num }}>{row.passCount ?? "?"}/8 · {(row.stage || "").replace(/ —.*/, "").slice(0, 12) || "—"}</div>
+                </>
+              ) : scanState === "loading" ? (
+                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>loading…</div>
+              ) : (
+                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>—</div>
+              )}
+            </button>
+          );
+        })}
+      </div>
+      {scanState === "error" && <div style={{ fontFamily: MONO, fontSize: 11, color: C.red, marginBottom: 10 }}>Couldn't load the real crypto scan — try again shortly.</div>}
+
+      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 14, alignItems: "start" }}>
+        <div style={{ ...neutralCard, padding: 10 }}>
+          {chartState === "loading" && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, padding: 20, textAlign: "center" }}>Loading real chart…</div>}
+          {chartState === "error" && <div style={{ fontFamily: MONO, fontSize: 12, color: C.red, padding: 20, textAlign: "center" }}>Couldn't load chart data for {selected}.</div>}
+          {chartState === "ok" && chart && <TrendChart data={chart} C={C} MONO={MONO} SANS={SANS} height={380} />}
+        </div>
+
+        <div>
+          <div style={{ ...neutralCard, padding: 14, marginBottom: 14 }}>
+            <div style={{ ...sectionLabel, marginBottom: 10 }}>Trade {coinOf(selected)} (paper)</div>
+            <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.text, marginBottom: 10, ...num }}>
+              {livePrice > 0 ? `$${livePrice.toLocaleString(undefined, { maximumFractionDigits: livePrice < 10 ? 4 : 2 })}` : "—"}
+            </div>
+            <div style={{ fontFamily: MONO, fontSize: 10.5, color: C.textDim, marginBottom: 4 }}>USD amount</div>
+            <input value={usdAmount} onChange={e => setUsdAmount(e.target.value.replace(/[^0-9.]/g, ""))}
+              style={{ fontFamily: MONO, fontSize: 13, padding: "8px 10px", borderRadius: 6, border: `1px solid ${C.border}`, background: C.surface, color: C.text, width: "100%", marginBottom: 6, ...num, boxSizing: "border-box" }} />
+            <div style={{ fontFamily: MONO, fontSize: 10.5, color: C.textDim, marginBottom: 10, ...num }}>
+              ≈ {estQty > 0 ? estQty.toFixed(6) : "0"} {coinOf(selected)}
+            </div>
+            <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+              <button onClick={() => placeOrder("buy")} disabled={orderState === "placing"}
+                style={{ flex: 1, fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "10px 0", borderRadius: 6, border: "none", color: "#fff", background: C.green, cursor: orderState === "placing" ? "default" : "pointer" }}>
+                {orderState === "placing" ? "…" : "Buy"}
+              </button>
+              <button onClick={() => placeOrder("sell")} disabled={orderState === "placing" || !heldPosition}
+                style={{ flex: 1, fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "10px 0", borderRadius: 6, border: `1px solid ${C.red}`, color: heldPosition ? C.red : C.textDim, background: "transparent", cursor: (orderState === "placing" || !heldPosition) ? "default" : "pointer" }}>
+                Sell{heldPosition ? ` (${Number(heldPosition.qty).toFixed(6)})` : ""}
+              </button>
+            </div>
+            {orderMsg && <div style={{ fontFamily: MONO, fontSize: 11, color: orderState === "ok" ? C.green : C.red }}>{orderMsg}</div>}
+          </div>
+
+          <div style={{ ...neutralCard, padding: 14 }}>
+            <div style={{ ...sectionLabel, marginBottom: 10 }}>Open Crypto Positions</div>
+            {!positions.length && <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>No open crypto positions.</div>}
+            {positions.map(p => {
+              const pl = Number(p.unrealizedPL) || 0;
+              return (
+                <div key={p.symbol} style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", borderBottom: `1px solid ${C.border}` }}>
+                  <div>
+                    <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent }}>{p.symbol}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, ...num }}>{Number(p.qty).toFixed(6)} @ ${Number(p.avgEntry).toFixed(2)}</div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: pl >= 0 ? C.green : C.red, ...num }}>{pl >= 0 ? "+" : ""}${Math.abs(pl).toFixed(2)}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 10, color: pl >= 0 ? C.green : C.red, ...num }}>{p.unrealizedPLpc >= 0 ? "+" : ""}{Number(p.unrealizedPLpc).toFixed(1)}%</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ─── CryptoLiquidations ──────────────────────────────────────────────────────
 function CryptoLiquidations({ C, MONO, SANS }) {
@@ -361,6 +536,12 @@ export default function CryptoTab({ C, MONO, SANS }) {
           ⚠ {error}
         </div>
       )}
+
+      {/* Real scan + chart + paper buy/sell (2026-08-03, explicit user
+          request: "add crypto trading" + "scanning different tab chart and
+          news all in one tab") — same real trend-template engine Scanner/
+          Green Light use, real Alpaca paper orders. */}
+      <CryptoScanTrade C={C} MONO={MONO} SANS={SANS} />
 
       {/* Macro row: Fear & Greed + BTC Dom + ETH Dom + Volume */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, marginBottom: 16 }}>
