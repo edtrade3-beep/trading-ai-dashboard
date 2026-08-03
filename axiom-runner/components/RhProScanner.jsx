@@ -5,7 +5,9 @@ import {
   computeInstitutionalGrade, institutionalLetterGrade, institutionalRecommendation, SECTOR_ETFS, STOCK_TO_SECTOR,
 } from "./market-helpers.js";
 import AiScoreExplainer, { TRADE_SETUP_DIMENSIONS, STOCK_QUALITY_DIMENSIONS, INSTITUTIONAL_GRADE_DIMENSIONS } from "./AiScoreExplainer.jsx";
-import { mapToAiAction } from "./ai-actions.js";
+import { mapToAiAction, AI_ACTIONS } from "./ai-actions.js";
+import { computeGreenLight } from "./trading-utils.js";
+import { findWeakestPosition, evaluateRotation } from "./portfolio-rotation-engine.js";
 import GapScanner from "./GapScanner.jsx";
 import DayTradeTab from "./DayTradeTab.jsx";
 import { BestOpportunities } from "./terminal-panels.jsx";
@@ -170,6 +172,36 @@ export default function RhProScanner({
   // daily log with zero live fetches.
   const [ivRanks, setIvRanks] = useState({});
   const [ivRanksState, setIvRanksState] = useState("idle"); // idle | loading | ok | error
+  // Real open positions (Green Light AI spec — ROTATE as a per-row Scanner
+  // Recommendation, not just the AutoPilot tick's own close/open pair).
+  // Fetched unconditionally (cheap, applies across every category) so any
+  // real buy-tier row can be checked against the real weakest current
+  // holding — same findWeakestPosition/evaluateRotation the live rotation
+  // tick and ActivePositionsCard's WEAKEST badge already use.
+  const [positions, setPositions] = useState([]);
+  useEffect(() => {
+    const load = () => fetch("/api/alpaca/positions").then(r => r.json()).then(d => {
+      if (d?.ok) setPositions(d.positions || []);
+    }).catch(() => {});
+    load();
+    const t = setInterval(load, 60000);
+    return () => clearInterval(t);
+  }, []);
+  const rotationState = useMemo(() => {
+    const heldSymbols = new Set(positions.map(p => p.symbol));
+    if (positions.length < 2) return { scoredOpen: [], heldSymbols };
+    const spyQ = (macroData || []).find(m => m.symbol === "SPY") || (watchlistData || []).find(w => w.symbol === "SPY");
+    const spyChg = Number(spyQ?.changesPercentage || 0);
+    const regimeScore = (macroData || []).length ? computeRegime(macroData)?.score ?? null : null;
+    const scoredOpen = positions
+      .map(p => {
+        const wq = (watchlistData || []).find(w => w.symbol === p.symbol);
+        if (!wq) return null;
+        return { symbol: p.symbol, quality: computeGreenLight(wq, spyChg, null, regimeScore).aScore };
+      })
+      .filter(Boolean);
+    return { scoredOpen, heldSymbols };
+  }, [positions, watchlistData, macroData]);
   // Real one-time handoff from the BESTOPP/BESTOPPORTUNITIES palette
   // redirect (axiom-live.jsx) — same localStorage-handoff convention
   // mterminal_load_sym already uses to pass a symbol across a tab switch.
@@ -443,7 +475,20 @@ export default function RhProScanner({
               const win = track ? winProbFor(track, r.aplus?.score ?? r.score) : null;
               const grade = r.institutionalGrade ? institutionalLetterGrade(r.institutionalGrade.score) : "—";
               const rec = r.institutionalGrade ? institutionalRecommendation(r.institutionalGrade.score) : null;
-              const action = mapToAiAction({ institutionalScore: r.institutionalGrade?.score, nextAction: r.next?.action });
+              let action = mapToAiAction({ institutionalScore: r.institutionalGrade?.score, nextAction: r.next?.action });
+              // ROTATE override — Green Light AI spec's Portfolio Manager
+              // read as a per-row Scanner Recommendation, not just the
+              // AutoPilot tick's own close/open pair. Only checked for a
+              // row that's already buy-tier on its own real merits (never
+              // rotates a mediocre setup in just because a held position
+              // is weak) and not already held — real evaluateRotation()
+              // (same fn/threshold the live rotation tick uses) decides.
+              let rotationInfo = null;
+              if (action.tier >= AI_ACTIONS.ACCUMULATE.tier && !rotationState.heldSymbols.has(r.symbol) && rotationState.scoredOpen.length) {
+                const candidateQuality = r.aplus?.score ?? r.institutionalGrade?.score ?? -1;
+                rotationInfo = evaluateRotation(rotationState.scoredOpen, { symbol: r.symbol, quality: candidateQuality });
+                if (rotationInfo) action = AI_ACTIONS.ROTATE;
+              }
               const expanded = expandedSymbol === r.symbol;
               return (
               <React.Fragment key={r.symbol}>
@@ -471,7 +516,7 @@ export default function RhProScanner({
                 <td style={{ ...cell, fontSize: 11, color: (r.stage || "").includes("2") ? C.green : (r.stage || "").includes("4") ? C.red : C.textDim }}>
                   {r.passCount ?? "?"}/8 · {(r.stage || "").replace(/ —.*/, "").slice(0, 14) || "—"}
                 </td>
-                <td style={cell}>{action && <span title="Unified AI Action — reduces this row's real institutional score + verdict to one shared label" style={{ fontSize: 11, fontWeight: 900, color: action.color, border: `1px solid ${action.color}`, borderRadius: 4, padding: "1px 6px" }}>{action.label}</span>}</td>
+                <td style={cell}>{action && <span title={rotationInfo ? `Real quality ${Math.round(rotationInfo.open.quality)} beats your weakest holding ${rotationInfo.close.symbol} (real quality ${Math.round(rotationInfo.close.quality)}) by +${Math.round(rotationInfo.improvement)} — the same real check the live rotation tick uses` : "Unified AI Action — reduces this row's real institutional score + verdict to one shared label"} style={{ fontSize: 11, fontWeight: 900, color: action.color, border: `1px solid ${action.color}`, borderRadius: 4, padding: "1px 6px" }}>{action.label}</span>}</td>
                 <td style={{ ...cell, fontSize: 11, color: C.textSec }}>{r.entry ? `$${Number(r.entry).toFixed(2)} → $${Number(r.stop).toFixed(2)}` : "—"}</td>
               </tr>
               {expanded && (
