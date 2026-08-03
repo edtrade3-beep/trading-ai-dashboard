@@ -3,7 +3,12 @@ const { sendTelegramAlert, sendTelegramMessage, isConfigured } = require("./tele
 const { fetchJsonSafe, withTimeout } = require("./utils");
 const { shouldSendAlert } = require("./telegram-bot");
 
-const CHECK_INTERVAL_MS = 90_000; // every 90 seconds
+// Tightened 90s -> 30s (2026-08-03, real user complaint: "sometimes i get
+// notification late" — a stock crossing right after a check previously
+// waited up to 90s for the next poll, on top of Telegram delivery time.
+// Still light: one Yahoo chart fetch per unique *active* alert symbol,
+// typically a handful at once, not the whole scan universe.
+const CHECK_INTERVAL_MS = 30_000;
 
 // Returns { price, volRatio } — volRatio = today's volume vs the prior ~50-day average.
 async function fetchQuote(symbol) {
@@ -36,8 +41,18 @@ async function checkPriceAlerts() {
     quotes[sym] = await fetchQuote(sym);
   }
 
+  // Real bug fixed 2026-08-03 (user report: "sometimes i get notification
+  // late" — investigating this found something worse than late: a
+  // price-crossed alert used to be marked status="triggered" (permanently
+  // done, never re-checked) the instant its price/volume conditions were
+  // met, *before* knowing whether shouldSendAlert()'s shared cooldown/daily
+  // cap would actually let the Telegram send through. If it didn't, the
+  // message was silently dropped and the alert was already "used up" —
+  // no retry, ever. Now status is only flipped once the send has actually
+  // been attempted; a gated alert stays "active" and gets retried on the
+  // very next 30s cycle instead of being lost.
   let changed = false;
-  const triggeredNow = [];
+  const crossed = [];
   for (const alert of alerts) {
     if (alert.status !== "active") continue;
     const q = quotes[alert.symbol];
@@ -50,37 +65,49 @@ async function checkPriceAlerts() {
     // Volume gate: if the alert requires confirmation, hold off until volume is heavy.
     // The alert stays active and re-checks next cycle until both conditions co-occur.
     const volOk = !alert.requireVolume || (q.volRatio || 0) >= VOL_CONFIRM;
-    const triggered = priceCross && volOk;
-
-    if (triggered) {
-      alert.status = "triggered";
-      alert.triggeredAt = new Date().toISOString();
-      changed = true;
-      triggeredNow.push({ alert, price, volRatio: q.volRatio });
-    }
+    if (priceCross && volOk) crossed.push({ alert, price, volRatio: q.volRatio });
   }
 
   // Batch same-cycle triggers into ONE Telegram message instead of N
   // (2026-07-29, "too many alerts in telegram") — a broad market move can
-  // flip several price alerts in the same 90s check, which used to fire
-  // one separate message per alert. Single-trigger case keeps the original
+  // flip several price alerts in the same cycle, which used to fire one
+  // separate message per alert. Single-trigger case keeps the original
   // per-alert message format unchanged.
-  if (triggeredNow.length === 1 && isConfigured() && shouldSendAlert({ category: "target-hit" })) {
-    const { alert, price, volRatio } = triggeredNow[0];
-    sendTelegramAlert({
-      symbol: alert.symbol,
-      side: alert.direction === "above" ? "BUY" : "SELL",
-      price,
-      score: 85,
-      message: `Price Alert: ${alert.symbol} ${alert.direction} $${alert.targetPrice} — now $${price.toFixed(2)}${alert.requireVolume ? ` · vol ${volRatio.toFixed(1)}× avg ✅` : ""}${alert.note ? " · " + alert.note : ""}`,
-      at: alert.triggeredAt,
-    });
-  } else if (triggeredNow.length > 1 && isConfigured() && shouldSendAlert({ category: "target-hit" })) {
-    const lines = triggeredNow.map(({ alert, price, volRatio }) =>
-      `${alert.symbol} ${alert.direction} $${alert.targetPrice} — now $${price.toFixed(2)}${alert.requireVolume ? ` · vol ${volRatio.toFixed(1)}× avg ✅` : ""}${alert.note ? " · " + alert.note : ""}`
-    );
-    sendTelegramMessage(`🎯 ${triggeredNow.length} PRICE ALERTS TRIGGERED\n\n${lines.join("\n")}`).catch(() => {});
+  //
+  // Telegram never configured at all is a permanent condition, not a
+  // transient gate — mark these triggered anyway (matches the original
+  // behavior: the alert's own "triggered" status in the UI is still real
+  // and correct even with nothing to send it to; there's nothing to retry
+  // toward). Only the shouldSendAlert cooldown/cap gate below is transient
+  // and worth retrying.
+  if (crossed.length && !isConfigured()) {
+    const now = new Date().toISOString();
+    for (const { alert } of crossed) { alert.status = "triggered"; alert.triggeredAt = now; }
+    changed = true;
+  } else if (crossed.length && isConfigured() && shouldSendAlert({ category: "target-hit" })) {
+    const now = new Date().toISOString();
+    for (const { alert } of crossed) { alert.status = "triggered"; alert.triggeredAt = now; }
+    changed = true;
+    if (crossed.length === 1) {
+      const { alert, price, volRatio } = crossed[0];
+      sendTelegramAlert({
+        symbol: alert.symbol,
+        side: alert.direction === "above" ? "BUY" : "SELL",
+        price,
+        score: 85,
+        message: `Price Alert: ${alert.symbol} ${alert.direction} $${alert.targetPrice} — now $${price.toFixed(2)}${alert.requireVolume ? ` · vol ${volRatio.toFixed(1)}× avg ✅` : ""}${alert.note ? " · " + alert.note : ""}`,
+        at: alert.triggeredAt,
+      });
+    } else {
+      const lines = crossed.map(({ alert, price, volRatio }) =>
+        `${alert.symbol} ${alert.direction} $${alert.targetPrice} — now $${price.toFixed(2)}${alert.requireVolume ? ` · vol ${volRatio.toFixed(1)}× avg ✅` : ""}${alert.note ? " · " + alert.note : ""}`
+      );
+      sendTelegramMessage(`🎯 ${crossed.length} PRICE ALERTS TRIGGERED\n\n${lines.join("\n")}`).catch(() => {});
+    }
   }
+  // else: crossed but gated (cooldown/daily cap/not configured) — every
+  // alert in `crossed` is intentionally left "active" so checkPriceAlerts
+  // retries it next cycle instead of silently losing the notification.
 
   if (changed) savePriceAlerts(alerts);
 }

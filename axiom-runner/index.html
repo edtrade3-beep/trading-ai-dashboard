@@ -156,11 +156,37 @@
     );
     boot();
 
-    // ── Auto-reload after a Render deploy (loop-safe) ──
-    // Poll /api/health; when the server's boot time changes (= new deploy), reload — but only once
-    // per version, and only after the change is stable for 2 checks (avoids mid-deploy blips & loops).
-    (function autoReloadOnDeploy() {
+    // ── New-version banner after a Render deploy (loop-safe) ──
+    // Poll /api/health; when the server's boot time changes (= new deploy),
+    // surface a small dismissible banner — never force-reload. (Was a hard
+    // `location.reload()` until 2026-08-03, real user complaint: "i dont
+    // want to be working and all the sudden refresh my page" — during an
+    // active dev session with many deploys/day, that was yanking the page
+    // out from under real work essentially at random. Live data (polling,
+    // scans, alerts) already updates in place without any reload; the only
+    // thing a reload actually buys is picking up new client code, which can
+    // wait for the user's own click.)
+    (function notifyOnDeploy() {
       let baseline = null, pending = null, stable = 0;
+      function showBanner(v) {
+        if (sessionStorage.getItem("ax_update_shown") === v) return; // don't re-show for the same version
+        sessionStorage.setItem("ax_update_shown", v);
+        const bar = document.createElement("div");
+        bar.style.cssText = "position:fixed;bottom:18px;right:18px;z-index:99999;background:#1b2230;color:#e5e7eb;border:1px solid #3b82f6;border-radius:10px;padding:10px 12px;font-family:ui-monospace,Menlo,monospace;font-size:12px;display:flex;align-items:center;gap:10px;box-shadow:0 6px 24px rgba(0,0,0,0.45);";
+        const label = document.createElement("span");
+        label.textContent = "🔄 A new version is ready";
+        const btn = document.createElement("button");
+        btn.textContent = "Reload";
+        btn.style.cssText = "font-family:inherit;font-size:12px;font-weight:800;padding:5px 12px;border-radius:6px;border:none;background:#3b82f6;color:#fff;cursor:pointer;";
+        btn.onclick = () => { sessionStorage.setItem("ax_reloaded_for", v); location.reload(); };
+        const dismiss = document.createElement("button");
+        dismiss.textContent = "×";
+        dismiss.setAttribute("aria-label", "Dismiss");
+        dismiss.style.cssText = "font-family:inherit;font-size:16px;font-weight:800;line-height:1;padding:2px 6px;border-radius:6px;border:none;background:transparent;color:#94a3b8;cursor:pointer;";
+        dismiss.onclick = () => bar.remove();
+        bar.appendChild(label); bar.appendChild(btn); bar.appendChild(dismiss);
+        document.body.appendChild(bar);
+      }
       async function check() {
         try {
           const r = await fetch("/api/health", { cache: "no-store" });
@@ -172,11 +198,7 @@
           if (v === baseline) { pending = null; stable = 0; return; }
           if (sessionStorage.getItem("ax_reloaded_for") === v) return;  // already reloaded for this version
           if (v === pending) stable++; else { pending = v; stable = 1; }
-          if (stable >= 2) {  // change confirmed across 2 checks (~2 min)
-            const el = document.activeElement;
-            const typing = el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable);
-            if (!typing) { sessionStorage.setItem("ax_reloaded_for", v); location.reload(); }
-          }
+          if (stable >= 2) showBanner(v);  // change confirmed across 2 checks (~2 min)
         } catch (e) { /* offline / mid-deploy — try again next tick */ }
       }
       check();
