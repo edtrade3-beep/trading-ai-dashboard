@@ -1,5 +1,15 @@
 const { fetchJsonSafe } = require("../utils");
 
+// FMP retired their entire legacy /api/v3/ and /api/v4/ endpoint family on
+// 2025-08-31 (confirmed live, 2026-08-03: every function below was hitting a
+// 403 "Legacy Endpoint" error and silently returning null/[] via
+// fetchJsonSafe, so this app's paid FMP tier had been effectively unusable
+// for fundamentals/earnings/quotes for months — real user report "why don't
+// we use FMP more" traced to this, not an architecture choice). Migrated to
+// the current /stable/ API, field names verified against real live
+// responses (several fields were renamed, not just moved — e.g.
+// changesPercentage -> changePercentage, peRatioTTM -> priceToEarningsRatioTTM,
+// calendarYear -> fiscalYear, growthEPS -> epsgrowth (lowercase g)).
 function normalizeFmpQuoteRow(raw) {
   if (!raw) return null;
   const symbol = String(raw.symbol || "").toUpperCase();
@@ -7,7 +17,7 @@ function normalizeFmpQuoteRow(raw) {
   const price = Number(raw.price);
   const previousClose = Number(raw.previousClose);
   const change = Number(raw.change);
-  const changesPercentage = Number(raw.changesPercentage);
+  const changesPercentage = Number(raw.changePercentage);
   return {
     symbol,
     name: raw.name || raw.companyName || symbol,
@@ -19,11 +29,11 @@ function normalizeFmpQuoteRow(raw) {
     dayHigh: Number(raw.dayHigh) || 0,
     dayLow: Number(raw.dayLow) || 0,
     volume: Number(raw.volume) || 0,
-    avgVolume: Number(raw.avgVolume) || 0,
+    avgVolume: Number(raw.averageVolume) || 0,
     yearHigh: Number(raw.yearHigh) || 0,
     yearLow: Number(raw.yearLow) || 0,
     marketCap: Number(raw.marketCap) || 0,
-    pe: Number(raw.pe) || 0,
+    pe: 0, // /stable/quote no longer returns a P/E field — real ratios-ttm covers this in fetchFmpFundamentals
     priceAvg50: Number(raw.priceAvg50) || 0,
     priceAvg200: Number(raw.priceAvg200) || 0,
     preMarketPrice: 0,
@@ -33,28 +43,34 @@ function normalizeFmpQuoteRow(raw) {
   };
 }
 
+// /stable/quote only accepts one symbol per request (confirmed live —
+// comma-separated batch silently returns []; /stable/batch-quote-short
+// exists but is 402/higher-tier-only on this plan). Real parallel
+// single-symbol requests instead — fine here since this is only ever called
+// as a gap-filler for a handful of stragglers Yahoo missed, never the full
+// scan universe.
 async function fetchFmpQuotes(symbols, fmpKey) {
   if (!fmpKey) return [];
-  const list = symbols.map((s) => String(s || "").trim()).filter(Boolean).join(",");
-  if (!list) return [];
-  const url = `https://financialmodelingprep.com/api/v3/quote/${encodeURIComponent(list)}?apikey=${encodeURIComponent(fmpKey)}`;
-  const payload = await fetchJsonSafe(url);
-  if (!Array.isArray(payload)) return [];
-  return payload.map(normalizeFmpQuoteRow).filter(Boolean);
+  const list = symbols.map((s) => String(s || "").trim()).filter(Boolean);
+  if (!list.length) return [];
+  const rows = await Promise.all(list.map(async (sym) => {
+    const url = `https://financialmodelingprep.com/stable/quote?symbol=${encodeURIComponent(sym)}&apikey=${encodeURIComponent(fmpKey)}`;
+    const payload = await fetchJsonSafe(url);
+    return Array.isArray(payload) ? payload[0] : null;
+  }));
+  return rows.map(normalizeFmpQuoteRow).filter(Boolean);
 }
 
 async function fetchFmpFundamentals(symbol, fmpKey) {
   if (!fmpKey || !symbol) return null;
   const k = encodeURIComponent(fmpKey), s = encodeURIComponent(symbol);
-  const url = (p) => `https://financialmodelingprep.com/api/v3/${p}${p.includes("?") ? "&" : "?"}apikey=${k}`;
-  // Batch the free FMP endpoints that populate the Valuation / Company / Analyst
-  // panels. All are on the free tier. Failures degrade to null fields.
+  const url = (p) => `https://financialmodelingprep.com/stable/${p}?symbol=${s}&apikey=${k}`;
   const [quoteP, profileP, ratiosP, growthP, targetP] = await Promise.all([
-    fetchJsonSafe(url(`quote/${s}`)),
-    fetchJsonSafe(url(`profile/${s}`)),
-    fetchJsonSafe(url(`ratios-ttm/${s}`)),
-    fetchJsonSafe(url(`income-statement-growth/${s}?period=annual&limit=1`)),
-    fetchJsonSafe(url(`price-target-consensus/${s}`)),
+    fetchJsonSafe(url(`quote`)),
+    fetchJsonSafe(url(`profile`)),
+    fetchJsonSafe(url(`ratios-ttm`)),
+    fetchJsonSafe(url(`financial-growth`) + "&limit=1"),
+    fetchJsonSafe(url(`price-target-consensus`)),
   ]);
   const quote = Array.isArray(quoteP) ? quoteP[0] : null;
   const profile = Array.isArray(profileP) ? profileP[0] : null;
@@ -66,24 +82,24 @@ async function fetchFmpFundamentals(symbol, fmpKey) {
   const tgt = n(target?.targetConsensus) || n(target?.targetMedian);
   return {
     symbol,
-    marketCap: Number(quote?.marketCap) || Number(profile?.mktCap) || 0,
-    pe: n(quote?.pe) || n(ratios?.peRatioTTM),
-    trailingPE: n(quote?.pe) || n(ratios?.peRatioTTM),
-    eps: n(quote?.eps),
-    sharesOutstanding: Number(profile?.sharesOutstanding) || Number(quote?.sharesOutstanding) || 0,
+    marketCap: Number(quote?.marketCap) || Number(profile?.marketCap) || 0,
+    pe: n(ratios?.priceToEarningsRatioTTM),
+    trailingPE: n(ratios?.priceToEarningsRatioTTM),
+    eps: null, // real EPS now comes from fetchFmpEarnings' income-statement row, not this call
+    sharesOutstanding: 0, // /stable/profile no longer returns shares outstanding directly
     // Valuation
     priceToSales: n(ratios?.priceToSalesRatioTTM),
-    pegRatio: n(ratios?.pegRatioTTM),
+    pegRatio: n(ratios?.priceToEarningsGrowthRatioTTM),
     priceToBook: n(ratios?.priceToBookRatioTTM),
     beta: n(profile?.beta),
-    dividendYield: n(ratios?.dividendYielTTM),
+    dividendYield: null, // not present on /stable/ratios-ttm — honest null, not guessed
     // Margins & returns (FMP returns decimals)
     grossMargin: n(ratios?.grossProfitMarginTTM),
     profitMargin: n(ratios?.netProfitMarginTTM),
     roe: n(ratios?.returnOnEquityTTM),
     // Growth
-    revenueGrowth: n(growth?.growthRevenue),
-    earningsGrowth: n(growth?.growthEPS) || n(growth?.growthNetIncome),
+    revenueGrowth: n(growth?.revenueGrowth),
+    earningsGrowth: n(growth?.epsgrowth) || n(growth?.netIncomeGrowth),
     // Analyst
     analystTarget: tgt,
     targetMeanPrice: tgt,
@@ -96,7 +112,7 @@ async function fetchFmpFundamentals(symbol, fmpKey) {
     sector: profile?.sector || null,
     industry: profile?.industry || null,
     description: profile?.description || null,
-    // NOT profile?.lastDiv — that's the last dividend *amount*, not an
+    // NOT profile?.lastDividend — that's the last dividend *amount*, not an
     // earnings date. This function doesn't fetch a real earnings calendar
     // (fetchFmpEarnings below does, for a different endpoint); leaving this
     // null is honest, a wrong date here would be worse than none.
@@ -108,16 +124,16 @@ async function fetchFmpFundamentals(symbol, fmpKey) {
 // { annual: [{ year, revenue, eps, estimate }] } sorted oldest→newest, or null.
 async function fetchFmpEarnings(symbol, fmpKey) {
   if (!fmpKey || !symbol) return null;
-  const sym = encodeURIComponent(symbol);
-  const histUrl = `https://financialmodelingprep.com/api/v3/income-statement/${sym}?period=annual&limit=5&apikey=${encodeURIComponent(fmpKey)}`;
-  const estUrl  = `https://financialmodelingprep.com/api/v3/analyst-estimates/${sym}?period=annual&limit=4&apikey=${encodeURIComponent(fmpKey)}`;
+  const sym = encodeURIComponent(symbol), k = encodeURIComponent(fmpKey);
+  const histUrl = `https://financialmodelingprep.com/stable/income-statement?symbol=${sym}&period=annual&limit=5&apikey=${k}`;
+  const estUrl  = `https://financialmodelingprep.com/stable/analyst-estimates?symbol=${sym}&period=annual&limit=4&apikey=${k}`;
   const [hist, est] = await Promise.all([fetchJsonSafe(histUrl), fetchJsonSafe(estUrl)]);
   const byYear = new Map();
   if (Array.isArray(hist)) {
     for (const r of hist) {
-      const year = Number(String(r.calendarYear || (r.date || "").slice(0, 4)));
+      const year = Number(String(r.fiscalYear || (r.date || "").slice(0, 4)));
       if (!year) continue;
-      byYear.set(year, { year, revenue: Number(r.revenue) || null, eps: Number(r.eps ?? r.epsdiluted) || null, estimate: false });
+      byYear.set(year, { year, revenue: Number(r.revenue) || null, eps: Number(r.eps ?? r.epsDiluted) || null, estimate: false });
     }
   }
   if (Array.isArray(est)) {
@@ -126,7 +142,7 @@ async function fetchFmpEarnings(symbol, fmpKey) {
       const year = Number(String((r.date || "").slice(0, 4)));
       if (!year || year < thisYear) continue;           // only forward years
       if (byYear.has(year) && byYear.get(year).estimate === false) continue; // prefer actuals
-      byYear.set(year, { year, revenue: Number(r.estimatedRevenueAvg) || null, eps: Number(r.estimatedEpsAvg) || null, estimate: true });
+      byYear.set(year, { year, revenue: Number(r.revenueAvg) || null, eps: Number(r.epsAvg) || null, estimate: true });
     }
   }
   const annual = [...byYear.values()].filter(r => r.revenue || r.eps).sort((a, b) => a.year - b.year).slice(-6);
