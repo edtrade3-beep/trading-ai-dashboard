@@ -57,11 +57,19 @@ async function handleRequest(req, res) {
     // meant an unset token left live order-placement unauthenticated. Read-only
     // data + the app itself stay open either way, so you can always load and fix
     // your token in Settings even if these routes are refusing requests.)
+    //
+    // /api/notify deliberately excluded (2026-08-03, explicit user request:
+    // "I JUST WANT TO SEND ALERTS TO TELEGRAM" — the token friction was
+    // blocking the manual push-to-Telegram button, and this route can only
+    // ever send a text message, never place/close a trade or move money, so
+    // it doesn't carry the same real financial risk the routes below do.
+    // Already self-throttled independent of this gate — sendTelegramMessage's
+    // shared 60s cooldown / 40-day cap (src/telegram.js) still applies, so
+    // this can't be used to spam beyond that budget either.
     const AUTH_TOKEN = (process.env.API_AUTH_TOKEN || "").trim();
     if ((req.method === "POST" || req.method === "DELETE") && (
       pathname === "/api/alpaca/order" || pathname === "/api/alpaca/close" ||
       pathname === "/api/alpaca/option-order" || pathname === "/api/alpaca/liquidate-options" ||
-      pathname === "/api/notify" ||
       // Tradier can go LIVE (TRADIER_LIVE=true) — its config/order/cancel routes
       // need the same gate the Alpaca equivalents already have. (Read-only GETs
       // like /positions and /orders aren't POST/DELETE, so they stay open.)
