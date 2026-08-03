@@ -279,22 +279,42 @@ function UpcomingEventsCard({ C, MONO, SANS, eventCountdowns }) {
 
 // ── Row 2: Watchlist — condensed symbol/price/%chg/signal from data already ──
 // in props (watchlistData, sigData) — no new fetch.
+// Trade-signals engine (/api/market/trade-signals) speaks its own raw
+// vocabulary (LONG / SHORT / AVOID / WATCH SHORT / WATCH) — mapped here to
+// the app's one shared AI_ACTIONS label set (audit fix, 2026-08-04: a user
+// bouncing between Watchlist and Scanner/Green Light saw two different
+// words for the same real concept). Not run through mapToAiAction itself
+// since that function expects a real institutionalScore, not a raw
+// trade-signals action string — a plain lookup is the honest fix here,
+// not a fabricated score.
+const TRADE_SIGNAL_ACTION = {
+  "LONG": AI_ACTIONS.BUY,
+  "SHORT / AVOID": AI_ACTIONS.AVOID,
+  "WATCH SHORT": AI_ACTIONS.WATCH,
+  "WATCH": AI_ACTIONS.WATCH,
+};
+
 function WatchlistCard({ C, MONO, SANS, watchlistData, sigData, setTerminalSymbol, setActiveTab }) {
-  const rows = (watchlistData || []).slice(0, 8);
+  // Real cap fixed to match its own scroll affordance (audit fix,
+  // 2026-08-04) — this used to hard-slice to 8 rows in JS while the
+  // container was styled overflowY:auto as if more could be scrolled to;
+  // with the array pre-sliced there was never anything left to scroll.
+  const rows = watchlistData || [];
   const sigOf = sym => (sigData?.signals || []).find(s => s.sym === sym);
   return (
     <Card C={C} title="WATCHLIST" style={{ width: "100%" }}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 1, overflowY: "auto" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 1, maxHeight: 280, overflowY: "auto" }}>
         {rows.map(q => {
           const chg = Number(q.changesPercentage || 0);
           const sig = sigOf(q.symbol);
+          const action = sig ? TRADE_SIGNAL_ACTION[sig.action] : null;
           return (
             <div key={q.symbol} onClick={() => { setTerminalSymbol(q.symbol); setActiveTab("mterminal"); }}
               style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 4px", borderRadius: 6, cursor: "pointer" }}>
               <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent, minWidth: 55 }}>{q.symbol}</span>
               <span style={{ fontFamily: MONO, fontSize: 12, color: C.text }}>${Number(q.price || 0).toFixed(2)}</span>
               <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: chg >= 0 ? C.green : C.red, minWidth: 50, textAlign: "right" }}>{chg >= 0 ? "+" : ""}{chg.toFixed(2)}%</span>
-              {sig && <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: sig.action === "LONG" ? C.green : sig.action === "SHORT / AVOID" ? C.red : C.amber, marginLeft: 8 }}>{sig.action}</span>}
+              {action && <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: action.color, marginLeft: 8 }}>{action.label}</span>}
             </div>
           );
         })}
