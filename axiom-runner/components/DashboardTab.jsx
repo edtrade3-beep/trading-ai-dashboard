@@ -238,11 +238,11 @@ export function PortfolioSnapshotCard({ C, MONO, SANS }) {
   return (
     <Card C={C} title="PORTFOLIO SNAPSHOT">
       <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>TODAY'S P&L</div>
-      <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: dayChg >= 0 ? C.green : C.red, marginBottom: 6 }}>
+      <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: dayChg >= 0 ? C.green : C.red, marginBottom: 6, fontVariantNumeric: "tabular-nums" }}>
         {dayChg >= 0 ? "+" : ""}{fmt(Math.abs(dayChg)).replace("$", dayChg < 0 ? "-$" : "$")}
       </div>
       {equityHist.length >= 2 && <div style={{ marginBottom: 8 }}><Sparkline C={C} data={equityHist} /></div>}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, fontFamily: MONO, fontSize: 11 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, fontFamily: MONO, fontSize: 11, fontVariantNumeric: "tabular-nums" }}>
         <div><span style={{ color: C.textDim }}>Equity </span><span style={{ color: C.text, fontWeight: 700 }}>{fmt(acct.equity)}</span></div>
         <div><span style={{ color: C.textDim }}>Buying Power </span><span style={{ color: C.text, fontWeight: 700 }}>{fmt(acct.buyingPower)}</span></div>
         <div><span style={{ color: C.textDim }}>Cash </span><span style={{ color: C.text, fontWeight: 700 }}>{fmt(acct.cash)}</span></div>

@@ -72,8 +72,9 @@ export default function PortfolioRiskCard({ C, MONO, SANS, distData }) {
   }, []);
 
   if (state === "nokey") return null;
-  const card = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, boxShadow: C.shadow, padding: 14, display: "flex", flexDirection: "column" };
-  const title = <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 10 }}>PORTFOLIO RISK</div>;
+  const num = { fontVariantNumeric: "tabular-nums" };
+  const card = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, boxShadow: C.shadow, padding: 14, display: "flex", flexDirection: "column" };
+  const title = <div style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 700, color: C.textDim, letterSpacing: "0.09em", textTransform: "uppercase", marginBottom: 10 }}>Portfolio Risk</div>;
 
   if (state === "loading") return <div style={card}>{title}<div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Loading…</div></div>;
   if (state === "error" || !snap) return <div style={card}>{title}<div style={{ fontFamily: MONO, fontSize: 12, color: C.red }}>Couldn't load risk snapshot.</div></div>;
@@ -95,17 +96,17 @@ export default function PortfolioRiskCard({ C, MONO, SANS, distData }) {
           correlation (button-gated, blend in once run), and market-wide
           risk backdrop (already-fetched distData). Honest "no real risk
           data yet" until at least one dimension is available. */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 10px", borderRadius: 8, background: `${compositeColor}14`, border: `1px solid ${compositeColor}44`, marginBottom: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 10px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, borderLeft: `3px solid ${compositeColor}`, marginBottom: 12 }}>
         <div>
-          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.04em" }}>PORTFOLIO SCORE</div>
+          <div style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 700, color: C.textDim, letterSpacing: "0.09em", textTransform: "uppercase" }}>Portfolio Score</div>
           <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: compositeColor }}>{composite.label}{composite.score != null && ` · ${composite.dimensionsUsed}/5 dimensions`}</div>
         </div>
-        <div style={{ fontFamily: MONO, fontSize: 24, fontWeight: 900, color: compositeColor }}>{composite.score != null ? composite.score : "—"}</div>
+        <div style={{ fontFamily: MONO, fontSize: 24, fontWeight: 900, color: compositeColor, ...num }}>{composite.score != null ? composite.score : "—"}</div>
       </div>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
         <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>OPEN RISK</span>
-        <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: riskColor }}>{snap.openRiskPct}% <span style={{ color: C.textDim, fontWeight: 400 }}>/ {riskCap}% cap</span></span>
+        <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: riskColor, ...num }}>{snap.openRiskPct}% <span style={{ color: C.textDim, fontWeight: 400 }}>/ {riskCap}% cap</span></span>
       </div>
       <div style={{ height: 6, borderRadius: 3, background: C.border, overflow: "hidden", marginBottom: 12 }}>
         <div style={{ height: "100%", width: `${riskPct}%`, background: riskColor, borderRadius: 3 }} />
@@ -113,28 +114,28 @@ export default function PortfolioRiskCard({ C, MONO, SANS, distData }) {
 
       <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11, marginBottom: 4 }}>
         <span style={{ color: C.textDim }}>Daily loss breaker</span>
-        <span style={{ fontWeight: 700, color: snap.dailyBreakerTripped ? C.red : C.green }}>{snap.dailyBreakerTripped ? "🔴 TRIPPED" : "✅ OK"}</span>
+        <span style={{ fontWeight: 700, color: snap.dailyBreakerTripped ? C.red : C.green }}>{snap.dailyBreakerTripped ? "TRIPPED" : "OK"}</span>
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11, marginBottom: 4 }}>
         <span style={{ color: C.textDim }}>Account health</span>
-        <span style={{ fontWeight: 700, color: snap.accountHealth?.ok ? C.green : C.red }}>{snap.accountHealth?.ok ? "✅ OK" : `🔴 ${snap.accountHealth?.reason || "blocked"}`}</span>
+        <span style={{ fontWeight: 700, color: snap.accountHealth?.ok ? C.green : C.red }}>{snap.accountHealth?.ok ? "OK" : snap.accountHealth?.reason || "blocked"}</span>
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11, marginBottom: 10 }}>
         <span style={{ color: C.textDim }}>Open positions</span>
-        <span style={{ fontWeight: 700, color: C.text }}>{snap.positionCount}</span>
+        <span style={{ fontWeight: 700, color: C.text, ...num }}>{snap.positionCount}</span>
       </div>
 
       {snap.topPositionPct > 0 && (
         <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11, marginBottom: 10 }}>
           <span style={{ color: C.textDim }}>Largest position ($-weighted)</span>
-          <span style={{ fontWeight: 700, color: snap.topPositionPct >= 30 ? C.red : snap.topPositionPct >= 20 ? C.amber : C.text }}>{snap.topPositionPct}%</span>
+          <span style={{ fontWeight: 700, color: snap.topPositionPct >= 30 ? C.red : snap.topPositionPct >= 20 ? C.amber : C.text, ...num }}>{snap.topPositionPct}%</span>
         </div>
       )}
       {(snap.concentrationFlags || []).length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 3, marginBottom: 10 }}>
           {snap.concentrationFlags.map((f) => (
             <div key={f.symbol} style={{ fontFamily: MONO, fontSize: 10.5, color: f.pct >= 30 ? C.red : C.amber }}>
-              ⚖️ {f.symbol} is {f.pct}% of the account — single-name risk
+              {f.symbol} is {f.pct}% of the account — single-name risk
             </div>
           ))}
         </div>
@@ -142,7 +143,7 @@ export default function PortfolioRiskCard({ C, MONO, SANS, distData }) {
 
       {sectors.length > 0 && (
         <>
-          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.04em", marginBottom: 6 }}>SECTOR CONCENTRATION</div>
+          <div style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 700, color: C.textDim, letterSpacing: "0.09em", textTransform: "uppercase", marginBottom: 6 }}>Sector Concentration</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             {sectors.map(([sec, count]) => (
               <div key={sec} style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -150,7 +151,7 @@ export default function PortfolioRiskCard({ C, MONO, SANS, distData }) {
                 <div style={{ flex: 1, height: 5, borderRadius: 3, background: C.border, overflow: "hidden" }}>
                   <div style={{ height: "100%", width: `${(count / maxSectorCount) * 100}%`, background: count >= 3 ? C.amber : C.accent, borderRadius: 3 }} />
                 </div>
-                <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, minWidth: 14, textAlign: "right" }}>{count}</span>
+                <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, minWidth: 14, textAlign: "right", ...num }}>{count}</span>
               </div>
             ))}
           </div>
@@ -162,26 +163,26 @@ export default function PortfolioRiskCard({ C, MONO, SANS, distData }) {
           reuses Phase 11's already-fetched data, zero new fetches beyond
           the one mount-time /api/paper-positions call above). */}
       <div style={{ borderTop: `1px solid ${C.border}`, marginTop: 12, paddingTop: 12, marginBottom: 12 }}>
-        <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.04em", marginBottom: 6 }}>PORTFOLIO GREEKS — open paper positions</div>
+        <div style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 700, color: C.textDim, letterSpacing: "0.09em", textTransform: "uppercase", marginBottom: 6 }}>Portfolio Greeks — open paper positions</div>
         {!greeks.available ? (
           <div style={{ fontFamily: MONO, fontSize: 10.5, color: C.textDim }}>{greeks.reason}</div>
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
             <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11 }}>
               <span style={{ color: C.textDim }}>Net Delta</span>
-              <span style={{ fontWeight: 700, color: C.text }}>{greeks.netDelta != null ? `${greeks.netDelta >= 0 ? "+" : ""}${greeks.netDelta}` : "—"}</span>
+              <span style={{ fontWeight: 700, color: C.text, ...num }}>{greeks.netDelta != null ? `${greeks.netDelta >= 0 ? "+" : ""}${greeks.netDelta}` : "—"}</span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11 }}>
               <span style={{ color: C.textDim }}>Net Gamma</span>
-              <span style={{ fontWeight: 700, color: C.text }}>{greeks.netGamma != null ? `${greeks.netGamma >= 0 ? "+" : ""}${greeks.netGamma}` : "—"}</span>
+              <span style={{ fontWeight: 700, color: C.text, ...num }}>{greeks.netGamma != null ? `${greeks.netGamma >= 0 ? "+" : ""}${greeks.netGamma}` : "—"}</span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11 }}>
               <span style={{ color: C.textDim }}>Net Theta</span>
-              <span style={{ fontWeight: 700, color: greeks.netTheta != null && greeks.netTheta < 0 ? C.red : C.text }}>{greeks.netTheta != null ? `${greeks.netTheta >= 0 ? "+" : ""}${greeks.netTheta}` : "—"}</span>
+              <span style={{ fontWeight: 700, color: greeks.netTheta != null && greeks.netTheta < 0 ? C.red : C.text, ...num }}>{greeks.netTheta != null ? `${greeks.netTheta >= 0 ? "+" : ""}${greeks.netTheta}` : "—"}</span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11 }}>
               <span style={{ color: C.textDim }}>Net Vega</span>
-              <span style={{ fontWeight: 700, color: C.text }}>{greeks.netVega != null ? `${greeks.netVega >= 0 ? "+" : ""}${greeks.netVega}` : "—"}</span>
+              <span style={{ fontWeight: 700, color: C.text, ...num }}>{greeks.netVega != null ? `${greeks.netVega >= 0 ? "+" : ""}${greeks.netVega}` : "—"}</span>
             </div>
           </div>
         )}
@@ -192,7 +193,7 @@ export default function PortfolioRiskCard({ C, MONO, SANS, distData }) {
         <button onClick={runCorrelationAnalysis} disabled={corrState === "loading"}
           style={{ width: "100%", fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "8px 0", borderRadius: 8, cursor: corrState === "loading" ? "default" : "pointer",
             border: `1px solid ${C.accent}`, background: `${C.accent}14`, color: C.accent }}>
-          {corrState === "loading" ? "Analyzing real correlation…" : "🔬 Run Correlation & Factor Analysis"}
+          {corrState === "loading" ? "Analyzing real correlation…" : "Run Correlation & Factor Analysis"}
         </button>
         {corrState === "error" && <div style={{ fontFamily: MONO, fontSize: 11, color: C.red, marginTop: 8 }}>Couldn't compute — try again.</div>}
         {corrState === "ok" && corr && (
@@ -203,27 +204,27 @@ export default function PortfolioRiskCard({ C, MONO, SANS, distData }) {
               <>
                 {corr.clusters.length > 0 && (
                   <>
-                    <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.04em", marginBottom: 6 }}>CORRELATION CLUSTERS (≥0.70)</div>
+                    <div style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 700, color: C.textDim, letterSpacing: "0.09em", textTransform: "uppercase", marginBottom: 6 }}>Correlation Clusters (≥0.70)</div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 12 }}>
                       {corr.clusters.slice(0, 6).map((c) => (
-                        <div key={c.a + c.b} style={{ fontFamily: MONO, fontSize: 10.5, color: C.textSec }}>
-                          🔗 {c.a} + {c.b} move together ({c.correlation.toFixed(2)}) — effectively one bet
+                        <div key={c.a + c.b} style={{ fontFamily: MONO, fontSize: 10.5, color: C.textSec, ...num }}>
+                          {c.a} + {c.b} move together ({c.correlation.toFixed(2)}) — effectively one bet
                         </div>
                       ))}
                     </div>
                   </>
                 )}
                 {corr.clusters.length === 0 && (
-                  <div style={{ fontFamily: MONO, fontSize: 10.5, color: C.green, marginBottom: 12 }}>✅ No highly-correlated pairs (≥0.70) — real diversification across holdings.</div>
+                  <div style={{ fontFamily: MONO, fontSize: 10.5, color: C.green, marginBottom: 12 }}>No highly-correlated pairs (≥0.70) — real diversification across holdings.</div>
                 )}
                 {corr.factorExposure.length > 0 && (
                   <>
-                    <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.04em", marginBottom: 6 }}>FACTOR EXPOSURE — real $-weighted correlation to style proxies, not a fabricated factor model</div>
+                    <div style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 700, color: C.textDim, letterSpacing: "0.09em", textTransform: "uppercase", marginBottom: 6 }}>Factor Exposure — real $-weighted correlation to style proxies, not a fabricated factor model</div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 12 }}>
                       {corr.factorExposure.map((f) => (
                         <div key={f.proxy} style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11 }}>
                           <span style={{ color: C.textDim }}>{f.label}</span>
-                          <span style={{ fontWeight: 700, color: Math.abs(f.correlation) >= 0.7 ? C.amber : C.text }}>{f.correlation >= 0 ? "+" : ""}{f.correlation.toFixed(2)}</span>
+                          <span style={{ fontWeight: 700, color: Math.abs(f.correlation) >= 0.7 ? C.amber : C.text, ...num }}>{f.correlation >= 0 ? "+" : ""}{f.correlation.toFixed(2)}</span>
                         </div>
                       ))}
                     </div>
@@ -246,7 +247,7 @@ export default function PortfolioRiskCard({ C, MONO, SANS, distData }) {
         <button onClick={runRiskLab} disabled={riskLabState === "loading"}
           style={{ width: "100%", fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "8px 0", borderRadius: 8, cursor: riskLabState === "loading" ? "default" : "pointer",
             border: `1px solid ${C.accent}`, background: `${C.accent}14`, color: C.accent }}>
-          {riskLabState === "loading" ? "Computing real VaR/beta…" : "📉 Run VaR / Beta Analysis"}
+          {riskLabState === "loading" ? "Computing real VaR/beta…" : "Run VaR / Beta Analysis"}
         </button>
         {riskLabState === "error" && <div style={{ fontFamily: MONO, fontSize: 11, color: C.red, marginTop: 8 }}>Couldn't compute — try again.</div>}
         {riskLabState === "ok" && riskLab && !riskLab.riskLab && (
@@ -256,36 +257,33 @@ export default function PortfolioRiskCard({ C, MONO, SANS, distData }) {
           <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 4 }}>
             <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11 }}>
               <span style={{ color: C.textDim }}>1-day VaR (95%)</span>
-              <span style={{ fontWeight: 700, color: C.text }}>${riskLab.riskLab.var95?.toLocaleString()}</span>
+              <span style={{ fontWeight: 700, color: C.text, ...num }}>${riskLab.riskLab.var95?.toLocaleString()}</span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11 }}>
               <span style={{ color: C.textDim }}>1-day VaR (99%)</span>
-              <span style={{ fontWeight: 700, color: C.text }}>${riskLab.riskLab.var99?.toLocaleString()}</span>
+              <span style={{ fontWeight: 700, color: C.text, ...num }}>${riskLab.riskLab.var99?.toLocaleString()}</span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11 }}>
               <span style={{ color: C.textDim }}>Beta vs SPY{!riskLab.riskLab.betaAllReal && " (partial)"}</span>
-              <span style={{ fontWeight: 700, color: C.text }}>{riskLab.riskLab.beta?.toFixed(2)}</span>
+              <span style={{ fontWeight: 700, color: C.text, ...num }}>{riskLab.riskLab.beta?.toFixed(2)}</span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11 }}>
               <span style={{ color: C.textDim }}>Avg daily volatility</span>
-              <span style={{ fontWeight: 700, color: C.text }}>{riskLab.riskLab.avgDailyVolatilityPct?.toFixed(2)}%</span>
+              <span style={{ fontWeight: 700, color: C.text, ...num }}>{riskLab.riskLab.avgDailyVolatilityPct?.toFixed(2)}%</span>
             </div>
-            {/* Real open-portfolio Sharpe/Sortino/MaxDD — honest-null below
-                20 real trading days (risk-lab-calc.js's own floor), never a
-                guess off a short series. */}
             {riskLab.riskLab.sharpe != null ? (
               <>
                 <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11 }}>
                   <span style={{ color: C.textDim }}>Sharpe (annualized)</span>
-                  <span style={{ fontWeight: 700, color: riskLab.riskLab.sharpe >= 0 ? C.green : C.red }}>{riskLab.riskLab.sharpe.toFixed(2)}</span>
+                  <span style={{ fontWeight: 700, color: riskLab.riskLab.sharpe >= 0 ? C.green : C.red, ...num }}>{riskLab.riskLab.sharpe.toFixed(2)}</span>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11 }}>
                   <span style={{ color: C.textDim }}>Sortino (annualized)</span>
-                  <span style={{ fontWeight: 700, color: riskLab.riskLab.sortino >= 0 ? C.green : C.red }}>{Number.isFinite(riskLab.riskLab.sortino) ? riskLab.riskLab.sortino.toFixed(2) : "∞"}</span>
+                  <span style={{ fontWeight: 700, color: riskLab.riskLab.sortino >= 0 ? C.green : C.red, ...num }}>{Number.isFinite(riskLab.riskLab.sortino) ? riskLab.riskLab.sortino.toFixed(2) : "∞"}</span>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11 }}>
                   <span style={{ color: C.textDim }}>Max drawdown</span>
-                  <span style={{ fontWeight: 700, color: C.text }}>{riskLab.riskLab.maxDrawdownPct?.toFixed(1)}%</span>
+                  <span style={{ fontWeight: 700, color: C.text, ...num }}>{riskLab.riskLab.maxDrawdownPct?.toFixed(1)}%</span>
                 </div>
               </>
             ) : (

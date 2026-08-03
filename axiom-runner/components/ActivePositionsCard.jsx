@@ -58,10 +58,12 @@ export default function ActivePositionsCard({ C, MONO, SANS, setTerminalSymbol, 
     .filter(Boolean);
   const weakest = positions.length >= 2 ? findWeakestPosition(scoredOpen) : null;
 
+  const num = { fontVariantNumeric: "tabular-nums" };
+
   return (
-    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, boxShadow: C.shadow, padding: 14 }}>
-      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 10 }}>
-        ACTIVE POSITIONS {positions.length > 0 && <span style={{ fontWeight: 400 }}>· {positions.length}</span>}
+    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, boxShadow: C.shadow, padding: 14 }}>
+      <div style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 700, color: C.textDim, letterSpacing: "0.09em", textTransform: "uppercase", marginBottom: 10 }}>
+        Active Positions {positions.length > 0 && <span style={{ fontWeight: 400, textTransform: "none" }}>· {positions.length}</span>}
       </div>
       {state === "loading" && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Loading…</div>}
       {state === "error" && <div style={{ fontFamily: MONO, fontSize: 12, color: C.red }}>Couldn't load positions.</div>}
@@ -84,13 +86,13 @@ export default function ActivePositionsCard({ C, MONO, SANS, setTerminalSymbol, 
                       </span>
                     )}
                   </div>
-                  <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{p.qty} sh @ ${Number(p.avgEntry || 0).toFixed(2)}</div>
+                  <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, ...num }}>{p.qty} sh @ ${Number(p.avgEntry || 0).toFixed(2)}</div>
                 </div>
                 <div style={{ textAlign: "right" }}>
-                  <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: pl >= 0 ? C.green : C.red }}>
+                  <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: pl >= 0 ? C.green : C.red, ...num }}>
                     {pl >= 0 ? "+" : ""}${Math.abs(pl).toFixed(0)}
                   </div>
-                  <div style={{ fontFamily: MONO, fontSize: 10, color: pl >= 0 ? C.green : C.red }}>
+                  <div style={{ fontFamily: MONO, fontSize: 10, color: pl >= 0 ? C.green : C.red, ...num }}>
                     {plPct >= 0 ? "+" : ""}{plPct.toFixed(1)}%
                   </div>
                 </div>
