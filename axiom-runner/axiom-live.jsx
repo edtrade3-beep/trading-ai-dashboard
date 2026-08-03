@@ -1553,6 +1553,49 @@ export default function App() {
   });
   // Save tab on change
   React.useEffect(() => { try { localStorage.setItem("last_tab", activeTab); } catch {} }, [activeTab]);
+  // In-app Back/Forward nav history (explicit user request, 2026-08-03:
+  // "when i want to go back to previus page i need an arrow back and
+  // forth") — this is a single-page app with no real URL routing
+  // (activeTab is plain client state, no history.pushState/popstate
+  // anywhere in this file), so the browser's own back/forward buttons do
+  // nothing useful here; this builds the same real stack/pointer behavior
+  // inside the app instead. Real navigation tracking: every genuine
+  // activeTab change (sidebar click, palette command, in-page "open X"
+  // link, etc.) truncates any forward history and appends — same as a
+  // real browser tab. navigatingRef distinguishes "user clicked Back/
+  // Forward" (just move the pointer, don't re-record) from every other
+  // real navigation (record it).
+  const [navHistory, setNavHistory] = useState({ stack: [activeTab], index: 0 });
+  const navigatingRef = useRef(false);
+  const NAV_HISTORY_CAP = 50;
+  React.useEffect(() => {
+    if (navigatingRef.current) { navigatingRef.current = false; return; }
+    setNavHistory(prev => {
+      if (prev.stack[prev.index] === activeTab) return prev;
+      let stack = [...prev.stack.slice(0, prev.index + 1), activeTab];
+      if (stack.length > NAV_HISTORY_CAP) stack = stack.slice(stack.length - NAV_HISTORY_CAP);
+      return { stack, index: stack.length - 1 };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
+  const goBack = () => {
+    setNavHistory(prev => {
+      if (prev.index <= 0) return prev;
+      navigatingRef.current = true;
+      setActiveTab(prev.stack[prev.index - 1]);
+      return { ...prev, index: prev.index - 1 };
+    });
+  };
+  const goForward = () => {
+    setNavHistory(prev => {
+      if (prev.index >= prev.stack.length - 1) return prev;
+      navigatingRef.current = true;
+      setActiveTab(prev.stack[prev.index + 1]);
+      return { ...prev, index: prev.index + 1 };
+    });
+  };
+  const canGoBack = navHistory.index > 0;
+  const canGoForward = navHistory.index < navHistory.stack.length - 1;
   // Local sub-tab state for the 3 new composite nav destinations
   // (institutional redesign, 2026-07-29) — Market/Calendar/Settings each
   // fold several previously-scattered real destinations into one sidebar
@@ -5784,6 +5827,24 @@ export default function App() {
             />
           </div>
           {!isMobile && <CompactMarketMode C={C} MONO={MONO} macroData={macroData} setActiveTab={setActiveTab} />}
+          {/* ← → in-app page history (explicit user request, 2026-08-03) —
+              same shape as browser back/forward, real per-session nav stack
+              since this SPA has no URL routing for the browser's own
+              buttons to work with. */}
+          <div style={{ display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }}>
+            <button onClick={goBack} disabled={!canGoBack} title="Back"
+              style={{ background: "transparent", border: `1px solid ${C.border}`, color: canGoBack ? C.textSec : C.textDim,
+                borderRadius: 6, width: 28, height: 28, fontSize: 14, cursor: canGoBack ? "pointer" : "default",
+                opacity: canGoBack ? 1 : 0.4, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              ←
+            </button>
+            <button onClick={goForward} disabled={!canGoForward} title="Forward"
+              style={{ background: "transparent", border: `1px solid ${C.border}`, color: canGoForward ? C.textSec : C.textDim,
+                borderRadius: 6, width: 28, height: 28, fontSize: 14, cursor: canGoForward ? "pointer" : "default",
+                opacity: canGoForward ? 1 : 0.4, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              →
+            </button>
+          </div>
           {/* Nav pills moved to the persistent left Sidebar (below). Mobile
               still uses the hamburger+drawer, restyled to the same 13-item
               list — see Sidebar.jsx and the mobile drawer render below. */}
