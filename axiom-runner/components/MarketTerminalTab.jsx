@@ -23,7 +23,7 @@ import {
 } from "./market-helpers.js";
 import AiScoreExplainer, {
   AplusBadge, TRADE_SETUP_DIMENSIONS, STOCK_QUALITY_DIMENSIONS, INSTITUTIONAL_GRADE_DIMENSIONS,
-  TECHNICAL_DIMENSIONS, TIMING_DIMENSIONS, INSTITUTIONAL_GRADE_NOTE, AI_TRADE_ENGINE_DIMENSIONS,
+  TECHNICAL_DIMENSIONS, TIMING_DIMENSIONS, AI_TRADE_ENGINE_DIMENSIONS,
 } from "./AiScoreExplainer.jsx";
 import { stockQualityBreakdown } from "./rhpro-shared.jsx";
 import { mapToAiAction } from "./ai-actions.js";
@@ -702,8 +702,11 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                 title: symSectorInfo ? `${symSectorInfo.name} ranked #${symSectorInfo.rank} of ${symSectorInfo.of} S&P sectors today` : "Sector rank unavailable" },
               { key: "stockQuality", label: "STOCK QUALITY", tile: topScores.stockQuality,
                 onClick: () => setExplain({ symbol: sym, aplus: stockQuality, dimensions: STOCK_QUALITY_DIMENSIONS, label: "STOCK QUALITY SCORE" }) },
-              { key: "institutional", label: "INSTITUTIONAL", tile: topScores.institutional,
-                onClick: () => setExplain({ symbol: sym, aplus: institutionalGrade, dimensions: INSTITUTIONAL_GRADE_DIMENSIONS, label: "INSTITUTIONAL GRADE", note: INSTITUTIONAL_GRADE_NOTE }) },
+              // INSTITUTIONAL tile removed 2026-08-04 — real duplicate, not just
+              // similar: same institutionalGrade object as the hero card above
+              // (L644), same score, same letter, same breakdown modal. The hero
+              // card already owns this number; showing it twice 15 lines apart
+              // cost the user a second read with no new information.
               { key: "technical", label: "TECHNICAL", tile: topScores.technical,
                 onClick: () => setExplain({ symbol: sym, aplus: topScores.technical, dimensions: TECHNICAL_DIMENSIONS, label: "TECHNICAL" }) },
               { key: "timing", label: "TIMING", tile: topScores.timing,
@@ -760,7 +763,15 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             title={institutionScore.reasons.join(" · ")}>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <div>
-                <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.5 }}>INSTITUTION SCORE — hover for real signals</div>
+                {/* Renamed from "INSTITUTION SCORE" 2026-08-04 — real user
+                    confusion risk flagged by audit: that name sat ~80 lines
+                    below "INSTITUTIONAL GRADE" (the hero card above), same
+                    0-100 scale, no disclosure telling them apart. This is a
+                    dark-pool/options-flow/insider/13F/short-interest read on
+                    what institutional money is doing right now — a
+                    genuinely different question than Institutional Grade's
+                    7-input quality synthesis — so it gets its own name. */}
+                <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.5 }}>SMART MONEY FLOW SCORE — hover for real signals</div>
                 <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: institutionScore.score >= 60 ? C.green : institutionScore.score <= 40 ? C.red : C.amber }}>
                   {institutionScore.score}<span style={{ fontSize: 12, color: C.textDim }}> /100</span>
                 </div>

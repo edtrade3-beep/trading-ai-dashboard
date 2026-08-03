@@ -109,7 +109,7 @@ export default function AiTradeCard({ symbol, price, aiTradeScore, institutionSc
         <div>
           <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 4 }}>SCORES</div>
           {row("AI Trade Score", aiTradeScore ? `${aiTradeScore.score}/100` : "—", aiTradeScore?.score >= 70 ? C.green : C.textDim)}
-          {row("Institution Score", institutionScore ? `${institutionScore.score}/100 (${institutionScore.label})` : "—", institutionScore?.score >= 60 ? C.green : C.textDim)}
+          {row("Smart Money Flow", institutionScore ? `${institutionScore.score}/100 (${institutionScore.label})` : "—", institutionScore?.score >= 60 ? C.green : C.textDim)}
           {row("Open Interest", best.openInterest?.toLocaleString() ?? "—")}
           {row("Volume", best.volume?.toLocaleString() ?? "—")}
         </div>

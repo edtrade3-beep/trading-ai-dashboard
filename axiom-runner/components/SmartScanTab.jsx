@@ -760,38 +760,38 @@ export default function SmartScanTab({
                                   (() => {
                                     const spyChgGL = Number((macroData || []).find(m => m.symbol === "SPY")?.changesPercentage || 0);
                                     const passed = computeGreenLight({ ...(row.quote || {}), price: px }, spyChgGL, row, null, smartScanTrendMap[row.ticker]).passed;
-                                    if (passed >= 4)      chips.push({ txt: `🟢 GREEN LIGHT ${passed}/5`, col: C.green, title: "Green Light System: 4+ checks passed — BUY zone" });
-                                    else if (passed === 3) chips.push({ txt: `🟡 ALMOST ${passed}/5`,     col: C.amber, title: "Green Light System: 3/5 — watch, almost ready" });
+                                    if (passed >= 4)      chips.push({ txt: `🟢 GREEN LIGHT ${passed}/5`, col: C.green, title: "Green Light System: 4+ checks passed — BUY zone", pri: 0 });
+                                    else if (passed === 3) chips.push({ txt: `🟡 ALMOST ${passed}/5`,     col: C.amber, title: "Green Light System: 3/5 — watch, almost ready", pri: 0 });
                                   })();
 
                                   // RSI signal
                                   if (rsi != null) {
-                                    if (rsi < 30)      chips.push({ txt: `RSI ${rsi.toFixed(0)} 🔥`, col: C.green, title: "Oversold — bounce candidate" });
-                                    else if (rsi > 70) chips.push({ txt: `RSI ${rsi.toFixed(0)} ⚠`, col: C.red,   title: "Overbought — watch for pullback" });
-                                    else               chips.push({ txt: `RSI ${rsi.toFixed(0)}`,   col: C.textDim });
+                                    if (rsi < 30)      chips.push({ txt: `RSI ${rsi.toFixed(0)} 🔥`, col: C.green, title: "Oversold — bounce candidate", pri: 2 });
+                                    else if (rsi > 70) chips.push({ txt: `RSI ${rsi.toFixed(0)} ⚠`, col: C.red,   title: "Overbought — watch for pullback", pri: 2 });
+                                    else               chips.push({ txt: `RSI ${rsi.toFixed(0)}`,   col: C.textDim, pri: 2 });
                                   }
                                   // EMA alignment
                                   if (ema9 && ema21) {
-                                    chips.push({ txt: ema9 > ema21 ? "EMA ▲" : "EMA ▼", col: ema9 > ema21 ? C.green : C.red, title: ema9 > ema21 ? "EMA 9 above 21 — bullish" : "EMA 9 below 21 — bearish" });
+                                    chips.push({ txt: ema9 > ema21 ? "EMA ▲" : "EMA ▼", col: ema9 > ema21 ? C.green : C.red, title: ema9 > ema21 ? "EMA 9 above 21 — bullish" : "EMA 9 below 21 — bearish", pri: 2 });
                                   }
                                   // Near 52w extremes
                                   if (hi52 > 0 && lo52 > 0 && px > 0) {
                                     const distLo = (px - lo52) / lo52 * 100;
                                     const distHi = (hi52 - px) / hi52 * 100;
-                                    if (distLo < 10)  chips.push({ txt: "Near 52wLo", col: C.green, title: "Within 10% of 52-week low — potential bottom" });
-                                    if (distHi < 5)   chips.push({ txt: "Near 52wHi", col: C.amber, title: "Within 5% of 52-week high — watch for top" });
+                                    if (distLo < 10)  chips.push({ txt: "Near 52wLo", col: C.green, title: "Within 10% of 52-week low — potential bottom", pri: 2 });
+                                    if (distHi < 5)   chips.push({ txt: "Near 52wHi", col: C.amber, title: "Within 5% of 52-week high — watch for top", pri: 2 });
                                   }
                                   // Volume spike
-                                  if (rvol > 2.5) chips.push({ txt: `Vol ${rvol.toFixed(1)}x 🔥`, col: C.amber, title: "Volume spike — unusual activity" });
-                                  else if (rvol > 1.5) chips.push({ txt: `Vol ${rvol.toFixed(1)}x`, col: C.textDim });
+                                  if (rvol > 2.5) chips.push({ txt: `Vol ${rvol.toFixed(1)}x 🔥`, col: C.amber, title: "Volume spike — unusual activity", pri: 2 });
+                                  else if (rvol > 1.5) chips.push({ txt: `Vol ${rvol.toFixed(1)}x`, col: C.textDim, pri: 2 });
                                   // Sharp move
-                                  if (chg1w < -15) chips.push({ txt: `${chg1w.toFixed(0)}% 1w ↘`, col: C.green, title: "Sharp weekly drop — oversold bounce?" });
-                                  if (chg1w > 20)  chips.push({ txt: `+${chg1w.toFixed(0)}% 1w ↗`, col: C.red,   title: "Parabolic weekly move — top forming?" });
+                                  if (chg1w < -15) chips.push({ txt: `${chg1w.toFixed(0)}% 1w ↘`, col: C.green, title: "Sharp weekly drop — oversold bounce?", pri: 2 });
+                                  if (chg1w > 20)  chips.push({ txt: `+${chg1w.toFixed(0)}% 1w ↗`, col: C.red,   title: "Parabolic weekly move — top forming?", pri: 2 });
                                   // MA50 distance
                                   if (ma50 > 0 && px > 0) {
                                     const d50 = (px - ma50) / ma50 * 100;
-                                    if (d50 < -15) chips.push({ txt: `${d50.toFixed(0)}% vs MA50`, col: C.green, title: "Far below 50MA — stretched low" });
-                                    if (d50 > 20)  chips.push({ txt: `+${d50.toFixed(0)}% vs MA50`, col: C.red,   title: "Far above 50MA — extended high" });
+                                    if (d50 < -15) chips.push({ txt: `${d50.toFixed(0)}% vs MA50`, col: C.green, title: "Far below 50MA — stretched low", pri: 2 });
+                                    if (d50 > 20)  chips.push({ txt: `+${d50.toFixed(0)}% vs MA50`, col: C.red,   title: "Far above 50MA — extended high", pri: 2 });
                                   }
                                   // ── ADVANCED PATTERN SIGNALS ─────────────────────────────
                                   const chg1d = Number(row.quote?.changesPercentage || 0);
@@ -801,63 +801,78 @@ export default function SmartScanTab({
                                   if (rsi != null && rsi < 35 && hi52 > 0 && lo52 > 0) {
                                     const distLo2 = (px - lo52) / lo52 * 100;
                                     if (distLo2 < 20 && rvol > 1.2)
-                                      chips.push({ txt: "🟢 POSSIBLE BOTTOM", col: C.green, title: "RSI oversold + near 52W low + volume — bottom forming?" });
+                                      chips.push({ txt: "🟢 POSSIBLE BOTTOM", col: C.green, title: "RSI oversold + near 52W low + volume — bottom forming?", pri: 1 });
                                   }
 
                                   // POSSIBLE TOP — overbought + near high + weakening
                                   if (rsi != null && rsi > 68 && hi52 > 0) {
                                     const distHi2 = (hi52 - px) / hi52 * 100;
                                     if (distHi2 < 8)
-                                      chips.push({ txt: "🔴 POSSIBLE TOP", col: C.red, title: "RSI overbought + near 52W high — top forming?" });
+                                      chips.push({ txt: "🔴 POSSIBLE TOP", col: C.red, title: "RSI overbought + near 52W high — top forming?", pri: 1 });
                                   }
 
                                   // REBOUND SETUP — was down hard, now recovering
                                   if (chg1w < -10 && chg1d > 0 && rsi != null && rsi < 50)
-                                    chips.push({ txt: "↩ REBOUND", col: C.accent, title: "Down hard last week, bouncing today — rebound setup" });
+                                    chips.push({ txt: "↩ REBOUND", col: C.accent, title: "Down hard last week, bouncing today — rebound setup", pri: 1 });
 
                                   // OVERSOLD BOUNCE — RSI < 30 + price up today
                                   if (rsi != null && rsi < 32 && chg1d > 0)
-                                    chips.push({ txt: "⚡ OVERSOLD BOUNCE", col: C.green, title: "RSI oversold + green today — bounce in progress" });
+                                    chips.push({ txt: "⚡ OVERSOLD BOUNCE", col: C.green, title: "RSI oversold + green today — bounce in progress", pri: 1 });
 
                                   // CAPITULATION — massive drop + huge volume
                                   if (chg1d < -5 && rvol > 3)
-                                    chips.push({ txt: "🩸 CAPITULATION", col: "#ff6b6b", title: "Massive drop on huge volume — potential exhaustion bottom" });
+                                    chips.push({ txt: "🩸 CAPITULATION", col: "#ff6b6b", title: "Massive drop on huge volume — potential exhaustion bottom", pri: 1 });
 
                                   // BREAKOUT WATCH — near 52W high + volume
                                   if (hi52 > 0 && px > 0 && (hi52 - px) / hi52 * 100 < 3 && rvol > 1.5 && rsi > 55)
-                                    chips.push({ txt: "🚀 BREAKOUT WATCH", col: C.amber, title: "Near 52W high with volume — potential breakout" });
+                                    chips.push({ txt: "🚀 BREAKOUT WATCH", col: C.amber, title: "Near 52W high with volume — potential breakout", pri: 1 });
 
                                   // DEAD CAT — big bounce after big drop, still bearish trend
                                   if (chg1d > 5 && chg1w < -15 && ema9 && ema21 && ema9 < ema21)
-                                    chips.push({ txt: "☠ DEAD CAT?", col: C.red, title: "Big bounce but trend still bearish — dead cat bounce warning" });
+                                    chips.push({ txt: "☠ DEAD CAT?", col: C.red, title: "Big bounce but trend still bearish — dead cat bounce warning", pri: 1 });
 
                                   // TREND REVERSAL — EMA crossover + volume
                                   if (ema9 && ema21 && Math.abs(ema9 - ema21) / ema21 * 100 < 1 && rvol > 1.5)
-                                    chips.push({ txt: "🔀 EMA CROSS", col: C.accent || "#9c27b0", title: "EMA 9 and 21 crossing — trend change forming" });
+                                    chips.push({ txt: "🔀 EMA CROSS", col: C.accent || "#9c27b0", title: "EMA 9 and 21 crossing — trend change forming", pri: 1 });
 
                                   // DEEP VALUE — RSI < 40 + far below MA50 + above MA200
                                   if (rsi != null && rsi < 40 && ma50 > 0 && (px - ma50) / ma50 * 100 < -10 && ma200 > 0 && px > ma200)
-                                    chips.push({ txt: "💎 DEEP VALUE", col: C.accent, title: "Oversold, below 50MA, but above 200MA — quality dip" });
+                                    chips.push({ txt: "💎 DEEP VALUE", col: C.accent, title: "Oversold, below 50MA, but above 200MA — quality dip", pri: 1 });
 
                                   // PULLBACK TO MA — price just touched MA50
                                   if (ma50 > 0 && Math.abs((px - ma50) / ma50 * 100) < 1.5 && ema9 && ema21 && ema9 > ema21)
-                                    chips.push({ txt: "📍 MA50 PULLBACK", col: C.green, title: "Pulling back to 50D MA in uptrend — high probability bounce" });
+                                    chips.push({ txt: "📍 MA50 PULLBACK", col: C.green, title: "Pulling back to 50D MA in uptrend — high probability bounce", pri: 1 });
 
                                   // SQUEEZE BUILD — low RSI + low volume = coiling
                                   if (rsi != null && rsi > 40 && rsi < 55 && rvol < 0.7)
-                                    chips.push({ txt: "🌀 SQUEEZE BUILD", col: C.amber, title: "Low volatility coiling — big move coming soon" });
+                                    chips.push({ txt: "🌀 SQUEEZE BUILD", col: C.amber, title: "Low volatility coiling — big move coming soon", pri: 1 });
 
                                   // Zone
                                   if (zoneLbl && zoneLbl !== "—" && zoneLbl !== "WAIT") {
-                                    chips.push({ txt: zoneLbl, col: zoneCol, title: "Current entry zone" });
+                                    chips.push({ txt: zoneLbl, col: zoneCol, title: "Current entry zone", pri: 2 });
                                   }
                                   // Thesis
-                                  if (ref?.thesis) chips.push({ txt: ref.thesis.slice(0, 35) + (ref.thesis.length > 35 ? "…" : ""), col: C.textDim, italic: true });
+                                  if (ref?.thesis) chips.push({ txt: ref.thesis.slice(0, 35) + (ref.thesis.length > 35 ? "…" : ""), col: C.textDim, italic: true, pri: 3 });
 
                                   if (!chips.length) return null;
+                                  // Cap to the 3 most decision-relevant chips (2026-08-04, audit
+                                  // finding: up to ~19 possible chip types with no cap meant a
+                                  // volatile ticker could fire 5+ at once — chip-soup, the opposite
+                                  // of "read in seconds"). Priority: 0=Green Light verdict,
+                                  // 1=named pattern setups, 2=raw technical readings + zone,
+                                  // 3=thesis text. Stable sort keeps push order within a tier.
+                                  // Nothing is lost — overflow collapses into one "+N more" chip
+                                  // whose title lists everything it's hiding.
+                                  const CHIP_CAP = 3;
+                                  const ranked = chips.map((c, i) => ({ ...c, _i: i })).sort((a, b) => (a.pri ?? 2) - (b.pri ?? 2) || a._i - b._i);
+                                  const shown = ranked.slice(0, CHIP_CAP);
+                                  const hidden = ranked.slice(CHIP_CAP);
+                                  const visibleChips = hidden.length
+                                    ? [...shown, { txt: `+${hidden.length} more`, col: C.textDim, title: hidden.map(h => h.txt).join(" · ") }]
+                                    : shown;
                                   return (
                                     <div style={{ display: "flex", gap: 5, marginTop: 4, flexWrap: "wrap", alignItems: "center" }}>
-                                      {chips.map((ch, ci) => (
+                                      {visibleChips.map((ch, ci) => (
                                         <span key={ci} title={ch.title || ""}
                                           style={{ fontFamily: ch.italic ? SANS : MONO, fontSize: 10,
                                             color: ch.col, fontStyle: ch.italic ? "italic" : "normal",
