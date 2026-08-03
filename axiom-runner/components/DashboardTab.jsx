@@ -94,32 +94,41 @@ function MarketRegimeCard({ C, MONO, SANS, macroData, distData, factors, bias, b
 
   return (
     <Card C={C} title="MARKET HEALTH">
-      <RadialGauge C={C} MONO={MONO} value={regime.score} label={regLabel} sublabel="regime score" color={regColor} />
-      <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 8, marginBottom: 10, textAlign: "center" }}>{playbook}</div>
+      {/* Primary verdict — audit fix 2026-08-04: this card used to show 3
+          near-synonymous bias reads with no hierarchy — this marketBias
+          box, a one-sentence prose restatement of the SAME marketBias
+          object right below it (real duplicate content, not just
+          overlapping formulas), and a separate regime-gauge label + a
+          third, locally-computed bias further down. marketBias leads now
+          (it's the formula this exact question — "Market Bias: Bullish/
+          Bearish/Neutral, Confidence %" — was built for); the prose
+          sentence that only restated it was removed outright, not
+          demoted, since it added no information the box didn't already
+          have. Gauge/local-bias stay as real supporting detail below a
+          divider — different formulas that CAN legitimately disagree, so
+          nothing here is reconciled away, just no longer presented as 3
+          equal co-verdicts. Same "SUPPORTING DETAIL" pattern already
+          shipped on the Charts page. */}
       {marketBias.bias && (
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", border: `1px solid ${C.border}`, borderRadius: 8, padding: "7px 10px", marginBottom: 8, background: C.surface }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", border: `1px solid ${biasDotColor}55`, borderRadius: 8, padding: "8px 10px", marginBottom: 10, background: `${biasDotColor}0c` }}>
           <div>
-            <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: biasDotColor }}>{marketBias.bias} · {marketBias.confidence}% confidence</div>
-            <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, marginTop: 1 }}>{marketBias.character} · {marketBias.riskPosture}{strategyHint ? ` · ${strategyHint}` : ""}</div>
+            <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: biasDotColor }}>{marketBias.bias} · {marketBias.confidence}% confidence</div>
+            <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, marginTop: 1 }}>{marketBias.character} · {marketBias.riskPosture}{strategyHint ? ` · favors ${strategyHint.toLowerCase()}` : ""}</div>
           </div>
         </div>
       )}
-      {/* AI Market Summary — options platform redesign, second spec pass
-          (2026-08-02): "one sentence explaining today's market." A
-          templated one-liner over marketBias's own real fields — zero new
-          computation, same "free, deterministic, not an AI call" framing
-          as every other "AI ___" label already in this app. */}
-      {marketBias.bias && (
-        <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, marginBottom: 8, padding: "0 2px", lineHeight: 1.4 }}>
-          {marketBias.bias} market, {marketBias.confidence}% confidence, {marketBias.character.toLowerCase()}{strategyHint ? ` — favors ${strategyHint.toLowerCase()}` : ""}.
-        </div>
-      )}
       {aPlus.pct != null && (
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontFamily: MONO, fontSize: 11, color: C.textSec, marginBottom: 8, padding: "0 2px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontFamily: MONO, fontSize: 11, color: C.textSec, marginBottom: 10, padding: "0 2px" }}>
           <span>A+ MARKET SCORE</span>
           <span style={{ fontWeight: 800, color: aPlus.pct >= 40 ? C.green : aPlus.pct >= 20 ? C.amber : C.textDim, fontVariantNumeric: "tabular-nums" }}>{aPlus.pct}% ({aPlus.aCount}/{aPlus.total} A+/A)</span>
         </div>
       )}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "2px 0 10px" }}>
+        <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: "0.08em", whiteSpace: "nowrap" }}>SUPPORTING DETAIL</div>
+        <div style={{ flex: 1, height: 1, background: C.border }} />
+      </div>
+      <RadialGauge C={C} MONO={MONO} value={regime.score} label={regLabel} sublabel="regime score" color={regColor} />
+      <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 8, marginBottom: 10, textAlign: "center" }}>{playbook}</div>
       <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 8 }}>
         <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: biasColor, marginBottom: 4 }}>{bias}</div>
         {/* Factor strings carry a leading emoji as their only pass/fail
@@ -510,31 +519,6 @@ function KpiStrip({ C, MONO, SANS, macroData }) {
   );
 }
 
-// AI Market Bias — the real factor-scored bias/label/reasons already
-// computed above in this component (spy/qqq/vix/breadth/fear-greed/news),
-// just given the mockup's card treatment. Confidence%/Risk Level are
-// deliberately omitted (user's own call) — no real market-wide number
-// for either exists anywhere in this app, only a per-stock top-pick
-// confidence that would misrepresent the whole market if reused here.
-function AiMarketBiasCard({ C, MONO, SANS, bias, biasCol, factors }) {
-  const icon = /BULLISH/.test(bias) ? "🐂" : /BEARISH/.test(bias) ? "🐻" : "➖";
-  return (
-    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 16 }}>
-      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 10 }}>AI MARKET BIAS</div>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-        <div style={{ width: 44, height: 44, borderRadius: "50%", background: `${biasCol}18`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>{icon}</div>
-        <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: biasCol }}>{bias}</div>
-      </div>
-      {factors?.length > 0 && (
-        <div style={{ background: `${biasCol}0c`, border: `1px solid ${biasCol}33`, borderRadius: 8, padding: 10 }}>
-          <div style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 800, color: C.textDim, letterSpacing: "0.05em", marginBottom: 4 }}>KEY TAKEAWAY</div>
-          <div style={{ fontFamily: SANS, fontSize: 12, color: C.text, lineHeight: 1.5 }}>{factors.slice(0, 3).join(" · ")}</div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 // Watchlist Breadth — real, but scoped to the user's own watchlist, not
 // the full market (disclosed in the label itself, per the user's own
 // choice, rather than implying a market-wide reading that doesn't exist).
@@ -822,11 +806,17 @@ export default function DashboardTab({
     // opportunities" was retired (2026-07-29, folded into Sniper Scanner
     // as a category) — stale localStorage from before either change must
     // not resolve to a dead/blank sub-tab.
+    // Default landing tab changed from "sniper" to "opportunities" (audit
+    // fix, 2026-08-04): DASH_TABS (below) has always listed OPPORTUNITIES
+    // first, but a fresh session actually landed on AI SNIPER (3rd tab) —
+    // a real nav-vs-default mismatch. Opportunities (AI Morning Brief +
+    // Opportunity Queue + Copilot Insights) is also the more fitting first
+    // screen for "what should I trade right now" than a raw scanner table.
     try {
       const saved = localStorage.getItem("dash_subtab");
       if (saved === "best-opportunities") return "sniper";
-      return (saved && saved !== "more") ? saved : "sniper";
-    } catch { return "sniper"; }
+      return (saved && saved !== "more") ? saved : "opportunities";
+    } catch { return "opportunities"; }
   });
   const setDashTabPersist = (id) => {
     setDashTab(id);
