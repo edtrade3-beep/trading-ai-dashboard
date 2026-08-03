@@ -115,6 +115,8 @@ async function handleRequest(req, res) {
       const sym = "AAPL";
       const candidates = [
         ["stable quote", `https://financialmodelingprep.com/stable/quote?symbol=${sym}&apikey=${k}`],
+        ["stable quote BATCH (2 symbols)", `https://financialmodelingprep.com/stable/quote?symbol=AAPL,MSFT&apikey=${k}`],
+        ["stable batch-quote-short", `https://financialmodelingprep.com/stable/batch-quote-short?symbols=AAPL,MSFT&apikey=${k}`],
         ["stable profile", `https://financialmodelingprep.com/stable/profile?symbol=${sym}&apikey=${k}`],
         ["stable ratios-ttm", `https://financialmodelingprep.com/stable/ratios-ttm?symbol=${sym}&apikey=${k}`],
         ["stable key-metrics-ttm", `https://financialmodelingprep.com/stable/key-metrics-ttm?symbol=${sym}&apikey=${k}`],
