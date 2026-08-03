@@ -65,16 +65,18 @@ async function fetchFmpFundamentals(symbol, fmpKey) {
   if (!fmpKey || !symbol) return null;
   const k = encodeURIComponent(fmpKey), s = encodeURIComponent(symbol);
   const url = (p) => `https://financialmodelingprep.com/stable/${p}?symbol=${s}&apikey=${k}`;
-  const [quoteP, profileP, ratiosP, growthP, targetP] = await Promise.all([
+  const [quoteP, profileP, ratiosP, keyMetricsP, growthP, targetP] = await Promise.all([
     fetchJsonSafe(url(`quote`)),
     fetchJsonSafe(url(`profile`)),
     fetchJsonSafe(url(`ratios-ttm`)),
+    fetchJsonSafe(url(`key-metrics-ttm`)),
     fetchJsonSafe(url(`financial-growth`) + "&limit=1"),
     fetchJsonSafe(url(`price-target-consensus`)),
   ]);
   const quote = Array.isArray(quoteP) ? quoteP[0] : null;
   const profile = Array.isArray(profileP) ? profileP[0] : null;
   const ratios = Array.isArray(ratiosP) ? ratiosP[0] : null;
+  const keyMetrics = Array.isArray(keyMetricsP) ? keyMetricsP[0] : null;
   const growth = Array.isArray(growthP) ? growthP[0] : null;
   const target = Array.isArray(targetP) ? targetP[0] : null;
   if (!quote && !profile) return null;
@@ -92,11 +94,13 @@ async function fetchFmpFundamentals(symbol, fmpKey) {
     pegRatio: n(ratios?.priceToEarningsGrowthRatioTTM),
     priceToBook: n(ratios?.priceToBookRatioTTM),
     beta: n(profile?.beta),
-    dividendYield: null, // not present on /stable/ratios-ttm — honest null, not guessed
+    dividendYield: n(ratios?.dividendYieldTTM),
     // Margins & returns (FMP returns decimals)
     grossMargin: n(ratios?.grossProfitMarginTTM),
     profitMargin: n(ratios?.netProfitMarginTTM),
-    roe: n(ratios?.returnOnEquityTTM),
+    // returnOnEquityTTM lives on key-metrics-ttm, not ratios-ttm (confirmed
+    // against a real live response — ratios-ttm simply doesn't carry it).
+    roe: n(keyMetrics?.returnOnEquityTTM),
     // Growth
     revenueGrowth: n(growth?.revenueGrowth),
     earningsGrowth: n(growth?.epsgrowth) || n(growth?.netIncomeGrowth),
