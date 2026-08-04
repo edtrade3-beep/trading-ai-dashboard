@@ -1520,6 +1520,7 @@ async function screenTrendTemplate(symbols, filters = {}) {
       x.marketCap = Number(q.marketCap) || null;
       x.dollarVolume = Number(q.regularMarketVolume) > 0 ? Math.round(x.price * Number(q.regularMarketVolume)) : null;
       x.quoteType = q.quoteType || null; // real "EQUITY"/"ETF"/etc from Yahoo, not guessed
+      x.longName = q.longName || q.shortName || null; // real company name, same field normalizeQuoteBatchToRows already uses elsewhere
     }
   } catch { /* fundamentals are best-effort */ }
 

@@ -440,6 +440,74 @@ export default function RhProScanner({
     else { setSortBy(key); setSortDir("desc"); }
   };
 
+  // Real AI Action + ROTATE override — same logic every row used to compute
+  // inline inside the table's .map() (moved out unchanged, 2026-08-04 decision-
+  // first redesign) so it can also run over the full `rows` universe for the
+  // header summary strip, not just the currently-filtered/categorized `shown`.
+  const actionFor = (r) => {
+    let action = mapToAiAction({ institutionalScore: r.institutionalGrade?.score, nextAction: r.next?.action });
+    let rotationInfo = null;
+    if (action.tier >= AI_ACTIONS.ACCUMULATE.tier && !rotationState.heldSymbols.has(r.symbol) && rotationState.scoredOpen.length) {
+      const candidateQuality = r.aplus?.score ?? r.institutionalGrade?.score ?? -1;
+      rotationInfo = evaluateRotation(rotationState.scoredOpen, { symbol: r.symbol, quality: candidateQuality });
+      if (rotationInfo) action = AI_ACTIONS.ROTATE;
+    }
+    return { action, rotationInfo };
+  };
+
+  // Header summary strip — real tallies over the FULL scanned universe
+  // (rows), independent of whatever category/filter is currently active,
+  // so "Total Opportunities"/counts always describe the whole scan.
+  const headerStats = useMemo(() => {
+    const real = rows.filter(r => !r.error);
+    let strongBuy = 0, buy = 0, watch = 0, avoid = 0, scoreSum = 0, scoreN = 0;
+    for (const r of real) {
+      const { action } = actionFor(r);
+      if (action.tier === AI_ACTIONS.STRONG_BUY.tier) strongBuy++;
+      else if (action.tier >= AI_ACTIONS.BUY.tier) buy++;
+      else if (action.tier === AI_ACTIONS.AVOID.tier) avoid++;
+      else if (action.tier <= AI_ACTIONS.WAIT.tier) watch++;
+      if (r.institutionalGrade?.score != null) { scoreSum += r.institutionalGrade.score; scoreN++; }
+    }
+    const spy = (macroData || []).find(m => (m.symbol || "").toUpperCase() === "SPY");
+    const qqq = (macroData || []).find(m => (m.symbol || "").toUpperCase() === "QQQ");
+    const trendOf = (q) => q == null ? null : Number(q.changesPercentage || 0);
+    return {
+      total: real.length, strongBuy, buy, watch, avoid,
+      avgScore: scoreN ? Math.round(scoreSum / scoreN) : null,
+      spyChg: trendOf(spy), qqqChg: trendOf(qqq),
+      topSector: rankedSectors[0] || null,
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, macroData, rankedSectors, rotationState]);
+
+  // Per-row derived fields for the new 10-column table (2026-08-04 decision-
+  // first redesign) — real action/win/grade/entry-type, all reused from
+  // functions already computed above/elsewhere in this file, nothing new.
+  // Default sort (no explicit column-sort active, main "all" view only):
+  // real AI Action tier → real AI Score → real breakout Confidence → real
+  // Win % — the exact order requested, all real fields.
+  const displayRows = shown.map(r => {
+    const { action, rotationInfo } = actionFor(r);
+    const win = track ? winProbFor(track, r.aplus?.score ?? r.score) : null;
+    const grade = r.institutionalGrade ? institutionalLetterGrade(r.institutionalGrade.score) : "—";
+    const rec = r.institutionalGrade ? institutionalRecommendation(r.institutionalGrade.score) : null;
+    const entryType = classifyEntryType(r, r.aplus?.score);
+    const moveToTarget = (r.entry && r.target2) ? Math.round((r.target2 / r.entry - 1) * 1000) / 10 : null;
+    return { ...r, action, rotationInfo, win, grade, rec, entryType, moveToTarget };
+  });
+  if (!sortBy && category === "all") {
+    displayRows.sort((a, b) => {
+      const t = (b.action?.tier ?? 0) - (a.action?.tier ?? 0);
+      if (t) return t;
+      const s = (b.institutionalGrade?.score ?? -1) - (a.institutionalGrade?.score ?? -1);
+      if (s) return s;
+      const c = (b.confidence ?? -1) - (a.confidence ?? -1);
+      if (c) return c;
+      return (b.win?.winRate ?? -1) - (a.win?.winRate ?? -1);
+    });
+  }
+
   const scoreCol = s => s >= 80 ? C.green : s >= 65 ? "#5ab552" : s >= 50 ? C.amber : C.textDim;
   const num = { fontVariantNumeric: "tabular-nums" };
   const cell = { fontFamily: MONO, fontSize: 12.5, padding: "8px 10px", borderBottom: `1px solid ${C.border}`, whiteSpace: "nowrap" };
@@ -453,6 +521,22 @@ export default function RhProScanner({
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Find symbol…"
           style={{ fontFamily: MONO, fontSize: 12, padding: "7px 10px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.surface, color: C.text, width: 140, marginLeft: "auto" }} />
         <button onClick={scan} disabled={loading} style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "8px 16px", borderRadius: 8, border: "none", color: "#fff", background: loading ? C.textDim : C.accent, cursor: loading ? "default" : "pointer" }}>{loading ? "scanning…" : "↻ RESCAN"}</button>
+      </div>
+
+      {/* Header summary strip (2026-08-04 decision-first redesign) — real
+          tallies over the full scan + real regime/sector reads, so the
+          market context is visible before scrolling into any single row. */}
+      <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center", padding: "8px 12px", marginBottom: 10, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, fontFamily: MONO, fontSize: 11 }}>
+        <span title={regime.factors.map(f => `${f.pass ? "✓" : "✗"} ${f.label}`).join(" · ")} style={{ fontWeight: 900, color: regime.color, border: `1px solid ${regime.color}`, borderRadius: 4, padding: "2px 7px" }}>MARKET {regime.label}</span>
+        <span style={{ color: C.textSec }}>{headerStats.total} <span style={{ color: C.textDim }}>opportunities</span></span>
+        <span style={{ color: AI_ACTIONS.STRONG_BUY.color }}>{headerStats.strongBuy} <span style={{ color: C.textDim }}>strong buy</span></span>
+        <span style={{ color: AI_ACTIONS.BUY.color }}>{headerStats.buy} <span style={{ color: C.textDim }}>buy</span></span>
+        <span style={{ color: AI_ACTIONS.WATCH.color }}>{headerStats.watch} <span style={{ color: C.textDim }}>watch</span></span>
+        <span style={{ color: AI_ACTIONS.AVOID.color }}>{headerStats.avoid} <span style={{ color: C.textDim }}>avoid</span></span>
+        <span style={{ color: C.textSec }}>avg score <b style={{ color: C.text }}>{headerStats.avgScore ?? "—"}</b></span>
+        <span style={{ color: C.textSec }}>SPY <b style={{ color: headerStats.spyChg == null ? C.textDim : headerStats.spyChg >= 0 ? C.green : C.red }}>{headerStats.spyChg == null ? "—" : `${headerStats.spyChg >= 0 ? "+" : ""}${headerStats.spyChg.toFixed(2)}%`}</b></span>
+        <span style={{ color: C.textSec }}>QQQ <b style={{ color: headerStats.qqqChg == null ? C.textDim : headerStats.qqqChg >= 0 ? C.green : C.red }}>{headerStats.qqqChg == null ? "—" : `${headerStats.qqqChg >= 0 ? "+" : ""}${headerStats.qqqChg.toFixed(2)}%`}</b></span>
+        {headerStats.topSector && <span title="Real strongest sector ETF today" style={{ color: C.textSec }}>top sector <b style={{ color: C.text }}>{headerStats.topSector.symbol}</b></span>}
       </div>
 
       {/* Category tabs — the "AI Ranking" categorized view */}
@@ -523,14 +607,15 @@ export default function RhProScanner({
       {err && <div style={{ fontFamily: SANS, fontSize: 12, color: C.red, marginBottom: 10 }}>⚠ {err}</div>}
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "auto", maxHeight: "70vh" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          {/* 7 primary columns (institutional redesign, 2026-07-29, explicit
-              user spec) — Stock Quality/Trade Setup/Win%/Pred/Risk/RS/SMC
-              detail moved into a tap-to-expand row below, same real pattern
-              SmartScanTab.jsx's own per-row deep-dive already uses. */}
+          {/* 10 decision-first columns (2026-08-04 redesign, explicit user
+              spec) — Ticker+Company/AI Action/Score/Confidence/Win%/Move to
+              Target/Risk/Strategy/Open Trade Plan. Stock Quality/Trade
+              Setup/Pred/RS/SMC detail stays in the tap-to-expand row below.
+              No S+ grade exists in this app — real scale tops at A+. */}
           <thead><tr>
             {[
-              ["#", null], ["TICKER", null], ["GRADE", "grade"], ["WIN %", "win"],
-              ["TREND", "trend"], ["ACTION", null], ["ENTRY → STOP", null],
+              ["#", null], ["TICKER", null], ["AI ACTION", null], ["SCORE", "grade"],
+              ["CONF", "confidence"], ["WIN %", "win"], ["MOVE TO T2", null], ["RISK", null], ["STRATEGY", null], ["", null],
             ].map(([h, key]) => (
               <th key={h} style={{ ...th, cursor: key ? "pointer" : "default" }} onClick={key ? () => toggleSort(key) : undefined} title={key ? "Click to sort" : undefined}>
                 {h}{sortBy === key && key ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
@@ -538,9 +623,8 @@ export default function RhProScanner({
             ))}
           </tr></thead>
           <tbody>
-            {shown.map((r, i) => {
-              const win = track ? winProbFor(track, r.aplus?.score ?? r.score) : null;
-              const grade = r.institutionalGrade ? institutionalLetterGrade(r.institutionalGrade.score) : "—";
+            {displayRows.map((r, i) => {
+              const { win, grade, rec, action, rotationInfo, entryType, moveToTarget } = r;
               // institutionalRecommendation's own "Buy/Hold/Sell" wording is
               // correct in isolation (MarketTerminalTab's standalone AI Score
               // Card) but reads as a direct contradiction sitting next to
@@ -551,65 +635,74 @@ export default function RhProScanner({
               // documented GO/WAIT-vs-AI-Score-Card divergence. Re-labeled to
               // quality words that can't be misread as a second, conflicting
               // trade command; the real score/stars are unchanged.
-              const rec = r.institutionalGrade ? institutionalRecommendation(r.institutionalGrade.score) : null;
               const QUALITY_WORD = { "Strong Buy": "Excellent", "Buy": "Strong", "Hold": "Neutral", "Sell": "Weak", "Strong Sell": "Poor" };
-              let action = mapToAiAction({ institutionalScore: r.institutionalGrade?.score, nextAction: r.next?.action });
-              // ROTATE override — Green Light AI spec's Portfolio Manager
-              // read as a per-row Scanner Recommendation, not just the
-              // AutoPilot tick's own close/open pair. Only checked for a
-              // row that's already buy-tier on its own real merits (never
-              // rotates a mediocre setup in just because a held position
-              // is weak) and not already held — real evaluateRotation()
-              // (same fn/threshold the live rotation tick uses) decides.
-              let rotationInfo = null;
-              if (action.tier >= AI_ACTIONS.ACCUMULATE.tier && !rotationState.heldSymbols.has(r.symbol) && rotationState.scoredOpen.length) {
-                const candidateQuality = r.aplus?.score ?? r.institutionalGrade?.score ?? -1;
-                rotationInfo = evaluateRotation(rotationState.scoredOpen, { symbol: r.symbol, quality: candidateQuality });
-                if (rotationInfo) action = AI_ACTIONS.ROTATE;
-              }
               const expanded = expandedSymbol === r.symbol;
               return (
               <React.Fragment key={r.symbol}>
               <tr style={{ background: i % 2 ? "transparent" : `${C.surface}55`, cursor: "pointer" }}
                 onClick={() => setExpandedSymbol(expanded ? null : r.symbol)}>
                 <td style={{ ...cell, color: C.textDim }}>{i + 1}</td>
-                <td style={{ ...cell, fontWeight: 900, color: C.text }} onClick={e => e.stopPropagation()}>
+                <td style={{ ...cell, fontWeight: 900, color: C.text }}>
                   <span style={{ marginRight: 4, fontSize: 10, color: C.textDim }}>{expanded ? "▾" : "▸"}</span>
                   {r.symbol}
-                  <button onClick={() => openChartWithPlan(r.symbol)} title={`Open ${r.symbol}'s full chart + real trade plan — trend, fundamentals, earnings, analysts, news, SMC, entry/stop/targets`}
-                    style={{ marginLeft: 6, fontSize: 10, border: `1px solid ${C.accent}`, background: `${C.accent}14`, color: C.accent, borderRadius: 4, padding: "1px 5px", cursor: "pointer" }}>chart + plan</button>
+                  {r.longName && <div style={{ fontFamily: SANS, fontSize: 9.5, fontWeight: 400, color: C.textDim, marginLeft: 14 }}>{r.longName}</div>}
                 </td>
-                {/* GRADE + QUALITY merged into one cell (2026-08-04, audit
-                    finding: both were pure functions of the identical
-                    institutionalGrade.score — a letter and a word+stars
-                    rendering of the same number, the same "duplicate
-                    information" class of issue already fixed on the Charts
-                    page). Freed column now shows real WIN % (already
-                    computed per-row for the expand panel below, just never
-                    exposed as its own sortable column). */}
+                {/* AI ACTION — real mapToAiAction (+ real ROTATE override),
+                    paired with the real entry-type qualifier chip instead of
+                    a fabricated compound action like "BUY PULLBACK". */}
+                <td style={cell}>
+                  {action && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                      <span title={rotationInfo ? `Real quality ${Math.round(rotationInfo.open.quality)} beats your weakest holding ${rotationInfo.close.symbol} (real quality ${Math.round(rotationInfo.close.quality)}) by +${Math.round(rotationInfo.improvement)} — the same real check the live rotation tick uses` : "Unified AI Action — reduces this row's real institutional score + verdict to one shared label"} style={{ fontSize: 11, fontWeight: 900, color: action.color, border: `1px solid ${action.color}`, borderRadius: 4, padding: "1px 6px", width: "fit-content" }}>{action.label}</span>
+                      {entryType && <span title={entryType.reason} style={{ fontSize: 9.5, fontWeight: 700, color: entryType.color }}>· {entryType.type}</span>}
+                    </div>
+                  )}
+                </td>
+                {/* SCORE — real Institutional Grade letter (A+/A/B+/B/C/D/F,
+                    no S+ tier exists) + real stars, click for the breakdown. */}
                 <td style={cell} onClick={e => e.stopPropagation()}>
                   {r.institutionalGrade && (
                     <button onClick={() => setExplain({ symbol: r.symbol, aplus: r.institutionalGrade, dimensions: INSTITUTIONAL_GRADE_DIMENSIONS, label: "INSTITUTIONAL GRADE", note: "Technical Confirmation and Options Flow use an honest neutral midpoint in this bulk scan view (not part of this scan's payload) — open the full Charts page for this symbol for the real read on those two." })}
-                      title={`Click to see why this grade, and what would raise it. ${rec ? `${QUALITY_WORD[rec.label] || rec.label} — Institutional Grade ${r.institutionalGrade.score}/100, business/setup quality, not a timing call. See ACTION for real entry timing.` : ""}`}
+                      title={`Click to see why this grade, and what would raise it. ${rec ? `${QUALITY_WORD[rec.label] || rec.label} — Institutional Grade ${r.institutionalGrade.score}/100, business/setup quality, not a timing call. See AI ACTION for real entry timing.` : ""}`}
                       style={{ font: "inherit", fontWeight: 900, color: "#fff", background: grade.startsWith("A") ? "#0d9465" : grade.startsWith("B") ? "#22a06b" : grade === "C" ? "#d6a312" : grade === "D" ? "#e07b1a" : "#c8282a", border: "none", borderRadius: 4, padding: "1px 8px", cursor: "pointer" }}>
                       {grade}{rec && <span style={{ marginLeft: 5, fontSize: 9, opacity: 0.9 }}>{"★".repeat(rec.stars)}{"☆".repeat(5 - rec.stars)}</span>}
                     </button>
                   )}
+                </td>
+                {/* CONF — real VCP breakout-confidence score (0-100), computed
+                    for every row all along but never exposed until now. */}
+                <td style={{ ...cell, ...num }}>
+                  {Number.isFinite(r.confidence)
+                    ? <span style={{ fontWeight: 700, fontSize: 12, color: r.confidence >= 70 ? C.green : r.confidence >= 40 ? C.amber : C.textDim }}>{Math.round(r.confidence)}%</span>
+                    : <span style={{ color: C.textDim, fontSize: 12 }}>—</span>}
                 </td>
                 <td style={{ ...cell, ...num }}>
                   {win == null ? <span style={{ color: C.textDim, fontSize: 12 }}>—</span>
                     : win.winRate != null ? <span title={`${win.count} real observations, ${win.horizon}-day forward, same score band`} style={{ fontWeight: 800, fontSize: 13, color: win.winRate >= 60 ? C.green : win.winRate >= 45 ? C.amber : C.red }}>{win.winRate}%</span>
                     : <span title="Real forward-return log, but not enough observations yet in this score band" style={{ fontSize: 11, color: C.textDim }}>{win.count}/{MIN_WIN_SAMPLE} obs</span>}
                 </td>
-                <td style={{ ...cell, fontSize: 11, color: (r.stage || "").includes("2") ? C.green : (r.stage || "").includes("4") ? C.red : C.textDim, ...num }}>
-                  {r.passCount ?? "?"}/8 · {(r.stage || "").replace(/ —.*/, "").slice(0, 14) || "—"}
+                {/* MOVE TO T2 — real % distance to the real 2R target
+                    (entry/target2 already computed by the real VCP pivot
+                    engine). Deliberately NOT labeled "Expected Move" — that
+                    term means options-IV-derived move elsewhere in this app
+                    and this scan doesn't fetch a per-row options chain. */}
+                <td style={{ ...cell, ...num }} title="Real % distance from entry to the 2R target (not an options-IV expected move — this scan doesn't fetch a per-row chain).">
+                  {moveToTarget != null ? <span style={{ color: C.green, fontWeight: 700 }}>+{moveToTarget}%</span> : <span style={{ color: C.textDim }}>—</span>}
                 </td>
-                <td style={cell}>{action && <span title={rotationInfo ? `Real quality ${Math.round(rotationInfo.open.quality)} beats your weakest holding ${rotationInfo.close.symbol} (real quality ${Math.round(rotationInfo.close.quality)}) by +${Math.round(rotationInfo.improvement)} — the same real check the live rotation tick uses` : "Unified AI Action — reduces this row's real institutional score + verdict to one shared label"} style={{ fontSize: 11, fontWeight: 900, color: action.color, border: `1px solid ${action.color}`, borderRadius: 4, padding: "1px 6px" }}>{action.label}</span>}</td>
-                <td style={{ ...cell, fontSize: 11, color: C.textSec, ...num }}>{r.entry ? `$${Number(r.entry).toFixed(2)} → $${Number(r.stop).toFixed(2)}` : "—"}</td>
+                <td style={cell}>
+                  {r.riskState && <span style={{ fontSize: 11, fontWeight: 900, color: r.riskState === "LOW" ? C.green : r.riskState === "MEDIUM" ? C.amber : C.red, border: `1px solid ${r.riskState === "LOW" ? C.green : r.riskState === "MEDIUM" ? C.amber : C.red}`, borderRadius: 4, padding: "1px 6px" }}>{r.riskState}</span>}
+                </td>
+                <td style={cell}>
+                  {entryType ? <span title={entryType.reason} style={{ fontSize: 11, fontWeight: 700, color: entryType.color }}>{entryType.type.replace(" Entry", "")}</span> : <span style={{ color: C.textDim, fontSize: 12 }}>—</span>}
+                </td>
+                <td style={cell} onClick={e => e.stopPropagation()}>
+                  <button onClick={() => openChartWithPlan(r.symbol)} title={`Open ${r.symbol}'s full chart + real trade plan — trend, fundamentals, earnings, analysts, news, SMC, entry/stop/targets`}
+                    style={{ fontSize: 10, fontWeight: 800, border: `1px solid ${C.accent}`, background: `${C.accent}14`, color: C.accent, borderRadius: 4, padding: "3px 8px", cursor: "pointer", whiteSpace: "nowrap" }}>Open Plan →</button>
+                </td>
               </tr>
               {expanded && (
                 <tr>
-                  <td colSpan="7" style={{ padding: "12px 16px", background: C.surface, borderBottom: `1px solid ${C.border}` }}>
+                  <td colSpan="10" style={{ padding: "12px 16px", background: C.surface, borderBottom: `1px solid ${C.border}` }}>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 14 }}>
                       <div>
                         <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 3 }}>STOCK QUALITY</div>
@@ -630,12 +723,6 @@ export default function RhProScanner({
                         )}
                       </div>
                       <div>
-                        <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 3 }}>WIN%</div>
-                        {win == null ? <span style={{ color: C.textDim, fontSize: 12 }}>—</span>
-                          : win.winRate != null ? <span title={`${win.count} real observations, ${win.horizon}-day forward, same score band`} style={{ fontWeight: 800, fontSize: 14, color: win.winRate >= 60 ? C.green : win.winRate >= 45 ? C.amber : C.red, ...num }}>{win.winRate}%</span>
-                          : <span title="Real forward-return log, but not enough observations yet in this score band" style={{ fontSize: 11, color: C.textDim, ...num }}>{win.count}/{MIN_WIN_SAMPLE} obs</span>}
-                      </div>
-                      <div>
                         <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 3 }}>PRED (1WK)</div>
                         {r.prediction && (() => {
                           const p = r.prediction;
@@ -644,21 +731,16 @@ export default function RhProScanner({
                         })()}
                       </div>
                       <div>
-                        <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 3 }}>RISK</div>
-                        {r.riskState && <span style={{ fontSize: 12, fontWeight: 900, color: r.riskState === "LOW" ? C.green : r.riskState === "MEDIUM" ? C.amber : C.red, border: `1px solid ${r.riskState === "LOW" ? C.green : r.riskState === "MEDIUM" ? C.amber : C.red}`, borderRadius: 4, padding: "1px 6px" }}>{r.riskState}</span>}
+                        <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 3 }}>TREND</div>
+                        <span style={{ fontSize: 12, fontWeight: 800, color: (r.stage || "").includes("2") ? C.green : (r.stage || "").includes("4") ? C.red : C.textDim, ...num }}>{r.passCount ?? "?"}/8 · {(r.stage || "").replace(/ —.*/, "").slice(0, 14) || "—"}</span>
                       </div>
                       <div>
                         <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 3 }}>RS</div>
                         <span style={{ fontSize: 14, fontWeight: 800, color: (r.rsRating || 0) >= 70 ? C.green : C.textSec, ...num }}>{r.rsRating ?? "—"}</span>
                       </div>
                       <div>
-                        <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 3 }}>ENTRY TYPE</div>
-                        {(() => {
-                          const et = classifyEntryType(r, r.aplus?.score);
-                          return et
-                            ? <span title={et.reason} style={{ fontSize: 11, fontWeight: 900, color: et.color, border: `1px solid ${et.color}`, borderRadius: 4, padding: "1px 6px" }}>{et.type}</span>
-                            : <span style={{ fontSize: 12, color: C.textDim }}>—</span>;
-                        })()}
+                        <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 3 }}>ENTRY → STOP</div>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: C.textSec, ...num }}>{r.entry ? `$${Number(r.entry).toFixed(2)} → $${Number(r.stop).toFixed(2)}` : "—"}</span>
                       </div>
                       {instSnapshot[r.symbol] && (
                         <div>
@@ -700,7 +782,7 @@ export default function RhProScanner({
               </React.Fragment>
               );
             })}
-            {!shown.length && !loading && <tr><td colSpan="7" style={{ ...cell, textAlign: "center", color: C.textDim }}>{search.trim() ? `No symbol matching "${search.trim().toUpperCase()}" in this scan.` : "No setups meet this filter right now — lower the threshold or rescan."}</td></tr>}
+            {!shown.length && !loading && <tr><td colSpan="10" style={{ ...cell, textAlign: "center", color: C.textDim }}>{search.trim() ? `No symbol matching "${search.trim().toUpperCase()}" in this scan.` : "No setups meet this filter right now — lower the threshold or rescan."}</td></tr>}
           </tbody>
         </table>
       </div>
