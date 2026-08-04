@@ -57,6 +57,30 @@ export default function NewsTab({
     }).catch(() => {}).finally(() => setMarketMovingLoading(false));
   }, [marketMovingOnly, newsData]);
 
+  // Real audit finding (2026-08-04, duplicate-mount sweep): this crude
+  // 10-word bull/bear heuristic used to be copy-pasted separately inside
+  // the filter callback AND the map callback below (two copies that could
+  // silently diverge) — now one shared function. It's also now ONLY the
+  // pre-scoring fallback: once the real deterministic engine
+  // (aggregateSentimentForSymbol/scoreSentiment, via the "🤖 AI SENTIMENT"
+  // button) has scored a headline, both the filter and the display badge
+  // prefer that real score instead — previously a scored headline could
+  // show two disagreeing sentiment badges (this crude heuristic's uppercase
+  // label AND the real AI badge) with no indication one was a rough guess.
+  const crudeSentiment = (n) => {
+    const bullish = ["beat","surge","upgrade","growth","record","bull","rally","wins","strong","expands"];
+    const bearish = ["miss","drop","downgrade","cuts","probe","lawsuit","bear","weak","fall","slump"];
+    const txt = (String(n.title || "") + " " + String(n.summary || "")).toLowerCase();
+    const bs = bullish.filter(w => txt.includes(w)).length;
+    const be = bearish.filter(w => txt.includes(w)).length;
+    return bs > be ? "bullish" : be > bs ? "bearish" : "neutral";
+  };
+  const aiSentFor = (n) => newsSentiments[n.title || n.headline || ""];
+  const sentimentFor = (n) => {
+    const ai = aiSentFor(n);
+    return ai ? (ai.s === "bull" ? "bullish" : ai.s === "bear" ? "bearish" : "neutral") : crudeSentiment(n);
+  };
+
   const symbolGroups = {};
   newsData.forEach(n => {
     const sym = String(n.ticker || "").toUpperCase();
@@ -167,27 +191,16 @@ export default function NewsTab({
                   if (newsSentFilter === "wl") {
                     if (!watchlistSymbols.includes(String(n.ticker || "").toUpperCase())) return false;
                   } else if (newsSentFilter !== "all") {
-                    const bullish = ["beat","surge","upgrade","growth","record","bull","rally","wins","strong","expands"];
-                    const bearish = ["miss","drop","downgrade","cuts","probe","lawsuit","bear","weak","fall","slump"];
-                    const txt = (String(n.title || "") + " " + String(n.summary || "")).toLowerCase();
-                    const bs = bullish.filter(w => txt.includes(w)).length;
-                    const be = bearish.filter(w => txt.includes(w)).length;
-                    const sent = bs > be ? "bullish" : be > bs ? "bearish" : "neutral";
-                    if (sent !== newsSentFilter) return false;
+                    if (sentimentFor(n) !== newsSentFilter) return false;
                   }
                   return true;
                 })
                 .map((n, i) => {
-                  const bullish = ["beat","surge","upgrade","growth","record","bull","rally","wins","strong","expands"];
-                  const bearish = ["miss","drop","downgrade","cuts","probe","lawsuit","bear","weak","fall","slump"];
-                  const txt = (String(n.title || "") + " " + String(n.summary || "")).toLowerCase();
-                  const bs = bullish.filter(w => txt.includes(w)).length;
-                  const be = bearish.filter(w => txt.includes(w)).length;
-                  const sent = bs > be ? "bullish" : be > bs ? "bearish" : "neutral";
+                  const aiSent = aiSentFor(n);
+                  const sent = sentimentFor(n);
                   const sentColor = sent === "bullish" ? C.green : sent === "bearish" ? C.red : C.textDim;
                   const onWatchlist = watchlistSymbols.includes(n.ticker);
                   // AI sentiment badge (from Claude scoring)
-                  const aiSent = newsSentiments[n.title || ""];
                   const aiColor = aiSent?.s === "bull" ? C.green : aiSent?.s === "bear" ? C.red : C.textDim;
                   const aiLabel = aiSent?.s === "bull" ? "🟢 AI BULL" : aiSent?.s === "bear" ? "🔴 AI BEAR" : aiSent ? "⚪ AI NEUTRAL" : null;
                   const sentBorderColor = sent === "bullish" ? C.green : sent === "bearish" ? C.red : C.border;
@@ -200,7 +213,12 @@ export default function NewsTab({
                             {n.ticker}
                           </button>
                           <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>· {n.publisher}</span>
-                          <span style={{ fontFamily: MONO, fontSize: 12, color: sentColor, fontWeight: 700, textTransform: "uppercase" }}>{sent}</span>
+                          {/* Crude keyword-heuristic badge — pre-scoring
+                              fallback only. Once the real AI sentiment
+                              (aiLabel below) has scored this headline, show
+                              only that — previously both rendered together
+                              and could disagree with no explanation. */}
+                          {!aiSent && <span style={{ fontFamily: MONO, fontSize: 12, color: sentColor, fontWeight: 700, textTransform: "uppercase" }}>{sent}</span>}
                           {aiLabel && (
                             <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: aiColor, background: `${aiColor}18`, borderRadius: 5, padding: "2px 6px" }}>
                               {aiLabel}{aiSent?.score != null ? ` (${aiSent.score > 0 ? "+" : ""}${aiSent.score})` : ""}
