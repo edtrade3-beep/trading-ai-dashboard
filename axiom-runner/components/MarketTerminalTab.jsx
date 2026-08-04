@@ -606,7 +606,8 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
               the 3 fallback providers, so this just doesn't render rather
               than showing the bare symbol twice or a fabricated title. */}
           {fund && fund.name && fund.name !== sym && <span style={{ fontFamily: SANS, fontSize: 14, fontWeight: 600, color: C.textDim }}>{fund.name}</span>}
-          {chart && chart.price != null && <span style={{ fontFamily: MONO, fontSize: 18, color: C.text }}>${chart.price.toFixed(2)}</span>}
+          {chart && chart.price != null && <span style={{ fontFamily: MONO, fontSize: 32, fontWeight: 900, color: C.text }}>${chart.price.toFixed(2)}</span>}
+          {symDayPct != null && <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 700, color: col(symDayPct) }}>{pct(symDayPct)}</span>}
           {chart && !loadingChart && (
             <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontFamily: MONO, fontSize: 10, fontWeight: 700, color: "#0d9465" }}>
               <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#0d9465", display: "inline-block" }} /> LIVE
