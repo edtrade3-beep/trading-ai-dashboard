@@ -6,7 +6,7 @@ import {
   EarningsSnapshot, EarningsBars, AiWhyPanel, BullBearPanel, NewsPanel, SectorHeatStrip,
   MarketPulseBar, SentimentRow, MarketNewsWire, AnalystPeerPanel,
   FundamentalsPanel, CompanyProfile, AiPredictPanel, COTPanel,
-  PredictionMarkets, SocialFeed, InvestorsPanel, TradeExtrasPanel,
+  PredictionMarkets, SocialFeed, InvestorsPanel,
   OptionsFlowPanel,
 } from "./terminal-panels.jsx";
 // SCORE + real RVOL for the Movers/Watchlist mini-list — explicit user
@@ -729,24 +729,47 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
         {/* SECTION 2 — Execution Card (2026-08-04 decision-first redesign,
             explicit user spec) — real Entry/Stop/Targets (TrendSetupPanel,
             same _buildTrendTemplate pivot/stop/2R/3R every other real card
-            on this page already reads) + real position sizing
-            (TradeExtrasPanel, real account-size/risk% from Settings).
-            Promoted from inside the Chart sub-tab (where it sat below the
-            score grid/AI Trade Engine/Institution Score/AiTradeCard/
-            StrategySelector/Checklist/technical pills/sub-nav) to directly
-            under the hero verdict — the numbers a trader needs to actually
-            place the trade shouldn't require scrolling past 8 other cards
-            first. Same real components, no new computation. */}
+            on this page already reads). Promoted from inside the Chart
+            sub-tab (where it sat below the score grid/AI Trade Engine/
+            Institution Score/AiTradeCard/StrategySelector/Checklist/
+            technical pills/sub-nav) to directly under the hero verdict —
+            the numbers a trader needs to actually place the trade
+            shouldn't require scrolling past 8 other cards first. Same
+            real components, no new computation.
+            Position sizing (TradeExtrasPanel) was removed from here
+            2026-08-04, "move position size from chart" — it now lives on
+            Trade Planner, its natural home, via the "Size this trade →"
+            handoff button below (real chart.setup.entry/.stop/.target2,
+            same localStorage["tradeplanner_load_plan"] shape Green Light's
+            "🎯 PLAN" button already writes — GreenLightTab.jsx:581-587 —
+            so Trade Planner needed zero changes to receive it). */}
         {chart && (
           <div style={{ marginBottom: 14 }}>
             <SectionHeader icon="🎯" label="EXECUTION" />
             <TrendSetupPanel data={chart} C={C} MONO={MONO} SANS={SANS} />
-            <TradeExtrasPanel data={chart} macroData={macroData} C={C} MONO={MONO} SANS={SANS} />
+            {chart.setup && (
+              <button onClick={() => {
+                  const su = chart.setup;
+                  try {
+                    localStorage.setItem("tradeplanner_load_plan", JSON.stringify({
+                      symbol: sym, entry: Number(su.entry), stop: Number(su.stop),
+                      target: Number.isFinite(Number(su.target2)) ? Number(su.target2) : null,
+                      aplus: null, next: null, source: "Chart",
+                    }));
+                  } catch {}
+                  setActiveTab && setActiveTab("tradeplanner");
+                }}
+                title={`Size this trade — opens Trade Planner with ${sym}'s real entry/stop/target already filled in for position sizing`}
+                style={{ marginTop: 8, fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "7px 14px", borderRadius: 7, border: `1px solid ${C.accent}`, background: `${C.accent}14`, color: C.accent, cursor: "pointer" }}>
+                📐 Size this trade →
+              </button>
+            )}
             {/* Recommended Contracts (2026-08-04) — real, using AiTradeCard's
                 own already-fetched top-ranked contract premium (reported up
                 via onTopContract, no duplicate chain fetch) and the same
-                real account-size/risk% TradeExtrasPanel above already reads
-                for equity share sizing, applied to the option leg. */}
+                real account-size/risk% (axiom_acct_size/axiom_risk_pct from
+                Settings) the Execute-via-Quick-Trade button below reads for
+                equity share sizing, applied to the option leg. */}
             {topContract && topContract.premium > 0 && (() => {
               const acct = Number(localStorage.getItem("axiom_acct_size")) || 10000;
               const riskPct = Number(localStorage.getItem("axiom_risk_pct")) || 1;
@@ -1105,10 +1128,12 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                 <BullBearPanel symbol={sym} bullBear={bullBear} C={C} MONO={MONO} SANS={SANS} />
               </div>
             )}
-            {/* Execution Card (Entry/Stop/Targets/Sizing) now renders above
-                the "SUPPORTING DETAIL" divider, right under the hero verdict
-                (2026-08-04 decision-first redesign) — same TrendSetupPanel/
-                TradeExtrasPanel, promoted, not duplicated. */}
+            {/* Execution Card (Entry/Stop/Targets) now renders above the
+                "SUPPORTING DETAIL" divider, right under the hero verdict
+                (2026-08-04 decision-first redesign) — same TrendSetupPanel,
+                promoted, not duplicated. Position sizing itself was later
+                relocated off this page entirely (see "Size this trade →"
+                note above the Execution Card). */}
             {/* SECTION 5 — large interactive chart. Right padding reserves
                 clearance for the fixed bottom-right FAB cluster (Copilot/
                 QuickTrade/RealityCheck, right:18, ~54-70px wide each) — the
