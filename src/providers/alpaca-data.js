@@ -31,8 +31,13 @@ async function fetchAlpacaBars(symbol, range, interval) {
   let bars = [], token = null, pages = 0;
   try {
     do {
+      // extended_hours=true — real 4am-8pm ET pre-market/after-hours bars,
+      // not just the 9:30-4:00 regular session (explicit user request,
+      // "use chart for after hours too and pre market"). Alpaca only
+      // honors this for intraday timeframes; it's a documented no-op for
+      // 1Day/1Week, so safe to always send regardless of caller.
       const url = `https://data.alpaca.markets/v2/stocks/${encodeURIComponent(symbol)}/bars`
-        + `?timeframe=${tf}&start=${encodeURIComponent(start)}&limit=10000&adjustment=all&feed=iex`
+        + `?timeframe=${tf}&start=${encodeURIComponent(start)}&limit=10000&adjustment=all&feed=iex&extended_hours=true`
         + (token ? `&page_token=${encodeURIComponent(token)}` : "");
       const r = await fetch(url, { headers });
       if (!r.ok) return bars.length ? bars : null;
