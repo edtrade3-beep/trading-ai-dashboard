@@ -892,11 +892,15 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             for it. Nothing removed, nothing hidden — nothing to lose the
             deep-dive. */}
         {institutionalGrade && (
-          <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "4px 0 12px" }}>
+          // flexWrap (2026-08-04 mobile audit, real bug found via mobile
+          // screenshot): without it, the label + divider + toggle button
+          // (all nowrap) overflowed past narrow viewports and pushed the
+          // toggle button off-screen, un-clickable on mobile.
+          <div style={{ display: "flex", alignItems: "center", gap: 10, rowGap: 6, flexWrap: "wrap", margin: "4px 0 12px" }}>
             <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: "0.1em", whiteSpace: "nowrap" }}>
               SUPPORTING DETAIL — for the verdict above
             </div>
-            <div style={{ flex: 1, height: 1, background: C.border }} />
+            <div style={{ flex: 1, minWidth: 20, height: 1, background: C.border }} />
             {/* Collapsed by default (2026-08-04, "chart is too crowded") —
                 the 6-tile score grid through the technical-indicator pills
                 below are 5-6 separate bordered cards, none of which gate
