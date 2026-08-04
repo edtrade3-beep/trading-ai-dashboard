@@ -116,26 +116,15 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
     load(); const t = setInterval(load, 90000); return () => clearInterval(t);
   }, []);
 
-  // Real Telegram notification every time a stock chart is actually viewed
-  // (2026-07-28, explicit user request) — reuses the same /api/notify
-  // endpoint the manual "PUSH" buttons elsewhere (RotationTab/SectorsTab)
-  // already use, so it's a real direct send, not subject to the AI-alert
-  // daily-info-message budget (a different real gate for a different
-  // category of message). firstLoadRef only suppresses the bare default
-  // landing (no real handoff, falls back to NVDA) — a genuine handoff into
-  // this component's first mount (Sniper Scanner's chart button, Rotation/
-  // Sectors' CHART button) still counts as a real click and does notify;
-  // see the mount effect below for exactly how.
-  //
-  // Per-symbol cooldown (2026-07-29, "too many alerts in telegram") — was
-  // completely un-throttled, so clicking through timeframe buttons (1D/1W/
-  // 1M — loadSym re-runs on each) on the SAME symbol fired a fresh Telegram
-  // ping every time, not just on a genuinely new chart. localStorage-backed
-  // so it survives a page reload/new tab, not just this component instance.
-  const NOTIFY_COOLDOWN_MS = 15 * 60 * 1000; // 15 min
-  const firstLoadRef = useRef(true);
   // tf param lets a caller (timeframe buttons) override the current chartTf
   // in the same click that also changes it, avoiding a stale-closure refetch.
+  //
+  // Previously fired a real Telegram "chart viewed" ping on every load
+  // (2026-07-28), then throttled to a 15-min per-symbol cooldown
+  // (2026-07-29, "too many alerts in telegram") — still flooded once the
+  // Movers panel gained more views to click through (each row is a
+  // different symbol, so the per-symbol cooldown never actually applied).
+  // Removed entirely 2026-08-04 per explicit user request.
   const loadSym = useCallback((s, tf) => {
     const symbol = String(s || "").trim().toUpperCase();
     if (!symbol) return;
@@ -143,24 +132,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
     setSym(symbol); setLoadingChart(true);
     fetch(`/api/market/trend-template?symbol=${encodeURIComponent(symbol)}&interval=${encodeURIComponent(useTf)}`)
       .then(r => r.json())
-      .then(d => {
-        if (!d.error) {
-          setChart(d);
-          if (!firstLoadRef.current) {
-            let cooldowns = {};
-            try { cooldowns = JSON.parse(localStorage.getItem("mterminal_notify_cooldown") || "{}"); } catch {}
-            const now = Date.now();
-            if (now - (cooldowns[symbol] || 0) >= NOTIFY_COOLDOWN_MS) {
-              const chg = Number(d.setup?.abovePivotPct) || 0;
-              const msg = `📈 Chart viewed: ${symbol} — $${Number(d.price || 0).toFixed(2)}${d.stage ? ` · ${d.stage}` : ""}${Number.isFinite(chg) && d.setup ? ` · ${chg >= 0 ? "+" : ""}${chg.toFixed(1)}% from pivot` : ""}`;
-              fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }).catch(() => {});
-              cooldowns[symbol] = now;
-              try { localStorage.setItem("mterminal_notify_cooldown", JSON.stringify(cooldowns)); } catch {}
-            }
-          }
-          firstLoadRef.current = false;
-        }
-      })
+      .then(d => { if (!d.error) setChart(d); })
       .catch(() => {})
       .finally(() => setLoadingChart(false));
   }, [chartTf]);
@@ -170,12 +142,6 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
       pending = localStorage.getItem("mterminal_load_sym"); if (pending) localStorage.removeItem("mterminal_load_sym");
       if (localStorage.getItem("mterminal_scroll_to") === "plan") { scrollToPlanPendingRef.current = true; localStorage.removeItem("mterminal_scroll_to"); }
     } catch {}
-    // A real handoff (Sniper Scanner's chart button, Rotation/Sectors'
-    // CHART button, etc) IS a real "click on a stock chart" and should
-    // notify even though it lands on this component's own first mount;
-    // only the bare default landing (no handoff, falls back to NVDA) is
-    // not a click.
-    firstLoadRef.current = !pending;
     loadSym(pending || "NVDA");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
