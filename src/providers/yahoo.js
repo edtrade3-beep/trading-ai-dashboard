@@ -390,6 +390,11 @@ async function fetchYahooQuotes(symbols) {
         postMarketPrice: round2(Number(live?.postMarketPrice) || 0),
         preMarketChangePercent: round2(Number(live?.preMarketChangePercent) || 0),
         postMarketChangePercent: round2(Number(live?.postMarketChangePercent) || 0),
+        // Yahoo's own real session flag ("PRE"/"REGULAR"/"POST"/"POSTPOST"/
+        // "CLOSED") — always present on the raw v7 quote response but never
+        // extracted before. Lets a caller honestly pick pre/post/regular
+        // price instead of guessing session from local clock time.
+        marketState: live?.marketState || null,
       };
     } catch {
       return null;

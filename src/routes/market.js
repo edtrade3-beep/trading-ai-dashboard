@@ -1356,10 +1356,40 @@ async function _buildTrendTemplate(symbol, opts = {}) {
     };
   } catch { /* SMC is informational-only — never block the real trend-template score */ }
 
+  // Real live/extended-hours price (explicit user request, "after hours i
+  // want to see live prices") — `price` above is the daily bar's close,
+  // which only reflects the 9:30-4:00 regular session even when checked
+  // pre-market/after-hours. Yahoo's real-time quote carries actual
+  // preMarketPrice/postMarketPrice plus marketState telling us which one
+  // is live right now. Skipped in opts.light mode (bulk scanner callers,
+  // 100s of symbols per run) — this is only for the single-symbol Chart
+  // page call, one extra real quote fetch, already cached upstream in
+  // fetchYahooQuoteBatch. Never overwrites `price` itself — the Minervini
+  // scoring/criteria above stay on the stable daily-close basis; this is
+  // purely an additive display field.
+  let livePrice = null, marketState = null, preMarketPrice = null, postMarketPrice = null;
+  if (!opts.light) {
+    try {
+      const [liveQuote] = await fetchYahooQuotes([symbol]);
+      if (liveQuote) {
+        marketState = liveQuote.marketState || null;
+        preMarketPrice = liveQuote.preMarketPrice > 0 ? liveQuote.preMarketPrice : null;
+        postMarketPrice = liveQuote.postMarketPrice > 0 ? liveQuote.postMarketPrice : null;
+        if (marketState === "PRE" && preMarketPrice) livePrice = preMarketPrice;
+        else if (marketState && marketState.startsWith("POST") && postMarketPrice) livePrice = postMarketPrice;
+        else if (liveQuote.price > 0) livePrice = liveQuote.price;
+      }
+    } catch { /* live price is a display nicety — never block the real trend-template score */ }
+  }
+
   const result = {
     symbol,
     asOf: new Date(bars[last].time).toISOString(),
     price: round2(price),
+    livePrice: livePrice != null ? round2(livePrice) : null,
+    marketState,
+    preMarketPrice: preMarketPrice != null ? round2(preMarketPrice) : null,
+    postMarketPrice: postMarketPrice != null ? round2(postMarketPrice) : null,
     passCount,
     score: passCount,
     qualifies: passCount === 8,

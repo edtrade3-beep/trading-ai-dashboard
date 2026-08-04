@@ -620,8 +620,21 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
               the 3 fallback providers, so this just doesn't render rather
               than showing the bare symbol twice or a fabricated title. */}
           {fund && fund.name && fund.name !== sym && <span style={{ fontFamily: SANS, fontSize: 14, fontWeight: 600, color: C.textDim }}>{fund.name}</span>}
-          {chart && chart.price != null && <span style={{ fontFamily: NUM, fontSize: 32, fontWeight: 900, color: C.green }}>${chart.price.toFixed(2)}</span>}
+          {/* Real pre-market/after-hours live price (explicit user request,
+              "after hours i want to see live prices") — chart.price is the
+              daily bar's regular-session close and never moves outside
+              9:30-4:00 ET; chart.livePrice (Yahoo real-time quote, honestly
+              null if unavailable) reflects the actual current session,
+              falling back to chart.price when the market's simply closed
+              with nothing newer to show. */}
+          {chart && (chart.livePrice ?? chart.price) != null && <span style={{ fontFamily: NUM, fontSize: 32, fontWeight: 900, color: C.green }}>${(chart.livePrice ?? chart.price).toFixed(2)}</span>}
           {symDayPct != null && <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 700, color: col(symDayPct) }}>{pct(symDayPct)}</span>}
+          {chart && (chart.marketState === "PRE" || (chart.marketState && chart.marketState.startsWith("POST"))) && (
+            <span title={chart.marketState === "PRE" ? "Real Yahoo pre-market quote" : "Real Yahoo after-hours quote"}
+              style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: 0.5, color: C.gold, border: `1px solid ${C.gold}`, borderRadius: 5, padding: "2px 6px" }}>
+              {chart.marketState === "PRE" ? "PRE-MARKET" : "AFTER HOURS"}
+            </span>
+          )}
           {chart && !loadingChart && (
             <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontFamily: MONO, fontSize: 10, fontWeight: 700, color: "#0d9465" }}>
               <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#0d9465", display: "inline-block" }} /> LIVE

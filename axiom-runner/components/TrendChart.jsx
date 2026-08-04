@@ -308,10 +308,14 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
     const pl = (price, color, title, style) => s.priceLines.push(s.candle.createPriceLine({ price, color, lineWidth: 1, lineStyle: style, axisLabelVisible: true, title }));
     // Real current price, explicitly labeled — replaces the native
     // candle-series marker disabled above. Same up/down coloring the volume
-    // histogram already uses (close vs. that bar's own open).
+    // histogram already uses (close vs. that bar's own open). Prefers
+    // data.livePrice (real Yahoo pre-market/after-hours quote) over
+    // data.price (the daily bar's regular-session close) so this line
+    // reflects the actual current session, not a stale 4pm close.
     const lastBar = bars[n - 1];
-    const curPrice = Number(data.price) || (lastBar ? lastBar.close : null);
-    if (curPrice != null) pl(curPrice, lastBar && lastBar.close >= lastBar.open ? C.green : C.red, "PRICE", LS.Solid ?? 0);
+    const curPrice = Number(data.livePrice) || Number(data.price) || (lastBar ? lastBar.close : null);
+    const priceLabel = data.marketState === "PRE" ? "PRE-MKT" : (data.marketState && data.marketState.startsWith("POST")) ? "AFTER-HRS" : "PRICE";
+    if (curPrice != null) pl(curPrice, lastBar && lastBar.close >= lastBar.open ? C.green : C.red, priceLabel, LS.Solid ?? 0);
     if (su) {
       pl(su.entry, C.accent, "PIVOT", LS.Dashed ?? 2);
       if (su.actionable) {
