@@ -19,16 +19,40 @@ export default function RhProWatchlists({ C, MONO, SANS, setActiveTab, macroData
   const st2 = r => (r.stage || "").includes("2");
   const st4 = r => (r.stage || "").includes("4");
   const byScore = (a, b) => b.score - a.score;
-  const lists = [
-    { key: "top", icon: "🏆", title: "AI TOP PICKS", desc: "Highest overall AI score", items: rows.filter(r => r.score >= 55).sort(byScore).slice(0, 10) },
-    { key: "breakout", icon: "🚀", title: "BREAKOUT CANDIDATES", desc: "At/near a valid pivot", items: rows.filter(r => r.atBuyPoint || (r.actionable && Number(r.abovePivotPct || -99) >= -3)).sort(byScore).slice(0, 10) },
-    { key: "momentum", icon: "⚡", title: "MOMENTUM LEADERS", desc: "RS ≥ 80 in a Stage 2 uptrend", items: rows.filter(r => (r.rsRating || 0) >= 80 && st2(r)).sort((a, b) => (b.rsRating || 0) - (a.rsRating || 0)).slice(0, 10) },
-    { key: "pullback", icon: "🎯", title: "PULLBACK OPPORTUNITIES", desc: "Strong stock at its buy zone", items: rows.filter(r => r.actionable && !r.extended && !st4(r)).sort(byScore).slice(0, 10) },
-    { key: "rvol", icon: "🔊", title: "HIGH RELATIVE VOLUME", desc: "Volume ≥ 1.5× average", items: rows.filter(r => (r.volRatio || 0) >= 1.5).sort((a, b) => (b.volRatio || 0) - (a.volRatio || 0)).slice(0, 10) },
-    { key: "swing", icon: "📈", title: "SWING CANDIDATES", desc: "Stage 2, 6/8+ template", items: rows.filter(r => st2(r) && (r.passCount || 0) >= 6).sort(byScore).slice(0, 10) },
-    { key: "volatile", icon: "🌊", title: "VOLATILE / DAY-TRADE", desc: "High volume + wide range", items: rows.filter(r => (r.volRatio || 0) >= 1.8).sort((a, b) => (b.volRatio || 0) - (a.volRatio || 0)).slice(0, 10) },
-    { key: "avoid", icon: "🚫", title: "AVOID (Stage 4)", desc: "Downtrends — do not buy", items: rows.filter(st4).sort((a, b) => a.score - b.score).slice(0, 10) },
+  // Mobile audit finding (2026-08-04, "what else looks crowded on
+  // mobile") — real duplicate-content crowding, not a layout bug: these 8
+  // categories all filter the SAME underlying scan, and several criteria
+  // correlate heavily (a high-score Stage-2 actionable-not-extended stock
+  // satisfies Top Picks/Pullback/Swing/often Breakout all at once), so the
+  // same handful of elite tickers were repeating near-verbatim across the
+  // first 4-5 cards — real crowding from the SAME names, not different
+  // real coverage. Fix: cross-list dedup, first-list-wins in this array's
+  // own declared order (Top Picks is the most authoritative single
+  // ranking, so it keeps every name it earns; each list below it only
+  // shows names not already surfaced above). No filter threshold or sort
+  // changed — same real criteria, same real data — this only changes
+  // which of the genuinely-matching names get displayed where.
+  const seen = new Set();
+  const rawLists = [
+    { key: "top", icon: "🏆", title: "AI TOP PICKS", desc: "Highest overall AI score", raw: rows.filter(r => r.score >= 55).sort(byScore) },
+    { key: "breakout", icon: "🚀", title: "BREAKOUT CANDIDATES", desc: "At/near a valid pivot", raw: rows.filter(r => r.atBuyPoint || (r.actionable && Number(r.abovePivotPct || -99) >= -3)).sort(byScore) },
+    { key: "momentum", icon: "⚡", title: "MOMENTUM LEADERS", desc: "RS ≥ 80 in a Stage 2 uptrend", raw: rows.filter(r => (r.rsRating || 0) >= 80 && st2(r)).sort((a, b) => (b.rsRating || 0) - (a.rsRating || 0)) },
+    { key: "pullback", icon: "🎯", title: "PULLBACK OPPORTUNITIES", desc: "Strong stock at its buy zone", raw: rows.filter(r => r.actionable && !r.extended && !st4(r)).sort(byScore) },
+    { key: "rvol", icon: "🔊", title: "HIGH RELATIVE VOLUME", desc: "Volume ≥ 1.5× average", raw: rows.filter(r => (r.volRatio || 0) >= 1.5).sort((a, b) => (b.volRatio || 0) - (a.volRatio || 0)) },
+    { key: "swing", icon: "📈", title: "SWING CANDIDATES", desc: "Stage 2, 6/8+ template", raw: rows.filter(r => st2(r) && (r.passCount || 0) >= 6).sort(byScore) },
+    { key: "volatile", icon: "🌊", title: "VOLATILE / DAY-TRADE", desc: "High volume + wide range", raw: rows.filter(r => (r.volRatio || 0) >= 1.8).sort((a, b) => (b.volRatio || 0) - (a.volRatio || 0)) },
+    { key: "avoid", icon: "🚫", title: "AVOID (Stage 4)", desc: "Downtrends — do not buy", raw: rows.filter(st4).sort((a, b) => a.score - b.score) },
   ];
+  const lists = rawLists.map(l => {
+    const deduped = l.raw.filter(r => !seen.has(r.symbol));
+    const items = deduped.slice(0, 10);
+    items.forEach(r => seen.add(r.symbol));
+    // Distinguishes "genuinely nothing matches this category right now"
+    // from "matches exist but already shown in a card above" — the two
+    // are different real states and shouldn't share one silent message.
+    const allAlreadyShown = l.raw.length > 0 && deduped.length === 0;
+    return { key: l.key, icon: l.icon, title: l.title, desc: l.desc, items, allAlreadyShown };
+  });
 
   return (
     <div style={{ padding: "8px 4px" }}>
@@ -77,7 +101,7 @@ export default function RhProWatchlists({ C, MONO, SANS, setActiveTab, macroData
                   <span style={{ fontWeight: 900, color: r.score >= 70 ? C.green : r.score >= 50 ? C.amber : C.textDim }}>{r.score}</span>
                 </span>
               </div>
-            )) : <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, padding: "4px 0" }}>none right now</div>}
+            )) : <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, padding: "4px 0" }}>{l.allAlreadyShown ? "matches already shown in a card above" : "none right now"}</div>}
           </div>
         ))}
       </div>
