@@ -32,6 +32,11 @@ import AiTradeCard from "./AiTradeCard.jsx";
 import StrategySelectorCard from "./StrategySelectorCard.jsx";
 import ChecklistCard from "./ChecklistCard.jsx";
 import { computeChecklist } from "./checklist-engine.js";
+// Market Context strip (2026-08-04 decision-first redesign, Phase 6) — the
+// exact same real component MacroTab.jsx mounts (extracted out of that file
+// so both pages share one real implementation instead of a second,
+// potentially-diverging copy).
+import MacroStatusStrip, { useRealMacroOverrides } from "./MacroStatusStrip.jsx";
 
 // Combined Market-Terminal page: movers leaderboard on the left, pro chart with
 // AI overlays on the right. Click a mover → it loads in the chart.
@@ -53,6 +58,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   // loading/unavailable, same honest-null discipline as the rest of the page.
   const [topContract, setTopContract] = useState(null);
   const [copiedPlan, setCopiedPlan] = useState(false);
+  const { fred: macroFred } = useRealMacroOverrides();
   // Real "back" navigation (2026-07-28, explicit user request) — any
   // caller that hands off into Market Terminal (Sniper Scanner's 📈 chart
   // button, RotationTab/SectorsTab's CHART button, etc) can set
@@ -835,6 +841,17 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             )}
           </div>
         )}
+        {/* SECTION 4 — Market Context (2026-08-04 decision-first redesign)
+            — the same real MacroStatusStrip component MacroTab.jsx mounts
+            (SPY/QQQ/IWM/DIA/VIX/DXY-proxy/10Y/Gold/Oil/BTC, real
+            Green/Yellow/Red per instrument), so a trader can see at a
+            glance whether the broader market supports this trade without
+            leaving the page. One real shared component, two mount sites —
+            not a second, divergent copy. */}
+        <div style={{ marginBottom: 14 }}>
+          <SectionHeader icon="🌍" label="MARKET CONTEXT" />
+          <MacroStatusStrip C={C} MONO={MONO} macroData={macroData} distData={distData} fred={macroFred} />
+        </div>
         {/* "SUPPORTING DETAIL" divider — audit fix #4, 2026-08-04. Real
             finding: the hero card above already IS a complete verdict
             (letter grade + stars + Recommendation + Primary Action), but
