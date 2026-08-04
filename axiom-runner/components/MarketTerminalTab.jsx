@@ -878,6 +878,52 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
           <SectionHeader icon="🌍" label="MARKET CONTEXT" />
           <MacroStatusStrip C={C} MONO={MONO} macroData={macroData} distData={distData} fred={macroFred} />
         </div>
+        {/* SECTION 4.5 — Fundamentals | Technical, side by side (2026-08-04,
+            explicit user request: "add fundamental in one side and
+            technical in other side squeeze them together"). Both promoted
+            to always-visible, real estate right under the hero verdict —
+            Fundamentals used to be reachable only by clicking into the
+            "Valuation" sub-nav tab below the chart (easy to miss entirely);
+            Technical (ADX/Donchian/Bollinger) used to live inside the
+            collapsed Supporting Detail section. Neither's underlying data
+            or computation changed — FundamentalsPanel is the same real
+            component the Valuation tab already used (own fetch, unchanged);
+            the technical pills are the same chart.technicals math already
+            computed for the chart, just moved up and out of the collapse.
+            auto-fit/minmax (this file's own established responsive
+            pattern) stacks to one column on mobile. */}
+        {sym && (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12, marginBottom: 14 }}>
+            <div>
+              <SectionHeader icon="📊" label="FUNDAMENTALS" />
+              <FundamentalsPanel symbol={sym} C={C} MONO={MONO} SANS={SANS} />
+            </div>
+            <div>
+              <SectionHeader icon="📐" label="TECHNICAL" />
+              {chart && chart.technicals ? (() => {
+                const t = chart.technicals;
+                const row = (label, val, col, title) => (
+                  <div key={label} title={title} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "9px 0", borderBottom: `1px solid ${C.border}`, cursor: title ? "help" : "default" }}>
+                    <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>{label}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: col || C.text }}>{val}</span>
+                  </div>
+                );
+                const adx = t.adx, don = t.donchian, bb = t.bollinger;
+                const adxCol = !adx ? C.text : adx.strength === "Strong" ? (adx.direction === "Bullish" ? "#22d47e" : "#ef4444") : C.textDim;
+                const bbSqueeze = bb && bb.bandwidthPct != null && bb.bandwidthPct < 8;
+                return (
+                  <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, padding: "12px 14px", background: C.bg }}>
+                    {row("ADX (14d)", adx ? `${adx.adx} · ${adx.strength}` : "—", adxCol, adx ? `+DI ${adx.plusDI} / -DI ${adx.minusDI} — ${adx.direction} trend, ${adx.strength.toLowerCase()}` : "Insufficient history")}
+                    {row("DONCHIAN (20d)", don ? `${don.pctPosition}% of range` : "—", don ? (don.pctPosition >= 90 ? "#22d47e" : don.pctPosition <= 10 ? "#ef4444" : C.text) : C.text, don ? `Upper $${don.upper} · Lower $${don.lower} — price is ${don.pctPosition}% of the way up the 20-day range` : "Insufficient history")}
+                    {row("BOLLINGER %B", bb ? `${bb.percentB}%${bbSqueeze ? " · squeeze" : ""}` : "—", bb ? (bb.percentB >= 100 ? "#22d47e" : bb.percentB <= 0 ? "#ef4444" : bbSqueeze ? "#d6a312" : C.text) : C.text, bb ? `Upper $${bb.upper} · Mid $${bb.mid} · Lower $${bb.lower} · Bandwidth ${bb.bandwidthPct}%${bbSqueeze ? " — tight, coiling" : ""}` : "Insufficient history")}
+                  </div>
+                );
+              })() : (
+                <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, padding: "16px 14px", background: C.bg, fontFamily: MONO, fontSize: 12, color: C.textDim, textAlign: "center" }}>Loading…</div>
+              )}
+            </div>
+          </div>
+        )}
         {/* "SUPPORTING DETAIL" divider — audit fix #4, 2026-08-04. Real
             finding: the hero card above already IS a complete verdict
             (letter grade + stars + Recommendation + Primary Action), but
@@ -1046,33 +1092,10 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             "SUPPORTING DETAIL" divider, right under the Execution Card
             (2026-08-04 decision-first redesign) — same ChecklistCard,
             promoted, not duplicated. */}
-        {/* Real technical indicators — ADX (trend strength/direction),
-            Donchian Channel (20d), Bollinger Bands (20d) — all computed
-            server-side on the same daily bars the chart already fetched
-            (chart.technicals, from /api/market/trend-template). Phase 2 of
-            the Institutional Research Upgrade (2026-07-29). Each renders
-            "—" on its own if that indicator's real function returned null
-            (insufficient history), never a guessed number. */}
-        {chart && chart.technicals && (
-          <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
-            {(() => {
-              const t = chart.technicals, pill = (label, val, col, title) => (
-                <div key={label} title={title} style={{ flex: "1 1 150px", minWidth: 140, border: `1px solid ${C.border}`, borderRadius: 8, padding: "7px 10px", background: C.card, cursor: title ? "help" : "default" }}>
-                  <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim, letterSpacing: 0.5 }}>{label}</div>
-                  <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: col || C.text }}>{val}</div>
-                </div>
-              );
-              const adx = t.adx, don = t.donchian, bb = t.bollinger;
-              const adxCol = !adx ? C.text : adx.strength === "Strong" ? (adx.direction === "Bullish" ? "#22d47e" : "#ef4444") : C.textDim;
-              const bbSqueeze = bb && bb.bandwidthPct != null && bb.bandwidthPct < 8;
-              return [
-                pill("ADX (14d)", adx ? `${adx.adx} · ${adx.strength}` : "—", adxCol, adx ? `+DI ${adx.plusDI} / -DI ${adx.minusDI} — ${adx.direction} trend, ${adx.strength.toLowerCase()}` : "Insufficient history"),
-                pill("DONCHIAN (20d)", don ? `${don.pctPosition}% of range` : "—", don ? (don.pctPosition >= 90 ? "#22d47e" : don.pctPosition <= 10 ? "#ef4444" : C.text) : C.text, don ? `Upper $${don.upper} · Lower $${don.lower} — price is ${don.pctPosition}% of the way up the 20-day range` : "Insufficient history"),
-                pill("BOLLINGER %B", bb ? `${bb.percentB}%${bbSqueeze ? " · squeeze" : ""}` : "—", bb ? (bb.percentB >= 100 ? "#22d47e" : bb.percentB <= 0 ? "#ef4444" : bbSqueeze ? "#d6a312" : C.text) : C.text, bb ? `Upper $${bb.upper} · Mid $${bb.mid} · Lower $${bb.lower} · Bandwidth ${bb.bandwidthPct}%${bbSqueeze ? " — tight, coiling" : ""}` : "Insufficient history"),
-              ];
-            })()}
-          </div>
-        )}
+        {/* Technical indicators (ADX/Donchian/Bollinger) moved out of this
+            collapsed section 2026-08-04 — now in the always-visible
+            FUNDAMENTALS | TECHNICAL side-by-side section above, right
+            under Market Context. Promoted, not duplicated. */}
         </>}
         {/* ── Per-symbol detail tabs — real price chart + sub-nav live
             here, deliberately NOT part of the collapsed section above,
