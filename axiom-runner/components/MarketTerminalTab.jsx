@@ -48,6 +48,13 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   const [loadingChart, setLoadingChart] = useState(false);
   const [query, setQuery] = useState("");
   const [dTab, setDTab] = useState("chart");   // per-symbol detail tab
+  // Collapsed by default (2026-08-04, "chart is too crowded") — the 6-tile
+  // score grid through the technical-indicator pills are 5-6 separate
+  // bordered cards stacked one after another below the hero verdict, the
+  // actual source of the crowding complaint. The real price chart itself
+  // is NOT part of this toggle (it lives in the dTab sub-nav content below,
+  // which stays expanded) — only the extra score cards collapse.
+  const [showSupportingDetail, setShowSupportingDetail] = useState(false);
   const [chartTf, setChartTf] = useState("1d"); // chart candle granularity, 5m → 1wk
   const [sortBy, setSortBy] = useState("bucket");  // movers sort
   const [source, setSource] = useState("movers");  // movers | watchlist
@@ -871,8 +878,20 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
               SUPPORTING DETAIL — for the verdict above
             </div>
             <div style={{ flex: 1, height: 1, background: C.border }} />
+            {/* Collapsed by default (2026-08-04, "chart is too crowded") —
+                the 6-tile score grid through the technical-indicator pills
+                below are 5-6 separate bordered cards, none of which gate
+                any real behavior (verified before this change: real paper-
+                trading/Telegram-alert code reads these same scoring
+                functions' raw values directly, not through this UI), so
+                collapsing the display costs nothing functionally. */}
+            <button onClick={() => setShowSupportingDetail(v => !v)}
+              style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.accent, background: "transparent", border: `1px solid ${C.accent}55`, borderRadius: 6, padding: "3px 9px", cursor: "pointer", whiteSpace: "nowrap" }}>
+              {showSupportingDetail ? "Hide ▴" : "Show (6 more scores) ▾"}
+            </button>
           </div>
         )}
+        {showSupportingDetail && <>
         {/* SECTION 2 — Six core scores (institutional redesign, 2026-07-29,
             explicit user spec: "Market, Sector, Stock Quality, Institutional,
             Technical, Timing"), each clickable into a real breakdown.
@@ -1031,7 +1050,10 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             })()}
           </div>
         )}
-        {/* ── Per-symbol detail tabs ──
+        </>}
+        {/* ── Per-symbol detail tabs — real price chart + sub-nav live
+            here, deliberately NOT part of the collapsed section above,
+            since this is the Chart page and the chart itself stays visible.
             "Symbol News" not bare "News" — this is a per-symbol detail
             tab, and the Sidebar has its own separate, global "📰 News"
             nav item (different page entirely). Same exact-label-collision
