@@ -8,7 +8,7 @@ export default function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
   const [err, setErr]   = React.useState(null);
   const [screen, setScreen] = React.useState(null);
   const [screening, setScreening] = React.useState(false);
-  const [scoreFilter, setScoreFilter] = React.useState("7"); // ALL | BUY | 8 | 7 | 6
+  const [scoreFilter, setScoreFilter] = React.useState("BUY"); // ALL | BUY | 8 | 7 | 6
   const [showHelp, setShowHelp] = React.useState(false);
   const [showReport, setShowReport] = React.useState(false);
   const [rowOpen, setRowOpen] = React.useState(null);   // symbol expanded inline in the table
@@ -312,6 +312,7 @@ export default function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
                           {r.symbol}
                           {r.earningsSoon && <span title={`Reports earnings in ${r.earningsDte} day${r.earningsDte === 1 ? "" : "s"} — breakout risk.`} style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: "#d97706", background: "#d9770618", borderRadius: 4, padding: "1px 4px" }}>⚠ER {r.earningsDte}d</span>}
                           {typeof r.epsGrowth === "number" && <span title="Forward EPS vs trailing EPS — the fundamental half of SEPA." style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: r.epsGrowth > 0 ? C.green : C.textDim }}>{r.epsGrowth > 0 ? "📈" : "📉"}{r.epsGrowth > 0 ? "+" : ""}{r.epsGrowth}%</span>}
+                          {r.higherLows && <span title="Last 3 real swing lows each higher than the one before — building a base, not breaking down." style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.green, background: `${C.green}18`, borderRadius: 4, padding: "1px 4px" }}>↗ HL</span>}
                         </span>
                       </td>
                       <td style={{ padding: "7px 10px", color: sCol, fontWeight: 800 }}>{r.passCount}/8</td>
@@ -535,6 +536,7 @@ export default function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
               {box("Tightness", su.tightnessPct + "%", su.tightnessPct <= 10 ? C.green : C.text, "10d range")}
               {box("Vol dry-up", su.volDryup == null ? "—" : su.volDryup + "×", su.volDryup != null && su.volDryup < 0.9 ? C.green : C.text, "vs 50d avg")}
               {box("Breakout vol", su.volSurge + "×", su.volSurge >= 1.4 ? C.green : C.textDim, "need ≥1.4×")}
+              {box("Higher lows", su.higherLows ? "Yes" : "No", su.higherLows ? C.green : C.textDim, "last 3 swing lows")}
             </div>
             {su.sellSignals.length > 0 && (() => {
               const isStage2 = /Stage\s*2/i.test(data.stage || "");
