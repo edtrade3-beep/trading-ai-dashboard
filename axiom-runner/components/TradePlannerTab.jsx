@@ -84,7 +84,13 @@ export default function TradePlannerTab({ C, MONO, SANS, macroData }) {
       // lookup when there's no handoff (manual ticker entry).
       let aplus = hasRealPlan && handoff.aplus ? handoff.aplus : null;
       let next  = hasRealPlan && handoff.next  ? handoff.next  : null;
-      if (!aplus) {
+      // Real bug fixed 2026-08-04 (readability sweep) — this used to check
+      // only `!aplus`, so any handoff carrying a real aplus but a null next
+      // (e.g. Smart Scan's handoff, which always passes aplus and always
+      // null next) silently skipped the fallback that computes next —
+      // every Smart-Scan-originated plan lost its real Next Action badge
+      // even though the code to compute it sits right below.
+      if (!aplus || !next) {
         try {
           const tsResp = await fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(sym)}`);
           const tsJson = tsResp.ok ? await tsResp.json() : null;
