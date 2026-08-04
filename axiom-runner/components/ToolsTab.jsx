@@ -14,7 +14,19 @@ export default function ToolsTab({
             <div style={{ fontSize: 12, fontFamily: MONO, color: C.textDim, letterSpacing: "0.08em", marginBottom: 14 }}>
               PRO TOOLBOX — EXECUTION DISCIPLINE
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 12, marginBottom: 12 }}>
+            {/* Mobile audit fix (2026-08-04) — this two-panel layout and the
+                Position Sizing input rows below used fixed column counts
+                (gridTemplateColumns: "1.2fr 1fr" / "repeat(5, minmax(100px,
+                1fr))") with no responsive fallback. CSS grid's default
+                min-width:auto on items propagates a wide intrinsic minimum
+                up through the tree, so on a 390px mobile screen the 5-col
+                input row (min ~530px) forced the whole left card wider than
+                the viewport, clipping the 4th/5th inputs and the stat tiles
+                below off-screen — confirmed via a real mobile screenshot,
+                not a guess. auto-fit/minmax lets each grid collapse to
+                fewer columns (down to 1) when the viewport can't fit the
+                declared count, instead of overflowing. */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12, marginBottom: 12 }}>
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 14 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
                   <div style={{ fontFamily: MONO, fontSize: 12, color: C.accent }}>Position Sizing Engine Pro</div>
@@ -22,7 +34,7 @@ export default function ToolsTab({
                     {riskPlan.regime}
                   </Badge>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(100px, 1fr))", gap: 8, marginBottom: 8 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(90px, 1fr))", gap: 8, marginBottom: 8 }}>
                   <input value={riskAccount} onChange={(e) => setRiskAccount(e.target.value.replace(/[^\d.]/g, ""))} placeholder="Account $" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 12 }} />
                   <input value={riskPct} onChange={(e) => setRiskPct(e.target.value.replace(/[^\d.]/g, ""))} placeholder="Risk %" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 12 }} />
                   <input value={riskEntry} onChange={(e) => setRiskEntry(e.target.value.replace(/[^\d.]/g, ""))} placeholder="Entry" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 12 }} />
@@ -32,7 +44,7 @@ export default function ToolsTab({
                     <option value="short">Short</option>
                   </select>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(100px, 1fr))", gap: 8, marginBottom: 10 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(90px, 1fr))", gap: 8, marginBottom: 10 }}>
                   <input value={riskMaxPosPct} onChange={(e) => setRiskMaxPosPct(e.target.value.replace(/[^\d.]/g, ""))} placeholder="Max Pos %" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 12 }} />
                   <input value={riskCorrCap} onChange={(e) => setRiskCorrCap(e.target.value.replace(/[^\d.]/g, ""))} placeholder="Corr Cap 0-1" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 12 }} />
                   <input value={riskAtrPct} onChange={(e) => setRiskAtrPct(e.target.value.replace(/[^\d.]/g, ""))} placeholder="ATR % Proxy" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 12 }} />
