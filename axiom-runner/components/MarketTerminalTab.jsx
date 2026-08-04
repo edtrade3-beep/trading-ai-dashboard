@@ -1177,10 +1177,24 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                 QuickTrade/RealityCheck, right:18, ~54-70px wide each) — the
                 chart's own right price scale/PIVOT-STOP-BASE LOW labels
                 would otherwise render directly under those icons and get
-                covered (confirmed live). */}
+                covered (confirmed live).
+                height={620} not "fill" — 2026-08-04 "chart is too shrinked"
+                report. height="fill" sizes the chart off whatever viewport
+                space is left below its OWN top, but "scroll to chart"
+                (scrollToChart, chartZoneRef above) lands the viewport at the
+                Chart zone's top (ticker/hero/execution/readiness/context/
+                fundamentals-technical/AI summary all render before this),
+                so the real chart canvas sits 1500-2500px further down,
+                already off-screen the moment scrolling settles — confirmed
+                live via measured canvas rects, height clamped to the fill
+                mode's 320px floor every time. A fixed height sidesteps that
+                mismatch entirely instead of chasing scroll-timing further —
+                same fixed-height pattern TrendChart's other callers
+                (DayTradeTab, TrendTemplateTab) already use, and matches this
+                same div's own "Select a mover" placeholder height below. */}
             <div style={{ paddingRight: 90 }}>
               {chart
-                ? <TrendChart data={chart} C={C} MONO={MONO} SANS={SANS} height="fill" />
+                ? <TrendChart data={chart} C={C} MONO={MONO} SANS={SANS} height={620} />
                 : <div style={{ height: 620, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: 13, color: C.textDim, border: `1px solid ${C.border}`, borderRadius: 12 }}>Select a mover to load the chart…</div>}
             </div>
             {/* SECTION 6 — Smart Money panel (institutional redesign,
