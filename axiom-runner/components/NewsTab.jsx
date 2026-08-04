@@ -81,6 +81,23 @@ export default function NewsTab({
     return ai ? (ai.s === "bull" ? "bullish" : ai.s === "bear" ? "bearish" : "neutral") : crudeSentiment(n);
   };
 
+  // Analyst upgrade/downgrade "big news" flag (2026-08-04, explicit user
+  // request) — same real upWords/downWords list axiom-live.jsx's
+  // analyzeNewsIntelligence already uses for the Dashboard's BUY/UPGRADE
+  // and SELL/DOWNGRADE panels, reused verbatim here rather than inventing
+  // a second keyword set that could quietly diverge from it. Distinct from
+  // crudeSentiment/aiSentFor above — those grade general bullish/bearish
+  // tone, this flags the specific "an analyst changed their rating" event,
+  // which moves stocks regardless of the rest of the headline's tone.
+  const upWords = ["upgrade", "upgrades", "outperform", "overweight", "buy rating", "raises target", "initiates buy"];
+  const downWords = ["downgrade", "downgrades", "underperform", "underweight", "sell rating", "cuts target", "reduces target"];
+  const ratingChangeFor = (n) => {
+    const txt = (String(n.title || "") + " " + String(n.summary || "")).toLowerCase();
+    if (upWords.some(w => txt.includes(w))) return "upgrade";
+    if (downWords.some(w => txt.includes(w))) return "downgrade";
+    return null;
+  };
+
   const symbolGroups = {};
   newsData.forEach(n => {
     const sym = String(n.ticker || "").toUpperCase();
@@ -112,6 +129,8 @@ export default function NewsTab({
                   <option value="bearish">Bearish</option>
                   <option value="neutral">Neutral</option>
                   <option value="wl">WL Only</option>
+                  <option value="upgrade">📈 Upgrades</option>
+                  <option value="downgrade">📉 Downgrades</option>
                 </select>
                 <button
                   onClick={refreshNews}
@@ -190,6 +209,8 @@ export default function NewsTab({
                   if (marketMovingOnly && !marketMovingMap[n.title || n.headline || ""]) return false;
                   if (newsSentFilter === "wl") {
                     if (!watchlistSymbols.includes(String(n.ticker || "").toUpperCase())) return false;
+                  } else if (newsSentFilter === "upgrade" || newsSentFilter === "downgrade") {
+                    if (ratingChangeFor(n) !== newsSentFilter) return false;
                   } else if (newsSentFilter !== "all") {
                     if (sentimentFor(n) !== newsSentFilter) return false;
                   }
@@ -200,6 +221,7 @@ export default function NewsTab({
                   const sent = sentimentFor(n);
                   const sentColor = sent === "bullish" ? C.green : sent === "bearish" ? C.red : C.textDim;
                   const onWatchlist = watchlistSymbols.includes(n.ticker);
+                  const ratingChange = ratingChangeFor(n);
                   // AI sentiment badge (from Claude scoring)
                   const aiColor = aiSent?.s === "bull" ? C.green : aiSent?.s === "bear" ? C.red : C.textDim;
                   const aiLabel = aiSent?.s === "bull" ? "🟢 AI BULL" : aiSent?.s === "bear" ? "🔴 AI BEAR" : aiSent ? "⚪ AI NEUTRAL" : null;
@@ -222,6 +244,19 @@ export default function NewsTab({
                           {aiLabel && (
                             <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: aiColor, background: `${aiColor}18`, borderRadius: 5, padding: "2px 6px" }}>
                               {aiLabel}{aiSent?.score != null ? ` (${aiSent.score > 0 ? "+" : ""}${aiSent.score})` : ""}
+                            </span>
+                          )}
+                          {/* Analyst rating-change "big news" flag
+                              (2026-08-04) — separate axis from bullish/
+                              bearish tone above: this specifically flags a
+                              real analyst upgrade/downgrade, which moves
+                              stocks on its own regardless of the rest of
+                              the headline's wording. Purple so it never
+                              gets read as a 3rd sentiment color next to
+                              green/red. */}
+                          {ratingChange && (
+                            <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: "#8b5cf6", background: "#8b5cf618", borderRadius: 5, padding: "2px 6px" }}>
+                              {ratingChange === "upgrade" ? "🎯 UPGRADE" : "🎯 DOWNGRADE"}
                             </span>
                           )}
                         </div>
