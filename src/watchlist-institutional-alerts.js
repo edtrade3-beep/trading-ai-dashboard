@@ -288,25 +288,33 @@ async function checkWatchlistInstitutionalAlerts() {
     }
   };
 
+  // $-prefixed ticker (2026-08-04, explicit user request — real screenshot
+  // showed "WELL: Bear BOS..." and it read as the English word "well", not
+  // a ticker; WELL is a real symbol, Welltower Inc). Plain-text $SYMBOL,
+  // not *bold* Markdown — sendTelegramMessage deliberately sends no
+  // parse_mode ("plain text is always safe": unescaped Markdown special
+  // characters in dynamic content would otherwise risk a rejected message),
+  // so this stays inside that same safe, already-proven plain-text contract
+  // instead of introducing a new failure mode.
   await send("smart-money-detected", "🧠 *SMART MONEY DETECTED*", smartMoney,
-    (a) => `${a.type === "BULL_BOS" ? "🟢" : "🔴"} ${a.symbol}: ${a.label}`, (a) => a.label);
+    (a) => `${a.type === "BULL_BOS" ? "🟢" : "🔴"} $${a.symbol}: ${a.label}`, (a) => a.label);
   await send("dark-pool-spike", "🐋 *DARK POOL SPIKE*", darkPool,
-    (a) => `${a.symbol}: $${(a.value / 1e6).toFixed(1)}M block @ $${a.price.toFixed(2)} (${a.size.toLocaleString()} sh)`,
+    (a) => `$${a.symbol}: $${(a.value / 1e6).toFixed(1)}M block @ $${a.price.toFixed(2)} (${a.size.toLocaleString()} sh)`,
     (a) => `$${(a.value / 1e6).toFixed(1)}M block @ $${a.price.toFixed(2)} (${a.size.toLocaleString()} sh)`);
   await send("options-flow-unusual", "⚡ *UNUSUAL OPTIONS FLOW*", optionsFlow,
-    (a) => `${a.symbol}: ${a.side} $${a.strike} — $${(a.notional / 1e6).toFixed(2)}M notional (${a.tradeType})`,
+    (a) => `$${a.symbol}: ${a.side} $${a.strike} — $${(a.notional / 1e6).toFixed(2)}M notional (${a.tradeType})`,
     (a) => `${a.side} $${a.strike} — $${(a.notional / 1e6).toFixed(2)}M notional (${a.tradeType})`);
   await send("earnings-released", "💰 *EARNINGS RELEASED*", earnings,
-    (a) => `${a.symbol}: earnings just released — $${Number(a.price).toFixed(2)}`,
+    (a) => `$${a.symbol}: earnings just released — $${Number(a.price).toFixed(2)}`,
     (a) => `Earnings just released — $${Number(a.price).toFixed(2)}`);
   await send("news-sentiment-change", "📣 *SENTIMENT SHIFT*", sentiment,
-    (a) => `${a.symbol}: net sentiment ${a.from >= 0 ? "+" : ""}${a.from} → ${a.to >= 0 ? "+" : ""}${a.to} (${a.label})`,
+    (a) => `$${a.symbol}: net sentiment ${a.from >= 0 ? "+" : ""}${a.from} → ${a.to >= 0 ? "+" : ""}${a.to} (${a.label})`,
     (a) => `Net sentiment ${a.from >= 0 ? "+" : ""}${a.from} → ${a.to >= 0 ? "+" : ""}${a.to} (${a.label})`);
   await send("gamma-breakout", "🧲 *GAMMA BREAKOUT*", gammaBreakout,
-    (a) => `${a.symbol}: crossed ${a.side} the real gamma flip point ($${a.flipPoint.toFixed(2)}) — now $${a.price.toFixed(2)}`,
+    (a) => `$${a.symbol}: crossed ${a.side} the real gamma flip point ($${a.flipPoint.toFixed(2)}) — now $${a.price.toFixed(2)}`,
     (a) => `Crossed ${a.side} the real gamma flip point ($${a.flipPoint.toFixed(2)}) — now $${a.price.toFixed(2)}`);
   await send("volume-spike", "📊 *VOLUME SPIKE*", volumeSpike,
-    (a) => `${a.symbol}: RVOL ${a.volRatio.toFixed(1)}× — huge institutional interest, $${Number(a.price).toFixed(2)}`,
+    (a) => `$${a.symbol}: RVOL ${a.volRatio.toFixed(1)}× — huge institutional interest, $${Number(a.price).toFixed(2)}`,
     (a) => `RVOL ${a.volRatio.toFixed(1)}× — huge institutional interest, $${Number(a.price).toFixed(2)}`);
 
   appendHistory(historyEntries);
