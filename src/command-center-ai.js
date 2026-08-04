@@ -500,7 +500,16 @@ Search for real, current news now and return the JSON.`;
   });
 
   const commandScore = computeCommandScore(regime?.score, ceoBrief?.confidence, [...bullishCards, ...bearishCards], breadth?.summary?.above50Pct, feargreed?.score);
-  const trackRecord = getTrackRecord();
+  // Scoped to "command-center" (audit fix, 2026-08-04) — was reading the
+  // combined ledger across every real source. X Intel doesn't currently log
+  // any predictions into this same store (its own Track Record UI has been
+  // removed until it does), but this stayed a real correctness gap: any
+  // future source writing into predictions-store.js would have silently
+  // blended into Command Center's own "REAL, CODE-GRADED OUTCOMES" hit rate
+  // with no disclosure. logPrediction() already defaults new entries here
+  // to source:"command-center", so this scoping is a pure bug fix, not a
+  // behavior change for anything logged so far.
+  const trackRecord = getTrackRecord("command-center");
 
   // Read the prior snapshot BEFORE this run's own snapshot is appended —
   // real diff against whatever was actually generated immediately before

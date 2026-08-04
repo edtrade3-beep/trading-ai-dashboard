@@ -105,54 +105,14 @@ function ItemCard({ it, C, MONO, SANS, setActiveTab, setTerminalSymbol }) {
   );
 }
 
-function TrackRecordSection({ tr, C, MONO, SANS, setActiveTab, setTerminalSymbol }) {
-  const canOpen = setActiveTab && setTerminalSymbol;
-  const openSymbol = (symbol) => { setTerminalSymbol(symbol); try { localStorage.setItem("mterminal_load_sym", symbol); } catch {} setActiveTab("mterminal"); };
-  if (!tr) return null;
-  return (
-    <div style={{ ...cardStyle(C, { background: C.card }), padding: 16 }}>
-      <SectionLabel icon="📋" text="TRACK RECORD — REAL, CODE-GRADED OUTCOMES" color={C.accent} C={C} MONO={MONO} />
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10, marginBottom: 10 }}>
-        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: 11, textAlign: "center" }}>
-          <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: tr.hitRatePct == null ? C.textDim : tr.hitRatePct >= 55 ? C.green : tr.hitRatePct >= 40 ? C.amber : C.red }}>
-            {tr.hitRatePct == null ? "—" : `${tr.hitRatePct}%`}
-          </div>
-          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>HIT RATE ({tr.closedCount} closed)</div>
-        </div>
-        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: 11, textAlign: "center" }}>
-          <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.text }}>{tr.openCount}</div>
-          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>OPEN / IN PROGRESS</div>
-        </div>
-        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: 11, textAlign: "center" }}>
-          <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.text }}>{tr.totalGenerated}</div>
-          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>TOTAL CALLS LOGGED</div>
-        </div>
-      </div>
-      {tr.recent?.length > 0 ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {tr.recent.slice(0, 10).map((p) => {
-            const statusCol = p.status === "hit" ? C.green : p.status === "stopped" ? C.red : p.status === "expired" ? C.textDim : C.amber;
-            return (
-              <div key={p.id} onClick={canOpen ? () => openSymbol(p.symbol) : undefined}
-                title={canOpen ? `Open ${p.symbol}` : undefined}
-                style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontFamily: MONO, fontSize: 11, padding: "6px 10px", background: C.surface, borderRadius: 6, cursor: canOpen ? "pointer" : "default" }}>
-                <span style={{ color: C.text, fontWeight: 700 }}>{p.symbol} <span style={{ color: C.textDim, fontWeight: 400 }}>{p.direction}</span></span>
-                <span style={{ color: statusCol, fontWeight: 800 }}>{p.status.toUpperCase()}</span>
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>No market-impact calls graded yet — fills in as real scans log new predictions.</div>
-      )}
-      <div style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim, marginTop: 8 }}>
-        Direction-only grading (±3% real price band from the captured entry price) — not a specific price target, since X-sourced calls are directional, not defined-risk trade setups.
-      </div>
-    </div>
-  );
-}
+// TrackRecordSection removed (audit fix, 2026-08-04) — nothing in the
+// real X Intel pipeline ever logs a prediction under source:"x-intel"
+// (confirmed via full-repo grep), so this section could only ever render
+// its own permanent empty state while its own copy falsely promised it
+// would "fill in as real scans log new predictions." The real
+// /api/x-intel/track-record route is untouched server-side.
 
-export default function XIntelOverview({ C, MONO, SANS, items, state, trackRecord, setActiveTab, setTerminalSymbol }) {
+export default function XIntelOverview({ C, MONO, SANS, items, state, setActiveTab, setTerminalSymbol }) {
   const [categoryFilter, setCategoryFilter] = useState("ALL");
   const [sentimentFilter, setSentimentFilter] = useState("ALL");
   const [search, setSearch] = useState({ symbol: "", entity: "", keyword: "" });
@@ -243,8 +203,6 @@ export default function XIntelOverview({ C, MONO, SANS, items, state, trackRecor
           </div>
         </div>
       </div>
-
-      <TrackRecordSection tr={trackRecord} C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} />
 
       <div style={{ ...cardStyle(C, { background: C.card }), padding: 14 }}>
         <SectionLabel icon="🔍" text="SEARCH" color={C.textSec} C={C} MONO={MONO} />
