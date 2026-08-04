@@ -31,6 +31,7 @@ import SmartMoneyPanel from "./SmartMoneyPanel.jsx";
 import AiTradeCard from "./AiTradeCard.jsx";
 import StrategySelectorCard from "./StrategySelectorCard.jsx";
 import ChecklistCard from "./ChecklistCard.jsx";
+import { computeChecklist } from "./checklist-engine.js";
 
 // Combined Market-Terminal page: movers leaderboard on the left, pro chart with
 // AI overlays on the right. Click a mover → it loads in the chart.
@@ -441,6 +442,27 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   // dimensions by which side of the case they support — zero new fetch,
   // zero API cost, same real reasons already powering the "why?" modal.
   const bullBear = computeBullBearCase(institutionalGrade, INSTITUTIONAL_GRADE_DIMENSIONS);
+  // One-sentence AI summary (2026-08-04 decision-first redesign) — composes
+  // computeBullBearCase's own real reason strings into a single sentence
+  // instead of a bullet list, so the hero card's verdict has exactly one
+  // line of "why" beneath it. Zero new data, no new fabrication — leads
+  // with whichever real side (bull/bear) has more supporting dimensions;
+  // when genuinely balanced, falls back to a real, honest "nothing stands
+  // out" line rather than forcing a one-sided read.
+  const oneLiner = institutionalGrade ? (
+    bullBear.bull.length > bullBear.bear.length ? bullBear.bull[0]
+      : bullBear.bear.length > bullBear.bull.length ? bullBear.bear[0]
+      : (bullBear.bull[0] || bullBear.bear[0] || `${institutionalLetterGrade(institutionalGrade.score)} grade — no single dimension stands out as a strong pass or fail today.`)
+  ) : null;
+  // Trade Readiness / "why this isn't perfect" (2026-08-04 decision-first
+  // redesign) — same real computeChecklist() ChecklistCard already renders,
+  // computed here too so a filtered "failures only" view can sit right next
+  // to it without duplicating the underlying math.
+  const checklistResult = (sym && chart?.bars) ? computeChecklist({
+    bars: chart.bars, price: chart?.price, rvol: symTrend?.volRatio,
+    newsSentiment: symNewsSentiment, darkPool: symDarkPool, optionsFlow: symOptionsFlow,
+    gammaExposure: symGamma, smc: chart?.smc,
+  }) : null;
   const pct = (v) => v == null ? "—" : (v > 0 ? "+" : "") + v.toFixed(2) + "%";
   const col = (v) => v == null ? C.textDim : v > 0 ? "#22d47e" : v < 0 ? "#ef4444" : C.text;
   // Day-change % for the loaded symbol, looked up across all movers buckets.
@@ -679,9 +701,73 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
               <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, marginTop: 10, lineHeight: 1.4 }}>
                 Prediction Confidence and Prob. of Success measure different things — the model's certainty in its own call vs. the real historical win rate for setups graded this well — and can legitimately disagree.
               </div>
+              {oneLiner && (
+                <div style={{ fontFamily: SANS, fontSize: 13, fontWeight: 600, color: C.text, marginTop: 10, paddingTop: 10, borderTop: `1px solid ${rec.color}33` }}>{oneLiner}</div>
+              )}
             </div>
           );
         })()}
+        {/* SECTION 2 — Execution Card (2026-08-04 decision-first redesign,
+            explicit user spec) — real Entry/Stop/Targets (TrendSetupPanel,
+            same _buildTrendTemplate pivot/stop/2R/3R every other real card
+            on this page already reads) + real position sizing
+            (TradeExtrasPanel, real account-size/risk% from Settings).
+            Promoted from inside the Chart sub-tab (where it sat below the
+            score grid/AI Trade Engine/Institution Score/AiTradeCard/
+            StrategySelector/Checklist/technical pills/sub-nav) to directly
+            under the hero verdict — the numbers a trader needs to actually
+            place the trade shouldn't require scrolling past 8 other cards
+            first. Same real components, no new computation. */}
+        {chart && (
+          <div style={{ marginBottom: 14 }}>
+            <SectionHeader icon="🎯" label="EXECUTION" />
+            <TrendSetupPanel data={chart} C={C} MONO={MONO} SANS={SANS} />
+            <TradeExtrasPanel data={chart} macroData={macroData} C={C} MONO={MONO} SANS={SANS} />
+          </div>
+        )}
+        {/* SECTION 3 — Trade Readiness gauge (2026-08-04 decision-first
+            redesign) — reuses ChecklistCard/computeChecklist's real 11-dot
+            pass/fail % and A+/A/B/C/Avoid grade (options platform redesign
+            Phase 10), promoted up from below the score grid/AI Trade Engine/
+            Institution Score/AiTradeCard/StrategySelector stack. No new
+            scoring dimensions invented — the mockup's 10 named components
+            (Trend/Momentum/RS/Volume/Institutional Flow/Dark Pools/Options
+            Flow/Market/Sector/Risk Reward) don't map 1:1 onto any single
+            existing engine in this app; this real, already-built 11-dot
+            system covers the same spirit without fabricating a new one. */}
+        {checklistResult && (
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
+              <SectionHeader icon="✅" label="TRADE READINESS" />
+              <span style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: checklistResult.passCount / checklistResult.total >= 0.75 ? C.green : checklistResult.passCount / checklistResult.total >= 0.45 ? C.amber : C.red }}>
+                {Math.round((checklistResult.passCount / checklistResult.total) * 100)}%
+              </span>
+              {checklistResult.passCount / checklistResult.total >= 0.75 && (
+                <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 900, color: C.green, border: `1px solid ${C.green}`, borderRadius: 4, padding: "2px 8px" }}>READY TO EXECUTE</span>
+              )}
+            </div>
+            <ChecklistCard
+              bars={chart.bars} price={chart?.price} rvol={symTrend?.volRatio}
+              newsSentiment={symNewsSentiment} darkPool={symDarkPool} optionsFlow={symOptionsFlow}
+              gammaExposure={symGamma} smc={chart?.smc}
+              C={C} MONO={MONO} SANS={SANS}
+            />
+            {/* "Why this isn't perfect" (2026-08-04, directly answers the
+                missing-confirmation question asked earlier this session) —
+                same real dots ChecklistCard just rendered, filtered to only
+                the real failures, with their real detail reason strings.
+                No new computation — a filtered view of computeChecklist's
+                own already-real output. */}
+            {checklistResult.dots.some(d => d.pass === false) && (
+              <div style={{ marginTop: 8, background: `${C.red}0c`, border: `1px solid ${C.red}33`, borderRadius: 10, padding: "10px 14px" }}>
+                <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.red, letterSpacing: 0.5, marginBottom: 6 }}>WHY THIS ISN'T PERFECT</div>
+                {checklistResult.dots.filter(d => d.pass === false).map((d, i) => (
+                  <div key={i} style={{ fontFamily: SANS, fontSize: 12, color: C.text, marginBottom: 3 }}>✗ {d.label}{d.detail ? <span style={{ color: C.textDim }}> — {d.detail}</span> : null}</div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         {/* "SUPPORTING DETAIL" divider — audit fix #4, 2026-08-04. Real
             finding: the hero card above already IS a complete verdict
             (letter grade + stars + Recommendation + Primary Action), but
@@ -830,20 +916,10 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             <StrategySelectorCard symbol={sym} marketBias={computeMarketBias({ macroData, distData })} C={C} MONO={MONO} SANS={SANS} />
           </div>
         )}
-        {/* Trade Checklist — options platform redesign Phase 10. Reuses
-            this page's own already-loaded real data (chart.bars,
-            symTrend.volRatio, symNewsSentiment, symDarkPool,
-            symOptionsFlow, symGamma, chart.smc) — zero new fetches. */}
-        {sym && chart?.bars && (
-          <div style={{ marginBottom: 10 }}>
-            <ChecklistCard
-              bars={chart.bars} price={chart?.price} rvol={symTrend?.volRatio}
-              newsSentiment={symNewsSentiment} darkPool={symDarkPool} optionsFlow={symOptionsFlow}
-              gammaExposure={symGamma} smc={chart?.smc}
-              C={C} MONO={MONO} SANS={SANS}
-            />
-          </div>
-        )}
+        {/* Trade Checklist / Trade Readiness now renders above the
+            "SUPPORTING DETAIL" divider, right under the Execution Card
+            (2026-08-04 decision-first redesign) — same ChecklistCard,
+            promoted, not duplicated. */}
         {/* Real technical indicators — ADX (trend strength/direction),
             Donchian Channel (20d), Bollinger Bands (20d) — all computed
             server-side on the same daily bars the chart already fetched
@@ -923,17 +999,10 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                 <BullBearPanel symbol={sym} bullBear={bullBear} C={C} MONO={MONO} SANS={SANS} />
               </div>
             )}
-            {/* SECTION 4 — Trade Plan (institutional redesign, 2026-07-29):
-                Entry/Stop/Targets (TrendSetupPanel, real _buildTrendTemplate
-                pivot/stop/2R/3R) + position sizing (TradeExtrasPanel, real
-                account-size/risk% from Settings). Visual consolidation only
-                — no new computation, moved ahead of the chart to match the
-                spec's section order. */}
-            <div style={{ marginBottom: 14 }}>
-              <SectionHeader icon="🎯" label="TRADE PLAN" />
-              <TrendSetupPanel data={chart} C={C} MONO={MONO} SANS={SANS} />
-              <TradeExtrasPanel data={chart} macroData={macroData} C={C} MONO={MONO} SANS={SANS} />
-            </div>
+            {/* Execution Card (Entry/Stop/Targets/Sizing) now renders above
+                the "SUPPORTING DETAIL" divider, right under the hero verdict
+                (2026-08-04 decision-first redesign) — same TrendSetupPanel/
+                TradeExtrasPanel, promoted, not duplicated. */}
             {/* SECTION 5 — large interactive chart. Right padding reserves
                 clearance for the fixed bottom-right FAB cluster (Copilot/
                 QuickTrade/RealityCheck, right:18, ~54-70px wide each) — the
