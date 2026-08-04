@@ -344,6 +344,62 @@ export function computeAPlusScore(row, regime) {
   return { score, reasons, cautions, breakdown: { regimePts, entryPts, breakoutPts, volPts, riskPts, supportPts, volatilityPts }, passCount };
 }
 
+// Fundamentals deep-dive — "why is this stock good or bad" (explicit user
+// request, 2026-08-04: "fundamental is too basic i need deep dive why
+// stock is good or why is bad"). The FundamentalsPanel stat boxes (P/E,
+// P/S, P/B, PEG, Beta, Div Yield, Rev/EPS growth, margins, ROE) are real
+// numbers but no verdict — a trader still has to know what "P/E 31.6"
+// MEANS. This turns the SAME already-fetched fundamentals payload into
+// real bull/bear reasons, reusing the exact threshold bands already
+// established elsewhere in this app rather than inventing new judgment
+// calls: P/E bands from trading-utils.js's real Green Light fundamental
+// sub-score (<15 value / <25 reasonable / 40-50 neutral / >50 expensive),
+// PEG/revenue-growth/earnings-growth/profit-margin bands from
+// src/advisor-ai.js's computeFundamentalScore (server-side only, so
+// re-implemented client-side here with the identical real cutoffs, not a
+// second diverging definition). P/S, P/B, Beta, and Dividend Yield are
+// deliberately left out of the verdict — no established "good/bad"
+// threshold for them exists anywhere else in this codebase, and inventing
+// one under time pressure would be a fabricated judgment, not a real one;
+// they stay informational-only in the stat boxes above. Every reason
+// cites the real number driving it; missing fields are silently skipped,
+// never guessed.
+export function computeFundamentalsRead(f) {
+  const bull = [], bear = [];
+  if (!f) return { bull, bear };
+  const pe = Number(f.pe ?? f.trailingPE);
+  if (Number.isFinite(pe) && pe > 0) {
+    if (pe < 15) bull.push(`P/E of ${pe.toFixed(1)} is cheap — priced well below the broad market`);
+    else if (pe < 25) bull.push(`P/E of ${pe.toFixed(1)} is a reasonable valuation`);
+    else if (pe > 50) bear.push(`P/E of ${pe.toFixed(1)} is expensive — priced for a lot of future growth to show up`);
+  }
+  const peg = Number(f.pegRatio);
+  if (Number.isFinite(peg) && peg > 0) {
+    if (peg < 1) bull.push(`PEG of ${peg.toFixed(2)} — cheap relative to its own growth rate`);
+    else if (peg < 2) bull.push(`PEG of ${peg.toFixed(2)} — fairly priced relative to growth`);
+    else if (peg >= 3) bear.push(`PEG of ${peg.toFixed(2)} — expensive relative to its own growth rate`);
+  }
+  const rev = Number(f.revenueGrowth);
+  if (Number.isFinite(rev)) {
+    if (rev >= 0.20) bull.push(`Revenue growing ${(rev * 100).toFixed(1)}% — strong top-line expansion`);
+    else if (rev >= 0.10) bull.push(`Revenue growing ${(rev * 100).toFixed(1)}%`);
+    else if (rev < 0) bear.push(`Revenue shrinking ${(rev * 100).toFixed(1)}%`);
+  }
+  const eps = Number(f.earningsGrowth);
+  if (Number.isFinite(eps)) {
+    if (eps >= 0.20) bull.push(`Earnings growing ${(eps * 100).toFixed(1)}% — strong bottom-line expansion`);
+    else if (eps >= 0.10) bull.push(`Earnings growing ${(eps * 100).toFixed(1)}%`);
+    else if (eps < 0) bear.push(`Earnings shrinking ${(eps * 100).toFixed(1)}%`);
+  }
+  const pm = Number(f.profitMargin);
+  if (Number.isFinite(pm)) {
+    if (pm >= 0.20) bull.push(`Profit margin ${(pm * 100).toFixed(1)}% — highly profitable`);
+    else if (pm >= 0.10) bull.push(`Profit margin ${(pm * 100).toFixed(1)}% — solidly profitable`);
+    else if (pm < 0) bear.push(`Negative profit margin (${(pm * 100).toFixed(1)}%) — losing money on every dollar of revenue`);
+  }
+  return { bull, bear };
+}
+
 // Institutional Grade — a 3rd, additive score (explicit user request,
 // 2026-07-29): "one combined institutional-style grade" blending real
 // fundamentals + technicals + smart money + options flow + macro + sector

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { NUM } from "./theme.js";
-import { computeRegime, computeAPlusScore, STOCK_TO_SECTOR, SECTOR_ETFS, SCAN_UNIVERSE } from "./market-helpers.js";
+import { computeRegime, computeAPlusScore, STOCK_TO_SECTOR, SECTOR_ETFS, SCAN_UNIVERSE, computeFundamentalsRead } from "./market-helpers.js";
 import { computeTradeStats, MIN_TRADES_FOR_EDGE } from "./trading-utils.js";
 
 // Small self-contained panels that make up MarketTerminalTab's per-symbol
@@ -444,13 +444,48 @@ export function FundamentalsPanel({ symbol, C, MONO, SANS }) {
             {box("DIV YIELD", f.dividendYield != null ? pct(f.dividendYield) : "—")}
           </div>
           <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 5 }}>GROWTH &amp; MARGINS</div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
             {box("REV GROWTH", pct(f.revenueGrowth), f.revenueGrowth > 0 ? "#0d9465" : f.revenueGrowth < 0 ? "#c8282a" : null)}
             {box("EPS GROWTH", pct(f.earningsGrowth), f.earningsGrowth > 0 ? "#0d9465" : f.earningsGrowth < 0 ? "#c8282a" : null)}
             {box("GROSS MGN", pct(f.grossMargin))}
             {box("PROFIT MGN", pct(f.profitMargin))}
             {box("ROE", pct(f.roe))}
           </div>
+          {/* Deep-dive read (2026-08-04, explicit user request: "fundamental
+              is too basic i need deep dive why stock is good or why is
+              bad") — same real fundamentals object above, no new fetch,
+              just a real deterministic interpretation of the same numbers
+              (computeFundamentalsRead, real thresholds already established
+              elsewhere in this app — see that function's own comment).
+              Same Bull Case/Bear Case visual language as BullBearPanel
+              elsewhere on this page, for consistency. */}
+          {(() => {
+            const read = computeFundamentalsRead(f);
+            if (!read.bull.length && !read.bear.length) return null;
+            return (
+              <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 10 }}>
+                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 8 }}>WHY — real thresholds, deterministic, not an AI call</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+                  <div>
+                    <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: "#0d9465", letterSpacing: "0.05em", marginBottom: 6 }}>▲ WHY IT'S GOOD</div>
+                    {read.bull.length ? (
+                      <ul style={{ margin: 0, paddingLeft: 18 }}>
+                        {read.bull.map((r, i) => <li key={i} style={{ fontFamily: SANS, fontSize: 12, color: C.text, lineHeight: 1.55, marginBottom: 3 }}>{r}</li>)}
+                      </ul>
+                    ) : <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>Nothing stood out as a real strength.</div>}
+                  </div>
+                  <div>
+                    <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: "#c8282a", letterSpacing: "0.05em", marginBottom: 6 }}>▼ WHY IT'S BAD</div>
+                    {read.bear.length ? (
+                      <ul style={{ margin: 0, paddingLeft: 18 }}>
+                        {read.bear.map((r, i) => <li key={i} style={{ fontFamily: SANS, fontSize: 12, color: C.text, lineHeight: 1.55, marginBottom: 3 }}>{r}</li>)}
+                      </ul>
+                    ) : <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>Nothing stood out as a real weakness.</div>}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </>
       )}
     </div>
