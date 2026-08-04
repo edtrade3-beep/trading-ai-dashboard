@@ -305,7 +305,28 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
 
     s.priceLines.forEach(pl => { try { s.candle.removePriceLine(pl); } catch {} }); s.priceLines = [];
     const su = data.setup, LS = window.LightweightCharts.LineStyle || {};
-    const pl = (price, color, title, style) => s.priceLines.push(s.candle.createPriceLine({ price, color, lineWidth: 1, lineStyle: style, axisLabelVisible: true, title }));
+    // Up to 10 price lines (PRICE/PIVOT/STOP/T1/T2/T3/BASE LOW/AI TARGET/
+    // RESISTANCE/SUPPORT) can land within a few dollars of each other on
+    // the same axis — e.g. PIVOT $214.39 right next to a live AFTER-HRS
+    // price of $215.10 — and Lightweight Charts doesn't collision-avoid
+    // simultaneous price-line labels, so they render as illegible
+    // stacked/overlapping text (real live bug, screenshot 2026-08-04:
+    // "chart make it right fix it"). Skip a new line if it's within ~3.5%
+    // of the running visible price span of an already-placed one, keeping
+    // whichever was added first — pl() is called below in priority order
+    // (current price first, then trade-plan levels, broader swing
+    // support/resistance last) so the more actionable label always wins.
+    const plRange = { max: Math.max(...bars.map(b => b.high)), min: Math.min(...bars.map(b => b.low)) };
+    const plShown = [];
+    const pl = (price, color, title, style) => {
+      if (price == null || !isFinite(price)) return;
+      if (price > plRange.max) plRange.max = price;
+      if (price < plRange.min) plRange.min = price;
+      const minGap = Math.max(1e-6, plRange.max - plRange.min) * 0.035;
+      if (plShown.some(v => Math.abs(v - price) < minGap)) return;
+      plShown.push(price);
+      s.priceLines.push(s.candle.createPriceLine({ price, color, lineWidth: 1, lineStyle: style, axisLabelVisible: true, title }));
+    };
     // Real current price, explicitly labeled — replaces the native
     // candle-series marker disabled above. Same up/down coloring the volume
     // histogram already uses (close vs. that bar's own open). Prefers
