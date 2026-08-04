@@ -150,8 +150,15 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
     const ma200 = mk("#c94440", 1), ma150 = mk("#d6a312", 1), ma50 = mk(C.accent, 2);
     // Bollinger Bands (20, 2σ) — the green volatility envelope in the reference chart.
     const bbU = mk("#4ea86e", 1), bbL = mk("#4ea86e", 1);
+    // VWAP/9EMA/21EMA overlays (2026-08-04 decision-first redesign, Phase 4)
+    // — same real rolling-average math checklist-engine.js's ema()/vwap20d()
+    // already use for their latest-value pass/fail checks, extended here to
+    // a full per-bar series so they can be drawn as lines. 20D VWAP, not
+    // intraday VWAP — chart.bars are real daily bars, same honest scope note
+    // checklist-engine.js documents.
+    const ema9 = mk("#38bdf8", 1), ema21 = mk("#f472b6", 1), vwap20 = mk("#facc15", 1);
     chartRef.current = chart;
-    seriesRef.current = { candle, vol, ma50, ma150, ma200, bbU, bbL, priceLines: [] };
+    seriesRef.current = { candle, vol, ma50, ma150, ma200, bbU, bbL, ema9, ema21, vwap20, priceLines: [] };
     symRef.current = null; // force a fitContent on next data fill
     const onResize = () => {
       chart.applyOptions({ width: el.clientWidth || 800 });
@@ -262,6 +269,40 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
     }
     setMA(s.bbU, bbUp); setMA(s.bbL, bbLo);
 
+    // 9/21 EMA series — same k=2/(period+1) formula as checklist-engine.js's
+    // ema(), extended to every bar (that function only ever returns the
+    // latest value, for a single pass/fail check) so it can be drawn as a
+    // line here. Seeded with a real SMA over the first `period` closes,
+    // same as the source function.
+    const emaSeries = (period) => {
+      const out = new Array(n).fill(null);
+      if (n < period) return out;
+      let e = closes.slice(0, period).reduce((a, b) => a + b, 0) / period;
+      out[period - 1] = e;
+      const k = 2 / (period + 1);
+      for (let i = period; i < n; i++) { e = closes[i] * k + e * (1 - k); out[i] = e; }
+      return out;
+    };
+    setMA(s.ema9, emaSeries(9));
+    setMA(s.ema21, emaSeries(21));
+    // 20-day rolling VWAP series — same real "typical price × volume, 20-bar
+    // trailing window" formula as checklist-engine.js's vwap20d() (which
+    // only ever computes the single latest-window value), extended to a
+    // rolling window ending at every bar so it can be drawn as a line.
+    const vwap20Series = () => {
+      const out = new Array(n).fill(null);
+      for (let i = 0; i < n; i++) {
+        const start = Math.max(0, i - 19);
+        const win = bars.slice(start, i + 1);
+        if (win.length < 5) continue;
+        let pv = 0, vv = 0;
+        for (const b of win) { const typical = (Number(b.high) + Number(b.low) + Number(b.close)) / 3; const v = Number(b.volume) || 0; pv += typical * v; vv += v; }
+        out[i] = vv > 0 ? pv / vv : null;
+      }
+      return out;
+    };
+    setMA(s.vwap20, vwap20Series());
+
     s.priceLines.forEach(pl => { try { s.candle.removePriceLine(pl); } catch {} }); s.priceLines = [];
     const su = data.setup, LS = window.LightweightCharts.LineStyle || {};
     const pl = (price, color, title, style) => s.priceLines.push(s.candle.createPriceLine({ price, color, lineWidth: 1, lineStyle: style, axisLabelVisible: true, title }));
@@ -289,6 +330,31 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
         ? Math.round((su.entry + (su.entry - su.contractionLow)) * 100) / 100
         : su.target2;
       if (aiTgt) pl(aiTgt, "#f59e0b", "🎯 AI TARGET", LS.Dashed ?? 2);
+    }
+    // Support/Resistance (2026-08-04 decision-first redesign, Phase 4) —
+    // real swing-high/swing-low detection, same W=3 local-extremum algorithm
+    // buildTrendTemplate uses server-side for real pivot/VCP detection (not
+    // re-fetched — recomputed here from the same real bars this chart
+    // already has, matching real pivot logic). Broader than PIVOT/BASE LOW
+    // above (which only bracket the current base) — this surfaces the
+    // nearest real swing level on each side of the current price, even when
+    // it sits outside the current base.
+    if (curPrice != null) {
+      const W = 3, highs = bars.map(b => b.high), lows = bars.map(b => b.low);
+      const swingHighs = [], swingLows = [];
+      for (let i = W; i < n - W; i++) {
+        let isHigh = true, isLow = true;
+        for (let j = i - W; j <= i + W; j++) {
+          if (highs[j] > highs[i]) isHigh = false;
+          if (lows[j] < lows[i]) isLow = false;
+        }
+        if (isHigh) swingHighs.push(highs[i]);
+        if (isLow) swingLows.push(lows[i]);
+      }
+      const resistance = swingHighs.filter(h => h > curPrice).sort((a, b) => a - b)[0];
+      const support = swingLows.filter(l => l < curPrice).sort((a, b) => b - a)[0];
+      if (resistance) pl(Math.round(resistance * 100) / 100, "#8b5cf6", "RESISTANCE", LS.Dotted ?? 1);
+      if (support) pl(Math.round(support * 100) / 100, "#8b5cf6", "SUPPORT", LS.Dotted ?? 1);
     }
     // BUY = most recent reclaim of the rising 50-day MA; EXIT = first close back below it.
     const ma50s = data.series.ma50 || []; let buyIdx = -1;
@@ -345,6 +411,9 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
     ["🔴 STOP", "Where you exit if wrong — the tighter of −8% or just under the base low."],
     ["🎯 TARGETS", "T2 and T3 = 2× and 3× your risk (pivot − stop), measured up from the pivot."],
     ["🟠 AI TARGET", "Projected upside based on the trend/base quality."],
+    ["🔵 9 EMA / 🩷 21 EMA", "Fast trend-following averages — same real formula as the Trade Checklist's 9/21 EMA pass/fail checks, drawn as a full line here."],
+    ["🟡 20D VWAP", "Real 20-day rolling volume-weighted average price — not intraday VWAP (this chart's bars are daily), same real definition the Trade Checklist uses."],
+    ["🟣 SUPPORT / RESISTANCE", "Nearest real swing high/low on each side of price — broader than PIVOT/BASE LOW, which only bracket the current base."],
   ];
   return (
     <div style={{ position: "relative", width: "100%", height: H }}>
