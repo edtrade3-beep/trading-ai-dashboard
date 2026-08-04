@@ -6268,7 +6268,7 @@ export default function App() {
         )}
 
         {activeTab === "mterminal" && (
-          <MarketTerminalTab C={C} MONO={MONO} SANS={SANS} sectorData={sectorData} macroData={macroData} distData={distData} onDeepDive={openDeepDiveFor} setActiveTab={setActiveTab} />
+          <MarketTerminalTab C={C} MONO={MONO} SANS={SANS} sectorData={sectorData} macroData={macroData} distData={distData} onDeepDive={openDeepDiveFor} setActiveTab={setActiveTab} preMktMovers={preMktMovers} marketSession={marketSession} />
         )}
 
         {activeTab === "daytrade" && (

@@ -40,9 +40,14 @@ import MacroStatusStrip, { useRealMacroOverrides } from "./MacroStatusStrip.jsx"
 
 // Combined Market-Terminal page: movers leaderboard on the left, pro chart with
 // AI overlays on the right. Click a mover → it loads in the chart.
-export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData, distData, onDeepDive, setActiveTab }) {
+export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData, distData, onDeepDive, setActiveTab, preMktMovers, marketSession }) {
   const [lb, setLb] = useState(null);
-  const [view, setView] = useState("moversUp");
+  // Real pre-market session auto-default (2026-08-04, "also add pre market
+  // movers") — marketSession is axiom-live.jsx's own already-computed
+  // getMarketSessionET() read, real time-of-day math, not a new classifier.
+  // Only applies on first mount; the user can still switch views manually
+  // after that like any other tab.
+  const [view, setView] = useState(() => marketSession === "PREMARKET" ? "premarket" : "moversUp");
   const [sym, setSym] = useState("NVDA");
   const [chart, setChart] = useState(null);
   const [loadingChart, setLoadingChart] = useState(false);
@@ -337,9 +342,29 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
     { id: "moversDown", label: "Down", icon: "🔴" },
     { id: "upOnVolume", label: "Up Vol", icon: "📈" },
     { id: "downOnVolume", label: "Dn Vol", icon: "📉" },
+    { id: "premarket", label: "Pre-Market", icon: "🌅" },
   ];
   const rows = (() => {
     if (source === "watchlist") return wlRows || [];
+    // Real Yahoo-sourced pre-market data (2026-08-04) — /api/market/
+    // premarket-movers, a fixed ~38-symbol liquid/momentum universe (not
+    // the full market), already fetched in axiom-live.jsx and threaded down
+    // as a prop. Distinct from the other 3 views: those come from the
+    // Alpaca-IEX leaderboard, which is structurally blind to real
+    // pre-market trades until 9:30am ET (free feed tier has no pre-market
+    // session) — this is the one real source that actually moves before
+    // the open. Mapped into the same {symbol, price, dayPct, volRatio}
+    // shape the row renderer below already expects; no real RVOL exists
+    // for this source, so volRatio stays honestly null.
+    if (view === "premarket") {
+      const base = (preMktMovers || []).map(m => ({ symbol: m.sym, price: m.price, dayPct: m.chg, volRatio: null }));
+      if (sortBy === "vol") return base; // no real volRatio to sort by — falls back to default order
+      const s = [...base];
+      if (sortBy === "chg") s.sort((a, b) => b.dayPct - a.dayPct);
+      else if (sortBy === "price") s.sort((a, b) => b.price - a.price);
+      else s.sort((a, b) => Math.abs(b.dayPct) - Math.abs(a.dayPct)); // bucket default: same |chg| rank the API itself returns
+      return s;
+    }
     const base = (lb && lb[view]) || [];
     if (sortBy === "bucket") return base;
     const s = [...base];
@@ -555,6 +580,11 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                 <option value="price">Price</option>
               </select>
             </div>
+            {view === "premarket" && (
+              <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, marginTop: -4, marginBottom: 10 }}>
+                Real Yahoo pre/post-market data for a fixed ~38-symbol high-liquidity/momentum universe — not the full market, and RVOL isn't available for this source. Refreshes every 4 min.
+              </div>
+            )}
           </>
         )}
         <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden", background: C.card }}>
