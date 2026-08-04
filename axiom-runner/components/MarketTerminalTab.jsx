@@ -37,6 +37,12 @@ import { computeChecklist } from "./checklist-engine.js";
 // so both pages share one real implementation instead of a second,
 // potentially-diverging copy).
 import MacroStatusStrip, { useRealMacroOverrides } from "./MacroStatusStrip.jsx";
+// Headline-number display font — same token terminal-panels.jsx/
+// TrendSetupPanel.jsx already use for their stat-box values (P/E, targets,
+// Fear&Greed score, etc). This file's own price/stat pills previously used
+// MONO for those numbers, which read fine but didn't match the rest of the
+// app's established "MONO = precise data label, NUM = headline stat" split.
+import { NUM } from "./theme.js";
 
 // Combined Market-Terminal page: movers leaderboard on the left, pro chart with
 // AI overlays on the right. Click a mover → it loads in the chart.
@@ -485,15 +491,23 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
     return null;
   })();
 
-  // Section header — same treatment for all 3 zones on this page (Chart /
+  // Section header — same treatment for all 12 sections on this page (Chart /
   // Movers & Watchlist / Market Snapshot) so a long page reads as clearly
-  // delineated zones instead of one undifferentiated scroll.
-  const SectionHeader = ({ icon, label }) => (
-    <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: 1, color: C.textDim,
-      textTransform: "uppercase", paddingBottom: 6, marginBottom: 4, borderBottom: `1px solid ${C.border}` }}>
-      {icon} {label}
-    </div>
-  );
+  // delineated chapters instead of one undifferentiated scroll. `tone`
+  // defaults to the brand accent (routine structural color, not a bull/bear
+  // signal — see theme.js's 4-color status system note); "gold" is reserved
+  // for AI SUMMARY only, matching theme.js's own documented gold contract
+  // ("marks the single highest-conviction idea on a page").
+  const SectionHeader = ({ icon, label, tone }) => {
+    const tc = tone === "gold" ? C.gold : C.accent;
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 8, paddingBottom: 7, marginBottom: 6, borderBottom: `2px solid ${tc}` }}>
+        <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 22, height: 22,
+          borderRadius: 6, background: `${tc}1c`, fontSize: 12, flexShrink: 0 }}>{icon}</span>
+        <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 900, letterSpacing: 0.3, color: C.text, textTransform: "uppercase" }}>{label}</span>
+      </div>
+    );
+  };
 
   return (
     <div style={{ width: "100%" }}>
@@ -606,7 +620,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
               the 3 fallback providers, so this just doesn't render rather
               than showing the bare symbol twice or a fabricated title. */}
           {fund && fund.name && fund.name !== sym && <span style={{ fontFamily: SANS, fontSize: 14, fontWeight: 600, color: C.textDim }}>{fund.name}</span>}
-          {chart && chart.price != null && <span style={{ fontFamily: MONO, fontSize: 32, fontWeight: 900, color: C.text }}>${chart.price.toFixed(2)}</span>}
+          {chart && chart.price != null && <span style={{ fontFamily: NUM, fontSize: 32, fontWeight: 900, color: C.text }}>${chart.price.toFixed(2)}</span>}
           {symDayPct != null && <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 700, color: col(symDayPct) }}>{pct(symDayPct)}</span>}
           {chart && !loadingChart && (
             <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontFamily: MONO, fontSize: 10, fontWeight: 700, color: "#0d9465" }}>
@@ -633,7 +647,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
               const s = chart, pill = (label, val, col) => (
                 <div key={label} style={{ flex: "1 1 120px", minWidth: 110, border: `1px solid ${C.border}`, borderRadius: 8, padding: "7px 10px", background: C.card }}>
                   <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim, letterSpacing: 0.5 }}>{label}</div>
-                  <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: col || C.text }}>{val}</div>
+                  <div style={{ fontFamily: NUM, fontSize: 14, fontWeight: 800, color: col || C.text }}>{val}</div>
                 </div>
               );
               const num = (v) => (v == null || isNaN(v)) ? null : v;
@@ -671,7 +685,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
           const stat = (label, val, col, title) => (
             <div title={title} style={{ minWidth: 110, cursor: title ? "help" : "default" }}>
               <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim, letterSpacing: 0.5 }}>{label}</div>
-              <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 800, color: col || C.text }}>{val}</div>
+              <div style={{ fontFamily: NUM, fontSize: 15, fontWeight: 800, color: col || C.text }}>{val}</div>
             </div>
           );
           const riskCol = riskLevel === "Low" ? "#22d47e" : riskLevel === "Medium" ? "#d6a312" : riskLevel === "High" ? "#ef4444" : C.text;
@@ -1148,7 +1162,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                 Summary→Trade Plan→Chart). */}
             {chart && (
               <div style={{ marginBottom: 14 }}>
-                <SectionHeader icon="🧠" label="AI SUMMARY" />
+                <SectionHeader icon="🧠" label="AI SUMMARY" tone="gold" />
                 <BullBearPanel symbol={sym} bullBear={bullBear} C={C} MONO={MONO} SANS={SANS} />
               </div>
             )}
