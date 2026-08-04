@@ -47,6 +47,12 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   const [sortBy, setSortBy] = useState("bucket");  // movers sort
   const [source, setSource] = useState("movers");  // movers | watchlist
   const [wlRows, setWlRows] = useState(null);
+  // Real top-ranked contract premium, reported up by AiTradeCard (2026-08-04
+  // decision-first redesign) — lets the Execution Card show Recommended
+  // Contracts without a second, duplicate options-chain fetch. Null while
+  // loading/unavailable, same honest-null discipline as the rest of the page.
+  const [topContract, setTopContract] = useState(null);
+  const [copiedPlan, setCopiedPlan] = useState(false);
   // Real "back" navigation (2026-07-28, explicit user request) — any
   // caller that hands off into Market Terminal (Sniper Scanner's 📈 chart
   // button, RotationTab/SectorsTab's CHART button, etc) can set
@@ -723,6 +729,67 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             <SectionHeader icon="🎯" label="EXECUTION" />
             <TrendSetupPanel data={chart} C={C} MONO={MONO} SANS={SANS} />
             <TradeExtrasPanel data={chart} macroData={macroData} C={C} MONO={MONO} SANS={SANS} />
+            {/* Recommended Contracts (2026-08-04) — real, using AiTradeCard's
+                own already-fetched top-ranked contract premium (reported up
+                via onTopContract, no duplicate chain fetch) and the same
+                real account-size/risk% TradeExtrasPanel above already reads
+                for equity share sizing, applied to the option leg. */}
+            {topContract && topContract.premium > 0 && (() => {
+              const acct = Number(localStorage.getItem("axiom_acct_size")) || 10000;
+              const riskPct = Number(localStorage.getItem("axiom_risk_pct")) || 1;
+              const maxDollarRisk = acct * riskPct / 100;
+              const contracts = Math.max(1, Math.floor(maxDollarRisk / (topContract.premium * 100)));
+              return (
+                <div style={{ marginTop: 8, fontFamily: MONO, fontSize: 12, color: C.textSec, display: "flex", gap: 6, alignItems: "center" }}
+                  title={`Real top-ranked ${topContract.isCall ? "call" : "put"} premium $${topContract.premium.toFixed(2)}, max $${maxDollarRisk.toFixed(0)} risk (${riskPct}% of $${acct.toLocaleString()})`}>
+                  <span style={{ color: C.textDim }}>Recommended contracts (options):</span>
+                  <b style={{ color: C.text }}>{contracts}</b>
+                  <span style={{ color: C.textDim, fontSize: 10 }}>${topContract.premium.toFixed(2)}/contract</span>
+                </div>
+              );
+            })()}
+            {/* Copy Trade Plan / Execute via Quick Trade / Log Trade
+                (2026-08-04) — real entry/stop/target from this same
+                Execution Card's own chart.setup. Execute dispatches the
+                identical real "open-quick-trade" event TradePlannerTab's own
+                execute button already uses (same shares formula: floor((acct
+                × riskPct/100) / (entry−stop)), same field names) — one real
+                execution surface, not a second path. The mockup's "Trade
+                with Robinhood" has no real backing anywhere in this app (no
+                live Robinhood order API) — Log Trade opens the real manual
+                journal instead of claiming automated execution this app
+                can't perform. */}
+            {chart.setup && (
+              <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button onClick={() => {
+                    const su = chart.setup;
+                    const txt = `${sym} — Entry $${su.entry} · Stop $${su.stop} · T2 $${su.target2} · T3 $${su.target3}`;
+                    if (navigator.clipboard?.writeText) {
+                      navigator.clipboard.writeText(txt).then(() => { setCopiedPlan(true); setTimeout(() => setCopiedPlan(false), 2000); }).catch(() => {});
+                    }
+                  }}
+                  style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "7px 14px", borderRadius: 7, border: `1px solid ${C.border}`, background: "transparent", color: C.text, cursor: "pointer" }}>
+                  {copiedPlan ? "✓ Copied" : "📋 Copy Trade Plan"}
+                </button>
+                <button onClick={() => {
+                    const su = chart.setup;
+                    const entry = Number(su.entry || chart.price || 0), stop = Number(su.stop || 0);
+                    const riskPS = Math.max(0.01, entry - stop);
+                    const acct = Number(localStorage.getItem("axiom_acct_size")) || 10000;
+                    const riskPct = Number(localStorage.getItem("axiom_risk_pct")) || 1;
+                    const shares = riskPS > 0 ? Math.floor((acct * riskPct / 100) / riskPS) : 0;
+                    window.dispatchEvent(new CustomEvent("open-quick-trade", { detail: { symbol: sym, shares, stopLoss: su.stop, takeProfit: su.target2 } }));
+                  }}
+                  style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "7px 14px", borderRadius: 7, border: "none", background: C.accent, color: "#fff", cursor: "pointer" }}>
+                  ⚡ Execute via Quick Trade
+                </button>
+                <button onClick={() => setActiveTab && setActiveTab("rhpro-journal")}
+                  title="Opens the manual trade journal to log this trade"
+                  style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "7px 14px", borderRadius: 7, border: `1px solid ${C.border}`, background: "transparent", color: C.textSec, cursor: "pointer" }}>
+                  📝 Log Trade →
+                </button>
+              </div>
+            )}
           </div>
         )}
         {/* SECTION 3 — Trade Readiness gauge (2026-08-04 decision-first
@@ -902,7 +969,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             <AiTradeCard
               symbol={sym} price={chart?.price} aiTradeScore={aiTradeScore} institutionScore={institutionScore}
               gammaExposure={symGamma} shortFloatPct={symShortInterest?.shortFloat} rvol={symTrend?.volRatio}
-              earningsDte={symTrend?.earningsDte} C={C} MONO={MONO} SANS={SANS}
+              earningsDte={symTrend?.earningsDte} onTopContract={setTopContract} C={C} MONO={MONO} SANS={SANS}
             />
           </div>
         )}

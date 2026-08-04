@@ -22,7 +22,13 @@ import { expectedValue, gammaSqueezeProbability, ivCrushRisk, assignmentRisk } f
 // applied to a real chain-sourced contract instead of an estimated one.
 // Flagged, not silently changed, if a future pass wants a different real
 // target/stop rule.
-export default function AiTradeCard({ symbol, price, aiTradeScore, institutionScore, gammaExposure, shortFloatPct, rvol, earningsDte, C, MONO, SANS }) {
+// `onTopContract` (optional, added 2026-08-04 decision-first redesign) —
+// reports this card's own real top-ranked contract premium back up to the
+// parent page once resolved, so a Recommended Contracts sizing figure can
+// be computed from it without a second, duplicate chain fetch. Fires with
+// null while loading/unavailable, same honest-null discipline as everything
+// else this card renders.
+export default function AiTradeCard({ symbol, price, aiTradeScore, institutionScore, gammaExposure, shortFloatPct, rvol, earningsDte, onTopContract, C, MONO, SANS }) {
   const [chain, setChain] = useState(null);
   const [ivRank, setIvRank] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -40,21 +46,28 @@ export default function AiTradeCard({ symbol, price, aiTradeScore, institutionSc
     });
   }, [symbol]);
 
-  if (loading) return <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, padding: 12 }}>Loading real option chain…</div>;
-  if (!chain) return <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, padding: 12 }}>No real options chain available for {symbol}.</div>;
-
   // Direction from the real Final Recommendation (Phase 3) — bullish
   // tiers pick from real calls, bearish tiers from real puts, a neutral
   // tier defaults to calls (the more commonly-liquid side) but is labeled
   // "no strong real directional edge" rather than implying conviction.
+  // Computed above the early returns below (not skipped) so the
+  // onTopContract effect can run at a consistent hook position every render.
   const tier = aiTradeScore?.recommendation?.tier ?? 4;
   const isCall = tier >= 4;
-  const pool = isCall ? chain.calls : chain.puts;
+  const pool = chain ? (isCall ? chain.calls : chain.puts) : null;
   const best = (pool || []).filter(c => Number.isFinite(c.rankScore)).sort((a, b) => b.rankScore - a.rankScore)[0];
+  const premium = best ? (best.lastPrice > 0 ? best.lastPrice : (best.bid + best.ask) / 2) : null;
+
+  useEffect(() => {
+    if (onTopContract) onTopContract(premium > 0 ? { symbol, premium, isCall } : null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [symbol, premium, isCall]);
+
+  if (loading) return <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, padding: 12 }}>Loading real option chain…</div>;
+  if (!chain) return <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, padding: 12 }}>No real options chain available for {symbol}.</div>;
 
   if (!best) return <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, padding: 12 }}>No real ranked contracts available for {symbol}.</div>;
 
-  const premium = best.lastPrice > 0 ? best.lastPrice : (best.bid + best.ask) / 2;
   const target = premium > 0 ? Math.round(premium * 1.5 * 100) / 100 : null;
   const stop = premium > 0 ? Math.round(premium * 0.5 * 100) / 100 : null;
   const ev = expectedValue({ pop: best.pop, avgWinPct: 50, avgLossPct: 50 });
