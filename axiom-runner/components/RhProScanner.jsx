@@ -605,6 +605,18 @@ export default function RhProScanner({
         </div>
       )}
       {err && <div style={{ fontFamily: SANS, fontSize: 12, color: C.red, marginBottom: 10 }}>⚠ {err}</div>}
+      {/* Mobile audit finding (2026-08-04, "what else looks crowded on
+          mobile") — this table is 10 columns wide and genuinely doesn't fit
+          a phone screen; the wrapper div below already has real
+          overflow:auto (confirmed: horizontal scroll works), but on mobile
+          there's no visible scrollbar or other hint that swiping reveals
+          more columns, so it just reads as "cut off." Two real fixes, not a
+          redesign: an always-shown hint line (honest on desktop too — the
+          table IS wider than most viewports even there), and a sticky
+          TICKER column (same position:sticky pattern already used on the
+          header row below) so whichever symbol you're looking at never
+          scrolls out of view while you swipe right for the rest of its row. */}
+      <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginBottom: 6 }}>↔ Swipe the table to see all 10 columns</div>
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "auto", maxHeight: "70vh" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           {/* 10 decision-first columns (2026-08-04 redesign, explicit user
@@ -617,7 +629,7 @@ export default function RhProScanner({
               ["#", null], ["TICKER", null], ["AI ACTION", null], ["SCORE", "grade"],
               ["CONF", "confidence"], ["WIN %", "win"], ["MOVE TO T2", null], ["RISK", null], ["STRATEGY", null], ["", null],
             ].map(([h, key]) => (
-              <th key={h} style={{ ...th, cursor: key ? "pointer" : "default" }} onClick={key ? () => toggleSort(key) : undefined} title={key ? "Click to sort" : undefined}>
+              <th key={h} style={{ ...th, cursor: key ? "pointer" : "default", ...(h === "TICKER" ? { position: "sticky", left: 0, zIndex: 2 } : {}) }} onClick={key ? () => toggleSort(key) : undefined} title={key ? "Click to sort" : undefined}>
                 {h}{sortBy === key && key ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
               </th>
             ))}
@@ -642,7 +654,7 @@ export default function RhProScanner({
               <tr style={{ background: i % 2 ? "transparent" : `${C.surface}55`, cursor: "pointer" }}
                 onClick={() => setExpandedSymbol(expanded ? null : r.symbol)}>
                 <td style={{ ...cell, color: C.textDim }}>{i + 1}</td>
-                <td style={{ ...cell, fontWeight: 900, color: C.text }}>
+                <td style={{ ...cell, fontWeight: 900, color: C.text, position: "sticky", left: 0, zIndex: 1, background: i % 2 ? C.card : C.surface }}>
                   <span style={{ marginRight: 4, fontSize: 10, color: C.textDim }}>{expanded ? "▾" : "▸"}</span>
                   {r.symbol}
                   {r.longName && <div style={{ fontFamily: SANS, fontSize: 9.5, fontWeight: 400, color: C.textDim, marginLeft: 14 }}>{r.longName}</div>}
