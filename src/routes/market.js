@@ -3443,7 +3443,7 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
 
     const pick = selectStrategy({ bias, character, ivRank });
     if (pick.strategy === "Wait for Confirmation" || pick.strategy === "Avoid / Wait") {
-      return writeJson(res, 200, { ok: true, symbol, ...pick, construction: { available: false, reason: "No strategy selected — no real legs to construct." }, generatedAt: new Date().toISOString() });
+      return writeJson(res, 200, { ok: true, symbol, ivRank, ...pick, construction: { available: false, reason: "No strategy selected — no real legs to construct." }, generatedAt: new Date().toISOString() });
     }
 
     try {
@@ -3488,7 +3488,7 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
       }
 
       const construction = buildLegs(pick.strategy, { calls, puts, underlying });
-      return writeJson(res, 200, { ok: true, symbol, underlying, ...pick, construction, source: polyKey ? "polygon" : "yahoo", generatedAt: new Date().toISOString() });
+      return writeJson(res, 200, { ok: true, symbol, underlying, ivRank, ...pick, construction, source: polyKey ? "polygon" : "yahoo", generatedAt: new Date().toISOString() });
     } catch (err) {
       console.error("[market/strategy] error:", err?.message);
       return writeJson(res, 502, { error: "Strategy data unavailable: " + err?.message });
