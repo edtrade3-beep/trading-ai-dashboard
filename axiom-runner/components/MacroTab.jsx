@@ -52,6 +52,18 @@ export default function MacroTab({
   watchlistSymbols, setWatchlistSymbols, setTerminalSymbol, setActiveTab,
 }) {
   const { fred, btcDom } = useRealMacroOverrides();
+  // Mobile audit finding (2026-08-04, "what else looks crowded on
+  // mobile") — the "rest of macroData" grid below (rates/credit/breadth
+  // instruments not in the curated risk lens above) rendered each of its
+  // ~8 instruments as its own tall padded card (big price + badge + %chg
+  // + 2 buttons), stacked one after another — a long wall of near-
+  // identical cards, same pattern the Chart page's Supporting Detail
+  // section had. Same real fix as that Chart-page pass: collapsed by
+  // default behind a toggle, zero data/logic changes — the curated risk
+  // lens above already covers the primary macro reads (equities/growth/
+  // small-caps/USD/oil/gold/duration/crypto); this is genuinely
+  // supplementary detail (2Y/10Y-proxy, VIXY, silver, credit spreads).
+  const [showAllInstruments, setShowAllInstruments] = useState(false);
   return (
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
@@ -188,6 +200,24 @@ export default function MacroTab({
             <div style={{ fontSize: 12, color: C.textSec, marginBottom: 10 }}>
               Regime filter: use macro tone first, then sector/stock relative strength, then entry trigger.
             </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, rowGap: 6, flexWrap: "wrap", margin: "4px 0 12px" }}>
+              {/* No whiteSpace:nowrap here (unlike the Chart page's shorter
+                  "SUPPORTING DETAIL" label this pattern was copied from) —
+                  this label is long enough to overflow a 390px viewport on
+                  its own single line even inside a flexWrap container
+                  (flex-wrap only wraps between items, not within one), so
+                  it needs to wrap internally instead; minWidth:0 lets it
+                  actually shrink below its unwrapped intrinsic width. */}
+              <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: "0.1em", minWidth: 0 }}>
+                ALL INSTRUMENTS — rates/credit/breadth, beyond the curated lens above
+              </div>
+              <div style={{ flex: 1, minWidth: 20, height: 1, background: C.border }} />
+              <button onClick={() => setShowAllInstruments(v => !v)}
+                style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.accent, background: "transparent", border: `1px solid ${C.accent}55`, borderRadius: 6, padding: "3px 9px", cursor: "pointer", whiteSpace: "nowrap" }}>
+                {showAllInstruments ? "Hide ▴" : `Show (${macroData.filter((q) => !CURATED_RISK_LENS_KEYS.has(q.symbol)).length} more instruments) ▾`}
+              </button>
+            </div>
+            {showAllInstruments && (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12 }}>
               {/* Excludes CURATED_RISK_LENS_KEYS — those already have their
                   own tiles above; this grid is the rest of macroData
@@ -225,6 +255,7 @@ export default function MacroTab({
                 );
               })}
             </div>
+            )}
           </div>
   );
 }
