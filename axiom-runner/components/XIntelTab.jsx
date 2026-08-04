@@ -100,6 +100,7 @@ function WatchlistPanel({ C, MONO, SANS, watchlist, reload }) {
 export default function XIntelTab({ C, MONO, SANS, macroData, setActiveTab, setTerminalSymbol }) {
   const [items, setItems] = useState([]);
   const [watchlist, setWatchlist] = useState([]);
+  const [trackRecord, setTrackRecord] = useState(null);
   const [state, setState] = useState("loading");
   const [refreshing, setRefreshing] = useState(false);
   const [refreshMsg, setRefreshMsg] = useState(null);
@@ -114,17 +115,11 @@ export default function XIntelTab({ C, MONO, SANS, macroData, setActiveTab, setT
   const loadWatchlist = () => {
     fetch("/api/x-intel/watchlist").then((r) => r.json()).then((d) => { if (d.ok) setWatchlist(d.watchlist || []); }).catch(() => {});
   };
-  // Track Record UI removed (audit fix, 2026-08-04) — nothing in the real
-  // X Intel pipeline ever calls logPrediction() with source:"x-intel"
-  // (confirmed via full-repo grep: the only real caller is
-  // command-center-ai.js), so this section could only ever show its own
-  // honest empty state, forever, while its copy falsely promised it would
-  // "fill in as real scans log new predictions." Removed rather than left
-  // as permanently-dead UI with an inaccurate promise. The real
-  // /api/x-intel/track-record route is untouched — this is a client-only
-  // removal, easy to re-add once X Intel actually logs real predictions.
+  const loadTrackRecord = () => {
+    fetch("/api/x-intel/track-record").then((r) => r.json()).then((d) => { if (d.ok) setTrackRecord(d); }).catch(() => {});
+  };
 
-  useEffect(() => { loadFeed(); loadWatchlist(); }, []);
+  useEffect(() => { loadFeed(); loadWatchlist(); loadTrackRecord(); }, []);
 
   const refresh = () => {
     setRefreshing(true); setRefreshMsg(null);
@@ -132,7 +127,7 @@ export default function XIntelTab({ C, MONO, SANS, macroData, setActiveTab, setT
       const rssPart = d.rss?.ok ? `Free RSS: ${d.rss.newItemsCount} new (${d.rss.feedsPolled?.length || 0} official feeds).` : `Free RSS: failed (${d.rss?.error || "unknown"}).`;
       const xApiPart = d.xApi?.ok ? `X API: scanned ${d.xApi.scanned}, ${d.xApi.newItemsCount} new (${d.xApi.realReadsUsed || 0} reads used).` : `X API: ${d.xApi?.error || "failed"}.`;
       setRefreshMsg(`${rssPart} ${xApiPart}`);
-      if (d.ok) { loadFeed(); loadWatchlist(); }
+      if (d.ok) { loadFeed(); loadWatchlist(); loadTrackRecord(); }
     }).catch((e) => setRefreshMsg(e.message)).finally(() => setRefreshing(false));
   };
 
@@ -182,7 +177,7 @@ export default function XIntelTab({ C, MONO, SANS, macroData, setActiveTab, setT
         ))}
       </div>
 
-      {subTab === "overview" && <XIntelOverview C={C} MONO={MONO} SANS={SANS} items={items} state={state} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} />}
+      {subTab === "overview" && <XIntelOverview C={C} MONO={MONO} SANS={SANS} items={items} state={state} trackRecord={trackRecord} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} />}
       {subTab === "social" && <XIntelSocial C={C} MONO={MONO} SANS={SANS} items={items} />}
       {subTab === "trend" && <XIntelTrend C={C} MONO={MONO} SANS={SANS} />}
       {subTab === "macro" && <XIntelMacro C={C} MONO={MONO} SANS={SANS} macroData={macroData} />}
