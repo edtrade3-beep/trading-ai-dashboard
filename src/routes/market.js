@@ -1146,6 +1146,20 @@ async function buildMarketOutlook() {
 // and cuts load on the free tier. Keyed by symbol + light flag.
 const _ttCache = new Map();
 const TT_TTL_MS = 120_000;
+
+// buildForwardReturnReport() is symbol-agnostic (one global daily-snapshot
+// log) and re-fetches real current prices for every tracked symbol across 4
+// horizons — too slow to redo on every single-symbol Smart Money page load.
+// Cached 10 minutes; the underlying log only advances once/day anyway.
+let _trackReportCache = null;
+const TRACK_TTL_MS = 600_000;
+async function _getTrackReportCached() {
+  if (_trackReportCache && Date.now() - _trackReportCache.ts < TRACK_TTL_MS) return _trackReportCache.data;
+  const data = await require("../aplus-score-history").buildForwardReturnReport().catch(() => null);
+  _trackReportCache = { ts: Date.now(), data };
+  return data;
+}
+
 async function buildTrendTemplate(symbol, opts = {}) {
   const key = `${symbol}:${opts.light ? 1 : 0}:${opts.interval || "1d"}`;
   const hit = _ttCache.get(key);
@@ -4255,6 +4269,193 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
         volumeProfile: computeVolumeProfile(bars),
         liquidity:  detectLiquidityLevels(bars),
         scannedAt:  new Date().toISOString(),
+      });
+    } catch (e) {
+      return writeJson(res, 502, { ok: false, error: e.message });
+    }
+  }
+
+  // ── GET /api/market/smart-money?symbol=NVDA ─────────────────────────────────
+  // Single synthesis endpoint for the Smart Money "AI Institutional Decision
+  // Engine" page redesign (2026-08-04 spec). Reuses buildTrendTemplate + the
+  // same real smc-engine detectors /api/market/smc already exposes, plus the
+  // real scoring functions ported server-side in institutional-scoring.js /
+  // trade-planner-scoring.js. Returns one real payload so the page makes a
+  // single fetch per symbol — same convention as /api/market/trend-template.
+  // Every field either traces to a real computed value or is honestly null;
+  // nothing here is fabricated (no invented "S+" grade, no invented
+  // "Market Wind" — see getMarketSessionET below for the real substitute).
+  if (pathname === "/api/market/smart-money" && req.method === "GET") {
+    const symbol = (requestUrl.searchParams.get("symbol") || "").trim().toUpperCase();
+    if (!symbol) return writeJson(res, 400, { error: "symbol required" });
+    try {
+      const {
+        computeInstitutionalGrade, institutionalLetterGrade, institutionalRecommendation,
+        winProbFor, computeMarketBias, classifyMacroStatus, classifyEntryType, getMarketSessionET,
+      } = require("../institutional-scoring");
+      const { computeRegime, computeAPlusScore, computeNextAction } = require("../trade-planner-scoring");
+      const { detectFVGs, detectOrderBlocks, detectBOSChoCh, computeVolumeProfile, detectLiquidityLevels } = require("../smc-engine");
+
+      const MACRO_SYMS = ["SPY", "QQQ", "IWM", "DIA", "^VIX", "UUP", "VIXY", "TLT", "HYG"];
+      const [trend, smcBars, macroQuotes, sectorQuotes, trackReport, darkpool] = await Promise.all([
+        buildTrendTemplate(symbol, {}),
+        fetchYahooBars(symbol, "3mo", "1d"),
+        fetchYahooQuoteBatch([symbol, ...MACRO_SYMS]).catch(() => []),
+        fetchYahooQuoteBatch(SECTOR_THEME_MAP.SECTOR_ETFS.map((s) => s.sym)).catch(() => []),
+        _getTrackReportCached(),
+        fetchDarkPoolPrints(symbol).catch(() => ({ ok: false, error: "lookup failed", prints: [] })),
+      ]);
+
+      const symQuote = macroQuotes.find((q) => q.symbol === symbol) || null;
+      const epsTTM = Number(symQuote?.epsTrailingTwelveMonths || 0), epsFwd = Number(symQuote?.epsForward || 0);
+      const epsGrowth = (epsTTM > 0 && epsFwd > 0) ? Math.round((epsFwd / epsTTM - 1) * 100) : null;
+      const earningsTs = Number((Array.isArray(symQuote?.earningsTimestamp) ? symQuote.earningsTimestamp[0] : symQuote?.earningsTimestamp) || 0);
+      const earningsDte = earningsTs ? Math.round((earningsTs * 1000 - Date.now()) / 86400000) : null;
+      const earningsSoon = earningsDte != null && earningsDte >= 0 && earningsDte <= 10;
+
+      // Real macroData/distData shape these ported functions expect —
+      // remapped from fetchYahooQuoteBatch's raw v7 fields (regularMarketPrice/
+      // regularMarketChangePercent) to {symbol, price, changesPercentage},
+      // matching trade-planner-scoring.js's computeRegime lookup shape.
+      const macroData = macroQuotes.map((q) => ({
+        symbol: q.symbol, price: q.regularMarketPrice, changesPercentage: q.regularMarketChangePercent,
+      }));
+      const vixLevel = Number(macroQuotes.find((q) => q.symbol === "^VIX")?.regularMarketPrice) || 0;
+      const regime = computeRegime(macroData);
+      const marketBias = computeMarketBias({ macroData, distData: { vix: vixLevel } });
+
+      // Real full SMC arrays (same detectors /api/market/smc uses, same 3mo
+      // bars) — the raw evidence layer for Section 8 + the client-side Best
+      // Zone selection (Phase 2, market-helpers.js).
+      let smcFull = { bos: null, choch: null, orderBlocks: [], fvgs: [], liquidity: [], volumeProfile: { vpoc: 0, vah: 0, val: 0, profile: [] } };
+      let vwap20 = null;
+      if (smcBars && smcBars.length) {
+        smcFull = {
+          ...detectBOSChoCh(smcBars),
+          orderBlocks: detectOrderBlocks(smcBars),
+          fvgs: detectFVGs(smcBars),
+          liquidity: detectLiquidityLevels(smcBars),
+          volumeProfile: computeVolumeProfile(smcBars),
+        };
+        const vwapBars = smcBars.slice(-20);
+        if (vwapBars.length >= 5) {
+          let pv = 0, vol = 0;
+          for (const b of vwapBars) {
+            const typical = (Number(b.high) + Number(b.low) + Number(b.close)) / 3;
+            pv += typical * Number(b.volume || 0);
+            vol += Number(b.volume || 0);
+          }
+          vwap20 = vol > 0 ? round2(pv / vol) : null;
+        }
+      }
+
+      // Real "row" shape the ported scoring functions expect — atBuyPoint/
+      // volConfirmed replicate screenTrendTemplate's exact real formulas
+      // (buildTrendTemplate's single-symbol result doesn't carry them since
+      // they're batch-screen-only fields today).
+      const volConfirmed = (trend.volRatio || 0) >= 1.4;
+      const atBuyPoint = trend.passCount >= 7 && trend.setup.actionable && !trend.setup.extended && volConfirmed;
+      const row = {
+        passCount: trend.passCount, stage: trend.stage, verdict: trend.setup.verdict,
+        actionable: trend.setup.actionable, extended: trend.setup.extended, tightening: trend.setup.tightening,
+        vcpGrade: trend.setup.vcp?.grade, volRatio: trend.volRatio, volConfirmed, atBuyPoint,
+        abovePivotPct: trend.setup.abovePivotPct, riskPct: trend.setup.riskPct, pctFromHigh: trend.pctFromHigh,
+        rsRating: trend.rsRating, smc: trend.smc, epsGrowth, earningsSoon, earningsDte,
+      };
+
+      const nextAction = computeNextAction(row);
+      const VERDICT_MAP = { BUY: "BUY NOW", BREAKOUT: "WAIT", WATCH: "WAIT", WAIT: "WAIT", AVOID: "AVOID" };
+      const verdict = VERDICT_MAP[nextAction.action] || "WAIT";
+
+      // Real per-symbol sector rank — same SECTOR_ETFS canonical table
+      // advisor-ai.js/risk-guardrails.js already share; ranks the symbol's
+      // real GICS sector ETF by today's real %change among all 11.
+      const sectorTag = SECTOR_THEME_MAP.sectorOf(symbol);
+      const sectorEtf = SECTOR_THEME_MAP.etfOf(symbol);
+      let sectorInfo = null;
+      if (sectorEtf) {
+        const ranked = SECTOR_THEME_MAP.SECTOR_ETFS
+          .map((s) => ({ sym: s.sym, name: s.name, chgPct: Number(sectorQuotes.find((q) => q.symbol === s.sym)?.regularMarketChangePercent) || 0 }))
+          .sort((a, b) => b.chgPct - a.chgPct);
+        const idx = ranked.findIndex((r) => r.sym === sectorEtf);
+        if (idx >= 0) sectorInfo = { tag: sectorTag, etf: sectorEtf, name: ranked[idx].name, chgPct: round2(ranked[idx].chgPct), rank: idx + 1, of: ranked.length };
+      }
+
+      const grade = computeInstitutionalGrade(row, { adx: trend.technicals?.adx }, regime, sectorInfo, null);
+      const letterGrade = institutionalLetterGrade(grade.score);
+      const recommendation = institutionalRecommendation(grade.score);
+      const winProb = winProbFor(trackReport, grade.score);
+
+      const aplusScore = computeAPlusScore(row, regime);
+      const entryType = classifyEntryType(row, aplusScore.score);
+
+      // Real Market Control skew — bullish vs bearish tally across the full
+      // real order blocks + FVGs just detected (not a new signal, a tally of
+      // ones already computed above).
+      const bullCount = smcFull.orderBlocks.filter((o) => o.type === "BULL_OB").length + smcFull.fvgs.filter((f) => f.type === "BULL_FVG").length;
+      const bearCount = smcFull.orderBlocks.filter((o) => o.type === "BEAR_OB").length + smcFull.fvgs.filter((f) => f.type === "BEAR_FVG").length;
+      const marketControl = bullCount > bearCount ? "BUYERS" : bearCount > bullCount ? "SELLERS" : "MIXED";
+
+      // Real Bias — from actual BOS/CHoCH structure first, Stage as fallback.
+      let bias;
+      if (smcFull.bos?.type === "BULL_BOS" || smcFull.choch?.type === "CHOCH_BULL") bias = "BULLISH";
+      else if (smcFull.bos?.type === "BEAR_BOS" || smcFull.choch?.type === "CHOCH_BEAR") bias = "BEARISH";
+      else if (trend.stage.includes("2")) bias = "BULLISH";
+      else if (trend.stage.includes("4")) bias = "BEARISH";
+      else bias = "NEUTRAL";
+
+      const riskPct = trend.setup.riskPct;
+      const risk = riskPct <= 5 ? "LOW" : riskPct <= 8 ? "MEDIUM" : "HIGH";
+
+      // Real 4-instrument breadth proxy (SPY/QQQ/IWM/DIA up-vs-down today) —
+      // a deliberately cheaper real substitute for the full 15-symbol
+      // /api/market/breadth calc (which costs ~9s per call, too slow for a
+      // single-symbol page fetch); labeled honestly as a proxy, not dressed
+      // up as the full breadth read.
+      const breadthSyms = ["SPY", "QQQ", "IWM", "DIA"];
+      const breadthUp = breadthSyms.filter((s) => Number(macroQuotes.find((q) => q.symbol === s)?.regularMarketChangePercent) > 0).length;
+      const breadthProxy = { upCount: breadthUp, of: breadthSyms.length, label: breadthUp >= 3 ? "HEALTHY" : breadthUp <= 1 ? "WEAK" : "MIXED" };
+
+      const chg = (s) => Number(macroQuotes.find((q) => q.symbol === s)?.regularMarketChangePercent) || 0;
+      const marketContext = {
+        spy: { chgPct: round2(chg("SPY")), ...classifyMacroStatus("SPY", { chgPct: chg("SPY") }) },
+        qqq: { chgPct: round2(chg("QQQ")), ...classifyMacroStatus("QQQ", { chgPct: chg("QQQ") }) },
+        iwm: { chgPct: round2(chg("IWM")), ...classifyMacroStatus("IWM", { chgPct: chg("IWM") }) },
+        vix: { level: round2(vixLevel), ...classifyMacroStatus("VIX", { vixLevel }) },
+        dxy: { chgPct: round2(chg("UUP")), note: "DXY proxy via UUP ETF", ...classifyMacroStatus("DXY", { chgPct: chg("UUP") }) },
+        sector: sectorInfo,
+        breadthProxy,
+        session: getMarketSessionET(),
+        overall: marketBias.bias ? marketBias.bias.toUpperCase() : null,
+      };
+
+      return writeJson(res, 200, {
+        ok: true,
+        symbol,
+        price: trend.price,
+        livePrice: trend.livePrice,
+        marketState: trend.marketState,
+        asOf: trend.asOf,
+        verdict, verdictAction: nextAction.action, verdictReason: nextAction.reason,
+        confidence: grade.score,
+        letterGrade, recommendation,
+        bias, marketControl, risk,
+        winProb,
+        keyReasons: grade.reasons.slice(0, 5),
+        gradeBreakdown: grade.breakdown,
+        trend: {
+          passCount: trend.passCount, stage: trend.stage, criteria: trend.criteria,
+          hi52: trend.hi52, lo52: trend.lo52, pctFromHigh: trend.pctFromHigh, pctFromLow: trend.pctFromLow,
+          rsRating: trend.rsRating, volRatio: trend.volRatio, ma: trend.ma, technicals: trend.technicals,
+        },
+        setup: trend.setup,
+        entryType,
+        smc: { ...smcFull, vwap20 },
+        darkpool: { ok: !!darkpool?.ok, error: darkpool?.error || null, prints: darkpool?.prints || [] },
+        regime, marketBias,
+        marketContext,
+        epsGrowth,
+        scannedAt: new Date().toISOString(),
       });
     } catch (e) {
       return writeJson(res, 502, { ok: false, error: e.message });
