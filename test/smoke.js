@@ -884,6 +884,68 @@ console.log("Checking institutional-redesign presentation-layer modules (ESM, lo
     assert.strictEqual(classifyEntryType(row), null);
   });
 
+  console.log("Checking computeInstitutionalSummary + computeBestInstitutionalZone (Smart Money page redesign)…");
+  const { computeInstitutionalSummary, computeBestInstitutionalZone } = await import("../axiom-runner/components/market-helpers.js");
+  ok("computeInstitutionalSummary: real bullish BOS + above-VWAP + trend-favors-continuation reads as 4 real plain-English lines", () => {
+    const lines = computeInstitutionalSummary({
+      price: 105,
+      smc: { bos: { type: "BULL_BOS" }, choch: null, vwap20: 100, orderBlocks: [{ type: "BULL_OB" }, { type: "BULL_OB" }], liquidity: [{ price: 110, label: "Weekly High" }] },
+      trend: { passCount: 7 },
+    });
+    assert.strictEqual(lines.length, 4);
+    assert.ok(lines[0].includes("Bullish structure") && lines[0].includes("multiple real institutional support zones"));
+    assert.ok(lines[1].includes("above the 20-day VWAP"));
+    assert.ok(lines[2].includes("Liquidity rests above current price"));
+    assert.ok(lines[3].includes("Trend favors continuation"));
+  });
+  ok("computeInstitutionalSummary: honest fallbacks when structure/VWAP/liquidity are all real-but-absent", () => {
+    const lines = computeInstitutionalSummary({ price: 50, smc: { bos: null, choch: null, vwap20: null, orderBlocks: [], liquidity: [] }, trend: { passCount: 3 } });
+    assert.ok(lines[0].includes("No clear real break-of-structure signal"));
+    assert.ok(lines[1].includes("VWAP unavailable"));
+    assert.ok(lines[2].includes("No real liquidity levels"));
+    assert.ok(lines[3].includes("Trend is unfavorable"));
+  });
+  ok("computeInstitutionalSummary: honest empty array with no real data at all", () => {
+    assert.deepStrictEqual(computeInstitutionalSummary(null), []);
+  });
+  ok("computeBestInstitutionalZone: nearest real bullish Order Block wins over a further bullish FVG", () => {
+    const out = computeBestInstitutionalZone({
+      price: 100,
+      smc: {
+        orderBlocks: [{ type: "BULL_OB", bot: 98, top: 99, mid: 98.5 }, { type: "BEAR_OB", bot: 120, top: 122, mid: 121 }],
+        fvgs: [{ type: "BULL_FVG", bot: 80, top: 82, mid: 81 }],
+        vwap20: 97, volumeProfile: { vpoc: 99.5 },
+      },
+      marketControl: "BUYERS",
+      setup: { stop: 95, target2: 110, target3: 120 },
+    });
+    assert.strictEqual(out.source, "Order Block");
+    assert.deepStrictEqual(out.zone, { bot: 98, top: 99 });
+    assert.strictEqual(out.stop, 95);
+    assert.strictEqual(out.target1, 110);
+    assert.strictEqual(out.target2, 120, "Best Zone targets must reuse the exact same real Trade Plan numbers, never re-derive their own");
+    const reasonMap = Object.fromEntries(out.reasons.map(r => [r.label, r.pass]));
+    assert.strictEqual(reasonMap["Bullish order block nearby"], true);
+    assert.strictEqual(reasonMap["Price above VWAP"], true);
+    assert.strictEqual(reasonMap["Near volume point of control (VPOC)"], true);
+    assert.strictEqual(reasonMap["Buyers in control"], true);
+  });
+  ok("computeBestInstitutionalZone: falls back to nearest real bullish FVG when no Order Block exists", () => {
+    const out = computeBestInstitutionalZone({
+      price: 100,
+      smc: { orderBlocks: [], fvgs: [{ type: "BULL_FVG", bot: 96, top: 98, mid: 97 }], vwap20: 101, volumeProfile: { vpoc: 50 } },
+      marketControl: "SELLERS",
+      setup: { stop: 94, target2: 108, target3: 115 },
+    });
+    assert.strictEqual(out.source, "Fair Value Gap");
+    assert.deepStrictEqual(out.zone, { bot: 96, top: 98 });
+  });
+  ok("computeBestInstitutionalZone: honest null zone when no real bullish OB or FVG exists nearby", () => {
+    const out = computeBestInstitutionalZone({ price: 100, smc: { orderBlocks: [], fvgs: [], vwap20: null, volumeProfile: {} }, marketControl: "MIXED", setup: {} });
+    assert.strictEqual(out.zone, null);
+    assert.strictEqual(out.source, null);
+  });
+
   const { OPTIONS_ACTIONS, mapToOptionsAction, optionsExecutionNote } = await import("../axiom-runner/components/options-actions.js");
   ok("mapToOptionsAction: strong/regular call-buy and put-buy tiers match trade-signals' own bands", () => {
     assert.strictEqual(mapToOptionsAction({ score: 90, chgPct: 2 }), OPTIONS_ACTIONS.STRONG_CALL_BUY);

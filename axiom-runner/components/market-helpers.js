@@ -790,6 +790,97 @@ export function institutionalRecommendation(score) {
   return { label: "Strong Sell", stars: 1, color: "#c8282a" };
 }
 
+// Plain-English translation of real SMC/VWAP/liquidity/trend data — the
+// Smart Money page redesign's Section 2 ("Institutional Summary", max 4
+// lines, no jargon). Every sentence is a template filled with a real
+// already-computed value from /api/market/smart-money's payload; nothing
+// here is AI-generated prose. `data` is that endpoint's response shape
+// (smc, trend, price, marketContext.session-independent fields).
+export function computeInstitutionalSummary(data) {
+  if (!data) return [];
+  const { smc, trend, price } = data;
+  const lines = [];
+
+  const bullOBs = smc?.orderBlocks?.filter((o) => o.type === "BULL_OB").length || 0;
+  const bearOBs = smc?.orderBlocks?.filter((o) => o.type === "BEAR_OB").length || 0;
+  if (smc?.bos?.type === "BULL_BOS") {
+    lines.push(`Bullish structure — price broke above the last swing high${bullOBs >= 2 ? ", with multiple real institutional support zones nearby." : bullOBs === 1 ? ", with a real institutional support zone nearby." : "."}`);
+  } else if (smc?.bos?.type === "BEAR_BOS") {
+    lines.push(`Bearish structure — price broke below the last swing low${bearOBs >= 1 ? ", with real institutional supply overhead." : "."}`);
+  } else if (smc?.choch?.type === "CHOCH_BULL") {
+    lines.push("Character of change forming — early real signs of a bullish reversal.");
+  } else if (smc?.choch?.type === "CHOCH_BEAR") {
+    lines.push("Character of change forming — real trend weakening, watch for a reversal.");
+  } else {
+    lines.push("No clear real break-of-structure signal right now — price is inside its recent range.");
+  }
+
+  const vwap = smc?.vwap20;
+  if (vwap != null && price != null) {
+    lines.push(price >= vwap ? `Price remains above the 20-day VWAP ($${vwap}).` : `Price remains below the 20-day VWAP ($${vwap}).`);
+  } else {
+    lines.push("VWAP unavailable (insufficient bar history).");
+  }
+
+  const nearestLiq = smc?.liquidity?.[0];
+  if (nearestLiq && price != null) {
+    lines.push(nearestLiq.price > price
+      ? `Liquidity rests above current price near $${nearestLiq.price} (${nearestLiq.label}).`
+      : `Liquidity rests below current price near $${nearestLiq.price} (${nearestLiq.label}).`);
+  } else {
+    lines.push("No real liquidity levels detected nearby.");
+  }
+
+  const passCount = trend?.passCount;
+  if (passCount != null) {
+    lines.push(passCount >= 7 ? `Trend favors continuation (${passCount}/8 real trend criteria pass).`
+      : passCount >= 5 ? `Trend is mixed (${passCount}/8 real criteria pass) — wait for more confirmation.`
+      : `Trend is unfavorable (${passCount}/8 real criteria pass).`);
+  }
+
+  return lines.slice(0, 4);
+}
+
+// Merges Order Blocks/FVGs/VWAP/Volume Profile/Liquidity into ONE real
+// actionable trade zone (Smart Money page redesign, Section 6). Nearest real
+// bullish Order Block wins; falls back to the nearest real bullish Fair
+// Value Gap when no OB exists. Stop/Target reuse the exact same real numbers
+// already shown in the Trade Plan (`setup`) — never re-derived separately,
+// so the two sections can't diverge.
+export function computeBestInstitutionalZone(data) {
+  if (!data) return null;
+  const { smc, price, setup } = data;
+  const bullOBs = (smc?.orderBlocks || []).filter((o) => o.type === "BULL_OB");
+  const bullFVGs = (smc?.fvgs || []).filter((f) => f.type === "BULL_FVG");
+  const nearest = (arr) => arr.length ? arr.reduce((a, b) => Math.abs(b.mid - price) < Math.abs(a.mid - price) ? b : a) : null;
+
+  let zone = null, source = null;
+  const ob = nearest(bullOBs);
+  if (ob) { zone = { bot: ob.bot, top: ob.top }; source = "Order Block"; }
+  else {
+    const fvg = nearest(bullFVGs);
+    if (fvg) { zone = { bot: fvg.bot, top: fvg.top }; source = "Fair Value Gap"; }
+  }
+
+  const vwap = smc?.vwap20;
+  const vpoc = smc?.volumeProfile?.vpoc;
+  const nearVpoc = vpoc ? Math.abs(price / vpoc - 1) * 100 <= 3 : false;
+
+  return {
+    zone, source,
+    reasons: [
+      { label: "Bullish order block nearby", pass: bullOBs.length > 0 },
+      { label: "Bullish fair value gap nearby", pass: bullFVGs.length > 0 },
+      { label: "Price above VWAP", pass: vwap != null && price >= vwap },
+      { label: "Near volume point of control (VPOC)", pass: nearVpoc },
+      { label: "Buyers in control", pass: data.marketControl === "BUYERS" },
+    ],
+    stop: setup?.stop ?? null,
+    target1: setup?.target2 ?? null,
+    target2: setup?.target3 ?? null,
+  };
+}
+
 // Real win-probability lookup — moved here from RhProScanner.jsx
 // (2026-07-29, so MarketTerminalTab's AI Score Card can reuse the exact
 // same real number instead of re-deriving it) — Phase 3 of the
