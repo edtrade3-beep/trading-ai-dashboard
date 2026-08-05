@@ -27,7 +27,6 @@ import AiScoreExplainer, {
 } from "./AiScoreExplainer.jsx";
 import { stockQualityBreakdown } from "./rhpro-shared.jsx";
 import { mapToAiAction } from "./ai-actions.js";
-import SmartMoneyPanel from "./SmartMoneyPanel.jsx";
 import AiTradeCard from "./AiTradeCard.jsx";
 import StrategySelectorCard from "./StrategySelectorCard.jsx";
 import ChecklistCard from "./ChecklistCard.jsx";
@@ -1273,19 +1272,24 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                 ? <TrendChart data={chart} C={C} MONO={MONO} SANS={SANS} height={620} />
                 : <div style={{ height: 620, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: 13, color: C.textDim, border: `1px solid ${C.border}`, borderRadius: 12 }}>Select a mover to load the chart…</div>}
             </div>
-            {/* SECTION 6 — Smart Money panel (institutional redesign,
-                2026-07-29, explicit user spec: "Order Blocks, Fair Value
-                Gaps, Liquidity, VWAP, Volume Profile, Dark Pool Activity").
-                New standalone component extracting/generalizing the SMC
-                surface that was previously scattered (Institutional Grade's
-                own dimension, the scanner's hover badge) — same real
-                src/smc-engine.js detectors this app already used everywhere
-                else, via the existing standalone /api/market/smc + the
-                existing per-symbol /api/market/darkpool filter. */}
+            {/* SECTION 6 — Smart Money link (redesigned 2026-08-04 into a
+                real standalone decision-engine page, SmartMoneyDecisionTab —
+                "AI Verdict -> Institutional Summary -> Trade Plan -> 3
+                Traffic Lights", not a raw SMC data dump). The full real
+                Order Blocks/FVGs/Liquidity/VWAP/Volume Profile/Dark Pool
+                panel this used to inline (SmartMoneyPanel.jsx) still exists
+                unchanged — it's Section 8 there, collapsed by default —
+                this is just a lighter pointer instead of duplicating it
+                inline on every Chart-page visit. */}
             {chart && sym && (
               <div style={{ marginTop: 14, marginBottom: 14 }}>
                 <SectionHeader icon="🧱" label="SMART MONEY" />
-                <SmartMoneyPanel symbol={sym} chart={chart} C={C} MONO={MONO} SANS={SANS} />
+                <button onClick={() => setActiveTab && setActiveTab("smart-money")}
+                  style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10,
+                    fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "12px 16px", borderRadius: 10,
+                    border: `1px solid ${C.border}`, background: C.card, color: C.text, cursor: "pointer", textAlign: "left" }}>
+                  <span>🧠 Open the real {sym} Smart Money decision engine — verdict, trade plan, institutional zone, and the full raw evidence layer →</span>
+                </button>
               </div>
             )}
             {/* SECTION 7 — Catalysts (institutional redesign, 2026-07-29,
