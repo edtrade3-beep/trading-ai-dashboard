@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import TrendChart from "./TrendChart.jsx";
 import SmartMoneyDecisionPanel from "./SmartMoneyDecisionPanel.jsx";
 import CompanyOverviewCard from "./CompanyOverviewCard.jsx";
 import TrendSetupPanel from "./TrendSetupPanel.jsx";
@@ -68,6 +67,13 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   // which stays expanded) — only the extra score cards collapse.
   const [showSupportingDetail, setShowSupportingDetail] = useState(false);
   const [chartTf, setChartTf] = useState("1d"); // chart candle granularity, 5m → 1wk
+  // Live TradingView embed (2026-08-05, "still dont like the chart... make
+  // it live and stretched") — same real widget/theme-detection pattern
+  // already proven in DayTradeTab/MultiTfTab/TrendTemplateTab/
+  // TerminalWorkspace, real intraday ticks instead of the 45s-polled daily
+  // bar TrendChart canvas.
+  const tvTheme = (C.bg && /^#0|^#1/i.test(C.bg)) ? "dark" : "light";
+  const TV_INTERVAL = { "5m": "5", "15m": "15", "30m": "30", "1h": "60", "1d": "D", "1wk": "W" };
   const [sortBy, setSortBy] = useState("bucket");  // movers sort
   const [source, setSource] = useState("movers");  // movers | watchlist
   const [wlRows, setWlRows] = useState(null);
@@ -1260,27 +1266,24 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             {/* SECTION 5 — large interactive chart. Right padding reserves
                 clearance for the fixed bottom-right FAB cluster (Copilot/
                 QuickTrade/RealityCheck, right:18, ~54-70px wide each) — the
-                chart's own right price scale/PIVOT-STOP-BASE LOW labels
-                would otherwise render directly under those icons and get
-                covered (confirmed live).
-                height={620} not "fill" — 2026-08-04 "chart is too shrinked"
-                report. height="fill" sizes the chart off whatever viewport
-                space is left below its OWN top, but "scroll to chart"
-                (scrollToChart, chartZoneRef above) lands the viewport at the
-                Chart zone's top (ticker/hero/execution/readiness/context/
-                fundamentals-technical/AI summary all render before this),
-                so the real chart canvas sits 1500-2500px further down,
-                already off-screen the moment scrolling settles — confirmed
-                live via measured canvas rects, height clamped to the fill
-                mode's 320px floor every time. A fixed height sidesteps that
-                mismatch entirely instead of chasing scroll-timing further —
-                same fixed-height pattern TrendChart's other callers
-                (DayTradeTab, TrendTemplateTab) already use, and matches this
-                same div's own "Select a mover" placeholder height below. */}
+                chart's own right price scale would otherwise render
+                directly under those icons and get covered (confirmed live).
+                2026-08-05: replaced the custom canvas TrendChart (daily
+                bars, 45s silent poll) with the same real, live TradingView
+                advanced-chart embed already proven in DayTradeTab/MultiTfTab/
+                TrendTemplateTab/TerminalWorkspace — real intraday ticks, not
+                a polled snapshot — per explicit user request ("still dont
+                like the chart can you make it live and stretched"). Height
+                raised 620 -> 720 and width stretched to 100% of the
+                available column for "stretched"; chartTf drives the real
+                TradingView interval via TV_INTERVAL so the 5m/15m/30m/1H/1D/
+                1W buttons above still control it. */}
             <div style={{ paddingRight: 90 }}>
-              {chart
-                ? <TrendChart data={chart} C={C} MONO={MONO} SANS={SANS} height={620} />
-                : <div style={{ height: 620, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: 13, color: C.textDim, border: `1px solid ${C.border}`, borderRadius: 12 }}>Select a mover to load the chart…</div>}
+              {chart && sym
+                ? <iframe key={`chart-${sym}-${chartTf}-${tvTheme}`} title={`${sym} live chart`}
+                    src={`/client/tv-widget.html?w=advanced-chart&s=${encodeURIComponent(sym)}&t=${tvTheme}&h=720&iv=${TV_INTERVAL[chartTf] || "D"}&st=vwap,volume`}
+                    style={{ width: "100%", height: 720, border: `1px solid ${C.border}`, borderRadius: 12, display: "block" }} />
+                : <div style={{ height: 720, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: 13, color: C.textDim, border: `1px solid ${C.border}`, borderRadius: 12 }}>Select a mover to load the chart…</div>}
             </div>
             {/* SECTION 6 — Smart Money (moved back inline 2026-08-05 per
                 explicit user request, "move smart money tab under ai
