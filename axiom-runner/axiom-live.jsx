@@ -86,7 +86,6 @@ import CombinedTab from "./components/CombinedTab.jsx";
 import OptionsChainTab from "./components/OptionsChainTab.jsx";
 import GammaLabTab from "./components/GammaLabTab.jsx";
 import VolatilityLabTab from "./components/VolatilityLabTab.jsx";
-import SmartMoneyDecisionTab from "./components/SmartMoneyDecisionTab.jsx";
 import PositionManagerTab from "./components/PositionManagerTab.jsx";
 import Under10Tab from "./components/Under10Tab.jsx";
 import RhProDashboard from "./components/RhProDashboard.jsx";
@@ -4102,8 +4101,6 @@ export default function App() {
       VOLLAB: "vol-lab",
       VOL: "vol-lab",
       VOLATILITY: "vol-lab",
-      SMARTMONEY: "smart-money",
-      SMC: "smart-money",
       POSITIONS: "position-manager",
       POSMGR: "position-manager",
       PAPERPOSITIONS: "position-manager",
@@ -6271,7 +6268,7 @@ export default function App() {
         )}
 
         {activeTab === "mterminal" && (
-          <MarketTerminalTab C={C} MONO={MONO} SANS={SANS} sectorData={sectorData} macroData={macroData} distData={distData} onDeepDive={openDeepDiveFor} setActiveTab={setActiveTab} preMktMovers={preMktMovers} marketSession={marketSession} />
+          <MarketTerminalTab C={C} MONO={MONO} SANS={SANS} sectorData={sectorData} macroData={macroData} distData={distData} onDeepDive={openDeepDiveFor} setActiveTab={setActiveTab} preMktMovers={preMktMovers} marketSession={marketSession} isMobile={isMobile} />
         )}
 
         {activeTab === "daytrade" && (
@@ -6332,10 +6329,6 @@ export default function App() {
 
         {activeTab === "vol-lab" && (
           <VolatilityLabTab C={C} MONO={MONO} SANS={SANS} defaultSymbol={terminalSymbol || watchlistSymbols[0] || "AAPL"} setActiveTab={setActiveTab} />
-        )}
-
-        {activeTab === "smart-money" && (
-          <SmartMoneyDecisionTab C={C} MONO={MONO} SANS={SANS} defaultSymbol={terminalSymbol || watchlistSymbols[0] || "AAPL"} setActiveTab={setActiveTab} isMobile={isMobile} />
         )}
 
         {activeTab === "position-manager" && (

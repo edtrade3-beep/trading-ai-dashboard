@@ -46,15 +46,13 @@ export const SIDEBAR_ITEMS = [
   // DarkPool, etc.) keeps working unchanged.
   { id: "charts",    label: "Charts",        icon: "📈", tab: "mterminal" },
 
-  // Smart Money — "AI Institutional Decision Engine" redesign (2026-08-04,
-  // explicit user spec + mockup: a real dedicated left-nav icon, not buried
-  // mid-Chart-page). A one-time exception to this file's own documented
-  // "exact 11-item spec" (now 12), same precedent as Crypto below — the
-  // whole point of this redesign is that the feature stops being
-  // undiscoverable, so palette-only (this file's default for new tools)
-  // would silently recreate the exact "buried" problem the redesign was
-  // built to fix. Still reachable via the palette too (SMARTMONEY / SMC).
-  { id: "smart-money", label: "Smart Money", icon: "🧠", tab: "smart-money" },
+  // Smart Money — briefly a standalone 12th sidebar item (2026-08-05) for
+  // the "AI Institutional Decision Engine" redesign, removed the same day
+  // per explicit user request ("move smart money tab under ai summary
+  // under the chart in chart tab") — the real decision-engine content
+  // (SmartMoneyDecisionPanel) now lives embedded on the Charts page
+  // instead, right under AI Summary and the chart. Back to this file's
+  // documented 11-item spec.
 
   // Options Flow — re-promotes FlowTab (was Dashboard's "OPTIONS FLOW"
   // sub-tab only) to top-level nav per the redesign spec. Same component/

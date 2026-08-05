@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import TrendChart from "./TrendChart.jsx";
+import SmartMoneyDecisionPanel from "./SmartMoneyDecisionPanel.jsx";
 import TrendSetupPanel from "./TrendSetupPanel.jsx";
 import SmartScanPanel from "./SmartScanPanel.jsx";
 import {
@@ -45,7 +46,7 @@ import { NUM } from "./theme.js";
 
 // Combined Market-Terminal page: movers leaderboard on the left, pro chart with
 // AI overlays on the right. Click a mover → it loads in the chart.
-export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData, distData, onDeepDive, setActiveTab, preMktMovers, marketSession }) {
+export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData, distData, onDeepDive, setActiveTab, preMktMovers, marketSession, isMobile }) {
   const [lb, setLb] = useState(null);
   // Real pre-market session auto-default (2026-08-04, "also add pre market
   // movers") — marketSession is axiom-live.jsx's own already-computed
@@ -1272,24 +1273,21 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                 ? <TrendChart data={chart} C={C} MONO={MONO} SANS={SANS} height={620} />
                 : <div style={{ height: 620, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: 13, color: C.textDim, border: `1px solid ${C.border}`, borderRadius: 12 }}>Select a mover to load the chart…</div>}
             </div>
-            {/* SECTION 6 — Smart Money link (redesigned 2026-08-04 into a
-                real standalone decision-engine page, SmartMoneyDecisionTab —
-                "AI Verdict -> Institutional Summary -> Trade Plan -> 3
-                Traffic Lights", not a raw SMC data dump). The full real
+            {/* SECTION 6 — Smart Money (moved back inline 2026-08-05 per
+                explicit user request, "move smart money tab under ai
+                summary under the chart in chart tab" — it briefly lived as
+                its own standalone page/sidebar tab earlier the same day;
+                this is the same real decision-engine content
+                (SmartMoneyDecisionPanel), just embedded here instead,
+                directly under AI Summary and the chart. Not a raw SMC data
+                dump — real AI Verdict -> Institutional Summary -> Trade
+                Plan -> 3 Traffic Lights reading order, with the full raw
                 Order Blocks/FVGs/Liquidity/VWAP/Volume Profile/Dark Pool
-                panel this used to inline (SmartMoneyPanel.jsx) still exists
-                unchanged — it's Section 8 there, collapsed by default —
-                this is just a lighter pointer instead of duplicating it
-                inline on every Chart-page visit. */}
+                evidence (SmartMoneyPanel.jsx) collapsed underneath. */}
             {chart && sym && (
               <div style={{ marginTop: 14, marginBottom: 14 }}>
                 <SectionHeader icon="🧱" label="SMART MONEY" />
-                <button onClick={() => setActiveTab && setActiveTab("smart-money")}
-                  style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10,
-                    fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "12px 16px", borderRadius: 10,
-                    border: `1px solid ${C.border}`, background: C.card, color: C.text, cursor: "pointer", textAlign: "left" }}>
-                  <span>🧠 Open the real {sym} Smart Money decision engine — verdict, trade plan, institutional zone, and the full raw evidence layer →</span>
-                </button>
+                <SmartMoneyDecisionPanel symbol={sym} C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} isMobile={isMobile} />
               </div>
             )}
             {/* SECTION 7 — Catalysts (institutional redesign, 2026-07-29,

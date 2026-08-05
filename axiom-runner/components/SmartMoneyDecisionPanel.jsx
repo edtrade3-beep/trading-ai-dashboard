@@ -1,20 +1,24 @@
 import { useState, useEffect, useCallback } from "react";
-import { Card } from "./DashboardTab.jsx";
 import RadialGauge from "./RadialGauge.jsx";
 import SmartMoneyPanel from "./SmartMoneyPanel.jsx";
 import { computeInstitutionalSummary, computeBestInstitutionalZone } from "./market-helpers.js";
 
-// Smart Money page redesign — "AI Institutional Decision Engine" (explicit
-// user spec, 2026-08-04, mockup attached: "Do not improve the existing
-// layout — replace it"). A first-time user should know within 5 seconds
-// whether to trade, why, where to enter/exit/target, and whether the market
-// supports it. Fixed reading order every time: Hero Verdict -> Institutional
-// Summary -> Trade Plan -> 3 Traffic Lights -> everything else is supporting
-// evidence, collapsed by default (Section 8). Every number traces to
-// /api/market/smart-money's real payload or reports an honest "—" — no
-// invented "S+" grade (real ceiling is A+, see institutionalLetterGrade),
-// no invented "Market Wind" (real substitute: getMarketSessionET's session
-// read, both confirmed with the user before building this).
+// Smart Money "AI Institutional Decision Engine" (explicit user spec,
+// 2026-08-04, mockup attached: "Do not improve the existing layout —
+// replace it"). Originally shipped as its own standalone page/sidebar tab
+// (2026-08-05), then folded back into the Chart page as an embedded panel
+// the same day per explicit user request ("move smart money tab under ai
+// summary under the chart in chart tab") — no more separate page, no
+// header/search UI of its own (the Chart page already has the symbol/price
+// context), just the real decision content itself. A first-time user should
+// know within 5 seconds whether to trade, why, where to enter/exit/target,
+// and whether the market supports it. Fixed reading order every time: Hero
+// Verdict -> Institutional Summary -> Trade Plan -> 3 Traffic Lights ->
+// everything else is supporting evidence, collapsed by default (Section 8).
+// Every number traces to /api/market/smart-money's real payload or reports
+// an honest "—" — no invented "S+" grade (real ceiling is A+, see
+// institutionalLetterGrade), no invented "Market Wind" (real substitute:
+// getMarketSessionET's session read, both confirmed with the user).
 
 const GUIDE_STEPS = [
   { t: "1s", label: "AI Verdict", desc: "Buy Now, Wait, or Avoid" },
@@ -59,15 +63,14 @@ function TrafficLight({ C, MONO, SANS, label, state, detail }) {
   );
 }
 
-export default function SmartMoneyDecisionTab({ C, MONO, SANS, defaultSymbol, setActiveTab, isMobile }) {
-  const [symbol, setSymbol] = useState(defaultSymbol || "AAPL");
-  const [input, setInput] = useState(defaultSymbol || "AAPL");
+export default function SmartMoneyDecisionPanel({ symbol, C, MONO, SANS, setActiveTab, isMobile }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   const load = useCallback(async (sym) => {
+    if (!sym) return;
     setLoading(true); setError(null);
     try {
       const r = await fetch(`/api/market/smart-money?symbol=${encodeURIComponent(sym)}`);
@@ -130,40 +133,12 @@ export default function SmartMoneyDecisionTab({ C, MONO, SANS, defaultSymbol, se
     </div>
   );
 
+  if (!symbol) return null;
+
   return (
-    <div style={{ padding: "0 0 40px" }}>
-      {/* Header — symbol search + real price/change, no chart/timeframe
-          control here (this page's numbers are all daily-based; a
-          timeframe dropdown would be a decorative control with nothing
-          real behind it, so it's deliberately omitted). */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
-        <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.text, letterSpacing: "0.05em" }}>SMART MONEY</span>
-        <div style={{ display: "flex", border: `1px solid ${C.border}`, borderRadius: 6, overflow: "hidden" }}>
-          <input
-            value={input}
-            onChange={(e) => setInput(e.target.value.toUpperCase())}
-            onKeyDown={(e) => { if (e.key === "Enter") { setSymbol(input); load(input); } }}
-            placeholder="NVDA"
-            style={{ width: 90, background: C.surface, border: "none", color: C.text, fontFamily: MONO, fontSize: 12, padding: "6px 10px", outline: "none" }}
-          />
-          <button onClick={() => { setSymbol(input); load(input); }}
-            style={{ background: C.accent, border: "none", color: "#fff", fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "6px 12px", cursor: "pointer" }}>
-            GO
-          </button>
-        </div>
-        {data?.price > 0 && (
-          <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: C.text }}>
-            {symbol} <span style={{ color: C.accent }}>${data.price}</span>
-            {data.trend?.dayChangePct != null && (
-              <span style={{ color: data.trend.dayChangePct >= 0 ? C.green : C.red, marginLeft: 6, fontSize: 12 }}>
-                {data.trend.dayChangePct >= 0 ? "+" : ""}{data.trend.dayChangePct}%
-              </span>
-            )}
-          </span>
-        )}
-        {loading && <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>⟳ Loading real data…</span>}
-        {error && <span style={{ fontFamily: MONO, fontSize: 12, color: C.red }}>⚠ {error}</span>}
-      </div>
+    <div>
+      {loading && !data && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, padding: "8px 0" }}>⟳ Loading real Smart Money data…</div>}
+      {error && <div style={{ fontFamily: MONO, fontSize: 12, color: C.red, padding: "8px 0" }}>⚠ {error}</div>}
 
       {data && (
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "200px 1fr", gap: 14, alignItems: "start" }}>
@@ -218,7 +193,7 @@ export default function SmartMoneyDecisionTab({ C, MONO, SANS, defaultSymbol, se
             </div>
 
             {/* SECTION 3 — Trade Plan (1 second). Same real chart.setup
-                numbers the old Chart-page Execution Card shows — must match,
+                numbers the Chart-page Execution Card shows — must match,
                 not diverge. Position size deliberately omitted (relocated
                 to Trade Planner's real risk-based sizing this session) in
                 favor of the same real handoff button used elsewhere.
