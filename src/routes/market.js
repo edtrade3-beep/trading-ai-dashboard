@@ -4447,6 +4447,7 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
           passCount: trend.passCount, stage: trend.stage, criteria: trend.criteria,
           hi52: trend.hi52, lo52: trend.lo52, pctFromHigh: trend.pctFromHigh, pctFromLow: trend.pctFromLow,
           rsRating: trend.rsRating, volRatio: trend.volRatio, ma: trend.ma, technicals: trend.technicals,
+          dayChangePct: trend.dayChangePct, weekChangePct: trend.weekChangePct,
         },
         setup: trend.setup,
         entryType,
