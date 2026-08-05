@@ -3,6 +3,7 @@ import { RH_UNIVERSE, rhScore, stockQualityBreakdown, rhScreenProgressive } from
 import {
   computeRegime, computeAPlusScore, computeNextAction, classifyEntryType, computePrediction, winProbFor, MIN_WIN_SAMPLE,
   computeInstitutionalGrade, institutionalLetterGrade, institutionalRecommendation, SECTOR_ETFS, STOCK_TO_SECTOR,
+  computeReversalDetector,
 } from "./market-helpers.js";
 import AiScoreExplainer, { TRADE_SETUP_DIMENSIONS, STOCK_QUALITY_DIMENSIONS, INSTITUTIONAL_GRADE_DIMENSIONS } from "./AiScoreExplainer.jsx";
 import { mapToAiAction, AI_ACTIONS } from "./ai-actions.js";
@@ -787,6 +788,30 @@ export default function RhProScanner({
                           return <span style={{ fontSize: 12, fontWeight: 700, color: bull ? C.green : bear ? C.red : C.textSec }}>{parts.length ? parts.join(" · ") : "No real SMC signal right now"}</span>;
                         })() : <span style={{ fontSize: 12, color: C.textDim }}>No real SMC signal right now</span>}
                       </div>
+                      {/* Reversal Detector (2026-08-04, "early get in and
+                          early get out ... like climax") — same real
+                          function the Chart page's EARLY IN / EARLY OUT
+                          card uses, now fed from this scan's own real
+                          hi52/lo52/rsi/volRatio/day%/week%/ma50 (threaded
+                          through screenTrendTemplate above at zero extra
+                          fetch cost). Only rendered when it actually has
+                          something to say — MID RANGE with no evidence
+                          isn't worth a row in an already-dense expand panel. */}
+                      {(() => {
+                        const rd = computeReversalDetector({
+                          price: r.price, hi52: r.hi52, lo52: r.lo52, rsi: r.rsi,
+                          rvol: r.volRatio, dayChangePct: r.dayChangePct, weekChangePct: r.weekChangePct, ma50: r.ma50,
+                        });
+                        if (!rd || rd.isNeutral) return null;
+                        const vColor = rd.isBottom ? C.green : C.red;
+                        return (
+                          <div style={{ gridColumn: "1 / -1" }}>
+                            <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 3 }}>REVERSAL — early {rd.isBottom ? "get-in" : "get-out"} read</div>
+                            <div style={{ fontSize: 12, fontWeight: 800, color: vColor, marginBottom: 2 }}>{rd.isBottom ? "🟢" : "🔴"} {rd.verdict}</div>
+                            <span style={{ fontSize: 11, color: C.textSec }}>{rd.sigs.map(s => s.txt).join(" · ")}</span>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </td>
                 </tr>

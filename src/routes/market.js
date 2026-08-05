@@ -1382,6 +1382,21 @@ async function _buildTrendTemplate(symbol, opts = {}) {
     } catch { /* live price is a display nicety — never block the real trend-template score */ }
   }
 
+  // rsi/dayChangePct/weekChangePct: real Wilder RSI(14) (same shared
+  // src/indicators.js function the scanner/agent/greenlight pipelines
+  // already use elsewhere) plus real 1-day/1-week % change, all off the
+  // same daily `closes` already computed above — zero extra fetch, so
+  // computed unconditionally (not gated behind !opts.light like
+  // livePrice/ADX/Donchian/Bollinger below, which are either a genuinely
+  // extra network call or real per-bar array work). Added 2026-08-04 for
+  // the Reversal Detector ("early get in and early get out ... like
+  // climax") — deliberately available in light/scan mode too so Scanner
+  // rows can carry the same real Reversal Detector read, not just the
+  // single-symbol Chart page.
+  const rsi14 = (() => { try { return require("../indicators").computeRSI(closes, 14); } catch { return null; } })();
+  const dayChangePct = last >= 1 && closes[last - 1] > 0 ? round2((price / closes[last - 1] - 1) * 100) : null;
+  const weekChangePct = last >= 5 && closes[last - 5] > 0 ? round2((price / closes[last - 5] - 1) * 100) : null;
+
   const result = {
     symbol,
     asOf: new Date(bars[last].time).toISOString(),
@@ -1403,6 +1418,9 @@ async function _buildTrendTemplate(symbol, opts = {}) {
     lo52: round2(lo52),
     pctFromHigh,
     pctFromLow,
+    rsi: rsi14,
+    dayChangePct,
+    weekChangePct,
     criteria,
     setup,
     smc,
@@ -1431,24 +1449,16 @@ async function _buildTrendTemplate(symbol, opts = {}) {
   // would answer a different question than the daily trend-strength read
   // this is meant to be. Each function honestly returns null on
   // insufficient history rather than a partial/misleading number.
-  // rsi: real Wilder RSI(14), same shared src/indicators.js function the
-  // scanner/agent/greenlight pipelines already use elsewhere — added for
-  // the Chart page's Reversal Detector (2026-08-04, "early get in and
-  // early get out ... like climax"), which needs a real RSI reading this
-  // endpoint didn't previously return.
-  const rsi14 = (() => { try { return require("../indicators").computeRSI(closes, 14); } catch { return null; } })();
+  // rsi already computed + set on `result` above (unconditional, cheap —
+  // shared here too since ADX/Donchian/Bollinger are real per-bar array
+  // work, unlike the O(1) rsi/day%/week% fields, so those two stay gated
+  // to the full (non-light) call as before.
   result.technicals = {
     adx: computeADX(bars, 14),
     donchian: computeDonchian(bars, 20),
     bollinger: computeBollinger(bars, 20),
     rsi: rsi14,
   };
-  // Real 1-day / 1-week % change off the same daily closes already fetched
-  // above — same "early get in/out" request; the Reversal Detector's
-  // climax-volume and reversal-candle signals both need these and this
-  // endpoint didn't return either one before.
-  result.dayChangePct = last >= 1 && closes[last - 1] > 0 ? round2((price / closes[last - 1] - 1) * 100) : null;
-  result.weekChangePct = last >= 5 && closes[last - 5] > 0 ? round2((price / closes[last - 5] - 1) * 100) : null;
 
   // Optional alternate-granularity candles for the chart's timeframe picker.
   // Only the candles + their own MAs swap — score/criteria/setup (pivot,
@@ -1508,6 +1518,16 @@ async function screenTrendTemplate(symbols, filters = {}) {
           state: r.setup.breakout.state, signal: r.setup.breakout.signal, confidence: r.setup.breakout.confidence,
           vcpScore: r.setup.report.score, vcpVerdict: r.setup.report.verdict, riskState: r.setup.report.riskState,
           momentum: r.momentum, volRatio: r.volRatio, volConfirmed,
+          // Reversal Detector inputs (2026-08-04, "early get in and early
+          // get out ... like climax") — same real fields the Chart page's
+          // own Reversal Detector uses, now threaded through the scan so
+          // Scanner rows can carry the identical real read. hi52/lo52/ma50
+          // were already computed by buildTrendTemplate in light mode;
+          // rsi/dayChangePct/weekChangePct are the 3 fields promoted out of
+          // the !opts.light gate above specifically so this scan path gets
+          // them too, at zero extra fetch cost.
+          hi52: r.hi52, lo52: r.lo52, ma50: r.ma ? r.ma.ma50 : null,
+          rsi: r.rsi, dayChangePct: r.dayChangePct, weekChangePct: r.weekChangePct,
           smc: r.smc || null,
           _passExclRS: passExclRS,
           atBuyPoint: r.passCount >= 7 && r.setup.actionable && !r.setup.extended,
