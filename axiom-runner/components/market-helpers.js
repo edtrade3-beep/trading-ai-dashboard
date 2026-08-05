@@ -400,6 +400,81 @@ export function computeFundamentalsRead(f) {
   return { bull, bear };
 }
 
+// Single UNDERVALUED/FAIRLY VALUED/OVERVALUED verdict (explicit user request,
+// 2026-08-04: "show when stock undervalue and when overvalue") — same real
+// P/E and PEG bands as computeFundamentalsRead above (not a second,
+// diverging set of thresholds), just packaged as one label instead of
+// bullet points. P/E is the primary read (PEG only used to break a tie or
+// fill in when P/E is unavailable/negative) since PEG needs a real growth
+// rate to mean anything and is more often missing. Honest-null: returns
+// label:null when neither real number is available, never a guessed verdict.
+export function computeValuationVerdict(f) {
+  if (!f) return { label: null, reason: null };
+  const pe = Number(f.pe ?? f.trailingPE);
+  const peg = Number(f.pegRatio);
+  const peOk = Number.isFinite(pe) && pe > 0;
+  const pegOk = Number.isFinite(peg) && peg > 0;
+  if (peOk) {
+    if (pe < 15) return { label: "UNDERVALUED", reason: `P/E ${pe.toFixed(1)} — cheap vs. the broad market` };
+    if (pe > 50) return { label: "OVERVALUED", reason: `P/E ${pe.toFixed(1)} — expensive, priced for a lot of future growth` };
+    if (pegOk && peg < 1) return { label: "UNDERVALUED", reason: `PEG ${peg.toFixed(2)} — cheap relative to its own growth rate` };
+    if (pegOk && peg >= 3) return { label: "OVERVALUED", reason: `PEG ${peg.toFixed(2)} — expensive relative to its own growth rate` };
+    return { label: "FAIRLY VALUED", reason: `P/E ${pe.toFixed(1)} is a reasonable valuation` };
+  }
+  if (pegOk) {
+    if (peg < 1) return { label: "UNDERVALUED", reason: `PEG ${peg.toFixed(2)} — cheap relative to its own growth rate` };
+    if (peg >= 3) return { label: "OVERVALUED", reason: `PEG ${peg.toFixed(2)} — expensive relative to its own growth rate` };
+    return { label: "FAIRLY VALUED", reason: `PEG ${peg.toFixed(2)} — fairly priced relative to growth` };
+  }
+  return { label: null, reason: null };
+}
+
+// Reversal Detector — "early get in / early get out" (explicit user request,
+// 2026-08-04: "show me early get in and early get out ... when stock
+// undervalue and when overvalue like climax"). Ported verbatim (same real
+// weights/thresholds) from SmartScanTab.jsx's inline "BOTTOM / TOP DETECTOR"
+// — this is the app's existing, already-shipped answer to exactly this
+// question, just never surfaced on the Chart page. MACD-cross signals from
+// the original are dropped here (that scan-only field isn't available on
+// this page's real data) rather than faked with a proxy; every other real
+// signal — 52-week range position, RSI, climax RVOL+move, weekly
+// reversal-candle, distance from 50-day MA — is unchanged.
+export function computeReversalDetector({ price, hi52, lo52, rsi, rvol, dayChangePct, weekChangePct, ma50 }) {
+  const px = Number(price);
+  if (!Number.isFinite(px) || px <= 0) return null;
+  const hi = Number(hi52), lo = Number(lo52);
+  const distFromLo = Number.isFinite(hi) && Number.isFinite(lo) && lo > 0 ? (px - lo) / lo * 100 : null;
+  const distFromHi = Number.isFinite(hi) && Number.isFinite(lo) && hi > 0 ? (hi - px) / hi * 100 : null;
+  const r = Number(rsi), rv = Number(rvol), d1 = Number(dayChangePct), w1 = Number(weekChangePct), ma = Number(ma50);
+
+  const bottomSigs = [], topSigs = [];
+  if (distFromLo != null && distFromLo < 10) bottomSigs.push({ txt: `Near 52w low (-${distFromLo.toFixed(1)}%)`, weight: 3 });
+  if (Number.isFinite(r) && r < 30) bottomSigs.push({ txt: `RSI oversold (${r.toFixed(0)})`, weight: 3 });
+  if (Number.isFinite(r) && Number.isFinite(d1) && r < 40 && d1 > 1) bottomSigs.push({ txt: "RSI recovering + price up", weight: 2 });
+  if (Number.isFinite(rv) && Number.isFinite(d1) && rv > 2.5 && d1 < -3) bottomSigs.push({ txt: `Climax sell volume (${rv.toFixed(1)}x) — exhaustion`, weight: 2 });
+  if (Number.isFinite(w1) && Number.isFinite(d1) && w1 < -15 && d1 > 0) bottomSigs.push({ txt: "Sharp drop + reversal candle", weight: 2 });
+  if (Number.isFinite(ma) && ma > 0 && px < ma * 0.85) bottomSigs.push({ txt: "Far below 50-day MA — stretched", weight: 1 });
+
+  if (distFromHi != null && distFromHi < 5) topSigs.push({ txt: `Near 52w high (-${distFromHi.toFixed(1)}%)`, weight: 3 });
+  if (Number.isFinite(r) && r > 70) topSigs.push({ txt: `RSI overbought (${r.toFixed(0)})`, weight: 3 });
+  if (Number.isFinite(r) && Number.isFinite(d1) && r > 65 && d1 < -1) topSigs.push({ txt: "RSI dropping + price down", weight: 2 });
+  if (Number.isFinite(rv) && Number.isFinite(d1) && rv > 2.5 && d1 > 5) topSigs.push({ txt: `Climax buy volume (${rv.toFixed(1)}x) — exhaustion`, weight: 2 });
+  if (Number.isFinite(w1) && Number.isFinite(d1) && w1 > 20 && d1 < 0) topSigs.push({ txt: "Parabolic run + reversal candle", weight: 2 });
+  if (Number.isFinite(ma) && ma > 0 && px > ma * 1.20) topSigs.push({ txt: "Far above 50-day MA — extended", weight: 1 });
+
+  const bottomScore = bottomSigs.reduce((s, x) => s + x.weight, 0);
+  const topScore = topSigs.reduce((s, x) => s + x.weight, 0);
+  const threshold = 2;
+  const isBottom = bottomScore >= threshold && bottomScore >= topScore;
+  const isTop = topScore >= threshold && topScore > bottomScore;
+  const isNeutral = !isBottom && !isTop;
+  const verdict = isNeutral ? "MID RANGE"
+    : isBottom ? (bottomScore >= 6 ? "LIKELY BOTTOM — early get-in zone" : "POSSIBLE BOTTOM — early get-in zone")
+    : (topScore >= 6 ? "LIKELY TOP — early get-out zone" : "POSSIBLE TOP — early get-out zone");
+  const sigs = isBottom ? bottomSigs : isTop ? topSigs : [];
+  return { verdict, isBottom, isTop, isNeutral, bottomScore, topScore, sigs, distFromLo, distFromHi, hi52: hi, lo52: lo };
+}
+
 // Institutional Grade — a 3rd, additive score (explicit user request,
 // 2026-07-29): "one combined institutional-style grade" blending real
 // fundamentals + technicals + smart money + options flow + macro + sector

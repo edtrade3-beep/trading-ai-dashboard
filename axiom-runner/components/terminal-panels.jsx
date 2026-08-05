@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { NUM } from "./theme.js";
-import { computeRegime, computeAPlusScore, STOCK_TO_SECTOR, SECTOR_ETFS, SCAN_UNIVERSE, computeFundamentalsRead } from "./market-helpers.js";
+import { computeRegime, computeAPlusScore, STOCK_TO_SECTOR, SECTOR_ETFS, SCAN_UNIVERSE, computeFundamentalsRead, computeValuationVerdict } from "./market-helpers.js";
 import { computeTradeStats, MIN_TRADES_FOR_EDGE } from "./trading-utils.js";
 
 // Small self-contained panels that make up MarketTerminalTab's per-symbol
@@ -429,7 +429,23 @@ export function FundamentalsPanel({ symbol, C, MONO, SANS }) {
   );
   return (
     <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, padding: "12px 14px", background: C.bg }}>
-      <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 10 }}>📊 Valuation &amp; Growth — {symbol}</div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+        <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 800, color: C.text }}>📊 Valuation &amp; Growth — {symbol}</div>
+        {/* Undervalued/Overvalued verdict (2026-08-04, explicit user
+            request: "show when stock undervalue and when overvalue") —
+            same real P/E/PEG bands as the WHY read below, computeValuationVerdict
+            just packages them as one label instead of bullet points. */}
+        {state === "ok" && f && (() => {
+          const v = computeValuationVerdict(f);
+          if (!v.label) return null;
+          const vc = v.label === "UNDERVALUED" ? "#0d9465" : v.label === "OVERVALUED" ? "#c8282a" : C.textDim;
+          return (
+            <span title={v.reason} style={{ fontFamily: MONO, fontSize: 10, fontWeight: 900, letterSpacing: "0.04em", color: vc, border: `1px solid ${vc}`, borderRadius: 5, padding: "3px 8px", cursor: "help" }}>
+              {v.label}
+            </span>
+          );
+        })()}
+      </div>
       {state === "loading" && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, padding: "16px 0", textAlign: "center" }}>Loading…</div>}
       {state === "none" && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, padding: "16px 0", textAlign: "center" }}>⚠ Fundamentals unavailable (add an FMP key for full data on the live server).</div>}
       {state === "ok" && f && (

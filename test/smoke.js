@@ -406,6 +406,43 @@ console.log("Checking institutional-redesign presentation-layer modules (ESM, lo
     assert.ok(["Distribution", "Aggressive Selling"].includes(out.label));
   });
 
+  const { computeReversalDetector, computeValuationVerdict } = await import("../axiom-runner/components/market-helpers.js");
+  ok("computeReversalDetector: real bottom-cluster inputs (near 52w low, RSI oversold, climax sell volume) -> LIKELY/POSSIBLE BOTTOM", () => {
+    const out = computeReversalDetector({
+      price: 52, hi52: 100, lo52: 50, rsi: 25, rvol: 3.2, dayChangePct: -4, weekChangePct: -18, ma50: 70,
+    });
+    assert.ok(out.isBottom, "clustered real bottom signals must classify as bottom, not top/neutral");
+    assert.ok(out.verdict.includes("BOTTOM"));
+    assert.ok(out.verdict.includes("early get-in"), "verdict must speak the user's own words (early get-in/get-out)");
+    assert.ok(out.sigs.some(s => s.txt.includes("Climax sell volume")), "must surface the real climax-exhaustion signal, not just the 52w/RSI ones");
+  });
+  ok("computeReversalDetector: real top-cluster inputs (near 52w high, RSI overbought, climax buy volume) -> LIKELY/POSSIBLE TOP", () => {
+    const out = computeReversalDetector({
+      price: 98, hi52: 100, lo52: 50, rsi: 78, rvol: 3.0, dayChangePct: 6, weekChangePct: 22, ma50: 80,
+    });
+    assert.ok(out.isTop);
+    assert.ok(out.verdict.includes("TOP"));
+    assert.ok(out.verdict.includes("early get-out"));
+    assert.ok(out.sigs.some(s => s.txt.includes("Climax buy volume")));
+  });
+  ok("computeReversalDetector: mid-range real inputs -> MID RANGE, no fabricated signal", () => {
+    const out = computeReversalDetector({ price: 75, hi52: 100, lo52: 50, rsi: 50, rvol: 1.0, dayChangePct: 0.2, weekChangePct: 1, ma50: 74 });
+    assert.ok(out.isNeutral);
+    assert.strictEqual(out.sigs.length, 0);
+  });
+  ok("computeReversalDetector: honest null with no real price", () => {
+    assert.strictEqual(computeReversalDetector({}), null);
+  });
+  ok("computeValuationVerdict: real cheap P/E -> UNDERVALUED; real expensive P/E -> OVERVALUED; mid P/E -> FAIRLY VALUED", () => {
+    assert.strictEqual(computeValuationVerdict({ pe: 12 }).label, "UNDERVALUED");
+    assert.strictEqual(computeValuationVerdict({ pe: 65 }).label, "OVERVALUED");
+    assert.strictEqual(computeValuationVerdict({ pe: 20 }).label, "FAIRLY VALUED");
+  });
+  ok("computeValuationVerdict: honest null with no real P/E or PEG, never a guessed verdict", () => {
+    assert.strictEqual(computeValuationVerdict({}).label, null);
+    assert.strictEqual(computeValuationVerdict(null).label, null);
+  });
+
   console.log("Checking volatility-lab.js (Phase 8, Volatility Lab)…");
   ok("computeRealizedVol: real annualized stdev of daily log returns, honest null with too few real bars", () => {
     const { computeRealizedVol } = require("../src/volatility-lab");

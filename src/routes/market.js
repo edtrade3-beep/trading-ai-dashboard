@@ -1431,11 +1431,24 @@ async function _buildTrendTemplate(symbol, opts = {}) {
   // would answer a different question than the daily trend-strength read
   // this is meant to be. Each function honestly returns null on
   // insufficient history rather than a partial/misleading number.
+  // rsi: real Wilder RSI(14), same shared src/indicators.js function the
+  // scanner/agent/greenlight pipelines already use elsewhere — added for
+  // the Chart page's Reversal Detector (2026-08-04, "early get in and
+  // early get out ... like climax"), which needs a real RSI reading this
+  // endpoint didn't previously return.
+  const rsi14 = (() => { try { return require("../indicators").computeRSI(closes, 14); } catch { return null; } })();
   result.technicals = {
     adx: computeADX(bars, 14),
     donchian: computeDonchian(bars, 20),
     bollinger: computeBollinger(bars, 20),
+    rsi: rsi14,
   };
+  // Real 1-day / 1-week % change off the same daily closes already fetched
+  // above — same "early get in/out" request; the Reversal Detector's
+  // climax-volume and reversal-candle signals both need these and this
+  // endpoint didn't return either one before.
+  result.dayChangePct = last >= 1 && closes[last - 1] > 0 ? round2((price / closes[last - 1] - 1) * 100) : null;
+  result.weekChangePct = last >= 5 && closes[last - 5] > 0 ? round2((price / closes[last - 5] - 1) * 100) : null;
 
   // Optional alternate-granularity candles for the chart's timeframe picker.
   // Only the candles + their own MAs swap — score/criteria/setup (pivot,

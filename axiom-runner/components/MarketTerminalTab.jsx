@@ -19,7 +19,7 @@ import {
 import {
   computeAPlusScore, computeRegime, computePrediction, STOCK_TO_SECTOR, SECTOR_ETFS,
   computeInstitutionalGrade, institutionalLetterGrade, institutionalRecommendation, winProbFor, computeBullBearCase,
-  deriveTopLevelScores, computeAiTradeScore, computeInstitutionScore, computeMarketBias,
+  deriveTopLevelScores, computeAiTradeScore, computeInstitutionScore, computeMarketBias, computeReversalDetector,
 } from "./market-helpers.js";
 import AiScoreExplainer, {
   AplusBadge, TRADE_SETUP_DIMENSIONS, STOCK_QUALITY_DIMENSIONS, INSTITUTIONAL_GRADE_DIMENSIONS,
@@ -950,6 +950,69 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                 <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, padding: "16px 14px", background: C.bg, fontFamily: MONO, fontSize: 12, color: C.textDim, textAlign: "center" }}>Loading…</div>
               )}
             </div>
+          </div>
+        )}
+        {/* EARLY IN / EARLY OUT — Reversal Detector (2026-08-04, explicit
+            user request: "show me early get in and early get out and when
+            stock undervalue and when overvalue like climax"). Ported
+            verbatim (same real weights/thresholds, see the function's own
+            comment) from SmartScanTab.jsx's existing "BOTTOM / TOP
+            DETECTOR" — this already-shipped feature just never appeared on
+            the Chart page. All real inputs already on this page's own
+            chart payload: 52w hi/lo, RSI(14)/day-%/week-% (added to
+            buildTrendTemplate for this), RVOL, 50-day MA. */}
+        {sym && chart && (
+          <div style={{ marginBottom: 14 }}>
+            <SectionHeader icon="🔄" label="EARLY IN / EARLY OUT" />
+            {(() => {
+              const rd = computeReversalDetector({
+                price: chart.livePrice ?? chart.price,
+                hi52: chart.hi52, lo52: chart.lo52,
+                rsi: chart.technicals && chart.technicals.rsi,
+                rvol: chart.volRatio,
+                dayChangePct: chart.dayChangePct, weekChangePct: chart.weekChangePct,
+                ma50: chart.ma && chart.ma.ma50,
+              });
+              if (!rd) return <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, padding: "16px 14px", background: C.bg, fontFamily: MONO, fontSize: 12, color: C.textDim, textAlign: "center" }}>Loading…</div>;
+              const vColor = rd.isNeutral ? C.textDim : rd.isBottom ? C.green : C.red;
+              const vBg = rd.isNeutral ? C.bg : `${vColor}0c`;
+              return (
+                <div style={{ border: `1px solid ${vColor}55`, borderRadius: 12, padding: "12px 14px", background: vBg }}>
+                  <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: vColor, marginBottom: rd.sigs.length ? 8 : 0 }}>
+                    {rd.isBottom ? "🟢" : rd.isTop ? "🔴" : "〰️"} {rd.verdict}
+                  </div>
+                  {rd.hi52 > rd.lo52 && rd.distFromLo != null && rd.distFromHi != null && (
+                    <div style={{ marginBottom: 8 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 3 }}>
+                        <span>52w Lo ${rd.lo52.toFixed(0)}</span>
+                        <span style={{ color: vColor, fontWeight: 800 }}>{rd.distFromLo.toFixed(0)}% from Lo · {rd.distFromHi.toFixed(0)}% from Hi</span>
+                        <span>52w Hi ${rd.hi52.toFixed(0)}</span>
+                      </div>
+                      <div style={{ height: 5, background: C.border, borderRadius: 3, overflow: "hidden" }}>
+                        <div style={{ width: `${Math.min(100, rd.distFromLo / (rd.distFromLo + rd.distFromHi) * 100)}%`, height: "100%", background: vColor, borderRadius: 3 }} />
+                      </div>
+                    </div>
+                  )}
+                  {rd.sigs.length > 0 ? (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 3, marginBottom: 6 }}>
+                      {rd.sigs.map((s, i) => (
+                        <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 5, fontFamily: SANS, fontSize: 12, color: vColor }}>
+                          <span style={{ flexShrink: 0, opacity: 0.7 }}>{"●".repeat(Math.min(s.weight, 3))}</span>
+                          <span>{s.txt}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>Price in the middle of its range — no clear reversal signal yet.</div>
+                  )}
+                  {!rd.isNeutral && (
+                    <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, lineHeight: 1.5, marginTop: 4 }}>
+                      {rd.isBottom ? "Wait for a green candle + volume spike to confirm before entering." : "Watch for a red candle close below support to confirm before exiting."}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         )}
         {/* "SUPPORTING DETAIL" divider — audit fix #4, 2026-08-04. Real
