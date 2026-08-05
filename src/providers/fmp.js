@@ -153,6 +153,41 @@ async function fetchFmpEarnings(symbol, fmpKey) {
   return annual.length ? { annual } : null;
 }
 
+// The most recent REPORTED quarterly earnings result — real actual EPS
+// (and revenue, when FMP has it) vs. what was estimated, with a real
+// beat/miss/inline read off the real surprise %. Distinct from
+// fetchFmpEarnings above, which is annual history/estimates only — this is
+// specifically "what did the company just report last quarter" (2026-08-05,
+// explicit user request: "last earning right underneath ticker and price").
+// Honest null if no FMP key, no data, or nothing with a real actual EPS yet
+// (i.e. only future/scheduled dates on file) — never a guessed number.
+async function fetchFmpLastEarnings(symbol, fmpKey) {
+  if (!fmpKey || !symbol) return null;
+  const url = `https://financialmodelingprep.com/stable/earnings?symbol=${encodeURIComponent(symbol)}&limit=8&apikey=${encodeURIComponent(fmpKey)}`;
+  const rows = await fetchJsonSafe(url);
+  if (!Array.isArray(rows) || !rows.length) return null;
+  const today = new Date().toISOString().slice(0, 10);
+  const reported = rows.find((r) => r.epsActual != null && String(r.date || "") <= today)
+    || rows.find((r) => r.epsActual != null);
+  if (!reported) return null;
+  const epsActual = Number(reported.epsActual);
+  const epsEstimated = reported.epsEstimated != null ? Number(reported.epsEstimated) : null;
+  const revenueActual = reported.revenueActual != null ? Number(reported.revenueActual) : null;
+  const revenueEstimated = reported.revenueEstimated != null ? Number(reported.revenueEstimated) : null;
+  const surprisePercent = (epsEstimated != null && epsEstimated !== 0)
+    ? Math.round(((epsActual - epsEstimated) / Math.abs(epsEstimated)) * 10000) / 100
+    : null;
+  return {
+    date: reported.date || null,
+    epsActual: Number.isFinite(epsActual) ? epsActual : null,
+    epsEstimated,
+    revenueActual,
+    revenueEstimated,
+    surprisePercent,
+    result: surprisePercent == null ? null : surprisePercent > 0.5 ? "BEAT" : surprisePercent < -0.5 ? "MISS" : "INLINE",
+  };
+}
+
 // Real crypto-native news — FMP's v3 crypto_news endpoint (same family as
 // stock_news/general_news, unlocked at meaningful volume on the paid tier).
 // Genuinely different from CryptoTab.jsx's prior approach, which pulled
@@ -186,4 +221,4 @@ async function fetchFmpCryptoNews(fmpKey, limit = 30) {
   }).filter(Boolean);
 }
 
-module.exports = { normalizeFmpQuoteRow, fetchFmpQuotes, fetchFmpFundamentals, fetchFmpEarnings, fetchFmpCryptoNews };
+module.exports = { normalizeFmpQuoteRow, fetchFmpQuotes, fetchFmpFundamentals, fetchFmpEarnings, fetchFmpLastEarnings, fetchFmpCryptoNews };

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import TrendChart from "./TrendChart.jsx";
 import SmartMoneyDecisionPanel from "./SmartMoneyDecisionPanel.jsx";
+import CompanyOverviewCard from "./CompanyOverviewCard.jsx";
 import TrendSetupPanel from "./TrendSetupPanel.jsx";
 import SmartScanPanel from "./SmartScanPanel.jsx";
 import {
@@ -750,6 +751,14 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             </div>
           );
         })()}
+        {/* Company Overview + Last Earnings — right underneath the ticker/
+            price hero above (2026-08-05, explicit user request:
+            "everything i need to know about company and last earning right
+            underneath ticker and price and deep dive about company"). Real
+            fundamentals + real last-reported-quarter earnings result, full
+            profile/margins/growth/analyst breakdown collapsed under its own
+            "Deep Dive" toggle. */}
+        {sym && <CompanyOverviewCard symbol={sym} C={C} MONO={MONO} SANS={SANS} />}
         {/* SECTION 2 — Execution Card (2026-08-04 decision-first redesign,
             explicit user spec) — real Entry/Stop/Targets (TrendSetupPanel,
             same _buildTrendTemplate pivot/stop/2R/3R every other real card

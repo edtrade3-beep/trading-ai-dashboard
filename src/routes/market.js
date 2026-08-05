@@ -22,7 +22,7 @@ const {
   fetchStockTwitsSentiment,
 } = require("../providers/yahoo");
 const { fetchFinnhubQuotes, fetchFinnhubNews } = require("../providers/finnhub");
-const { fetchFmpQuotes, fetchFmpFundamentals, fetchFmpEarnings, fetchFmpCryptoNews } = require("../providers/fmp");
+const { fetchFmpQuotes, fetchFmpFundamentals, fetchFmpEarnings, fetchFmpLastEarnings, fetchFmpCryptoNews } = require("../providers/fmp");
 const { fetchPolygonQuotes, fetchPolygonNews } = require("../providers/polygon");
 const { applyMomentum } = require("../quote-momentum");
 const SECTOR_THEME_MAP = require("../sector-theme-map");
@@ -2727,6 +2727,29 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
     const keys = resolveProviderKeys(searchParams);
     const payload = await fetchMarketFundamentals(symbol, keys);
     return writeJson(res, 200, payload);
+  }
+
+  // ── GET /api/market/company-overview?symbol=X — real company profile +
+  // last-reported-quarter earnings result, for the Chart page's "everything
+  // I need to know about the company" card (2026-08-05 explicit user
+  // request, "right underneath ticker and price"). Reuses the exact same
+  // fundamentals fetch chain /api/market/fundamentals already uses (FMP ->
+  // stockanalysis.com -> Yahoo, so it degrades honestly without an FMP key
+  // too); lastEarnings is FMP-only and stays honest null otherwise, same as
+  // this app's other FMP-gated features (dark pool, gamma, etc). Kept as
+  // its own endpoint rather than folding into /api/market/fundamentals so
+  // its heavier real earnings-history request only runs for the one place
+  // that actually needs it, not every scanner-row/deep-dive caller of the
+  // shared fundamentals route.
+  if (pathname === "/api/market/company-overview") {
+    const symbol = (searchParams.get("symbol") || "").trim().toUpperCase();
+    if (!symbol) return writeJson(res, 400, { error: "Symbol is required." });
+    const keys = resolveProviderKeys(searchParams);
+    const [fundamentals, lastEarnings] = await Promise.all([
+      fetchMarketFundamentals(symbol, keys).catch(() => null),
+      keys.fmp ? fetchFmpLastEarnings(symbol, keys.fmp).catch(() => null) : Promise.resolve(null),
+    ]);
+    return writeJson(res, 200, { ok: true, symbol, fundamentals, lastEarnings });
   }
 
   // ── Prediction markets (Polymarket) — odds for events that move stocks ──
