@@ -2524,6 +2524,7 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
           // Opening range = first 2 fifteen-min bars (~30 min)
           const orBars = today.slice(0, 2);
           const orHigh = Math.max(...orBars.map(b => b.high));
+          const orLow = Math.min(...orBars.map(b => b.low));
           const orBreakout = price > orHigh;
           // RVOL — today volume so far vs avg full-day volume (last ~20 sessions)
           const todayVol = today.reduce((s, b) => s + (b.volume || 0), 0);
@@ -2543,7 +2544,7 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
           const rng = lb.high - lb.low;
           const closeStrong = rng > 0 ? ((lb.close - lb.low) / rng) >= 0.6 : price >= vwap;
           const rnd = (v) => v == null ? null : Math.round(v * 100) / 100;
-          return { symbol: sym, price: rnd(price), chgPct, gapPct, rvol, vsVwap, aboveVwap: price >= vwap, orBreakout, orHigh: rnd(orHigh),
+          return { symbol: sym, price: rnd(price), chgPct, gapPct, rvol, vsVwap, aboveVwap: price >= vwap, orBreakout, orHigh: rnd(orHigh), orLow: rnd(orLow),
             ema9: rnd(ema9), ema21: rnd(ema21), ema50: rnd(ema50), vwap: rnd(vwap), closeStrong, bull15, bull5: bull15 };
         } catch { return null; }
       }));

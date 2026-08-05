@@ -426,6 +426,83 @@ export function computeGreenLight(q, spyChg, scanRow, regime = null, trend = nul
   };
 }
 
+// ── Day Trade Mode (2026-08-05, explicit user request: "trade in and out
+// daily fast") — a second, independent real signal system for Green Light,
+// built off real intraday data (/api/market/daytrade-scan: Alpaca 15-min
+// bars, VWAP, opening-range, RVOL, 9/21 EMA stack) instead of the swing
+// system's daily/52-week fields above. Deliberately its own function rather
+// than a mode flag threaded through computeGreenLight — the two systems
+// measure genuinely different things (today's session structure vs. a
+// multi-day trend) and this app's standing rule is to keep parallel scoring
+// systems separate rather than force one shape to fit both.
+export function computeDayTradeSignal(row, spyChg) {
+  const px = Number(row?.price || 0);
+  if (!(px > 0)) return null;
+  const vwap = Number(row?.vwap || 0) || px;
+  const rvol = Number(row?.rvol || 0);
+  const aboveVwap = !!row?.aboveVwap;
+  const orBreakout = !!row?.orBreakout;
+  const bull15 = !!row?.bull15;
+  const closeStrong = !!row?.closeStrong;
+
+  // ── 5-check system, mirrors the swing checklist's shape but every check
+  // is intraday-real (same fields the Day Trade Scanner's own status board
+  // already shows — no new signals invented here). ──
+  const checks = [
+    { label: "Market safe", pass: spyChg > -0.5,
+      tip: `SPY ${spyChg >= 0 ? "+" : ""}${spyChg.toFixed(2)}% — buy only when the tape is safe` },
+    { label: "Above VWAP", pass: aboveVwap,
+      tip: `VWAP $${vwap.toFixed(2)} — ${aboveVwap ? "price is above the session's volume-weighted average" : "price is below VWAP, the intraday bulls/bears line"}` },
+    { label: "OR Breakout", pass: orBreakout,
+      tip: row?.orHigh ? `Opening range high $${Number(row.orHigh).toFixed(2)} — ${orBreakout ? "broke out" : "still inside the first 30 min range"}` : "Opening range not available yet" },
+    { label: rvol > 0 ? `RVOL ${rvol.toFixed(1)}x` : "Volume active", pass: rvol >= 1.5,
+      tip: rvol > 0 ? `RVOL ${rvol.toFixed(1)}x (≥1.5x = real interest today)` : "No volume data" },
+    { label: "9>21 EMA (15m)", pass: bull15,
+      tip: "Price above 9EMA above 21EMA on the 15-minute chart — momentum stack intact" },
+  ];
+  const passed = checks.filter(c => c.pass).length;
+  const signal = passed >= 4 ? "GREEN" : passed >= 3 ? "YELLOW" : "RED";
+
+  // ── Fast, tight, same-session levels — NOT the swing system's ATR/+5%/
+  // +10% multi-day math. Stop = just below VWAP (the standard intraday
+  // long-bias invalidation level); target = 1.5R off that stop, a modest
+  // move genuinely achievable inside one session rather than a multi-day
+  // swing target. ──
+  const stop = +(Math.min(vwap, px) * 0.999).toFixed(2);
+  const riskDist = Math.max(0.01, px - stop);
+  const target = +(px + riskDist * 1.5).toFixed(2);
+  const rr = +((target - px) / riskDist).toFixed(1);
+
+  const bestEntry = orBreakout ? px : (Number(row?.orHigh) || px);
+  const entryNote = orBreakout ? "at breakout ✅" : "wait for OR breakout";
+  const atEntry = orBreakout;
+
+  // Quality (0-100, clamped) — reuses the server's own real composite
+  // (daytrade-scan's `score`, already weighted off breakout/VWAP/RVOL/EMA
+  // stack/gap/move) rather than re-deriving a second formula for the same
+  // real inputs.
+  const quality = Math.max(0, Math.min(100, Math.round(Number(row?.score) || 0)));
+  const grade = quality >= 90 ? "ELITE" : quality >= 75 ? "A+" : quality >= 60 ? "GOOD" : quality >= 45 ? "WATCH" : "IGNORE";
+  const marketPass = spyChg > -0.5;
+  const qualifiesAPlus = signal === "GREEN" && marketPass && atEntry;
+
+  return {
+    symbol: row.symbol, px, chg: Number(row?.chgPct || 0), checks, passed, signal,
+    tradeable: signal === "GREEN", bestEntry: +bestEntry.toFixed(2), entryNote, atEntry,
+    stop, target, rr, rrPass: rr >= 1.2, quality, grade, qualifiesAPlus, marketPass,
+    vwap, rvol, orHigh: row?.orHigh ?? null, orLow: row?.orLow ?? null, orBreakout, bull15, closeStrong,
+    // Real indicator readout — same 15-min EMA9/21/50 the Day Trade Scanner
+    // already computes server-side, threaded through so Green Light's Day
+    // Trade Mode can show the same real status-board indicators (not a
+    // second/different calculation).
+    ema9: row?.ema9 ?? null, ema21: row?.ema21 ?? null, ema50: row?.ema50 ?? null, aboveVwap,
+    // Time-stop — the defining rule of day trading (no overnight hold).
+    // The real EOD-flatten enforcement lives in AutoPilotEngine.jsx; this
+    // is just the honest label shown next to the trade's other levels.
+    timeStop: "Flatten by 3:55 PM ET",
+  };
+}
+
 // Shared expectancy/profit-factor math — was independently reimplemented
 // (with a slightly different formula each time) in MyTradesTab's Report
 // Card, PerformanceCard (Mission Status), and JournalTab's Performance
@@ -561,6 +638,7 @@ export function addPaperTrade(sym, entry, opts = {}) {
     ticker: sym, entry, shares, remaining: shares, realized: 0,
     stop, t1, t2, t3, basis, risk0: +riskPerShare.toFixed(2),
     glScore: Number(opts.glScore) || null,
+    dayTrade: !!opts.dayTrade,
     status: "OPEN", t1Hit: false, t2Hit: false, openedAt: new Date().toISOString(),
     mode: "PAPER", auto: true,
   };
@@ -571,7 +649,7 @@ export function addPaperTrade(sym, entry, opts = {}) {
   trades.unshift(t);
   localStorage.setItem(GL_TRADES_KEY, JSON.stringify(trades));
   window.dispatchEvent(new Event("gl-trades-changed"));
-  logTradeNote("buy", `🟢 AUTO BUY — ${sym}${t.glScore ? ` (${t.glScore}/5)` : ""}\n${shares} sh @ $${entry} (paper · ${basis})\nStop $${stop} · T1 $${t1} / T2 $${t2} / T3 $${t3}`);
+  logTradeNote("buy", `${t.dayTrade ? "⚡ DAY TRADE BUY" : "🟢 AUTO BUY"} — ${sym}${t.glScore ? ` (${t.glScore}${t.dayTrade ? "/100" : "/5"})` : ""}\n${shares} sh @ $${entry} (paper · ${basis})\nStop $${stop} · T1 $${t1} / T2 $${t2} / T3 $${t3}${t.dayTrade ? "\n⏱ Flatten by 3:55 PM ET (no overnight hold)" : ""}`);
   return "OK";
 }
 

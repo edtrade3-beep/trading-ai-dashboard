@@ -485,6 +485,31 @@ export default function AutoPilotEngine({ watchlistData, macroData, scanResults 
         x.realized  = x.realized ?? 0;
         const third = Math.max(1, Math.floor(x.shares / 3));
 
+        // ── EOD FLATTEN — the one non-negotiable rule of day trading: no
+        // overnight hold. Any paper trade opened via Green Light's Day
+        // Trade Mode (x.dayTrade) is force-closed at market 5 min before
+        // the close, regardless of where price sits vs. its stop/target —
+        // this check runs before (and overrides) every other exit path
+        // below. 2026-08-05, explicit user request ("trade in and out
+        // daily fast" — real "in and out" only holds if the app itself
+        // guarantees the "out" part every session). ──
+        if (x.dayTrade) {
+          const etParts = (() => { try {
+            return Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(new Date()).map(p => [p.type, p.value]));
+          } catch { return {}; } })();
+          const etHour = Number(etParts.hour), etMin = Number(etParts.minute);
+          const pastFlattenTime = Number.isFinite(etHour) && (etHour > 15 || (etHour === 15 && etMin >= 55));
+          if (pastFlattenTime) {
+            const dir = x.side === "SHORT" ? -1 : 1;
+            const pnl = x.remaining * (px - x.entry) * dir;
+            x.realized += pnl; x.remaining = 0; x.status = "CLOSED";
+            x.exit = +px.toFixed(2); x.closedAt = new Date().toISOString();
+            x.exitReason = "EOD_FLATTEN"; changed = true;
+            logTradeNote("exit", `⏱ EOD FLATTEN — ${x.ticker}${x.glScore ? ` (${x.glScore}/100)` : ""}\nDay trade closed flat before the close @ $${x.exit} (paper) · P&L ${x.realized >= 0 ? "+" : ""}$${x.realized.toFixed(0)}`);
+            return x;
+          }
+        }
+
         // ── SCORE-DECAY EXIT — reuses the exact same real computeGreenLight
         // the entry engine scores candidates with (an apples-to-apples read
         // on whether THIS specific setup has genuinely deteriorated, not a

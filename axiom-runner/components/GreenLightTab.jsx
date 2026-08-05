@@ -1,10 +1,161 @@
 import { useState, useEffect, useRef } from "react";
 import { computeRegime, computeAPlusScore, STOCK_TO_SECTOR } from "./market-helpers.js";
 import {
-  computeScores, computeGreenLight, logTradeNote, addPaperTrade,
+  computeScores, computeGreenLight, computeDayTradeSignal, logTradeNote, addPaperTrade,
   addPaperOption, alpacaOption,
 } from "./trading-utils.js";
 import { AI_ACTIONS } from "./ai-actions.js";
+
+// ── Day Trade Mode row — fast in/out, real intraday signals only. Kept as
+// its own lightweight component (not a branch inside the swing Row above)
+// since almost nothing about that component applies here: no 52-week
+// stats, no ATR multi-day stop, no options premium math built for a
+// 30-60 day hold. Trade levels are the tight, same-session numbers from
+// computeDayTradeSignal; buying tags the paper trade dayTrade:true so
+// AutoPilotEngine's EOD-flatten guarantees it closes before the bell. ──
+function DayTradeRow({ r, C, MONO, SANS, num, badge, neutralCard, accentCard, sectionLabel, sigCol, setTerminalSymbol, setActiveTab }) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div style={{ ...accentCard(sigCol(r.signal)), padding: "12px 16px", marginBottom: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <div style={{ textAlign: "center", minWidth: 64 }}>
+          <div style={{ fontFamily: MONO, fontSize: 11.5, fontWeight: 800, color: sigCol(r.signal) }}>
+            {r.signal === "GREEN" ? AI_ACTIONS.BUY.label : r.signal === "YELLOW" ? AI_ACTIONS.WAIT.label : AI_ACTIONS.AVOID.label}
+          </div>
+          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, ...num }}>{r.passed}/5</div>
+        </div>
+        <div style={{ flex: 1, minWidth: 220 }}>
+          <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 6, flexWrap: "wrap" }}>
+            <span style={{ fontFamily: MONO, fontSize: 17, fontWeight: 800, color: C.accent }}>{r.symbol}</span>
+            <span style={{ fontFamily: MONO, fontSize: 13.5, color: C.text, ...num }}>${r.px.toFixed(2)}</span>
+            <span style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 700, color: r.chg >= 0 ? C.green : C.red, ...num }}>{r.chg >= 0 ? "+" : ""}{r.chg.toFixed(2)}%</span>
+            <span style={badge(r.grade === "ELITE" ? "#7c3aed" : r.grade === "A+" ? "#16a34a" : r.grade === "GOOD" ? C.green : r.grade === "WATCH" ? C.amber : C.red, true)}>{r.grade} {r.quality}</span>
+            {r.rvol >= 1.5 && <span style={badge(C.amber)}>VOL {r.rvol.toFixed(1)}x</span>}
+            {r.atEntry ? <span style={badge(C.green)}>at breakout</span> : <span style={badge(C.amber)}>{r.entryNote}</span>}
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {r.checks.map((c, i) => (
+              <span key={i} title={c.tip} style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: c.pass ? C.green : C.red,
+                background: c.pass ? `${C.green}15` : `${C.red}10`, border: `1px solid ${c.pass ? C.green : C.red}33`, borderRadius: 4, padding: "2px 7px" }}>
+                {c.pass ? "✓" : "✗"} {c.label}
+              </span>
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 8, alignItems: "center", fontFamily: MONO, fontSize: 10.5, ...num }}>
+            <span style={{ color: C.green }}>Target ${r.target} (R:R {r.rr}:1{r.rrPass ? " ✓" : " thin"})</span>
+            <span style={{ color: C.red }}>Stop ${r.stop} (below VWAP)</span>
+            <span style={{ color: C.amber, fontWeight: 700 }}>⏱ {r.timeStop}</span>
+          </div>
+        </div>
+        {r.signal === "GREEN" && (
+          <div style={{ textAlign: "right", borderLeft: `1px solid ${C.border}`, paddingLeft: 12, minWidth: 140, ...num }}>
+            <div style={{ ...neutralCard, borderLeft: `2px solid ${C.accent}`, padding: "4px 8px", marginBottom: 6 }}>
+              <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>Fast Entry</div>
+              <div style={{ fontFamily: MONO, fontSize: 14.5, fontWeight: 800, color: C.accent }}>${r.bestEntry}</div>
+            </div>
+            {[["Stop", r.stop, C.red], ["Target", r.target, C.green]].map(([l, v, col]) => (
+              <div key={l} style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+                <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>{l}</span>
+                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: col }}>${v}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <button onClick={(e) => {
+              const res = addPaperTrade(r.symbol, r.bestEntry || r.px, { stop: r.stop, t1: r.target, t2: r.target, t3: r.target, glScore: r.quality, dayTrade: true });
+              const btn = e.currentTarget;
+              btn.textContent = res === "DUP" ? "already open" : "✓ DAY TRADE!";
+              btn.style.background = C.green; btn.style.color = "#fff";
+              setTimeout(() => { btn.textContent = "⚡ DAY TRADE BUY"; btn.style.background = `${C.green}18`; btn.style.color = C.green; }, 1800);
+            }}
+            title="One-click paper day trade — tight VWAP stop, fast target, auto-flattened by 3:55 PM ET regardless of outcome"
+            style={{ background: `${C.green}18`, border: `1px solid ${C.green}55`, color: C.green, borderRadius: 6, fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "6px 12px", cursor: "pointer" }}>
+            ⚡ DAY TRADE BUY
+          </button>
+          <button onClick={(e) => {
+              const btn = e.currentTarget;
+              const lines = [
+                `⚡ ${r.symbol} — $${r.px.toFixed(2)} (${r.chg >= 0 ? "+" : ""}${r.chg.toFixed(2)}%)`,
+                `Day Trade Signal: ${r.signal} · ${r.grade} (${r.quality}/100)`,
+                `Entry $${r.bestEntry} — ${r.entryNote}`,
+                `Stop $${r.stop} · Target $${r.target} (R:R ${r.rr}:1)`,
+                `⏱ ${r.timeStop}`,
+              ];
+              btn.textContent = "…sending";
+              fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: lines.join("\n") }) })
+                .then(res => res.json())
+                .then(d => { btn.textContent = d?.ok ? "✓ sent" : "✗ failed"; })
+                .catch(() => { btn.textContent = "✗ network error"; })
+                .finally(() => { setTimeout(() => { btn.textContent = "✈ TELEGRAM"; }, 5000); });
+            }}
+            title={`Send ${r.symbol}'s real current day-trade setup to your Telegram right now`}
+            style={{ background: `${C.accent}18`, border: `1px solid ${C.accent}55`, color: C.accent, borderRadius: 6, fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "6px 12px", cursor: "pointer" }}>
+            ✈ TELEGRAM
+          </button>
+          {r.signal === "GREEN" && (
+            <button onClick={() => {
+                try {
+                  localStorage.setItem("tradeplanner_load_plan", JSON.stringify({
+                    symbol: r.symbol, entry: Number(r.bestEntry), stop: Number(r.stop), target: Number(r.target),
+                    aplus: null, next: null, source: "Green Light Day Trade",
+                  }));
+                } catch {}
+                setActiveTab && setActiveTab("tradeplanner");
+              }}
+              title={`Plan this trade — opens Trade Planner with ${r.symbol}'s real day-trade entry/stop/target already filled in`}
+              style={{ background: `${C.accent}14`, border: `1px solid ${C.accent}`, color: C.accent, borderRadius: 6, fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "6px 12px", cursor: "pointer" }}>
+              🎯 PLAN
+            </button>
+          )}
+          <button onClick={() => { const opening = !expanded; setExpanded(opening); if (opening && setTerminalSymbol) setTerminalSymbol(r.symbol); }}
+            style={{ background: `${C.accent}15`, border: `1px solid ${C.accent}44`, color: C.accent, borderRadius: 6, fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "6px 12px", cursor: "pointer" }}>
+            {expanded ? "▲ CLOSE" : "🔬 CHART"}
+          </button>
+        </div>
+      </div>
+      {expanded && (() => {
+        // Same real indicator status board as the Day Trade Scanner tab
+        // (DayTradeTab.jsx) — EMA9/21/50, VWAP, RVOL, trend/risk/buy/exit
+        // reads off the exact same fields, so a symbol looks identical
+        // whether you check it here or there.
+        const G = "#0d9465", R = "#c8282a", GR = "#6b7280", PU = "#7c5cff";
+        const trend = r.bull15 ? ["BULL", G] : (r.aboveVwap ? ["MIXED", "#d6a312"] : ["BEAR", R]);
+        const risk = (r.bull15 && r.aboveVwap) ? ["ON", G] : ["OFF", GR];
+        const buy = r.signal === "GREEN" ? [AI_ACTIONS.BUY.label, G] : [AI_ACTIONS.WAIT.label, GR];
+        const exit = (!r.aboveVwap || !r.bull15) ? [AI_ACTIONS.EXIT.label, R] : [AI_ACTIONS.WAIT.label, GR];
+        const rvolCell = [(r.rvol == null ? "—" : r.rvol.toFixed(2)), (r.rvol || 0) >= 1.5 ? G : (r.rvol || 0) >= 1 ? "#d6a312" : R];
+        const closeCell = r.closeStrong ? ["STRONG", G] : ["WEAK", R];
+        const cell = (label, val, col) => (
+          <div style={{ background: col, borderRadius: 4, padding: "6px 4px", textAlign: "center", color: "#fff", minWidth: 0 }}>
+            <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, opacity: 0.85, letterSpacing: 0.3 }}>{label}</div>
+            <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{val}</div>
+          </div>
+        );
+        const px = (v) => v == null ? "—" : "$" + Number(v).toFixed(2);
+        return (
+          <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${C.border}` }}>
+            <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 6, letterSpacing: 0.5 }}>INDICATORS</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 4, marginBottom: 10 }}>
+              {cell("EMA 9", px(r.ema9), G)}
+              {cell("EMA 21", px(r.ema21), G)}
+              {cell("EMA 50", px(r.ema50), G)}
+              {cell("VWAP", px(r.vwap), r.aboveVwap ? G : R)}
+              {cell("RVOL", rvolCell[0], rvolCell[1])}
+              {cell("TREND", trend[0], trend[1])}
+              {cell("RISK", risk[0], risk[1])}
+              {cell("BUY", buy[0], buy[1])}
+              {cell("EXIT", exit[0], exit[1])}
+              {cell("CLOSE", closeCell[0], closeCell[1])}
+            </div>
+            <iframe title={`${r.symbol} intraday`} src={`/client/tv-widget.html?w=advanced-chart&s=${encodeURIComponent(r.symbol)}&t=${(C.bg && /^#0|^#1/i.test(C.bg)) ? "dark" : "light"}&h=380&iv=15&st=vwap,volume`}
+              style={{ width: "100%", height: 380, border: `1px solid ${C.border}`, borderRadius: 10, display: "block" }} />
+          </div>
+        );
+      })()}
+    </div>
+  );
+}
 
 // ── 🤖 Ask Claude — real AI second-opinion on a setup (cheap Haiku call) ──
 // State lives in the parent (out/setOut props) so it survives card remounts.
@@ -156,6 +307,60 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
       })
       .catch(() => {});
   }, [wlSymsKey]);
+  // ── Day Trade Mode (2026-08-05, "trade in and out daily fast") — a
+  // persisted toggle between the existing swing engine (untouched below)
+  // and a real intraday engine scoped to the same watchlist, sourced from
+  // the same /api/market/daytrade-scan the Day Trade Scanner tab uses,
+  // just filtered to symbols=<watchlist> instead of its 100+ universe. ──
+  const [glMode, setGlMode] = useState(() => { try { return localStorage.getItem("gl_mode") || "swing"; } catch { return "swing"; } });
+  const setMode = (m) => { setGlMode(m); try { localStorage.setItem("gl_mode", m); } catch {} };
+  const [dtRows, setDtRows] = useState([]);
+  const [dtState, setDtState] = useState("idle");
+  useEffect(() => {
+    if (glMode !== "daytrade" || !wlSymsKey) return;
+    let cancelled = false;
+    const scan = () => {
+      fetch(`/api/market/daytrade-scan?symbols=${encodeURIComponent(wlSymsKey)}`)
+        .then(r => r.json())
+        .then(j => { if (!cancelled) { setDtRows(j?.ok && j.rows ? j.rows : []); setDtState(j?.ok ? (j.rows?.length ? "ok" : "none") : "err"); } })
+        .catch(() => { if (!cancelled) setDtState("err"); });
+    };
+    scan();
+    const t = setInterval(scan, 60000);
+    return () => { cancelled = true; clearInterval(t); };
+  }, [glMode, wlSymsKey]);
+  const dtResults = dtRows.map(row => computeDayTradeSignal(row, spyChg)).filter(Boolean).sort((a, b) => b.quality - a.quality);
+  const dtGreen = dtResults.filter(r => r.signal === "GREEN");
+  const dtYellow = dtResults.filter(r => r.signal === "YELLOW");
+  const dtRed = dtResults.filter(r => r.signal === "RED");
+  // Real intraday session (PRE/REGULAR/AFTER-HOURS/CLOSED) — day-trade
+  // signals (VWAP/opening-range/RVOL) are only meaningful during regular
+  // hours, so the mode banner below is honest about when they apply.
+  const [etNow, setEtNow] = useState(() => new Date());
+  useEffect(() => { if (glMode !== "daytrade") return; const t = setInterval(() => setEtNow(new Date()), 30000); return () => clearInterval(t); }, [glMode]);
+  const marketSession = (() => {
+    let h = 0, m = 0, wd = "";
+    try {
+      const parts = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit", hour12: false, weekday: "short" }).formatToParts(etNow).map(p => [p.type, p.value]));
+      h = Number(parts.hour); m = Number(parts.minute); wd = parts.weekday;
+    } catch { return "CLOSED"; }
+    if (wd === "Sat" || wd === "Sun") return "CLOSED";
+    const mins = h * 60 + m;
+    if (mins >= 4 * 60 && mins < 9 * 60 + 30) return "PRE-MARKET";
+    if (mins >= 9 * 60 + 30 && mins < 16 * 60) return "REGULAR";
+    if (mins >= 16 * 60 && mins < 20 * 60) return "AFTER-HOURS";
+    return "CLOSED";
+  })();
+  const flattenCountdown = (() => {
+    if (marketSession !== "REGULAR") return null;
+    const parts = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).formatToParts(etNow).map(p => [p.type, p.value]));
+    const nowMin = Number(parts.hour) * 60 + Number(parts.minute) + Number(parts.second) / 60;
+    const left = 15 * 60 + 55 - nowMin;
+    if (left <= 0) return "flattening now";
+    const hh = Math.floor(left / 60), mm = Math.floor(left % 60);
+    return `${hh > 0 ? `${hh}h ` : ""}${mm}m to flatten`;
+  })();
+
   const [glExpanded, setGlExpanded] = useState(null); // ticker whose details are shown
   const [candOpen, setCandOpen] = useState(null);     // candidate (calls/puts/watch) expanded to full card
   const [aiScan, setAiScan] = useState(null);         // null | "loading" | text | {error}
@@ -835,15 +1040,24 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
   return (
     <div style={{ padding: "16px 20px", maxWidth: 1000, margin: "0 auto" }}>
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 18, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 12, flexWrap: "wrap" }}>
         <div>
           <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 800, color: C.text, letterSpacing: "-0.01em" }}>Green Light</div>
           <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.textDim, marginTop: 2 }}>
-            5-check trading system — trade only what clears GREEN
+            {glMode === "swing" ? "5-check trading system — trade only what clears GREEN" : "Day Trade Mode — fast in, fast out, flat by the close"}
           </div>
         </div>
-        <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
-          {[[readyToTrade.length, "Ready", C.green], [yellow.length, "Watch", C.amber], [red.length, "Skip", C.red]].map(([n,l,col]) => (
+        <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
+          <div style={{ display: "flex", border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
+            {[["swing", "Swing"], ["daytrade", "⚡ Day Trade"]].map(([id, lbl]) => (
+              <button key={id} onClick={() => setMode(id)}
+                style={{ fontFamily: MONO, fontSize: 11.5, fontWeight: 800, padding: "8px 14px", cursor: "pointer", border: "none",
+                  background: glMode === id ? C.accent : "transparent", color: glMode === id ? "#fff" : C.textDim }}>
+                {lbl}
+              </button>
+            ))}
+          </div>
+          {[[glMode === "swing" ? readyToTrade.length : dtGreen.length, "Ready", C.green], [glMode === "swing" ? yellow.length : dtYellow.length, "Watch", C.amber], [glMode === "swing" ? red.length : dtRed.length, "Skip", C.red]].map(([n,l,col]) => (
             <div key={l} style={{ ...accentCard(col), padding: "7px 16px", textAlign: "center", minWidth: 66 }}>
               <div style={{ ...num, fontFamily: MONO, fontSize: 19, fontWeight: 800, color: col, lineHeight: 1.1 }}>{n}</div>
               <div style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim, marginTop: 1 }}>{l}</div>
@@ -855,6 +1069,70 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
       {/* Auto-pilot + paper trades now live in their own 📋 MY TRADES tab */}
       <AutopilotStatusCard C={C} MONO={MONO} SANS={SANS} />
 
+      {glMode === "daytrade" ? (
+        <>
+          {/* ── Session banner — day-trade signals only mean something during
+              regular hours, so this is honest about when they apply, plus a
+              live countdown to the guaranteed EOD flatten. ── */}
+          <div style={{ padding: "11px 16px", marginBottom: 16, ...accentCard(marketSession === "REGULAR" ? C.green : C.textDim),
+            display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 800, color: marketSession === "REGULAR" ? C.green : C.textDim }}>
+                {marketSession}{marketSession !== "REGULAR" && " — signals need regular hours (9:30am–4:00pm ET) to mean anything"}
+              </div>
+              {marketSession === "REGULAR" && flattenCountdown && (
+                <div style={{ fontFamily: MONO, fontSize: 10.5, color: C.amber, marginTop: 2, fontWeight: 700 }}>⏱ {flattenCountdown} — every open day trade auto-closes at 3:55 PM ET, win or lose</div>
+              )}
+            </div>
+          </div>
+
+          {/* ── Day trade rules — same "always visible reminder" pattern as
+              swing's MY RULES, tuned for fast in/out. ── */}
+          <div style={{ ...accentCard(C.amber), padding: "14px 18px", marginBottom: 16 }}>
+            <div style={{ ...sectionLabel, color: C.text, marginBottom: 10 }}>Day Trade Rules — follow these or don't trade</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16 }}>
+              {[
+                ["Entry", C.green, ["Only trade GREEN (4-5/5) signals", "Enter at the OR breakout, not before", "No trades before 9:45am (let the range set)"]],
+                ["Risk", C.accent, ["Stop = below VWAP — always set", "Target = 1.5R, take it, don't get greedy", "Size smaller than swing — more trades/day"]],
+                ["Exit", C.red, ["Every position flattens by 3:55pm ET — automatic", "2 losses = stop for the day", "No revenge trades"]],
+              ].map(([h, col, items]) => (
+                <div key={h}>
+                  <div style={{ ...sectionLabel, color: col, marginBottom: 6 }}>{h}</div>
+                  {items.map(t => <div key={t} style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, padding: "3px 0", display: "flex", gap: 6 }}><span style={{ color: col }}>·</span>{t}</div>)}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {dtState === "idle" && <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim, padding: "30px 0", textAlign: "center" }}>Scanning your watchlist's intraday signals…</div>}
+          {dtState === "err" && <div style={{ fontFamily: MONO, fontSize: 13, color: C.red, padding: "20px 0", textAlign: "center" }}>⚠ Scan failed — try again.</div>}
+          {dtState === "none" && <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim, padding: "20px 0", textAlign: "center" }}>No intraday data (market likely closed). Come back during regular hours.</div>}
+
+          {dtGreen.length > 0 && (
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ ...sectionLabel, color: C.green, marginBottom: 10 }}>Ready to Trade ({dtGreen.length})</div>
+              {dtGreen.map(r => <DayTradeRow key={r.symbol} r={r} C={C} MONO={MONO} SANS={SANS} num={num} badge={badge} neutralCard={neutralCard} accentCard={accentCard} sectionLabel={sectionLabel} sigCol={sigCol} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />)}
+            </div>
+          )}
+          {dtYellow.length > 0 && (
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ ...sectionLabel, color: C.amber, marginBottom: 10 }}>Watch ({dtYellow.length})</div>
+              {dtYellow.map(r => <DayTradeRow key={r.symbol} r={r} C={C} MONO={MONO} SANS={SANS} num={num} badge={badge} neutralCard={neutralCard} accentCard={accentCard} sectionLabel={sectionLabel} sigCol={sigCol} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />)}
+            </div>
+          )}
+          {dtRed.length > 0 && (
+            <div style={{ padding: "10px 14px", ...neutralCard }}>
+              <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, ...num }}>
+                <span style={{ color: C.red, fontWeight: 700 }}>Skip today</span> ({dtRed.length}): {dtRed.map(r => r.symbol).join(" · ")}
+              </div>
+            </div>
+          )}
+          {dtResults.length === 0 && dtState === "ok" && (
+            <div style={{ textAlign: "center", padding: "48px 0", fontFamily: MONO, fontSize: 14, color: C.textDim }}>No watchlist symbols returned intraday data.</div>
+          )}
+        </>
+      ) : (
+      <>
       {/* Market regime score (0-100 across SPY/QQQ/VIX/breadth/trend) */}
       <div style={{ padding: "11px 16px", marginBottom: 16, ...accentCard(regime.color),
         display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
@@ -1145,6 +1423,8 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
         <div style={{ textAlign: "center", padding: "48px 0", fontFamily: MONO, fontSize: 14, color: C.textDim }}>
           Add stocks to your watchlist to see Green Light scores
         </div>
+      )}
+      </>
       )}
 
       {/* Trade Journal — was embedded live here as a second real mount of
