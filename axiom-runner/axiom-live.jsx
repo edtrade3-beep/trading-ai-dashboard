@@ -45,6 +45,7 @@ import CommandPaletteModal from "./components/CommandPaletteModal.jsx";
 import IstighfarWidget, { ISTIGHFAR_BAR_H } from "./components/IstighfarWidget.jsx";
 import CompactMarketMode from "./components/CompactMarketMode.jsx";
 import RealityCheckWidget from "./components/RealityCheckWidget.jsx";
+import ChartSearchWidget from "./components/ChartSearchWidget.jsx";
 import Sidebar, { SIDEBAR_ITEMS, SIDEBAR_COLLAPSED_WIDTH } from "./components/Sidebar.jsx";
 import StatusBar, { STATUS_BAR_H } from "./components/StatusBar.jsx";
 import TerminalChartArea from "./components/TerminalChartArea.jsx";
@@ -5711,6 +5712,7 @@ export default function App() {
       <TradingCopilot C={C} MONO={MONO} SANS={SANS} macroData={macroData} watchlistSymbols={watchlistSymbols} statusBarH={statusBarH} fabFading={fabFading} isMobile={isMobile} />
       <QuickTradePanel C={C} MONO={MONO} SANS={SANS} terminalSymbol={terminalSymbol} setTerminalSymbol={setTerminalSymbol} macroData={macroData} scanResults={scanResults} statusBarH={statusBarH} fabFading={fabFading} isMobile={isMobile} />
       <RealityCheckWidget statusBarH={statusBarH} fabFading={fabFading} isMobile={isMobile} />
+      <ChartSearchWidget setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} statusBarH={statusBarH} fabFading={fabFading} isMobile={isMobile} />
       <AiTradeSessionPanel C={C} MONO={MONO} SANS={SANS} macroData={macroData} newsData={newsData} statusBarH={statusBarH} fabFading={fabFading} isMobile={isMobile} activeTab={activeTab} setActiveTab={setActiveTab} topOffset={ISTIGHFAR_BAR_H + topBarH} />
       {/* Google Fonts — Inter (UI) + JetBrains Mono (data/numbers) */}
       <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -5762,7 +5764,7 @@ export default function App() {
              them. 44px matches the existing min-touch-target convention
              used elsewhere in this file (.mobile-nav-btn etc.) and cuts
              the covered footprint by roughly a fifth per button. */
-          .fab-copilot-btn, .fab-realitycheck-btn, .fab-checklist-btn { width: 44px !important; height: 44px !important; font-size: 18px !important; }
+          .fab-copilot-btn, .fab-realitycheck-btn, .fab-checklist-btn, .fab-chartsearch-btn { width: 44px !important; height: 44px !important; font-size: 18px !important; }
         `}</style>
       )}
 
