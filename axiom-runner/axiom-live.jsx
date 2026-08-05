@@ -5851,7 +5851,7 @@ export default function App() {
               src="/axiom-runner/assets/avatar.jpg"
               alt=""
               style={{
-                width: 36, height: 36, borderRadius: "50%",
+                width: isMobile ? 44 : 56, height: isMobile ? 44 : 56, borderRadius: "50%",
                 objectFit: "cover", objectPosition: "center 15%",
                 border: `2px solid ${C.accent}`,
                 flexShrink: 0,
