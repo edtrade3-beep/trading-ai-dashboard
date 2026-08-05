@@ -236,6 +236,29 @@ async function fetchMarketQuotesRaw(symbols, keys) {
 
 // --- News helpers ---
 
+// Real deterministic macro-importance keyword classifier — no paid AI call,
+// so it's cheap enough to run on every real headline on every ~30s refresh
+// cycle (2026-08-05, explicit user request: "important macro news comes
+// instant in running news in top as alert in yellow"). Matches the same
+// real-world macro vocabulary the app's own Fed Watch / economic-calendar
+// features already track (rate decisions, inflation prints, jobs data,
+// growth/recession, and other market-wide policy/macro events) — never a
+// fabricated "importance score", just a real keyword hit against the real
+// headline text.
+const MACRO_KEYWORDS = [
+  /\bfed(eral reserve)?\b/i, /\bfomc\b/i, /\bpowell\b/i, /rate (hike|cut|decision|pause)/i,
+  /interest rates?/i, /\binflation\b/i, /\bcpi\b/i, /\bppi\b/i, /\bpce\b/i,
+  /jobs report/i, /nonfarm payrolls?/i, /unemployment (rate|claims)/i, /\bjobless claims\b/i,
+  /\bgdp\b/i, /\brecession\b/i, /\btreasury\b/i, /\byield curve\b/i, /10-year yield/i,
+  /\btariffs?\b/i, /trade war/i, /debt ceiling/i, /government shutdown/i,
+  /\bsanctions\b/i, /\bopec\b/i, /oil embargo/i, /\bwar\b/i, /geopolitical/i,
+  /\bdollar index\b/i, /\bdxy\b/i, /\bcentral bank\b/i, /\becb\b/i, /\bboj\b/i,
+];
+function classifyMacroHeadline(headline) {
+  const text = String(headline || "");
+  return MACRO_KEYWORDS.some((re) => re.test(text));
+}
+
 async function fetchMarketNews(tickers, limit, keys) {
   if (keys.finnhub) {
     const rows = await Promise.all(tickers.map((ticker) => fetchFinnhubNews(ticker, keys.finnhub)));
@@ -2569,6 +2592,41 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
     const keys = resolveProviderKeys(searchParams);
     const payload = await fetchMarketNews(tickers, limit, keys);
     return writeJson(res, 200, payload);
+  }
+
+  // Real, important macro/economic headlines only — filtered from the same
+  // real news feed already powering /api/market/news, using SPY/QQQ/DIA
+  // (broad-market ETF tickers, so Finnhub/Polygon/Yahoo/Google-News all
+  // naturally surface Fed/CPI/jobs/macro-policy coverage for them, not just
+  // per-stock news) as the source and classifyMacroHeadline's real keyword
+  // match to keep only genuinely macro-relevant headlines (2026-08-05,
+  // explicit user request: "important macro news comes instant in running
+  // news in top as alert in yellow"). No fabricated "importance score" — a
+  // headline either contains real macro vocabulary or it doesn't.
+  if (pathname === "/api/market/macro-news") {
+    const limit = Math.max(1, Math.min(20, Number(searchParams.get("limit") || 8)));
+    const keys = resolveProviderKeys(searchParams);
+    const raw = await fetchMarketNews(["SPY", "QQQ", "DIA"], 40, keys);
+    // Cross-ticker dedupe — SPY/QQQ/DIA are 3 separate real per-ticker
+    // fetches, so the same real macro story legitimately appears under all
+    // three (fetchMarketNews only dedupes within one ticker's own results,
+    // by design, so sector-adjacent stories aren't lost — see its comment).
+    // Here we want exactly one copy per real story for the ticker strip.
+    const seen = new Set();
+    const macroOnly = (Array.isArray(raw) ? raw : [])
+      .filter((n) => classifyMacroHeadline(n?.title || n?.headline))
+      .filter((n) => {
+        const k = String(n.title || "").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 60);
+        if (!k || seen.has(k)) return false;
+        seen.add(k); return true;
+      })
+      .sort((a, b) => {
+        const ta = a.publishedAt ? Date.parse(a.publishedAt) : 0;
+        const tb = b.publishedAt ? Date.parse(b.publishedAt) : 0;
+        return tb - ta;
+      })
+      .slice(0, limit);
+    return writeJson(res, 200, macroOnly);
   }
 
   // Manual/on-demand trigger for the market-wide GO/WATCH auto-watchlist

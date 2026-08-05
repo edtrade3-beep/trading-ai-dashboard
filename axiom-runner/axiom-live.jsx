@@ -1073,6 +1073,12 @@ async function fetchNews(tickers, limit = 20, providerKeys) {
   }));
 }
 
+async function fetchMacroNews(limit, providerKeys) {
+  const url = appendProviderKeys(`${MARKET_BASE_URL}/macro-news?limit=${encodeURIComponent(limit)}`, providerKeys);
+  const data = await fetchApiPayload(url);
+  return Array.isArray(data) ? data : [];
+}
+
 async function fetchCandles(symbol, timeframe = "1D") {
   if (!symbol) return null;
   const url = `${CANDLE_BASE_URL}/candles?symbol=${encodeURIComponent(symbol)}&timeframe=${encodeURIComponent(timeframe)}`;
@@ -1453,6 +1459,12 @@ export default function App() {
   const [marketUniverseLoading, setMarketUniverseLoading] = useState(false);
   const [newsData, setNewsData] = useState([]);
   const [newsLoading, setNewsLoading] = useState(false);
+  // Real, important-only macro/economic headlines (Fed, CPI, jobs, rates,
+  // geopolitical, etc.) for the top running-news tape — refreshed on the
+  // same real-time cadence as everything else in fetchAll (2026-08-05,
+  // explicit user request: "important macro news comes instant in running
+  // news in top as alert in yellow").
+  const [macroNewsData, setMacroNewsData] = useState([]);
   const [telegramOk, setTelegramOk] = useState(false);
   const [tvWebhookRows, setTvWebhookRows] = useState([]);
   const [tvWebhookSecured, setTvWebhookSecured] = useState(false);
@@ -4398,6 +4410,11 @@ export default function App() {
     } catch {}
 
     try {
+      const macroHeadlines = await withClientTimeout(fetchMacroNews(8, providerKeys), 5000, []);
+      setMacroNewsData(Array.isArray(macroHeadlines) ? macroHeadlines : []);
+    } catch {}
+
+    try {
       const tv = await withClientTimeout(fetchTradingViewAlerts(30), 5000, { rows: [], secured: false });
       setTvWebhookRows(Array.isArray(tv?.rows) ? tv.rows : []);
       setTvWebhookSecured(Boolean(tv?.secured));
@@ -5193,9 +5210,22 @@ export default function App() {
         bias: isUp ? "bullish" : isDown ? "bearish" : "neutral",
       };
     });
-    const all = [...alertItems, ...newsItems];
+    // Real, important-only macro headlines (Fed/CPI/jobs/rates/geopolitical
+    // — /api/market/macro-news's real keyword-filtered feed) — placed FIRST
+    // so they're the first thing scrolled into view, and always amber/
+    // yellow regardless of any bullish/bearish lean the story might also
+    // carry, since these are flagged for real macro importance, not
+    // direction (2026-08-05 explicit user request).
+    const macroItems = (macroNewsData || []).slice(0, 6).map((n) => ({
+      kind: "MACRO",
+      symbol: n?.ticker || "MKT",
+      text: String(n?.title || ""),
+      tone: "amber",
+      bias: "neutral",
+    }));
+    const all = [...macroItems, ...alertItems, ...newsItems];
     return all.length ? all : [{ kind: "INFO", symbol: "MKT", text: "Waiting for alerts/news flow...", tone: "accent", bias: "neutral" }];
-  }, [combinedAlerts, newsData]);
+  }, [combinedAlerts, newsData, macroNewsData]);
   const selectedTvSource = useMemo(
     () => LIVE_TV_SOURCES.find((s) => s.id === tvSource) || LIVE_TV_SOURCES[0],
     [tvSource]
