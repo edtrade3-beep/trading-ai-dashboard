@@ -259,6 +259,39 @@ function classifyMacroHeadline(headline) {
   return MACRO_KEYWORDS.some((re) => re.test(text));
 }
 
+// Real named US economic indicators — the actual scheduled data releases
+// (Nonfarm Payrolls, CPI, PCE, PMI, ADP Employment, etc.), not just news
+// articles that happen to mention them (2026-08-05, explicit user
+// follow-up: "i mean headline news like job data cpi data pce pmi adp
+// employment like that" — a real-numbers data-print feed, not a headline
+// keyword match). Shared by /api/market/econ-events (upcoming calendar,
+// unchanged behavior) and /api/market/macro-news (real just-released
+// prints, actual != null).
+const ECON_EVENT_TAGS = [
+  { match: /Core CPI/i, tag: "CPI" }, { match: /\bCPI\b/i, tag: "CPI" },
+  { match: /\bPCE\b/i, tag: "PCE" }, { match: /Federal Funds|FOMC|Interest Rate Decision/i, tag: "FED" },
+  { match: /Nonfarm|Non-Farm Payrolls|Unemployment Rate|Initial Jobless Claims/i, tag: "JOBS" },
+  { match: /\bADP\b/i, tag: "ADP" },
+  { match: /\bPMI\b|ISM Manufacturing|ISM Services|ISM Non-Manufacturing/i, tag: "PMI" },
+  { match: /\bPPI\b/i, tag: "PPI" },
+  { match: /Retail Sales/i, tag: "RETAIL" }, { match: /\bGDP\b/i, tag: "GDP" },
+];
+async function fetchEconCalendar(fmpKey, from, to) {
+  const url = `https://financialmodelingprep.com/api/v3/economic_calendar?from=${from}&to=${to}&apikey=${encodeURIComponent(fmpKey)}`;
+  return withTimeout(fetch(url).then((r) => (r.ok ? r.json() : [])), 12000, []);
+}
+function classifyEconEvents(raw) {
+  return (Array.isArray(raw) ? raw : [])
+    .filter((e) => e.country === "US" || e.country === "USD" || e.currency === "USD")
+    .map((e) => {
+      const k = ECON_EVENT_TAGS.find((x) => x.match.test(e.event || ""));
+      if (!k) return null;
+      return { tag: k.tag, event: e.event, date: e.date, impact: e.impact || "",
+        estimate: e.estimate, previous: e.previous, actual: e.actual };
+    })
+    .filter(Boolean);
+}
+
 async function fetchMarketNews(tickers, limit, keys) {
   if (keys.finnhub) {
     const rows = await Promise.all(tickers.map((ticker) => fetchFinnhubNews(ticker, keys.finnhub)));
@@ -2606,14 +2639,43 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
   if (pathname === "/api/market/macro-news") {
     const limit = Math.max(1, Math.min(20, Number(searchParams.get("limit") || 8)));
     const keys = resolveProviderKeys(searchParams);
+
+    // Real just-released economic data prints (Nonfarm Payrolls, CPI, PCE,
+    // PMI, ADP Employment, etc.) — actual != null means the real number has
+    // been published, not just scheduled. This is the primary real signal
+    // this endpoint exists for (2026-08-05 user follow-up: "headline news
+    // like job data cpi data pce pmi adp employment"). A 5-day trailing
+    // window covers weekly releases (jobless claims) through monthly ones
+    // (NFP/CPI/PMI) without going stale. Silently empty (not an error) when
+    // no FMP key is configured — the headline-keyword layer below still
+    // works with just Finnhub/Polygon/free sources.
+    let releaseItems = [];
+    if (keys.fmp) {
+      try {
+        const now = new Date();
+        const from = new Date(now.getTime() - 5 * 86400000).toISOString().slice(0, 10);
+        const to = now.toISOString().slice(0, 10);
+        const rawEvents = await fetchEconCalendar(keys.fmp, from, to);
+        releaseItems = classifyEconEvents(rawEvents)
+          .filter((e) => e.actual != null && e.actual !== "")
+          .map((e) => ({
+            title: `${e.event}: ${e.actual}${e.estimate != null ? ` (est ${e.estimate})` : ""}${e.previous != null ? ` (prev ${e.previous})` : ""}`,
+            ticker: e.tag,
+            source: "Economic Calendar",
+            publishedAt: e.date,
+            isRelease: true,
+          }));
+      } catch { /* real-data release feed is best-effort, never blocks the headline layer below */ }
+    }
+
     const raw = await fetchMarketNews(["SPY", "QQQ", "DIA"], 40, keys);
     // Cross-ticker dedupe — SPY/QQQ/DIA are 3 separate real per-ticker
     // fetches, so the same real macro story legitimately appears under all
     // three (fetchMarketNews only dedupes within one ticker's own results,
     // by design, so sector-adjacent stories aren't lost — see its comment).
     // Here we want exactly one copy per real story for the ticker strip.
-    const seen = new Set();
-    const macroOnly = (Array.isArray(raw) ? raw : [])
+    const seen = new Set(releaseItems.map((n) => String(n.title).toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 60)));
+    const headlineItems = (Array.isArray(raw) ? raw : [])
       .filter((n) => classifyMacroHeadline(n?.title || n?.headline))
       .filter((n) => {
         const k = String(n.title || "").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 60);
@@ -2624,9 +2686,11 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
         const ta = a.publishedAt ? Date.parse(a.publishedAt) : 0;
         const tb = b.publishedAt ? Date.parse(b.publishedAt) : 0;
         return tb - ta;
-      })
-      .slice(0, limit);
-    return writeJson(res, 200, macroOnly);
+      });
+    // Real data releases first — the specific ask — then real headline
+    // coverage as secondary context, combined length capped to limit.
+    const merged = [...releaseItems, ...headlineItems].slice(0, limit);
+    return writeJson(res, 200, merged);
   }
 
   // Manual/on-demand trigger for the market-wide GO/WATCH auto-watchlist
@@ -4822,25 +4886,9 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
       const now = new Date();
       const from = now.toISOString().slice(0, 10);
       const to = new Date(now.getTime() + 21 * 86400000).toISOString().slice(0, 10);
-      const url = `https://financialmodelingprep.com/api/v3/economic_calendar?from=${from}&to=${to}&apikey=${encodeURIComponent(fmpKey)}`;
-      const raw = await withTimeout(fetch(url).then(r => r.ok ? r.json() : []), 12000, []);
-      // Keep only the big US market-movers
-      const KEY = [
-        { match: /CPI/i, tag: "CPI" }, { match: /Core CPI/i, tag: "CPI" },
-        { match: /PCE/i, tag: "PCE" }, { match: /Federal Funds|FOMC|Interest Rate Decision/i, tag: "FED" },
-        { match: /Nonfarm|Non-Farm|Unemployment Rate/i, tag: "JOBS" }, { match: /PPI/i, tag: "PPI" },
-        { match: /Retail Sales/i, tag: "RETAIL" }, { match: /GDP/i, tag: "GDP" },
-      ];
-      const events = (Array.isArray(raw) ? raw : [])
-        .filter(e => (e.country === "US" || e.country === "USD" || e.currency === "USD"))
-        .map(e => {
-          const k = KEY.find(x => x.match.test(e.event || ""));
-          if (!k) return null;
-          return { tag: k.tag, event: e.event, date: e.date, impact: e.impact || "",
-            estimate: e.estimate, previous: e.previous, actual: e.actual };
-        })
-        .filter(Boolean)
-        .filter(e => e.impact === "High" || ["CPI","PCE","FED","JOBS"].includes(e.tag))
+      const raw = await fetchEconCalendar(fmpKey, from, to);
+      const events = classifyEconEvents(raw)
+        .filter(e => e.impact === "High" || ["CPI", "PCE", "FED", "JOBS"].includes(e.tag))
         .slice(0, 8);
       return writeJson(res, 200, { ok: true, events });
     } catch (err) {
