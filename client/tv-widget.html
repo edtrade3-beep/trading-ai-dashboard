@@ -31,6 +31,14 @@
       // (symbol-info, technical-analysis, financials, timeline) were all
       // silently duplicating the advanced-chart panel.
       if (w === "advanced-chart") {
+        // Every entry MUST be object-shaped ({id: ...}), never a bare
+        // string — tv.js's studies array silently breaks (treats the whole
+        // array as one malformed studyId, "Cannot get study", nothing
+        // renders past the first entry) when object-form and string-form
+        // entries are mixed in the same array. Real bug found 2026-08-06
+        // adding ma50/150/200 (object form, for the length input) alongside
+        // the pre-existing bb/vwap/volume/rsi/macd (bare strings) — BB and
+        // Volume silently vanished. Fix: object-wrap everything.
         function mapStudy(name) {
           if (name === "ema9")  return { id: "MAExp@tv-basicstudies", inputs: { length: 9 } };
           if (name === "ema21") return { id: "MAExp@tv-basicstudies", inputs: { length: 21 } };
@@ -38,16 +46,44 @@
           if (name === "ma50")  return { id: "MASimple@tv-basicstudies", inputs: { length: 50 } };
           if (name === "ma150") return { id: "MASimple@tv-basicstudies", inputs: { length: 150 } };
           if (name === "ma200") return { id: "MASimple@tv-basicstudies", inputs: { length: 200 } };
-          if (name === "bb")    return "BB@tv-basicstudies";
-          if (name === "vwap")  return "VWAP@tv-basicstudies";
-          if (name === "volume") return "Volume@tv-basicstudies";
-          if (name === "rsi")   return "RSI@tv-basicstudies";
-          if (name === "macd")  return "MACD@tv-basicstudies";
-          return name;   // pass through raw study ids
+          if (name === "bb")    return { id: "BB@tv-basicstudies" };
+          if (name === "vwap")  return { id: "VWAP@tv-basicstudies" };
+          if (name === "volume") return { id: "Volume@tv-basicstudies" };
+          if (name === "rsi")   return { id: "RSI@tv-basicstudies" };
+          if (name === "macd")  return { id: "MACD@tv-basicstudies" };
+          return { id: name };   // pass through raw study ids
         }
         var studies = st.length
           ? st.map(mapStudy)
-          : ["MASimple@tv-basicstudies", "Volume@tv-basicstudies"];
+          : [{ id: "MASimple@tv-basicstudies" }, { id: "Volume@tv-basicstudies" }];
+        // Distinct colors (2026-08-06, "use different colors for emas" —
+        // every added MA/EMA/BB line rendered in the same near-identical
+        // TradingView default blue, hard to tell apart). Real, confirmed-
+        // working mechanism: TradingView's free embed widget only supports
+        // per-STUDY-TYPE color overrides via the top-level studies_overrides
+        // config (keyed "<study display name>.<plot name>.color"), not
+        // per-instance — confirmed by live testing every documented and
+        // undocumented key format; per-instance `overrides` on a studies[]
+        // array item is silently ignored by this widget. That means all
+        // three MASimple instances (MA50/150/200) can only share ONE color
+        // as a group (a real platform limit, not a bug here) — but that
+        // group can be made distinct from Bollinger Bands, which is the
+        // real, achievable improvement. ema9/21/50 (used elsewhere for a
+        // genuinely meaningful 9-vs-21 crossover read, e.g. DayTradeTab)
+        // are deliberately left uncolored — forcing them into the same
+        // shared "Moving Average Exponential" color would erase that real
+        // distinction, a regression nobody asked for.
+        var accent = theme === "dark" ? "#5b9cf6" : "#2563eb";
+        var studiesOverrides = {};
+        if (st.indexOf("ma50") !== -1 || st.indexOf("ma150") !== -1 || st.indexOf("ma200") !== -1) {
+          studiesOverrides["moving average.MA.color"] = accent;
+          studiesOverrides["moving average.MA.linewidth"] = 2;
+        }
+        if (st.indexOf("bb") !== -1) {
+          studiesOverrides["bollinger bands.Basis.color"] = "#4ea86e";
+          studiesOverrides["bollinger bands.Upper.color"] = "#4ea86e";
+          studiesOverrides["bollinger bands.Lower.color"] = "#4ea86e";
+        }
         var tvjs = document.createElement("script");
         tvjs.src = "https://s3.tradingview.com/tv.js";
         tvjs.onload = function () {
@@ -64,6 +100,7 @@
             allow_symbol_change: true,
             withdateranges: true,
             studies: studies,
+            studies_overrides: studiesOverrides,
             backgroundColor: theme === "dark" ? "#0f1318" : "#ffffff"
           });
         };
