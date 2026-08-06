@@ -141,6 +141,14 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   // which stays expanded) — only the extra score cards collapse.
   const [showSupportingDetail, setShowSupportingDetail] = useState(false);
   const [chartTf, setChartTf] = useState("1d"); // chart candle granularity, 5m → 1wk
+  // Trend & Base Rating overlay visibility (2026-08-06, explicit user
+  // request "make trend base rating hidable") — persisted so a user who
+  // doesn't want it stays hidden across symbols/sessions, not just a
+  // per-view collapse. Default on (matches existing behavior).
+  const [showTrendRating, setShowTrendRating] = useState(() => { try { return localStorage.getItem("chart_trend_rating_visible") !== "off"; } catch { return true; } });
+  const toggleTrendRating = () => {
+    setShowTrendRating(v => { const nv = !v; try { localStorage.setItem("chart_trend_rating_visible", nv ? "on" : "off"); } catch {} return nv; });
+  };
   // Live TradingView embed (2026-08-05, "still dont like the chart... make
   // it live and stretched") — same real widget/theme-detection pattern
   // already proven in DayTradeTab/MultiTfTab/TrendTemplateTab/
@@ -1318,6 +1326,12 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                   {lbl}
                 </button>
               ))}
+              <button onClick={toggleTrendRating} title={showTrendRating ? "Hide the Trend & Base Rating overlay on the chart" : "Show the Trend & Base Rating overlay on the chart"}
+                style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "5px 12px", borderRadius: 7, cursor: "pointer",
+                  border: `1px solid ${showTrendRating ? C.accent : C.border}`, background: showTrendRating ? `${C.accent}18` : "transparent",
+                  color: showTrendRating ? C.accent : C.textDim }}>
+                {showTrendRating ? "📊 Rating: On" : "📊 Rating: Off"}
+              </button>
             </div>
             {/* SECTION 3 — AI Summary (institutional redesign, 2026-07-29).
                 Same real, free, deterministic BullBearPanel — splits the
@@ -1373,7 +1387,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                         follow-up, real user report + screenshot: the always-
                         open card was opaque and large enough to hide real
                         candles/price behind it) — tap to expand. */}
-                    <TrendRatingOverlay chart={chart} C={C} MONO={MONO} SANS={SANS} isMobile={isMobile} />
+                    {showTrendRating && <TrendRatingOverlay chart={chart} C={C} MONO={MONO} SANS={SANS} isMobile={isMobile} />}
                   </>
                 : <div style={{ height: 720, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: 13, color: C.textDim, border: `1px solid ${C.border}`, borderRadius: 12 }}>Select a mover to load the chart…</div>}
             </div>
