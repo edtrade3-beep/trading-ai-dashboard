@@ -1,5 +1,79 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import SmartMoneyDecisionPanel from "./SmartMoneyDecisionPanel.jsx";
+
+// Trend & Base Rating overlay — collapsed to a small pill by default
+// (2026-08-05, real user report with a screenshot: the full card was
+// opaque and large enough to hide real candles/price behind it,
+// especially on mobile). Tap to expand the full rating + PIVOT/STOP/T1/
+// T2/T3 detail; collapses back to the pill on a second tap. Same real
+// formula as before (chart.score/chart.setup fields), just gated behind
+// a toggle instead of always-open.
+function TrendRatingOverlay({ chart, C, MONO, SANS, isMobile }) {
+  const [open, setOpen] = useState(false);
+  const passC = Number(chart.score) || 0;
+  const vcpS = Number(chart?.setup?.report?.score) || 0;
+  const baseDepth = Number(chart?.setup?.vcp?.baseDepth);
+  const depthPenalty = Number.isFinite(baseDepth) && baseDepth > 25 ? Math.min(30, Math.round((baseDepth - 25) * 1.2)) : 0;
+  const rating = Math.max(0, Math.min(100, Math.round((passC / 8) * 50 + (vcpS / 100) * 50) - depthPenalty));
+  const rColor = rating >= 80 ? "#22d47e" : rating >= 60 ? "#d6a312" : rating >= 40 ? "#f59e0b" : "#ef4444";
+  const rWord = rating >= 80 ? "STRONG" : rating >= 60 ? "GOOD" : rating >= 40 ? "FAIR" : "WEAK";
+  const su = chart?.setup;
+  const aiTarget = su ? (su.contractionLow && su.entry > su.contractionLow
+    ? Math.round((su.entry + (su.entry - su.contractionLow)) * 100) / 100
+    : su.target2) : null;
+  const price = Number(chart.livePrice) || Number(chart.price) || null;
+  const upside = aiTarget && price ? Math.round(((aiTarget - price) / price) * 100) : null;
+  const verdict = su && su.verdict;
+  const vColor = verdict === "GO" ? "#22d47e" : verdict === "WAIT" ? "#d6a312" : "#ef4444";
+  const t1 = su && su.actionable ? Math.round((su.entry + (su.entry - su.stop)) * 100) / 100 : null;
+  const levels = su && su.actionable ? [
+    ["T3", su.target3, "#0d9465"], ["T2", su.target2, "#16a34a"], ["T1", t1, "#5ab552"],
+    ["PIVOT", su.entry, C.accent], ["STOP", su.stop, "#ef4444"],
+  ].filter(([, v]) => Number.isFinite(Number(v))) : [];
+
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} title="Show Trend & Base Rating + trade levels"
+        style={{ position: "absolute", top: 52, left: 12, zIndex: 5, cursor: "pointer",
+          background: C.card || "#fff", border: `1px solid ${rColor}`, borderRadius: 999, padding: "4px 10px",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.15)", display: "flex", alignItems: "center", gap: 6 }}>
+        <span style={{ fontFamily: SANS, fontSize: 15, fontWeight: 900, color: rColor, lineHeight: 1 }}>{rating}</span>
+        <span style={{ fontFamily: SANS, fontSize: 10.5, fontWeight: 800, color: rColor }}>{rWord}</span>
+        <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>▾</span>
+      </button>
+    );
+  }
+  return (
+    <div style={{ position: "absolute", top: 52, left: 12, zIndex: 5,
+      background: C.card || "#fff", border: `1px solid ${rColor}`, borderRadius: 12, padding: "8px 14px",
+      boxShadow: "0 2px 10px rgba(0,0,0,0.18)", minWidth: 132, maxWidth: isMobile ? 200 : undefined }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ fontFamily: SANS, fontSize: 9, fontWeight: 700, color: C.textDim, letterSpacing: 1, flex: 1 }}>TREND & BASE RATING</span>
+        <button onClick={() => setOpen(false)} title="Collapse"
+          style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, background: "transparent", border: "none", cursor: "pointer", padding: 0, lineHeight: 1 }}>✕</button>
+      </div>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+        <span style={{ fontFamily: SANS, fontSize: 30, fontWeight: 900, color: rColor, lineHeight: 1 }}>{rating}</span>
+        <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 800, color: rColor, letterSpacing: 0.5 }}>{rWord}</span>
+      </div>
+      {verdict && (
+        <div style={{ display: "inline-block", marginTop: 6, fontFamily: MONO, fontSize: 10, fontWeight: 800, color: "#fff", background: vColor, borderRadius: 5, padding: "2px 8px" }}>
+          {verdict === "GO" ? "🟢 GO" : verdict === "WAIT" ? "🟡 WAIT" : "🔴 AVOID"}
+        </div>
+      )}
+      {upside != null && <div style={{ fontFamily: MONO, fontSize: 10, color: "#f59e0b", marginTop: 5 }}>🎯 {upside > 0 ? "+" : ""}{upside}% to target</div>}
+      {levels.length > 0 && (
+        <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${C.border}` }}>
+          {levels.map(([label, val, col]) => (
+            <div key={label} style={{ display: "flex", justifyContent: "space-between", gap: 14, fontFamily: MONO, fontSize: 10.5, fontWeight: 700, color: "#fff", background: col, borderRadius: 4, padding: "2px 7px", marginBottom: 3 }}>
+              <span>{label}</span><span>${Number(val).toFixed(2)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 import CompanyOverviewCard from "./CompanyOverviewCard.jsx";
 import TrendSetupPanel from "./TrendSetupPanel.jsx";
 import SmartScanPanel from "./SmartScanPanel.jsx";
@@ -1295,57 +1369,11 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                         rating + PIVOT/STOP/T1/T2/T3 numbers TradingView has
                         no way to know, using the exact same formula
                         TrendChart.jsx used (never re-derived differently).
-                        Positioned below TradingView's own top toolbar
-                        (~44px) so it doesn't cover the symbol/interval
-                        controls. */}
-                    {(() => {
-                      const passC = Number(chart.score) || 0;
-                      const vcpS = Number(chart?.setup?.report?.score) || 0;
-                      const baseDepth = Number(chart?.setup?.vcp?.baseDepth);
-                      const depthPenalty = Number.isFinite(baseDepth) && baseDepth > 25 ? Math.min(30, Math.round((baseDepth - 25) * 1.2)) : 0;
-                      const rating = Math.max(0, Math.min(100, Math.round((passC / 8) * 50 + (vcpS / 100) * 50) - depthPenalty));
-                      const rColor = rating >= 80 ? "#22d47e" : rating >= 60 ? "#d6a312" : rating >= 40 ? "#f59e0b" : "#ef4444";
-                      const rWord = rating >= 80 ? "STRONG" : rating >= 60 ? "GOOD" : rating >= 40 ? "FAIR" : "WEAK";
-                      const su = chart?.setup;
-                      const aiTarget = su ? (su.contractionLow && su.entry > su.contractionLow
-                        ? Math.round((su.entry + (su.entry - su.contractionLow)) * 100) / 100
-                        : su.target2) : null;
-                      const price = Number(chart.livePrice) || Number(chart.price) || null;
-                      const upside = aiTarget && price ? Math.round(((aiTarget - price) / price) * 100) : null;
-                      const verdict = su && su.verdict;
-                      const vColor = verdict === "GO" ? "#22d47e" : verdict === "WAIT" ? "#d6a312" : "#ef4444";
-                      const t1 = su && su.actionable ? Math.round((su.entry + (su.entry - su.stop)) * 100) / 100 : null;
-                      const levels = su && su.actionable ? [
-                        ["T3", su.target3, "#0d9465"], ["T2", su.target2, "#16a34a"], ["T1", t1, "#5ab552"],
-                        ["PIVOT", su.entry, C.accent], ["STOP", su.stop, "#ef4444"],
-                      ].filter(([, v]) => Number.isFinite(Number(v))) : [];
-                      return (
-                        <div style={{ position: "absolute", top: 52, left: 12, pointerEvents: "none", zIndex: 5,
-                          background: C.card || "#fff", border: `1px solid ${rColor}`, borderRadius: 12, padding: "8px 14px",
-                          boxShadow: "0 2px 10px rgba(0,0,0,0.18)", minWidth: 132 }}>
-                          <div style={{ fontFamily: SANS, fontSize: 9, fontWeight: 700, color: C.textDim, letterSpacing: 1 }}>TREND & BASE RATING</div>
-                          <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-                            <span style={{ fontFamily: SANS, fontSize: 30, fontWeight: 900, color: rColor, lineHeight: 1 }}>{rating}</span>
-                            <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 800, color: rColor, letterSpacing: 0.5 }}>{rWord}</span>
-                          </div>
-                          {verdict && (
-                            <div style={{ display: "inline-block", marginTop: 6, fontFamily: MONO, fontSize: 10, fontWeight: 800, color: "#fff", background: vColor, borderRadius: 5, padding: "2px 8px" }}>
-                              {verdict === "GO" ? "🟢 GO" : verdict === "WAIT" ? "🟡 WAIT" : "🔴 AVOID"}
-                            </div>
-                          )}
-                          {upside != null && <div style={{ fontFamily: MONO, fontSize: 10, color: "#f59e0b", marginTop: 5 }}>🎯 {upside > 0 ? "+" : ""}{upside}% to target</div>}
-                          {levels.length > 0 && (
-                            <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${C.border}` }}>
-                              {levels.map(([label, val, col]) => (
-                                <div key={label} style={{ display: "flex", justifyContent: "space-between", gap: 14, fontFamily: MONO, fontSize: 10.5, fontWeight: 700, color: "#fff", background: col, borderRadius: 4, padding: "2px 7px", marginBottom: 3 }}>
-                                  <span>{label}</span><span>${Number(val).toFixed(2)}</span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })()}
+                        Collapsed to a small pill by default (2026-08-05
+                        follow-up, real user report + screenshot: the always-
+                        open card was opaque and large enough to hide real
+                        candles/price behind it) — tap to expand. */}
+                    <TrendRatingOverlay chart={chart} C={C} MONO={MONO} SANS={SANS} isMobile={isMobile} />
                   </>
                 : <div style={{ height: 720, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: 13, color: C.textDim, border: `1px solid ${C.border}`, borderRadius: 12 }}>Select a mover to load the chart…</div>}
             </div>
