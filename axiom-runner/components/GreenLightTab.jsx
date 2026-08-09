@@ -564,15 +564,21 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
             its place in Ready to Trade. The checklist itself (r.passed/
             r.checks) is untouched and still shown below either way. */}
         <div style={{ textAlign: "center", minWidth: 64 }}>
-          {/* Label unified to the shared AI_ACTIONS vocabulary
-              (institutional redesign Phase 7, 2026-07-30) — same real
-              GREEN/YELLOW/RED signal drives the color (sigCol/sigBg/sigIcon,
-              untouched), only the displayed word changed. */}
+          {/* No longer borrows the AI_ACTIONS BUY/WAIT/AVOID vocabulary
+              here (2026-08-09, decision-clarity audit) — this badge is the
+              raw 5-point checklist pass rate (r.signal), a real but
+              different, looser read than the AI REVIEW verdict below
+              (r.qualifiesAPlus — the same gate AutoPilotEngine.jsx's real
+              auto-buy logic checks whenever A+ Mode is on, the default).
+              The two could and did disagree on the same row while both
+              used the identical BUY/WAIT/AVOID words — genuinely
+              confusing, not just visually redundant. "CHECKLIST" plus the
+              real pass count says exactly what this number is instead. */}
           {r.altSetup && r.signal !== "GREEN" ? (
             <div title={r.altSetup.reason} style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 800, color: "#6d5dd3" }}>ALT SETUP</div>
           ) : (
-            <div style={{ fontFamily: MONO, fontSize: 11.5, fontWeight: 800, color: sigCol(r.signal) }}>
-              {r.signal === "GREEN" ? AI_ACTIONS.BUY.label : r.signal === "YELLOW" ? AI_ACTIONS.WAIT.label : AI_ACTIONS.AVOID.label}
+            <div title="Raw 5-point checklist pass rate — see AI REVIEW below for the actual auto-trade call" style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 800, color: sigCol(r.signal), letterSpacing: 0.3 }}>
+              CHECKLIST
             </div>
           )}
           <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, ...num }}>{r.passed}/5</div>

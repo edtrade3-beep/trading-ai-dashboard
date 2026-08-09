@@ -406,7 +406,15 @@ export default function MyTradesTab({ C, MONO, SANS, watchlistData }) {
           </div>
           <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 3 }}>
             {autoPilot
-              ? `Buying the best ${autoThreshold === 5 ? "5/5" : "4/5+"} setups (up to ${maxPos}), auto-exiting via ${exitMode === "trail" ? "trailing stop" : exitMode === "trend" ? "trend turn" : "price targets"}${broker === "alpaca" ? ", through Alpaca paper" : ""}. Runs in the background on every tab — hands-off.`
+              // Was always describing the basic-threshold rule regardless
+              // of A+ Mode (2026-08-09, decision-clarity audit) — a real
+              // mismatch, not just a wording nit: AutoPilotEngine.jsx's own
+              // buy gate ignores autoThreshold entirely and checks
+              // qualifiesAPlus instead whenever A+ Mode is on (the
+              // default), so this banner was describing a rule that wasn't
+              // the one actually running. Branches on the same aPlusOn
+              // flag the engine reads.
+              ? `Buying ${aPlusOn ? "A+ Institutional setups only, sized by confidence" : `the best ${autoThreshold === 5 ? "5/5" : "4/5+"} setups`} (up to ${maxPos}), auto-exiting via ${exitMode === "trail" ? "trailing stop" : exitMode === "trend" ? "trend turn" : "price targets"}${broker === "alpaca" ? ", through Alpaca paper" : ""}. Runs in the background on every tab — hands-off.`
               : "Turn on to let the system auto-buy and auto-exit paper trades for you, 100% hands-free."}
           </div>
           {autoPilot && (() => {
