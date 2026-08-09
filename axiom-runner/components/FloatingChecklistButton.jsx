@@ -27,14 +27,14 @@ export default function FloatingChecklistButton({ C, checklistItems, setActiveTa
   return (
     <div style={{ position: "fixed", bottom: (isMobile ? 10 : 82) + statusBarH, right: isMobile ? 110 : 18, zIndex: 8000 }}>
       <button
-        className="fab-checklist-btn"
+        className={`fab-checklist-btn${!isMobile ? " fab-peek" : ""}`}
         onClick={() => setActiveTab("tools")}
         style={{ width: isMobile ? 42 : 52, height: isMobile ? 42 : 52, borderRadius: "50%", border: "none", cursor: "pointer",
           background: allDone ? C.green : done > 0 ? C.amber : C.red,
           boxShadow: `0 4px 18px ${allDone ? C.green : done > 0 ? C.amber : C.red}66`,
           display: "flex", alignItems: "center", justifyContent: "center",
           fontSize: isMobile ? 17 : 20, transition: "all 0.2s, opacity 0.2s",
-          opacity: fabFading ? 0 : 1, pointerEvents: fabFading ? "none" : "auto" }}>
+          opacity: fabFading ? 0 : (isMobile ? 1 : undefined), pointerEvents: fabFading ? "none" : "auto" }}>
         ✅
       </button>
     </div>

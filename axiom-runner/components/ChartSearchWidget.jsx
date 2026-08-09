@@ -72,7 +72,7 @@ export default function ChartSearchWidget({ setActiveTab, setTerminalSymbol, sta
       )}
 
       <button
-        className="fab-chartsearch-btn"
+        className={`fab-chartsearch-btn${!isMobile && !open ? " fab-peek" : ""}`}
         onClick={() => setOpen((v) => !v)}
         aria-label={open ? "Close Quick Chart Search" : "Open Quick Chart Search"}
         title="Quick Chart Search — jump straight to a symbol's chart"
@@ -81,7 +81,7 @@ export default function ChartSearchWidget({ setActiveTab, setTerminalSymbol, sta
           background: C.bg, border: `2px solid ${C.accent}`,
           boxShadow: "0 8px 24px rgba(0,0,0,0.45)",
           display: "flex", alignItems: "center", justifyContent: "center", fontSize: isMobile ? 18 : 22,
-          opacity: fabFading && !open ? 0 : 1, pointerEvents: fabFading && !open ? "none" : "auto", transition: "opacity 0.2s",
+          opacity: fabFading && !open ? 0 : (isMobile || open ? 1 : undefined), pointerEvents: fabFading && !open ? "none" : "auto", transition: "opacity 0.2s",
         }}
       >
         {open ? <span style={{ color: C.text, fontSize: isMobile ? 16 : 20 }}>×</span> : "🔎"}

@@ -5795,6 +5795,21 @@ export default function App() {
         ::-webkit-scrollbar-thumb { background: rgba(128,160,200,0.28); border-radius: 99px; }
         ::-webkit-scrollbar-thumb:hover { background: rgba(128,160,200,0.50); }
         * { scrollbar-width: thin; scrollbar-color: rgba(128,160,200,0.28) transparent; }
+        /* fab-peek (2026-08-09) — the 6 floating action buttons
+           (QuickTrade/AiTradeSession/TradingCopilot/RealityCheck/
+           ChartSearch/FloatingChecklist) are position:fixed to a viewport
+           edge, so on any sufficiently wide/dense page (a sticky table
+           column, a Settings card, the sidebar footer — three separate
+           real collisions found this way) something real eventually sits
+           exactly where they're anchored, at some viewport width. Rather
+           than keep re-tuning per-page offsets, they default to a low,
+           unmistakably-a-control opacity and only go solid on hover/focus
+           — real content is never fully hidden under them at rest.
+           Desktop/tablet only (real :hover exists there); mobile keeps its
+           existing scroll-based fabFading fade, untouched, via its own
+           opacity prop rather than this class. */
+        .fab-peek { opacity: 0.38; transition: opacity 0.15s ease; }
+        .fab-peek:hover, .fab-peek:focus-visible { opacity: 1; }
         /* Monospace digits should have tabular figures */
         .mono, [class*="mono"] { font-variant-numeric: tabular-nums; }
       `}</style>

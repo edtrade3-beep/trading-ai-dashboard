@@ -236,10 +236,11 @@ export default function QuickTradePanel({ C, MONO, SANS, terminalSymbol, setTerm
           of tightening the mobile FAB stack's footprint over table content
           (see FloatingChecklistButton.jsx for the matching right-side row). */}
       <button onClick={() => setOpen(o => !o)} title="Quick Trade"
+        className={!isMobile && !open ? "fab-peek" : undefined}
         style={{ position: "fixed", bottom: (isMobile ? 10 : 18) + statusBarH, left: fabLeft, zIndex: 9999,
           width: compact ? 42 : 54, height: compact ? 42 : 54, borderRadius: "50%", cursor: "pointer",
           border: "none", background: "#c96f00", color: "#fff", fontSize: compact ? 18 : 22, boxShadow: "0 6px 20px rgba(0,0,0,0.3)",
-          opacity: fabFading && !open ? 0 : 1, pointerEvents: fabFading && !open ? "none" : "auto", transition: "opacity 0.2s" }}>{open ? "✕" : "⚡"}</button>
+          opacity: fabFading && !open ? 0 : (isMobile || open ? 1 : undefined), pointerEvents: fabFading && !open ? "none" : "auto", transition: "opacity 0.2s" }}>{open ? "✕" : "⚡"}</button>
 
       {open && (
         <div style={{ position: "fixed", bottom: 82 + statusBarH, left: fabLeft, zIndex: 9999, width: "min(360px, 92vw)",

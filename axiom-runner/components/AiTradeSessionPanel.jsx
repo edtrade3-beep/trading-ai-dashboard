@@ -185,11 +185,12 @@ export default function AiTradeSessionPanel({ C, MONO, SANS, macroData, newsData
         <button
           onClick={startSession}
           title="AI Trade Session — places a real order on your Alpaca paper account"
+          className={!isMobile && step === 0 ? "fab-peek" : undefined}
           style={{ width: compact ? 42 : 52, height: compact ? 42 : 52, borderRadius: "50%", border: "none", cursor: "pointer",
             background: "#7c5cff", color: "#fff", boxShadow: "0 4px 18px #7c5cff66",
             display: "flex", alignItems: "center", justifyContent: "center",
             fontSize: compact ? 17 : 20, transition: "opacity 0.2s",
-            opacity: fabFading && step === 0 ? 0 : 1, pointerEvents: fabFading && step === 0 ? "none" : "auto" }}>
+            opacity: fabFading && step === 0 ? 0 : (isMobile || step > 0 ? 1 : undefined), pointerEvents: fabFading && step === 0 ? "none" : "auto" }}>
           {step > 0 ? "✕" : "🎓"}
         </button>
       </div>

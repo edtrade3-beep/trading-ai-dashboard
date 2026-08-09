@@ -109,11 +109,11 @@ export default function TradingCopilot({ C, MONO, SANS, macroData, watchlistSymb
       {/* Mobile: shrunk from 54px + 18px offset to 42px + 10px offset — part
           of tightening the mobile FAB stack's footprint over table content
           (see FloatingChecklistButton.jsx for the row layout this anchors). */}
-      <button className="fab-copilot-btn" onClick={() => setOpen(o => !o)} title="Trading Copilot"
+      <button className={`fab-copilot-btn${!isMobile && !open ? " fab-peek" : ""}`} onClick={() => setOpen(o => !o)} title="Trading Copilot"
         style={{ position: "fixed", bottom: (isMobile ? 10 : 18) + statusBarH, right: isMobile ? 10 : 18, zIndex: 9999,
           width: isMobile ? 42 : 54, height: isMobile ? 42 : 54, borderRadius: "50%", cursor: "pointer",
           border: "none", background: C.accent, color: "#fff", fontSize: isMobile ? 18 : 22, boxShadow: "0 6px 20px rgba(0,0,0,0.3)",
-          opacity: fabFading && !open ? 0 : 1, pointerEvents: fabFading && !open ? "none" : "auto", transition: "opacity 0.2s" }}>{open ? "✕" : "💬"}</button>
+          opacity: fabFading && !open ? 0 : (isMobile || open ? 1 : undefined), pointerEvents: fabFading && !open ? "none" : "auto", transition: "opacity 0.2s" }}>{open ? "✕" : "💬"}</button>
       {open && (
         <div style={{ position: "fixed", bottom: 82 + statusBarH, right: 18, zIndex: 9999, width: "min(400px, 92vw)", height: "min(560px, 78vh)",
           display: "flex", flexDirection: "column", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 14, boxShadow: "0 10px 40px rgba(0,0,0,0.4)", overflow: "hidden" }}>

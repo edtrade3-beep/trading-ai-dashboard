@@ -356,7 +356,7 @@ export default function RealityCheckWidget({ statusBarH = 40, fabFading = false,
       )}
 
       <button
-        className="fab-realitycheck-btn"
+        className={`fab-realitycheck-btn${!isMobile && !open ? " fab-peek" : ""}`}
         onClick={() => setOpen((v) => !v)}
         aria-label={open ? "Close Reality Check" : "Open Reality Check"}
         title="Reality Check — real flow vs. the narrative"
@@ -365,7 +365,7 @@ export default function RealityCheckWidget({ statusBarH = 40, fabFading = false,
           background: C.bg, border: `2px solid ${C.accent}`,
           boxShadow: "0 8px 24px rgba(0,0,0,0.45)",
           display: "flex", alignItems: "center", justifyContent: "center", fontSize: isMobile ? 18 : 22,
-          opacity: fabFading && !open ? 0 : 1, pointerEvents: fabFading && !open ? "none" : "auto", transition: "opacity 0.2s",
+          opacity: fabFading && !open ? 0 : (isMobile || open ? 1 : undefined), pointerEvents: fabFading && !open ? "none" : "auto", transition: "opacity 0.2s",
         }}
       >
         {open ? <span style={{ color: C.text, fontSize: isMobile ? 16 : 20 }}>×</span> : "🕵️"}
