@@ -26,7 +26,11 @@ const DOLLAR_PRESETS = [500, 1000, 2500, 5000];
 const RISK_PRESETS = [50, 100, 250, 500];
 const R_MULTIPLES = [1, 2, 3, 4];
 
-export default function QuickTradePanel({ C, MONO, SANS, terminalSymbol, setTerminalSymbol, macroData, scanResults, statusBarH = 40, fabFading = false, isMobile = false }) {
+export default function QuickTradePanel({ C, MONO, SANS, terminalSymbol, setTerminalSymbol, macroData, scanResults, statusBarH = 40, fabFading = false, isMobile = false, sidebarFabLeft = 18 }) {
+  // Desktop/tablet launcher sits just right of the sidebar's real edge
+  // instead of a bare 18px (which put it inside the sidebar's own
+  // footprint) — mobile has no sidebar rail, so it keeps its own 10px.
+  const fabLeft = isMobile ? 10 : sidebarFabLeft + 18;
   const [open, setOpen] = useState(false);
   const [symbolInput, setSymbolInput] = useState(terminalSymbol || "AAPL");
   const [quote, setQuote] = useState(null);
@@ -227,13 +231,13 @@ export default function QuickTradePanel({ C, MONO, SANS, terminalSymbol, setTerm
           of tightening the mobile FAB stack's footprint over table content
           (see FloatingChecklistButton.jsx for the matching right-side row). */}
       <button onClick={() => setOpen(o => !o)} title="Quick Trade"
-        style={{ position: "fixed", bottom: (isMobile ? 10 : 18) + statusBarH, left: isMobile ? 10 : 18, zIndex: 9999,
+        style={{ position: "fixed", bottom: (isMobile ? 10 : 18) + statusBarH, left: fabLeft, zIndex: 9999,
           width: isMobile ? 42 : 54, height: isMobile ? 42 : 54, borderRadius: "50%", cursor: "pointer",
           border: "none", background: "#c96f00", color: "#fff", fontSize: isMobile ? 18 : 22, boxShadow: "0 6px 20px rgba(0,0,0,0.3)",
           opacity: fabFading && !open ? 0 : 1, pointerEvents: fabFading && !open ? "none" : "auto", transition: "opacity 0.2s" }}>{open ? "✕" : "⚡"}</button>
 
       {open && (
-        <div style={{ position: "fixed", bottom: 82 + statusBarH, left: 18, zIndex: 9999, width: "min(360px, 92vw)",
+        <div style={{ position: "fixed", bottom: 82 + statusBarH, left: fabLeft, zIndex: 9999, width: "min(360px, 92vw)",
           // Was capped at 680px/80vh, which on a normal (not-maximized)
           // browser window pushed the panel's top edge up over the header —
           // it's bottom-anchored, so a shorter cap is what moves it down.

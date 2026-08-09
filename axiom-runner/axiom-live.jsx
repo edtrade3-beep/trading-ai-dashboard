@@ -5768,10 +5768,18 @@ export default function App() {
       <IstighfarWidget C={C} themeMode={themeMode} isMobile={isMobile} />
       <div style={{ height: ISTIGHFAR_BAR_H, flexShrink: 0 }} aria-hidden="true" />
       <TradingCopilot C={C} MONO={MONO} SANS={SANS} macroData={macroData} watchlistSymbols={watchlistSymbols} statusBarH={statusBarH} fabFading={fabFading} isMobile={isMobile} />
-      <QuickTradePanel C={C} MONO={MONO} SANS={SANS} terminalSymbol={terminalSymbol} setTerminalSymbol={setTerminalSymbol} macroData={macroData} scanResults={scanResults} statusBarH={statusBarH} fabFading={fabFading} isMobile={isMobile} />
+      {/* QuickTradePanel/AiTradeSessionPanel's launcher buttons sit at
+          left:18 on desktop/tablet — inside the sidebar's own horizontal
+          footprint (0 to sidebarW), not to the right of it. On tall
+          viewports the sidebar's footer (Command Palette + avatar) never
+          reaches that low so it went unnoticed; on shorter tablet-landscape
+          viewports the two overlapped the sidebar's actual bottom nav rows.
+          sidebarFabLeft pushes both launchers just past the sidebar's real
+          edge instead, on both desktop and tablet, mobile untouched. */}
+      <QuickTradePanel C={C} MONO={MONO} SANS={SANS} terminalSymbol={terminalSymbol} setTerminalSymbol={setTerminalSymbol} macroData={macroData} scanResults={scanResults} statusBarH={statusBarH} fabFading={fabFading} isMobile={isMobile} sidebarFabLeft={sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : LAYOUT.sidebarWidth} />
       <RealityCheckWidget statusBarH={statusBarH} fabFading={fabFading} isMobile={isMobile} />
       <ChartSearchWidget setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} statusBarH={statusBarH} fabFading={fabFading} isMobile={isMobile} />
-      <AiTradeSessionPanel C={C} MONO={MONO} SANS={SANS} macroData={macroData} newsData={newsData} statusBarH={statusBarH} fabFading={fabFading} isMobile={isMobile} activeTab={activeTab} setActiveTab={setActiveTab} topOffset={ISTIGHFAR_BAR_H + topBarH} />
+      <AiTradeSessionPanel C={C} MONO={MONO} SANS={SANS} macroData={macroData} newsData={newsData} statusBarH={statusBarH} fabFading={fabFading} isMobile={isMobile} activeTab={activeTab} setActiveTab={setActiveTab} topOffset={ISTIGHFAR_BAR_H + topBarH} sidebarFabLeft={sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : LAYOUT.sidebarWidth} />
       {/* Google Fonts — Inter (UI) + JetBrains Mono (data/numbers) */}
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />

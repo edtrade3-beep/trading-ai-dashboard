@@ -25,7 +25,7 @@ const PAUSE_NEWS = 2000;
 const PAUSE_RESULT = 2200;
 const PAUSE_END = 4000;
 
-export default function AiTradeSessionPanel({ C, MONO, SANS, macroData, newsData, statusBarH = 40, fabFading = false, isMobile = false, activeTab, setActiveTab, topOffset = 64 }) {
+export default function AiTradeSessionPanel({ C, MONO, SANS, macroData, newsData, statusBarH = 40, fabFading = false, isMobile = false, activeTab, setActiveTab, topOffset = 64, sidebarFabLeft = 18 }) {
   // step: 0 idle | 1 market | 2 news | 3 scanning | 4 trade placed
   const [step, setStep] = useState(0);
   const [startTab, setStartTab] = useState(null);
@@ -174,8 +174,11 @@ export default function AiTradeSessionPanel({ C, MONO, SANS, macroData, newsData
 
   return (
     <>
-      {/* FAB — left stack, paired with QuickTrade (the other action tool). */}
-      <div style={{ position: "fixed", bottom: (isMobile ? 10 : 82) + statusBarH, left: isMobile ? 60 : 18, zIndex: 8500 }}>
+      {/* FAB — left stack, paired with QuickTrade (the other action tool).
+          left offset matches QuickTradePanel's sidebar-aware fabLeft on
+          desktop/tablet so both launchers clear the sidebar's real edge
+          instead of sitting inside its footprint. */}
+      <div style={{ position: "fixed", bottom: (isMobile ? 10 : 82) + statusBarH, left: isMobile ? 60 : sidebarFabLeft + 18, zIndex: 8500 }}>
         <button
           onClick={startSession}
           title="AI Trade Session — places a real order on your Alpaca paper account"
