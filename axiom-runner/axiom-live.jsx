@@ -5776,10 +5776,10 @@ export default function App() {
           viewports the two overlapped the sidebar's actual bottom nav rows.
           sidebarFabLeft pushes both launchers just past the sidebar's real
           edge instead, on both desktop and tablet, mobile untouched. */}
-      <QuickTradePanel C={C} MONO={MONO} SANS={SANS} terminalSymbol={terminalSymbol} setTerminalSymbol={setTerminalSymbol} macroData={macroData} scanResults={scanResults} statusBarH={statusBarH} fabFading={fabFading} isMobile={isMobile} sidebarFabLeft={sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : LAYOUT.sidebarWidth} />
+      <QuickTradePanel C={C} MONO={MONO} SANS={SANS} terminalSymbol={terminalSymbol} setTerminalSymbol={setTerminalSymbol} macroData={macroData} scanResults={scanResults} statusBarH={statusBarH} fabFading={fabFading} isMobile={isMobile} isTablet={isTablet} sidebarFabLeft={sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : LAYOUT.sidebarWidth} />
       <RealityCheckWidget statusBarH={statusBarH} fabFading={fabFading} isMobile={isMobile} />
       <ChartSearchWidget setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} statusBarH={statusBarH} fabFading={fabFading} isMobile={isMobile} />
-      <AiTradeSessionPanel C={C} MONO={MONO} SANS={SANS} macroData={macroData} newsData={newsData} statusBarH={statusBarH} fabFading={fabFading} isMobile={isMobile} activeTab={activeTab} setActiveTab={setActiveTab} topOffset={ISTIGHFAR_BAR_H + topBarH} sidebarFabLeft={sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : LAYOUT.sidebarWidth} />
+      <AiTradeSessionPanel C={C} MONO={MONO} SANS={SANS} macroData={macroData} newsData={newsData} statusBarH={statusBarH} fabFading={fabFading} isMobile={isMobile} isTablet={isTablet} activeTab={activeTab} setActiveTab={setActiveTab} topOffset={ISTIGHFAR_BAR_H + topBarH} sidebarFabLeft={sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : LAYOUT.sidebarWidth} />
       {/* Google Fonts — Inter (UI) + JetBrains Mono (data/numbers) */}
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />

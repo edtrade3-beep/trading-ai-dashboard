@@ -25,7 +25,10 @@ const PAUSE_NEWS = 2000;
 const PAUSE_RESULT = 2200;
 const PAUSE_END = 4000;
 
-export default function AiTradeSessionPanel({ C, MONO, SANS, macroData, newsData, statusBarH = 40, fabFading = false, isMobile = false, activeTab, setActiveTab, topOffset = 64, sidebarFabLeft = 18 }) {
+export default function AiTradeSessionPanel({ C, MONO, SANS, macroData, newsData, statusBarH = 40, fabFading = false, isMobile = false, isTablet = false, activeTab, setActiveTab, topOffset = 64, sidebarFabLeft = 18 }) {
+  // See QuickTradePanel's matching `compact` — tablet's short real
+  // viewports need the same shrunk button size, position untouched.
+  const compact = isMobile || isTablet;
   // step: 0 idle | 1 market | 2 news | 3 scanning | 4 trade placed
   const [step, setStep] = useState(0);
   const [startTab, setStartTab] = useState(null);
@@ -182,10 +185,10 @@ export default function AiTradeSessionPanel({ C, MONO, SANS, macroData, newsData
         <button
           onClick={startSession}
           title="AI Trade Session — places a real order on your Alpaca paper account"
-          style={{ width: isMobile ? 42 : 52, height: isMobile ? 42 : 52, borderRadius: "50%", border: "none", cursor: "pointer",
+          style={{ width: compact ? 42 : 52, height: compact ? 42 : 52, borderRadius: "50%", border: "none", cursor: "pointer",
             background: "#7c5cff", color: "#fff", boxShadow: "0 4px 18px #7c5cff66",
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: isMobile ? 17 : 20, transition: "opacity 0.2s",
+            fontSize: compact ? 17 : 20, transition: "opacity 0.2s",
             opacity: fabFading && step === 0 ? 0 : 1, pointerEvents: fabFading && step === 0 ? "none" : "auto" }}>
           {step > 0 ? "✕" : "🎓"}
         </button>
