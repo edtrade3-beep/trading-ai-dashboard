@@ -28,11 +28,45 @@ export default function ToolsTab({
                 declared count, instead of overflowing. */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12, marginBottom: 12 }}>
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 14 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, gap: 10, flexWrap: "wrap" }}>
                   <div style={{ fontFamily: MONO, fontSize: 12, color: C.accent }}>Position Sizing Engine Pro</div>
-                  <Badge color={riskPlan.regime === "Risk-On" || riskPlan.regime === "Goldilocks" ? C.green : riskPlan.regime === "Risk-Off" ? C.red : C.amber}>
-                    {riskPlan.regime}
-                  </Badge>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <Badge color={riskPlan.regime === "Risk-On" || riskPlan.regime === "Goldilocks" ? C.green : riskPlan.regime === "Risk-Off" ? C.red : C.amber}>
+                      {riskPlan.regime}
+                    </Badge>
+                    {/* Moved up from the card's bottom edge (2026-08-09) — at
+                        that position it sat directly under the AI Trade
+                        Session floating button (bottom:82+statusBarH,
+                        position:fixed), clipped on every normal desktop/
+                        tablet viewport height, not just short ones. A button
+                        near the top of a mid-page card is never near a
+                        bottom-anchored fixed overlay, so this is a structural
+                        fix rather than a viewport-specific pixel tweak. */}
+                    <button
+                      onClick={async () => {
+                        const sym = (terminalSymbol || selectedStock?.symbol || "").toUpperCase();
+                        if (!sym || !riskPlan.shares) return;
+                        try {
+                          await fetch("/api/journal", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              ticker: sym,
+                              side: riskSide === "short" ? "SELL" : "BUY",
+                              score: 72,
+                              entry: Number(riskEntry) || 0,
+                              stopLoss: Number(riskStop) || 0,
+                              target: riskPlan.t1 || 0,
+                              notes: `${riskSetupQuality} setup · ${riskPlan.shares} shares · risk $${riskPlan.estRisk.toFixed(0)} · regime ${riskPlan.regime}`,
+                              timeframe: "1D",
+                              style: "Swing",
+                            }),
+                          });
+                        } catch {}
+                      }}
+                      style={{ border: `1px solid ${C.green}55`, background: `${C.green}12`, color: C.green, borderRadius: 6, padding: "6px 12px", fontFamily: MONO, fontSize: 12, cursor: "pointer", fontWeight: 700, whiteSpace: "nowrap" }}
+                    >LOG TRADE TO JOURNAL</button>
+                  </div>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(90px, 1fr))", gap: 8, marginBottom: 8 }}>
                   <input value={riskAccount} onChange={(e) => setRiskAccount(e.target.value.replace(/[^\d.]/g, ""))} placeholder="Account $" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", fontFamily: MONO, fontSize: 12 }} />
@@ -72,32 +106,6 @@ export default function ToolsTab({
                   <div style={{ fontSize: 12, color: C.textSec }}>Base Risk Budget: <span style={{ fontFamily: MONO, color: C.text }}>${riskPlan.baseRiskDollars.toFixed(2)}</span></div>
                   <div style={{ fontSize: 12, color: C.textSec }}>Regime Mult: <span style={{ fontFamily: MONO, color: C.text }}>{riskPlan.regimeMult.toFixed(2)}x</span> · Quality: <span style={{ fontFamily: MONO, color: C.text }}>{riskPlan.qualityMult.toFixed(2)}x</span></div>
                   <div style={{ fontSize: 12, color: C.textSec }}>Vol Adj: <span style={{ fontFamily: MONO, color: C.text }}>{riskPlan.volAdj.toFixed(2)}x</span> · Corr Cap: <span style={{ fontFamily: MONO, color: C.text }}>{riskPlan.corrCap.toFixed(2)}x</span></div>
-                </div>
-                <div style={{ marginTop: 10, borderTop: `1px solid ${C.border}`, paddingTop: 10 }}>
-                  <button
-                    onClick={async () => {
-                      const sym = (terminalSymbol || selectedStock?.symbol || "").toUpperCase();
-                      if (!sym || !riskPlan.shares) return;
-                      try {
-                        await fetch("/api/journal", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({
-                            ticker: sym,
-                            side: riskSide === "short" ? "SELL" : "BUY",
-                            score: 72,
-                            entry: Number(riskEntry) || 0,
-                            stopLoss: Number(riskStop) || 0,
-                            target: riskPlan.t1 || 0,
-                            notes: `${riskSetupQuality} setup · ${riskPlan.shares} shares · risk $${riskPlan.estRisk.toFixed(0)} · regime ${riskPlan.regime}`,
-                            timeframe: "1D",
-                            style: "Swing",
-                          }),
-                        });
-                      } catch {}
-                    }}
-                    style={{ border: `1px solid ${C.green}55`, background: `${C.green}12`, color: C.green, borderRadius: 6, padding: "6px 12px", fontFamily: MONO, fontSize: 12, cursor: "pointer", fontWeight: 700 }}
-                  >LOG TRADE TO JOURNAL</button>
                 </div>
               </div>
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 14 }}>
