@@ -72,6 +72,69 @@ function TrendRatingOverlay({ chart, C, MONO, SANS, isMobile }) {
     </div>
   );
 }
+
+// Journal Notes — moved out to its own component (2026-08-09, decision-
+// clarity/length audit) from an inline block that used to render on every
+// wsTab view of the Chart page; now mounted once, on the "📰 Symbol News"
+// dTab sub-tab, alongside the news it's read next to. Reads the same
+// rhpro_journal store the sidebar "Journal" tab (RhProJournal) owns,
+// filtered to this symbol. Read-only here on purpose — RhProJournal
+// already owns the one write path (equity P&L math, mistakes/emotion
+// fields) and duplicating that form here risked a second, drifting copy
+// of it instead of just linking to it.
+function JournalNotesPanel({ sym, C, MONO, SANS, setActiveTab }) {
+  if (!sym) return null;
+  const entries = rhLoadJournal()
+    .filter(t => String(t.symbol || "").toUpperCase() === sym.toUpperCase())
+    .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")))
+    .slice(0, 5);
+  return (
+    <div style={{ marginTop: 14 }}>
+      <SectionHeaderStandalone icon="📓" label={`${sym} JOURNAL NOTES`} C={C} SANS={SANS} />
+      {!entries.length ? (
+        <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: "14px 16px", background: C.card, fontFamily: SANS, fontSize: 12, color: C.textDim }}>
+          No journal notes yet for {sym}.{" "}
+          <span onClick={() => setActiveTab("rhpro-journal")} style={{ color: C.accent, cursor: "pointer", fontWeight: 700 }}>Log one →</span>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {entries.map(t => (
+            <div key={t.id} style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 14px", background: C.card }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>{t.date}</span>
+                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: t.side === "short" ? C.red : C.green }}>{String(t.side || "").toUpperCase()}</span>
+                {Number.isFinite(Number(t.entry)) && Number.isFinite(Number(t.exit)) && (
+                  <span style={{ fontFamily: MONO, fontSize: 11, color: C.textSec }}>${t.entry} → ${t.exit}</span>
+                )}
+                {t.pnl !== undefined && (
+                  <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: Number(t.pnl) >= 0 ? C.green : C.red }}>${Number(t.pnl).toLocaleString()}</span>
+                )}
+                {t.emotion && <span style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>· {t.emotion}</span>}
+              </div>
+              {t.notes && <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, marginTop: 4 }}>"{t.notes}"</div>}
+              {t.mistakes && <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.red, marginTop: 2 }}>Mistake: {t.mistakes}</div>}
+            </div>
+          ))}
+          <span onClick={() => setActiveTab("rhpro-journal")} style={{ fontFamily: MONO, fontSize: 11, color: C.accent, cursor: "pointer", fontWeight: 700, alignSelf: "flex-start" }}>Full journal →</span>
+        </div>
+      )}
+    </div>
+  );
+}
+// Standalone twin of the SectionHeader defined inside the main component
+// below (that one closes over local `C`/tone vars via component scope;
+// this module-level component takes C/SANS as props instead, since
+// JournalNotesPanel is declared outside the main function and can't reach
+// those closures).
+function SectionHeaderStandalone({ icon, label, C, SANS }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, paddingBottom: 7, marginBottom: 6, borderBottom: `2px solid ${C.accent}` }}>
+      <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 22, height: 22,
+        borderRadius: 6, background: `${C.accent}1c`, fontSize: 12, flexShrink: 0 }}>{icon}</span>
+      <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 900, letterSpacing: 0.3, color: C.text, textTransform: "uppercase" }}>{label}</span>
+    </div>
+  );
+}
 import CompanyOverviewCard from "./CompanyOverviewCard.jsx";
 import { rhLoadJournal } from "./rhpro-journal.jsx";
 import TrendSetupPanel from "./TrendSetupPanel.jsx";
@@ -132,6 +195,15 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   const [loadingChart, setLoadingChart] = useState(false);
   const [query, setQuery] = useState("");
   const [dTab, setDTab] = useState("chart");   // per-symbol detail tab
+  // Decision-clarity redesign (2026-08-09) — the always-visible span above
+  // the dTab tab-strip had grown to ~9 stacked sections (stat pills, hero,
+  // company overview, execution, trade readiness, market context,
+  // fundamentals/technical, early in/out, supporting detail), 6-9 screens
+  // of scroll before a first-time viewer reached the chart. wsTab splits
+  // that same content into what's needed to decide right now vs. research
+  // reached for after — nothing removed, same real sections, just gated by
+  // this instead of always rendering together.
+  const [wsTab, setWsTab] = useState("decision");
   // Collapsed by default (2026-08-04, "chart is too crowded") — the 6-tile
   // score grid through the technical-indicator pills are 5-6 separate
   // bordered cards stacked one after another below the hero verdict, the
@@ -742,7 +814,22 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
           </button>
           {wlMsg && <span style={{ fontFamily: MONO, fontSize: 12, color: "#22d47e" }}>{wlMsg}</span>}
         </div>
-        {chart && (
+        {/* wsTab — see the state declaration above for why this exists.
+            Decision is everything needed to decide right now; Deep Dive is
+            the research reached for after (company overview, market
+            context, fundamentals/technical detail, early in/out, the
+            already-collapsed supporting-score detail). */}
+        <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+          {[["decision", "🎯 Decision"], ["deepdive", "🔍 Deep Dive"]].map(([id, lbl]) => (
+            <button key={id} onClick={() => setWsTab(id)}
+              style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "7px 16px", borderRadius: 8, cursor: "pointer",
+                border: `1px solid ${wsTab === id ? C.accent : C.border}`, background: wsTab === id ? `${C.accent}18` : "transparent",
+                color: wsTab === id ? C.accent : C.textSec }}>
+              {lbl}
+            </button>
+          ))}
+        </div>
+        {wsTab === "decision" && chart && (
           <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
             {(() => {
               const s = chart, pill = (label, val, col) => (
@@ -780,7 +867,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             win-rate log, honestly gated below its real sample floor. No
             fabricated metrics (no DCF, no gamma exposure, no 13F, etc — see
             the plan's "explicitly NOT building" list). */}
-        {institutionalGrade && (() => {
+        {wsTab === "decision" && institutionalGrade && (() => {
           const rec = institutionalRecommendation(institutionalGrade.score);
           const letter = institutionalLetterGrade(institutionalGrade.score);
           const stat = (label, val, col, title) => (
@@ -845,7 +932,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             fundamentals + real last-reported-quarter earnings result, full
             profile/margins/growth/analyst breakdown collapsed under its own
             "Deep Dive" toggle. */}
-        {sym && <CompanyOverviewCard symbol={sym} C={C} MONO={MONO} SANS={SANS} />}
+        {wsTab === "deepdive" && sym && <CompanyOverviewCard symbol={sym} C={C} MONO={MONO} SANS={SANS} />}
         {/* SECTION 2 — Execution Card (2026-08-04 decision-first redesign,
             explicit user spec) — real Entry/Stop/Targets (TrendSetupPanel,
             same _buildTrendTemplate pivot/stop/2R/3R every other real card
@@ -863,7 +950,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             same localStorage["tradeplanner_load_plan"] shape Green Light's
             "🎯 PLAN" button already writes — GreenLightTab.jsx:581-587 —
             so Trade Planner needed zero changes to receive it). */}
-        {chart && (
+        {wsTab === "decision" && chart && (
           <div style={{ marginBottom: 14 }}>
             <SectionHeader icon="🎯" label="EXECUTION" />
             {/* Caption added here, not inside TrendSetupPanel itself
@@ -966,7 +1053,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             Flow/Market/Sector/Risk Reward) don't map 1:1 onto any single
             existing engine in this app; this real, already-built 11-dot
             system covers the same spirit without fabricating a new one. */}
-        {checklistResult && (
+        {wsTab === "decision" && checklistResult && (
           <div style={{ marginBottom: 14 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
               <SectionHeader icon="✅" label="TRADE READINESS" />
@@ -1012,10 +1099,12 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             glance whether the broader market supports this trade without
             leaving the page. One real shared component, two mount sites —
             not a second, divergent copy. */}
-        <div style={{ marginBottom: 14 }}>
-          <SectionHeader icon="🌍" label="MARKET CONTEXT" />
-          <MacroStatusStrip C={C} MONO={MONO} macroData={macroData} distData={distData} fred={macroFred} />
-        </div>
+        {wsTab === "deepdive" && (
+          <div style={{ marginBottom: 14 }}>
+            <SectionHeader icon="🌍" label="MARKET CONTEXT" />
+            <MacroStatusStrip C={C} MONO={MONO} macroData={macroData} distData={distData} fred={macroFred} />
+          </div>
+        )}
         {/* SECTION 4.5 — Fundamentals | Technical, side by side (2026-08-04,
             explicit user request: "add fundamental in one side and
             technical in other side squeeze them together"). Both promoted
@@ -1030,7 +1119,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             computed for the chart, just moved up and out of the collapse.
             auto-fit/minmax (this file's own established responsive
             pattern) stacks to one column on mobile. */}
-        {sym && (
+        {wsTab === "deepdive" && sym && (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12, marginBottom: 14 }}>
             <div>
               <SectionHeader icon="📊" label="FUNDAMENTALS" />
@@ -1071,7 +1160,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             the Chart page. All real inputs already on this page's own
             chart payload: 52w hi/lo, RSI(14)/day-%/week-% (added to
             buildTrendTemplate for this), RVOL, 50-day MA. */}
-        {sym && chart && (
+        {wsTab === "deepdive" && sym && chart && (
           <div style={{ marginBottom: 14 }}>
             <SectionHeader icon="🔄" label="EARLY IN / EARLY OUT" />
             {(() => {
@@ -1138,7 +1227,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             true: the hero is the answer, everything below is the evidence
             for it. Nothing removed, nothing hidden — nothing to lose the
             deep-dive. */}
-        {institutionalGrade && (
+        {wsTab === "decision" && institutionalGrade && (
           // flexWrap (2026-08-04 mobile audit, real bug found via mobile
           // screenshot): without it, the label + divider + toggle button
           // (all nowrap) overflowed past narrow viewports and pushed the
@@ -1161,7 +1250,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             </button>
           </div>
         )}
-        {showSupportingDetail && <>
+        {wsTab === "decision" && showSupportingDetail && <>
         {/* SECTION 2 — Six core scores (institutional redesign, 2026-07-29,
             explicit user spec: "Market, Sector, Stock Quality, Institutional,
             Technical, Timing"), each clickable into a real breakdown.
@@ -1313,7 +1402,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             on mobile there. 9 tabs here is the widest sub-nav in the app,
             so this one benefits most from scrolling instead of wrapping. */}
         <div style={{ display: "flex", gap: 4, margin: "4px 0 12px", flexWrap: "nowrap", overflowX: "auto", scrollbarWidth: "none", borderBottom: `1px solid ${C.border}`, paddingBottom: 8 }}>
-          {[["chart", "📈 Chart"], ["smart", "🔬 Smart Scan"], ["flow", "💵 Options Flow"], ["valuation", "📊 Valuation"], ["analysts", "🎯 Analysts"], ["investors", "🏦 Investors"], ["earnings", "💰 Earnings"], ["company", "🏢 Company"], ["social", "💬 Social"], ["news", "📰 Symbol News"]].map(([id, lbl]) => (
+          {[["chart", "📈 Chart"], ["smart", "🔬 Smart Scan"], ["flow", "💵 Options Flow"], ["valuation", "📊 Valuation"], ["analysts", "🎯 Analysts"], ["investors", "🏦 Investors"], ["earnings", "💰 Earnings"], ["company", "🏢 Company"], ["social", "💬 Social"], ["news", "📰 News & Journal"]].map(([id, lbl]) => (
             <button key={id} onClick={() => setDTab(id)}
               style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 11px", borderRadius: 7, cursor: "pointer",
                 whiteSpace: "nowrap", flexShrink: 0, minHeight: 40,
@@ -1330,6 +1419,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                 Minervini rating/pivot/stop/target never change with this —
                 see the "Rating reflects the daily setup" note on the chart
                 for anything other than 1D. */}
+            {wsTab === "decision" && (
             <div style={{ display: "flex", gap: 4, marginBottom: 8, flexWrap: "wrap" }}>
               {[["5m", "5m"], ["15m", "15m"], ["30m", "30m"], ["1h", "1H"], ["1d", "1D"], ["1wk", "1W"]].map(([id, lbl]) => (
                 <button key={id} onClick={() => setTf(id)} disabled={loadingChart}
@@ -1346,13 +1436,14 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                 {showTrendRating ? "📊 Rating: On" : "📊 Rating: Off"}
               </button>
             </div>
+            )}
             {/* SECTION 3 — AI Summary (institutional redesign, 2026-07-29).
                 Same real, free, deterministic BullBearPanel — splits the
                 real Institutional Grade dimensions by which side of the
                 case they support, zero new fetch/API cost. Moved ahead of
                 the chart to match the spec's section order (Header→Scores→
                 Summary→Trade Plan→Chart). */}
-            {chart && (
+            {wsTab === "decision" && chart && (
               <div style={{ marginBottom: 14 }}>
                 <SectionHeader icon="🧠" label="AI SUMMARY" tone="gold" />
                 <BullBearPanel symbol={sym} bullBear={bullBear} C={C} MONO={MONO} SANS={SANS} />
@@ -1379,6 +1470,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                 available column for "stretched"; chartTf drives the real
                 TradingView interval via TV_INTERVAL so the 5m/15m/30m/1H/1D/
                 1W buttons above still control it. */}
+            {wsTab === "decision" && (
             <div style={{ paddingRight: 90, position: "relative" }}>
               {chart && sym
                 ? <>
@@ -1404,6 +1496,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                   </>
                 : <div style={{ height: 720, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: 13, color: C.textDim, border: `1px solid ${C.border}`, borderRadius: 12 }}>Select a mover to load the chart…</div>}
             </div>
+            )}
             {/* SECTION 6 — Smart Money (moved back inline 2026-08-05 per
                 explicit user request, "move smart money tab under ai
                 summary under the chart in chart tab" — it briefly lived as
@@ -1415,7 +1508,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                 Plan -> 3 Traffic Lights reading order, with the full raw
                 Order Blocks/FVGs/Liquidity/VWAP/Volume Profile/Dark Pool
                 evidence (SmartMoneyPanel.jsx) collapsed underneath. */}
-            {chart && sym && (
+            {wsTab === "decision" && chart && sym && (
               <div style={{ marginTop: 14, marginBottom: 14 }}>
                 <SectionHeader icon="🧱" label="SMART MONEY" />
                 {/* heroAction (2026-08-09, decision-clarity audit) — this
@@ -1444,7 +1537,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                 (fund.earningsDate). News/Economic Events stay one click away
                 via the existing "Symbol News" sub-tab and Calendar page
                 rather than duplicating that real data a second time here. */}
-            {chart && sym && (
+            {wsTab === "deepdive" && chart && sym && (
               <div style={{ marginBottom: 14 }}>
                 <SectionHeader icon="📅" label="CATALYSTS" />
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12 }}>
@@ -1481,8 +1574,8 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                 </div>
               </div>
             )}
-            <AiWhyPanel symbol={sym} price={chart && chart.price} changePct={symDayPct} C={C} MONO={MONO} SANS={SANS} />
-            {chart && (() => {
+            {wsTab === "deepdive" && <AiWhyPanel symbol={sym} price={chart && chart.price} changePct={symDayPct} C={C} MONO={MONO} SANS={SANS} />}
+            {wsTab === "decision" && chart && (() => {
               // Real, free, deterministic ~1-week read — the same engine
               // formerly the standalone Predictions tab (moved 2026-07-28
               // so it shows inline with whatever's already loaded here
@@ -1509,66 +1602,12 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                 </div>
               );
             })()}
-            <AiPredictPanel symbol={sym} chart={chart} C={C} MONO={MONO} SANS={SANS} />
-            {/* Real per-symbol news, inline on the default chart view
-                (2026-07-28, explicit user request: "add news to market") —
-                same real NewsPanel already reachable one click away via the
-                "📰 Symbol News" sub-tab below, just surfaced immediately
-                instead of requiring the extra click. */}
-            <div style={{ marginTop: 14 }}>
-              <SectionHeader icon="📰" label={`${sym} News`} />
-              <NewsPanel symbol={sym} C={C} MONO={MONO} SANS={SANS} />
-            </div>
-            {/* Journal Notes — the one region the rest of this page didn't
-                already have. Reads the same rhpro_journal store the sidebar
-                "Journal" tab (RhProJournal) owns, filtered to this symbol,
-                so past trades and what you wrote about them surface right
-                where you're deciding whether to trade it again. Read-only
-                here on purpose — RhProJournal already owns the one write
-                path (equity P&L math, mistakes/emotion fields) and
-                duplicating that form here risked a second, drifting copy of
-                it instead of just linking to it. */}
-            {sym && (
-              <div style={{ marginTop: 14 }}>
-                <SectionHeader icon="📓" label={`${sym} JOURNAL NOTES`} />
-                {(() => {
-                  const entries = rhLoadJournal()
-                    .filter(t => String(t.symbol || "").toUpperCase() === sym.toUpperCase())
-                    .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")))
-                    .slice(0, 5);
-                  if (!entries.length) {
-                    return (
-                      <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: "14px 16px", background: C.card, fontFamily: SANS, fontSize: 12, color: C.textDim }}>
-                        No journal notes yet for {sym}.{" "}
-                        <span onClick={() => setActiveTab("rhpro-journal")} style={{ color: C.accent, cursor: "pointer", fontWeight: 700 }}>Log one →</span>
-                      </div>
-                    );
-                  }
-                  return (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                      {entries.map(t => (
-                        <div key={t.id} style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 14px", background: C.card }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                            <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>{t.date}</span>
-                            <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: t.side === "short" ? C.red : C.green }}>{String(t.side || "").toUpperCase()}</span>
-                            {Number.isFinite(Number(t.entry)) && Number.isFinite(Number(t.exit)) && (
-                              <span style={{ fontFamily: MONO, fontSize: 11, color: C.textSec }}>${t.entry} → ${t.exit}</span>
-                            )}
-                            {t.pnl !== undefined && (
-                              <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: Number(t.pnl) >= 0 ? C.green : C.red }}>${Number(t.pnl).toLocaleString()}</span>
-                            )}
-                            {t.emotion && <span style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>· {t.emotion}</span>}
-                          </div>
-                          {t.notes && <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, marginTop: 4 }}>"{t.notes}"</div>}
-                          {t.mistakes && <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.red, marginTop: 2 }}>Mistake: {t.mistakes}</div>}
-                        </div>
-                      ))}
-                      <span onClick={() => setActiveTab("rhpro-journal")} style={{ fontFamily: MONO, fontSize: 11, color: C.accent, cursor: "pointer", fontWeight: 700, alignSelf: "flex-start" }}>Full journal →</span>
-                    </div>
-                  );
-                })()}
-              </div>
-            )}
+            {wsTab === "deepdive" && <AiPredictPanel symbol={sym} chart={chart} C={C} MONO={MONO} SANS={SANS} />}
+            {/* News + Journal Notes moved off this tab (2026-08-09,
+                decision-clarity/length audit) — into the "📰 Symbol News"
+                dTab sub-tab below instead, alongside a "News & Journal"
+                framing. Same real NewsPanel/journal read, just no longer
+                duplicated inline on every wsTab view. */}
           </>
         )}
         {dTab === "smart" && <SmartScanPanel symbol={sym} chart={chart} C={C} MONO={MONO} SANS={SANS} />}
@@ -1579,7 +1618,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
         {dTab === "earnings" && <><EarningsSnapshot symbol={sym} C={C} MONO={MONO} SANS={SANS} /><EarningsBars symbol={sym} C={C} MONO={MONO} SANS={SANS} /></>}
         {dTab === "company" && <CompanyProfile symbol={sym} C={C} MONO={MONO} SANS={SANS} />}
         {dTab === "social" && <SocialFeed symbol={sym} C={C} MONO={MONO} SANS={SANS} />}
-        {dTab === "news" && <NewsPanel symbol={sym} C={C} MONO={MONO} SANS={SANS} />}
+        {dTab === "news" && <><NewsPanel symbol={sym} C={C} MONO={MONO} SANS={SANS} /><JournalNotesPanel sym={sym} C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} /></>}
       </div>
     </div>
 
