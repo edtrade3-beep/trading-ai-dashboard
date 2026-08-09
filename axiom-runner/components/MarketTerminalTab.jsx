@@ -75,6 +75,7 @@ function TrendRatingOverlay({ chart, C, MONO, SANS, isMobile }) {
   );
 }
 import CompanyOverviewCard from "./CompanyOverviewCard.jsx";
+import { rhLoadJournal } from "./rhpro-journal.jsx";
 import TrendSetupPanel from "./TrendSetupPanel.jsx";
 import SmartScanPanel from "./SmartScanPanel.jsx";
 import {
@@ -1494,6 +1495,56 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
               <SectionHeader icon="📰" label={`${sym} News`} />
               <NewsPanel symbol={sym} C={C} MONO={MONO} SANS={SANS} />
             </div>
+            {/* Journal Notes — the one region the rest of this page didn't
+                already have. Reads the same rhpro_journal store the sidebar
+                "Journal" tab (RhProJournal) owns, filtered to this symbol,
+                so past trades and what you wrote about them surface right
+                where you're deciding whether to trade it again. Read-only
+                here on purpose — RhProJournal already owns the one write
+                path (equity P&L math, mistakes/emotion fields) and
+                duplicating that form here risked a second, drifting copy of
+                it instead of just linking to it. */}
+            {sym && (
+              <div style={{ marginTop: 14 }}>
+                <SectionHeader icon="📓" label={`${sym} JOURNAL NOTES`} />
+                {(() => {
+                  const entries = rhLoadJournal()
+                    .filter(t => String(t.symbol || "").toUpperCase() === sym.toUpperCase())
+                    .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")))
+                    .slice(0, 5);
+                  if (!entries.length) {
+                    return (
+                      <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: "14px 16px", background: C.card, fontFamily: SANS, fontSize: 12, color: C.textDim }}>
+                        No journal notes yet for {sym}.{" "}
+                        <span onClick={() => setActiveTab("rhpro-journal")} style={{ color: C.accent, cursor: "pointer", fontWeight: 700 }}>Log one →</span>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      {entries.map(t => (
+                        <div key={t.id} style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 14px", background: C.card }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                            <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>{t.date}</span>
+                            <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: t.side === "short" ? C.red : C.green }}>{String(t.side || "").toUpperCase()}</span>
+                            {Number.isFinite(Number(t.entry)) && Number.isFinite(Number(t.exit)) && (
+                              <span style={{ fontFamily: MONO, fontSize: 11, color: C.textSec }}>${t.entry} → ${t.exit}</span>
+                            )}
+                            {t.pnl !== undefined && (
+                              <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: Number(t.pnl) >= 0 ? C.green : C.red }}>${Number(t.pnl).toLocaleString()}</span>
+                            )}
+                            {t.emotion && <span style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>· {t.emotion}</span>}
+                          </div>
+                          {t.notes && <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, marginTop: 4 }}>"{t.notes}"</div>}
+                          {t.mistakes && <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.red, marginTop: 2 }}>Mistake: {t.mistakes}</div>}
+                        </div>
+                      ))}
+                      <span onClick={() => setActiveTab("rhpro-journal")} style={{ fontFamily: MONO, fontSize: 11, color: C.accent, cursor: "pointer", fontWeight: 700, alignSelf: "flex-start" }}>Full journal →</span>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
           </>
         )}
         {dTab === "smart" && <SmartScanPanel symbol={sym} chart={chart} C={C} MONO={MONO} SANS={SANS} />}

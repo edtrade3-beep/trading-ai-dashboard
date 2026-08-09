@@ -10,6 +10,7 @@ import MyTradesTab from "./MyTradesTab.jsx";
 import FlowTab from "./FlowTab.jsx";
 import NewsTab from "./NewsTab.jsx";
 import ActivePositionsCard from "./ActivePositionsCard.jsx";
+import PriorityAlertsCard from "./PriorityAlertsCard.jsx";
 import RadialGauge from "./RadialGauge.jsx";
 import DonutChart from "./DonutChart.jsx";
 import Sparkline from "./Sparkline.jsx";
@@ -954,6 +955,17 @@ export default function DashboardTab({
             <NewsSentimentCard C={C} MONO={MONO} SANS={SANS} newsSentiment={newsSentiment} setActiveTab={setActiveTab} />
             <AiCopilotLauncherCard C={C} MONO={MONO} SANS={SANS} />
           </div>
+          {/* Moved from HOME (formerly the OPPORTUNITIES tab's default
+              content) when Home was rebuilt into a fixed 6-block command
+              center — real components, unchanged, just relocated so Home
+              stays to one question instead of accumulating a 7th block. */}
+          <div style={{ marginBottom: 10 }}>
+            <AiMorningBriefCard C={C} MONO={MONO} SANS={SANS} />
+          </div>
+          <div style={{ marginBottom: 10, maxWidth: 500 }}>
+            <OpportunityQueueCard C={C} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
+          </div>
+          <CopilotInsightsCard C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} topPick={topPick} />
         </>
       )}
 
@@ -971,18 +983,33 @@ export default function DashboardTab({
         </div>
       )}
 
-      {/* ── OPPORTUNITIES — the AI's morning brief plus the Opportunity   */}
-      {/* Queue signal engine. Best Opportunities Now moved out to its own */}
-      {/* dedicated sidebar tab, under CEO AI (2026-07-19, user request).  */}
+      {/* ── HOME — the AI Command Center. One question: "what deserves my  */}
+      {/* attention today?" Six real, already-wired blocks in priority     */}
+      {/* order, nothing else: Market Status, Today's Opportunities,       */}
+      {/* Portfolio / Alerts / Upcoming Events, Open Positions. The three  */}
+      {/* cards that used to live here (AI Morning Brief, Opportunity      */}
+      {/* Queue, Copilot Insights) weren't deleted — they moved one click  */}
+      {/* over into OVERVIEW as supporting detail, same "hide, don't       */}
+      {/* delete" precedent this file already uses everywhere else; a      */}
+      {/* seventh block here would mean Home stopped answering one         */}
+      {/* question and this list needs re-trimming, not growing. */}
       {dashTab === "opportunities" && (
         <>
-          <div style={{ marginBottom: 10 }}>
-            <AiMorningBriefCard C={C} MONO={MONO} SANS={SANS} />
+          <div style={{ marginBottom: 12 }}>
+            <MarketCommandCenterStrip C={C} MONO={MONO} SANS={SANS}
+              macroData={macroData} distData={distData} sectorData={sectorData} eventCountdowns={eventCountdowns}
+              regime={overviewRegime} regLabel={overviewRegLabel} regColor={overviewRegColor} breadthPct={breadthPct}
+              setActiveTab={setActiveTab} />
           </div>
-          <div style={{ marginBottom: 10, maxWidth: 500 }}>
-            <OpportunityQueueCard C={C} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
+          <div style={{ marginBottom: 12 }}>
+            <AiTopOpportunitiesCard C={C} MONO={MONO} SANS={SANS} fullScan={fullScan} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} />
           </div>
-          <CopilotInsightsCard C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} topPick={topPick} />
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12, marginBottom: 12, alignItems: "start" }}>
+            <PortfolioSnapshotCard C={C} MONO={MONO} SANS={SANS} />
+            <PriorityAlertsCard C={C} MONO={MONO} SANS={SANS} alerts={combinedAlerts} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
+            <UpcomingEventsCard C={C} MONO={MONO} SANS={SANS} eventCountdowns={eventCountdowns} />
+          </div>
+          <ActivePositionsCard C={C} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} watchlistData={watchlistData} macroData={macroData} />
         </>
       )}
 

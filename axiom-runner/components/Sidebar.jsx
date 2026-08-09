@@ -1,118 +1,72 @@
-// Persistent left sidebar nav. Rebuilt 2026-07-29 for the institutional
-// redesign ("Less noise. Better decisions.") to the user's exact 11-item
-// spec — Dashboard/Market/Scanner/Watchlists/Charts/Options Flow/
-// Portfolio/News/Calendar/Journal/Settings — replacing the prior
-// declutter-pass sidebar (CEO AI/X Intel/Market Terminal/Macro/COT/AI
-// Copilot/Coach/Alerts/Learn/Quran). Nothing was deleted: every dropped
-// destination is folded into one of the 11 new items below (real content,
-// same components, reused unchanged) and stays independently reachable via
-// the command palette, same "hide, don't delete" convention this app has
-// used all along. Single flat list, no section grouping — the spec's 11
-// items are already a complete, ordered flow (Dashboard → Market →
-// Scanner → Watchlists → Charts → Options Flow → Portfolio → News →
-// Calendar → Journal → Settings), so extra section headers would just add
-// noise back in.
+// Persistent left sidebar nav. Collapsed 2026-08-09 (sidebar/IA redesign)
+// from the prior 11-item flat list — Dashboard/Market/Scanner/Watchlists/
+// Charts/Options Flow/Portfolio/Crypto/News/Calendar/Journal — down to the
+// 7 real "what deserves a permanent nav slot" surfaces below, plus Settings.
+// Every dropped item is a merge or a demotion, never a deletion:
+//   - Scanner + Watchlists + Options Flow → merged into one Discover
+//     destination (same 3 real components, unchanged, now sharing one
+//     PageSubNav header — see axiom-live.jsx around the rhpro-scan/
+//     rhpro-lists/flow activeTab blocks) instead of competing for 3
+//     separate nav rows that all answered the same question ("what should
+//     I trade").
+//   - Green Light/My Trades → promoted OUT of hiding (was reachable only
+//     via the GREENLIGHT palette alias or buried in a Dashboard sub-tab)
+//     into its own top-level Autopilot destination — this app already had
+//     a real broker-status/risk-engine/pause-resume control surface, it
+//     just had no front door.
+//   - Market / Crypto / Calendar dropped from the visible rail — not
+//     deleted, still fully real and still one keystroke away via the
+//     Command Palette (MARKET / CRYPTO / CALENDAR). Home's Market Status
+//     block already surfaces the daily-relevant slice of Market/Calendar
+//     (regime, next event) so most day-to-day need for those two doesn't
+//     require leaving Home at all; Crypto is a distinct vertical, not one
+//     of the 7 core trading-workflow questions, same reasoning Bloomberg-
+//     style terminals give FX/commodities their own desk rather than a
+//     permanent rail slot next to equities.
+// Single flat list, no section grouping — 7 items don't need one.
 export const SIDEBAR_ITEMS = [
-  { id: "dashboard", label: "Dashboard",     icon: "🏠", tab: "dashboard" },
+  { id: "dashboard", label: "Home",       icon: "🏠", tab: "dashboard" },
 
-  // Market — new composite (axiom-live.jsx, activeTab "market") folding
-  // Macro (10Y/2Y/Brent/BTC-dominance, econ calendar), COT positioning,
-  // Sector Heat (RhProHeatMap), and Breadth (MarketHealthTab) into one
-  // destination via an in-page sub-nav. Each sub-tab is the exact same
-  // real component/data previously reachable standalone — still is, via
-  // the palette (MACRO / COT / SECTORHEAT / MARKETHEALTH).
-  { id: "market",    label: "Market",        icon: "🌐", tab: "market" },
+  // Discover — "what should I trade?" Scan is the primary/default view;
+  // Watchlists and Options Flow are one click away via the shared
+  // PageSubNav rendered at the top of all three real activeTab blocks
+  // (rhpro-scan / rhpro-lists / flow — ids kept exactly as-is so every
+  // existing palette alias, localStorage handoff, and Dashboard sub-tab
+  // mount pointing at them keeps working unchanged). alsoActive is what
+  // keeps this row highlighted while on any of the 3 sub-views.
+  { id: "discover",  label: "Discover",   icon: "🎯", tab: "rhpro-scan", alsoActive: ["rhpro-lists", "flow"] },
 
-  // Scanner — re-promotes Sniper Scanner (RhProScanner) to top-level nav.
-  // This reverses a 2026-07-28 decision that moved it into Dashboard as a
-  // sub-tab ("remove sniper tab since you put it in dashboard") —
-  // intentional here per the redesign spec's explicit "Scanner" nav item,
-  // not a silent re-reversal; the Dashboard sub-tab mount stays too (same
-  // component, no duplicate data/logic). Still reachable via the palette
-  // (SNIPER).
-  { id: "scanner",   label: "Scanner",       icon: "🎯", tab: "rhpro-scan" },
+  // Workspace — Market Terminal, relabeled (was "Charts") to match what it
+  // actually is now: the one per-symbol page (chart + decision + trade
+  // plan + institutional summary + AI explanation + options + news +
+  // financials + journal notes). Same activeTab id ("mterminal") so every
+  // chart-link/localStorage handoff across the app keeps working.
+  { id: "charts",    label: "Workspace",  icon: "📈", tab: "mterminal" },
 
-  // Watchlists — re-promotes Pro Watchlists (removed from the sidebar
-  // 2026-07-28 as redundant with Sniper Scanner) per the redesign spec's
-  // explicit "Watchlists" nav item. Still reachable via the palette
-  // (WATCHLISTS).
-  { id: "watchlists", label: "Watchlists",   icon: "⭐", tab: "rhpro-lists" },
+  // Portfolio — "how am I performing?" Unchanged from before.
+  { id: "portfolio", label: "Portfolio",  icon: "💼", tab: "portfolio-tab" },
 
-  // Charts — Market Terminal, renamed to match the redesign spec's label
-  // (its per-symbol chart becomes the large interactive chart section of
-  // the redesigned stock-analysis page). Same activeTab id ("mterminal")
-  // so every existing chart-link/localStorage handoff across the app
-  // (Sniper Scanner, Best Opportunities, Green Light, Flow, Insider,
-  // DarkPool, etc.) keeps working unchanged.
-  { id: "charts",    label: "Charts",        icon: "📈", tab: "mterminal" },
+  // Autopilot — "what is the AI doing for me?" Real broker connection
+  // status, risk engine, pause/resume, open positions (GreenLightTab +
+  // MyTradesTab, axiom-live.jsx activeTab "greenlight") — this already
+  // existed and was already fully wired, it just never had a sidebar row
+  // of its own before. Still reachable via the palette (GREENLIGHT/GREEN).
+  { id: "autopilot", label: "Autopilot",  icon: "🤖", tab: "greenlight" },
 
-  // Smart Money — briefly a standalone 12th sidebar item (2026-08-05) for
-  // the "AI Institutional Decision Engine" redesign, removed the same day
-  // per explicit user request ("move smart money tab under ai summary
-  // under the chart in chart tab") — the real decision-engine content
-  // (SmartMoneyDecisionPanel) now lives embedded on the Charts page
-  // instead, right under AI Summary and the chart. Back to this file's
-  // documented 11-item spec.
+  // News — "what changed?" Unchanged from before.
+  { id: "news",      label: "News",       icon: "📰", tab: "news" },
 
-  // Options Flow — re-promotes FlowTab (was Dashboard's "OPTIONS FLOW"
-  // sub-tab only) to top-level nav per the redesign spec. Same component/
-  // data, still reachable both places (Dashboard sub-tab kept, palette
-  // alias FLOW kept) — no duplicate fetch, React just mounts the same
-  // component at two routes.
-  { id: "flow",      label: "Options Flow",  icon: "🔀", tab: "flow" },
+  // Journal — "what can I improve?" The real manual trade log
+  // (RhProJournal). Unchanged from before; see axiom-live.jsx's JOURNAL
+  // palette alias (2026-08-08) for why this and the palette/hotkey now
+  // agree on what "journal" means everywhere in the app.
+  { id: "journal",   label: "Journal",    icon: "📓", tab: "rhpro-journal" },
 
-  // Portfolio — re-promotes the real PortfolioSnapshotCard +
-  // ActivePositionsCard (was Dashboard's "PORTFOLIO" sub-tab only), now
-  // also folding in real Portfolio Risk (PortfolioRiskCard, previously
-  // only reachable under the hidden mission-status palette destination) so
-  // risk has one canonical home instead of two. Still reachable via the
-  // palette (PORTFOLIOTAB / MISSIONSTATUS for the fuller mission view).
-  { id: "portfolio", label: "Portfolio",     icon: "💼", tab: "portfolio-tab" },
-
-  // Crypto — explicit user request (2026-08-03, "add crypto trading",
-  // built with a real scan+chart+paper-buy/sell section alongside the
-  // existing Fear&Greed/dominance/liquidations/news view). Originally left
-  // palette-only ("hide, don't delete", CRYPTO alias) per this file's
-  // "exact 11-item spec" convention — real live user report the same day
-  // ("i dont see crypto tab") confirmed a brand-new, explicitly-requested
-  // feature with zero visible nav entry point isn't discoverable, so it's
-  // promoted here instead, same as Scanner/Portfolio/News before it.
-  { id: "crypto",    label: "Crypto",        icon: "₿", tab: "crypto" },
-
-  // News — re-promotes NewsTab (was Dashboard's "NEWS & EVENTS" sub-tab
-  // only) to top-level nav per the redesign spec. Still reachable via the
-  // palette (NEWS).
-  { id: "news",      label: "News",          icon: "📰", tab: "news" },
-
-  // Calendar — new composite (axiom-live.jsx, activeTab "calendar")
-  // folding Economic Events (CalendarTab, already real — a TradingView
-  // economic-calendar embed), Fed/FOMC (FedWatchTab, was Dashboard-only),
-  // and Earnings (EarningsTab, was palette-only) into one destination via
-  // an in-page sub-nav. Still reachable via the palette (FEDWATCH is now
-  // this page; EARNINGS for the standalone view).
-  { id: "calendar",  label: "Calendar",      icon: "📅", tab: "calendar" },
-
-  // Journal — promotes the real manual trade journal (RhProJournal,
-  // localStorage-backed: date/symbol/side/shares/entry/exit/notes/P&L),
-  // previously orphaned from all nav. It also used to be double-mounted
-  // (a second live copy embedded inside GreenLightTab) — retired 2026-07-29
-  // in favor of this one canonical destination plus a redirect link from
-  // Green Light, same "exactly one mount point" convention as everything
-  // else consolidated this session. Distinct from the unrelated
-  // AI-coaching-log JournalTab (Morning Game Plan / Trade Coach / Weekly
-  // Review), which stays palette-only (JOURNAL) — different feature that
-  // happens to share the word "journal", not touched by this redesign.
-  { id: "journal",   label: "Journal",       icon: "📓", tab: "rhpro-journal" },
-
-  // Settings — new composite (axiom-live.jsx, activeTab "settings")
-  // folding Coach (life-coaching, distinct from the unrelated trading-
-  // mistake-analytics RhProCoach which stays palette-only via AICOACH),
-  // Learn (EducationTab), Quran, and Account & Risk (ToolsTab — the real
-  // account-size/risk% inputs backed by the same axiom_acct_size/
-  // axiom_risk_pct localStorage keys TradeExtrasPanel reads on Charts;
-  // previously only reachable via the palette, TOOLS, with no visible nav
-  // slot) into one destination via an in-page sub-nav.
-  { id: "settings",  label: "Settings",      icon: "⚙️", tab: "settings" },
+  // Settings — not one of the 7 "question" surfaces (it doesn't answer a
+  // daily trading question, it configures the app), kept as a permanent
+  // utility row rather than folded into the palette so account/risk/coach
+  // settings stay one click away.
+  { id: "settings",  label: "Settings",   icon: "⚙️", tab: "settings" },
 ];
 
 // AI Copilot stays a floating modal launcher (open-ai-copilot event →
@@ -159,8 +113,8 @@ export default function Sidebar({ C, MONO, SANS, activeTab, setActiveTab, topOff
           <span style={{ fontSize: 14 }}>{collapsed ? "»" : "«"}</span>
         </button>
         {SIDEBAR_ITEMS.map((item) => {
-          const isActive = activeTab === item.tab;
-          const badgeCount = item.id === "scanner" ? scannerBadge : null;
+          const isActive = activeTab === item.tab || (item.alsoActive || []).includes(activeTab);
+          const badgeCount = item.id === "discover" ? scannerBadge : null;
           return (
             <button key={item.id}
               onClick={() => setActiveTab(item.tab)}

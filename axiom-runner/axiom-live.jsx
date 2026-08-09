@@ -4036,6 +4036,22 @@ export default function App() {
       // advance/decline + 50/200MA detail, genuinely more than Market
       // Health's summary number.
       BREADTH: "breadth",
+      // JOURNAL repointed (2026-08-08, explicit user request) to the real
+      // manual trade log (rhpro-journal) — the same thing the sidebar's
+      // "Journal" link opens. It used to mean the separate AI-coaching
+      // journal below at TRADECOACH; that's still real and still reachable,
+      // just under its own name now instead of squatting on the word every
+      // other nav surface in this app already uses for the trade log.
+      TRADEJOURNAL: "rhpro-journal",
+      MYJOURNAL: "rhpro-journal",
+      // Sniper Scanner already has a real "Breakout" category
+      // (RhProScanner.jsx CATEGORIES) driven by the same rhpro_scan_category
+      // localStorage hint BESTOPPORTUNITIES/EARLY below already use — this
+      // was simply never aliased on its own (only reachable via the
+      // "FIND BREAKOUTS" free-text pattern further down, which itself
+      // pointed at the wrong, pre-redesign legacy scanner tab — fixed
+      // alongside this).
+      BREAKOUTS: "rhpro-scan",
       COT: "cot",
       SMBRIEF: "sm-brief",
       ADVISORAI: "advisor-ai",
@@ -4123,7 +4139,11 @@ export default function App() {
       OUTLOOK: "outlook",
       GLBACKTEST: "gl-backtest",
       PREDICTIONS: "predictions",
-      JOURNAL: "journal",
+      JOURNAL: "rhpro-journal",
+      // The AI-coaching journal (Morning Game Plan / Trade Coach / Weekly
+      // Review) JOURNAL used to mean — kept reachable under its own name,
+      // "hide don't delete" per this map's usual convention.
+      TRADECOACH: "journal",
       JSTATS: "journal-stats",
       OPTIONSEDU: "options-edu",
       OPTIONS101: "options-edu",
@@ -4141,6 +4161,9 @@ export default function App() {
       }
       if (normalized === "EARLY") {
         try { localStorage.setItem("rhpro_scan_category", "earlyentry"); } catch {}
+      }
+      if (normalized === "BREAKOUTS") {
+        try { localStorage.setItem("rhpro_scan_category", "breakout"); } catch {}
       }
       setActiveTab(toTab[normalized]);
       return;
@@ -4235,8 +4258,13 @@ export default function App() {
       return;
     }
     if (/^FIND\s+BREAKOUTS?/.test(normalized)) {
-      setActiveTab("scanner");
-      window.dispatchEvent(new CustomEvent("open-ai-copilot", { detail: { query: "What are the strongest breakout setups right now?" } }));
+      // Was pointing at "scanner", the pre-redesign legacy tab (OLDSCANNER
+      // now) — missed when SCANNER itself was repointed to the real Sniper
+      // Scanner (rhpro-scan) during the 2026-07-29 institutional redesign.
+      // Fixed to match that same alias + use Sniper Scanner's real
+      // "Breakout" category instead of just asking the AI copilot about it.
+      try { localStorage.setItem("rhpro_scan_category", "breakout"); } catch {}
+      setActiveTab("rhpro-scan");
       return;
     }
     const scanMatch = normalized.match(/^SCAN\s+(.+?)\s+STOCKS?/);
@@ -4281,7 +4309,7 @@ export default function App() {
         else if (k === "c") setActiveTab("mterminal");
         else if (k === "n") setActiveTab("news");
         else if (k === "p") setActiveTab("portfolio");
-        else if (k === "j") setActiveTab("journal");
+        else if (k === "j") setActiveTab("rhpro-journal"); // repointed with JOURNAL (2026-08-08) — same reasoning, same destination
         else if (k === "a") setActiveTab("earn-cal");
         else if (k === "e") setActiveTab("econ-cal");
       }
@@ -6780,15 +6808,33 @@ export default function App() {
           />
         )}
 
+        {/* DISCOVER — Sidebar's merged Scan/Watchlists/Options Flow
+            destination (sidebar/IA collapse, 2026-08-09). Same three real,
+            unchanged components/mounts as before (rhpro-scan/rhpro-lists/
+            flow activeTab ids kept exactly as-is so every existing
+            palette alias and localStorage handoff into them keeps
+            working) — just given a shared PageSubNav header so switching
+            between them reads as one page with three views instead of
+            three separate destinations. Duplicated at the top of all
+            three blocks rather than physically relocated next to each
+            other, so each block stays independently correct regardless
+            of where else in this file it's edited later. */}
         {activeTab === "flow" && (
-          <FlowTab
-            C={C} MONO={MONO} optionsFlow={optionsFlow} flowBias={flowBias}
-            flowCallNotional={flowCallNotional} flowPutNotional={flowPutNotional}
-            flowFilters={flowFilters} setFlowFilters={setFlowFilters} setLoading={setLoading}
-            fetchAll={fetchAll} apiKey={apiKey}
-            flowBySymbol={flowBySymbol} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab}
-            setWatchlistSymbols={setWatchlistSymbols} watchlistSymbols={watchlistSymbols} flowRows={flowRows}
-          />
+          <>
+            <PageSubNav C={C} MONO={MONO} active={activeTab} setActive={setActiveTab} tabs={[
+              { id: "rhpro-scan", label: "SCAN" },
+              { id: "rhpro-lists", label: "WATCHLISTS" },
+              { id: "flow", label: "OPTIONS FLOW" },
+            ]} />
+            <FlowTab
+              C={C} MONO={MONO} optionsFlow={optionsFlow} flowBias={flowBias}
+              flowCallNotional={flowCallNotional} flowPutNotional={flowPutNotional}
+              flowFilters={flowFilters} setFlowFilters={setFlowFilters} setLoading={setLoading}
+              fetchAll={fetchAll} apiKey={apiKey}
+              flowBySymbol={flowBySymbol} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab}
+              setWatchlistSymbols={setWatchlistSymbols} watchlistSymbols={watchlistSymbols} flowRows={flowRows}
+            />
+          </>
         )}
 
         {/* CALENDAR — composite sidebar destination (institutional
@@ -7070,18 +7116,34 @@ export default function App() {
       {activeTab === "rhpro" && <RhProDashboard C={C} MONO={MONO} SANS={SANS} macroData={macroData} sectorData={sectorData} />}
       {activeTab === "rhpro-apex" && <RhProApex C={C} MONO={MONO} SANS={SANS} macroData={macroData} sectorData={sectorData} />}
       {activeTab === "rhpro-scan" && (
-        <RhProScanner
-          C={C} MONO={MONO} SANS={SANS} macroData={macroData} sectorData={sectorData} watchlistData={watchlistData} setActiveTab={setActiveTab}
-          setTerminalSymbol={setTerminalSymbol} watchlistSymbols={watchlistSymbols} setWatchlistSymbols={setWatchlistSymbols}
-          optionsFlow={optionsFlow} flowBias={flowBias} flowCallNotional={flowCallNotional} flowPutNotional={flowPutNotional}
-          flowFilters={flowFilters} setFlowFilters={setFlowFilters} setLoading={setLoading} fetchAll={fetchAll} apiKey={apiKey}
-          flowBySymbol={flowBySymbol} flowRows={flowRows}
-          dpSym={dpSym} setDpSym={setDpSym} dpLoad={dpLoad} setDpLoad={setDpLoad} dpData={dpData} setDpData={setDpData} dpErr={dpErr} setDpErr={setDpErr}
-          earningsUpdatedAt={earningsUpdatedAt} setEarningsRefreshTick={setEarningsRefreshTick} earningsLoading={earningsLoading} earningsRows={earningsRows}
-          setQuickLogModal={setQuickLogModal} rotationRank={rotationRank}
-        />
+        <>
+          <PageSubNav C={C} MONO={MONO} active={activeTab} setActive={setActiveTab} tabs={[
+            { id: "rhpro-scan", label: "SCAN" },
+            { id: "rhpro-lists", label: "WATCHLISTS" },
+            { id: "flow", label: "OPTIONS FLOW" },
+          ]} />
+          <RhProScanner
+            C={C} MONO={MONO} SANS={SANS} macroData={macroData} sectorData={sectorData} watchlistData={watchlistData} setActiveTab={setActiveTab}
+            setTerminalSymbol={setTerminalSymbol} watchlistSymbols={watchlistSymbols} setWatchlistSymbols={setWatchlistSymbols}
+            optionsFlow={optionsFlow} flowBias={flowBias} flowCallNotional={flowCallNotional} flowPutNotional={flowPutNotional}
+            flowFilters={flowFilters} setFlowFilters={setFlowFilters} setLoading={setLoading} fetchAll={fetchAll} apiKey={apiKey}
+            flowBySymbol={flowBySymbol} flowRows={flowRows}
+            dpSym={dpSym} setDpSym={setDpSym} dpLoad={dpLoad} setDpLoad={setDpLoad} dpData={dpData} setDpData={setDpData} dpErr={dpErr} setDpErr={setDpErr}
+            earningsUpdatedAt={earningsUpdatedAt} setEarningsRefreshTick={setEarningsRefreshTick} earningsLoading={earningsLoading} earningsRows={earningsRows}
+            setQuickLogModal={setQuickLogModal} rotationRank={rotationRank}
+          />
+        </>
       )}
-      {activeTab === "rhpro-lists" && <RhProWatchlists C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} macroData={macroData} />}
+      {activeTab === "rhpro-lists" && (
+        <>
+          <PageSubNav C={C} MONO={MONO} active={activeTab} setActive={setActiveTab} tabs={[
+            { id: "rhpro-scan", label: "SCAN" },
+            { id: "rhpro-lists", label: "WATCHLISTS" },
+            { id: "flow", label: "OPTIONS FLOW" },
+          ]} />
+          <RhProWatchlists C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} macroData={macroData} />
+        </>
+      )}
       {activeTab === "rhpro-heat" && <RhProHeatMap C={C} MONO={MONO} SANS={SANS} sectorData={sectorData} macroData={macroData} />}
       {activeTab === "rhpro-journal" && <RhProJournal C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "rhpro-coach" && <RhProCoach C={C} MONO={MONO} SANS={SANS} />}
