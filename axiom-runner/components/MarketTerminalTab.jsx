@@ -23,8 +23,6 @@ function TrendRatingOverlay({ chart, C, MONO, SANS, isMobile }) {
     : su.target2) : null;
   const price = Number(chart.livePrice) || Number(chart.price) || null;
   const upside = aiTarget && price ? Math.round(((aiTarget - price) / price) * 100) : null;
-  const verdict = su && su.verdict;
-  const vColor = verdict === "GO" ? "#22d47e" : verdict === "WAIT" ? "#d6a312" : "#ef4444";
   const t1 = su && su.actionable ? Math.round((su.entry + (su.entry - su.stop)) * 100) / 100 : null;
   const levels = su && su.actionable ? [
     ["T3", su.target3, "#0d9465"], ["T2", su.target2, "#16a34a"], ["T1", t1, "#5ab552"],
@@ -56,11 +54,11 @@ function TrendRatingOverlay({ chart, C, MONO, SANS, isMobile }) {
         <span style={{ fontFamily: SANS, fontSize: 30, fontWeight: 900, color: rColor, lineHeight: 1 }}>{rating}</span>
         <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 800, color: rColor, letterSpacing: 0.5 }}>{rWord}</span>
       </div>
-      {verdict && (
-        <div style={{ display: "inline-block", marginTop: 6, fontFamily: MONO, fontSize: 10, fontWeight: 800, color: "#fff", background: vColor, borderRadius: 5, padding: "2px 8px" }}>
-          {verdict === "GO" ? "🟢 GO" : verdict === "WAIT" ? "🟡 WAIT" : "🔴 AVOID"}
-        </div>
-      )}
+      {/* GO/WAIT/AVOID badge removed here (2026-08-09, decision-clarity
+          audit) — it read su.verdict, the exact same value the EXECUTION
+          section below the chart already shows; a true duplicate, not a
+          second opinion. The rating number and PIVOT/STOP/T1-T3 levels
+          above/below are this pill's real unique content, kept as-is. */}
       {upside != null && <div style={{ fontFamily: MONO, fontSize: 10, color: "#f59e0b", marginTop: 5 }}>🎯 {upside > 0 ? "+" : ""}{upside}% to target</div>}
       {levels.length > 0 && (
         <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${C.border}` }}>
@@ -868,6 +866,14 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
         {chart && (
           <div style={{ marginBottom: 14 }}>
             <SectionHeader icon="🎯" label="EXECUTION" />
+            {/* Caption added here, not inside TrendSetupPanel itself
+                (2026-08-09, decision-clarity audit) — that component is
+                shared with DayTradeTab, where there's no Hero card above it
+                to be subordinate to. Its GO/WAIT/AVOID answers a narrower
+                question — entry timing on the breakout pivot — than the
+                page's own overall verdict; this line says so without
+                coupling the shared component to this one page's layout. */}
+            <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginBottom: 6 }}>Entry timing, not the overall call — see the verdict above.</div>
             <TrendSetupPanel data={chart} C={C} MONO={MONO} SANS={SANS} />
             {chart.setup && (
               <button onClick={() => {
@@ -968,7 +974,13 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                 {Math.round((checklistResult.passCount / checklistResult.total) * 100)}%
               </span>
               {checklistResult.passCount / checklistResult.total >= 0.75 && (
-                <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 900, color: C.green, border: `1px solid ${C.green}`, borderRadius: 4, padding: "2px 8px" }}>READY TO EXECUTE</span>
+                // Relabeled from "READY TO EXECUTE" (2026-08-09, decision-
+                // clarity audit) — that phrasing read as its own trade call,
+                // competing with the page's actual verdict above. This dot-
+                // count is a mechanical rule-pass-rate, not an AI opinion —
+                // "checklist clear" says that honestly instead of implying
+                // this alone means go trade.
+                <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 900, color: C.green, border: `1px solid ${C.green}`, borderRadius: 4, padding: "2px 8px" }} title="Rule pass-rate only — see the verdict above for the actual call">CHECKLIST CLEAR</span>
               )}
             </div>
             <ChecklistCard
@@ -1406,7 +1418,19 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             {chart && sym && (
               <div style={{ marginTop: 14, marginBottom: 14 }}>
                 <SectionHeader icon="🧱" label="SMART MONEY" />
-                <SmartMoneyDecisionPanel symbol={sym} C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} isMobile={isMobile} />
+                {/* heroAction (2026-08-09, decision-clarity audit) — this
+                    panel used to compute its own separate headline verdict
+                    server-side (computeNextAction + a ported copy of the
+                    grade formula), which could genuinely disagree with the
+                    page's own Hero verdict above for the same symbol at the
+                    same instant (different decision-tree logic, not just
+                    different data). Passing the same primaryAction down
+                    guarantees this panel's headline always agrees with the
+                    Hero card by construction — its own institutional
+                    evidence (trade plan, traffic lights, key reasons) stays
+                    exactly as real and unfiltered as before, it's the
+                    competing verdict language that's gone, not the data. */}
+                <SmartMoneyDecisionPanel symbol={sym} C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} isMobile={isMobile} heroAction={primaryAction} />
               </div>
             )}
             {/* SECTION 7 — Catalysts (institutional redesign, 2026-07-29,

@@ -19,9 +19,20 @@ import { computeInstitutionalSummary, computeBestInstitutionalZone } from "./mar
 // an honest "—" — no invented "S+" grade (real ceiling is A+, see
 // institutionalLetterGrade), no invented "Market Wind" (real substitute:
 // getMarketSessionET's session read, both confirmed with the user).
+//
+// Headline verdict (2026-08-09, decision-clarity audit) — this panel used
+// to compute its own verdict server-side (computeNextAction + a ported
+// copy of the institutional-grade formula), which could genuinely disagree
+// with the page's own Hero verdict for the same symbol (different decision
+// logic, not just a rendering difference). Callers on Workspace now pass
+// `heroAction` (the same primaryAction object the Hero card renders) so
+// the headline here is always the same call, by construction — everything
+// below the headline (confidence, setup grade, bias, trade plan, traffic
+// lights, key reasons) is still this panel's own real institutional-flow
+// evidence, unchanged.
 
 const GUIDE_STEPS = [
-  { t: "1s", label: "AI Verdict", desc: "Buy Now, Wait, or Avoid" },
+  { t: "1s", label: "The Call", desc: "Same verdict as the page above" },
   { t: "1s", label: "Institutional Summary", desc: "Why, in plain English" },
   { t: "1s", label: "Trade Plan", desc: "Entry, stop, target" },
   { t: "2s", label: "3 Traffic Lights", desc: "Trend, Institutional, Market" },
@@ -63,7 +74,7 @@ function TrafficLight({ C, MONO, SANS, label, state, detail }) {
   );
 }
 
-export default function SmartMoneyDecisionPanel({ symbol, C, MONO, SANS, setActiveTab, isMobile }) {
+export default function SmartMoneyDecisionPanel({ symbol, C, MONO, SANS, setActiveTab, isMobile, heroAction }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -86,8 +97,17 @@ export default function SmartMoneyDecisionPanel({ symbol, C, MONO, SANS, setActi
   const summaryLines = data ? computeInstitutionalSummary(data) : [];
   const bestZone = data ? computeBestInstitutionalZone(data) : null;
 
-  const verdictColor = !data ? C.textDim : data.verdict === "BUY NOW" ? C.green : data.verdict === "AVOID" ? C.red : C.amber;
-  const verdictIcon = !data ? "⚪" : data.verdict === "BUY NOW" ? "🟢" : data.verdict === "AVOID" ? "🔴" : "🟡";
+  // heroAction (2026-08-09) — when the parent page passes its own already-
+  // computed primaryAction down, that's the headline here too, so this
+  // panel can never show a different buy/sell call than the rest of the
+  // page for the same symbol at the same instant. Falls back to this
+  // panel's own real verdict only when mounted standalone with no
+  // heroAction prop (defensive, not the normal path on Workspace).
+  const verdictLabel = heroAction ? heroAction.label : data?.verdict;
+  const verdictColor = heroAction ? heroAction.color : (!data ? C.textDim : data.verdict === "BUY NOW" ? C.green : data.verdict === "AVOID" ? C.red : C.amber);
+  const verdictIcon = heroAction
+    ? (heroAction.tier >= 7 ? "🟢" : heroAction.tier === 6 ? "⚪" : heroAction.tier >= 3 ? "🟡" : "🔴")
+    : (!data ? "⚪" : data.verdict === "BUY NOW" ? "🟢" : data.verdict === "AVOID" ? "🔴" : "🟡");
 
   const trendLight = data ? (data.trend.passCount >= 7 ? "green" : data.trend.passCount >= 6 ? "yellow" : "red") : null;
   const instLight = data ? (data.marketControl === "BUYERS" ? "green" : data.marketControl === "MIXED" ? "yellow" : "red") : null;
@@ -155,9 +175,12 @@ export default function SmartMoneyDecisionPanel({ symbol, C, MONO, SANS, setActi
               <div style={{ display: "flex", gap: 20, flexWrap: "wrap", alignItems: "center" }}>
                 <div>
                   <div style={{ fontFamily: MONO, fontSize: 28, fontWeight: 900, color: verdictColor, display: "flex", alignItems: "center", gap: 10 }}>
-                    <span>{verdictIcon}</span>{data.verdict}
+                    <span>{verdictIcon}</span>{verdictLabel}
                   </div>
-                  <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.textDim, marginTop: 4, maxWidth: 380 }}>{data.verdictReason}</div>
+                  <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.textDim, marginTop: 4, maxWidth: 380 }}>
+                    {heroAction && <span style={{ opacity: 0.75 }}>Same call as the page verdict above — </span>}
+                    {data.verdictReason}
+                  </div>
                 </div>
                 <RadialGauge C={C} MONO={MONO} value={data.confidence} label="CONFIDENCE" color={verdictColor} size={130} />
                 <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>

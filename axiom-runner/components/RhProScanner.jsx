@@ -618,6 +618,16 @@ export default function RhProScanner({
           header row below) so whichever symbol you're looking at never
           scrolls out of view while you swipe right for the rest of its row. */}
       <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginBottom: 6 }}>↔ Swipe the table to see all 10 columns</div>
+      {/* Persistent, not just a click-to-expand tooltip (2026-08-09,
+          decision-clarity audit) — a real user could open a symbol from
+          here and find its Workspace page showing a different score,
+          because SCORE/AI ACTION here use an honest neutral placeholder for
+          Technical Confirmation and Options Flow (this bulk scan can't
+          afford a real per-row options-flow fetch across the whole
+          universe). That's not a bug or disagreement, it's a fast screen
+          refining into a full read — but only if it's said up front,
+          not discovered by clicking into the grade explainer. */}
+      <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginBottom: 10 }}>⚡ Quick screen — Score/AI Action use a placeholder for Technical Confirmation &amp; Options Flow. Open a symbol's Workspace for the full read.</div>
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "auto", maxHeight: "70vh" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           {/* 10 decision-first columns (2026-08-04 redesign, explicit user
