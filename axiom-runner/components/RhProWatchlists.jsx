@@ -1,30 +1,49 @@
 import { useState, useEffect } from "react";
-import { RH_UNIVERSE, rhScore, rhScreenProgressive } from "./rhpro-shared.jsx";
-import { computeRegime, computeAPlusScore, computeNextAction, computePrediction } from "./market-helpers.js";
+import { RH_UNIVERSE, rhScreenProgressive } from "./rhpro-shared.jsx";
+import { computeRegime, computeInstitutionalGrade, computeNextAction, computePrediction, SECTOR_ETFS, STOCK_TO_SECTOR } from "./market-helpers.js";
 import { mapToAiAction } from "./ai-actions.js";
 
-export default function RhProWatchlists({ C, MONO, SANS, setActiveTab, macroData }) {
+export default function RhProWatchlists({ C, MONO, SANS, setActiveTab, macroData, sectorData }) {
   const regime = computeRegime(macroData);
-  const [rows, setRows] = useState([]); const [loading, setLoading] = useState(false); const [ranAt, setRanAt] = useState(null);
-  const scan = () => {
-    setLoading(true); setRows([]);
-    let all = [];
-    rhScreenProgressive(RH_UNIVERSE,
-      (part) => { all = [...all, ...part.map(x => {
-        const next = computeNextAction(x);
-        const aplus = computeAPlusScore(x, regime);
-        // Same unified vocabulary Scanner/Workspace use — computeNextAction's
-        // raw BUY/BREAKOUT/WATCH/WAIT/AVOID label is a different wording
-        // system than AI_ACTIONS, so mapping it here keeps a stock's action
-        // word consistent with what its own Workspace page says.
-        const aiAction = mapToAiAction({ nextAction: next.action, institutionalScore: aplus.score });
-        return { ...x, score: rhScore(x), aplus, next, aiAction, prediction: computePrediction(x, x) };
-      })]; setRows(all); setRanAt(new Date()); },
-      () => setLoading(false)
-    );
+
+  // Same real per-symbol sector-rank lookup MarketTerminalTab.jsx (Workspace)
+  // uses for its own Institutional Grade — computed purely client-side from
+  // the 11 sector ETF quotes already fetched app-wide, zero extra network
+  // cost. Passing this in is one of the 3 fixes (below) that make a stock's
+  // score here identical to what its own Workspace page shows.
+  const sectorInfoFor = (symbol) => {
+    const etf = STOCK_TO_SECTOR[symbol];
+    if (!etf || !(sectorData || []).length) return null;
+    const ranked = [...SECTOR_ETFS]
+      .map((se) => ({ ...se, chg: (sectorData.find((s) => s.symbol === se.symbol)?.changesPercentage) ?? 0 }))
+      .sort((a, b) => b.chg - a.chg);
+    const rank = ranked.findIndex((se) => se.symbol === etf) + 1;
+    const info = ranked.find((se) => se.symbol === etf);
+    return rank > 0 ? { name: info?.name || etf, rank, of: ranked.length, chg: info?.chg } : null;
   };
-  useEffect(() => { scan(); }, []);
-  const analyze = (sym) => { try { localStorage.setItem("mterminal_load_sym", sym); } catch {} setActiveTab && setActiveTab("mterminal"); };
+
+  // Score-mismatch fix (2026-08-10, user-flagged "shows 88 ... opens to 79
+  // ... make sure they match no confusion"). This page used to show a
+  // different formula (rhScore/stockQualityBreakdown) than the Institutional
+  // Grade Workspace shows for the same stock. Now both call the exact same
+  // computeInstitutionalGrade with the exact same real inputs: passCount/smc
+  // (already in every trend-screen row), technicals.adx (now computed in
+  // light/bulk-scan mode too, see market.js), the same regime, and the same
+  // sectorInfo lookup above. optionsFlow is the one dimension that genuinely
+  // requires a live per-symbol fetch — passed null on first paint (honest
+  // neutral 8/15 pts, same graceful degrade computeInstitutionalGrade always
+  // uses), then backfilled in place by enrichWithOptionsFlow below once the
+  // real per-symbol flow reads land, at which point the number is byte-for-
+  // byte the same computation Workspace would show for that symbol.
+  const gradeRow = (x, optionsFlow) => {
+    const next = computeNextAction(x);
+    const grade = computeInstitutionalGrade(x, x.technicals, regime, sectorInfoFor(x.symbol), optionsFlow || null);
+    const aiAction = mapToAiAction({ nextAction: next.action, institutionalScore: grade.score });
+    return { ...x, score: grade.score, grade, next, aiAction, prediction: computePrediction(x, x) };
+  };
+
+  const [rows, setRows] = useState([]); const [loading, setLoading] = useState(false); const [ranAt, setRanAt] = useState(null);
+  const [flowLoading, setFlowLoading] = useState(false);
 
   const st2 = r => (r.stage || "").includes("2");
   const st4 = r => (r.stage || "").includes("4");
@@ -42,27 +61,73 @@ export default function RhProWatchlists({ C, MONO, SANS, setActiveTab, macroData
   // shows names not already surfaced above). No filter threshold or sort
   // changed — same real criteria, same real data — this only changes
   // which of the genuinely-matching names get displayed where.
-  const seen = new Set();
-  const rawLists = [
-    { key: "top", icon: "🏆", title: "AI TOP PICKS", desc: "Highest overall AI score", raw: rows.filter(r => r.score >= 55).sort(byScore) },
-    { key: "breakout", icon: "🚀", title: "BREAKOUT CANDIDATES", desc: "At/near a valid pivot", raw: rows.filter(r => r.atBuyPoint || (r.actionable && Number(r.abovePivotPct || -99) >= -3)).sort(byScore) },
-    { key: "momentum", icon: "⚡", title: "MOMENTUM LEADERS", desc: "RS ≥ 80 in a Stage 2 uptrend", raw: rows.filter(r => (r.rsRating || 0) >= 80 && st2(r)).sort((a, b) => (b.rsRating || 0) - (a.rsRating || 0)) },
-    { key: "pullback", icon: "🎯", title: "PULLBACK OPPORTUNITIES", desc: "Strong stock at its buy zone", raw: rows.filter(r => r.actionable && !r.extended && !st4(r)).sort(byScore) },
-    { key: "rvol", icon: "🔊", title: "HIGH RELATIVE VOLUME", desc: "Volume ≥ 1.5× average", raw: rows.filter(r => (r.volRatio || 0) >= 1.5).sort((a, b) => (b.volRatio || 0) - (a.volRatio || 0)) },
-    { key: "swing", icon: "📈", title: "SWING CANDIDATES", desc: "Stage 2, 6/8+ template", raw: rows.filter(r => st2(r) && (r.passCount || 0) >= 6).sort(byScore) },
-    { key: "volatile", icon: "🌊", title: "VOLATILE / DAY-TRADE", desc: "High volume + wide range", raw: rows.filter(r => (r.volRatio || 0) >= 1.8).sort((a, b) => (b.volRatio || 0) - (a.volRatio || 0)) },
-    { key: "avoid", icon: "🚫", title: "AVOID (Stage 4)", desc: "Downtrends — do not buy", raw: rows.filter(st4).sort((a, b) => a.score - b.score) },
-  ];
-  const lists = rawLists.map(l => {
-    const deduped = l.raw.filter(r => !seen.has(r.symbol));
-    const items = deduped.slice(0, 10);
-    items.forEach(r => seen.add(r.symbol));
-    // Distinguishes "genuinely nothing matches this category right now"
-    // from "matches exist but already shown in a card above" — the two
-    // are different real states and shouldn't share one silent message.
-    const allAlreadyShown = l.raw.length > 0 && deduped.length === 0;
-    return { key: l.key, icon: l.icon, title: l.title, desc: l.desc, items, allAlreadyShown };
-  });
+  // Extracted to a plain function (was inline in render) so scan()'s
+  // completion handler can compute the exact same deduped/truncated symbol
+  // set to know which ~50-70 displayed tickers need a real options-flow
+  // fetch, without re-deriving the logic twice.
+  const buildLists = (rowsArr) => {
+    const seen = new Set();
+    const rawLists = [
+      { key: "top", icon: "🏆", title: "AI TOP PICKS", desc: "Highest overall AI score", raw: rowsArr.filter(r => r.score >= 55).sort(byScore) },
+      { key: "breakout", icon: "🚀", title: "BREAKOUT CANDIDATES", desc: "At/near a valid pivot", raw: rowsArr.filter(r => r.atBuyPoint || (r.actionable && Number(r.abovePivotPct || -99) >= -3)).sort(byScore) },
+      { key: "momentum", icon: "⚡", title: "MOMENTUM LEADERS", desc: "RS ≥ 80 in a Stage 2 uptrend", raw: rowsArr.filter(r => (r.rsRating || 0) >= 80 && st2(r)).sort((a, b) => (b.rsRating || 0) - (a.rsRating || 0)) },
+      { key: "pullback", icon: "🎯", title: "PULLBACK OPPORTUNITIES", desc: "Strong stock at its buy zone", raw: rowsArr.filter(r => r.actionable && !r.extended && !st4(r)).sort(byScore) },
+      { key: "rvol", icon: "🔊", title: "HIGH RELATIVE VOLUME", desc: "Volume ≥ 1.5× average", raw: rowsArr.filter(r => (r.volRatio || 0) >= 1.5).sort((a, b) => (b.volRatio || 0) - (a.volRatio || 0)) },
+      { key: "swing", icon: "📈", title: "SWING CANDIDATES", desc: "Stage 2, 6/8+ template", raw: rowsArr.filter(r => st2(r) && (r.passCount || 0) >= 6).sort(byScore) },
+      { key: "volatile", icon: "🌊", title: "VOLATILE / DAY-TRADE", desc: "High volume + wide range", raw: rowsArr.filter(r => (r.volRatio || 0) >= 1.8).sort((a, b) => (b.volRatio || 0) - (a.volRatio || 0)) },
+      { key: "avoid", icon: "🚫", title: "AVOID (Stage 4)", desc: "Downtrends — do not buy", raw: rowsArr.filter(st4).sort((a, b) => a.score - b.score) },
+    ];
+    const lists = rawLists.map(l => {
+      const deduped = l.raw.filter(r => !seen.has(r.symbol));
+      const items = deduped.slice(0, 10);
+      items.forEach(r => seen.add(r.symbol));
+      // Distinguishes "genuinely nothing matches this category right now"
+      // from "matches exist but already shown in a card above" — the two
+      // are different real states and shouldn't share one silent message.
+      const allAlreadyShown = l.raw.length > 0 && deduped.length === 0;
+      return { key: l.key, icon: l.icon, title: l.title, desc: l.desc, items, allAlreadyShown };
+    });
+    return { lists, shownSymbols: [...seen] };
+  };
+
+  // Backfills the one dimension that genuinely needs a live per-symbol
+  // fetch (real options-flow bias) for just the tickers actually on screen
+  // — not the full 100-stock scan universe — so this stays a few real
+  // requests, not ~100. Each fetch is the identical single-symbol call
+  // Workspace's own page makes (`options-flow?symbols=<one>&limit=1`), run
+  // with capped concurrency so the badges update in place as each resolves
+  // rather than blocking the whole page on a slow provider call.
+  const enrichWithOptionsFlow = async (finalRows) => {
+    const { shownSymbols } = buildLists(finalRows);
+    if (!shownSymbols.length) return;
+    setFlowLoading(true);
+    const queue = [...shownSymbols];
+    const worker = async () => {
+      while (queue.length) {
+        const sym = queue.shift();
+        try {
+          const j = await fetch(`/api/market/options-flow?symbols=${encodeURIComponent(sym)}&limit=1`).then(r => r.json());
+          const flow = j && !j.error ? j.summary || null : null;
+          setRows(prev => prev.map(r => (r.symbol === sym ? gradeRow(r, flow) : r)));
+        } catch { /* real flow read failed — row keeps its honest neutral placeholder */ }
+      }
+    };
+    await Promise.all(Array.from({ length: 8 }, worker));
+    setFlowLoading(false);
+  };
+
+  const scan = () => {
+    setLoading(true); setRows([]);
+    let all = [];
+    rhScreenProgressive(RH_UNIVERSE,
+      (part) => { all = [...all, ...part.map(x => gradeRow(x, null))]; setRows(all); setRanAt(new Date()); },
+      () => { setLoading(false); enrichWithOptionsFlow(all); }
+    );
+  };
+  useEffect(() => { scan(); }, []);
+  const analyze = (sym) => { try { localStorage.setItem("mterminal_load_sym", sym); } catch {} setActiveTab && setActiveTab("mterminal"); };
+
+  const { lists } = buildLists(rows);
 
   return (
     <div style={{ padding: "8px 4px" }}>
@@ -70,12 +135,15 @@ export default function RhProWatchlists({ C, MONO, SANS, setActiveTab, macroData
         {/* Renamed from "SMART WATCHLISTS" — real site-reorg finding: this
             shares zero code/data with the real user watchlist
             (data/watchlist.json, QuotesTab.jsx). It's the same scan engine
-            as RhProScanner.jsx (RH_UNIVERSE + rhScore/computeAPlusScore/
+            as RhProScanner.jsx (RH_UNIVERSE + computeInstitutionalGrade/
             computeNextAction), just re-bucketed into named lists below —
             "Ranked Lists" describes that accurately without colliding
             with the unrelated real watchlist feature. */}
         <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.text }}>📋 AI RANKED LISTS</div>
-        <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>auto-sorted from {RH_UNIVERSE.length} stocks · {ranAt ? ranAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "…"}</div>
+        <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>
+          auto-sorted from {RH_UNIVERSE.length} stocks · {ranAt ? ranAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "…"}
+          {flowLoading && " · refining scores with live options data…"}
+        </div>
         <button onClick={scan} disabled={loading} style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "8px 16px", borderRadius: 8, border: "none", color: "#fff", background: loading ? C.textDim : C.accent, cursor: "pointer" }}>{loading ? "⏳…" : "↻ REFRESH"}</button>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(280px,1fr))", gap: 12 }}>
@@ -105,13 +173,10 @@ export default function RhProWatchlists({ C, MONO, SANS, setActiveTab, macroData
                     return <span title={`Real ~1-week prediction: ${p.why.join(" · ") || "no strong real signal either way"} · target $${p.target} (${p.movePct >= 0 ? "+" : ""}${p.movePct}%)`} style={{ fontSize: 10, fontWeight: 800, color: dirCol, cursor: "help" }}>{dirIcon}</span>;
                   })()}
                   <span style={{ fontSize: 10, color: C.textDim }}>RS {r.rsRating ?? "—"}</span>
-                  {/* Dropped the separate A+ badge (2026-08-10, user-flagged
-                      confusion: "2 different scores"). It's a different
-                      formula (computeAPlusScore) than the number below, which
-                      is what actually sorts every list here — showing both
-                      made the ranking look arbitrary. r.aplus is still
-                      computed (used elsewhere) but no longer rendered. */}
-                  <span title="AI Score — sets this card's ranking, highest first" style={{ fontWeight: 900, color: r.score >= 70 ? C.green : r.score >= 50 ? C.amber : C.textDim, cursor: "help" }}>{r.score}</span>
+                  {/* One score, same formula/inputs as Workspace's own
+                      Institutional Grade — fixes the "88 here, 79 when I
+                      open it" mismatch (2026-08-10). */}
+                  <span title={`Same score you'll see on ${r.symbol}'s Workspace page${r.grade ? " — " + r.grade.reasons.slice(0, 3).join(" · ") : ""}`} style={{ fontWeight: 900, color: r.score >= 70 ? C.green : r.score >= 50 ? C.amber : C.textDim, cursor: "help" }}>{r.score}</span>
                 </span>
               </div>
             )) : <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, padding: "4px 0" }}>{l.allAlreadyShown ? "matches already shown in a card above" : "none right now"}</div>}

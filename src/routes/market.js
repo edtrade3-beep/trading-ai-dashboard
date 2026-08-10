@@ -1197,11 +1197,38 @@ async function buildMarketOutlook() {
   };
 }
 
-// Per-symbol result cache (2 min). The scanner runs the same 60 stocks
+// Per-symbol result cache (5 min). The scanner runs the same 60 stocks
 // repeatedly, so caching each symbol's heavy analysis makes rescans near-instant
-// and cuts load on the free tier. Keyed by symbol + light flag.
+// and cuts load on the free tier. Keyed by symbol + light flag. Raised from
+// 2 → 5 min (2026-08-10, Watchlists-vs-Workspace score-match fix) — a
+// window this short meant a user who scanned Watchlists then clicked into a
+// symbol 2+ minutes later got a fresh, independently-live-fetched bars set
+// for that click, which could flip a boundary Minervini criterion and
+// produce a slightly different score than the list just showed. Daily-bar
+// signals don't need second-by-second freshness, so 5 min trades a small
+// amount of staleness for that mismatch being rare in real usage.
 const _ttCache = new Map();
-const TT_TTL_MS = 120_000;
+const TT_TTL_MS = 300_000;
+
+// Real daily bars, shared across the light (bulk scan) and full
+// (single-symbol Chart/Workspace) calls for the same symbol — same TTL as
+// _ttCache above. Without this, a light call and a full call for the same
+// symbol a few seconds apart each independently re-fetch bars, and today's
+// still-forming daily bar can tick between the two live fetches — a real
+// source of Watchlists-vs-Workspace score drift beyond the score-formula
+// mismatch itself (2026-08-10, "make sure they match no confusion" fix).
+// Sharing the bars array means passCount/RS/momentum/ADX/etc. are computed
+// from the exact same data whether the caller is a bulk scan row or the
+// single symbol just opened in Workspace.
+const _barsCache = new Map();
+async function _fetchBarsCached(symbol) {
+  const hit = _barsCache.get(symbol);
+  if (hit && Date.now() - hit.ts < TT_TTL_MS) return hit.data;
+  const data = await fetchYahooBars(symbol, "1y", "1d");
+  _barsCache.set(symbol, { ts: Date.now(), data });
+  if (_barsCache.size > 400) { for (const [k, v] of _barsCache) if (Date.now() - v.ts > TT_TTL_MS) _barsCache.delete(k); }
+  return data;
+}
 
 // buildForwardReturnReport() is symbol-agnostic (one global daily-snapshot
 // log) and re-fetches real current prices for every tracked symbol across 4
@@ -1226,7 +1253,7 @@ async function buildTrendTemplate(symbol, opts = {}) {
   return data;
 }
 async function _buildTrendTemplate(symbol, opts = {}) {
-  const bars = await fetchYahooBars(symbol, "1y", "1d");
+  const bars = await _fetchBarsCached(symbol);
   if (!Array.isArray(bars) || bars.length < 200) {
     throw new Error(`Not enough history for ${symbol} (need ~200 trading days, got ${bars ? bars.length : 0}).`);
   }
@@ -1476,6 +1503,13 @@ async function _buildTrendTemplate(symbol, opts = {}) {
   const rsi14 = (() => { try { return require("../indicators").computeRSI(closes, 14); } catch { return null; } })();
   const dayChangePct = last >= 1 && closes[last - 1] > 0 ? round2((price / closes[last - 1] - 1) * 100) : null;
   const weekChangePct = last >= 5 && closes[last - 5] > 0 ? round2((price / closes[last - 5] - 1) * 100) : null;
+  // ADX, computed here (not gated to !opts.light like Donchian/Bollinger
+  // below) so bulk-scan callers (screenTrendTemplate) get the same real
+  // technicalPts input computeInstitutionalGrade uses for the single-symbol
+  // Chart page — zero extra network cost, same bars already in memory.
+  // Watchlists-vs-Workspace score-mismatch fix (2026-08-10, user-flagged
+  // "shows 88 ... opens to 79").
+  const adxLight = (() => { try { return computeADX(bars, 14); } catch { return null; } })();
 
   const result = {
     symbol,
@@ -1504,6 +1538,7 @@ async function _buildTrendTemplate(symbol, opts = {}) {
     criteria,
     setup,
     smc,
+    technicals: { adx: adxLight },
   };
   if (opts.light) return result;
   result.bars = bars.map((b) => ({
@@ -1534,7 +1569,7 @@ async function _buildTrendTemplate(symbol, opts = {}) {
   // work, unlike the O(1) rsi/day%/week% fields, so those two stay gated
   // to the full (non-light) call as before.
   result.technicals = {
-    adx: computeADX(bars, 14),
+    adx: adxLight,
     donchian: computeDonchian(bars, 20),
     bollinger: computeBollinger(bars, 20),
     rsi: rsi14,
@@ -1609,6 +1644,7 @@ async function screenTrendTemplate(symbols, filters = {}) {
           hi52: r.hi52, lo52: r.lo52, ma50: r.ma ? r.ma.ma50 : null,
           rsi: r.rsi, dayChangePct: r.dayChangePct, weekChangePct: r.weekChangePct,
           smc: r.smc || null,
+          technicals: r.technicals || null,
           _passExclRS: passExclRS,
           atBuyPoint: r.passCount >= 7 && r.setup.actionable && !r.setup.extended,
         });
@@ -1620,6 +1656,19 @@ async function screenTrendTemplate(symbols, filters = {}) {
   await Promise.all(Array.from({ length: Math.min(6, symbols.length) }, worker));
 
   // ── Real RS rating: percentile-rank each name's weighted momentum across the screened universe (1–99). ──
+  // Only meaningful with a real peer group. Single-symbol/small requests
+  // (Workspace opening one ticker, Command Palette ticker lookups) have
+  // nothing to rank against — this used to unconditionally overwrite
+  // rsRating with pctile()'s degenerate "moms.length < 2 → 50" fallback,
+  // silently discarding the honest SPY-relative approximation
+  // buildTrendTemplate already computed, and often flipping the RS≥70
+  // Minervini criterion in the process. That was the real reason a symbol
+  // could show a different passCount/score alone in Workspace than it did
+  // in a bulk scan like Watchlists (2026-08-10, "make sure they match no
+  // confusion" fix). MIN_PEERS_FOR_RS is a judgment call, not a precise
+  // threshold — below it, a percentile is too coarse/noisy to trust over
+  // the existing approximation.
+  const MIN_PEERS_FOR_RS = 10;
   const scored = out.filter((x) => !x.error && x.momentum != null);
   const moms = scored.map((x) => x.momentum).sort((a, b) => a - b);
   const pctile = (m) => {
@@ -1628,11 +1677,13 @@ async function screenTrendTemplate(symbols, filters = {}) {
     return Math.max(1, Math.min(99, Math.round((below / (moms.length - 1)) * 100)));
   };
   for (const x of scored) {
-    x.rsRating = pctile(x.momentum);            // overwrite SPY-approx with a true percentile
-    x.rsApprox = false;
-    const rsPass = x.rsRating >= 70;            // Minervini RS rule, now percentile-based
-    x.passCount = x._passExclRS + (rsPass ? 1 : 0);
-    x.qualifies = x.passCount === 8;
+    if (moms.length >= MIN_PEERS_FOR_RS) {
+      x.rsRating = pctile(x.momentum);            // overwrite SPY-approx with a true percentile
+      x.rsApprox = false;
+      const rsPass = x.rsRating >= 70;            // Minervini RS rule, now percentile-based
+      x.passCount = x._passExclRS + (rsPass ? 1 : 0);
+      x.qualifies = x.passCount === 8;
+    }
     // Buy point now requires a volume-confirmed breakout — no more low-volume fakeouts.
     x.atBuyPoint = x.passCount >= 7 && x.actionable && !x.extended && x.volConfirmed;
     // momentum is kept (previously deleted here) — Stock Quality Score's real

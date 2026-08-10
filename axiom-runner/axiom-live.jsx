@@ -7164,7 +7164,7 @@ export default function App() {
             { id: "rhpro-lists", label: "WATCHLISTS" },
             { id: "flow", label: "OPTIONS FLOW" },
           ]} />
-          <RhProWatchlists C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} macroData={macroData} />
+          <RhProWatchlists C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} macroData={macroData} sectorData={sectorData} />
         </>
       )}
       {activeTab === "rhpro-heat" && <RhProHeatMap C={C} MONO={MONO} SANS={SANS} sectorData={sectorData} macroData={macroData} />}
