@@ -1332,8 +1332,19 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                   {aiTradeScore.score}<span style={{ fontSize: 12, color: C.textDim }}> /100</span>
                 </div>
               </div>
-              <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "5px 10px", borderRadius: 6, background: `${aiTradeScore.recommendation.color}18`, color: aiTradeScore.recommendation.color }}>
-                {aiTradeScore.recommendation.label}
+              {/* "Options: " prefix (2026-08-10, real user-caught collision)
+                  — this badge's label comes from OPTIONS_ACTIONS
+                  (options-actions.js), a deliberately separate vocabulary
+                  from the Hero's AI_ACTIONS answering a different question
+                  ("calls or puts, right now" vs. "own this stock at all")
+                  — but AVOID/WATCH are spelled identically in both, so an
+                  options-context "Avoid" read as a second, contradictory
+                  buy/sell call on the stock itself sitting right under a
+                  Hero that said Buy. Same real score/label, just named
+                  clearly instead of relying on nearby context. */}
+              <span title="This is a calls-vs-puts read, not a second buy/sell call on the stock — see the verdict above for that."
+                style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "5px 10px", borderRadius: 6, background: `${aiTradeScore.recommendation.color}18`, color: aiTradeScore.recommendation.color }}>
+                Options: {aiTradeScore.recommendation.label}
               </span>
             </div>
           </button>
@@ -1369,7 +1380,17 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                 {institutionScore.label}
               </span>
             </div>
-            <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, maxWidth: 260 }}>{institutionScore.disclosure}</div>
+            <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, maxWidth: 260 }}>
+              {institutionScore.disclosure}
+              {/* 2026-08-10, real user-caught confusion: a low score/
+                  Distribution label here next to a Buy verdict above read
+                  as a contradiction. It's real, live order-flow direction
+                  (dark pool/options/insider/short interest) — a genuinely
+                  different, faster-moving read than the Hero's business/
+                  setup-quality grade, and the two are allowed to disagree
+                  by design, not a data error. */}
+              <div style={{ marginTop: 4 }}>Live order-flow direction — can differ from the grade above; that's expected, not a contradiction.</div>
+            </div>
           </div>
         )}
         {/* AI Trade Card — Option Contract Recommender's top-pick card,
