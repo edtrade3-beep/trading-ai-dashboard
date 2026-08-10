@@ -1230,6 +1230,24 @@ async function _fetchBarsCached(symbol) {
   return data;
 }
 
+// Cross-request cache of the momentum distribution from the fullest recent
+// scan — either the periodic Best Opportunities job (best-opportunities-
+// alerts.js, every 15 min, all ~100 SCAN_UNIVERSE symbols in one call) or
+// any other request that happens to cover enough of the universe at once.
+// RS Rating is a percentile rank, which is only meaningful against a real,
+// CONSISTENT peer group. Two problems this fixes at once (2026-08-10,
+// "lots of stocks don't match"): (1) Watchlists' own client-side scan
+// (rhScreenProgressive) chunks its 100-symbol universe into 10-symbol
+// requests for progressive loading, so without this, two rows on the same
+// Watchlists page could be ranked against two different arbitrary
+// 10-symbol slices instead of the real ~100-stock universe; (2) Workspace's
+// single-symbol lookup had no peer group at all. Caching the fullest
+// available distribution and having every caller — chunked or solo —
+// reference the SAME snapshot makes RS Rating (and anything derived from
+// it, like passCount and the Institutional Grade) consistent everywhere.
+let _universeMomsCache = null; // { moms: number[] (sorted ascending), ts }
+const UNIVERSE_MOMS_TTL_MS = 30 * 60_000; // outlives the 15-min scan cadence with margin
+
 // buildForwardReturnReport() is symbol-agnostic (one global daily-snapshot
 // log) and re-fetches real current prices for every tracked symbol across 4
 // horizons — too slow to redo on every single-symbol Smart Money page load.
@@ -1655,30 +1673,38 @@ async function screenTrendTemplate(symbols, filters = {}) {
   };
   await Promise.all(Array.from({ length: Math.min(6, symbols.length) }, worker));
 
-  // ── Real RS rating: percentile-rank each name's weighted momentum across the screened universe (1–99). ──
-  // Only meaningful with a real peer group. Single-symbol/small requests
-  // (Workspace opening one ticker, Command Palette ticker lookups) have
-  // nothing to rank against — this used to unconditionally overwrite
-  // rsRating with pctile()'s degenerate "moms.length < 2 → 50" fallback,
-  // silently discarding the honest SPY-relative approximation
-  // buildTrendTemplate already computed, and often flipping the RS≥70
-  // Minervini criterion in the process. That was the real reason a symbol
-  // could show a different passCount/score alone in Workspace than it did
-  // in a bulk scan like Watchlists (2026-08-10, "make sure they match no
-  // confusion" fix). MIN_PEERS_FOR_RS is a judgment call, not a precise
+  // ── Real RS rating: percentile-rank each name's weighted momentum against a real peer universe (1–99). ──
+  // Prefer the shared cross-request cache (see _universeMomsCache above) —
+  // the fullest, most consistent distribution available — over this
+  // request's own peer set, which may be a small progressive-loading chunk
+  // (Watchlists) or a single symbol (Workspace) with nothing to rank
+  // against on its own. MIN_PEERS_FOR_RS is a judgment call, not a precise
   // threshold — below it, a percentile is too coarse/noisy to trust over
-  // the existing approximation.
+  // buildTrendTemplate's existing SPY-relative approximation, which is what
+  // a symbol keeps when neither this request nor the cache clears the bar.
   const MIN_PEERS_FOR_RS = 10;
   const scored = out.filter((x) => !x.error && x.momentum != null);
-  const moms = scored.map((x) => x.momentum).sort((a, b) => a - b);
-  const pctile = (m) => {
-    if (moms.length < 2) return 50;
-    let below = 0; for (const v of moms) { if (v < m) below++; }
-    return Math.max(1, Math.min(99, Math.round((below / (moms.length - 1)) * 100)));
+  const requestMoms = scored.map((x) => x.momentum).sort((a, b) => a - b);
+  const cacheFresh = _universeMomsCache && Date.now() - _universeMomsCache.ts < UNIVERSE_MOMS_TTL_MS;
+  const refMoms = (cacheFresh && _universeMomsCache.moms.length >= Math.max(MIN_PEERS_FOR_RS, requestMoms.length))
+    ? _universeMomsCache.moms
+    : (requestMoms.length >= MIN_PEERS_FOR_RS ? requestMoms : null);
+  // Any request that itself covers enough of the universe refreshes the
+  // shared cache for everyone else (chunked/solo callers) to use next —
+  // this is how the periodic Best Opportunities job's full ~100-symbol
+  // scan ends up backing Workspace's single-symbol lookups.
+  if (requestMoms.length >= MIN_PEERS_FOR_RS && (!cacheFresh || requestMoms.length >= _universeMomsCache.moms.length)) {
+    _universeMomsCache = { moms: requestMoms, ts: Date.now() };
+  }
+  const pctile = (m, ref) => {
+    if (!ref || ref.length < 2) return null;
+    let below = 0; for (const v of ref) { if (v < m) below++; }
+    return Math.max(1, Math.min(99, Math.round((below / (ref.length - 1)) * 100)));
   };
   for (const x of scored) {
-    if (moms.length >= MIN_PEERS_FOR_RS) {
-      x.rsRating = pctile(x.momentum);            // overwrite SPY-approx with a true percentile
+    const p = refMoms ? pctile(x.momentum, refMoms) : null;
+    if (p != null) {
+      x.rsRating = p;                             // overwrite SPY-approx with a true percentile
       x.rsApprox = false;
       const rsPass = x.rsRating >= 70;            // Minervini RS rule, now percentile-based
       x.passCount = x._passExclRS + (rsPass ? 1 : 0);
