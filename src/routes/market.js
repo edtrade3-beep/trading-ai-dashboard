@@ -1362,12 +1362,22 @@ async function _buildTrendTemplate(symbol, opts = {}) {
   const tightening = vcp ? vcp.tightening : false;
 
   // ── GO / WAIT / AVOID verdict ──
+  // Loosened (2026-08-10, explicit user request — "let trend-strong
+  // stocks say GO earlier... a strong trend should be enough, not
+  // require the exact breakout candle"): GO's passCount bar dropped from
+  // 7 to 6 (matching WAIT's existing bar, not a new number), and GO no
+  // longer strictly requires breakoutConfirmed (price already above pivot
+  // AND volume ≥1.4×) — being in the actionable zone (near/at the pivot)
+  // with a strong trend now qualifies too, not just a fully-confirmed
+  // breakout. This is display/decision-support only — Autopilot's real
+  // auto-buy gate (trading-utils.js computeGreenLight/qualifiesAPlus) is
+  // a separate, independent formula, unaffected by this change.
   let verdict, verdictReason;
   if (passCount <= 5) { verdict = "AVOID"; verdictReason = "Trend not in gear (" + passCount + "/8)"; }
-  else if (breakoutConfirmed && passCount >= 7) { verdict = "GO"; verdictReason = "Breakout above pivot on volume"; }
-  else if (actionable && passCount >= 7) {
-    verdict = "WAIT";
-    verdictReason = price > pivot ? "Above pivot — needs volume ≥1.4×" : "At pivot — wait for the breakout";
+  else if (breakoutConfirmed && passCount >= 6) { verdict = "GO"; verdictReason = "Breakout above pivot on volume"; }
+  else if (actionable && passCount >= 6) {
+    verdict = "GO";
+    verdictReason = price > pivot ? `Above pivot, strong trend (${passCount}/8) — no volume confirmation yet` : `At the buy zone, strong trend (${passCount}/8)`;
   } else if (passCount >= 6) { verdict = "WAIT"; verdictReason = abovePivotPct < -6 ? "Base building below pivot" : "Trend good — wait for pivot"; }
   else { verdict = "AVOID"; verdictReason = "No setup"; }
 

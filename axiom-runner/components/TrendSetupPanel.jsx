@@ -7,6 +7,7 @@ import { NUM } from "./theme.js";
 // DayTradeTab and MarketTerminalTab.
 export default function TrendSetupPanel({ data, C, MONO, SANS }) {
   const [alertMsg, setAlertMsg] = useState("");
+  const [showCriteria, setShowCriteria] = useState(false);
   const su = data && data.setup;
   const armAlert = (auto) => {
     fetch("/api/price-alerts", { method: "POST", headers: { "Content-Type": "application/json" },
@@ -82,10 +83,21 @@ export default function TrendSetupPanel({ data, C, MONO, SANS }) {
       </div>
       {Array.isArray(data.criteria) && (
         <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" }}>
-          <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, padding: "8px 12px", borderBottom: `1px solid ${C.border}`, background: C.bg }}>
-            MINERVINI TREND TEMPLATE · {passN}/8
-          </div>
-          {data.criteria.map((c) => (
+          {/* Collapsed by default (2026-08-10, Workspace-length audit) —
+              the pass count already drives Execution's own GO/WAIT/AVOID
+              verdict above, so it's not new information; the 8 individual
+              checks are real detail worth keeping, just not worth their
+              own always-open real estate. Same collapse-by-default pattern
+              already used for Supporting Detail/Smart Money/Movers zone.
+              Shared with DayTradeTab — collapsed there too, on purpose. */}
+          <button onClick={() => setShowCriteria(v => !v)}
+            style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", font: "inherit",
+              fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, padding: "8px 12px", border: "none",
+              borderBottom: showCriteria ? `1px solid ${C.border}` : "none", background: C.bg, cursor: "pointer" }}>
+            <span>MINERVINI TREND TEMPLATE · {passN}/8</span>
+            <span style={{ color: C.accent }}>{showCriteria ? "Hide ▴" : "Show ▾"}</span>
+          </button>
+          {showCriteria && data.criteria.map((c) => (
             <div key={c.id} style={{ display: "flex", gap: 8, alignItems: "flex-start", padding: "7px 12px", borderTop: c.id > 1 ? `1px solid ${C.border}` : "none" }}>
               <span style={{ color: c.pass ? "#0d9465" : "#c8282a", fontWeight: 800, fontFamily: SANS, fontSize: 13 }}>{c.pass ? "✓" : "✗"}</span>
               <div>
