@@ -79,6 +79,17 @@ export default function SmartMoneyDecisionPanel({ symbol, C, MONO, SANS, setActi
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  // Workspace-length audit (2026-08-10) — this panel alone was measured at
+  // ~51% of the Decision tab's total height on a fully-populated symbol.
+  // Now that heroAction guarantees this panel's headline agrees with the
+  // page's own Hero card, and Trade Plan repeats the exact same entry/
+  // stop/target numbers Execution already shows above it, those two
+  // sections plus Market Context (a generic SPY/QQQ/VIX read, not specific
+  // to this symbol) collapse behind this toggle by default. Institutional
+  // Summary, Key Reasons, the 3 Traffic Lights, and Best Institutional
+  // Zone (the real dark-pool/order-block read) — the genuinely unique
+  // content — stay visible unconditionally.
+  const [showFullVerdict, setShowFullVerdict] = useState(false);
 
   const load = useCallback(async (sym) => {
     if (!sym) return;
@@ -165,35 +176,47 @@ export default function SmartMoneyDecisionPanel({ symbol, C, MONO, SANS, setActi
           <GuideRail C={C} MONO={MONO} SANS={SANS} isMobile={isMobile} />
 
           <div>
-            {/* SECTION 1 — Hero Card (1 second). Verdict/confidence/grade all
-                real, from /api/market/smart-money's computeNextAction /
-                computeInstitutionalGrade / institutionalLetterGrade. If
-                WAIT/AVOID, a real trader should stop reading here — the
-                sections below still render as honest supporting evidence,
-                never hidden. */}
-            <div style={{ marginBottom: 14, border: `1px solid ${verdictColor}66`, borderRadius: 14, padding: "18px 20px", background: `${verdictColor}0d` }}>
-              <div style={{ display: "flex", gap: 20, flexWrap: "wrap", alignItems: "center" }}>
-                <div>
-                  <div style={{ fontFamily: MONO, fontSize: 28, fontWeight: 900, color: verdictColor, display: "flex", alignItems: "center", gap: 10 }}>
-                    <span>{verdictIcon}</span>{verdictLabel}
+            {/* SECTION 1 — Hero Card. Collapsed by default (2026-08-10,
+                Workspace-length audit — this panel measured at ~51% of the
+                Decision tab's height) since heroAction now guarantees this
+                verdict always matches the page's own Hero card above it;
+                repeating the full card here added height without adding
+                information. One-line summary stays, full card is a click
+                away for the confidence gauge / bias / market control /
+                win-probability detail. */}
+            {showFullVerdict ? (
+              <div style={{ marginBottom: 14, border: `1px solid ${verdictColor}66`, borderRadius: 14, padding: "18px 20px", background: `${verdictColor}0d` }}>
+                <div style={{ display: "flex", gap: 20, flexWrap: "wrap", alignItems: "center" }}>
+                  <div>
+                    <div style={{ fontFamily: MONO, fontSize: 28, fontWeight: 900, color: verdictColor, display: "flex", alignItems: "center", gap: 10 }}>
+                      <span>{verdictIcon}</span>{verdictLabel}
+                    </div>
+                    <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.textDim, marginTop: 4, maxWidth: 380 }}>
+                      {heroAction && <span style={{ opacity: 0.75 }}>Same call as the page verdict above — </span>}
+                      {data.verdictReason}
+                    </div>
                   </div>
-                  <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.textDim, marginTop: 4, maxWidth: 380 }}>
-                    {heroAction && <span style={{ opacity: 0.75 }}>Same call as the page verdict above — </span>}
-                    {data.verdictReason}
+                  <RadialGauge C={C} MONO={MONO} value={data.confidence} label="CONFIDENCE" color={verdictColor} size={130} />
+                  <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
+                    {statBlock("SETUP GRADE", data.letterGrade, verdictColor)}
+                    {statBlock("BIAS", data.bias, data.bias === "BULLISH" ? C.green : data.bias === "BEARISH" ? C.red : C.textDim)}
+                    {statBlock("MARKET CONTROL", data.marketControl, data.marketControl === "BUYERS" ? C.green : data.marketControl === "SELLERS" ? C.red : C.amber)}
+                    {statBlock("RISK", data.risk, data.risk === "LOW" ? C.green : data.risk === "HIGH" ? C.red : C.amber)}
+                    {statBlock("WIN PROBABILITY", data.winProb?.winRate != null ? `${data.winProb.winRate}%` : data.winProb?.count != null ? `n=${data.winProb.count} (need 10)` : "—",
+                      data.winProb?.winRate != null ? (data.winProb.winRate >= 55 ? C.green : data.winProb.winRate >= 45 ? C.amber : C.red) : C.textDim,
+                      data.winProb?.winRate != null ? `Real forward ${data.winProb.horizon}-day win rate, n=${data.winProb.count}` : "Below the honest sample floor for this score band")}
                   </div>
-                </div>
-                <RadialGauge C={C} MONO={MONO} value={data.confidence} label="CONFIDENCE" color={verdictColor} size={130} />
-                <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
-                  {statBlock("SETUP GRADE", data.letterGrade, verdictColor)}
-                  {statBlock("BIAS", data.bias, data.bias === "BULLISH" ? C.green : data.bias === "BEARISH" ? C.red : C.textDim)}
-                  {statBlock("MARKET CONTROL", data.marketControl, data.marketControl === "BUYERS" ? C.green : data.marketControl === "SELLERS" ? C.red : C.amber)}
-                  {statBlock("RISK", data.risk, data.risk === "LOW" ? C.green : data.risk === "HIGH" ? C.red : C.amber)}
-                  {statBlock("WIN PROBABILITY", data.winProb?.winRate != null ? `${data.winProb.winRate}%` : data.winProb?.count != null ? `n=${data.winProb.count} (need 10)` : "—",
-                    data.winProb?.winRate != null ? (data.winProb.winRate >= 55 ? C.green : data.winProb.winRate >= 45 ? C.amber : C.red) : C.textDim,
-                    data.winProb?.winRate != null ? `Real forward ${data.winProb.horizon}-day win rate, n=${data.winProb.count}` : "Below the honest sample floor for this score band")}
                 </div>
               </div>
-            </div>
+            ) : (
+              <div onClick={() => setShowFullVerdict(true)} title="Click for confidence, bias, market control, win probability"
+                style={{ marginBottom: 14, border: `1px solid ${verdictColor}55`, borderRadius: 10, padding: "10px 16px", background: `${verdictColor}0d`, cursor: "pointer",
+                  display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <span style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: verdictColor, display: "flex", alignItems: "center", gap: 6 }}>{verdictIcon}{verdictLabel}</span>
+                <span style={{ fontFamily: SANS, fontSize: 11.5, color: C.textDim }}>{heroAction ? "Same call as the page verdict above" : data.verdictReason}</span>
+                <span style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 800, color: C.accent, marginLeft: "auto" }}>Show full read ▾</span>
+              </div>
+            )}
 
             {/* SECTION 2 + 7 — Institutional Summary (plain English, real
                 template sentences) alongside Key Reasons (top 5 real
@@ -221,8 +244,10 @@ export default function SmartMoneyDecisionPanel({ symbol, C, MONO, SANS, setActi
                 to Trade Planner's real risk-based sizing this session) in
                 favor of the same real handoff button used elsewhere.
                 Holding Time stays an honest "—" — no real per-stock
-                time-to-target dataset exists in this app. */}
-            {setup && (
+                time-to-target dataset exists in this app. Collapsed with
+                the Hero card above (2026-08-10) — same entry/stop/target
+                Execution already shows on the page. */}
+            {showFullVerdict && setup && (
               <div style={{ ...card, marginBottom: 14 }}>
                 <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 10 }}>TRADE PLAN</div>
                 <div style={{ display: "flex", gap: 24, flexWrap: "wrap", marginBottom: 12 }}>
@@ -259,7 +284,11 @@ export default function SmartMoneyDecisionPanel({ symbol, C, MONO, SANS, setActi
             {/* SECTION 5 — Market Context. Real classifyMacroStatus reads,
                 real per-symbol sector rank, real 4-instrument breadth proxy,
                 real market-session read (the honest substitute for the
-                mockup's fabricated "Market Wind: TAILWIND"). */}
+                mockup's fabricated "Market Wind: TAILWIND"). Collapsed
+                with the Hero card (2026-08-10) — a generic SPY/QQQ/VIX
+                read, not specific to this symbol; Home's Market Status
+                strip already covers the same ground for daily use. */}
+            {showFullVerdict && (
             <div style={{ ...card, marginBottom: 14 }}>
               <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 10 }}>MARKET CONTEXT</div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))", gap: 10 }}>
@@ -299,6 +328,7 @@ export default function SmartMoneyDecisionPanel({ symbol, C, MONO, SANS, setActi
                 </div>
               </div>
             </div>
+            )}
 
             {/* SECTION 6 — Best Institutional Zone. Merges Order Blocks/
                 FVGs/VWAP/Volume Profile/Liquidity into one real actionable

@@ -204,6 +204,13 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   // reached for after — nothing removed, same real sections, just gated by
   // this instead of always rendering together.
   const [wsTab, setWsTab] = useState("decision");
+  // Collapsed by default (2026-08-10, Workspace-length audit) — Zone 1
+  // (Movers/Watchlist table + Market Wire headlines) measured at ~2100px,
+  // 30% of the page, and it's generic market-discovery content, not
+  // specific to whichever symbol is actually loaded below it. Same
+  // collapse-by-default pattern as Supporting Detail — real content, just
+  // not the first thing between a viewer and "should I buy this."
+  const [showMoversZone, setShowMoversZone] = useState(false);
   // Collapsed by default (2026-08-04, "chart is too crowded") — the 6-tile
   // score grid through the technical-indicator pills are 5-6 separate
   // bordered cards stacked one after another below the hero verdict, the
@@ -687,11 +694,21 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
           reorder. Preferences here have changed turn to turn as the user
           looks at the real app; this reflects the current one. ── */}
       <div style={{ width: "100%" }}>
-        <SectionHeader icon="🔥" label="Movers & Watchlist" />
-        <form onSubmit={(e) => { e.preventDefault(); loadSym(query); setQuery(""); scrollToChart(); }} style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+          <div style={{ flex: 1 }}><SectionHeader icon="🔥" label="Movers & Watchlist" /></div>
+          <button onClick={() => setShowMoversZone(v => !v)}
+            style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.accent, background: "transparent", border: `1px solid ${C.accent}55`, borderRadius: 6, padding: "3px 9px", cursor: "pointer", whiteSpace: "nowrap", marginTop: -6 }}>
+            {showMoversZone ? "Hide ▴" : "Show ▾"}
+          </button>
+        </div>
+        {/* Search stays visible even collapsed (2026-08-10) — quick way to
+            jump to a different symbol shouldn't require expanding the
+            whole generic movers/news zone first. */}
+        <form onSubmit={(e) => { e.preventDefault(); loadSym(query); setQuery(""); scrollToChart(); }} style={{ display: "flex", gap: 6, marginBottom: showMoversZone ? 8 : 0 }}>
           <input value={query} onChange={e => setQuery(e.target.value)} placeholder="🔍 Load any symbol…"
             style={{ flex: 1, fontFamily: MONO, fontSize: 13, padding: "8px 12px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.card, color: C.text }} />
         </form>
+        {showMoversZone && <>
         <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
           {[["movers", "🔥 Movers"], ["watchlist", "⭐ My Watchlist"]].map(([id, lbl]) => (
             <button key={id} onClick={() => setSource(id)}
@@ -767,6 +784,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
           })}
         </div>
         <MarketNewsWire C={C} MONO={MONO} SANS={SANS} />
+        </>}
       </div>
 
       {/* ── ZONE 2: pro chart ── */}
