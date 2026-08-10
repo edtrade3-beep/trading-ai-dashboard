@@ -276,13 +276,22 @@ function TierStatsCard({ C, MONO, SANS }) {
 
 export default function MyTradesTab({ C, MONO, SANS, watchlistData }) {
   const [autoPilot, setAutoPilot] = useState(() => localStorage.getItem("axiom_autopilot") === "on");
-  const [autoThreshold, setAutoThreshold] = useState(() => Number(localStorage.getItem("axiom_autopilot_min")) || 5);
-  const [aPlusOn, setAPlusOn] = useState(() => localStorage.getItem("axiom_autopilot_aplus") !== "off");
+  // Defaults switched to the "Full" quick-mode shape (2026-08-09, explicit
+  // user request: "more flexible, more trades, more profits") — A+ Mode
+  // off + 4/5 threshold + shares/options/shorts all on, matching
+  // applyPreset("full") above exactly, so a fresh browser starts already
+  // configured for higher trade frequency instead of A+ Mode's narrow,
+  // high-conviction-only default. Only applies to browsers with no saved
+  // localStorage value yet — an existing session's explicit choice always
+  // wins (real user note: switching this doesn't retroactively change a
+  // browser that already has these keys set).
+  const [autoThreshold, setAutoThreshold] = useState(() => Number(localStorage.getItem("axiom_autopilot_min")) || 4);
+  const [aPlusOn, setAPlusOn] = useState(() => localStorage.getItem("axiom_autopilot_aplus") === "on");
   const [aiGateOn, setAiGateOn] = useState(() => localStorage.getItem("axiom_autopilot_aigate") === "on");
   const [atrMode, setAtrMode] = useState(() => localStorage.getItem("axiom_autopilot_atr") !== "off");
   const [sharesOn, setSharesOn] = useState(() => localStorage.getItem("axiom_autopilot_shares") !== "off"); // default ON
-  const [optsOn, setOptsOn] = useState(() => localStorage.getItem("axiom_autopilot_opts") === "on");        // default OFF
-  const [shortOn, setShortOn] = useState(() => localStorage.getItem("axiom_autopilot_short") === "on");      // default OFF
+  const [optsOn, setOptsOn] = useState(() => localStorage.getItem("axiom_autopilot_opts") !== "off");       // default ON
+  const [shortOn, setShortOn] = useState(() => localStorage.getItem("axiom_autopilot_short") !== "off");    // default ON
   const [trailMode, setTrailMode] = useState(() => localStorage.getItem("axiom_autopilot_trail") !== "off");
   const [exitMode, setExitMode] = useState(() => localStorage.getItem("axiom_autopilot_exit") || "trail");
   // Green Light AI gap-fill (2026-08-02): Portfolio Rotation + Score-Decay

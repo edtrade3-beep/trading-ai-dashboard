@@ -243,6 +243,7 @@ export default function RhProScanner({
   // metrics (Stock Quality/Trade Setup/Win%/Pred/Risk/RS/SMC) move here so
   // the main table stays to the spec's 7 primary columns.
   const [expandedSymbol, setExpandedSymbol] = useState(null);
+  const [showTableHelp, setShowTableHelp] = useState(false);
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState(null); // null = default score-ranked order
   const [sortDir, setSortDir] = useState("desc");
@@ -495,7 +496,13 @@ export default function RhProScanner({
     const rec = r.institutionalGrade ? institutionalRecommendation(r.institutionalGrade.score) : null;
     const entryType = classifyEntryType(r, r.aplus?.score);
     const moveToTarget = (r.entry && r.target2) ? Math.round((r.target2 / r.entry - 1) * 1000) / 10 : null;
-    return { ...r, action, rotationInfo, win, grade, rec, entryType, moveToTarget };
+    // R:R (2026-08-09, column-explanation audit) — same real formula
+    // TradeSetupPanel/SmartMoneyDecisionPanel already use for their own
+    // R:R reads ((target2-entry)/(entry-stop)), not a new calculation —
+    // this scan already has entry/stop/target2 for MOVE TO T2, just never
+    // expressed as a ratio.
+    const rr = (r.entry && r.stop && r.target2 && r.entry > r.stop) ? Math.round(((r.target2 - r.entry) / (r.entry - r.stop)) * 10) / 10 : null;
+    return { ...r, action, rotationInfo, win, grade, rec, entryType, moveToTarget, rr };
   });
   if (!sortBy && category === "all") {
     displayRows.sort((a, b) => {
@@ -627,27 +634,66 @@ export default function RhProScanner({
           universe). That's not a bug or disagreement, it's a fast screen
           refining into a full read — but only if it's said up front,
           not discovered by clicking into the grade explainer. */}
-      <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginBottom: 10 }}>⚡ Quick screen — Score/AI Action use a placeholder for Technical Confirmation &amp; Options Flow. Open a symbol's Workspace for the full read.</div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
+        <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>⚡ Quick screen — Score/AI Action use a placeholder for Technical Confirmation &amp; Options Flow. Open a symbol's Workspace for the full read.</div>
+        <button onClick={() => setShowTableHelp(v => !v)}
+          style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 800, color: C.accent, background: "transparent", border: `1px solid ${C.accent}55`, borderRadius: 6, padding: "3px 9px", cursor: "pointer", whiteSpace: "nowrap" }}>
+          {showTableHelp ? "Hide ▴" : "❓ How to read this table ▾"}
+        </button>
+      </div>
+      {/* "How to read this table" panel (2026-08-09, column-explanation
+          audit) — every real column already has a hover title on its
+          header/cells; this is the same information gathered into one
+          place for someone who'd rather read it once than hover nine
+          headers. Deliberately does NOT introduce a new decision
+          vocabulary (no "AI Decision"/WAIT PULLBACK states, no invented
+          confidence threshold) — every line below names the exact real
+          field it's describing, same one the header tooltips use. */}
+      {showTableHelp && (
+        <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, padding: "14px 16px", background: C.card, marginBottom: 10, fontFamily: SANS, fontSize: 12.5, color: C.textSec, lineHeight: 1.7 }}>
+          <div style={{ fontWeight: 800, color: C.text, marginBottom: 6 }}>Quality and timing are two different questions — this table answers both, separately, on purpose.</div>
+          <div><b style={{ color: C.text }}>SCORE</b> — is this a good business/setup? Real 7-dimension Institutional Grade, 0–100.</div>
+          <div><b style={{ color: C.text }}>AI ACTION</b> — should I act on it right now? Reduces that same score plus real entry timing to one label.</div>
+          <div><b style={{ color: C.text }}>CONF</b> — how clean is the chart pattern itself (0–100), independent of the score above.</div>
+          <div><b style={{ color: C.text }}>HIST WIN%</b> — how often past setups that scored this well actually reached target — a track record for the score band, not a prediction for this specific trade.</div>
+          <div><b style={{ color: C.text }}>MOVE TO T2 / R:R</b> — the same entry/stop/target math shown two ways: % distance to the target, and reward per $1 risked to the stop.</div>
+          <div><b style={{ color: C.text }}>RISK</b> — LOW/MEDIUM/HIGH from the real stop-distance/volatility report — how much downside exposure the trade carries, not a prediction that it fails.</div>
+          <div><b style={{ color: C.text }}>STRATEGY</b> — the entry-timing pattern detected (Breakout, Pullback, Trend…).</div>
+          <div style={{ marginTop: 8, color: C.textDim }}>A stock can score high and still say WAIT — that means the business/setup is strong but right now isn't the entry. Not a contradiction.</div>
+        </div>
+      )}
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "auto", maxHeight: "70vh" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          {/* 10 decision-first columns (2026-08-04 redesign, explicit user
-              spec) — Ticker+Company/AI Action/Score/Confidence/Win%/Move to
-              Target/Risk/Strategy/Open Trade Plan. Stock Quality/Trade
-              Setup/Pred/RS/SMC detail stays in the tap-to-expand row below.
-              No S+ grade exists in this app — real scale tops at A+. */}
+          {/* 11 decision-first columns (2026-08-04 redesign, explicit user
+              spec; R:R added 2026-08-09) — Ticker+Company/AI Action/Score/
+              Confidence/Hist Win%/Move to Target/R:R/Risk/Strategy/Open
+              Trade Plan. Stock Quality/Trade Setup/Pred/RS/SMC detail
+              stays in the tap-to-expand row below. No S+ grade exists in
+              this app — real scale tops at A+. Every header below carries
+              a real-definition tooltip (same text as the "How to read
+              this table" panel), not just "Click to sort". */}
           <thead><tr>
             {[
-              ["#", null], ["TICKER", null], ["AI ACTION", null], ["SCORE", "grade"],
-              ["CONF", "confidence"], ["WIN %", "win"], ["MOVE TO T2", null], ["RISK", null], ["STRATEGY", null], ["", null],
-            ].map(([h, key]) => (
-              <th key={h} style={{ ...th, cursor: key ? "pointer" : "default", ...(h === "TICKER" ? { position: "sticky", left: 0, zIndex: 2 } : {}) }} onClick={key ? () => toggleSort(key) : undefined} title={key ? "Click to sort" : undefined}>
+              ["#", null, "Rank within the current filter, highest score first."],
+              ["TICKER", null, "Symbol and company name."],
+              ["AI ACTION", null, "Unified AI Action — this row's real Institutional Grade plus real entry timing, reduced to one label. A business/setup quality call plus a timing call, combined."],
+              ["SCORE", "grade", "Institutional Grade — real 7-dimension business/setup quality score, 0–100. Not a timing call by itself — see AI ACTION for that."],
+              ["CONF", "confidence", "Real VCP breakout-confidence score, 0–100 — how clean this row's chart pattern is, independent of SCORE."],
+              ["HIST WIN%", "win", "Historical win rate of past real setups that scored in this same band — a track record for the score band, not a prediction for this specific trade."],
+              ["MOVE TO T2", null, "Real % distance from entry to the 2R price target."],
+              ["R:R", null, "Risk/reward — potential reward to the 2R target per $1 risked to the stop. Same entry/stop/target as MOVE TO T2, expressed as a ratio."],
+              ["RISK", null, "Risk level from the real stop-distance/volatility report — LOW/MEDIUM/HIGH downside exposure, not a prediction the trade fails."],
+              ["STRATEGY", null, "The entry-timing setup type detected — Breakout, Pullback, Trend, etc."],
+              ["", null, null],
+            ].map(([h, key, desc]) => (
+              <th key={h} style={{ ...th, cursor: key ? "pointer" : "default", ...(h === "TICKER" ? { position: "sticky", left: 0, zIndex: 2 } : {}) }} onClick={key ? () => toggleSort(key) : undefined} title={desc ? (key ? `${desc} · Click to sort` : desc) : undefined}>
                 {h}{sortBy === key && key ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
               </th>
             ))}
           </tr></thead>
           <tbody>
             {displayRows.map((r, i) => {
-              const { win, grade, rec, action, rotationInfo, entryType, moveToTarget } = r;
+              const { win, grade, rec, action, rotationInfo, entryType, moveToTarget, rr } = r;
               // institutionalRecommendation's own "Buy/Hold/Sell" wording is
               // correct in isolation (MarketTerminalTab's standalone AI Score
               // Card) but reads as a direct contradiction sitting next to
@@ -712,6 +758,13 @@ export default function RhProScanner({
                 <td style={{ ...cell, ...num }} title="Real % distance from entry to the 2R target (not an options-IV expected move — this scan doesn't fetch a per-row chain).">
                   {moveToTarget != null ? <span style={{ color: C.green, fontWeight: 700 }}>+{moveToTarget}%</span> : <span style={{ color: C.textDim }}>—</span>}
                 </td>
+                {/* R:R (2026-08-09) — same real entry/stop/target2 as
+                    MOVE TO T2 above, expressed as reward-per-$1-risked
+                    instead of % distance. Same formula TradeSetupPanel/
+                    SmartMoneyDecisionPanel already use, not a new one. */}
+                <td style={{ ...cell, ...num }} title="Potential reward to the 2R target per $1 risked to the stop — same entry/stop/target as MOVE TO T2, shown as a ratio.">
+                  {rr != null ? <span style={{ fontWeight: 700, color: rr >= 2 ? C.green : rr >= 1 ? C.amber : C.red }}>1:{rr}</span> : <span style={{ color: C.textDim }}>—</span>}
+                </td>
                 <td style={cell}>
                   {r.riskState && <span style={{ fontSize: 11, fontWeight: 900, color: r.riskState === "LOW" ? C.green : r.riskState === "MEDIUM" ? C.amber : C.red, border: `1px solid ${r.riskState === "LOW" ? C.green : r.riskState === "MEDIUM" ? C.amber : C.red}`, borderRadius: 4, padding: "1px 6px" }}>{r.riskState}</span>}
                 </td>
@@ -725,7 +778,21 @@ export default function RhProScanner({
               </tr>
               {expanded && (
                 <tr>
-                  <td colSpan="10" style={{ padding: "12px 16px", background: C.surface, borderBottom: `1px solid ${C.border}` }}>
+                  <td colSpan="11" style={{ padding: "12px 16px", background: C.surface, borderBottom: `1px solid ${C.border}` }}>
+                    {/* WHY summary (2026-08-09, column-explanation audit)
+                        — a plain-language sentence built entirely from
+                        real fields already computed for this row (action,
+                        grade, riskState, entryType.reason, prediction.why)
+                        — no new scoring, just restated in one place instead
+                        of requiring a reader to reassemble it from 5 cells. */}
+                    {action && (
+                      <div style={{ marginBottom: 12, paddingBottom: 12, borderBottom: `1px solid ${C.border}`, fontFamily: SANS, fontSize: 12.5, color: C.text, lineHeight: 1.6 }}>
+                        <b>{action.label}</b> — Institutional Grade {grade}{rec ? ` (${QUALITY_WORD[rec.label] || rec.label})` : ""}, risk {r.riskState || "—"}.
+                        {entryType && <> {String(entryType.reason || "").replace(/\.+$/, "")}.</>}
+                        {r.prediction?.why?.length ? <> {r.prediction.why.join(" · ")}.</> : ""}
+                        {rr != null && <> Reward $1 : {rr} to the 2R target.</>}
+                      </div>
+                    )}
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 14 }}>
                       <div>
                         <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 3 }}>STOCK QUALITY</div>
@@ -829,7 +896,7 @@ export default function RhProScanner({
               </React.Fragment>
               );
             })}
-            {!shown.length && !loading && <tr><td colSpan="10" style={{ ...cell, textAlign: "center", color: C.textDim }}>{search.trim() ? `No symbol matching "${search.trim().toUpperCase()}" in this scan.` : "No setups meet this filter right now — lower the threshold or rescan."}</td></tr>}
+            {!shown.length && !loading && <tr><td colSpan="11" style={{ ...cell, textAlign: "center", color: C.textDim }}>{search.trim() ? `No symbol matching "${search.trim().toUpperCase()}" in this scan.` : "No setups meet this filter right now — lower the threshold or rescan."}</td></tr>}
           </tbody>
         </table>
       </div>
