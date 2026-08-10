@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { RH_UNIVERSE, rhScore, rhScreenProgressive } from "./rhpro-shared.jsx";
 import { computeRegime, computeAPlusScore, computeNextAction, computePrediction } from "./market-helpers.js";
+import { mapToAiAction } from "./ai-actions.js";
 
 export default function RhProWatchlists({ C, MONO, SANS, setActiveTab, macroData }) {
   const regime = computeRegime(macroData);
@@ -9,7 +10,16 @@ export default function RhProWatchlists({ C, MONO, SANS, setActiveTab, macroData
     setLoading(true); setRows([]);
     let all = [];
     rhScreenProgressive(RH_UNIVERSE,
-      (part) => { all = [...all, ...part.map(x => ({ ...x, score: rhScore(x), aplus: computeAPlusScore(x, regime), next: computeNextAction(x), prediction: computePrediction(x, x) }))]; setRows(all); setRanAt(new Date()); },
+      (part) => { all = [...all, ...part.map(x => {
+        const next = computeNextAction(x);
+        const aplus = computeAPlusScore(x, regime);
+        // Same unified vocabulary Scanner/Workspace use — computeNextAction's
+        // raw BUY/BREAKOUT/WATCH/WAIT/AVOID label is a different wording
+        // system than AI_ACTIONS, so mapping it here keeps a stock's action
+        // word consistent with what its own Workspace page says.
+        const aiAction = mapToAiAction({ nextAction: next.action, institutionalScore: aplus.score });
+        return { ...x, score: rhScore(x), aplus, next, aiAction, prediction: computePrediction(x, x) };
+      })]; setRows(all); setRanAt(new Date()); },
       () => setLoading(false)
     );
   };
@@ -79,8 +89,8 @@ export default function RhProWatchlists({ C, MONO, SANS, setActiveTab, macroData
                 onMouseEnter={e => e.currentTarget.style.background = C.surface} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                 <span style={{ fontWeight: 800, color: C.text }}>{r.symbol}</span>
                 <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  {r.next && (
-                    <span title={r.next.reason} style={{ fontSize: 9, fontWeight: 900, color: r.next.color, border: `1px solid ${r.next.color}`, borderRadius: 4, padding: "1px 5px", cursor: "help" }}>{r.next.action}</span>
+                  {r.aiAction && (
+                    <span title={r.next?.reason} style={{ fontSize: 9, fontWeight: 900, color: r.aiAction.color, border: `1px solid ${r.aiAction.color}`, borderRadius: 4, padding: "1px 5px", cursor: "help" }}>{r.aiAction.label}</span>
                   )}
                   {r.riskState && (
                     <span title="Risk level — from the VCP risk report" style={{ fontSize: 9, fontWeight: 900, color: r.riskState === "LOW" ? C.green : r.riskState === "MEDIUM" ? C.amber : C.red, border: `1px solid ${r.riskState === "LOW" ? C.green : r.riskState === "MEDIUM" ? C.amber : C.red}`, borderRadius: 4, padding: "1px 5px", cursor: "help" }}>{r.riskState}</span>
@@ -95,10 +105,13 @@ export default function RhProWatchlists({ C, MONO, SANS, setActiveTab, macroData
                     return <span title={`Real ~1-week prediction: ${p.why.join(" · ") || "no strong real signal either way"} · target $${p.target} (${p.movePct >= 0 ? "+" : ""}${p.movePct}%)`} style={{ fontSize: 10, fontWeight: 800, color: dirCol, cursor: "help" }}>{dirIcon}</span>;
                   })()}
                   <span style={{ fontSize: 10, color: C.textDim }}>RS {r.rsRating ?? "—"}</span>
-                  {r.aplus && (
-                    <span title={r.aplus.reasons.join(" · ")} style={{ fontSize: 10, fontWeight: 900, color: "#fff", background: r.aplus.score >= 80 ? "#0d9465" : r.aplus.score >= 60 ? "#d6a312" : "#c8282a", borderRadius: 4, padding: "1px 6px", cursor: "help" }}>A+ {r.aplus.score}</span>
-                  )}
-                  <span style={{ fontWeight: 900, color: r.score >= 70 ? C.green : r.score >= 50 ? C.amber : C.textDim }}>{r.score}</span>
+                  {/* Dropped the separate A+ badge (2026-08-10, user-flagged
+                      confusion: "2 different scores"). It's a different
+                      formula (computeAPlusScore) than the number below, which
+                      is what actually sorts every list here — showing both
+                      made the ranking look arbitrary. r.aplus is still
+                      computed (used elsewhere) but no longer rendered. */}
+                  <span title="AI Score — sets this card's ranking, highest first" style={{ fontWeight: 900, color: r.score >= 70 ? C.green : r.score >= 50 ? C.amber : C.textDim, cursor: "help" }}>{r.score}</span>
                 </span>
               </div>
             )) : <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, padding: "4px 0" }}>{l.allAlreadyShown ? "matches already shown in a card above" : "none right now"}</div>}
