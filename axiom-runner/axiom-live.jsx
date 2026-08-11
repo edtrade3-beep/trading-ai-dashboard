@@ -1558,6 +1558,24 @@ export default function App() {
   // Always open on the Monitor dashboard, regardless of the last tab used.
   // First visit lands on the Start Here guide; afterwards opens to the Monitor as usual.
   const [activeTab, setActiveTab] = useState(() => {
+    // AI Sniper Telegram deep-link (2026-08-11, explicit user request:
+    // "wire AI Sniper Scanner Pro in Telegram... sniper tool shows... once
+    // i click on ticker") — the first real cross-boundary deep link in this
+    // single-page app (previously zero URL-param handling existed anywhere
+    // — see the Back/Forward nav comment below). Checked before the normal
+    // start/landing logic so a Telegram tap always wins. The symbol is
+    // handed off via localStorage (rhpro_sniper_open_symbol), same
+    // convention mterminal_load_sym already uses — RhProScanner.jsx reads +
+    // clears it on mount and opens that symbol's Sniper Decision screen.
+    if (typeof window !== "undefined" && window.location.search) {
+      const params = new URLSearchParams(window.location.search);
+      const openSym = params.get("symbol");
+      if (params.get("open") === "sniper" && openSym) {
+        try { localStorage.setItem("rhpro_sniper_open_symbol", openSym.toUpperCase()); } catch {}
+        try { window.history.replaceState({}, "", window.location.pathname); } catch {}
+        return "rhpro-scan";
+      }
+    }
     if (typeof window !== "undefined" && !localStorage.getItem("axiom_seen_start")) {
       localStorage.setItem("axiom_seen_start", "1");
       return "start";

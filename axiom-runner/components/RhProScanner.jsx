@@ -243,7 +243,18 @@ export default function RhProScanner({
   // rather than replacing the existing tap-to-expand row detail below, so
   // the existing expansion (Stock Quality/Trade Setup/SMC/Reversal) stays
   // available while this new screen gets used/validated.
-  const [sniperSymbol, setSniperSymbol] = useState(null);
+  const [sniperSymbol, setSniperSymbol] = useState(() => {
+    // AI Sniper Telegram deep-link handoff (2026-08-11) — axiom-live.jsx's
+    // activeTab initializer stashes the symbol here and routes to this tab
+    // when a Telegram alert's "Open X Sniper →" button is tapped. Read +
+    // clear once on mount so a later manual visit to this tab doesn't
+    // re-open a stale symbol.
+    try {
+      const sym = localStorage.getItem("rhpro_sniper_open_symbol");
+      if (sym) { localStorage.removeItem("rhpro_sniper_open_symbol"); return sym; }
+    } catch {}
+    return null;
+  });
   // Row expand-in-place — institutional redesign (2026-07-29), same real
   // pattern SmartScanTab.jsx already uses for its own per-row deep-dive,
   // reused here rather than inventing a new interaction model. Secondary

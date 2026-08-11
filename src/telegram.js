@@ -72,7 +72,13 @@ const MAX_DAILY_TOTAL = 40;     // hard ceiling across every category combined, 
 // delivery, and always reported "sent" regardless. Every existing caller
 // (the scheduled alert jobs) already ignores the return value, so widening
 // it from undefined to a real result object is backward-compatible.
-async function sendTelegramMessage(text) {
+// `opts.url` + `opts.buttonText` (2026-08-11, AI Sniper deep-link) — adds a
+// single inline URL button under the message, so tapping it opens the app
+// straight to a specific symbol's Sniper Decision screen instead of a plain
+// text mention. reply_markup is a separate JSON field from parse_mode, so
+// this stays safe with the existing no-Markdown convention. Optional —
+// every existing caller passes nothing and behaves exactly as before.
+async function sendTelegramMessage(text, opts = {}) {
   if (!isConfigured()) return { ok: false, reason: "not-configured" };
   const today = new Date().toLocaleDateString("en-US", { timeZone: "America/New_York" });
   if (today !== dailyDate) { dailyDate = today; dailyCount = 0; }
@@ -88,11 +94,15 @@ async function sendTelegramMessage(text) {
   lastSentAt = now;
   dailyCount++;
   const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+  const body = { chat_id: TELEGRAM_CHAT_ID, text: String(text) };
+  if (opts.url && opts.buttonText) {
+    body.reply_markup = { inline_keyboard: [[{ text: String(opts.buttonText), url: String(opts.url) }]] };
+  }
   try {
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: String(text) }),
+      body: JSON.stringify(body),
       // No parse_mode — plain text is always safe
     });
     const json = await res.json().catch(() => ({}));

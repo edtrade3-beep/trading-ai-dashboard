@@ -362,6 +362,16 @@ server.listen(PORT, HOST, () => {
   setInterval(() => require("./src/watchlist-greenlight-alerts").checkWatchlistGreenLightAlerts().catch(() => {}), 15 * 60_000);
   console.log("[Watchlist Green Light] Real entry-price-reached alerts active — every 15 min, market hours only");
 
+  // Watchlist AI Sniper alerts (explicit user request, 2026-08-10/11: "wire
+  // AI Sniper Scanner Pro in Telegram... when to get out before stock goes
+  // down and get in before stock goes up"). Real Telegram ping when a
+  // Watchlist symbol's hard-gated Sniper verdict (src/sniper-decision.js)
+  // newly becomes ENTER_LONG, or drops from ENTER_LONG into NO_CHASE/AVOID.
+  // Same persisted-diff pattern as the alerts above, read-only. Each message
+  // carries a deep-link button straight to that symbol's Sniper screen.
+  setInterval(() => require("./src/watchlist-sniper-alerts").checkWatchlistSniperTurns().catch(() => {}), 15 * 60_000);
+  console.log("[Watchlist AI Sniper] Enter-long / get-out alerts active — every 15 min, market hours only");
+
   // Best Opportunities "new GO" alerts (explicit user request, 2026-08-03:
   // "alert me on go not working" — the existing button is a browser
   // Notification, which silently fails once permission is denied or the tab
