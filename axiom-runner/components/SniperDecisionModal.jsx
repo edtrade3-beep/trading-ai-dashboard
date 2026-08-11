@@ -98,6 +98,23 @@ export default function SniperDecisionModal({ C, MONO, SANS, row, regime, sector
             {Number.isFinite(setupScore) && setupScore >= 75 && <span style={{ color: "#0d9465", fontWeight: 800 }}>A+ SETUP</span>}
           </div>
           <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, marginTop: 8, lineHeight: 1.5 }}>{d.reason}</div>
+          {/* Quality vs Timing clarifier (2026-08-11, real user report: "crowd
+              shows ai action buy but ai sniper shows no chase") — not a bug,
+              but the screen didn't say so. row.action (mapToAiAction,
+              ai-actions.js) answers "is this a good business/setup"; d
+              (computeSniperDecision) answers "should I press the button
+              right now" — two different, real questions that can legitimately
+              point different ways (textbook case: a genuinely strong stock
+              that's simply extended/topping right now). Always shown, not
+              just when they diverge, so the distinction reads as normal
+              rather than a surprise explanation that only appears when
+              something looks "wrong." */}
+          {row.action && (
+            <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${d.meta.color}33`, fontFamily: MONO, fontSize: 11, color: C.textSec }}>
+              QUALITY: <b style={{ color: row.action.color }}>{row.action.label}</b> · TIMING: <b style={{ color: d.meta.color }}>{d.meta.label}</b>
+              <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, marginTop: 3, lineHeight: 1.4 }}>Two different questions — a stock can be a real {row.action.label} on quality and still say {d.meta.label} on timing. Not a contradiction.</div>
+            </div>
+          )}
         </div>
 
         {/* 5 mini-cards */}
