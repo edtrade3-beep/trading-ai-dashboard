@@ -63,13 +63,22 @@ export default function RhProWatchlists({ C, MONO, SANS, setActiveTab, macroData
   const st2 = r => (r.stage || "").includes("2");
   const st4 = r => (r.stage || "").includes("4");
   const byScore = (a, b) => b.score - a.score;
+  // Cut from 8 categories to 5 (explicit user spec, 2026-08-11: "YOUR
+  // SCREEN... Keep these sections: AI TOP PICKS / BREAKOUT / PULLBACK /
+  // MOMENTUM / AVOID... Don't make the dashboard show more information.
+  // Make it make the decision easier"). Dropped High Relative Volume,
+  // Swing Candidates, and Volatile/Day-Trade — real categories, but not
+  // ones the user's own simplified model asked to keep; their signal
+  // still exists inside the Sniper Deep Scan (VOLUME question, entry-type
+  // classification) rather than as a 6th/7th/8th card on this page.
+  //
   // Mobile audit finding (2026-08-04, "what else looks crowded on
-  // mobile") — real duplicate-content crowding, not a layout bug: these 8
+  // mobile") — real duplicate-content crowding, not a layout bug: these
   // categories all filter the SAME underlying scan, and several criteria
   // correlate heavily (a high-score Stage-2 actionable-not-extended stock
-  // satisfies Top Picks/Pullback/Swing/often Breakout all at once), so the
-  // same handful of elite tickers were repeating near-verbatim across the
-  // first 4-5 cards — real crowding from the SAME names, not different
+  // satisfies Top Picks/Pullback/often Breakout all at once), so the same
+  // handful of elite tickers were repeating near-verbatim across the
+  // first few cards — real crowding from the SAME names, not different
   // real coverage. Fix: cross-list dedup, first-list-wins in this array's
   // own declared order (Top Picks is the most authoritative single
   // ranking, so it keeps every name it earns; each list below it only
@@ -78,19 +87,16 @@ export default function RhProWatchlists({ C, MONO, SANS, setActiveTab, macroData
   // which of the genuinely-matching names get displayed where.
   // Extracted to a plain function (was inline in render) so scan()'s
   // completion handler can compute the exact same deduped/truncated symbol
-  // set to know which ~50-70 displayed tickers need a real options-flow
-  // fetch, without re-deriving the logic twice.
+  // set to know which displayed tickers need a real options-flow fetch,
+  // without re-deriving the logic twice.
   const buildLists = (rowsArr) => {
     const seen = new Set();
     const rawLists = [
       { key: "top", icon: "🏆", title: "AI TOP PICKS", desc: "Highest overall AI score", raw: rowsArr.filter(r => r.score >= 55).sort(byScore) },
-      { key: "breakout", icon: "🚀", title: "BREAKOUT CANDIDATES", desc: "At/near a valid pivot", raw: rowsArr.filter(r => r.atBuyPoint || (r.actionable && Number(r.abovePivotPct || -99) >= -3)).sort(byScore) },
-      { key: "momentum", icon: "⚡", title: "MOMENTUM LEADERS", desc: "RS ≥ 80 in a Stage 2 uptrend", raw: rowsArr.filter(r => (r.rsRating || 0) >= 80 && st2(r)).sort((a, b) => (b.rsRating || 0) - (a.rsRating || 0)) },
-      { key: "pullback", icon: "🎯", title: "PULLBACK OPPORTUNITIES", desc: "Strong stock at its buy zone", raw: rowsArr.filter(r => r.actionable && !r.extended && !st4(r)).sort(byScore) },
-      { key: "rvol", icon: "🔊", title: "HIGH RELATIVE VOLUME", desc: "Volume ≥ 1.5× average", raw: rowsArr.filter(r => (r.volRatio || 0) >= 1.5).sort((a, b) => (b.volRatio || 0) - (a.volRatio || 0)) },
-      { key: "swing", icon: "📈", title: "SWING CANDIDATES", desc: "Stage 2, 6/8+ template", raw: rowsArr.filter(r => st2(r) && (r.passCount || 0) >= 6).sort(byScore) },
-      { key: "volatile", icon: "🌊", title: "VOLATILE / DAY-TRADE", desc: "High volume + wide range", raw: rowsArr.filter(r => (r.volRatio || 0) >= 1.8).sort((a, b) => (b.volRatio || 0) - (a.volRatio || 0)) },
-      { key: "avoid", icon: "🚫", title: "AVOID (Stage 4)", desc: "Downtrends — do not buy", raw: rowsArr.filter(st4).sort((a, b) => a.score - b.score) },
+      { key: "breakout", icon: "🚀", title: "BREAKOUT", desc: "At/near a valid pivot", raw: rowsArr.filter(r => r.atBuyPoint || (r.actionable && Number(r.abovePivotPct || -99) >= -3)).sort(byScore) },
+      { key: "pullback", icon: "🎯", title: "PULLBACK", desc: "Strong stock at its buy zone", raw: rowsArr.filter(r => r.actionable && !r.extended && !st4(r)).sort(byScore) },
+      { key: "momentum", icon: "⚡", title: "MOMENTUM", desc: "RS ≥ 80 in a Stage 2 uptrend", raw: rowsArr.filter(r => (r.rsRating || 0) >= 80 && st2(r)).sort((a, b) => (b.rsRating || 0) - (a.rsRating || 0)) },
+      { key: "avoid", icon: "🚫", title: "AVOID", desc: "Downtrends — do not buy", raw: rowsArr.filter(st4).sort((a, b) => a.score - b.score) },
     ];
     const lists = rawLists.map(l => {
       const deduped = l.raw.filter(r => !seen.has(r.symbol));
