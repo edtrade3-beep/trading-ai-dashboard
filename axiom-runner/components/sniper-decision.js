@@ -22,6 +22,8 @@
 // dynamic R:R would. It's shown here as real, useful context (this
 // platform's fixed target ladder), but is NOT used as a hard gate, since a
 // constant value can never fail one.
+import { computeReversalDetector } from "./market-helpers.js";
+
 export const SNIPER_TIMING = {
   ENTER_LONG: { label: "Enter Long", color: "#0d9465", icon: "🟢" },
   WAIT:       { label: "Wait",       color: "#d6a312", icon: "🟡" },
@@ -48,6 +50,24 @@ export function computeSniperDecision(row) {
   const target1 = hasEntryMath ? round2(entry + (entry - stop)) : null; // 1R scale-out — same formula TrendSetupPanel.jsx uses
   const rr = (hasEntryMath && Number.isFinite(target2)) ? round2((target2 - entry) / (entry - stop)) : null;
 
+  // Early get-in / get-out read — explicit user request (2026-08-10, "add
+  // when to get out before stock goes down and get in before stock goes
+  // up"). Reuses the exact same real Reversal Detector RhProScanner's row-
+  // expansion and the Chart page already show (computeReversalDetector,
+  // market-helpers.js) — real 52-week-range/RSI/volume-climax/MA-distance
+  // signals, not a new model. isTop ("early get-out zone") is treated as a
+  // genuine gate below, same weight as "extended" — you shouldn't enter a
+  // likely top even if the trend/trigger otherwise line up. isBottom
+  // ("early get-in zone") is deliberately NOT allowed to override a weak-
+  // trend AVOID/WAIT into an entry — catching a reversal before the trend
+  // actually confirms is real, higher-risk speculation, not a hard-gated
+  // "enter now" call; it's surfaced as a watch flag instead (see
+  // SniperDecisionModal.jsx).
+  const reversal = computeReversalDetector({
+    price, hi52: row?.hi52, lo52: row?.lo52, rsi: row?.rsi,
+    rvol: volRatio, dayChangePct: row?.dayChangePct, weekChangePct: row?.weekChangePct, ma50: row?.ma50,
+  });
+
   // ── QUALITY gate — "is this a good stock to even be looking at" ──
   const stage4 = stage.includes("4");
   const trendBullish = passCount >= 6 && stage.includes("2");
@@ -69,6 +89,7 @@ export function computeSniperDecision(row) {
   // ENTER LONG on an untriggered setup).
   const triggerConfirmed = !!(row?.breakoutConfirmed && row?.volConfirmed);
   const extended = !!row?.extended;
+  const reversalTopRisk = !!reversal?.isTop;
 
   const reasons = [];
   if (passCount) reasons.push({ ok: trendBullish, text: `Minervini ${passCount}/8${trendBullish ? "" : " — trend not in gear"}` });
@@ -76,6 +97,7 @@ export function computeSniperDecision(row) {
   if (Number.isFinite(volRatio)) reasons.push({ ok: volumeConfirmed, text: `RVOL ${volRatio.toFixed(1)}x` });
   if (Number.isFinite(rsRating)) reasons.push({ ok: momentumConfirmed, text: `RS Rating ${rsRating}` });
   reasons.push({ ok: !extended, text: extended ? "Extended above pivot — chasing risk" : "Not extended" });
+  if (reversalTopRisk) reasons.push({ ok: false, text: "Real early get-out signs (near-top reversal read)" });
 
   let action, reason, waitingFor = null;
   if (stage4 || passCount <= 4) {
@@ -89,6 +111,14 @@ export function computeSniperDecision(row) {
     action = "NO_CHASE";
     reason = `${Number.isFinite(abovePivotPct) ? abovePivotPct.toFixed(1) + "% " : ""}above the pivot — already extended.`;
     waitingFor = "A pullback toward the pivot/VWAP, or a fresh base.";
+  } else if (reversalTopRisk) {
+    // Same weight as "extended" — real early get-out signs (near the 52w
+    // high, overbought RSI, climax volume, or a parabolic run cooling off)
+    // override an otherwise-clean breakout. You shouldn't press ENTER LONG
+    // into a stock that's already flashing exhaustion signs.
+    action = "NO_CHASE";
+    reason = `${reversal.verdict} — ${reversal.sigs.map(s => s.txt).join(", ")}.`;
+    waitingFor = "Signs of exhaustion to cool off, or a real pullback before the next leg.";
   } else if (triggerConfirmed && volumeConfirmed && momentumConfirmed) {
     action = "ENTER_LONG";
     reason = "Trend, volume, and momentum all confirm the breakout.";
@@ -106,7 +136,8 @@ export function computeSniperDecision(row) {
     action, reason, waitingFor,
     meta: SNIPER_TIMING[action],
     reasons,
-    gates: { trendBullish, aboveVwap, volumeConfirmed, momentumConfirmed, triggerConfirmed, extended },
+    gates: { trendBullish, aboveVwap, volumeConfirmed, momentumConfirmed, triggerConfirmed, extended, reversalTopRisk },
+    reversal,
     price: Number.isFinite(price) ? price : null,
     pivot: Number.isFinite(pivot) ? pivot : null,
     entry: hasEntryMath ? entry : (Number.isFinite(pivot) ? pivot : null),

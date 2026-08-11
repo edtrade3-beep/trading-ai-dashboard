@@ -141,6 +141,21 @@ export default function SniperDecisionModal({ C, MONO, SANS, row, onClose, onOpe
           </div>
         </div>
 
+        {/* Early Reversal Watch — "add when to get out before stock goes
+            down and get in before stock goes up" (2026-08-10). Near-top
+            (get-out) risk already feeds the hard-gated action above (see
+            sniper-decision.js); near-bottom (get-in) risk is deliberately
+            NOT allowed to override a weak-trend AVOID/WAIT into an entry —
+            it's real, but speculative before the trend actually confirms —
+            so it's shown here as its own watch flag instead. */}
+        {d.reversal?.isBottom && (
+          <div style={{ background: "#0d946512", border: "1px solid #0d946555", borderRadius: 8, padding: "10px 12px", marginBottom: 12 }}>
+            <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: "#0d9465", letterSpacing: "0.06em", marginBottom: 4 }}>🟢 EARLY REVERSAL WATCH — {d.reversal.verdict}</div>
+            <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.textSec, lineHeight: 1.5 }}>{d.reversal.sigs.map(s => s.txt).join(" · ")}</div>
+            <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, marginTop: 4 }}>Real early signs only — trend quality above hasn't confirmed yet, so this isn't a buy trigger. Worth watching for confirmation.</div>
+          </div>
+        )}
+
         {/* Waiting for */}
         {d.waitingFor && (
           <div style={{ background: `${d.meta.color}10`, border: `1px solid ${d.meta.color}44`, borderRadius: 8, padding: "10px 12px", marginBottom: 12, fontFamily: SANS, fontSize: 12.5, color: C.text, textAlign: "center", fontWeight: 700 }}>
