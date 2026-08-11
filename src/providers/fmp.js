@@ -82,7 +82,13 @@ async function fetchFmpFundamentals(symbol, fmpKey) {
   if (!quote && !profile) return null;
   const n = (v) => { const x = Number(v); return Number.isFinite(x) && x !== 0 ? x : null; };
   const tgt = n(target?.targetConsensus) || n(target?.targetMedian);
+  // TEMP DEBUG (2026-08-11) — inspecting the real raw FMP schema live to
+  // ground a new Future/Undervalued Stocks feature in real fields
+  // (ROIC/EV-EBITDA/FCF-yield/debt) instead of guessing field names.
+  // Removed before shipping the real feature.
+  const _debugRaw = { keyMetrics, growth, target };
   return {
+    _debugRaw,
     symbol,
     marketCap: Number(quote?.marketCap) || Number(profile?.marketCap) || 0,
     pe: n(ratios?.priceToEarningsRatioTTM),
