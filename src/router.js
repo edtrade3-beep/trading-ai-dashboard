@@ -266,9 +266,14 @@ async function handleRequest(req, res) {
       }
       let body = "";
       for await (const chunk of req) body += chunk;
-      const { text } = JSON.parse(body || "{}");
+      // url/buttonText (2026-08-11, AI Sniper deep-link testing) — optional
+      // pass-through to sendTelegramMessage's inline-keyboard support so
+      // this same freeform endpoint can be used to verify the Sniper
+      // alert's real "Open X Sniper →" button, not just plain text.
+      // Backward compatible: omitted by every existing caller.
+      const { text, url, buttonText } = JSON.parse(body || "{}");
       if (!text) return writeJson(res, 400, { ok: false, error: "Missing text" });
-      const result = await sendTelegramMessage(text);
+      const result = await sendTelegramMessage(text, url && buttonText ? { url, buttonText } : undefined);
       if (!result.ok) {
         const msg = result.reason === "cooldown" ? `Rate limited — try again in ${Math.ceil((result.retryInMs || 0) / 1000)}s (shared 60s cooldown across every real alert this app sends).`
           : result.reason === "daily-cap" ? "Daily Telegram message limit reached (40/day, shared across every real alert this app sends)."
