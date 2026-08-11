@@ -18,6 +18,13 @@ async function handleHealth(req, res) {
     SERVER_AUTOPILOT: process.env.SERVER_AUTOPILOT !== undefined,
     ALPACA_KEY_ID: process.env.ALPACA_KEY_ID !== undefined,
     POLYGON_API_KEY: !!(process.env.POLYGON_API_KEY || "").trim(),
+    // Not a secret (it's this service's own public URL) — surfaced here
+    // temporarily to debug a real report (2026-08-11, "click on bottom
+    // link it fails") that the Sniper Telegram deep-link button doesn't
+    // open. watchlist-sniper-alerts.js/telegram-bot.js's /sniper command
+    // both build that URL from this var, falling back to an unreachable
+    // http://localhost:PORT if it's unset on Render.
+    RENDER_EXTERNAL_URL: process.env.RENDER_EXTERNAL_URL || null,
   };
 
   // Postgres persistence status — data/*.json stores are backed by Postgres
