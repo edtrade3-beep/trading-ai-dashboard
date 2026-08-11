@@ -61,9 +61,9 @@ async function handlePriceAlerts(req, res, requestUrl) {
       triggeredAt: null,
     };
 
-    // Cap at 50 alerts
-    if (alerts.filter(a => a.status === "active").length >= 50) {
-      return writeJson(res, 422, { error: "Maximum 50 active price alerts allowed" });
+    // Cap at 500 alerts
+    if (alerts.filter(a => a.status === "active").length >= 500) {
+      return writeJson(res, 422, { error: "Maximum 500 active price alerts allowed" });
     }
     alerts.unshift(alert);
     savePriceAlerts(alerts);
