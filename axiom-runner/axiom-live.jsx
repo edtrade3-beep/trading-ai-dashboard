@@ -93,6 +93,7 @@ import RhProDashboard from "./components/RhProDashboard.jsx";
 import RhProScanner from "./components/RhProScanner.jsx";
 import RhProWatchlists from "./components/RhProWatchlists.jsx";
 import RhFutureValueTab from "./components/RhFutureValueTab.jsx";
+import AMCortexTab from "./components/AMCortexTab.jsx";
 import RhProHeatMap from "./components/RhProHeatMap.jsx";
 import RhProCoach from "./components/RhProCoach.jsx";
 import RhProApex from "./components/RhProApex.jsx";
@@ -7215,6 +7216,10 @@ export default function App() {
           ]} />
           <RhFutureValueTab C={C} MONO={MONO} SANS={SANS} macroData={macroData} />
         </>
+      )}
+      {activeTab === "cortex" && (
+        <AMCortexTab C={C} MONO={MONO} SANS={SANS} macroData={macroData} sectorData={sectorData}
+          watchlistSymbols={watchlistSymbols} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} />
       )}
       {activeTab === "rhpro-heat" && <RhProHeatMap C={C} MONO={MONO} SANS={SANS} sectorData={sectorData} macroData={macroData} />}
       {activeTab === "rhpro-journal" && <RhProJournal C={C} MONO={MONO} SANS={SANS} />}

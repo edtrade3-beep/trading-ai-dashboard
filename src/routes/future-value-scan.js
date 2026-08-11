@@ -79,9 +79,32 @@ async function runFutureValueScan(keys) {
   return { ok: true, rows };
 }
 
+// Single-symbol path — powers AM Cortex's per-stock analysis (explicit
+// user request, 2026-08-11: "AM CORTEX"). Reuses the exact same real
+// fundamentals fetch/cache/scoring as the full universe scan above; not a
+// second implementation. Symbol needn't be in Watchlist ∪ SCAN_UNIVERSE —
+// Cortex must be able to answer about any real ticker.
+async function runFutureValueSymbol(symbol, keys) {
+  if (!keys.fmp) return { ok: false, error: "FMP not configured" };
+  if (!screenWatchlistCached) return { ok: false, error: "screener unavailable" };
+  const priceRows = await screenWatchlistCached([symbol]).catch(() => []);
+  const priceRow = (priceRows || []).find((r) => !r.error && r.symbol === symbol);
+  if (!priceRow || !(Number(priceRow.price) > 0)) return { ok: false, error: "No real live price for this symbol" };
+  const f = await getFundamentalsCached(symbol, keys.fmp);
+  if (!f) return { ok: false, error: "No real fundamentals data for this symbol" };
+  const read = computeFutureValueRead(f, priceRow.price);
+  if (!read) return { ok: false, error: "Could not score this symbol from real data" };
+  return { ok: true, row: { symbol, name: f.name || priceRow.longName || symbol, price: priceRow.price, sector: f.sector || null, ...read } };
+}
+
 async function handleFutureValueScan(req, res, requestUrl) {
   try {
     const keys = resolveProviderKeys(requestUrl.searchParams);
+    const symbolParam = (requestUrl.searchParams.get("symbol") || "").trim().toUpperCase();
+    if (symbolParam) {
+      const { ok, error, row } = await runFutureValueSymbol(symbolParam, keys);
+      return writeJson(res, 200, ok ? { ok: true, row } : { ok: false, error });
+    }
     const { ok, error, rows } = await runFutureValueScan(keys);
     if (!ok) return writeJson(res, 200, { ok: false, error, future: [], undervalued: [], overlap: [] });
 
@@ -112,4 +135,4 @@ async function handleFutureValueScan(req, res, requestUrl) {
   }
 }
 
-module.exports = { handleFutureValueScan, runFutureValueScan };
+module.exports = { handleFutureValueScan, runFutureValueScan, runFutureValueSymbol };

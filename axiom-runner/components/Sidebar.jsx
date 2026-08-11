@@ -27,6 +27,18 @@
 export const SIDEBAR_ITEMS = [
   { id: "dashboard", label: "Home",       icon: "🏠", tab: "dashboard" },
 
+  // Cortex — "ask anything" intelligence layer (2026-08-11, explicit user
+  // request: "AM CORTEX — AI TRADING INTELLIGENCE ENGINE"). A genuinely new
+  // front door, not a Discover sub-view — it answers free-text questions
+  // ("why is X moving", "find undervalued stocks") by routing to this
+  // app's real existing engines (Sniper Decision, A+ Score, Institutional
+  // Grade, Future/Value scoring), never a second chatbot (that's
+  // TradingCopilot, unchanged). Given its own top-level slot despite the
+  // "7 real surfaces" rule above because it's the single largest,
+  // most-requested feature of its kind so far — same reasoning Autopilot
+  // got promoted out of hiding for.
+  { id: "cortex", label: "Cortex", icon: "🧠", tab: "cortex" },
+
   // Discover — "what should I trade?" Scan is the primary/default view;
   // Watchlists and Options Flow are one click away via the shared
   // PageSubNav rendered at the top of all three real activeTab blocks
