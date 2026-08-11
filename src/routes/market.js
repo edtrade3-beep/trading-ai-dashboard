@@ -1670,6 +1670,11 @@ async function screenTrendTemplate(symbols, filters = {}) {
           rsi: r.rsi, dayChangePct: r.dayChangePct, weekChangePct: r.weekChangePct,
           smc: r.smc || null,
           technicals: r.technicals || null,
+          // Full 8-criteria Minervini checklist (real, computed above at
+          // line ~1386, discarded before now) — Sniper Decision screen's
+          // Deep Analysis > Minervini tab needs the per-criterion pass/fail,
+          // not just the passCount tally (2026-08-10, Phase 2 build).
+          criteria: r.criteria || null,
           _passExclRS: passExclRS,
           atBuyPoint: r.passCount >= 7 && r.setup.actionable && !r.setup.extended,
         });

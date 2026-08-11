@@ -920,6 +920,7 @@ export default function RhProScanner({
       {sniperSymbol && (
         <SniperDecisionModal C={C} MONO={MONO} SANS={SANS}
           row={displayRows.find(r => r.symbol === sniperSymbol) || rows.find(r => r.symbol === sniperSymbol)}
+          regime={regime} sectorInfo={sectorInfoFor(sniperSymbol)}
           onClose={() => setSniperSymbol(null)}
           onOpenPlan={(sym) => { setSniperSymbol(null); openChartWithPlan(sym); }} />
       )}

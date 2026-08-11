@@ -1,23 +1,26 @@
 import { useState } from "react";
 import { computeSniperDecision } from "./sniper-decision.js";
+import { FundamentalsPanel, OptionsFlowPanel } from "./terminal-panels.jsx";
 
-// AI Sniper Decision Screen — Phase 1 of the redesign (explicit user spec,
-// 2026-08-10: "redesign my AI Sniper Scanner into a true 10-second trading
-// decision workspace... the primary problem is information overload and
-// contradictory signals"). Phase 1 scope: the decision engine
-// (sniper-decision.js) + this Level 1/2 hero screen. Deep Analysis below is
-// a real, already-computed summary (Stock Quality/Trade Setup/Trend/RS/SMC
-// — the same fields RhProScanner's row-expansion already shows), not yet
-// the full 6-tab Technical/Minervini/Fundamental/Market/Options/Risk panel
-// from the spec — that's Phase 2, deliberately deferred rather than padded
-// with placeholder content.
+// AI Sniper Decision Screen — explicit user spec (2026-08-10): "redesign my
+// AI Sniper Scanner into a true 10-second trading decision workspace...
+// the primary problem is information overload and contradictory signals."
+// Phase 1: the decision engine (sniper-decision.js) + this Level 1/2 hero
+// screen. Phase 2 (this update): the full 6-tab Deep Analysis panel from
+// the spec — Technical/Minervini/Fundamental/Market·Sector/Options·Flow/
+// Risk. Fundamental and Options/Flow reuse the app's own existing
+// FundamentalsPanel/OptionsFlowPanel components as-is (terminal-panels.jsx)
+// rather than re-fetching/re-deriving the same real data a second way;
+// they only fetch once their tab is actually opened (lazy mount).
 //
 // `row` is one of RhProScanner's already-fully-computed displayRows (score,
-// aplus, institutionalGrade, quality, prediction, smc, riskState, etc. all
-// already attached) — this component adds zero new fetches, only the new
-// computeSniperDecision() combinator on top of data that already exists.
-export default function SniperDecisionModal({ C, MONO, SANS, row, onClose, onOpenPlan }) {
+// aplus, institutionalGrade, quality, prediction, smc, riskState, criteria,
+// etc. all already attached) — this component adds zero new fetches for
+// the first 4 tabs, only the new computeSniperDecision() combinator on top
+// of data that already exists.
+export default function SniperDecisionModal({ C, MONO, SANS, row, regime, sectorInfo, onClose, onOpenPlan }) {
   const [showDeep, setShowDeep] = useState(false);
+  const [deepTab, setDeepTab] = useState("technical");
   if (!row) return null;
   const d = computeSniperDecision(row);
 
@@ -169,38 +172,109 @@ export default function SniperDecisionModal({ C, MONO, SANS, row, onClose, onOpe
           </button>
         )}
 
-        {/* Deep Analysis — collapsed by default, real already-computed
-            summary (Phase 2 will expand this into the spec's full 6-tab
-            panel). */}
+        {/* Deep Analysis — full 6-tab panel (Phase 2, 2026-08-10). Collapsed
+            by default; the trader shouldn't need this during the normal
+            10-second read. */}
         <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 10 }}>
           <button onClick={() => setShowDeep(v => !v)}
             style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", font: "inherit", fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textSec, background: "transparent", border: "none", cursor: "pointer", padding: "4px 0" }}>
             <span>DEEP ANALYSIS</span><span>{showDeep ? "▴" : "▾"}</span>
           </button>
           {showDeep && (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12, marginTop: 8, fontFamily: SANS, fontSize: 11.5 }}>
-              <div>
-                <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 2 }}>STOCK QUALITY</div>
-                <div style={{ color: C.text, fontWeight: 800 }}>{row.score ?? row.quality?.score ?? "—"}/100</div>
+            <div style={{ marginTop: 8 }}>
+              <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 12 }}>
+                {[
+                  ["technical", "Technical"], ["minervini", "Minervini"], ["fundamental", "Fundamental"],
+                  ["market", "Market/Sector"], ["options", "Options/Flow"], ["risk", "Risk"],
+                ].map(([id, label]) => (
+                  <button key={id} onClick={() => setDeepTab(id)}
+                    style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 800, padding: "5px 10px", borderRadius: 6, cursor: "pointer",
+                      border: `1px solid ${deepTab === id ? C.accent : C.border}`, background: deepTab === id ? C.accent : "transparent", color: deepTab === id ? "#fff" : C.textSec }}>
+                    {label}
+                  </button>
+                ))}
               </div>
-              <div>
-                <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 2 }}>RS RATING</div>
-                <div style={{ color: (row.rsRating || 0) >= 70 ? C.green : C.text, fontWeight: 800 }}>{row.rsRating ?? "—"}</div>
-              </div>
-              <div>
-                <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 2 }}>VWAP (20D)</div>
-                <div style={{ color: C.text, fontWeight: 800 }}>{d.vwap20 != null ? `$${d.vwap20.toFixed(2)}` : "—"}</div>
-              </div>
-              <div>
-                <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 2 }}>STAGE</div>
-                <div style={{ color: C.text, fontWeight: 800 }}>{row.stage || "—"}</div>
-              </div>
-              {row.smc && (
-                <div style={{ gridColumn: "1 / -1" }}>
-                  <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 2 }}>SMART MONEY</div>
-                  <div style={{ color: C.textSec }}>{[row.smc.bos?.label, row.smc.choch?.label].filter(Boolean).join(" · ") || "No real SMC signal right now"}</div>
+
+              {deepTab === "technical" && (() => {
+                const adx = row.technicals?.adx;
+                const statRow = (label, value, color) => (
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: `1px solid ${C.border}`, fontFamily: SANS, fontSize: 12 }}>
+                    <span style={{ color: C.textDim }}>{label}</span><span style={{ fontWeight: 800, color: color || C.text }}>{value}</span>
+                  </div>
+                );
+                return (
+                  <div>
+                    {statRow("ADX (trend strength)", adx ? `${adx.adx} — ${adx.strength}, ${adx.direction}` : "—", adx?.direction === "Bullish" ? "#0d9465" : adx?.direction === "Bearish" ? "#c8282a" : C.textDim)}
+                    {statRow("20-day VWAP", d.vwap20 != null ? `$${d.vwap20.toFixed(2)} — price is ${d.gates.aboveVwap ? "above" : "below"}` : "—", d.gates.aboveVwap ? "#0d9465" : "#c8282a")}
+                    {statRow("RSI (14)", Number.isFinite(row.rsi) ? row.rsi.toFixed(1) : "—")}
+                    {statRow("52-week range", (row.lo52 != null && row.hi52 != null) ? `$${row.lo52.toFixed(2)} – $${row.hi52.toFixed(2)}` : "—")}
+                    {statRow("% from 52w high", row.pctFromHigh != null ? `${row.pctFromHigh}%` : "—")}
+                    {statRow("50-day MA", row.ma50 != null ? `$${Number(row.ma50).toFixed(2)}` : "—")}
+                    {statRow("Volume vs 50d avg (RVOL)", row.volRatio != null ? `${row.volRatio.toFixed(2)}x` : "—", d.gates.volumeConfirmed ? "#0d9465" : C.textDim)}
+                    {statRow("1-day / 1-week change", `${row.dayChangePct != null ? row.dayChangePct.toFixed(2) + "%" : "—"} / ${row.weekChangePct != null ? row.weekChangePct.toFixed(2) + "%" : "—"}`)}
+                    <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 900, color: C.textDim, marginTop: 10, marginBottom: 2 }}>TECHNICAL: <span style={{ color: d.gates.trendBullish ? "#0d9465" : C.textDim }}>{d.gates.trendBullish ? "BULLISH" : (row.stage || "").includes("4") ? "BEARISH" : "NEUTRAL"}</span></div>
+                  </div>
+                );
+              })()}
+
+              {deepTab === "minervini" && (
+                <div>
+                  {Array.isArray(row.criteria) && row.criteria.length ? row.criteria.map(c => (
+                    <div key={c.id} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "6px 0", borderBottom: `1px solid ${C.border}`, fontFamily: SANS, fontSize: 12 }}>
+                      <span style={{ color: c.pass ? "#0d9465" : "#c8282a", fontWeight: 700 }}>{c.pass ? "✓" : "✗"} {c.label}</span>
+                      <span style={{ fontFamily: MONO, fontSize: 10.5, color: C.textDim, whiteSpace: "nowrap" }}>{String(c.value)}</span>
+                    </div>
+                  )) : <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>Criteria detail unavailable — {row.passCount ?? "?"}/8 pass overall.</div>}
+                  <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, marginTop: 10, lineHeight: 1.5 }}>Minervini determines stock quality; the Sniper engine above determines entry timing on top of it — never used as an automatic buy signal by itself.</div>
                 </div>
               )}
+
+              {deepTab === "fundamental" && (
+                <div style={{ margin: "-6px" }}>
+                  <FundamentalsPanel symbol={row.symbol} C={C} MONO={MONO} SANS={SANS} />
+                </div>
+              )}
+
+              {deepTab === "market" && (() => {
+                const statRow = (label, value, color) => (
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: `1px solid ${C.border}`, fontFamily: SANS, fontSize: 12 }}>
+                    <span style={{ color: C.textDim }}>{label}</span><span style={{ fontWeight: 800, color: color || C.text }}>{value}</span>
+                  </div>
+                );
+                return (
+                  <div>
+                    {regime ? statRow("Market regime", `${regime.label} (${regime.score}/100)`, regime.color) : statRow("Market regime", "—")}
+                    {sectorInfo ? statRow("Sector rank", `#${sectorInfo.rank} of ${sectorInfo.of} S&P sectors today`) : statRow("Sector rank", "—")}
+                    {row.smc && statRow("Smart Money structure", [row.smc.bos?.label, row.smc.choch?.label].filter(Boolean).join(" · ") || "No real SMC signal right now", row.smc.bos?.type === "BULL_BOS" ? "#0d9465" : row.smc.bos?.type === "BEAR_BOS" ? "#c8282a" : C.textDim)}
+                    <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, marginTop: 10, lineHeight: 1.5 }}>Market regime and sector rank are the same market-wide/sector-wide reads used across this app — not stock-specific, and not something this setup controls.</div>
+                  </div>
+                );
+              })()}
+
+              {deepTab === "options" && (
+                <div style={{ margin: "-6px" }}>
+                  <OptionsFlowPanel symbol={row.symbol} C={C} MONO={MONO} SANS={SANS} />
+                </div>
+              )}
+
+              {deepTab === "risk" && (() => {
+                const statRow = (label, value, color) => (
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: `1px solid ${C.border}`, fontFamily: SANS, fontSize: 12 }}>
+                    <span style={{ color: C.textDim }}>{label}</span><span style={{ fontWeight: 800, color: color || C.text }}>{value}</span>
+                  </div>
+                );
+                return (
+                  <div>
+                    {statRow("Risk level", row.riskState || "—", riskCol)}
+                    {statRow("Risk to stop", row.riskPct != null ? `${row.riskPct}%` : "—")}
+                    {statRow("VCP grade", row.vcpGrade && row.vcpGrade !== "-" ? row.vcpGrade : "—")}
+                    {statRow("Base tightening", row.tightening ? "Yes — each pullback shallower than the last" : "No", row.tightening ? "#0d9465" : C.textDim)}
+                    {statRow("Extended above pivot", d.gates.extended ? "Yes — chasing risk" : "No", d.gates.extended ? "#c8282a" : "#0d9465")}
+                    {statRow("Real early get-out signs", d.gates.reversalTopRisk ? `Yes — ${d.reversal?.verdict}` : "No", d.gates.reversalTopRisk ? "#c8282a" : "#0d9465")}
+                    <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, marginTop: 10, lineHeight: 1.5 }}>Risk level and stop distance come from this app's real VCP risk report — not a prediction the trade fails, just how much downside exposure it carries.</div>
+                  </div>
+                );
+              })()}
             </div>
           )}
         </div>
