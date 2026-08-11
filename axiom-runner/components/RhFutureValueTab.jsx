@@ -210,6 +210,12 @@ export default function RhFutureValueTab({ C, MONO, SANS, macroData }) {
       <div style={{ marginTop: 10, fontFamily: SANS, fontSize: 10, color: C.textDim }}>
         Every score here comes from real fundamentals (FMP) — no invented valuation model. Detailed reasoning lives inside Deep Scan.
       </div>
+      {/* Bottom safety margin (2026-08-11) — same real risk already found
+          and fixed on the Scanner tab: the fixed-position FAB cluster
+          hovers over the bottom ~90px of every mobile viewport regardless
+          of scroll position, and a card's DEEP SCAN button can otherwise
+          land right underneath it at a natural scroll-stop. */}
+      <div style={{ height: 90 }} />
 
       {deepScanSymbol && (
         <DeepScanModal C={C} MONO={MONO} SANS={SANS} symbol={deepScanSymbol} read={findRead(deepScanSymbol)} macroData={macroData} onClose={() => setDeepScanSymbol(null)} />
