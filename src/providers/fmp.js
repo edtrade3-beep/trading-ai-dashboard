@@ -82,13 +82,7 @@ async function fetchFmpFundamentals(symbol, fmpKey) {
   if (!quote && !profile) return null;
   const n = (v) => { const x = Number(v); return Number.isFinite(x) && x !== 0 ? x : null; };
   const tgt = n(target?.targetConsensus) || n(target?.targetMedian);
-  // TEMP DEBUG (2026-08-11) — inspecting the real raw FMP schema live to
-  // ground a new Future/Undervalued Stocks feature in real fields
-  // (ROIC/EV-EBITDA/FCF-yield/debt) instead of guessing field names.
-  // Removed before shipping the real feature.
-  const _debugRaw = { keyMetrics, growth, target };
   return {
-    _debugRaw,
     symbol,
     marketCap: Number(quote?.marketCap) || Number(profile?.marketCap) || 0,
     pe: n(ratios?.priceToEarningsRatioTTM),
@@ -107,14 +101,36 @@ async function fetchFmpFundamentals(symbol, fmpKey) {
     // returnOnEquityTTM lives on key-metrics-ttm, not ratios-ttm (confirmed
     // against a real live response — ratios-ttm simply doesn't carry it).
     roe: n(keyMetrics?.returnOnEquityTTM),
+    // Real ROIC, straight from key-metrics-ttm — used as the Future/
+    // Undervalued Stocks feature's quality + moat-proxy input instead of
+    // an invented "moat score" (2026-08-11).
+    roic: n(keyMetrics?.returnOnInvestedCapitalTTM),
+    evToEbitda: n(keyMetrics?.evToEBITDATTM),
+    fcfYield: n(keyMetrics?.freeCashFlowYieldTTM),
+    netDebtToEbitda: n(keyMetrics?.netDebtToEBITDATTM),
+    currentRatio: n(keyMetrics?.currentRatioTTM),
+    freeCashFlow: n(keyMetrics?.freeCashFlowToFirmTTM),
     // Growth
     revenueGrowth: n(growth?.revenueGrowth),
     earningsGrowth: n(growth?.epsgrowth) || n(growth?.netIncomeGrowth),
+    freeCashFlowGrowth: n(growth?.freeCashFlowGrowth),
+    // Real 3yr/5yr historical growth-per-share trend — a genuine forward-
+    // durability signal (not a single noisy TTM number) for the Future
+    // Stocks score.
+    threeYRevenueGrowthPerShare: n(growth?.threeYRevenueGrowthPerShare),
+    fiveYRevenueGrowthPerShare: n(growth?.fiveYRevenueGrowthPerShare),
+    threeYNetIncomeGrowthPerShare: n(growth?.threeYNetIncomeGrowthPerShare),
+    fiveYNetIncomeGrowthPerShare: n(growth?.fiveYNetIncomeGrowthPerShare),
+    // Real share-count trend: negative = buybacks (shrinking share count,
+    // good for holders), positive = dilution (bad). Straight from FMP, not
+    // a guess.
+    sharesGrowth: n(growth?.weightedAverageSharesGrowth),
     // Analyst
     analystTarget: tgt,
     targetMeanPrice: tgt,
     targetHighPrice: n(target?.targetHigh),
     targetLowPrice: n(target?.targetLow),
+    targetMedianPrice: n(target?.targetMedian),
     recommendationKey: null,
     numberOfAnalystOpinions: null,
     // Company profile
