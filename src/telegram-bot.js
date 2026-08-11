@@ -250,8 +250,9 @@ async function cmdHelp() {
     "\n📈 STOCKTWITS SENTIMENT\n" +
     "/twits                top 10 trending + crowd sentiment\n" +
     "/twits NVDA           bullish/bearish% + message previews\n" +
-    "\n📰 REDDIT NEWS\n" +
-    "/news                 all finance + tech subs combined\n" +
+    "\n📰 NEWS\n" +
+    "/news AAPL            real company news headlines for a symbol\n" +
+    "/news                 all Reddit finance + tech subs combined\n" +
     "/wsb                  r/wallstreetbets — meme stocks & DD\n" +
     "/stocks               r/stocks — earnings & analysis\n" +
     "/invest               r/investing — macro & fundamentals\n" +
@@ -687,22 +688,32 @@ async function cmdSniper(args) {
     if (!decided.length) return reply("Scan returned no real data — try again in a moment.");
     const counts = { ENTER_LONG: 0, WAIT: 0, NO_CHASE: 0, AVOID: 0 };
     decided.forEach((x) => { counts[x.d.action] = (counts[x.d.action] || 0) + 1; });
-    const enter = decided.filter((x) => x.d.action === "ENTER_LONG").sort((a, b) => (b.row.confidence || 0) - (a.row.confidence || 0));
+
+    // Full ranked list (explicit user follow-up, 2026-08-11: "when i type
+    // /sniper... ai scanner pro comes") — not just an enter-long filter,
+    // which reads as near-empty on a quiet/cautious day (real example:
+    // 0 enter long, 52 avoid). Same tier order the app's own AI_ACTIONS
+    // vocabulary uses (ai-actions.js) — ENTER_LONG highest, AVOID lowest —
+    // then real Minervini passCount, then real breakout confidence, so
+    // "top of the list" means the same thing here as it does in the app.
+    const TIER = { ENTER_LONG: 4, WAIT: 3, NO_CHASE: 2, AVOID: 1 };
+    const ranked = [...decided].sort((a, b) =>
+      (TIER[b.d.action] - TIER[a.d.action]) ||
+      ((b.row.passCount || 0) - (a.row.passCount || 0)) ||
+      ((b.row.confidence || 0) - (a.row.confidence || 0))
+    );
+    const ICON = { ENTER_LONG: "🟢", WAIT: "🟡", NO_CHASE: "🟠", AVOID: "🔴" };
 
     const lines = [
       `🎯 AI SNIPER SCANNER PRO — ${decided.length} stocks scanned`,
       `🟢 ${counts.ENTER_LONG || 0} enter long · 🟡 ${counts.WAIT || 0} wait · 🟠 ${counts.NO_CHASE || 0} no chase · 🔴 ${counts.AVOID || 0} avoid`,
       "",
+      "TOP RANKED (real tier → Minervini → confidence):",
     ];
-    if (enter.length) {
-      lines.push("🟢 ENTER LONG right now:");
-      enter.slice(0, 8).forEach((x) => {
-        lines.push(`${x.row.symbol} — entry $${x.d.entry?.toFixed(2) ?? "—"}, stop $${x.d.stop?.toFixed(2) ?? "—"}, target $${x.d.target2?.toFixed(2) ?? "—"}`);
-      });
-    } else {
-      lines.push("🟢 ENTER LONG right now: none.");
-    }
-    lines.push("", "Reply /sniper SYMBOL to check one stock.");
+    ranked.slice(0, 25).forEach((x, i) => {
+      lines.push(`${i + 1}. ${x.row.symbol} ${ICON[x.d.action]} ${x.d.meta.label.toUpperCase()} — ${x.row.passCount ?? "?"}/8`);
+    });
+    lines.push("", `...and ${Math.max(0, decided.length - 25)} more.`, "Reply /sniper SYMBOL to check one stock in full detail.");
     return reply(lines.join("\n"));
   } catch (err) {
     return reply("Sniper scan error: " + err.message);
@@ -748,6 +759,37 @@ async function cmdNews(args) {
     ai:     "artificial",
     ml:     "MachineLearning",
   };
+
+  // Real per-symbol company news (2026-08-11, explicit user request: "add
+  // news command" — right after the AI Sniper command work, closing a real
+  // gap: /news only ever covered Reddit chatter, nothing that answers "what
+  // news is actually out on AAPL"). Any arg not one of the known subreddit
+  // aliases above, that looks like a real ticker, is treated as a symbol —
+  // reuses the app's own real /api/market/news route (Finnhub/Polygon/
+  // Yahoo+Google RSS, same fetchMarketNews chain NewsPanel.jsx already
+  // uses), called internally rather than duplicating that provider logic.
+  const symArg = (args[0] || "").toUpperCase().trim();
+  if (symArg && !aliases[sub] && /^[A-Z][A-Z0-9.\-^]{0,9}$/.test(symArg)) {
+    await reply(`📰 Fetching real news for ${symArg}…`);
+    try {
+      const base = process.env.RENDER_EXTERNAL_URL || `http://localhost:${process.env.PORT || 3000}`;
+      const res = await withTimeout(fetch(`${base}/api/market/news?tickers=${encodeURIComponent(symArg)}&limit=8`), 20_000, null);
+      const items = res ? await res.json().catch(() => []) : [];
+      if (!Array.isArray(items) || !items.length) {
+        return reply(`No real news found for ${symArg} right now. Try again shortly, or /news for Reddit finance/tech chatter.`);
+      }
+      const lines = [`📰 ${symArg} NEWS`, "━━━━━━━━━━━━━━━━━━━━"];
+      items.slice(0, 8).forEach((n) => {
+        const when = n.publishedAt ? new Date(n.publishedAt).toLocaleString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
+        lines.push(`${n.title}`);
+        lines.push(`${[n.source || n.publisher, when].filter(Boolean).join(" · ")}${n.link ? `\n${n.link}` : ""}`, "");
+      });
+      return reply(lines.join("\n").trim());
+    } catch (err) {
+      return reply(`News error for ${symArg}: ${err.message}`);
+    }
+  }
+
   const resolvedSub = aliases[sub] || sub;
 
   await reply(resolvedSub ? `Fetching r/${resolvedSub} news…` : "Fetching Reddit finance + tech news…");
