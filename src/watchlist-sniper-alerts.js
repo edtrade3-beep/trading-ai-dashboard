@@ -74,12 +74,17 @@ async function checkWatchlistSniperTurns() {
   if (turns.length && shouldSendAlert({ category: "watchlist-sniper" })) {
     for (const t of turns) {
       const url = `${BASE()}/?symbol=${encodeURIComponent(t.symbol)}&open=sniper`;
+      // Raw URL also appended as plain text (2026-08-11, real user report:
+      // "click on bottom link it fails") — a second, independent way to
+      // reach the same link if the inline button misbehaves on some
+      // Telegram client (Telegram auto-linkifies plain URLs too).
       if (t.direction === "buy") {
         const parts = [
           `🎯 AI SNIPER — ${t.symbol}`,
           `🟢 ENTER LONG (was ${t.from === "ENTER_LONG" ? "—" : t.from})`,
           t.d.reason,
           t.d.entry != null ? `Entry $${t.d.entry.toFixed(2)} · Stop $${t.d.stop.toFixed(2)} · Target $${t.d.target2?.toFixed(2) ?? "—"}${t.d.rr != null ? ` · R:R ${t.d.rr.toFixed(1)}:1` : ""}` : null,
+          "", url,
         ].filter(Boolean);
         await sendTelegramMessage(parts.join("\n"), { url, buttonText: `Open ${t.symbol} Sniper →` }).catch(() => {});
       } else {
@@ -87,6 +92,7 @@ async function checkWatchlistSniperTurns() {
           `🎯 AI SNIPER — ${t.symbol}`,
           `🟠 GET OUT WARNING — ${t.to === "AVOID" ? "AVOID" : "NO CHASE"} (was ENTER LONG)`,
           t.d.reason,
+          "", url,
         ].filter(Boolean);
         await sendTelegramMessage(parts.join("\n"), { url, buttonText: `Open ${t.symbol} Sniper →` }).catch(() => {});
       }

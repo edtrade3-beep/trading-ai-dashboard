@@ -673,6 +673,13 @@ async function cmdSniper(args) {
         ...d.reasons.map((r) => `${r.ok ? "✓" : "✗"} ${r.text}`),
       ].filter(Boolean);
       const url = `${base}/?symbol=${encodeURIComponent(sym)}&open=sniper`;
+      // Raw URL also in the message text (2026-08-11, real user report:
+      // "click on bottom link it fails") — the inline button failing to
+      // open on some Telegram clients is a client-side quirk this app
+      // can't fix directly; Telegram auto-linkifies a plain URL too, so
+      // this gives a second, independent way to reach the same link
+      // (tap, or long-press → open in Safari/Chrome) if the button balks.
+      lines.push("", url);
       return reply(lines.join("\n"), { url, buttonText: `Open ${sym} Sniper →` });
     } catch (err) {
       return reply(`Sniper error for ${sym}: ${err.message}`);
