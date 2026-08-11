@@ -372,6 +372,22 @@ server.listen(PORT, HOST, () => {
   setInterval(() => require("./src/watchlist-sniper-alerts").checkWatchlistSniperTurns().catch(() => {}), 15 * 60_000);
   console.log("[Watchlist AI Sniper] Enter-long / get-out alerts active — every 15 min, market hours only");
 
+  // Position reversal alerts (explicit user request, 2026-08-11: "I DONT
+  // WANT TO THINK TOO MUCH I WANT PLATFORM TO WORK ME" / "THE SYSTEM TELL
+  // ME EARLY OR ON TIME BUY SELL EARLY OR ON TIME") — real Telegram ping
+  // when an actual HELD Alpaca paper position newly shows the Sniper's
+  // early get-out signs (near 52w high, overbought RSI, climax volume, a
+  // parabolic run cooling off) — structurally earlier than
+  // runTrailingStops' own invalidation check below, which only fires once
+  // the trend has already broken (price below the 50-day MA/21-day EMA).
+  // Read-only (never places/modifies an order), so — like the Watchlist
+  // Turn/Sniper alerts above — this runs unconditionally, not gated behind
+  // SERVER_AUTOPILOT like the trade-mutating automation below. 5-min
+  // cadence (not 15) since actual held positions warrant closer watching
+  // than a scan of names you don't yet own.
+  setInterval(() => require("./src/position-reversal-alerts").checkPositionReversals().catch(() => {}), 5 * 60_000);
+  console.log("[Position Reversal] Early get-out alerts for held positions active — every 5 min, market hours only");
+
   // Best Opportunities "new GO" alerts (explicit user request, 2026-08-03:
   // "alert me on go not working" — the existing button is a browser
   // Notification, which silently fails once permission is denied or the tab

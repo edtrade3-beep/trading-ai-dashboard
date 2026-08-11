@@ -1,10 +1,16 @@
-// watchlist-sniper-alerts.js — real Telegram alert when a Watchlist
-// symbol's AI Sniper verdict (ENTER LONG / WAIT / NO CHASE / AVOID, see
+// watchlist-sniper-alerts.js — real Telegram alert when a tracked symbol's
+// AI Sniper verdict (ENTER LONG / WAIT / NO CHASE / AVOID, see
 // src/sniper-decision.js) changes state. Explicit user request (2026-08-10,
 // 2026-08-11): "wire AI Sniper Scanner Pro in Telegram... when to get out
-// before stock goes down and get in before stock goes up." Same scope/gate/
-// persisted-diff pattern as watchlist-turn-alerts.js — the user's actual
-// Watchlist, not the full ~100-symbol scan universe, market hours only.
+// before stock goes down and get in before stock goes up" — then widened
+// further the same day ("I DONT WANT TO THINK TOO MUCH I WANT PLATFORM TO
+// WORK ME" / "THE SYSTEM TELL ME EARLY OR ON TIME BUY SELL EARLY OR ON
+// TIME"): a curated Watchlist alone could miss a real ENTER_LONG on a
+// symbol the user simply hadn't added yet. Scope is now the union of the
+// user's real Watchlist and the full ~100-symbol scan universe
+// (SCAN_UNIVERSE) — same real "watchlist + SCAN_UNIVERSE" union pattern
+// src/adol22-scanner.js already established for the identical reason,
+// reused here rather than inventing a second one. Market hours only.
 //
 // Two real transitions fire an alert:
 //   BUY      — verdict newly becomes ENTER_LONG (get in before it goes up).
@@ -41,8 +47,10 @@ function saveActions(v) {
 async function checkWatchlistSniperTurns() {
   if (!telegramConfigured()) return { ok: true, skipped: "telegram not configured" };
   if (!isMarketHoursET()) return { ok: true, skipped: "outside market hours" };
-  const { symbols } = loadWatchlist();
-  if (!Array.isArray(symbols) || !symbols.length) return { ok: true, checked: 0, turns: [] };
+  const { SCAN_UNIVERSE } = require("./advisor-ai");
+  const { symbols: watchlistSymbols } = loadWatchlist();
+  const symbols = [...new Set([...(watchlistSymbols || []), ...SCAN_UNIVERSE])];
+  if (!symbols.length) return { ok: true, checked: 0, turns: [] };
 
   let screenWatchlistCached;
   try { ({ screenWatchlistCached } = require("./routes/market")); } catch { return { ok: false, checked: 0, turns: [] }; }
