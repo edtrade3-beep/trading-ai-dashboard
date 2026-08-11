@@ -92,6 +92,7 @@ import Under10Tab from "./components/Under10Tab.jsx";
 import RhProDashboard from "./components/RhProDashboard.jsx";
 import RhProScanner from "./components/RhProScanner.jsx";
 import RhProWatchlists from "./components/RhProWatchlists.jsx";
+import RhFutureValueTab from "./components/RhFutureValueTab.jsx";
 import RhProHeatMap from "./components/RhProHeatMap.jsx";
 import RhProCoach from "./components/RhProCoach.jsx";
 import RhProApex from "./components/RhProApex.jsx";
@@ -6882,6 +6883,7 @@ export default function App() {
               { id: "rhpro-scan", label: "SCAN" },
               { id: "rhpro-lists", label: "WATCHLISTS" },
               { id: "flow", label: "OPTIONS FLOW" },
+              { id: "rhpro-future", label: "FUTURE/VALUE" },
             ]} />
             <FlowTab
               C={C} MONO={MONO} optionsFlow={optionsFlow} flowBias={flowBias}
@@ -7178,6 +7180,7 @@ export default function App() {
             { id: "rhpro-scan", label: "SCAN" },
             { id: "rhpro-lists", label: "WATCHLISTS" },
             { id: "flow", label: "OPTIONS FLOW" },
+            { id: "rhpro-future", label: "FUTURE/VALUE" },
           ]} />
           <RhProScanner
             C={C} MONO={MONO} SANS={SANS} macroData={macroData} sectorData={sectorData} watchlistData={watchlistData} setActiveTab={setActiveTab}
@@ -7197,8 +7200,20 @@ export default function App() {
             { id: "rhpro-scan", label: "SCAN" },
             { id: "rhpro-lists", label: "WATCHLISTS" },
             { id: "flow", label: "OPTIONS FLOW" },
+            { id: "rhpro-future", label: "FUTURE/VALUE" },
           ]} />
           <RhProWatchlists C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} macroData={macroData} sectorData={sectorData} />
+        </>
+      )}
+      {activeTab === "rhpro-future" && (
+        <>
+          <PageSubNav C={C} MONO={MONO} active={activeTab} setActive={setActiveTab} tabs={[
+            { id: "rhpro-scan", label: "SCAN" },
+            { id: "rhpro-lists", label: "WATCHLISTS" },
+            { id: "flow", label: "OPTIONS FLOW" },
+            { id: "rhpro-future", label: "FUTURE/VALUE" },
+          ]} />
+          <RhFutureValueTab C={C} MONO={MONO} SANS={SANS} macroData={macroData} />
         </>
       )}
       {activeTab === "rhpro-heat" && <RhProHeatMap C={C} MONO={MONO} SANS={SANS} sectorData={sectorData} macroData={macroData} />}
