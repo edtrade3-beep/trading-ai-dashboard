@@ -680,7 +680,12 @@ export default function RhProScanner({
           <div style={{ marginTop: 8, color: C.textDim }}>A stock can score high and still say WAIT — that means the business/setup is strong but right now isn't the entry. Not a contradiction.</div>
         </div>
       )}
-      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "auto", maxHeight: "70vh" }}>
+      {/* ai-scan-table-wrap (2026-08-11) — mobile-only max-height/padding
+          override, see the matching @media rule in axiom-live.jsx's global
+          <style> block. Fixes the ⚡ Sniper button being unreachable on
+          mobile (blocked by the fixed bottom FAB cluster). No effect on
+          desktop — the class only matches inside that media query. */}
+      <div className="ai-scan-table-wrap" style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "auto", maxHeight: "70vh" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           {/* 11 decision-first columns (2026-08-04 redesign, explicit user
               spec; R:R added 2026-08-09) — Ticker+Company/AI Action/Score/
@@ -729,10 +734,21 @@ export default function RhProScanner({
               <tr style={{ background: i % 2 ? "transparent" : `${C.surface}55`, cursor: "pointer" }}
                 onClick={() => setExpandedSymbol(expanded ? null : r.symbol)}>
                 <td style={{ ...cell, color: C.textDim }}>{i + 1}</td>
-                <td style={{ ...cell, fontWeight: 900, color: C.text, position: "sticky", left: 0, zIndex: 1, background: i % 2 ? C.card : C.surface }}>
+                {/* maxWidth + truncated longName (2026-08-11) — real mobile
+                    bug found in a platform audit: this cell is
+                    position:sticky (stays pinned over the table's other
+                    columns while scrolling), and with no width cap, an
+                    unwrapped long company name ("Palo Alto Networks, Inc.",
+                    "ExxonMobil Holdings Corporation"...) stretched it to
+                    ~285px — 73% of a 390px mobile viewport — permanently
+                    covering the ⚡ Sniper button whenever the table was
+                    scrolled right to reveal it. Desktop has room to spare
+                    so this was invisible there. Symbol stays full-size/bold;
+                    only the company name truncates. */}
+                <td style={{ ...cell, fontWeight: 900, color: C.text, position: "sticky", left: 0, zIndex: 1, background: i % 2 ? C.card : C.surface, maxWidth: 140 }}>
                   <span style={{ marginRight: 4, fontSize: 10, color: C.textDim }}>{expanded ? "▾" : "▸"}</span>
                   {r.symbol}
-                  {r.longName && <div style={{ fontFamily: SANS, fontSize: 9.5, fontWeight: 400, color: C.textDim, marginLeft: 14 }}>{r.longName}</div>}
+                  {r.longName && <div style={{ fontFamily: SANS, fontSize: 9.5, fontWeight: 400, color: C.textDim, marginLeft: 14, maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.longName}</div>}
                 </td>
                 {/* AI ACTION — real mapToAiAction (+ real ROTATE override),
                     paired with the real entry-type qualifier chip instead of

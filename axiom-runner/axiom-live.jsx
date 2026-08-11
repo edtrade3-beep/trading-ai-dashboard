@@ -5856,6 +5856,22 @@ export default function App() {
              override (not the inline style above), so it has to be fixed
              here, not there. */
           .mobile-content { padding: 10px 10px ${statusBarH + 90}px !important; }
+          /* AI Sniper Scanner Pro's table has its OWN internal scroll box
+             (maxHeight:70vh, overflow:auto, RhProScanner.jsx) — separate
+             from the outer page's .mobile-content scroll above, so it
+             never benefited from that fix. Real bug found in a platform
+             audit (2026-08-11): the ⚡ Sniper button in the table's last
+             column was unreachable on mobile — the fixed bottom FAB
+             cluster + status bar together form a permanent, full-width,
+             ~94px-tall blocked strip with no gaps to tap through, and a
+             70vh-tall box routinely put trailing rows in that exact band
+             regardless of how far the page itself was scrolled. Shrinking
+             the box and reserving matching bottom padding INSIDE it (not
+             just outside, on the page) lets every row — including the
+             last one — scroll clear so it can actually be tapped. */
+          @media (max-width: 767px) {
+            .ai-scan-table-wrap { max-height: 50vh !important; padding-bottom: ${statusBarH + 90}px !important; }
+          }
           /* Shrink the bottom-right FAB cluster (Copilot, Reality Check,
              Checklist) on mobile — 54/52px circles were covering a real
              chunk of page content (e.g. Market Health's Risk Stance
