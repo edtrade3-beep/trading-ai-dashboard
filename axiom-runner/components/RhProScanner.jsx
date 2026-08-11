@@ -6,6 +6,7 @@ import {
   computeReversalDetector,
 } from "./market-helpers.js";
 import AiScoreExplainer, { TRADE_SETUP_DIMENSIONS, STOCK_QUALITY_DIMENSIONS, INSTITUTIONAL_GRADE_DIMENSIONS } from "./AiScoreExplainer.jsx";
+import SniperDecisionModal from "./SniperDecisionModal.jsx";
 import { mapToAiAction, AI_ACTIONS } from "./ai-actions.js";
 import { computeGreenLight } from "./trading-utils.js";
 import { findWeakestPosition, evaluateRotation } from "./portfolio-rotation-engine.js";
@@ -237,6 +238,12 @@ export default function RhProScanner({
   });
   const [track, setTrack] = useState(null); // real win-probability forward-return log
   const [explain, setExplain] = useState(null); // { symbol, aplus, dimensions, label } | null
+  // AI Sniper Decision screen (2026-08-10 redesign, Phase 1) — a real,
+  // hard-gated single verdict for one row, opened from a dedicated button
+  // rather than replacing the existing tap-to-expand row detail below, so
+  // the existing expansion (Stock Quality/Trade Setup/SMC/Reversal) stays
+  // available while this new screen gets used/validated.
+  const [sniperSymbol, setSniperSymbol] = useState(null);
   // Row expand-in-place — institutional redesign (2026-07-29), same real
   // pattern SmartScanTab.jsx already uses for its own per-row deep-dive,
   // reused here rather than inventing a new interaction model. Secondary
@@ -772,8 +779,12 @@ export default function RhProScanner({
                   {entryType ? <span title={entryType.reason} style={{ fontSize: 11, fontWeight: 700, color: entryType.color }}>{entryType.type.replace(" Entry", "")}</span> : <span style={{ color: C.textDim, fontSize: 12 }}>—</span>}
                 </td>
                 <td style={cell} onClick={e => e.stopPropagation()}>
-                  <button onClick={() => openChartWithPlan(r.symbol)} title={`Open ${r.symbol}'s full chart + real trade plan — trend, fundamentals, earnings, analysts, news, SMC, entry/stop/targets`}
-                    style={{ fontSize: 10, fontWeight: 800, border: `1px solid ${C.accent}`, background: `${C.accent}14`, color: C.accent, borderRadius: 4, padding: "3px 8px", cursor: "pointer", whiteSpace: "nowrap" }}>Open Plan →</button>
+                  <div style={{ display: "flex", gap: 5 }}>
+                    <button onClick={() => setSniperSymbol(r.symbol)} title="Open the 10-second AI Sniper Decision screen — one hard-gated verdict: Enter Long, Wait, No Chase, or Avoid"
+                      style={{ fontSize: 10, fontWeight: 800, border: "1px solid #d6a312", background: "#d6a31214", color: "#d6a312", borderRadius: 4, padding: "3px 8px", cursor: "pointer", whiteSpace: "nowrap" }}>⚡ Sniper</button>
+                    <button onClick={() => openChartWithPlan(r.symbol)} title={`Open ${r.symbol}'s full chart + real trade plan — trend, fundamentals, earnings, analysts, news, SMC, entry/stop/targets`}
+                      style={{ fontSize: 10, fontWeight: 800, border: `1px solid ${C.accent}`, background: `${C.accent}14`, color: C.accent, borderRadius: 4, padding: "3px 8px", cursor: "pointer", whiteSpace: "nowrap" }}>Open Plan →</button>
+                  </div>
                 </td>
               </tr>
               {expanded && (
@@ -906,6 +917,12 @@ export default function RhProScanner({
         Win% = real forward-return log, same score band, min {MIN_WIN_SAMPLE} observations. Pred = real deterministic ~1-week direction/target off this same scan (Stage/RS/volume), not a paid AI call — hover for why. Analysis only — execute manually.
       </div>
       {explain && <AiScoreExplainer C={C} MONO={MONO} SANS={SANS} symbol={explain.symbol} aplus={explain.aplus} dimensions={explain.dimensions} label={explain.label} note={explain.note} onClose={() => setExplain(null)} />}
+      {sniperSymbol && (
+        <SniperDecisionModal C={C} MONO={MONO} SANS={SANS}
+          row={displayRows.find(r => r.symbol === sniperSymbol) || rows.find(r => r.symbol === sniperSymbol)}
+          onClose={() => setSniperSymbol(null)}
+          onOpenPlan={(sym) => { setSniperSymbol(null); openChartWithPlan(sym); }} />
+      )}
       </>
       )}
     </div>

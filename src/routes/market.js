@@ -1528,6 +1528,12 @@ async function _buildTrendTemplate(symbol, opts = {}) {
   // Watchlists-vs-Workspace score-mismatch fix (2026-08-10, user-flagged
   // "shows 88 ... opens to 79").
   const adxLight = (() => { try { return computeADX(bars, 14); } catch { return null; } })();
+  // Real 20-day VWAP, same formula/window as the Smart Money route's
+  // smc.vwap20 (line ~4600 below) — computed here off the same daily bars
+  // instead of only on that single-symbol route, so bulk-scan callers
+  // (Sniper Scanner) get a real "above/below VWAP" location read without a
+  // second fetch. AI Sniper Decision Engine build (2026-08-10).
+  const vwap20Light = (() => { try { return round2(computeVWAP(bars.slice(-20))); } catch { return null; } })();
 
   const result = {
     symbol,
@@ -1556,7 +1562,7 @@ async function _buildTrendTemplate(symbol, opts = {}) {
     criteria,
     setup,
     smc,
-    technicals: { adx: adxLight },
+    technicals: { adx: adxLight, vwap20: vwap20Light },
   };
   if (opts.light) return result;
   result.bars = bars.map((b) => ({
@@ -1588,6 +1594,7 @@ async function _buildTrendTemplate(symbol, opts = {}) {
   // to the full (non-light) call as before.
   result.technicals = {
     adx: adxLight,
+    vwap20: vwap20Light,
     donchian: computeDonchian(bars, 20),
     bollinger: computeBollinger(bars, 20),
     rsi: rsi14,
