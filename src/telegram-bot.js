@@ -157,13 +157,22 @@ function enqueueScanAlert(item) { queueBatchAlert(item); }
 function getAlertLevel()        { return alertLevel; }
 
 // ── Core send ─────────────────────────────────────────────────────────────────
-async function reply(text) {
+// opts.url + opts.buttonText (2026-08-11, /sniper command) — same optional
+// inline-URL-button support sendTelegramMessage already has (src/telegram.js)
+// for the AI Sniper deep-link, mirrored here so command replies (which
+// bypass sendTelegramMessage's shared alert budget on purpose — commands
+// are user-initiated, not scheduled) can also carry a button.
+async function reply(text, opts = {}) {
   if (!TELEGRAM_CHAT_ID) return;
   try {
+    const body = { chat_id: TELEGRAM_CHAT_ID, text: String(text) };
+    if (opts.url && opts.buttonText) {
+      body.reply_markup = { inline_keyboard: [[{ text: String(opts.buttonText), url: String(opts.url) }]] };
+    }
     const res  = await fetch(`${API}/sendMessage`, {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: String(text) }),
+      body:    JSON.stringify(body),
     });
     const json = await res.json().catch(() => ({}));
     if (!json.ok) console.error("[TgBot] send failed:", json.description, "| text:", String(text).slice(0,60));
@@ -212,6 +221,9 @@ async function cmdHelp() {
     "/scanner off  disable auto-scan\n" +
     "/scanner interval 5   set interval (minutes)\n" +
     "/scanner symbols      list all scanned symbols\n" +
+    "\n🎯 AI SNIPER\n" +
+    "/sniper AAPL          real hard-gated verdict for one symbol (Enter Long/Wait/No Chase/Avoid), with a link to open it in-app  (alias: /snipe)\n" +
+    "/sniper                real full ~100-stock scan — enter-long opportunities right now\n" +
     "\n🕐 AUTO-SCAN SCHEDULE (M–F ET)\n" +
     "  6:45  Macro Pre-Market\n" +
     "  7:30  Pre-Market Watchlist\n" +
@@ -621,6 +633,82 @@ async function cmdScanner(args) {
   );
 }
 
+// AI Sniper commands (2026-08-11, explicit user request: "whole ai sniper
+// scanner pro tab as command and be able to check sniper"). Reuses the same
+// real engine as the app's Sniper Decision screen (src/sniper-decision.js,
+// same computeSniperDecision the watchlist-sniper-alerts.js cron job and
+// axiom-runner's SniperDecisionModal.jsx both call) — zero new scoring
+// logic, this only exposes it as a Telegram command.
+//
+// /sniper AAPL — one symbol's real hard-gated verdict, with a deep-link
+// button back to that symbol's Sniper screen in the app.
+// /sniper (no args) — the real ~100-symbol scan universe (SCAN_UNIVERSE,
+// the exact same universe the AI Sniper Scanner Pro tab itself scans, NOT
+// just the Watchlist), bucketed by verdict with the real top ENTER LONG
+// opportunities listed — the closest text equivalent of "the whole tab."
+async function cmdSniper(args) {
+  const { computeSniperDecision } = require("./sniper-decision");
+  const base = process.env.RENDER_EXTERNAL_URL || `http://localhost:${process.env.PORT || 3000}`;
+  const sym = (args[0] || "").toUpperCase().trim();
+
+  if (sym) {
+    if (!/^[A-Z0-9.\-^]{1,10}$/.test(sym)) return reply("Usage: /sniper AAPL   (or /sniper with no symbol for the full scan)");
+    await reply(`🎯 Checking ${sym}…`);
+    try {
+      const { screenTrendTemplate } = require("./routes/market");
+      const rows = await screenTrendTemplate([sym]);
+      const row = (rows || []).find((r) => !r.error);
+      if (!row) return reply(`No real data for ${sym} — check the symbol and try again.`);
+      const d = computeSniperDecision(row);
+      const lines = [
+        `🎯 AI SNIPER — ${sym}`,
+        `${d.meta.icon} ${d.meta.label.toUpperCase()}`,
+        d.reason,
+        "",
+        d.entry != null ? `Entry $${d.entry.toFixed(2)} · Stop ${d.stop != null ? "$" + d.stop.toFixed(2) : "—"} · Target ${d.target2 != null ? "$" + d.target2.toFixed(2) : "—"}${d.rr != null ? ` · R:R ${d.rr.toFixed(1)}:1` : ""}` : null,
+        d.waitingFor ? `Waiting for: ${d.waitingFor}` : null,
+        "",
+        "WHY:",
+        ...d.reasons.map((r) => `${r.ok ? "✓" : "✗"} ${r.text}`),
+      ].filter(Boolean);
+      const url = `${base}/?symbol=${encodeURIComponent(sym)}&open=sniper`;
+      return reply(lines.join("\n"), { url, buttonText: `Open ${sym} Sniper →` });
+    } catch (err) {
+      return reply(`Sniper error for ${sym}: ${err.message}`);
+    }
+  }
+
+  await reply("🎯 Scanning the full real universe (~100 stocks)…");
+  try {
+    const { SCAN_UNIVERSE } = require("./advisor-ai");
+    const { screenTrendTemplate } = require("./routes/market");
+    const rows = await withTimeout(screenTrendTemplate(SCAN_UNIVERSE), 45_000, []);
+    const decided = (rows || []).filter((r) => !r.error).map((r) => ({ row: r, d: computeSniperDecision(r) }));
+    if (!decided.length) return reply("Scan returned no real data — try again in a moment.");
+    const counts = { ENTER_LONG: 0, WAIT: 0, NO_CHASE: 0, AVOID: 0 };
+    decided.forEach((x) => { counts[x.d.action] = (counts[x.d.action] || 0) + 1; });
+    const enter = decided.filter((x) => x.d.action === "ENTER_LONG").sort((a, b) => (b.row.confidence || 0) - (a.row.confidence || 0));
+
+    const lines = [
+      `🎯 AI SNIPER SCANNER PRO — ${decided.length} stocks scanned`,
+      `🟢 ${counts.ENTER_LONG || 0} enter long · 🟡 ${counts.WAIT || 0} wait · 🟠 ${counts.NO_CHASE || 0} no chase · 🔴 ${counts.AVOID || 0} avoid`,
+      "",
+    ];
+    if (enter.length) {
+      lines.push("🟢 ENTER LONG right now:");
+      enter.slice(0, 8).forEach((x) => {
+        lines.push(`${x.row.symbol} — entry $${x.d.entry?.toFixed(2) ?? "—"}, stop $${x.d.stop?.toFixed(2) ?? "—"}, target $${x.d.target2?.toFixed(2) ?? "—"}`);
+      });
+    } else {
+      lines.push("🟢 ENTER LONG right now: none.");
+    }
+    lines.push("", "Reply /sniper SYMBOL to check one stock.");
+    return reply(lines.join("\n"));
+  } catch (err) {
+    return reply("Sniper scan error: " + err.message);
+  }
+}
+
 async function cmdDeals(args) {
   const query = args.join(" ").trim();
   await reply(query ? `Searching deals: "${query}"…` : "Fetching top deals…");
@@ -815,6 +903,8 @@ const COMMANDS = {
   watchlist: () => cmdWatchlist(),
   wl:        () => cmdWatchlist(),
   scanner:   (a) => cmdScanner(a),
+  sniper:    (a) => cmdSniper(a),
+  snipe:     (a) => cmdSniper(a),
   news:      (a) => cmdNews(a),
   wsb:       ()  => cmdNews(["wallstreetbets"]),
 
