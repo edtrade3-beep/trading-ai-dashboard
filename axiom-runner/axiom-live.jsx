@@ -94,6 +94,7 @@ import RhProScanner from "./components/RhProScanner.jsx";
 import RhProWatchlists from "./components/RhProWatchlists.jsx";
 import RhFutureValueTab from "./components/RhFutureValueTab.jsx";
 import AMCortexTab from "./components/AMCortexTab.jsx";
+import SeasonalCycleChart from "./components/SeasonalCycleChart.jsx";
 import RhProHeatMap from "./components/RhProHeatMap.jsx";
 import RhProCoach from "./components/RhProCoach.jsx";
 import RhProApex from "./components/RhProApex.jsx";
@@ -6909,6 +6910,7 @@ export default function App() {
               { id: "events", label: "ECONOMIC EVENTS" },
               { id: "fed", label: "FED / FOMC" },
               { id: "earnings", label: "EARNINGS" },
+              { id: "seasonality", label: "SEASONALITY" },
             ]} />
             {calendarSubTab === "events" && <CalendarTab C={C} MONO={MONO} isMobile={isMobile} themeMode={themeMode} />}
             {calendarSubTab === "fed" && <FedWatchTab C={C} MONO={MONO} SANS={SANS} />}
@@ -6920,6 +6922,7 @@ export default function App() {
                 setQuickLogModal={setQuickLogModal} setWatchlistSymbols={setWatchlistSymbols}
               />
             )}
+            {calendarSubTab === "seasonality" && <SeasonalCycleChart C={C} MONO={MONO} SANS={SANS} />}
           </>
         )}
 

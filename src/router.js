@@ -43,6 +43,7 @@ const { handleQuickTrade }    = require("./routes/quick-trade");
 const { handleHoldings }      = require("./routes/holdings");
 const { handleFed }           = require("./routes/fed");
 const { handleFutureValueScan } = require("./routes/future-value-scan");
+const { handleSeasonalCycle } = require("./routes/seasonal-cycle");
 const { sendTelegramAlert, sendTelegramMessage, sendTelegramVoice, isConfigured: telegramConfigured } = require("./telegram");
 
 async function handleRequest(req, res) {
@@ -120,6 +121,7 @@ async function handleRequest(req, res) {
     }
 
     if (pathname === "/api/scanner/future-value") return await handleFutureValueScan(req, res, requestUrl);
+    if (pathname === "/api/market/cycle-composite") return await handleSeasonalCycle(req, res);
     if (pathname === "/api/scanner/under10")      return await handleUnder10(req, res, requestUrl);
     if (pathname === "/api/scanner/squeeze")      return await handleSqueeze(req, res);
     if (pathname === "/api/scanner/compression")  return await handleCompression(req, res, requestUrl);
