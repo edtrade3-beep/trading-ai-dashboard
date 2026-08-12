@@ -301,6 +301,43 @@ async function handleAutoExec(req, res, requestUrl) {
     }
   }
 
+  // GET /api/autoexec/precheck?symbol=X — real risk-based sizing for the
+  // manual "AUTO TRADE" button (SmartScanTab.jsx). Added 2026-08-12,
+  // professional-investor audit: "position sizing is inconsistent across
+  // the platform... three separate implementations" — this button used to
+  // size purely by flat dollar amount (cfg.positionSize / price), ignoring
+  // stop distance entirely, then POST straight to a real Tradier order.
+  // Same real formula (sizePositionByRisk) and same real per-symbol
+  // stop/entry (screenWatchlistCached, market.js — the identical numbers
+  // Cortex/Sniper Decision already show for this symbol) the automated
+  // path (maybeAutoExecute, above) already uses — not a second, separate
+  // sizing rule for the manual button.
+  if (pathname === "/api/autoexec/precheck" && method === "GET") {
+    if (!broker.isConfigured()) return writeJson(res, 503, { error: "Tradier not configured." });
+    const symbol = String(requestUrl.searchParams.get("symbol") || "").trim().toUpperCase();
+    if (!symbol) return writeJson(res, 400, { error: "symbol required" });
+
+    let cfg = readConfig();
+    cfg = await maybeResetDaily(cfg);
+    const guard = await checkTradeGuardrails(cfg);
+    if (!guard.ok) return writeJson(res, 200, { ok: false, reason: guard.reason });
+    const { equity, balances } = guard;
+
+    let screenWatchlistCached;
+    try { ({ screenWatchlistCached } = require("./market")); } catch { return writeJson(res, 200, { ok: false, reason: "screener unavailable" }); }
+    const rows = await screenWatchlistCached([symbol]).catch(() => []);
+    const row = (rows || []).find((r) => !r.error && r.symbol === symbol);
+    if (!row || !(Number(row.price) > 0) || !(Number(row.stop) > 0)) {
+      return writeJson(res, 200, { ok: false, reason: "No real entry/stop available for this symbol yet" });
+    }
+
+    const availCash = Number(balances && balances.totalCash) || 0;
+    const qty = sizePositionByRisk({ equity, riskPct: cfg.riskPct, entry: row.price, stop: row.stop, availCash, maxNamePct: cfg.maxNamePct });
+    if (qty < 1) return writeJson(res, 200, { ok: false, reason: "Real risk-based sizing rounds to 0 shares at this account size/risk %" });
+
+    return writeJson(res, 200, { ok: true, qty, entry: row.price, stop: row.stop, equity, riskPct: cfg.riskPct, maxNamePct: cfg.maxNamePct });
+  }
+
   // POST /api/autoexec/order  — manual order (override)
   // Skips the auto-path's score/RVOL/dedupe triggers on purpose — this is a
   // deliberate manual trade — but still runs the same account-health and

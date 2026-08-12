@@ -2386,13 +2386,20 @@ export default function SmartScanTab({
                                                   onClick={async () => {
                                                     setAutoExecStatus(p => ({ ...p, [row.ticker]: "placing" }));
                                                     try {
+                                                      // Real risk-based sizing (2026-08-12) — was flat
+                                                      // dollar amount / price, ignoring stop distance
+                                                      // entirely. Same real formula + real stop the
+                                                      // automated path uses (src/routes/autoexec.js
+                                                      // precheck), not a second sizing rule.
                                                       const cfgR = await fetch("/api/autoexec/config");
                                                       const cfg  = await cfgR.json();
-                                                      const qty  = Math.max(1, Math.floor((cfg.positionSize || 500) / price));
+                                                      const preR = await fetch(`/api/autoexec/precheck?symbol=${encodeURIComponent(row.ticker)}`);
+                                                      const pre  = await preR.json();
+                                                      if (!pre.ok) throw new Error(pre.reason || pre.error || "Real risk-based sizing unavailable");
                                                       const r    = await fetch("/api/autoexec/order", {
                                                         method: "POST",
                                                         headers: { "Content-Type": "application/json" },
-                                                        body: JSON.stringify({ side: signal, symbol: row.ticker, quantity: qty, type: cfg.orderType || "market" }),
+                                                        body: JSON.stringify({ side: signal, symbol: row.ticker, quantity: pre.qty, type: cfg.orderType || "market" }),
                                                       });
                                                       const d = await r.json();
                                                       if (d.error) throw new Error(d.error);

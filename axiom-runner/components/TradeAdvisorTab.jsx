@@ -159,8 +159,32 @@ export default function TradeAdvisorTab({ C, MONO, SANS, watchlistData, watchlis
   const [addMsg, setAddMsg]     = useState("");
   const [autoAlert, setAutoAlert] = useState(false);       // auto-send conviction 7+ to Telegram
   const [alertedSet, setAlertedSet] = useState(new Set()); // symbols already auto-alerted this session
-  const [accountSize, setAccountSize] = useState("50000"); // for position sizer
+  const [accountSize, setAccountSize] = useState("50000"); // manual fallback estimate only — see realSizing below
   const [riskPct, setRiskPct] = useState("1");             // % of account to risk per trade
+  // Real position sizing (2026-08-12, professional-investor audit: "position
+  // sizing is inconsistent across the platform... three separate
+  // implementations that don't agree" — this file was one of them, sizing
+  // off a manually-typed, possibly-stale account number instead of the real
+  // one). Routes through the same real server-side precheck/sizeByRisk
+  // QuickTradePanel.jsx already uses (src/routes/quick-trade.js,
+  // src/risk-guardrails.js's sizePositionByRisk — real live Alpaca equity/
+  // cash, same 20%-max-per-name cap) — the single source of truth for
+  // sizing math, not a second duplicated formula. Falls back to the manual
+  // accountSize estimate (clearly labeled as such) only when no real
+  // account is reachable, e.g. Alpaca not connected.
+  const [realSizing, setRealSizing] = useState(null); // { qty, equity, cash } | null
+
+  useEffect(() => {
+    if (!expanded) { setRealSizing(null); return; }
+    const row = setups.find((s) => s.symbol === expanded);
+    if (!row || !(Number(riskPct) > 0) || !(row.price > 0) || !(row.stop > 0)) { setRealSizing(null); return; }
+    let live = true;
+    const qs = new URLSearchParams({ symbol: row.symbol, riskPct: String(riskPct), entry: String(row.price), stop: String(row.stop), side: row.side === "SHORT" ? "short" : "long" });
+    fetch(`/api/quick-trade/precheck?${qs}`).then((r) => r.json())
+      .then((d) => { if (live) setRealSizing(d.ok && d.sizing ? { qty: d.sizing.qty, equity: d.account?.equity ?? null, cash: d.account?.cash ?? null } : null); })
+      .catch(() => { if (live) setRealSizing(null); });
+    return () => { live = false; };
+  }, [expanded, riskPct]);
   const [advisorTablet, setAdvisorTablet] = useState(() => typeof window !== "undefined" && window.innerWidth >= 768 && window.innerWidth <= 1200);
   useEffect(() => {
     const fn = () => setAdvisorTablet(window.innerWidth >= 768 && window.innerWidth <= 1200);
@@ -432,15 +456,22 @@ export default function TradeAdvisorTab({ C, MONO, SANS, watchlistData, watchlis
                     </div>
                   </div>
 
-                  {/* Position size calculator */}
+                  {/* Position size calculator — real server-computed sizing
+                      (real Alpaca equity/cash, real 20%-max-per-name cap)
+                      when a live account is reachable; a clearly-labeled
+                      manual estimate otherwise. Never silently mixes the two. */}
                   {(() => {
-                    const riskDollars = Number(accountSize) * Number(riskPct) / 100;
+                    const isReal = isOpen && realSizing != null;
+                    const equity = isReal ? realSizing.equity : Number(accountSize);
+                    const riskDollars = Number(equity) * Number(riskPct) / 100;
                     const riskPerShare = Math.abs(s.price - s.stop);
-                    const shares = riskPerShare > 0 ? Math.floor(riskDollars / riskPerShare) : 0;
+                    const shares = isReal ? realSizing.qty : (riskPerShare > 0 ? Math.floor(riskDollars / riskPerShare) : 0);
                     const totalCost = shares * s.price;
                     return (
                       <div style={{ marginTop: 14, background: C.surface, border: `1px solid ${C.accent}33`, borderRadius: 8, padding: "12px 14px" }}>
-                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.accent, fontWeight: 700, marginBottom: 10, letterSpacing: "0.06em" }}>💼 POSITION SIZE (based on your ${Number(accountSize).toLocaleString()} account)</div>
+                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.accent, fontWeight: 700, marginBottom: 10, letterSpacing: "0.06em" }}>
+                          💼 POSITION SIZE ({isReal ? `real Alpaca account · $${Number(equity).toLocaleString(undefined, { maximumFractionDigits: 0 })}, capped at 20% per name` : `estimate — based on the manually-entered $${Number(accountSize).toLocaleString()} above, no real account connected`})
+                        </div>
                         <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
                           <div>
                             <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>RISK AMOUNT</div>
