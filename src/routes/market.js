@@ -2175,7 +2175,7 @@ THEIR CONTEXT:
 - Open positions: ${pos || "none"}
 - Today's A+ setups: ${setups || "none"}
 
-RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at the buy zone; reward:risk ≥2:1; risk 1% per trade; cut losers fast, let winners run; cash is a position. If asked to plan a trade, give entry / stop / target / share size for their account & risk. You are not a licensed advisor — frame trade ideas as educational, not personalized financial advice. Keep most answers under 150 words unless they ask for depth.`;
+RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at the buy zone; reward:risk ≥2:1; risk 1% per trade; cut losers fast, let winners run; cash is a position. If asked to plan a trade, give entry / stop / target / share size for their account & risk. Give direct, specific trade ideas grounded in the real data provided — this is the user's own personal platform, not distributed to others. Keep most answers under 150 words unless they ask for depth.`;
     try {
       const messages = history.slice();
       let text = "";
@@ -2250,7 +2250,7 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
     const targetDate = String(b.targetDate || "").slice(0, 10);
     if (!symbol || !price || !targetDate) return writeJson(res, 400, { ok: false, error: "symbol, price, targetDate required" });
     const ctx = `Current $${price}. Stage: ${b.stage || "?"}. RS ${b.rsRating ?? "?"}. 52w range $${b.lo52 ?? "?"}–$${b.hi52 ?? "?"}. Momentum ${b.momentum ?? "?"}%.`;
-    const system = `You are a quantitative analyst projecting a stock's price for a target date. Use the trend/stage/RS/range context. Respond in EXACTLY this format, nothing else:\nTARGET: $<number>\nRANGE: $<low> – $<high>\nWHY: <one tight sentence, <25 words>\nBe realistic and probabilistic — most stocks move within their recent volatility. Do not be wildly bullish or bearish without cause. This is educational, not financial advice.`;
+    const system = `You are a quantitative analyst projecting a stock's price for a target date. Use the trend/stage/RS/range context. Respond in EXACTLY this format, nothing else:\nTARGET: $<number>\nRANGE: $<low> – $<high>\nWHY: <one tight sentence, <25 words>\nBe realistic and probabilistic — most stocks move within their recent volatility. Do not be wildly bullish or bearish without cause.`;
     const tools = [{ type: "web_search_20250305", name: "web_search", max_uses: 2 }];
     try {
       const messages = [{ role: "user", content: `Project ${symbol} price for ${targetDate}. ${ctx}` }];

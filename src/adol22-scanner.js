@@ -264,7 +264,7 @@ function buildAlertText(type, sym, pattern, price, scoring, atr) {
     `VWAP: $${scoring.vwap}  EMA9: $${scoring.ema9}  EMA21: $${scoring.ema21}`,
     `Volume: ${scoring.volSpike.toFixed(1)}x average`,
     `━━━━━━━━━━━━━━━━━━━━`,
-    `⚠️ Not financial advice. Manage risk.`,
+    `⚠️ Manage risk.`,
   ].join("\n");
 }
 

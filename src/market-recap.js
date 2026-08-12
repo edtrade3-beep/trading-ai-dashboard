@@ -139,7 +139,7 @@ SCENE 5 [SETUPS]: Review your watchlist for confirmed setups only. Avoid chasing
 SCENE 6 [CLOSE]: Power hour is here. Expect volatility. Institutions are positioning for tomorrow. Do not chase. Wait for confirmation. Manage risk.
 
 TITLE: 3:45 PM Market Recap — ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} | SPY ${spy.chg >= 0 ? "+" : ""}${spy.chg.toFixed(2)}%
-DESCRIPTION: Daily 3:45 PM market recap. SPY ${spy.price}, QQQ ${qqq.price}, VIX ${vix.price.toFixed(1)}. Sector rotation, key levels, and watchlist notes heading into the close. Not financial advice.`;
+DESCRIPTION: Daily 3:45 PM market recap. SPY ${spy.price}, QQQ ${qqq.price}, VIX ${vix.price.toFixed(1)}. Sector rotation, key levels, and watchlist notes heading into the close.`;
 }
 
 // ── Format and send to Telegram ───────────────────────────────────────────────
@@ -667,7 +667,7 @@ async function generateAndSendVideo(script, data) {
   console.log("[Video] Saved to data/latest-recap.mp4");
 
   // Send to Telegram
-  const caption = `🎬 3:45 PM Market Recap — ${data.date}\nSPY ${data.spy.price} · QQQ ${data.qqq.price} · VIX ${data.vix.price.toFixed(1)}\n\n⚠️ Not financial advice.`;
+  const caption = `🎬 3:45 PM Market Recap — ${data.date}\nSPY ${data.spy.price} · QQQ ${data.qqq.price} · VIX ${data.vix.price.toFixed(1)}`;
   const sent = await sendVideoToTelegram(videoBuffer, caption);
   console.log(sent ? "[Video] Sent to Telegram ✓" : "[Video] Telegram send failed");
 

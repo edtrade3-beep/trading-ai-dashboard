@@ -543,7 +543,7 @@ function generateBriefing(ctx) {
   L.push(`Execute only A+ setups with volume confirmation and clear invalidation.`);
   L.push("");
   L.push(`${hr}`);
-  L.push(`Generated: ${new Date().toLocaleTimeString()} local time  |  Decision-support only, not financial advice.`);
+  L.push(`Generated: ${new Date().toLocaleTimeString()} local time`);
 
   return L.filter(s => s !== undefined).join("\n");
 }
@@ -755,7 +755,7 @@ function analyzeScenario(scenario, holdings) {
     `• Cash is a position — it's OK to wait for clarity`,
     `• Focus on quality names with strong balance sheets`,
     ``,
-    `DISCLAIMER: Rule-based analysis only. Not financial advice.`,
+    `Rule-based analysis, not an AI call.`,
   ].filter(Boolean).join("\n");
 
   return { analysis, scenario, detectedType: matched?.impact || "General", generatedAt: now() };

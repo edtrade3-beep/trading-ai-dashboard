@@ -423,7 +423,7 @@ async function cmdDeep(args) {
         ? `🔴 SHORT/AVOID — price likely falls to $${t1}`
         : `〰️ WAIT — no clear directional edge right now`,
       `━━━━━━━━━━━━━━━━━━━━`,
-      `⚠️ Not financial advice. Use stops. Manage risk.`,
+      `⚠️ Use stops. Manage risk.`,
     ] : [];
 
     const msg = [
@@ -1303,7 +1303,7 @@ const COMMANDS = {
         regime.score >= 75 ? "✅ Market conditions favor this trade working out."
           : regime.score >= 55 ? "⚠️ Mixed market — be selective, this setup needs to be strong on its own."
           : "🛑 Weak market — breakouts fail more often here. Consider a smaller size or skipping.",
-        `\n⚠️ Not financial advice. Manage risk.`,
+        `\n⚠️ Manage risk.`,
       ].filter(Boolean).join("\n");
       await reply(lines);
     } catch (e) { await reply(`Plan error: ${e.message}`); }
@@ -1331,7 +1331,7 @@ const COMMANDS = {
         lines.push(`Type /plan ${h.ticker} for full analysis`);
       }
       lines.push("\n━━━━━━━━━━━━━━━━━━━━");
-      lines.push("⚠️ Not financial advice. Do not chase.");
+      lines.push("⚠️ Do not chase.");
       await reply(lines.join("\n"));
     } catch (e) { await reply(`Error: ${e.message}`); }
   },
@@ -1478,7 +1478,7 @@ const COMMANDS = {
     "/wl remove NVDA",
     "/alert AAPL above 200",
     "",
-    "⚠️ Not financial advice. Manage risk.",
+    "⚠️ Manage risk.",
   ].join("\n")),
 };
 
