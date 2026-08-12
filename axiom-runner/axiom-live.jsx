@@ -1566,17 +1566,19 @@ export default function App() {
     // i click on ticker") — the first real cross-boundary deep link in this
     // single-page app (previously zero URL-param handling existed anywhere
     // — see the Back/Forward nav comment below). Checked before the normal
-    // start/landing logic so a Telegram tap always wins. The symbol is
-    // handed off via localStorage (rhpro_sniper_open_symbol), same
-    // convention mterminal_load_sym already uses — RhProScanner.jsx reads +
-    // clears it on mount and opens that symbol's Sniper Decision screen.
+    // start/landing logic so a Telegram tap always wins. Re-pointed to
+    // Cortex (2026-08-12, consolidation — "make Cortex the one decision
+    // layer") — same real localStorage handoff convention (now
+    // cortex_open_symbol; AMCortexTab.jsx reads + clears it on mount and
+    // runs the full symbol analysis) that previously opened the now-
+    // retired SniperDecisionModal.
     if (typeof window !== "undefined" && window.location.search) {
       const params = new URLSearchParams(window.location.search);
       const openSym = params.get("symbol");
       if (params.get("open") === "sniper" && openSym) {
-        try { localStorage.setItem("rhpro_sniper_open_symbol", openSym.toUpperCase()); } catch {}
+        try { localStorage.setItem("cortex_open_symbol", openSym.toUpperCase()); } catch {}
         try { window.history.replaceState({}, "", window.location.pathname); } catch {}
-        return "rhpro-scan";
+        return "cortex";
       }
     }
     if (typeof window !== "undefined" && !localStorage.getItem("axiom_seen_start")) {
@@ -7215,7 +7217,7 @@ export default function App() {
             { id: "flow", label: "OPTIONS FLOW" },
             { id: "rhpro-future", label: "FUTURE/VALUE" },
           ]} />
-          <RhFutureValueTab C={C} MONO={MONO} SANS={SANS} macroData={macroData} />
+          <RhFutureValueTab C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} />
         </>
       )}
       {activeTab === "cortex" && (

@@ -6,7 +6,6 @@ import {
   computeReversalDetector,
 } from "./market-helpers.js";
 import AiScoreExplainer, { TRADE_SETUP_DIMENSIONS, STOCK_QUALITY_DIMENSIONS, INSTITUTIONAL_GRADE_DIMENSIONS } from "./AiScoreExplainer.jsx";
-import SniperDecisionModal from "./SniperDecisionModal.jsx";
 import { mapToAiAction, AI_ACTIONS } from "./ai-actions.js";
 import { computeGreenLight } from "./trading-utils.js";
 import { findWeakestPosition, evaluateRotation } from "./portfolio-rotation-engine.js";
@@ -238,23 +237,15 @@ export default function RhProScanner({
   });
   const [track, setTrack] = useState(null); // real win-probability forward-return log
   const [explain, setExplain] = useState(null); // { symbol, aplus, dimensions, label } | null
-  // AI Sniper Decision screen (2026-08-10 redesign, Phase 1) — a real,
-  // hard-gated single verdict for one row, opened from a dedicated button
-  // rather than replacing the existing tap-to-expand row detail below, so
-  // the existing expansion (Stock Quality/Trade Setup/SMC/Reversal) stays
-  // available while this new screen gets used/validated.
-  const [sniperSymbol, setSniperSymbol] = useState(() => {
-    // AI Sniper Telegram deep-link handoff (2026-08-11) — axiom-live.jsx's
-    // activeTab initializer stashes the symbol here and routes to this tab
-    // when a Telegram alert's "Open X Sniper →" button is tapped. Read +
-    // clear once on mount so a later manual visit to this tab doesn't
-    // re-open a stale symbol.
-    try {
-      const sym = localStorage.getItem("rhpro_sniper_open_symbol");
-      if (sym) { localStorage.removeItem("rhpro_sniper_open_symbol"); return sym; }
-    } catch {}
-    return null;
-  });
+  // AI Sniper Decision button — retired its own modal (2026-08-12
+  // consolidation, "make Cortex the one decision layer, fold the rest
+  // into its Deep Scan as evidence"). Now jumps straight into Cortex's
+  // full analysis for the row's symbol via the same real localStorage
+  // handoff convention (cortex_open_symbol) the Telegram deep-link uses.
+  const openInCortex = (symbol) => {
+    try { localStorage.setItem("cortex_open_symbol", symbol.toUpperCase()); } catch {}
+    setActiveTab && setActiveTab("cortex");
+  };
   // Row expand-in-place — institutional redesign (2026-07-29), same real
   // pattern SmartScanTab.jsx already uses for its own per-row deep-dive,
   // reused here rather than inventing a new interaction model. Secondary
@@ -807,8 +798,8 @@ export default function RhProScanner({
                 </td>
                 <td style={cell} onClick={e => e.stopPropagation()}>
                   <div style={{ display: "flex", gap: 5 }}>
-                    <button onClick={() => setSniperSymbol(r.symbol)} title="Open the 10-second AI Sniper Decision screen — one hard-gated verdict: Enter Long, Wait, No Chase, or Avoid"
-                      style={{ fontSize: 10, fontWeight: 800, border: "1px solid #d6a312", background: "#d6a31214", color: "#d6a312", borderRadius: 4, padding: "3px 8px", cursor: "pointer", whiteSpace: "nowrap" }}>⚡ Sniper</button>
+                    <button onClick={() => openInCortex(r.symbol)} title="Open the full AI Cortex analysis for this symbol — WHY / SETUP / LEVELS / RISK / VERDICT"
+                      style={{ fontSize: 10, fontWeight: 800, border: "1px solid #d6a312", background: "#d6a31214", color: "#d6a312", borderRadius: 4, padding: "3px 8px", cursor: "pointer", whiteSpace: "nowrap" }}>🧠 Cortex</button>
                     <button onClick={() => openChartWithPlan(r.symbol)} title={`Open ${r.symbol}'s full chart + real trade plan — trend, fundamentals, earnings, analysts, news, SMC, entry/stop/targets`}
                       style={{ fontSize: 10, fontWeight: 800, border: `1px solid ${C.accent}`, background: `${C.accent}14`, color: C.accent, borderRadius: 4, padding: "3px 8px", cursor: "pointer", whiteSpace: "nowrap" }}>Open Plan →</button>
                   </div>
@@ -944,13 +935,6 @@ export default function RhProScanner({
         Win% = real forward-return log, same score band, min {MIN_WIN_SAMPLE} observations. Pred = real deterministic ~1-week direction/target off this same scan (Stage/RS/volume), not a paid AI call — hover for why. Analysis only — execute manually.
       </div>
       {explain && <AiScoreExplainer C={C} MONO={MONO} SANS={SANS} symbol={explain.symbol} aplus={explain.aplus} dimensions={explain.dimensions} label={explain.label} note={explain.note} onClose={() => setExplain(null)} />}
-      {sniperSymbol && (
-        <SniperDecisionModal C={C} MONO={MONO} SANS={SANS}
-          row={displayRows.find(r => r.symbol === sniperSymbol) || rows.find(r => r.symbol === sniperSymbol)}
-          regime={regime} sectorInfo={sectorInfoFor(sniperSymbol)}
-          onClose={() => setSniperSymbol(null)}
-          onOpenPlan={(sym) => { setSniperSymbol(null); openChartWithPlan(sym); }} />
-      )}
       </>
       )}
     </div>

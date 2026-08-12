@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { RH_UNIVERSE, rhScreenProgressive } from "./rhpro-shared.jsx";
 import { computeRegime, computeInstitutionalGrade, computeAPlusScore, computeNextAction, computePrediction, SECTOR_ETFS, STOCK_TO_SECTOR } from "./market-helpers.js";
 import { mapToAiAction } from "./ai-actions.js";
-import SniperDecisionModal from "./SniperDecisionModal.jsx";
 
 export default function RhProWatchlists({ C, MONO, SANS, setActiveTab, macroData, sectorData }) {
   const regime = computeRegime(macroData);
@@ -41,11 +40,9 @@ export default function RhProWatchlists({ C, MONO, SANS, setActiveTab, macroData
     const grade = computeInstitutionalGrade(x, x.technicals, regime, sectorInfoFor(x.symbol), optionsFlow || null);
     const aiAction = mapToAiAction({ nextAction: next.action, institutionalScore: grade.score });
     // aplus (Trade Setup Score) + action alias (2026-08-11, "same setup for
-    // ai sniper scanner pro for watchlists") — the AI Sniper Decision modal
-    // (SniperDecisionModal.jsx, already shipped on the Scanner tab) reads
-    // row.aplus?.score for its TRADE QUALITY card and row.action for its
-    // Quality-vs-Timing clarifier; Scanner's rows already compute both
-    // under those exact names, Watchlist's didn't. Same real
+    // ai sniper scanner pro for watchlists") — used by this file's own
+    // score badge below (row.aplus?.score) and row.action; Scanner's rows
+    // already compute both under those exact names, Watchlist's didn't. Same real
     // computeAPlusScore this app uses everywhere else — not a new formula,
     // just computing it here too so the modal renders identically
     // regardless of which page opened it.
@@ -55,10 +52,14 @@ export default function RhProWatchlists({ C, MONO, SANS, setActiveTab, macroData
 
   const [rows, setRows] = useState([]); const [loading, setLoading] = useState(false); const [ranAt, setRanAt] = useState(null);
   const [flowLoading, setFlowLoading] = useState(false);
-  // AI Sniper Decision screen, same button/modal RhProScanner.jsx already
-  // has (2026-08-11, explicit user request: "same setup for ai sniper
-  // scanner pro for watchlists").
-  const [sniperSymbol, setSniperSymbol] = useState(null);
+  // AI Sniper button — retired its own modal (2026-08-12 consolidation,
+  // "make Cortex the one decision layer"). Jumps into Cortex's full
+  // analysis via the same real localStorage handoff (cortex_open_symbol)
+  // the Telegram deep-link uses.
+  const openInCortex = (symbol) => {
+    try { localStorage.setItem("cortex_open_symbol", symbol.toUpperCase()); } catch {}
+    setActiveTab && setActiveTab("cortex");
+  };
 
   const st2 = r => (r.stage || "").includes("2");
   const st4 = r => (r.stage || "").includes("4");
@@ -198,13 +199,11 @@ export default function RhProWatchlists({ C, MONO, SANS, setActiveTab, macroData
                       Institutional Grade — fixes the "88 here, 79 when I
                       open it" mismatch (2026-08-10). */}
                   <span title={`Same score you'll see on ${r.symbol}'s Workspace page${r.grade ? " — " + r.grade.reasons.slice(0, 3).join(" · ") : ""}`} style={{ fontWeight: 900, color: r.score >= 70 ? C.green : r.score >= 50 ? C.amber : C.textDim, cursor: "help" }}>{r.score}</span>
-                  {/* Same AI Sniper Decision button/modal as the Scanner tab
-                      (2026-08-11, "same setup for ai sniper scanner pro for
-                      watchlists") — icon-only here since these cards are
+                  {/* AI Cortex button — icon-only here since these cards are
                       much narrower than the Scanner's table row. */}
-                  <button onClick={e => { e.stopPropagation(); setSniperSymbol(r.symbol); }}
-                    title="Open the 10-second AI Sniper Decision screen — Enter Long, Wait, No Chase, or Avoid"
-                    style={{ fontSize: 11, lineHeight: 1, border: "1px solid #d6a312", background: "#d6a31214", color: "#d6a312", borderRadius: 4, padding: "2px 5px", cursor: "pointer" }}>⚡</button>
+                  <button onClick={e => { e.stopPropagation(); openInCortex(r.symbol); }}
+                    title="Open the full AI Cortex analysis for this symbol — WHY / SETUP / LEVELS / RISK / VERDICT"
+                    style={{ fontSize: 11, lineHeight: 1, border: "1px solid #d6a312", background: "#d6a31214", color: "#d6a312", borderRadius: 4, padding: "2px 5px", cursor: "pointer" }}>🧠</button>
                 </span>
               </div>
             )) : <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, padding: "4px 0" }}>{l.allAlreadyShown ? "matches already shown in a card above" : "none right now"}</div>}
@@ -212,13 +211,6 @@ export default function RhProWatchlists({ C, MONO, SANS, setActiveTab, macroData
         ))}
       </div>
       <div style={{ marginTop: 10, fontFamily: SANS, fontSize: 10, color: C.textDim }}>Tap any ticker to open the Trade Analyzer. Analysis only — no orders.</div>
-      {sniperSymbol && (
-        <SniperDecisionModal C={C} MONO={MONO} SANS={SANS}
-          row={rows.find(r => r.symbol === sniperSymbol)}
-          regime={regime} sectorInfo={sectorInfoFor(sniperSymbol)}
-          onClose={() => setSniperSymbol(null)}
-          onOpenPlan={(sym) => { setSniperSymbol(null); analyze(sym); }} />
-      )}
     </div>
   );
 }

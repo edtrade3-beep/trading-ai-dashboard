@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { RH_UNIVERSE, rhScreenProgressive } from "./rhpro-shared.jsx";
 import { computeRegime, computeAPlusScore, computeInstitutionalGrade, classifyEntryType, SECTOR_ETFS, STOCK_TO_SECTOR } from "./market-helpers.js";
 import { computeSniperDecision } from "./sniper-decision.js";
@@ -155,6 +155,25 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
 
   const analyzeFromList = (symbol) => { setQuery(symbol); analyzeSymbol(symbol, false); };
   const openChart = (symbol) => { try { localStorage.setItem("mterminal_load_sym", symbol); } catch {} setTerminalSymbol && setTerminalSymbol(symbol); setActiveTab && setActiveTab("mterminal"); };
+
+  // External "open this symbol" trigger (2026-08-12, consolidation —
+  // "make Cortex the one decision layer, fold the rest into its Deep Scan
+  // as evidence"). Same real localStorage handoff convention this app
+  // already uses everywhere else (mterminal_load_sym, the old
+  // rhpro_sniper_open_symbol) — Scanner/Watchlists' ⚡ buttons and the
+  // Telegram Sniper deep-link now land here instead of the retired
+  // SniperDecisionModal/RhFutureValueTab's own verdict screen. Read +
+  // cleared once on mount so a later manual visit doesn't re-open a
+  // stale symbol.
+  useEffect(() => {
+    let sym = null;
+    try {
+      sym = localStorage.getItem("cortex_open_symbol");
+      if (sym) localStorage.removeItem("cortex_open_symbol");
+    } catch {}
+    if (sym) { setQuery(sym); analyzeSymbol(sym, false); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div style={{ padding: "8px 4px" }}>
