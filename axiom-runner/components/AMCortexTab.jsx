@@ -4,7 +4,7 @@ import { computeRegime, computeAPlusScore, computeInstitutionalGrade, classifyEn
 import { computeSniperDecision } from "./sniper-decision.js";
 import { FundamentalsPanel, OptionsFlowPanel, NewsPanel, InvestorsPanel } from "./terminal-panels.jsx";
 import {
-  parseCortexQuery, computeHeatRisk, computeCortexVerdict, computePriceToPay, whyEvidence,
+  parseCortexQuery, computeHeatRisk, computeCortexVerdict, computePriceToPay, summarizeBuyPrice, whyEvidence,
   rankAplusSetups, rankBreakouts, rankStrongNotExtended, rankBestRewardRisk, rankInstitutionalAccumulation,
   rankImprovingFundamentals, SCAN_LABELS,
 } from "./cortex-engine.js";
@@ -191,6 +191,7 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
       {result?.type === "symbol" && (() => {
         const { symbol, row, sniper, aplus, grade, heat, verdict, priceToPay, evidence, entryType, futureValue } = result;
         const chgPct = Number(row.dayChangePct);
+        const buyPrice = summarizeBuyPrice(priceToPay, verdict);
         return (
           <div style={{ border: `2px solid ${C.border}`, borderRadius: 14, overflow: "hidden" }}>
             <div style={{ background: C.card, padding: "14px 18px", borderBottom: `1px solid ${C.border}` }}>
@@ -207,6 +208,13 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
               <div style={{ marginBottom: 14 }}>
                 <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textDim, marginBottom: 4 }}>WHY</div>
                 <div style={{ fontFamily: SANS, fontSize: 13, color: C.text, lineHeight: 1.5 }}>{sniper.reason || "No dominant real driver identified right now."}</div>
+              </div>
+
+              {/* BUY PRICE — one clear real number/range, not a table to parse */}
+              <div style={{ background: buyPrice.ok === false ? `${heat.color}12` : `${C.accent}12`, border: `1px solid ${buyPrice.ok === false ? heat.color : C.accent}55`, borderRadius: 10, padding: "12px 14px", marginBottom: 14 }}>
+                <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textDim, marginBottom: 4 }}>🎯 BUY PRICE</div>
+                <div style={{ fontFamily: MONO, fontSize: 19, fontWeight: 900, color: buyPrice.ok === false ? heat.color : C.accent }}>{buyPrice.label}</div>
+                <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.textSec, marginTop: 4, lineHeight: 1.4 }}>{buyPrice.reason}</div>
               </div>
 
               {/* SETUP */}
