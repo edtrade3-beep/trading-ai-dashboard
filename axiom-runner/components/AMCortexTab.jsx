@@ -215,6 +215,12 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
                 <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textDim, marginBottom: 4 }}>🎯 BUY PRICE</div>
                 <div style={{ fontFamily: MONO, fontSize: 19, fontWeight: 900, color: buyPrice.ok === false ? heat.color : C.accent }}>{buyPrice.label}</div>
                 <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.textSec, marginTop: 4, lineHeight: 1.4 }}>{buyPrice.reason}</div>
+                {buyPrice.lowerOption && (
+                  <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px dashed ${C.border}` }}>
+                    <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim }}>💡 WANT IT CHEAPER? <span style={{ color: C.text }}>{buyPrice.lowerOption.label}</span></div>
+                    <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 2, lineHeight: 1.4 }}>{buyPrice.lowerOption.reason}</div>
+                  </div>
+                )}
               </div>
 
               {/* SETUP */}
