@@ -75,7 +75,7 @@ function AiTakeSection({ C, MONO, SANS }) {
             </div>
           )}
           <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 8 }}>
-            AI-synthesized from real SEC Form 4 filings — not financial advice, cross-check before acting.
+            AI-synthesized from real SEC Form 4 filings.
           </div>
         </>
       )}

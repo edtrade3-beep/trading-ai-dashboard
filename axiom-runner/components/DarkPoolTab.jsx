@@ -77,7 +77,7 @@ function AiTakeSection({ C, MONO, SANS }) {
             </div>
           )}
           <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 8 }}>
-            AI-synthesized from real dark pool print data — not financial advice, cross-check before acting.
+            AI-synthesized from real dark pool print data.
           </div>
         </>
       )}

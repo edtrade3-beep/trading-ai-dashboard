@@ -234,7 +234,7 @@ export default function OptionsEduTab({ C, MONO, SANS }) {
       ))}
       <OptionsQuiz C={C} MONO={MONO} SANS={SANS} />
       <div style={{ marginTop: 14, padding: "12px 16px", background: `${C.amber}10`, border: `1px solid ${C.amber}44`, borderRadius: 10, fontFamily: SANS, fontSize: 12, color: C.textDim, lineHeight: 1.6 }}>
-        ⚠️ Educational only — not financial advice. Options carry real risk of total loss. Practice on paper before risking real money, and consult a licensed advisor for your situation.
+        ⚠️ Options carry real risk of total loss. Practice on paper before risking real money.
       </div>
     </div>
   );

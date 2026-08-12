@@ -630,7 +630,7 @@ export default function AdvisorAiTab({ C, MONO, SANS }) {
           )}
 
           <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, textAlign: "right" }}>
-            Generated {new Date(brief.generatedAt).toLocaleString([], { hour: "2-digit", minute: "2-digit" })} · AI-synthesized from real platform data + web search — not financial advice, cross-check before acting
+            Generated {new Date(brief.generatedAt).toLocaleString([], { hour: "2-digit", minute: "2-digit" })} · AI-synthesized from real platform data + web search
           </div>
         </>
       )}

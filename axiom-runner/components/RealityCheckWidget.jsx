@@ -183,7 +183,7 @@ export default function RealityCheckWidget({ statusBarH = 40, fabFading = false,
             <span style={{ fontSize: 18 }}>🕵️</span>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ color: C.text, fontWeight: 800, fontSize: 13, letterSpacing: "0.02em", fontFamily: MONO }}>REALITY CHECK</div>
-              <div style={{ color: C.textDim, fontSize: 11, marginTop: 1 }}>Real flow vs. the narrative — not advice, just data</div>
+              <div style={{ color: C.textDim, fontSize: 11, marginTop: 1 }}>Real flow vs. the narrative</div>
             </div>
             <button onClick={() => setOpen(false)} aria-label="Close"
               style={{ background: "transparent", border: "none", color: C.textDim, fontSize: 18, lineHeight: 1, cursor: "pointer", padding: 4 }}>

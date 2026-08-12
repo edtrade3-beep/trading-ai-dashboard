@@ -113,7 +113,7 @@ export default function SmartScanPanel({ symbol, chart, C, MONO, SANS }) {
         </div>
       )}
 
-      <div style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim }}>SMC = Smart Money Concepts. Order blocks = zones institutions likely traded; FVGs = price gaps that often get filled. Educational, not advice.</div>
+      <div style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim }}>SMC = Smart Money Concepts. Order blocks = zones institutions likely traded; FVGs = price gaps that often get filled.</div>
     </div>
   );
 }

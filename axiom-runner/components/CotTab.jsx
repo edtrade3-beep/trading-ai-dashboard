@@ -78,7 +78,7 @@ function AiTakeSection({ C, MONO, SANS, green, red, yellow, blue, dim }) {
             </div>
           )}
           <div style={{ fontFamily: MONO, fontSize: 10, color: dim, marginTop: 8 }}>
-            AI-synthesized from real COT positioning data as of {take.reportDate || "—"} — not financial advice, weekly lagging read, cross-check before acting.
+            AI-synthesized from real COT positioning data as of {take.reportDate || "—"} — weekly lagging read.
           </div>
         </>
       )}

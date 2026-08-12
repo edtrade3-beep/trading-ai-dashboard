@@ -1030,7 +1030,7 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
                         style={{ background: `${col}18`, border: `1px solid ${col}55`, color: col, borderRadius: 7, fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "8px 16px", cursor: "pointer" }}>
                         {bullish ? "📈" : "📉"} PAPER BUY {kind}
                       </button>
-                      <span style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>Simulated — watch it in MY TRADES → 📈 OPTIONS to see how it behaves. Learning, not advice.</span>
+                      <span style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>Simulated — watch it in MY TRADES → 📈 OPTIONS to see how it behaves.</span>
                     </div>
                   </div>
                 );

@@ -39,7 +39,7 @@ export default function RhProApex({ C, MONO, SANS, macroData, sectorData }) {
       <button onClick={generate} disabled={loading} style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, padding: "12px 26px", borderRadius: 10, border: "none", color: "#fff", background: loading ? C.textDim : "#a855f7", cursor: loading ? "default" : "pointer", marginBottom: 16 }}>{loading ? `⏳ ${phase}` : "🧠 GENERATE BRIEFING"}</button>
       {err && <div style={{ fontFamily: SANS, fontSize: 13, color: C.red, marginBottom: 10 }}>⚠ {err === "invalid x-api-key" ? "AI key rejected — update ANTHROPIC_API_KEY in Render." : err}</div>}
       {report && <div>{rhMarkdown(report, C, MONO, SANS)}</div>}
-      <div style={{ marginTop: 12, fontFamily: SANS, fontSize: 10, color: C.textDim }}>Educational analysis only — no orders placed. Uses Fable (premium) — ~15¢ per briefing. Verify every level on a live chart before trading manually.</div>
+      <div style={{ marginTop: 12, fontFamily: SANS, fontSize: 10, color: C.textDim }}>No orders placed. Uses Fable (premium) — ~15¢ per briefing. Verify every level on a live chart before trading manually.</div>
     </div>
   );
 }

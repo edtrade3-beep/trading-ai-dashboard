@@ -260,7 +260,7 @@ export default function HoldingsTab({ C, MONO, SANS, macroData }) {
     <div style={{ padding: "16px 20px", maxWidth: 1000, margin: "0 auto" }}>
       <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.text, marginBottom: 4 }}>📊 MY HOLDINGS</div>
       <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginBottom: 14 }}>
-        Mechanical signal · suggested stop (ATR) · trend for what you own. These are tool-computed levels — <b>not advice</b>. You decide and place orders yourself.
+        Mechanical signal · suggested stop (ATR) · trend for what you own. These are tool-computed levels — you decide and place orders yourself.
         {syncedAt && <span style={{ color: C.green, marginLeft: 6 }}>· ✅ synced from Robinhood {new Date(syncedAt).toLocaleDateString()}</span>}
       </div>
 
@@ -330,7 +330,7 @@ export default function HoldingsTab({ C, MONO, SANS, macroData }) {
         })}
       </div>
       <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginTop: 14 }}>
-        🛑 stop = volatility-sized (1.5× ATR) below price. 🟠 below MA50 = momentum weakening. 🔴 below stop = your risk level breached. Not investment advice — for big allocation decisions, consult a licensed advisor.
+        🛑 stop = volatility-sized (1.5× ATR) below price. 🟠 below MA50 = momentum weakening. 🔴 below stop = your risk level breached.
       </div>
 
       {/* ── Portfolio AI ── */}

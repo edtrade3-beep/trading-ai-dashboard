@@ -110,7 +110,7 @@ export default function StartHereTab({ C, MONO, SANS, setActiveTab }) {
       </Card>
 
       <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, textAlign: "center", padding: "4px 0 12px" }}>
-        Educational content — not financial advice. Practice on paper until your numbers prove you have an edge.
+        Practice on paper until your numbers prove you have an edge.
       </div>
     </div>
   );

@@ -118,7 +118,7 @@ export default function SmartMoneyBrief({ C, MONO, SANS, watchlistSymbols }) {
           </details>
 
           <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, textAlign: "right" }}>
-            Generated {new Date(brief.generatedAt).toLocaleTimeString()} · not financial advice — cross-check before acting
+            Generated {new Date(brief.generatedAt).toLocaleTimeString()}
           </div>
         </>
       )}

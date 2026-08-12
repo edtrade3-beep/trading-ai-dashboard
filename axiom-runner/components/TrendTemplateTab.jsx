@@ -163,7 +163,7 @@ export default function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
           fontFamily: SANS, fontSize: 13, color: C.text, lineHeight: 1.6 }}>
           <div style={{ fontFamily: MONO, fontWeight: 900, fontSize: 15, marginBottom: 4 }}>How to use the Trend Template</div>
           <div style={{ color: C.textDim, fontSize: 12, marginBottom: 14 }}>
-            Based on Mark Minervini's SEPA® method (<i>Trade Like a Stock Market Wizard</i>). This is an educational tool, not financial advice — verify every level on the chart and manage your own risk.</div>
+            Based on Mark Minervini's SEPA® method (<i>Trade Like a Stock Market Wizard</i>). Verify every level on the chart and manage your own risk.</div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
             <div>

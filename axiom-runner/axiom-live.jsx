@@ -5323,8 +5323,6 @@ export default function App() {
     lines.push("A) Trade only A/A+ setups with RS + RVOL confirmation.");
     lines.push("B) Keep size moderate until macro/event risk is clear.");
     lines.push("C) Cut losers fast, scale winners by confirmation.");
-    lines.push("");
-    lines.push("Decision-support only, not financial advice.");
     return lines.join("\n");
   }, [regime, macroTone, marketSession, flowBias, flowCallNotional, flowPutNotional]);
 

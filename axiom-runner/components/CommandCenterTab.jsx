@@ -470,7 +470,7 @@ export default function CommandCenterTab({ C, MONO, SANS }) {
           <TrackRecordSection tr={brief.trackRecord} C={C} MONO={MONO} SANS={SANS} />
 
           <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, textAlign: "right" }}>
-            Generated {new Date(brief.generatedAt).toLocaleString([], { hour: "2-digit", minute: "2-digit" })} · Auto-updates ~8:20 AM ET on trading days, or tap Refresh anytime · AI-synthesized from real platform data + web search — not financial advice, cross-check before acting. Never executes trades automatically.
+            Generated {new Date(brief.generatedAt).toLocaleString([], { hour: "2-digit", minute: "2-digit" })} · Auto-updates ~8:20 AM ET on trading days, or tap Refresh anytime · AI-synthesized from real platform data + web search. Never executes trades automatically.
           </div>
         </>
       )}

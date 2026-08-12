@@ -568,7 +568,7 @@ export function AiPredictPanel({ symbol, chart, C, MONO, SANS }) {
       </div>
       {state === "err" && <div style={{ fontFamily: MONO, fontSize: 12, color: "#c8282a" }}>⚠ {predictErr || "Prediction failed — try again."}</div>}
       {reply && <div style={{ fontFamily: SANS, fontSize: 13, lineHeight: 1.6, color: C.text, whiteSpace: "pre-wrap" }}>{reply}</div>}
-      {state === "idle" && <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginTop: 6 }}>Pick a date → AI projects a target price + range. Educational, not advice.</div>}
+      {state === "idle" && <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginTop: 6 }}>Pick a date → AI projects a target price + range.</div>}
     </div>
   );
 }
@@ -1227,7 +1227,7 @@ export function BestOpportunities({ C, MONO, SANS, onPick, macroData, setActiveT
               </div>
             );
           })}
-          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, padding: "2px 4px" }}>Tap any name to open its chart + full setup, or Plan to jump straight to Trade Planner. Educational, not financial advice.</div>
+          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, padding: "2px 4px" }}>Tap any name to open its chart + full setup, or Plan to jump straight to Trade Planner.</div>
         </div>
       )}
     </div>

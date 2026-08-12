@@ -79,7 +79,7 @@ function AiTakeSection({ C, MONO, SANS }) {
             </div>
           )}
           <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 8 }}>
-            AI-synthesized from the real earnings calendar (expected move, EPS estimates) — not financial advice, cross-check before acting.
+            AI-synthesized from the real earnings calendar (expected move, EPS estimates).
           </div>
         </>
       )}

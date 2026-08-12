@@ -59,7 +59,7 @@ export default function ProPathTab({ C, MONO, SANS, setActiveTab }) {
         );
       })}
       <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, lineHeight: 1.6 }}>
-        Educational roadmap — not financial advice. There are no shortcuts: most who skip the paper-trading and risk-management stages blow up. Survive cheaply while you learn, prove an edge, then scale slowly.
+        There are no shortcuts: most who skip the paper-trading and risk-management stages blow up. Survive cheaply while you learn, prove an edge, then scale slowly.
       </div>
     </div>
   );

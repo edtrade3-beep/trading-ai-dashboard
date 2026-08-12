@@ -1637,7 +1637,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                   <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.textSec, marginTop: 6 }}>
                     {p.why.length ? p.why.join(" · ") : "No strong real signal either way — real trend template + volume are roughly neutral right now."}
                   </div>
-                  <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 6 }}>Free, deterministic, real trend-template based — not an AI call. Educational, not advice.</div>
+                  <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 6 }}>Free, deterministic, real trend-template based — not an AI call.</div>
                 </div>
               );
             })()}

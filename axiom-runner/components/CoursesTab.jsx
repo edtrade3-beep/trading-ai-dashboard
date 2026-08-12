@@ -113,7 +113,7 @@ export default function CoursesTab({ C, MONO, SANS }) {
         </div>
       ))}
       <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>
-        Educational content — not financial advice. Tick each lesson as you complete it; your progress saves automatically.
+        Tick each lesson as you complete it; your progress saves automatically.
       </div>
     </div>
   );

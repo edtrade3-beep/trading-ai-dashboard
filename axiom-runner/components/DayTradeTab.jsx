@@ -58,7 +58,7 @@ export default function DayTradeTab({ C, MONO, SANS, onDeepDive }) {
         <button onClick={scan} style={{ fontFamily: SANS, fontSize: 13, fontWeight: 800, padding: "9px 16px", borderRadius: 10, cursor: "pointer", border: "none", background: C.accent, color: "#fff" }}>↻ Rescan</button>
       </div>
       <div style={{ fontFamily: SANS, fontSize: 12, color: C.amber, background: `${C.amber}12`, border: `1px solid ${C.amber}44`, borderRadius: 8, padding: "8px 12px", marginBottom: 12 }}>
-        ⚠️ Day trading is high-risk and fast — most day traders lose money. Paper-trade this until it proves out. Educational, not financial advice.
+        ⚠️ Day trading is high-risk and fast — most day traders lose money. Paper-trade this until it proves out.
       </div>
 
       {sel && (

@@ -171,7 +171,7 @@ export default function RhProDashboard({ C, MONO, SANS, macroData, sectorData })
       </div>
 
       <div style={{ marginTop: 12, fontFamily: SANS, fontSize: 10, color: C.textDim }}>
-        ⚠️ Educational — analysis only. Places no orders and is fully isolated from the Alpaca autopilot. You execute manually in Robinhood.
+        ⚠️ Places no orders and is fully isolated from the Alpaca autopilot. You execute manually in Robinhood.
       </div>
     </div>
   );
