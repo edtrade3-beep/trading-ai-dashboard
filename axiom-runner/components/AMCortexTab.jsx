@@ -191,7 +191,7 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
       {result?.type === "symbol" && (() => {
         const { symbol, row, sniper, aplus, grade, heat, verdict, priceToPay, evidence, entryType, futureValue } = result;
         const chgPct = Number(row.dayChangePct);
-        const buyPrice = summarizeBuyPrice(priceToPay, verdict);
+        const buyPrice = summarizeBuyPrice(priceToPay, verdict, sniper, aplus.score);
         return (
           <div style={{ border: `2px solid ${C.border}`, borderRadius: 14, overflow: "hidden" }}>
             <div style={{ background: C.card, padding: "14px 18px", borderBottom: `1px solid ${C.border}` }}>

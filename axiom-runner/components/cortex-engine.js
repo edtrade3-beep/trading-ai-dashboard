@@ -169,17 +169,30 @@ export function computePriceToPay(row, sniper) {
 // says it plainly, instead of making the user read a 6-field table. Never
 // invents a "good" price when the real setup doesn't support one — AVOID/
 // OVEREXTENDED honestly say there isn't a good buy price right now.
-export function summarizeBuyPrice(priceToPay, verdict) {
+export function summarizeBuyPrice(priceToPay, verdict, sniper, aplusScore) {
   if (!priceToPay) return { label: "DATA UNAVAILABLE", reason: "No real pivot detected for this symbol." };
   const { current, idealEntryLow, idealEntryHigh, breakoutEntry, target, rr, aggressiveEntry, pullbackLevel } = priceToPay;
   const rrTxt = rr != null ? ` · ${rr.toFixed(1)}:1 reward/risk` : "";
   const targetTxt = target != null ? ` toward $${target}` : "";
+
+  // A pivot/breakout price exists mathematically for almost any stock
+  // (it's just the recent swing high) — that doesn't mean it's a real
+  // setup worth planning around. "WAIT" covers two very different real
+  // situations: a strong stock that hasn't confirmed its breakout yet
+  // (worth a price target), and a genuinely weak stock with no real edge
+  // (a price target here would overstate how real the setup is). Real
+  // user report, 2026-08-12: GOOGL at A+ 28/100, unconfirmed trend, RS 29
+  // still showed a specific breakout price as if it were a real target.
+  const trendWeak = sniper?.gates?.trendBullish === false;
+  const scoreWeak = Number.isFinite(aplusScore) && aplusScore < 45;
 
   let result;
   if (verdict?.verdict === "AVOID") {
     result = { label: "NOT A BUY RIGHT NOW", ok: false, reason: verdict.reason };
   } else if (verdict?.verdict === "OVEREXTENDED") {
     result = { label: `WAIT FOR $${idealEntryLow} – $${idealEntryHigh}`, ok: false, reason: "Price already ran — buying here has poor reward/risk. Let it come back to the real buy zone first." };
+  } else if (verdict?.verdict === "WAIT" && trendWeak && scoreWeak) {
+    result = { label: "NO CLEAR SETUP YET", ok: false, reason: `Trend and quality aren't established (A+ ${aplusScore}/100) — a breakout level exists mathematically ($${breakoutEntry}), but there's no real edge to plan around yet. Revisit once the trend actually confirms.` };
   } else {
     const inZone = Number.isFinite(current) && current >= idealEntryLow && current <= breakoutEntry * 1.03;
     if (inZone && verdict?.verdict === "BUY ZONE") {
@@ -194,11 +207,15 @@ export function summarizeBuyPrice(priceToPay, verdict) {
   // alongside the breakout zone above, never fabricated: either today's
   // real price (when it's genuinely below the pivot, i.e. before
   // breakout) or a real pullback support level (50-day MA) in a confirmed
-  // uptrend.
-  if (aggressiveEntry != null) {
-    result.lowerOption = { label: `$${aggressiveEntry.toFixed(2)}`, reason: "Buy now, before the breakout confirms — cheaper, but no volume confirmation yet (more risk of a false start)." };
-  } else if (pullbackLevel != null) {
-    result.lowerOption = { label: `$${pullbackLevel}`, reason: "Real pullback level (50-day MA) in a confirmed uptrend — cheaper than the breakout zone if it pulls back here first." };
+  // uptrend. Skipped entirely when there's no real setup to begin with
+  // (result.ok === false) — a "cheaper" price on a weak stock isn't a
+  // real opportunity either.
+  if (result.ok !== false) {
+    if (aggressiveEntry != null) {
+      result.lowerOption = { label: `$${aggressiveEntry.toFixed(2)}`, reason: "Buy now, before the breakout confirms — cheaper, but no volume confirmation yet (more risk of a false start)." };
+    } else if (pullbackLevel != null) {
+      result.lowerOption = { label: `$${pullbackLevel}`, reason: "Real pullback level (50-day MA) in a confirmed uptrend — cheaper than the breakout zone if it pulls back here first." };
+    }
   }
 
   return result;
