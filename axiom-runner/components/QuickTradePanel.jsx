@@ -238,8 +238,8 @@ export default function QuickTradePanel({ C, MONO, SANS, terminalSymbol, setTerm
       <button onClick={() => setOpen(o => !o)} title="Quick Trade"
         className={!isMobile && !open ? "fab-peek" : undefined}
         style={{ position: "fixed", bottom: (isMobile ? 10 : 18) + statusBarH, left: fabLeft, zIndex: 9999,
-          width: compact ? 42 : 54, height: compact ? 42 : 54, borderRadius: "50%", cursor: "pointer",
-          border: "none", background: "#c96f00", color: "#fff", fontSize: compact ? 18 : 22, boxShadow: "0 6px 20px rgba(0,0,0,0.3)",
+          width: compact ? 32 : 40, height: compact ? 32 : 40, borderRadius: "50%", cursor: "pointer",
+          border: "none", background: "#c96f00", color: "#fff", fontSize: compact ? 14 : 16, boxShadow: "0 6px 20px rgba(0,0,0,0.3)",
           opacity: fabFading && !open ? 0 : (isMobile || open ? 1 : undefined), pointerEvents: fabFading && !open ? "none" : "auto", transition: "opacity 0.2s" }}>{open ? "✕" : "⚡"}</button>
 
       {open && (

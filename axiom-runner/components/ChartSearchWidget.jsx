@@ -77,14 +77,14 @@ export default function ChartSearchWidget({ setActiveTab, setTerminalSymbol, sta
         aria-label={open ? "Close Quick Chart Search" : "Open Quick Chart Search"}
         title="Quick Chart Search — jump straight to a symbol's chart"
         style={{
-          width: isMobile ? 42 : 52, height: isMobile ? 42 : 52, borderRadius: "50%", cursor: "pointer",
+          width: isMobile ? 32 : 40, height: isMobile ? 32 : 40, borderRadius: "50%", cursor: "pointer",
           background: C.bg, border: `2px solid ${C.accent}`,
           boxShadow: "0 8px 24px rgba(0,0,0,0.45)",
-          display: "flex", alignItems: "center", justifyContent: "center", fontSize: isMobile ? 18 : 22,
+          display: "flex", alignItems: "center", justifyContent: "center", fontSize: isMobile ? 14 : 16,
           opacity: fabFading && !open ? 0 : (isMobile || open ? 1 : undefined), pointerEvents: fabFading && !open ? "none" : "auto", transition: "opacity 0.2s",
         }}
       >
-        {open ? <span style={{ color: C.text, fontSize: isMobile ? 16 : 20 }}>×</span> : "🔎"}
+        {open ? <span style={{ color: C.text, fontSize: isMobile ? 13 : 15 }}>×</span> : "🔎"}
       </button>
     </div>
   );
