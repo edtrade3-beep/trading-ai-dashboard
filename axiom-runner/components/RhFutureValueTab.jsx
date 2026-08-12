@@ -104,7 +104,7 @@ export default function RhFutureValueTab({ C, MONO, SANS, setActiveTab }) {
       </div>
 
       {error && <div style={{ fontFamily: SANS, fontSize: 12, color: "#c8282a", marginBottom: 12 }}>{error} — this needs an FMP API key configured on the server.</div>}
-      {!error && !loading && data && !allRows.length && (
+      {!error && !loading && data && !data.future.length && !data.undervalued.length && !data.overlap.length && (
         <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>No real fundamentals data scored yet — try Refresh.</div>
       )}
 
