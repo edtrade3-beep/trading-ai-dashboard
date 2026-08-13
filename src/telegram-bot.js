@@ -224,6 +224,14 @@ async function cmdHelp() {
     "\n🎯 AI SNIPER\n" +
     "/sniper AAPL          real hard-gated verdict for one symbol (Enter Long/Wait/No Chase/Avoid), with a link to open it in-app  (alias: /snipe)\n" +
     "/sniper                real full ~100-stock scan — enter-long opportunities right now\n" +
+    "\n🔎 FIND — the whole AI Scanner, no need to open the app\n" +
+    "/find undervalued      real cheap-vs-fundamentals stocks\n" +
+    "/find future           real durable growth/moat/strength stocks\n" +
+    "/find overlap          real Future + Undervalued (highest priority)\n" +
+    "/find aplus            real A+ trend-setup stocks  (alias: /aplus)\n" +
+    "/find breakout         real VCP breakout setups  (alias: /breakout)\n" +
+    "/find institutional    real volume+structure accumulation proxy  (alias: /accumulation)\n" +
+    "/find bestrr           real best reward:risk setups\n" +
     "\n🕐 AUTO-SCAN SCHEDULE (M–F ET)\n" +
     "  6:45  Macro Pre-Market\n" +
     "  7:30  Pre-Market Watchlist\n" +
@@ -727,6 +735,104 @@ async function cmdSniper(args) {
   }
 }
 
+// ── /find <type> — the whole AI Scanner, in Telegram ─────────────────────────
+// Explicit user request, 2026-08-12: "i want whole ai scanner in telgram i
+// want to keep opening my platform" — same real scan categories Cortex's
+// scan-type queries already cover (cortex-engine.js), reusing the same real
+// server-side data (runFutureValueScan for the fundamentals-based types,
+// screenTrendTemplate's already-computed real fields for the technical
+// types) — not a second, separate scan implementation.
+const FIND_TYPES = {
+  undervalued:  "💎 UNDERVALUED STOCKS",
+  future:       "🚀 FUTURE STOCKS",
+  overlap:      "🏆 FUTURE + UNDERVALUED",
+  aplus:        "⭐ A+ SETUPS",
+  breakout:     "📈 VCP BREAKOUT SETUPS",
+  institutional:"🏦 INSTITUTIONAL ACCUMULATION (volume+structure proxy)",
+  bestrr:       "⚖️ BEST REWARD/RISK",
+};
+
+async function cmdFind(args) {
+  const type = (args[0] || "").toLowerCase();
+  if (!FIND_TYPES[type]) {
+    return reply([
+      "Usage: /find <type>",
+      "",
+      ...Object.entries(FIND_TYPES).map(([k, v]) => `${k} — ${v}`),
+      "",
+      "Example: /find undervalued",
+    ].join("\n"));
+  }
+
+  await reply(`🔎 Scanning for ${FIND_TYPES[type]}…`);
+
+  try {
+    if (type === "undervalued" || type === "future" || type === "overlap") {
+      const { FMP_API_KEY } = require("./config");
+      const { runFutureValueScan } = require("./routes/future-value-scan");
+      const { ok, error, rows } = await runFutureValueScan({ fmp: FMP_API_KEY });
+      if (!ok) return reply(`Scan unavailable: ${error}`);
+
+      let list;
+      if (type === "undervalued") list = rows.filter((r) => r.valueScore != null && r.valueScore >= 55 && r.fairValue?.zone !== "TOO_EXPENSIVE").sort((a, b) => b.valueScore - a.valueScore);
+      else if (type === "future") list = rows.filter((r) => r.futureScore != null && r.futureScore >= 55).sort((a, b) => b.futureScore - a.futureScore);
+      else list = rows.filter((r) => r.isFutureAndUndervalued).sort((a, b) => b.futureScore - a.futureScore);
+
+      if (!list.length) return reply(`No real matches for ${FIND_TYPES[type]} right now.`);
+      const lines = [`${FIND_TYPES[type]} — ${list.length} real match${list.length === 1 ? "" : "es"}`, ""];
+      list.slice(0, 20).forEach((r, i) => {
+        const score = type === "undervalued" ? r.valueScore : r.futureScore;
+        lines.push(`${i + 1}. ${r.symbol} $${Number(r.price).toFixed(2)} — ${score}/100${r.fairValue ? ` · fair value $${r.fairValue.fairValue}` : ""}`);
+      });
+      return reply(lines.join("\n"));
+    }
+
+    // Technical scan types — real screenTrendTemplate fields directly, not a
+    // duplicated client-only A+ Score formula.
+    const { SCAN_UNIVERSE } = require("./advisor-ai");
+    const { screenTrendTemplate } = require("./routes/market");
+    const rows = await withTimeout(screenTrendTemplate(SCAN_UNIVERSE), 45_000, []);
+    const valid = (rows || []).filter((r) => !r.error);
+    if (!valid.length) return reply("Scan returned no real data — try again in a moment.");
+
+    let ranked;
+    if (type === "aplus") {
+      ranked = valid.filter((r) => (r.passCount || 0) >= 6).sort((a, b) => (b.passCount - a.passCount) || ((b.confidence || 0) - (a.confidence || 0)));
+    } else if (type === "breakout") {
+      ranked = valid.filter((r) => r.atBuyPoint || (r.actionable && Number(r.abovePivotPct ?? -99) >= -3)).sort((a, b) => (b.passCount || 0) - (a.passCount || 0));
+    } else if (type === "institutional") {
+      ranked = valid.map((r) => {
+        const volRatio = Number(r.volRatio) || 0, dayChg = Number(r.dayChangePct) || 0, rs = Number(r.rsRating) || 0;
+        let score = 0;
+        if (volRatio >= 1.4) score += Math.min(30, volRatio * 12);
+        if (dayChg > 0 && volRatio >= 1.2) score += 20;
+        if (r.tightening) score += 20;
+        if (rs >= 70) score += Math.min(30, rs - 50);
+        return { ...r, accScore: Math.round(Math.min(100, score)) };
+      }).filter((r) => r.accScore >= 45).sort((a, b) => b.accScore - a.accScore);
+    } else if (type === "bestrr") {
+      ranked = valid
+        .filter((r) => Number.isFinite(r.riskPct) && r.riskPct > 0 && Number.isFinite(r.target2) && Number.isFinite(r.entry) && Number.isFinite(r.stop))
+        .map((r) => ({ ...r, rr: (r.target2 - r.entry) / (r.entry - r.stop) }))
+        .filter((r) => Number.isFinite(r.rr) && r.rr > 0)
+        .sort((a, b) => b.rr - a.rr);
+    }
+
+    if (!ranked || !ranked.length) return reply(`No real matches for ${FIND_TYPES[type]} right now.`);
+    const lines = [`${FIND_TYPES[type]} — ${ranked.length} real match${ranked.length === 1 ? "" : "es"}`, ""];
+    ranked.slice(0, 20).forEach((r, i) => {
+      if (type === "aplus") lines.push(`${i + 1}. ${r.symbol} $${Number(r.price).toFixed(2)} — ${r.passCount}/8${r.confidence != null ? ` · ${r.confidence}% confidence` : ""}`);
+      else if (type === "breakout") lines.push(`${i + 1}. ${r.symbol} $${Number(r.price).toFixed(2)} — pivot $${Number(r.pivot).toFixed(2)}`);
+      else if (type === "institutional") lines.push(`${i + 1}. ${r.symbol} $${Number(r.price).toFixed(2)} — accumulation ${r.accScore}/100`);
+      else if (type === "bestrr") lines.push(`${i + 1}. ${r.symbol} $${Number(r.price).toFixed(2)} — ${r.rr.toFixed(1)}:1 R:R`);
+    });
+    lines.push("", "Reply /sniper SYMBOL for full detail on any of these.");
+    return reply(lines.join("\n"));
+  } catch (err) {
+    return reply(`Find error: ${err.message}`);
+  }
+}
+
 async function cmdDeals(args) {
   const query = args.join(" ").trim();
   await reply(query ? `Searching deals: "${query}"…` : "Fetching top deals…");
@@ -954,6 +1060,12 @@ const COMMANDS = {
   scanner:   (a) => cmdScanner(a),
   sniper:    (a) => cmdSniper(a),
   snipe:     (a) => cmdSniper(a),
+  find:      (a) => cmdFind(a),
+  undervalued: () => cmdFind(["undervalued"]),
+  future:      () => cmdFind(["future"]),
+  aplus:       () => cmdFind(["aplus"]),
+  breakout:    () => cmdFind(["breakout"]),
+  accumulation:() => cmdFind(["institutional"]),
   news:      (a) => cmdNews(a),
   wsb:       ()  => cmdNews(["wallstreetbets"]),
 
