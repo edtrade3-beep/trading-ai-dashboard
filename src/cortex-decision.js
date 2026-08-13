@@ -1,19 +1,20 @@
 "use strict";
 
-// cortex-decision.js — server-side CommonJS port of AM Cortex's Heat Risk /
-// Cortex Verdict / Technical Score, kept byte-identical to
+// cortex-decision.js — server-side CommonJS port of AM Cortex's core
+// decision functions, kept byte-identical to
 // axiom-runner/components/cortex-engine.js (same dual-port convention this
 // app already uses for sniper-decision.js — see that file's own header).
-// Exists so the daily forward-return tracker (aplus-score-history.js) can
-// log a real Cortex Verdict per symbol per day without duplicating or
-// drifting from the exact logic Cortex itself shows the user. Only the 3
-// functions the tracker needs are ported here — query parsing and scan
-// ranking are UI-only concerns with no server-side need.
+// Originally just the 3 functions the daily forward-return tracker needed
+// (aplus-score-history.js); expanded 2026-08-13 to the full WHY/SETUP/
+// LEVELS/VERDICT function set so Telegram's /cortex command can show the
+// same real Cortex decision the web app shows, without a browser. Query
+// parsing and scan ranking are still UI-only concerns, not ported here.
 //
-// If you change computeHeatRisk/computeCortexVerdict/computeTechnicalScore
-// in cortex-engine.js, mirror the change here too.
+// If you change any of these functions in cortex-engine.js, mirror the
+// change here too.
 
 function clamp(x, lo, hi) { return Math.max(lo, Math.min(hi, x)); }
+const round2 = (n) => (Number.isFinite(n) ? Math.round(n * 100) / 100 : null);
 
 function computeHeatRisk(row, sniper) {
   const rev = sniper?.reversal;
@@ -78,4 +79,123 @@ function computeTechnicalScore(row, sniper) {
   return Math.round(parts.reduce((a, b) => a + b, 0));
 }
 
-module.exports = { computeHeatRisk, computeCortexVerdict, computeTechnicalScore };
+function computePriceToPay(row, sniper) {
+  const price = Number.isFinite(row?.price) ? row.price : null;
+  const pivot = Number.isFinite(sniper?.pivot) ? sniper.pivot : (Number.isFinite(row?.pivot) ? row.pivot : null);
+  if (!pivot) return null;
+  const stop = Number.isFinite(sniper?.stop) ? sniper.stop : null;
+  const target = Number.isFinite(sniper?.target2) ? sniper.target2 : null;
+  const ma50 = Number.isFinite(row?.ma50) ? Number(row.ma50) : null;
+  const pullbackLevel = (sniper?.gates?.trendBullish && ma50 != null && Number.isFinite(price) && ma50 < price) ? round2(ma50) : null;
+  return {
+    current: price,
+    idealEntryLow: round2(pivot * 0.99),
+    idealEntryHigh: round2(pivot * 1.03),
+    aggressiveEntry: Number.isFinite(price) && price < pivot ? round2(price) : null,
+    breakoutEntry: round2(pivot),
+    pullbackLevel,
+    invalidation: stop,
+    target,
+    rr: Number.isFinite(sniper?.rr) ? sniper.rr : null,
+  };
+}
+
+function summarizeBuyPrice(priceToPay, verdict, sniper, aplusScore) {
+  if (!priceToPay) return { label: "DATA UNAVAILABLE", reason: "No real pivot detected for this symbol." };
+  const { current, idealEntryLow, idealEntryHigh, breakoutEntry, target, rr, aggressiveEntry, pullbackLevel } = priceToPay;
+  const rrTxt = rr != null ? ` · ${rr.toFixed(1)}:1 reward/risk` : "";
+  const targetTxt = target != null ? ` toward $${target}` : "";
+
+  const trendWeak = sniper?.gates?.trendBullish === false;
+  const scoreWeak = Number.isFinite(aplusScore) && aplusScore < 45;
+
+  let result;
+  if (verdict?.verdict === "AVOID") {
+    result = { label: "NOT A BUY RIGHT NOW", ok: false, reason: verdict.reason };
+  } else if (verdict?.verdict === "OVEREXTENDED") {
+    result = { label: `WAIT FOR $${idealEntryLow} – $${idealEntryHigh}`, ok: false, reason: "Price already ran — buying here has poor reward/risk. Let it come back to the real buy zone first." };
+  } else if (verdict?.verdict === "WAIT" && trendWeak && scoreWeak) {
+    result = { label: "NO CLEAR SETUP YET", ok: false, reason: `Trend and quality aren't established (A+ ${aplusScore}/100) — a breakout level exists mathematically ($${breakoutEntry}), but there's no real edge to plan around yet. Revisit once the trend actually confirms.` };
+  } else {
+    const inZone = Number.isFinite(current) && current >= idealEntryLow && current <= breakoutEntry * 1.03;
+    if (inZone && verdict?.verdict === "BUY ZONE") {
+      result = { label: `$${current.toFixed(2)} (right now)`, ok: true, reason: `In the real buy zone${targetTxt}${rrTxt}.` };
+    } else {
+      result = { label: `$${idealEntryLow} – $${idealEntryHigh}`, ok: true, reason: `Real breakout buy zone (pivot $${breakoutEntry})${targetTxt}${rrTxt} — not there yet.` };
+    }
+  }
+
+  if (result.ok !== false) {
+    if (aggressiveEntry != null) {
+      result.lowerOption = { label: `$${aggressiveEntry.toFixed(2)}`, reason: "Buy now, before the breakout confirms — cheaper, but no volume confirmation yet (more risk of a false start)." };
+    } else if (pullbackLevel != null) {
+      result.lowerOption = { label: `$${pullbackLevel}`, reason: "Real pullback level (50-day MA) in a confirmed uptrend — cheaper than the breakout zone if it pulls back here first." };
+    }
+  }
+
+  return result;
+}
+
+function whyEvidence(sniper, aplus) {
+  const sniperReasons = (sniper?.reasons || []).map((r) => (typeof r === "string" ? r : r?.text)).filter(Boolean);
+  const list = [...sniperReasons, ...(aplus?.reasons || [])];
+  return [...new Set(list)].slice(0, 8);
+}
+
+function computeTrimSignal(row, sniper, heat) {
+  const target1 = Number.isFinite(sniper?.target1) ? sniper.target1 : null;
+  const price = Number.isFinite(row?.price) ? row.price : null;
+  if (target1 == null || price == null) return { label: "DATA UNAVAILABLE", reason: "No real target level to trim into yet." };
+
+  if (heat?.state === "CLIMACTIC_DANGER") {
+    return { label: "TRIM NOW", urgent: true, reason: `Real exhaustion signals present — take partial profits regardless of target: ${heat.reason}` };
+  }
+  if (price >= target1) {
+    return { label: `PAST $${target1.toFixed(2)} — TRIM DUE`, urgent: true, reason: "Price has reached the first real target — the platform's own convention is scaling out 50% here, trailing the rest." };
+  }
+  const pctToTarget1 = ((target1 - price) / price) * 100;
+  return { label: `$${target1.toFixed(2)} (+${pctToTarget1.toFixed(1)}% away)`, urgent: false, reason: "Real first scale-out level — not there yet." };
+}
+
+function computePremiumRead(futureValue) {
+  if (!futureValue) return null;
+  const growth = futureValue.growthScore;
+  const zone = futureValue.fairValue?.zone;
+  if (growth == null) return { verdict: "UNKNOWN", reason: "No real growth data to judge whether a premium is justified." };
+  if (zone === "TOO_EXPENSIVE" && growth >= 65) {
+    return { verdict: "MAYBE — GROWTH-JUSTIFIED, BUT PRICEY", reason: `Real durable growth (${growth}/100) can justify some premium, but the price is already above real analyst fair value — you'd be paying for growth that isn't guaranteed to keep compounding.` };
+  }
+  if (zone === "TOO_EXPENSIVE" && growth < 45) {
+    return { verdict: "NO", reason: `Priced above real fair value with weak real growth (${growth}/100) to justify it — this isn't a "pay up for quality" situation.` };
+  }
+  if (zone === "IDEAL_BUY_ZONE" || zone === "ACCEPTABLE") {
+    return { verdict: "N/A — NOT PRICED AT A PREMIUM", reason: "Real price is already at or below real analyst fair value — there's no premium to justify." };
+  }
+  return { verdict: "UNKNOWN", reason: "No real analyst price-target coverage to judge premium vs. fair value." };
+}
+
+// Mirrors market-helpers.js's MIN_WIN_SAMPLE = 10 (honest-null win-rate
+// threshold) — a literal here rather than a require of the ESM file; see
+// this file's header for the dual-port convention.
+const MIN_WIN_SAMPLE = 10;
+
+function verdictWinProbFor(track, verdict) {
+  const cv = track?.cortexVerdict;
+  if (!cv?.horizons || !verdict) return null;
+  for (const h of ["d20", "d10", "d5", "d60"]) {
+    const b = cv.horizons[h]?.buckets?.[verdict];
+    if (b && b.count >= MIN_WIN_SAMPLE) return { winRate: b.winRate, avgReturnPct: b.avgReturnPct, count: b.count, horizon: h.slice(1), trackingStartedAt: cv.trackingStartedAt };
+  }
+  let best = null;
+  for (const h of ["d20", "d10", "d5", "d60"]) {
+    const b = cv.horizons[h]?.buckets?.[verdict];
+    if (b && (!best || b.count > best.count)) best = { count: b.count, horizon: h.slice(1) };
+  }
+  return best ? { winRate: null, avgReturnPct: null, count: best.count, horizon: best.horizon, trackingStartedAt: cv.trackingStartedAt } : { winRate: null, avgReturnPct: null, count: 0, horizon: null, trackingStartedAt: cv.trackingStartedAt };
+}
+
+module.exports = {
+  computeHeatRisk, computeCortexVerdict, computeTechnicalScore,
+  computePriceToPay, summarizeBuyPrice, whyEvidence, computeTrimSignal, computePremiumRead,
+  verdictWinProbFor,
+};

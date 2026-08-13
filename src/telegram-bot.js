@@ -255,6 +255,8 @@ async function cmdHelp() {
     "\n🔍 DEEP DIVE (Fundamentals + Technicals + Projection)\n" +
     "/deep AAPL            full analysis  (alias: /dive, /analyze)\n" +
     "AAPL                  just type any ticker — auto deep dive\n" +
+    "\n🧠 AM CORTEX (the real WHY/BUY PRICE/SETUP/LEVELS/RISK/VERDICT)\n" +
+    "/cortex AAPL           the same decision the web app's Cortex tab shows  (alias: /cx)\n" +
     "\n📈 STOCKTWITS SENTIMENT\n" +
     "/twits                top 10 trending + crowd sentiment\n" +
     "/twits NVDA           bullish/bearish% + message previews\n" +
@@ -482,6 +484,123 @@ async function cmdDeep(args) {
     return reply(msg);
   } catch (err) {
     return reply(`Deep dive error for ${symbol}: ${err.message}`);
+  }
+}
+
+// ── /cortex TICKER — the real AM Cortex decision (WHY/BUY PRICE/SETUP/
+// LEVELS/RISK/VERDICT), the same single decision layer the web app's AM
+// Cortex tab shows, reachable from Telegram without opening the app.
+// Explicit user request 2026-08-13: "wire cortex to telegram command."
+// Every score/verdict below comes from the exact same real, deterministic
+// engines the web app uses (Sniper Decision, A+ Score, Institutional
+// Grade, Cortex Verdict, Institution Score) via the server-side ports in
+// sniper-decision.js / cortex-decision.js / market-helpers-decision.js /
+// institution-score.js — no separate logic, no LLM, nothing invented.
+async function cmdCortex(args) {
+  const symbol = (args[0] || "").toUpperCase().trim();
+  if (!symbol || !/^[A-Z0-9.\-^]{1,10}$/.test(symbol)) {
+    return reply("Usage: /cortex NVDA");
+  }
+  await reply(`🧠 Running Cortex on ${symbol}…`);
+
+  try {
+    const { computeSniperDecision } = require("./sniper-decision");
+    const {
+      computeHeatRisk, computeCortexVerdict, computePriceToPay, summarizeBuyPrice,
+      whyEvidence, computeTechnicalScore, computeTrimSignal, computePremiumRead, verdictWinProbFor,
+    } = require("./cortex-decision");
+    const { computeRegime, computeAPlusScore, computeInstitutionalGrade, computeFundamentalsRead, classifyEntryType } = require("./market-helpers-decision");
+    const { computeInstitutionScore } = require("./institution-score");
+    const base = process.env.RENDER_EXTERNAL_URL || `http://localhost:${process.env.PORT || 3000}`;
+
+    const [screenRes, fvRes, fundRes, macroRes, darkPoolRes, optionsFlowRes, insiderRes, shortInterestRes, trackRes] = await Promise.allSettled([
+      withTimeout(fetch(`${base}/api/market/trend-screen?symbols=${encodeURIComponent(symbol)}`).then(r => r.json()), 15_000, null),
+      withTimeout(fetch(`${base}/api/scanner/future-value?symbol=${encodeURIComponent(symbol)}`).then(r => r.json()).catch(() => null), 15_000, null),
+      withTimeout(fetch(`${base}/api/market/fundamentals?symbol=${encodeURIComponent(symbol)}`).then(r => r.json()).catch(() => null), 10_000, null),
+      withTimeout(fetch(`${base}/api/market/quote?symbols=SPY,QQQ,VIX`).then(r => r.json()).catch(() => []), 10_000, []),
+      withTimeout(fetch(`${base}/api/market/darkpool?symbol=${encodeURIComponent(symbol)}`).then(r => r.json()).catch(() => null), 10_000, null),
+      withTimeout(fetch(`${base}/api/market/options-flow?symbols=${encodeURIComponent(symbol)}&limit=1`).then(r => r.json()).catch(() => null), 10_000, null),
+      withTimeout(fetch(`${base}/api/market/insider?ticker=${encodeURIComponent(symbol)}`).then(r => r.json()).catch(() => null), 10_000, null),
+      withTimeout(fetch(`${base}/api/market/short-interest?tickers=${encodeURIComponent(symbol)}`).then(r => r.json()).catch(() => null), 10_000, null),
+      withTimeout(fetch(`${base}/api/market/aplus-track`).then(r => r.json()).catch(() => null), 10_000, null),
+    ]);
+
+    const screenJ = screenRes.status === "fulfilled" ? screenRes.value : null;
+    const row = screenJ?.results?.[0];
+    if (!row || row.error) return reply(`No real market data available for ${symbol}.`);
+
+    const fvJ = fvRes.status === "fulfilled" ? fvRes.value : null;
+    const futureValue = fvJ && fvJ.ok ? fvJ.row : null;
+    const fundJ = fundRes.status === "fulfilled" ? fundRes.value : null;
+    const macroData = macroRes.status === "fulfilled" && Array.isArray(macroRes.value) ? macroRes.value : [];
+    const darkPool = darkPoolRes.status === "fulfilled" && darkPoolRes.value?.ok ? darkPoolRes.value : null;
+    const optionsFlow = optionsFlowRes.status === "fulfilled" && optionsFlowRes.value && !optionsFlowRes.value.error ? optionsFlowRes.value.summary || null : null;
+    const insiderData = insiderRes.status === "fulfilled" && insiderRes.value?.ok ? insiderRes.value : null;
+    const shortInterest = shortInterestRes.status === "fulfilled" && shortInterestRes.value?.ok ? (shortInterestRes.value.results || [])[0] || null : null;
+    const track = trackRes.status === "fulfilled" && trackRes.value?.ok ? trackRes.value : null;
+
+    const regime = computeRegime(macroData);
+    const sniper = computeSniperDecision(row);
+    const aplus = computeAPlusScore(row, regime);
+    // Sector rank isn't fetched here (would need a 6th self-call for all 11
+    // sector ETFs) — computeInstitutionalGrade already honestly defaults
+    // that one dimension to a neutral 5/10 when sectorInfo is null, same as
+    // the web app does when sector data hasn't loaded yet.
+    const grade = computeInstitutionalGrade(row, row.technicals, regime, null, null);
+    const heat = computeHeatRisk(row, sniper);
+    const verdict = computeCortexVerdict({ sniper, heat, aplusScore: aplus.score });
+    const priceToPay = computePriceToPay(row, sniper);
+    const buyPrice = summarizeBuyPrice(priceToPay, verdict, sniper, aplus.score);
+    const evidence = whyEvidence(sniper, aplus);
+    const entryType = classifyEntryType(row, aplus.score);
+    const technicalScore = computeTechnicalScore(row, sniper);
+    const trimSignal = computeTrimSignal(row, sniper, heat);
+    const premiumRead = computePremiumRead(futureValue);
+    const fundamentalsRead = fundJ && !fundJ.error ? computeFundamentalsRead(fundJ) : { bull: [], bear: [] };
+    const institutionScore = (darkPool || optionsFlow || insiderData || shortInterest)
+      ? computeInstitutionScore({ darkPool, optionsFlow, insiderData, shortInterest }) : null;
+    const winProb = verdictWinProbFor(track, verdict.verdict);
+
+    const price = Number.isFinite(row.price) ? row.price : null;
+    const chgPct = Number(row.dayChangePct);
+
+    const lines = [
+      `🧠 AM CORTEX — ${symbol}${price != null ? `  $${price.toFixed(2)}` : ""}${Number.isFinite(chgPct) ? `  ${chgPct >= 0 ? "+" : ""}${chgPct.toFixed(2)}%` : ""}`,
+      `━━━━━━━━━━━━━━━━━━━━`,
+      ``,
+      `WHY`,
+      evidence.length ? evidence.slice(0, 4).map(e => `• ${e}`).join("\n") : verdict.reason,
+      ``,
+      `🎯 BUY PRICE: ${buyPrice.label}`,
+      buyPrice.reason,
+      buyPrice.lowerOption ? `Buy lower: ${buyPrice.lowerOption.label} — ${buyPrice.lowerOption.reason}` : null,
+      ``,
+      `SETUP`,
+      `A+ Score: ${aplus.score}/100   Technical: ${technicalScore}/100   Fundamental: ${futureValue ? `${futureValue.qualityScore}/100` : "N/A"}`,
+      `Trend: ${sniper.gates.trendBullish ? "Bullish" : "Not confirmed"}   RS: ${Number.isFinite(row.rsRating) ? row.rsRating : "?"}   Volume: ${sniper.gates.volumeConfirmed ? "Confirming" : "Not confirming"}`,
+      `Institutional Grade: ${grade.score}/100   Setup Type: ${entryType?.type || "No Entry Type Yet"}`,
+      ``,
+      `LEVELS`,
+      priceToPay ? `Current $${priceToPay.current?.toFixed(2)}  Ideal Entry $${priceToPay.idealEntryLow}–$${priceToPay.idealEntryHigh}  Invalidation $${priceToPay.invalidation ?? "?"}  Target $${priceToPay.target ?? "?"}  R:R ${priceToPay.rr != null ? priceToPay.rr.toFixed(1) : "?"}:1` : "No real pivot detected.",
+      `✂️ Trim: ${trimSignal.label}`,
+      ``,
+      `🏦 ACCUMULATION / DISTRIBUTION`,
+      institutionScore ? `${institutionScore.label} (${institutionScore.score}/100)` : "Data unavailable for this symbol right now.",
+      ``,
+      `RISK`,
+      `Level: ${row.riskState || "?"}   Extended: ${sniper.gates.extended ? "Yes — chasing risk" : "No"}`,
+      premiumRead ? `Can I pay premium: ${premiumRead.verdict}` : null,
+      ``,
+      `VERDICT`,
+      `${verdict.icon} ${verdict.verdict} — ${verdict.reason}`,
+      winProb ? (winProb.winRate != null
+        ? `Real track record: ${winProb.winRate}% win rate over ${winProb.count} real ${winProb.horizon}-day observations (avg ${winProb.avgReturnPct >= 0 ? "+" : ""}${winProb.avgReturnPct}%)`
+        : `Real track record: only ${winProb.count} real observation${winProb.count === 1 ? "" : "s"} logged so far — not enough yet for a reliable win rate`) : null,
+    ].filter(l => l !== null).join("\n");
+
+    return reply(lines);
+  } catch (err) {
+    return reply(`Cortex error for ${symbol}: ${err.message}`);
   }
 }
 
@@ -1081,6 +1200,8 @@ const COMMANDS = {
   deep:      (a) => cmdDeep(a),
   dive:      (a) => cmdDeep(a),
   analyze:   (a) => cmdDeep(a),
+  cortex:    (a) => cmdCortex(a),
+  cx:        (a) => cmdCortex(a),
   alert:     (a) => cmdAlert(a),
   alerts:    () => cmdAlerts(),
   pa:        () => cmdAlerts(),
