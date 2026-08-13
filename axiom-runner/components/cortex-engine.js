@@ -1,4 +1,4 @@
-import { computeAPlusScore } from "./market-helpers.js";
+import { computeAPlusScore, MIN_WIN_SAMPLE } from "./market-helpers.js";
 
 // cortex-engine.js — AM Cortex's deterministic core (explicit user request,
 // 2026-08-11: "AM CORTEX — AI TRADING INTELLIGENCE ENGINE... The AI must
@@ -299,6 +299,31 @@ export function computePremiumRead(futureValue) {
 }
 
 function clamp(x, lo, hi) { return Math.max(lo, Math.min(hi, x)); }
+
+// ---- Real Cortex Verdict track record — explicit user follow-up,
+// 2026-08-13: "How accurate this setup" → "Yes [wire it into real
+// tracking]." Same real daily forward-return log the A+ Score already
+// uses (src/aplus-score-history.js, /api/market/aplus-track), now also
+// logging cortexVerdict per symbol per day (src/cortex-decision.js).
+// Mirrors market-helpers.js's winProbFor exactly — prefers the d20
+// horizon, honestly reports a null win rate (but still shows the real
+// sample count) below MIN_WIN_SAMPLE, never a guessed number. This is a
+// NEW log started 2026-08-13 — expect "not enough data yet" for a while;
+// that's correct, not a bug.
+export function verdictWinProbFor(track, verdict) {
+  const cv = track?.cortexVerdict;
+  if (!cv?.horizons || !verdict) return null;
+  for (const h of ["d20", "d10", "d5", "d60"]) {
+    const b = cv.horizons[h]?.buckets?.[verdict];
+    if (b && b.count >= MIN_WIN_SAMPLE) return { winRate: b.winRate, avgReturnPct: b.avgReturnPct, count: b.count, horizon: h.slice(1), trackingStartedAt: cv.trackingStartedAt };
+  }
+  let best = null;
+  for (const h of ["d20", "d10", "d5", "d60"]) {
+    const b = cv.horizons[h]?.buckets?.[verdict];
+    if (b && (!best || b.count > best.count)) best = { count: b.count, horizon: h.slice(1) };
+  }
+  return best ? { winRate: null, avgReturnPct: null, count: best.count, horizon: best.horizon, trackingStartedAt: cv.trackingStartedAt } : { winRate: null, avgReturnPct: null, count: 0, horizon: null, trackingStartedAt: cv.trackingStartedAt };
+}
 
 // ---- Scan-type queries — filter/rank over already-fetched real screener
 // rows. No per-symbol dark-pool/options-flow/insider fetch across a whole

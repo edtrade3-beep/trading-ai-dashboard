@@ -5,7 +5,7 @@ import { computeSniperDecision } from "./sniper-decision.js";
 import { FundamentalsPanel, OptionsFlowPanel, NewsPanel, InvestorsPanel } from "./terminal-panels.jsx";
 import {
   parseCortexQuery, computeHeatRisk, computeCortexVerdict, computePriceToPay, summarizeBuyPrice, whyEvidence,
-  computeTechnicalScore, computeTrimSignal, computePremiumRead,
+  computeTechnicalScore, computeTrimSignal, computePremiumRead, verdictWinProbFor,
   rankAplusSetups, rankBreakouts, rankStrongNotExtended, rankBestRewardRisk, rankInstitutionalAccumulation,
   rankImprovingFundamentals, SCAN_LABELS,
 } from "./cortex-engine.js";
@@ -76,7 +76,12 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
   const [showDeep, setShowDeep] = useState(false);
   const [deepTab, setDeepTab] = useState("technical");
   const [showWhy, setShowWhy] = useState(false);
+  const [track, setTrack] = useState(null); // real global forward-return log, fetched once
   const knownSymbols = useRef(new Set([...RH_UNIVERSE, ...(watchlistSymbols || [])]));
+
+  useEffect(() => {
+    fetch("/api/market/aplus-track").then((r) => r.json()).then((j) => { if (j.ok) setTrack(j); }).catch(() => {});
+  }, []);
 
   const regime = computeRegime(macroData);
   const sectorInfoFor = (symbol) => {
@@ -311,6 +316,17 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
                 <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textDim, marginBottom: 4 }}>CORTEX VERDICT</div>
                 <div style={{ fontFamily: MONO, fontSize: 28, fontWeight: 900, color: verdict.color }}>{verdict.icon} {verdict.verdict}</div>
                 <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.textSec, marginTop: 6, lineHeight: 1.5 }}>{verdict.reason}</div>
+                {(() => {
+                  const wp = verdictWinProbFor(track, verdict.verdict);
+                  if (!wp) return null;
+                  return (
+                    <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 10, paddingTop: 8, borderTop: `1px dashed ${verdict.color}33` }}>
+                      {wp.winRate != null
+                        ? `Real track record: ${wp.winRate}% positive over ${wp.horizon}d, ${wp.count} real "${verdict.verdict}" observations since ${wp.trackingStartedAt}`
+                        : `Real track record: only ${wp.count} "${verdict.verdict}" observation${wp.count === 1 ? "" : "s"} logged so far — too early to trust a win rate (need 10+). Tracking started ${wp.trackingStartedAt || "today"}.`}
+                    </div>
+                  );
+                })()}
               </div>
 
               <button onClick={() => setShowWhy((v) => !v)} style={{ width: "100%", fontFamily: MONO, fontSize: 10.5, fontWeight: 800, color: C.textSec, background: "transparent", border: "none", cursor: "pointer", padding: "4px 0", marginBottom: 8 }}>
