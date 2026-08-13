@@ -234,6 +234,72 @@ export function whyEvidence(sniper, aplus) {
   return [...new Set(list)].slice(0, 8);
 }
 
+// ---- Technical Score — a distinct, transparent 0-100 read of ONLY the
+// real technical facts already shown in SETUP (trend/RS/volume/ADX), not
+// a re-blend of regime/risk/breakout like A+ Score. Explicit user request,
+// 2026-08-12: "i want... technical score and fundamental score" — kept
+// deliberately simple (4 real inputs, disclosed weights) so it reads as
+// "the same facts above, totaled" rather than an 8th mystery number.
+export function computeTechnicalScore(row, sniper) {
+  const parts = [];
+  parts.push(sniper?.gates?.trendBullish ? 30 : 0);
+  const rs = Number(row?.rsRating);
+  parts.push(Number.isFinite(rs) ? Math.round(clamp(rs / 100, 0, 1) * 30) : 15);
+  parts.push(sniper?.gates?.volumeConfirmed ? 20 : 0);
+  const adx = row?.technicals?.adx;
+  parts.push(
+    adx?.strength === "Strong" && adx?.direction === "Bullish" ? 20
+      : adx?.strength === "Developing" && adx?.direction === "Bullish" ? 12
+      : adx ? 5 : 10
+  );
+  return Math.round(parts.reduce((a, b) => a + b, 0));
+}
+
+// ---- Trim Signal — a real, distinct "start scaling out" read, separate
+// from full exit. Explicit user request, 2026-08-12: "when i expect to
+// start trimming." Reuses the same real target1 (first scale-out level)
+// Sniper Decision already computes, plus the same real reversal/heat
+// signals — no new price model.
+export function computeTrimSignal(row, sniper, heat) {
+  const target1 = Number.isFinite(sniper?.target1) ? sniper.target1 : null;
+  const price = Number.isFinite(row?.price) ? row.price : null;
+  if (target1 == null || price == null) return { label: "DATA UNAVAILABLE", reason: "No real target level to trim into yet." };
+
+  if (heat?.state === "CLIMACTIC_DANGER") {
+    return { label: "TRIM NOW", urgent: true, reason: `Real exhaustion signals present — take partial profits regardless of target: ${heat.reason}` };
+  }
+  if (price >= target1) {
+    return { label: `PAST $${target1.toFixed(2)} — TRIM DUE`, urgent: true, reason: "Price has reached the first real target — the platform's own convention is scaling out 50% here, trailing the rest." };
+  }
+  const pctToTarget1 = ((target1 - price) / price) * 100;
+  return { label: `$${target1.toFixed(2)} (+${pctToTarget1.toFixed(1)}% away)`, urgent: false, reason: "Real first scale-out level — not there yet." };
+}
+
+// ---- Premium-Justified read — a real cross-check between how much the
+// business is growing (GROWTH_SCORE) and how expensive it is (VALUE_SCORE/
+// fair-value zone), the same "never confuse good company with good stock
+// price" logic from the Future/Value engine, phrased as a direct answer
+// to "can I pay premium." Only real scores already computed — no new
+// valuation model.
+export function computePremiumRead(futureValue) {
+  if (!futureValue) return null;
+  const growth = futureValue.growthScore;
+  const zone = futureValue.fairValue?.zone;
+  if (growth == null) return { verdict: "UNKNOWN", reason: "No real growth data to judge whether a premium is justified." };
+  if (zone === "TOO_EXPENSIVE" && growth >= 65) {
+    return { verdict: "MAYBE — GROWTH-JUSTIFIED, BUT PRICEY", reason: `Real durable growth (${growth}/100) can justify some premium, but the price is already above real analyst fair value — you'd be paying for growth that isn't guaranteed to keep compounding.` };
+  }
+  if (zone === "TOO_EXPENSIVE" && growth < 45) {
+    return { verdict: "NO", reason: `Priced above real fair value with weak real growth (${growth}/100) to justify it — this isn't a "pay up for quality" situation.` };
+  }
+  if (zone === "IDEAL_BUY_ZONE" || zone === "ACCEPTABLE") {
+    return { verdict: "N/A — NOT PRICED AT A PREMIUM", reason: "Real price is already at or below real analyst fair value — there's no premium to justify." };
+  }
+  return { verdict: "UNKNOWN", reason: "No real analyst price-target coverage to judge premium vs. fair value." };
+}
+
+function clamp(x, lo, hi) { return Math.max(lo, Math.min(hi, x)); }
+
 // ---- Scan-type queries — filter/rank over already-fetched real screener
 // rows. No per-symbol dark-pool/options-flow/insider fetch across a whole
 // ~100-symbol universe (too expensive per query) — institutional

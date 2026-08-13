@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from "react";
 import { RH_UNIVERSE, rhScreenProgressive } from "./rhpro-shared.jsx";
-import { computeRegime, computeAPlusScore, computeInstitutionalGrade, classifyEntryType, SECTOR_ETFS, STOCK_TO_SECTOR } from "./market-helpers.js";
+import { computeRegime, computeAPlusScore, computeInstitutionalGrade, computeFundamentalsRead, classifyEntryType, SECTOR_ETFS, STOCK_TO_SECTOR } from "./market-helpers.js";
 import { computeSniperDecision } from "./sniper-decision.js";
 import { FundamentalsPanel, OptionsFlowPanel, NewsPanel, InvestorsPanel } from "./terminal-panels.jsx";
 import {
   parseCortexQuery, computeHeatRisk, computeCortexVerdict, computePriceToPay, summarizeBuyPrice, whyEvidence,
+  computeTechnicalScore, computeTrimSignal, computePremiumRead,
   rankAplusSetups, rankBreakouts, rankStrongNotExtended, rankBestRewardRisk, rankInstitutionalAccumulation,
   rankImprovingFundamentals, SCAN_LABELS,
 } from "./cortex-engine.js";
@@ -92,9 +93,17 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
   async function analyzeSymbol(symbol, openDeep) {
     setLoading(true); setError(null); setShowDeep(!!openDeep); setShowWhy(false);
     try {
-      const [screenJ, fvJ] = await Promise.all([
+      const [screenJ, fvJ, fundJ, analystJ, socialJ] = await Promise.all([
         fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(symbol)}`).then((r) => r.json()),
         fetch(`/api/scanner/future-value?symbol=${encodeURIComponent(symbol)}`).then((r) => r.json()).catch(() => null),
+        // Raw fundamentals (real bull/bear reasons — computeFundamentalsRead
+        // needs pe/pegRatio/revenueGrowth/earningsGrowth/profitMargin, not
+        // the future-value engine's already-blended scores).
+        fetch(`/api/market/fundamentals?symbol=${encodeURIComponent(symbol)}`).then((r) => r.json()).catch(() => null),
+        // Real analyst strongBuy/buy/hold/sell/strongSell consensus counts.
+        fetch(`/api/market/analyst?tickers=${encodeURIComponent(symbol)}`).then((r) => r.json()).catch(() => null),
+        // Real StockTwits bull/bear social sentiment.
+        fetch(`/api/market/social?ticker=${encodeURIComponent(symbol)}`).then((r) => r.json()).catch(() => null),
       ]);
       const row = (screenJ.results || [])[0];
       if (!row || row.error) { setError(`No real market data available for ${symbol}.`); setResult(null); return; }
@@ -107,7 +116,16 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
       const evidence = whyEvidence(sniper, aplus);
       const entryType = classifyEntryType(row, aplus.score);
       const futureValue = fvJ && fvJ.ok ? fvJ.row : null;
-      setResult({ type: "symbol", symbol, row, sniper, aplus, grade, heat, verdict, priceToPay, evidence, entryType, futureValue });
+      const technicalScore = computeTechnicalScore(row, sniper);
+      const trimSignal = computeTrimSignal(row, sniper, heat);
+      const premiumRead = computePremiumRead(futureValue);
+      const fundamentalsRead = fundJ && !fundJ.error ? computeFundamentalsRead(fundJ) : { bull: [], bear: [] };
+      const analyst = analystJ?.ok ? (analystJ.results || [])[0] : null;
+      const social = socialJ?.ok ? socialJ : null;
+      setResult({
+        type: "symbol", symbol, row, sniper, aplus, grade, heat, verdict, priceToPay, evidence, entryType, futureValue,
+        technicalScore, trimSignal, premiumRead, fundamentalsRead, analyst, social,
+      });
     } catch (e) {
       setError(e.message);
     } finally { setLoading(false); }
@@ -208,7 +226,7 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
 
       {/* ── SYMBOL RESULT ── */}
       {result?.type === "symbol" && (() => {
-        const { symbol, row, sniper, aplus, grade, heat, verdict, priceToPay, evidence, entryType, futureValue } = result;
+        const { symbol, row, sniper, aplus, grade, heat, verdict, priceToPay, evidence, entryType, futureValue, technicalScore, trimSignal, premiumRead, fundamentalsRead, analyst, social } = result;
         const chgPct = Number(row.dayChangePct);
         const buyPrice = summarizeBuyPrice(priceToPay, verdict, sniper, aplus.score);
         return (
@@ -246,12 +264,13 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
               <div style={{ marginBottom: 14 }}>
                 <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textDim, marginBottom: 6 }}>SETUP</div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(150px,1fr))", gap: 8 }}>
-                  <StatRow C={C} MONO={MONO} SANS={SANS} label="A+ Score" value={`${aplus.score}/100`} color={aplus.score >= 70 ? "#0d9465" : aplus.score >= 50 ? "#d6a312" : "#c8282a"} />
+                  <StatRow C={C} MONO={MONO} SANS={SANS} label="A+ Score (setup)" value={`${aplus.score}/100`} color={aplus.score >= 70 ? "#0d9465" : aplus.score >= 50 ? "#d6a312" : "#c8282a"} />
+                  <StatRow C={C} MONO={MONO} SANS={SANS} label="Technical Score" value={`${technicalScore}/100`} color={technicalScore >= 70 ? "#0d9465" : technicalScore >= 50 ? "#d6a312" : "#c8282a"} />
+                  <StatRow C={C} MONO={MONO} SANS={SANS} label="Fundamental Score" value={futureValue ? `${futureValue.qualityScore}/100` : null} color={futureValue?.qualityScore >= 65 ? "#0d9465" : C.textDim} />
                   <StatRow C={C} MONO={MONO} SANS={SANS} label="Trend" value={sniper.gates.trendBullish ? "Bullish" : "Not confirmed"} color={sniper.gates.trendBullish ? "#0d9465" : "#c8282a"} />
-                  <StatRow C={C} MONO={MONO} SANS={SANS} label="Relative Strength" value={Number.isFinite(row.rsRating) ? `RS ${row.rsRating}` : null} color={row.rsRating >= 80 ? "#0d9465" : row.rsRating >= 60 ? "#d6a312" : "#c8282a"} />
+                  <StatRow C={C} MONO={MONO} SANS={SANS} label="Relative Strength (vs. market)" value={Number.isFinite(row.rsRating) ? `RS ${row.rsRating}` : null} color={row.rsRating >= 80 ? "#0d9465" : row.rsRating >= 60 ? "#d6a312" : "#c8282a"} />
                   <StatRow C={C} MONO={MONO} SANS={SANS} label="Volume" value={sniper.gates.volumeConfirmed ? "Confirming" : "Not confirming"} color={sniper.gates.volumeConfirmed ? "#0d9465" : C.textDim} />
                   <StatRow C={C} MONO={MONO} SANS={SANS} label="Institutional" value={`${grade.score}/100`} color={grade.score >= 65 ? "#0d9465" : grade.score >= 45 ? "#d6a312" : "#c8282a"} />
-                  <StatRow C={C} MONO={MONO} SANS={SANS} label="Fundamental (real)" value={futureValue ? `Quality ${futureValue.qualityScore}/100` : null} color={futureValue?.qualityScore >= 65 ? "#0d9465" : C.textDim} />
                   <StatRow C={C} MONO={MONO} SANS={SANS} label="Setup Type" value={entryType?.type || null} />
                 </div>
               </div>
@@ -270,6 +289,15 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
                   </div>
                 ) : <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>DATA UNAVAILABLE — no real pivot detected for a level framework.</div>}
               </div>
+
+              {/* TRIM SIGNAL */}
+              {trimSignal && (
+                <div style={{ background: trimSignal.urgent ? "#d6a31214" : `${C.accent}0a`, border: `1px solid ${trimSignal.urgent ? "#d6a31255" : C.border}`, borderRadius: 10, padding: "10px 14px", marginBottom: 14 }}>
+                  <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textDim, marginBottom: 3 }}>✂️ WHEN TO START TRIMMING</div>
+                  <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: trimSignal.urgent ? "#d6a312" : C.text }}>{trimSignal.label}</div>
+                  <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 3 }}>{trimSignal.reason}</div>
+                </div>
+              )}
 
               {/* RISK */}
               <div style={{ background: `${heat.color}12`, border: `1px solid ${heat.color}55`, borderRadius: 10, padding: "10px 14px", marginBottom: 14 }}>
@@ -356,7 +384,18 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
                     </div>
                   )}
 
-                  {deepTab === "fundamental" && <div style={{ margin: "-6px" }}><FundamentalsPanel symbol={symbol} C={C} MONO={MONO} SANS={SANS} /></div>}
+                  {deepTab === "fundamental" && (
+                    <div>
+                      {(fundamentalsRead?.bull?.length || fundamentalsRead?.bear?.length) ? (
+                        <div style={{ marginBottom: 12 }}>
+                          <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textDim, marginBottom: 6 }}>WHY — REAL FUNDAMENTAL BULL/BEAR READ</div>
+                          {fundamentalsRead.bull.map((t, i) => <div key={`bull${i}`} style={{ fontFamily: SANS, fontSize: 12, color: "#0d9465", padding: "3px 0" }}>🟢 {t}</div>)}
+                          {fundamentalsRead.bear.map((t, i) => <div key={`bear${i}`} style={{ fontFamily: SANS, fontSize: 12, color: "#c8282a", padding: "3px 0" }}>🔴 {t}</div>)}
+                        </div>
+                      ) : null}
+                      <div style={{ margin: "-6px" }}><FundamentalsPanel symbol={symbol} C={C} MONO={MONO} SANS={SANS} /></div>
+                    </div>
+                  )}
 
                   {deepTab === "valuation" && (
                     futureValue ? (
@@ -373,6 +412,33 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
                             <StatRow C={C} MONO={MONO} SANS={SANS} label="Margin of Safety" value={futureValue.fairValue.marginOfSafetyPct != null ? `${futureValue.fairValue.marginOfSafetyPct}%` : null} />
                           </>
                         )}
+                        {premiumRead && (
+                          <div style={{ marginTop: 10, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: 10 }}>
+                            <div style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 900, color: C.textDim }}>CAN I PAY A PREMIUM?</div>
+                            <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text, marginTop: 2 }}>{premiumRead.verdict}</div>
+                            <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 3 }}>{premiumRead.reason}</div>
+                          </div>
+                        )}
+                        {futureValue.growth && (
+                          <div style={{ marginTop: 10 }}>
+                            <div style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 900, color: C.textDim, marginBottom: 4 }}>WHAT GROWTH LOOKS LIKE (real)</div>
+                            <StatRow C={C} MONO={MONO} SANS={SANS} label="Revenue growth" value={futureValue.growth.revenueGrowth != null ? `${(futureValue.growth.revenueGrowth * 100).toFixed(1)}%` : null} />
+                            <StatRow C={C} MONO={MONO} SANS={SANS} label="Earnings growth" value={futureValue.growth.earningsGrowth != null ? `${(futureValue.growth.earningsGrowth * 100).toFixed(1)}%` : null} />
+                            <StatRow C={C} MONO={MONO} SANS={SANS} label="3yr revenue/share growth" value={futureValue.growth.threeYRevenueGrowthPerShare != null ? `${(futureValue.growth.threeYRevenueGrowthPerShare * 100).toFixed(0)}%` : null} />
+                            <StatRow C={C} MONO={MONO} SANS={SANS} label="5yr net income/share growth" value={futureValue.growth.fiveYNetIncomeGrowthPerShare != null ? `${(futureValue.growth.fiveYNetIncomeGrowthPerShare * 100).toFixed(0)}%` : null} />
+                            <StatRow C={C} MONO={MONO} SANS={SANS} label="Share count trend" value={futureValue.sharesGrowth != null ? (futureValue.sharesGrowth < 0 ? "Shrinking (buybacks)" : "Growing (dilution)") : null} color={futureValue.sharesGrowth < 0 ? "#0d9465" : futureValue.sharesGrowth > 0 ? "#c8282a" : null} />
+                          </div>
+                        )}
+                        {analyst && (
+                          <div style={{ marginTop: 10 }}>
+                            <div style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 900, color: C.textDim, marginBottom: 4 }}>WHAT INVESTORS THINK (real analyst consensus)</div>
+                            <StatRow C={C} MONO={MONO} SANS={SANS} label="Consensus" value={analyst.recommendation || null} />
+                            <StatRow C={C} MONO={MONO} SANS={SANS} label="Analysts covering" value={analyst.numAnalysts || null} />
+                            {Array.isArray(analyst.trend) && analyst.trend[0] && (
+                              <StatRow C={C} MONO={MONO} SANS={SANS} label="Buy / Hold / Sell" value={`${analyst.trend[0].strongBuy + analyst.trend[0].buy} buy · ${analyst.trend[0].hold} hold · ${analyst.trend[0].sell + analyst.trend[0].strongSell} sell`} />
+                            )}
+                          </div>
+                        )}
                       </div>
                     ) : <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>DATA UNAVAILABLE — no real fundamentals coverage for this symbol.</div>
                   )}
@@ -387,7 +453,20 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
                     </div>
                   )}
 
-                  {deepTab === "catalyst" && <div style={{ margin: "-6px" }}><NewsPanel symbol={symbol} C={C} MONO={MONO} SANS={SANS} /></div>}
+                  {deepTab === "catalyst" && (
+                    <div>
+                      {social?.stocktwits && social.stocktwits.total > 0 && (
+                        <div style={{ marginBottom: 12 }}>
+                          <div style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 900, color: C.textDim, marginBottom: 4 }}>REAL SOCIAL SENTIMENT (StockTwits)</div>
+                          <StatRow C={C} MONO={MONO} SANS={SANS} label="Bullish" value={`${social.stocktwits.bullCount} posts`} color="#0d9465" />
+                          <StatRow C={C} MONO={MONO} SANS={SANS} label="Bearish" value={`${social.stocktwits.bearCount} posts`} color="#c8282a" />
+                          <StatRow C={C} MONO={MONO} SANS={SANS} label="Bull %" value={social.stocktwits.bullPct != null ? `${Math.round(social.stocktwits.bullPct)}%` : null} />
+                          {social.redditMentions > 0 && <StatRow C={C} MONO={MONO} SANS={SANS} label="r/wallstreetbets mentions (7d)" value={social.redditMentions} />}
+                        </div>
+                      )}
+                      <div style={{ margin: "-6px" }}><NewsPanel symbol={symbol} C={C} MONO={MONO} SANS={SANS} /></div>
+                    </div>
+                  )}
 
                   {deepTab === "risk" && (
                     <div>

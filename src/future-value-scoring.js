@@ -214,6 +214,19 @@ function computeFutureValueRead(f, price) {
     // surfaced directly rather than folded into a score, since it's a
     // simple real fact the user can read at a glance.
     sharesGrowth: Number.isFinite(Number(f.sharesGrowth)) ? Number(f.sharesGrowth) : null,
+    // Real raw growth numbers (2026-08-12, "what growth looks like") — the
+    // GROWTH_SCORE above already blends these into one number; this
+    // passthrough is for showing the actual real percentages, not just the
+    // score, since "what growth looks like" means the real trend, not a
+    // 0-100 abstraction of it.
+    growth: {
+      revenueGrowth: Number.isFinite(Number(f.revenueGrowth)) ? Number(f.revenueGrowth) : null,
+      earningsGrowth: Number.isFinite(Number(f.earningsGrowth)) ? Number(f.earningsGrowth) : null,
+      threeYRevenueGrowthPerShare: Number.isFinite(Number(f.threeYRevenueGrowthPerShare)) ? Number(f.threeYRevenueGrowthPerShare) : null,
+      fiveYRevenueGrowthPerShare: Number.isFinite(Number(f.fiveYRevenueGrowthPerShare)) ? Number(f.fiveYRevenueGrowthPerShare) : null,
+      threeYNetIncomeGrowthPerShare: Number.isFinite(Number(f.threeYNetIncomeGrowthPerShare)) ? Number(f.threeYNetIncomeGrowthPerShare) : null,
+      fiveYNetIncomeGrowthPerShare: Number.isFinite(Number(f.fiveYNetIncomeGrowthPerShare)) ? Number(f.fiveYNetIncomeGrowthPerShare) : null,
+    },
     isFutureAndUndervalued: isFutureAndUndervalued({ futureScore, valueScore: value, marginOfSafetyPct: fairValue?.marginOfSafetyPct }),
   };
 }
