@@ -3,6 +3,8 @@ import { computeGreenLight, computeRvol } from "./trading-utils.js";
 import { smartScanZoneOf, exportSmartScanZonePDF } from "./smartscan-shared.js";
 import { FIVEX_REF } from "./fivex-data.js";
 import { computeAPlusScore, computeRegime } from "./market-helpers.js";
+import { computeSniperDecision } from "./sniper-decision.js";
+import { computeHeatRisk, computeCortexVerdict } from "./cortex-engine.js";
 
 // ── Early Warning — "stocks before it pops / before it drops" (2026-07-29,
 // explicit user request) — the exact same real precursor patterns the
@@ -157,9 +159,21 @@ export default function SmartScanTab({
             return bFav - aFav; // favorites first, then original order
           });
 
-          // ── Summary counts ────────────────────────────────────────────────
-          const sigCounts = { "STRONG BUY": 0, "BUY": 0, "WATCH": 0, "NEUTRAL": 0, "AVOID": 0 };
-          scanResults.forEach(r => { if (sigCounts[r.signal] !== undefined) sigCounts[r.signal]++; });
+          // ── Summary counts — real Cortex Verdict tally, not the raw scanner
+          // signal (same fix/reasoning as the per-row badge below: this bar
+          // used to disagree with both the row badges AND Cortex Deep Scan).
+          // Honestly skipped until smartScanTrendMap has real data for a
+          // symbol — never counted from a guess.
+          const sigCounts = { "BUY ZONE": 0, "WATCH": 0, "WAIT": 0, "OVEREXTENDED": 0, "AVOID": 0 };
+          scanResults.forEach(r => {
+            const tr = smartScanTrendMap[r.ticker];
+            if (!tr) return;
+            const ap = computeAPlusScore(tr, smartScanRegime);
+            const sd = computeSniperDecision(tr);
+            const hd = computeHeatRisk(tr, sd);
+            const cv = computeCortexVerdict({ sniper: sd, heat: hd, aplusScore: ap.score });
+            if (sigCounts[cv.verdict] !== undefined) sigCounts[cv.verdict]++;
+          });
 
           // Early Warning counts — "stocks before it pops / before it drops"
           let earlyUpCount = 0, earlyDownCount = 0, earlyCoilCount = 0;
@@ -172,11 +186,11 @@ export default function SmartScanTab({
           });
 
           const STAT_CARDS = [
-            { label: "STRONG BUY", count: sigCounts["STRONG BUY"], color: "#00e676" },
-            { label: "BUY",        count: sigCounts["BUY"],        color: "#4caf50" },
-            { label: "WATCH",      count: sigCounts["WATCH"],      color: "#26a69a" },
-            { label: "NEUTRAL",    count: sigCounts["NEUTRAL"],    color: "#ffaa00" },
-            { label: "AVOID",      count: sigCounts["AVOID"],      color: "#ff4444" },
+            { label: "BUY ZONE",     count: sigCounts["BUY ZONE"],     color: "#0d9465" },
+            { label: "WATCH",        count: sigCounts["WATCH"],        color: "#5ab552" },
+            { label: "WAIT",         count: sigCounts["WAIT"],         color: "#d6a312" },
+            { label: "OVEREXTENDED", count: sigCounts["OVEREXTENDED"], color: "#e08a1e" },
+            { label: "AVOID",        count: sigCounts["AVOID"],        color: "#c8282a" },
           ];
 
           return (
@@ -589,21 +603,27 @@ export default function SmartScanTab({
                         const isExpanded = scanExpanded === row.ticker;
                         const ref = FIVEX_REF[row.ticker];
                         const livePrice = Number(row.quote?.price || 0);
-                        // ── Master verdict (composite) — computed once so the score bar AND the badge agree. ──
-                        const _px2 = Number(livePrice || row.quote?.price || 0);
-                        const _hi = Number(row.quote?.yearHigh || 0), _lo = Number(row.quote?.yearLow || 0);
-                        const _ma50 = Number(row.quote?.priceAvg50 || 0), _ma200 = Number(row.quote?.priceAvg200 || 0);
-                        const _ttChecks = [
-                          _ma200 > 0 && _px2 > _ma200, _ma50 > 0 && _ma200 > 0 && _ma50 > _ma200, _ma50 > 0 && _px2 > _ma50,
-                          _lo > 0 && _px2 >= _lo * 1.30, _hi > 0 && _px2 >= _hi * 0.75,
-                          (row.rsiVal || 50) >= 55, !!(row.ema9v && row.ema21v && row.ema9v > row.ema21v),
-                        ].filter(Boolean).length;
-                        const _ttScore = Math.round(_ttChecks / 7 * 100);
-                        const _macdScore = row.macdBull === true ? 72 : row.macdBull === false ? 30 : 50;
-                        const composite = (row.score || 50) * 0.35 + _ttScore * 0.35 + _macdScore * 0.15 + 50 * 0.15;
-                        const aplus = computeAPlusScore(smartScanTrendMap[row.ticker] || {}, smartScanRegime);
-                        const verdictColor = composite >= 72 ? "#00e676" : composite >= 62 ? C.green : composite >= 53 ? C.amber : composite >= 40 ? C.red : "#ff2244";
-                        const verdictLabel = composite >= 72 ? "STRONG BUY" : composite >= 62 ? "BUY" : composite >= 53 ? "WATCH" : composite >= 40 ? "AVOID" : "SELL/SHORT";
+                        // ── Real verdict — the exact same Cortex Verdict AM Cortex's Deep
+                        // Scan shows for this symbol, not a separate ad-hoc formula. Explicit
+                        // user report, 2026-08-13: "it shows buy but when you click on cortex
+                        // deep scan it shows watch or stay away" — root cause was this row's
+                        // badge being computed from its own disconnected weighted-average
+                        // (real score + a locally re-derived, cruder 7-check trend template +
+                        // MACD + a flat, non-discriminating constant), never checking heat
+                        // risk (extended/climactic-top danger) the way Cortex Verdict does.
+                        // smartScanTrendMap[row.ticker] is the same real trend-screen row
+                        // Cortex itself fetches (already loaded for every row in this table,
+                        // see the effect above) — reusing computeSniperDecision/computeHeatRisk/
+                        // computeCortexVerdict directly guarantees this badge and Cortex Deep
+                        // Scan can never disagree again, since it's the same function.
+                        const trendRow = smartScanTrendMap[row.ticker] || null;
+                        const aplus = computeAPlusScore(trendRow || {}, smartScanRegime);
+                        const sniperD = trendRow ? computeSniperDecision(trendRow) : null;
+                        const heatD = trendRow && sniperD ? computeHeatRisk(trendRow, sniperD) : null;
+                        const cortexV = trendRow && sniperD && heatD ? computeCortexVerdict({ sniper: sniperD, heat: heatD, aplusScore: aplus.score }) : null;
+                        const verdictColor = cortexV ? cortexV.color : C.textDim;
+                        const verdictLabel = cortexV ? cortexV.verdict : "LOADING…";
+                        const composite = aplus.score;
                         // The real field on the smart-scan quote shape is changesPercentage
                         // (see fetchYahooQuotes in src/providers/yahoo.js) — changePercent
                         // doesn't exist until axiom-live.jsx's live-price-tick merge writes
