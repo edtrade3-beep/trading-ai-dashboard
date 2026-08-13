@@ -2317,49 +2317,30 @@ export default function SmartScanTab({
                                           </div>
                                         )}
 
-                                        {/* ── Auto-Execute button — uses Master Verdict not raw scanner signal ── */}
+                                        {/* ── Auto-Execute button — now uses the exact same real
+                                            Cortex Verdict (cortexV, computed once per row above)
+                                            as the row badge and Cortex Deep Scan, not a third
+                                            separate "Master Verdict" formula. Explicit user
+                                            follow-up, 2026-08-13, after the row-badge fix: "Yes
+                                            still lots of confusing fix" — this was the highest-
+                                            stakes remaining instance since it places real orders.
+                                            Real behavior change from the old formula: only BUY is
+                                            automated now. The old "sell" path (master3 <= 38) was
+                                            placing a real SHORT SALE via Tradier off a fabricated
+                                            threshold with no real validated short signal behind
+                                            it anywhere in this app — Cortex Verdict is a long-only
+                                            framework (breakout/pivot/trend-template), so there's
+                                            no real signal to automate a short from. Removed rather
+                                            than kept on a second invented number. ── */}
                                         {(() => {
-                                          // Re-compute master verdict here to decide buy/sell/block
-                                          const px3    = Number(livePrice || row.quote?.price || 0);
-                                          const smc3   = deepData?.smc;
-                                          const sd3    = deepSocialData[row.ticker];
-                                          const ma503  = Number(row.quote?.priceAvg50  || 0);
-                                          const ma2003 = Number(row.quote?.priceAvg200 || 0);
-                                          const hi523  = Number(row.quote?.yearHigh || 0);
-                                          const lo523  = Number(row.quote?.yearLow  || 0);
-                                          const bosBull3  = smc3?.bos?.type === "BULL_BOS";
-                                          const bosBear3  = smc3?.bos?.type === "BEAR_BOS";
-                                          const sentBull3 = sd3?.stocktwits?.bullPct ?? 50;
-                                          const ttPx3 = [
-                                            ma2003 > 0 && px3 > ma2003, ma503 > 0 && ma2003 > 0 && ma503 > ma2003,
-                                            ma503 > 0 && px3 > ma503, lo523 > 0 && px3 >= lo523*1.30,
-                                            hi523 > 0 && px3 >= hi523*0.75, (row.rsiVal||50) >= 60,
-                                            row.ema9v && row.ema21v && row.ema9v > row.ema21v,
-                                          ].filter(Boolean).length;
-                                          const smcScore3 = bosBull3 ? 80 : bosBear3 ? 20 : 50;
-                                          const macdScore3 = row.macdBull === true ? 70 : row.macdBull === false ? 30 : 50;
-                                          const master3 = (row.score||50)*0.20 + smcScore3*0.25 + (ttPx3/7*100)*0.20 + sentBull3*0.15 + 50*0.10 + macdScore3*0.10;
+                                          const price  = Number(row.quote?.price || 0);
+                                          const status = autoExecStatus[row.ticker];
+                                          const signal = cortexV?.verdict === "BUY ZONE" ? "buy" : null;
 
-                                          // Only show button for clear high-conviction signals
-                                          const masterVerdict = master3 >= 68 ? "buy" : master3 <= 38 ? "sell" : null;
-                                          const signal  = masterVerdict; // Master Verdict drives the button
-                                          const price   = Number(row.quote?.price || 0);
-                                          const status  = autoExecStatus[row.ticker];
-
-                                          // Show warning if scanner signal contradicts master verdict
-                                          const scanSaysBuy  = row.signal === "STRONG BUY" || row.signal === "BUY";
-                                          const conflict = (scanSaysBuy && masterVerdict === "sell") || (!scanSaysBuy && masterVerdict === "buy");
-
-                                          if (conflict && !masterVerdict) return (
-                                            <div style={{ marginTop: 10, padding: "10px 12px", background: `${C.amber}0d`,
-                                              border: `1px solid ${C.amber}44`, borderRadius: 6 }}>
-                                              <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.amber }}>
-                                                ⚠ CONFLICTING SIGNALS — NO AUTO TRADE
-                                              </div>
-                                              <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 4 }}>
-                                                Scanner: {row.signal} vs Master Verdict: {master3.toFixed(0)}/100<br/>
-                                                Signals must agree before executing. Review manually.
-                                              </div>
+                                          if (!cortexV) return (
+                                            <div style={{ marginTop: 10, padding: "10px 12px", background: C.surface,
+                                              border: `1px solid ${C.border}`, borderRadius: 6 }}>
+                                              <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>🤖 AUTO TRADE — loading real Cortex Verdict…</div>
                                             </div>
                                           );
 
@@ -2367,31 +2348,26 @@ export default function SmartScanTab({
                                             <div style={{ marginTop: 10, padding: "10px 12px", background: C.surface,
                                               border: `1px solid ${C.border}`, borderRadius: 6 }}>
                                               <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>
-                                                🤖 AUTO TRADE — Master Score {master3.toFixed(0)}/100
+                                                🤖 AUTO TRADE — Cortex Verdict: {cortexV.verdict}
                                               </div>
                                               <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 4 }}>
-                                                No clear signal (need ≥68 to BUY or ≤38 to SELL). Wait for conviction.
+                                                {cortexV.verdict === "AVOID" || cortexV.verdict === "OVEREXTENDED"
+                                                  ? "No real long entry here — and there's no real validated short signal in this app to automate a sell from. Review manually."
+                                                  : "No clear real entry yet — need BUY ZONE for auto-execute."}
                                               </div>
                                             </div>
                                           );
-                                          if (!signal || !price) return null;
                                           return (
                                             <div style={{ marginTop: 10, padding: "10px 12px",
-                                              background: signal === "buy" ? `${C.green}0d` : `${C.red}0d`,
-                                              border: `1px solid ${signal === "buy" ? C.green : C.red}44`,
+                                              background: `${C.green}0d`,
+                                              border: `1px solid ${C.green}44`,
                                               borderRadius: 6 }}>
                                               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                                                 <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>🤖 AUTO TRADE</span>
-                                                <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700,
-                                                  color: signal === "buy" ? C.green : C.red }}>
-                                                  Master: {master3.toFixed(0)}/100
+                                                <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.green }}>
+                                                  Cortex: {cortexV.verdict}
                                                 </span>
                                               </div>
-                                              {conflict && (
-                                                <div style={{ fontFamily: SANS, fontSize: 12, color: C.amber, marginBottom: 6 }}>
-                                                  ⚠ Scanner says {row.signal} but Master Verdict overrides
-                                                </div>
-                                              )}
                                               {status === "placing" && (
                                                 <div style={{ fontFamily: MONO, fontSize: 12, color: C.amber }}>⌛ Placing order…</div>
                                               )}
