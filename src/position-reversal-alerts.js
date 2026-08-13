@@ -79,10 +79,17 @@ async function checkPositionReversals() {
   if (warnings.length && shouldSendAlert({ category: "position-reversal" })) {
     for (const w of warnings) {
       const url = `${BASE()}/?symbol=${encodeURIComponent(w.symbol)}&open=sniper`;
+      // Real dollar top/bottom levels, not just a percentage distance
+      // (explicit user follow-up, 2026-08-13: "I still need to know when
+      // the bottom and top prices" — this alert only ever said "Near 52w
+      // high (-1.3%)" with no real price to act on).
+      const rev = w.d.reversal;
       const text = [
         `⚠️ EARLY GET-OUT SIGNS — ${w.symbol} (you hold this)`,
-        w.d.reversal ? w.d.reversal.verdict : "Reversal risk detected",
-        w.d.reversal && w.d.reversal.sigs ? w.d.reversal.sigs.map((s) => s.txt).join(", ") : null,
+        rev ? rev.verdict : "Reversal risk detected",
+        rev && rev.sigs ? rev.sigs.map((s) => s.txt).join(", ") : null,
+        rev && rev.hi52 != null ? `Top price (52w high): $${rev.hi52.toFixed(2)}` : null,
+        rev && rev.lo52 != null ? `Bottom price (52w low): $${rev.lo52.toFixed(2)}` : null,
         "",
         "Real early warning, BEFORE a trend-invalidation break — not a stop-loss trigger. Worth checking whether to tighten your stop or take partial profits.",
         "", url,

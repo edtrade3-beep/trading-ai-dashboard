@@ -523,6 +523,14 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
                       <StatRow C={C} MONO={MONO} SANS={SANS} label="Extended above pivot" value={sniper.gates.extended ? "Yes — chasing risk" : "No"} color={sniper.gates.extended ? "#c8282a" : "#0d9465"} />
                       <StatRow C={C} MONO={MONO} SANS={SANS} label="Real early get-out signs" value={sniper.gates.reversalTopRisk ? `Yes — ${sniper.reversal?.verdict}` : "No"} color={sniper.gates.reversalTopRisk ? "#c8282a" : "#0d9465"} />
                       <StatRow C={C} MONO={MONO} SANS={SANS} label="Real early get-in signs" value={sniper.reversal?.isBottom ? `Yes — ${sniper.reversal.verdict}` : "No"} color={sniper.reversal?.isBottom ? "#0d9465" : null} />
+                      {/* Real top/bottom PRICES, not just a percentage distance —
+                          explicit user follow-up, 2026-08-13: "I still need to
+                          know when the bottom and top prices" (after a Telegram
+                          alert only said "Near 52w high (-1.3%)" with no dollar
+                          figure). computeReversalDetector already computes these
+                          real 52-week levels; they were just never displayed. */}
+                      <StatRow C={C} MONO={MONO} SANS={SANS} label="Top price (52w high)" value={sniper.reversal?.hi52 != null ? `$${sniper.reversal.hi52.toFixed(2)}` : null} color="#c8282a" />
+                      <StatRow C={C} MONO={MONO} SANS={SANS} label="Bottom price (52w low)" value={sniper.reversal?.lo52 != null ? `$${sniper.reversal.lo52.toFixed(2)}` : null} color="#0d9465" />
                     </div>
                   )}
                 </div>
