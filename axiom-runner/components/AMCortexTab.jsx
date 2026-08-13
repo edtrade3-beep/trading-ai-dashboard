@@ -289,6 +289,9 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
                   <StatRow C={C} MONO={MONO} SANS={SANS} label="Relative Strength (vs. market)" value={Number.isFinite(row.rsRating) ? `RS ${row.rsRating}` : null} color={row.rsRating >= 80 ? "#0d9465" : row.rsRating >= 60 ? "#d6a312" : "#c8282a"} />
                   <StatRow C={C} MONO={MONO} SANS={SANS} label="Volume" value={sniper.gates.volumeConfirmed ? "Confirming" : "Not confirming"} color={sniper.gates.volumeConfirmed ? "#0d9465" : C.textDim} />
                   <StatRow C={C} MONO={MONO} SANS={SANS} label="Institutional" value={`${grade.score}/100`} color={grade.score >= 65 ? "#0d9465" : grade.score >= 45 ? "#d6a312" : "#c8282a"} />
+                  <StatRow C={C} MONO={MONO} SANS={SANS} label="Phase (Accum / Dist)"
+                    value={institutionScore ? institutionScore.label : null}
+                    color={!institutionScore ? C.textDim : institutionScore.score >= 60 ? "#0d9465" : institutionScore.score <= 40 ? "#c8282a" : "#d6a312"} />
                   <StatRow C={C} MONO={MONO} SANS={SANS} label="Setup Type" value={entryType?.type || "No Entry Type Yet"} color={entryType ? entryType.color : C.textDim} />
                 </div>
               </div>
