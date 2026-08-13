@@ -74,6 +74,12 @@ export default function SmartScanTab({
           // this session), which permanently capped the chip's "passed" count
           // and hid the true GREEN LIGHT 5/5 signal.
           const [smartScanTrendMap, setSmartScanTrendMap] = useState({});
+          // "How to find great deals" guide — explicit user request,
+          // 2026-08-13, after asking how to spot good trades quickly.
+          // Collapsible rather than a one-time dismiss (no localStorage
+          // needed) — cheap to re-open as a refresher, doesn't nag once
+          // closed.
+          const [showGuide, setShowGuide] = useState(true);
           // A+ Score — the platform's separate real 9-dimension composite
           // (market-helpers.js), deliberately NOT merged into this tab's own
           // SMC/momentum score above — same "keep parallel scoring systems
@@ -195,6 +201,34 @@ export default function SmartScanTab({
 
           return (
             <div style={{ padding: "0 2px" }}>
+
+              {/* ── How to find great deals — real checklist, same 4 real
+                  fields already on every row/badge here, nothing new
+                  computed. Explicit user request, 2026-08-13. ── */}
+              <div style={{ marginBottom: 12, background: `${C.accent}08`, border: `1px solid ${C.accent}33`, borderRadius: 10, overflow: "hidden" }}>
+                <button onClick={() => setShowGuide(s => !s)}
+                  style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+                    padding: "9px 14px", background: "transparent", border: "none", cursor: "pointer" }}>
+                  <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent }}>💡 HOW TO FIND GREAT DEALS HERE</span>
+                  <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>{showGuide ? "hide ▲" : "show ▼"}</span>
+                </button>
+                {showGuide && (
+                  <div style={{ padding: "0 14px 12px", fontFamily: SANS, fontSize: 12.5, color: C.textSec, lineHeight: 1.7 }}>
+                    <div style={{ marginBottom: 6 }}>
+                      <b style={{ color: C.text }}>1. Filter the SIGNAL row to <span style={{ color: "#0d9465" }}>BUY ZONE</span> only.</b> That's the one badge that means "trend, volume, and timing already confirmed" — skip WATCH (good company, wrong timing) and WAIT/OVEREXTENDED/AVOID entirely.
+                    </div>
+                    <div style={{ marginBottom: 6 }}>
+                      <b style={{ color: C.text }}>2. Sort by A+ (Trade Setup Score), highest first.</b> 70+ is a real, well-formed setup — the badge next to each ticker.
+                    </div>
+                    <div style={{ marginBottom: 6 }}>
+                      <b style={{ color: C.text }}>3. Click into a row → check Reward/Risk.</b> Want 2:1 or better — it's shown in the expanded deep dive.
+                    </div>
+                    <div>
+                      <b style={{ color: C.text }}>4. Confirm on Cortex before you buy.</b> Open the ticker in AM Cortex — same BUY ZONE verdict, and check Phase (Accum/Dist) isn't Distribution/Aggressive Selling. If all of this lines up, that's a real, fast yes.
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {/* ── PDF zone export ── */}
               <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
@@ -2440,14 +2474,17 @@ export default function SmartScanTab({
                   background: C.card, border: `1px solid ${C.border}`, borderRadius: 8,
                   display: "flex", gap: 20, flexWrap: "wrap", alignItems: "center" }}>
                   <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>
-                    {[["STRONG BUY","#00e676"],["BUY","#4caf50"],["WATCH","#26a69a"],["NEUTRAL","#ffaa00"],["AVOID","#ff4444"]].map(([l,c]) => (
+                    {/* Real Cortex Verdict vocabulary (2026-08-13 fix) — kept in
+                        sync with the actual row badges above, not the old
+                        invented labels this legend used to describe. */}
+                    {[["BUY ZONE","#0d9465"],["WATCH","#5ab552"],["WAIT","#d6a312"],["OVEREXTENDED","#e08a1e"],["AVOID","#c8282a"]].map(([l,c]) => (
                       <span key={l} style={{ marginRight: 14 }}>
                         <span style={{ color: c }}>■</span> {l}
                       </span>
                     ))}
                   </div>
                   <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginLeft: "auto" }}>
-                    Click any row to expand deep dive ↓ · Score = RSI + MACD + EMA + Zone + Volume + Sentiment
+                    Click any row to expand deep dive ↓ · Badge = real Cortex Verdict · A+ = Trade Setup Score
                   </div>
                 </div>
               )}
