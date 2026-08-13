@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { RH_UNIVERSE, rhScreenProgressive } from "./rhpro-shared.jsx";
-import { computeRegime, computeAPlusScore, computeInstitutionalGrade, computeFundamentalsRead, classifyEntryType, SECTOR_ETFS, STOCK_TO_SECTOR } from "./market-helpers.js";
+import { computeRegime, computeAPlusScore, computeInstitutionalGrade, computeInstitutionScore, computeFundamentalsRead, classifyEntryType, SECTOR_ETFS, STOCK_TO_SECTOR } from "./market-helpers.js";
 import { computeSniperDecision } from "./sniper-decision.js";
 import { FundamentalsPanel, OptionsFlowPanel, NewsPanel, InvestorsPanel } from "./terminal-panels.jsx";
 import {
@@ -98,7 +98,7 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
   async function analyzeSymbol(symbol, openDeep) {
     setLoading(true); setError(null); setShowDeep(!!openDeep); setShowWhy(false);
     try {
-      const [screenJ, fvJ, fundJ, analystJ, socialJ] = await Promise.all([
+      const [screenJ, fvJ, fundJ, analystJ, socialJ, darkPoolJ, optionsFlowJ, insiderJ, shortInterestJ] = await Promise.all([
         fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(symbol)}`).then((r) => r.json()),
         fetch(`/api/scanner/future-value?symbol=${encodeURIComponent(symbol)}`).then((r) => r.json()).catch(() => null),
         // Raw fundamentals (real bull/bear reasons — computeFundamentalsRead
@@ -109,6 +109,13 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
         fetch(`/api/market/analyst?tickers=${encodeURIComponent(symbol)}`).then((r) => r.json()).catch(() => null),
         // Real StockTwits bull/bear social sentiment.
         fetch(`/api/market/social?ticker=${encodeURIComponent(symbol)}`).then((r) => r.json()).catch(() => null),
+        // Real accumulation/distribution phase inputs (computeInstitutionScore
+        // below) — same real dark pool/options-flow/insider/short-interest
+        // routes MarketTerminalTab.jsx already uses for this exact score.
+        fetch(`/api/market/darkpool?symbol=${encodeURIComponent(symbol)}`).then((r) => r.json()).catch(() => null),
+        fetch(`/api/market/options-flow?symbols=${encodeURIComponent(symbol)}&limit=1`).then((r) => r.json()).catch(() => null),
+        fetch(`/api/market/insider?ticker=${encodeURIComponent(symbol)}`).then((r) => r.json()).catch(() => null),
+        fetch(`/api/market/short-interest?tickers=${encodeURIComponent(symbol)}`).then((r) => r.json()).catch(() => null),
       ]);
       const row = (screenJ.results || [])[0];
       if (!row || row.error) { setError(`No real market data available for ${symbol}.`); setResult(null); return; }
@@ -127,9 +134,15 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
       const fundamentalsRead = fundJ && !fundJ.error ? computeFundamentalsRead(fundJ) : { bull: [], bear: [] };
       const analyst = analystJ?.ok ? (analystJ.results || [])[0] : null;
       const social = socialJ?.ok ? socialJ : null;
+      const darkPool = darkPoolJ?.ok ? darkPoolJ : null;
+      const optionsFlow = optionsFlowJ && !optionsFlowJ.error ? optionsFlowJ.summary || null : null;
+      const insiderData = insiderJ?.ok ? insiderJ : null;
+      const shortInterest = shortInterestJ?.ok ? (shortInterestJ.results || [])[0] || null : null;
+      const institutionScore = (darkPool || optionsFlow || insiderData || shortInterest)
+        ? computeInstitutionScore({ darkPool, optionsFlow, insiderData, shortInterest }) : null;
       setResult({
         type: "symbol", symbol, row, sniper, aplus, grade, heat, verdict, priceToPay, evidence, entryType, futureValue,
-        technicalScore, trimSignal, premiumRead, fundamentalsRead, analyst, social,
+        technicalScore, trimSignal, premiumRead, fundamentalsRead, analyst, social, institutionScore,
       });
     } catch (e) {
       setError(e.message);
@@ -231,7 +244,7 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
 
       {/* ── SYMBOL RESULT ── */}
       {result?.type === "symbol" && (() => {
-        const { symbol, row, sniper, aplus, grade, heat, verdict, priceToPay, evidence, entryType, futureValue, technicalScore, trimSignal, premiumRead, fundamentalsRead, analyst, social } = result;
+        const { symbol, row, sniper, aplus, grade, heat, verdict, priceToPay, evidence, entryType, futureValue, technicalScore, trimSignal, premiumRead, fundamentalsRead, analyst, social, institutionScore } = result;
         const chgPct = Number(row.dayChangePct);
         const buyPrice = summarizeBuyPrice(priceToPay, verdict, sniper, aplus.score);
         return (
@@ -276,7 +289,7 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
                   <StatRow C={C} MONO={MONO} SANS={SANS} label="Relative Strength (vs. market)" value={Number.isFinite(row.rsRating) ? `RS ${row.rsRating}` : null} color={row.rsRating >= 80 ? "#0d9465" : row.rsRating >= 60 ? "#d6a312" : "#c8282a"} />
                   <StatRow C={C} MONO={MONO} SANS={SANS} label="Volume" value={sniper.gates.volumeConfirmed ? "Confirming" : "Not confirming"} color={sniper.gates.volumeConfirmed ? "#0d9465" : C.textDim} />
                   <StatRow C={C} MONO={MONO} SANS={SANS} label="Institutional" value={`${grade.score}/100`} color={grade.score >= 65 ? "#0d9465" : grade.score >= 45 ? "#d6a312" : "#c8282a"} />
-                  <StatRow C={C} MONO={MONO} SANS={SANS} label="Setup Type" value={entryType?.type || null} />
+                  <StatRow C={C} MONO={MONO} SANS={SANS} label="Setup Type" value={entryType?.type || "No Entry Type Yet"} color={entryType ? entryType.color : C.textDim} />
                 </div>
               </div>
 
@@ -463,6 +476,22 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
                     <div style={{ margin: "-6px" }}>
                       <div style={{ padding: "0 6px", marginBottom: 8 }}>
                         <StatRow C={C} MONO={MONO} SANS={SANS} label="Institutional Grade" value={`${grade.score}/100`} color={grade.score >= 65 ? "#0d9465" : "#d6a312"} />
+                      </div>
+                      <div style={{ padding: "0 6px", marginBottom: 12 }}>
+                        <div style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 900, color: C.textDim, marginBottom: 4 }}>REAL ACCUMULATION / DISTRIBUTION PHASE</div>
+                        {institutionScore ? (
+                          <>
+                            <StatRow C={C} MONO={MONO} SANS={SANS} label="Phase"
+                              value={`${institutionScore.label} (${institutionScore.score}/100)`}
+                              color={institutionScore.score >= 60 ? "#0d9465" : institutionScore.score <= 40 ? "#c8282a" : "#d6a312"} />
+                            <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, marginTop: 6, lineHeight: 1.6 }}>
+                              {institutionScore.reasons.map((r, i) => <div key={i}>• {r}</div>)}
+                            </div>
+                            <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, marginTop: 6, fontStyle: "italic" }}>{institutionScore.disclosure}</div>
+                          </>
+                        ) : (
+                          <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>DATA UNAVAILABLE — no real dark pool, options flow, insider, or short-interest data for this symbol right now.</div>
+                        )}
                       </div>
                       <InvestorsPanel symbol={symbol} C={C} MONO={MONO} SANS={SANS} />
                       <OptionsFlowPanel symbol={symbol} C={C} MONO={MONO} SANS={SANS} />

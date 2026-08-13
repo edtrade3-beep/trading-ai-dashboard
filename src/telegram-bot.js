@@ -296,8 +296,14 @@ async function cmdDeep(args) {
   await reply(`Deep diving ${symbol}…`);
 
   try {
-    // ── Parallel fetch: technical analysis + Yahoo quote summary
-    const [tech, quotes, summaryRes] = await Promise.allSettled([
+    const { computeInstitutionScore } = require("./institution-score");
+    const base = process.env.RENDER_EXTERNAL_URL || `http://localhost:${process.env.PORT || 3000}`;
+
+    // ── Parallel fetch: technical analysis + Yahoo quote summary + real
+    // accumulation/distribution inputs (dark pool, options flow, insider
+    // Form 4s + 13F, short interest — same real routes AM Cortex's Deep
+    // Scan uses in the browser, self-called here so /deep works without one).
+    const [tech, quotes, summaryRes, darkPoolRes, optionsFlowRes, insiderRes, shortInterestRes] = await Promise.allSettled([
       withTimeout(analyzeSymbol(symbol), 20_000, null),
       withTimeout(fetchYahooQuoteBatch([symbol]), 10_000, []),
       withTimeout(
@@ -306,11 +312,22 @@ async function cmdDeep(args) {
         }).then(r => r.json()).catch(() => null),
         15_000, null
       ),
+      withTimeout(fetch(`${base}/api/market/darkpool?symbol=${encodeURIComponent(symbol)}`).then(r => r.json()).catch(() => null), 10_000, null),
+      withTimeout(fetch(`${base}/api/market/options-flow?symbols=${encodeURIComponent(symbol)}&limit=1`).then(r => r.json()).catch(() => null), 10_000, null),
+      withTimeout(fetch(`${base}/api/market/insider?ticker=${encodeURIComponent(symbol)}`).then(r => r.json()).catch(() => null), 10_000, null),
+      withTimeout(fetch(`${base}/api/market/short-interest?tickers=${encodeURIComponent(symbol)}`).then(r => r.json()).catch(() => null), 10_000, null),
     ]);
 
     const t   = tech.status   === "fulfilled" ? tech.value   : null;
     const q   = (quotes.status === "fulfilled" ? (quotes.value || []) : [])[0] || null;
     const raw = summaryRes.status === "fulfilled" ? summaryRes.value?.quoteSummary?.result?.[0] : null;
+
+    const darkPool = darkPoolRes.status === "fulfilled" && darkPoolRes.value?.ok ? darkPoolRes.value : null;
+    const optionsFlow = optionsFlowRes.status === "fulfilled" && optionsFlowRes.value && !optionsFlowRes.value.error ? optionsFlowRes.value.summary || null : null;
+    const insiderData = insiderRes.status === "fulfilled" && insiderRes.value?.ok ? insiderRes.value : null;
+    const shortInterest = shortInterestRes.status === "fulfilled" && shortInterestRes.value?.ok ? (shortInterestRes.value.results || [])[0] || null : null;
+    const institutionScore = (darkPool || optionsFlow || insiderData || shortInterest)
+      ? computeInstitutionScore({ darkPool, optionsFlow, insiderData, shortInterest }) : null;
 
     // ── Fundamentals from Yahoo quoteSummary ─────────────────────────────────
     const priceData = raw?.price || {};
@@ -434,6 +451,16 @@ async function cmdDeep(args) {
       `⚠️ Use stops. Manage risk.`,
     ] : [];
 
+    // ── Real accumulation/distribution phase — combines real dark pool
+    // block prints, real options flow, real Form 4 insider buys/sells,
+    // real 13F-derived institutional position change, and real short
+    // interest change into one label (same institution-score.js logic
+    // AM Cortex's Deep Scan shows in the browser).
+    const institutionLines = institutionScore ? [
+      `${institutionScore.label.toUpperCase()} (${institutionScore.score}/100)`,
+      ...institutionScore.reasons.map(r => `• ${r}`),
+    ].join("\n") : "Institutional flow data unavailable for this symbol right now.";
+
     const msg = [
       `📊 ${name} (${symbol})`,
       `━━━━━━━━━━━━━━━━━━━━`,
@@ -443,6 +470,9 @@ async function cmdDeep(args) {
       ``,
       `📋 FUNDAMENTAL ANALYSIS`,
       fundLines,
+      ``,
+      `🏦 ACCUMULATION / DISTRIBUTION`,
+      institutionLines,
       ``,
       `🧠 VERDICT`,
       projLines.join(" ") || "Insufficient data for projection.",
