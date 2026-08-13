@@ -12,6 +12,23 @@ export function rhLoadJournal() { try { return JSON.parse(localStorage.getItem("
 export function rhSaveJournal(a) { try { localStorage.setItem("rhpro_journal", JSON.stringify(a)); } catch {} }
 export function rhPnl(t) { const dir = t.side === "short" ? -1 : 1; return +(((Number(t.exit) - Number(t.entry)) * dir) * Number(t.shares || 0)).toFixed(2); }
 
+// Mirrors a real closed trade logged here into the server-side journal
+// store (src/routes/journal.js / data/journal.json) — this localStorage
+// journal stays the source of truth for this UI; the server copy only
+// feeds the Trade Journal Analytics tab's real win-rate/alpha tracking,
+// which otherwise never sees trades logged via this form. Fire-and-
+// forget, real data only — never fabricates an open date this journal
+// doesn't actually have.
+function syncClosedTradeToServer({ ticker, style, side, entry, closePrice, openedAt, closedAt, pnl, notes }) {
+  try {
+    fetch("/api/journal", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ticker, style, side, entry, status: "closed", closePrice, openedAt, closedAt, pnl, notes }),
+    }).catch(() => {});
+  } catch {}
+}
+
 // Real options P/L convention (premium × 100 × contracts) — distinct from
 // rhPnl's share-based equity formula, since this entry shape's
 // entry/exit fields hold real per-contract premium, not a share price.
@@ -50,6 +67,15 @@ export function rhAutoLogClosedPosition(position) {
   if (trades.some(t => t.id === entry.id)) return trades;
   const next = [entry, ...trades];
   rhSaveJournal(next);
+  // Real entryDate/exitDate exist for every paper position (src/paper-
+  // positions-store.js) — unlike the manual equity form below, this path
+  // has a real distinct open date, so it's real-alpha-eligible.
+  syncClosedTradeToServer({
+    ticker: entry.symbol, style: "Options", side: "BUY",
+    entry: Number(entry.entry), closePrice: Number(entry.exit),
+    openedAt: position.entryDate || undefined, closedAt: position.exitDate || new Date().toISOString(),
+    pnl: Number(entry.pnl), notes: entry.notes,
+  });
   return next;
 }
 
@@ -62,6 +88,15 @@ export default function RhProJournal({ C, MONO, SANS }) {
     if (!f.symbol || !f.entry || !f.exit || !f.shares) return;
     const t = { id: Date.now(), ...f, symbol: f.symbol.toUpperCase(), pnl: rhPnl(f) };
     const n = [t, ...trades]; setTrades(n); rhSaveJournal(n); setF(blank);
+    // Only a single real DATE field exists here (entered once the trade's
+    // already closed) — treated as the real closedAt. No real distinct
+    // open date exists, so openedAt is left unset; alpha is honestly
+    // skipped for these, win-rate/R:R stats still populate.
+    syncClosedTradeToServer({
+      ticker: t.symbol, style: "Manual", side: t.side === "short" ? "SELL" : "BUY",
+      entry: Number(t.entry), closePrice: Number(t.exit), closedAt: new Date(t.date).toISOString(),
+      pnl: Number(t.pnl), notes: t.notes,
+    });
   };
   const del = (id) => { const n = trades.filter(t => t.id !== id); setTrades(n); rhSaveJournal(n); };
 

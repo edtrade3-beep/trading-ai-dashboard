@@ -44,13 +44,40 @@ async function handleJournal(req, res, requestUrl) {
     }
     if (!body.ticker) return writeJson(res, 400, { error: "ticker is required" });
 
+    // Sync path for a trade already closed elsewhere with real known
+    // history (the sidebar Trade Journal, localStorage rhpro_journal) —
+    // lets it feed this store's real win-rate/alpha tracking without
+    // re-entering it. Only honored when the caller supplies a real
+    // closedAt + closePrice; openedAt is used only if the caller has a
+    // real one (options auto-log does), never fabricated as "now" for a
+    // historical trade — computeTradeAlpha already treats a missing
+    // openedAt as "honestly skip alpha for this trade."
+    let status = "open";
+    let openedAt = new Date().toISOString();
+    let closedAt = null;
+    let closePrice = null;
+    let pnl = null;
+    if (body.status === "closed" && body.closedAt) {
+      const closedDate = new Date(body.closedAt);
+      const closePriceNum = Number(body.closePrice);
+      if (!Number.isNaN(closedDate.getTime()) && Number.isFinite(closePriceNum)) {
+        status = "closed";
+        closedAt = closedDate.toISOString();
+        closePrice = closePriceNum;
+        pnl = Number.isFinite(Number(body.pnl)) ? Number(body.pnl) : null;
+        const openedDate = body.openedAt ? new Date(body.openedAt) : null;
+        openedAt = openedDate && !Number.isNaN(openedDate.getTime()) ? openedDate.toISOString() : null;
+      }
+    }
+
     const entry = {
       id: crypto.randomUUID(),
       ...sanitizeEntry(body),
-      openedAt: new Date().toISOString(),
-      closedAt: null,
-      closePrice: null,
-      pnl: null,
+      status,
+      openedAt,
+      closedAt,
+      closePrice,
+      pnl,
     };
 
     const current = loadJournal();
