@@ -5,7 +5,7 @@ import { computeSniperDecision } from "./sniper-decision.js";
 import { FundamentalsPanel, OptionsFlowPanel, NewsPanel, InvestorsPanel } from "./terminal-panels.jsx";
 import {
   parseCortexQuery, computeHeatRisk, computeCortexVerdict, computePriceToPay, summarizeBuyPrice, whyEvidence,
-  computeTechnicalScore, computeTrimSignal, computePremiumRead, verdictWinProbFor,
+  computeTechnicalScore, computeTrimSignal, computePremiumRead, verdictWinProbFor, computeBottomSignal,
   rankAplusSetups, rankBreakouts, rankStrongNotExtended, rankBestRewardRisk, rankInstitutionalAccumulation,
   rankImprovingFundamentals, SCAN_LABELS,
 } from "./cortex-engine.js";
@@ -247,6 +247,7 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
         const { symbol, row, sniper, aplus, grade, heat, verdict, priceToPay, evidence, entryType, futureValue, technicalScore, trimSignal, premiumRead, fundamentalsRead, analyst, social, institutionScore } = result;
         const chgPct = Number(row.dayChangePct);
         const buyPrice = summarizeBuyPrice(priceToPay, verdict, sniper, aplus.score);
+        const bottomSignal = computeBottomSignal(sniper, institutionScore, social);
         return (
           <div style={{ border: `2px solid ${C.border}`, borderRadius: 14, overflow: "hidden" }}>
             <div style={{ background: C.card, padding: "14px 18px", borderBottom: `1px solid ${C.border}` }}>
@@ -522,7 +523,6 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
                       <StatRow C={C} MONO={MONO} SANS={SANS} label="Risk to stop" value={row.riskPct != null ? `${row.riskPct}%` : null} />
                       <StatRow C={C} MONO={MONO} SANS={SANS} label="Extended above pivot" value={sniper.gates.extended ? "Yes — chasing risk" : "No"} color={sniper.gates.extended ? "#c8282a" : "#0d9465"} />
                       <StatRow C={C} MONO={MONO} SANS={SANS} label="Real early get-out signs" value={sniper.gates.reversalTopRisk ? `Yes — ${sniper.reversal?.verdict}` : "No"} color={sniper.gates.reversalTopRisk ? "#c8282a" : "#0d9465"} />
-                      <StatRow C={C} MONO={MONO} SANS={SANS} label="Real early get-in signs" value={sniper.reversal?.isBottom ? `Yes — ${sniper.reversal.verdict}` : "No"} color={sniper.reversal?.isBottom ? "#0d9465" : null} />
                       {/* Real top/bottom PRICES, not just a percentage distance —
                           explicit user follow-up, 2026-08-13: "I still need to
                           know when the bottom and top prices" (after a Telegram
@@ -531,6 +531,25 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
                           real 52-week levels; they were just never displayed. */}
                       <StatRow C={C} MONO={MONO} SANS={SANS} label="Top price (52w high)" value={sniper.reversal?.hi52 != null ? `$${sniper.reversal.hi52.toFixed(2)}` : null} color="#c8282a" />
                       <StatRow C={C} MONO={MONO} SANS={SANS} label="Bottom price (52w low)" value={sniper.reversal?.lo52 != null ? `$${sniper.reversal.lo52.toFixed(2)}` : null} color="#0d9465" />
+
+                      {/* Real Bottom Signal — multi-factor, explicit user
+                          follow-up, 2026-08-13: "I need bottom not based on
+                          52 weeks low only based on all factors even when
+                          you start see movement on price narrative
+                          sentiment changed buyers stepped in options
+                          changes." Combines 3 independently-real dimensions
+                          (technical structure, institutional flow, current
+                          sentiment) — see computeBottomSignal for exactly
+                          what's real vs. honestly unavailable per dimension. */}
+                      <div style={{ marginTop: 14, padding: "12px 14px", borderRadius: 10, background: `${bottomSignal.color}12`, border: `1px solid ${bottomSignal.color}55` }}>
+                        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: bottomSignal.color, marginBottom: 8 }}>🔻 REAL BOTTOM SIGNAL — {bottomSignal.label} ({bottomSignal.agreeCount}/3)</div>
+                        {bottomSignal.dims.map((d, i) => (
+                          <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 6, fontFamily: SANS, fontSize: 12 }}>
+                            <span style={{ color: d.present ? "#0d9465" : C.textDim, fontWeight: 900, flexShrink: 0 }}>{d.present ? "✓" : "—"}</span>
+                            <span style={{ color: C.textSec }}><b style={{ color: C.text }}>{d.name}:</b> {d.detail}</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>

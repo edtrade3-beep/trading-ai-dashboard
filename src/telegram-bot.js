@@ -507,13 +507,13 @@ async function cmdCortex(args) {
     const { computeSniperDecision } = require("./sniper-decision");
     const {
       computeHeatRisk, computeCortexVerdict, computePriceToPay, summarizeBuyPrice,
-      whyEvidence, computeTechnicalScore, computeTrimSignal, computePremiumRead, verdictWinProbFor,
+      whyEvidence, computeTechnicalScore, computeTrimSignal, computePremiumRead, verdictWinProbFor, computeBottomSignal,
     } = require("./cortex-decision");
     const { computeRegime, computeAPlusScore, computeInstitutionalGrade, computeFundamentalsRead, classifyEntryType } = require("./market-helpers-decision");
     const { computeInstitutionScore } = require("./institution-score");
     const base = process.env.RENDER_EXTERNAL_URL || `http://localhost:${process.env.PORT || 3000}`;
 
-    const [screenRes, fvRes, fundRes, macroRes, darkPoolRes, optionsFlowRes, insiderRes, shortInterestRes, trackRes] = await Promise.allSettled([
+    const [screenRes, fvRes, fundRes, macroRes, darkPoolRes, optionsFlowRes, insiderRes, shortInterestRes, trackRes, socialRes] = await Promise.allSettled([
       withTimeout(fetch(`${base}/api/market/trend-screen?symbols=${encodeURIComponent(symbol)}`).then(r => r.json()), 15_000, null),
       withTimeout(fetch(`${base}/api/scanner/future-value?symbol=${encodeURIComponent(symbol)}`).then(r => r.json()).catch(() => null), 15_000, null),
       withTimeout(fetch(`${base}/api/market/fundamentals?symbol=${encodeURIComponent(symbol)}`).then(r => r.json()).catch(() => null), 10_000, null),
@@ -523,6 +523,7 @@ async function cmdCortex(args) {
       withTimeout(fetch(`${base}/api/market/insider?ticker=${encodeURIComponent(symbol)}`).then(r => r.json()).catch(() => null), 10_000, null),
       withTimeout(fetch(`${base}/api/market/short-interest?tickers=${encodeURIComponent(symbol)}`).then(r => r.json()).catch(() => null), 10_000, null),
       withTimeout(fetch(`${base}/api/market/aplus-track`).then(r => r.json()).catch(() => null), 10_000, null),
+      withTimeout(fetch(`${base}/api/market/social?ticker=${encodeURIComponent(symbol)}`).then(r => r.json()).catch(() => null), 10_000, null),
     ]);
 
     const screenJ = screenRes.status === "fulfilled" ? screenRes.value : null;
@@ -538,6 +539,7 @@ async function cmdCortex(args) {
     const insiderData = insiderRes.status === "fulfilled" && insiderRes.value?.ok ? insiderRes.value : null;
     const shortInterest = shortInterestRes.status === "fulfilled" && shortInterestRes.value?.ok ? (shortInterestRes.value.results || [])[0] || null : null;
     const track = trackRes.status === "fulfilled" && trackRes.value?.ok ? trackRes.value : null;
+    const social = socialRes.status === "fulfilled" && socialRes.value?.ok ? socialRes.value : null;
 
     const regime = computeRegime(macroData);
     const sniper = computeSniperDecision(row);
@@ -560,6 +562,7 @@ async function cmdCortex(args) {
     const institutionScore = (darkPool || optionsFlow || insiderData || shortInterest)
       ? computeInstitutionScore({ darkPool, optionsFlow, insiderData, shortInterest }) : null;
     const winProb = verdictWinProbFor(track, verdict.verdict);
+    const bottomSignal = computeBottomSignal(sniper, institutionScore, social);
 
     const price = Number.isFinite(row.price) ? row.price : null;
     const chgPct = Number(row.dayChangePct);
@@ -590,10 +593,12 @@ async function cmdCortex(args) {
       `RISK`,
       `Level: ${row.riskState || "?"}   Extended: ${sniper.gates.extended ? "Yes — chasing risk" : "No"}`,
       sniper.gates.reversalTopRisk ? `Early get-out sign: Yes — ${sniper.reversal?.verdict}` : null,
-      sniper.reversal?.isBottom ? `Early get-in sign: Yes — ${sniper.reversal.verdict}` : null,
       sniper.reversal?.hi52 != null ? `Top price (52w high): $${sniper.reversal.hi52.toFixed(2)}` : null,
       sniper.reversal?.lo52 != null ? `Bottom price (52w low): $${sniper.reversal.lo52.toFixed(2)}` : null,
       premiumRead ? `Can I pay premium: ${premiumRead.verdict}` : null,
+      ``,
+      `🔻 REAL BOTTOM SIGNAL — ${bottomSignal.label} (${bottomSignal.agreeCount}/3)`,
+      ...bottomSignal.dims.map(d => `${d.present ? "✓" : "—"} ${d.name}: ${d.detail}`),
       ``,
       `VERDICT`,
       `${verdict.icon} ${verdict.verdict} — ${verdict.reason}`,

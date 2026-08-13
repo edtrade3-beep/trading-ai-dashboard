@@ -298,6 +298,63 @@ export function computePremiumRead(futureValue) {
   return { verdict: "UNKNOWN", reason: "No real analyst price-target coverage to judge premium vs. fair value." };
 }
 
+// ---- Real Bottom Signal — a multi-factor "is this actually bottoming"
+// read, explicit user follow-up 2026-08-13: "I need bottom not based on
+// 52 weeks low only based on all factors even when you start see
+// movement on price narrative sentiment changed buyers stepped in
+// options changes." The old single "early get-in sign" (sniper.reversal,
+// still shown separately) was ONE real technical dimension — price
+// structure vs. the 52-week low, RSI, volume climax. This combines it
+// with 2 more real, independent dimensions the user explicitly named and
+// this app already has real data for:
+//   1. TECHNICAL — sniper.reversal (unchanged, still the same real
+//      price-structure/RSI/volume-climax read)
+//   2. INSTITUTIONAL FLOW — "buyers stepped in" — real Institution Score
+//      label (dark pool + options flow + insider + 13F + short interest)
+//      reading Accumulation or Aggressive Buying
+//   3. SENTIMENT — "narrative/sentiment changed" — real current
+//      StockTwits crowd sentiment already bullish. Honest scope limit:
+//      this app has no stored historical sentiment snapshot to detect a
+//      real change-over-time, only a real current reading — labeled as
+//      "current sentiment," never claimed as a "shift" that isn't real.
+// Each dimension is independently real (no new invented numbers); this
+// only combines how many of them agree right now. 0 dimensions agreeing
+// is honestly "no real bottom signal yet," not silently omitted.
+export function computeBottomSignal(sniper, institutionScore, social) {
+  const rev = sniper?.reversal;
+  const dims = [];
+
+  dims.push({
+    name: "Technical",
+    present: !!rev?.isBottom,
+    detail: rev?.isBottom ? rev.verdict : (rev ? "No real technical bottom structure yet" : "Technical read unavailable"),
+  });
+
+  const flowBullish = institutionScore?.label === "Accumulation" || institutionScore?.label === "Aggressive Buying";
+  dims.push({
+    name: "Institutional flow (buyers stepping in)",
+    present: flowBullish,
+    detail: institutionScore ? `${institutionScore.label} (${institutionScore.score}/100)` : "Institutional flow data unavailable",
+  });
+
+  const bullPct = social?.stocktwits?.bullPct;
+  const sentimentBullish = Number.isFinite(bullPct) && bullPct >= 55;
+  dims.push({
+    name: "Current sentiment",
+    present: sentimentBullish,
+    detail: Number.isFinite(bullPct) ? `${Math.round(bullPct)}% bullish on StockTwits right now` : "Sentiment data unavailable",
+  });
+
+  const agreeCount = dims.filter((d) => d.present).length;
+  const label = agreeCount === 3 ? "STRONG BOTTOM SIGNAL"
+    : agreeCount === 2 ? "PARTIAL BOTTOM SIGNAL"
+    : agreeCount === 1 ? "WEAK BOTTOM SIGNAL"
+    : "NO REAL BOTTOM SIGNAL YET";
+  const color = agreeCount === 3 ? "#0d9465" : agreeCount === 2 ? "#5ab552" : agreeCount === 1 ? "#d6a312" : "#8a94a6";
+
+  return { label, color, agreeCount, dims };
+}
+
 function clamp(x, lo, hi) { return Math.max(lo, Math.min(hi, x)); }
 
 // ---- Real Cortex Verdict track record — explicit user follow-up,

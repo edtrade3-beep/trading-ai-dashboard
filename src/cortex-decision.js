@@ -194,8 +194,43 @@ function verdictWinProbFor(track, verdict) {
   return best ? { winRate: null, avgReturnPct: null, count: best.count, horizon: best.horizon, trackingStartedAt: cv.trackingStartedAt } : { winRate: null, avgReturnPct: null, count: 0, horizon: null, trackingStartedAt: cv.trackingStartedAt };
 }
 
+function computeBottomSignal(sniper, institutionScore, social) {
+  const rev = sniper?.reversal;
+  const dims = [];
+
+  dims.push({
+    name: "Technical",
+    present: !!rev?.isBottom,
+    detail: rev?.isBottom ? rev.verdict : (rev ? "No real technical bottom structure yet" : "Technical read unavailable"),
+  });
+
+  const flowBullish = institutionScore?.label === "Accumulation" || institutionScore?.label === "Aggressive Buying";
+  dims.push({
+    name: "Institutional flow (buyers stepping in)",
+    present: flowBullish,
+    detail: institutionScore ? `${institutionScore.label} (${institutionScore.score}/100)` : "Institutional flow data unavailable",
+  });
+
+  const bullPct = social?.stocktwits?.bullPct;
+  const sentimentBullish = Number.isFinite(bullPct) && bullPct >= 55;
+  dims.push({
+    name: "Current sentiment",
+    present: sentimentBullish,
+    detail: Number.isFinite(bullPct) ? `${Math.round(bullPct)}% bullish on StockTwits right now` : "Sentiment data unavailable",
+  });
+
+  const agreeCount = dims.filter((d) => d.present).length;
+  const label = agreeCount === 3 ? "STRONG BOTTOM SIGNAL"
+    : agreeCount === 2 ? "PARTIAL BOTTOM SIGNAL"
+    : agreeCount === 1 ? "WEAK BOTTOM SIGNAL"
+    : "NO REAL BOTTOM SIGNAL YET";
+  const color = agreeCount === 3 ? "#0d9465" : agreeCount === 2 ? "#5ab552" : agreeCount === 1 ? "#d6a312" : "#8a94a6";
+
+  return { label, color, agreeCount, dims };
+}
+
 module.exports = {
   computeHeatRisk, computeCortexVerdict, computeTechnicalScore,
   computePriceToPay, summarizeBuyPrice, whyEvidence, computeTrimSignal, computePremiumRead,
-  verdictWinProbFor,
+  verdictWinProbFor, computeBottomSignal,
 };
