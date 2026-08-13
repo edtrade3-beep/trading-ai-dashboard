@@ -1,6 +1,7 @@
 const crypto = require("node:crypto");
 const { writeJson, readRequestBody } = require("../utils");
 const { loadJournal, saveJournal, addEntry } = require("../journal-store");
+const { computeJournalAlpha } = require("../spy-history");
 
 const ALLOWED_STATUSES = ["open", "closed", "cancelled"];
 const ALLOWED_SIDES = ["BUY", "SELL", "WAIT"];
@@ -137,6 +138,22 @@ async function handleJournal(req, res, requestUrl) {
       worstTrade: worstTrade ? { ticker: worstTrade.ticker, pnl: worstTrade.pnl } : null,
       topTicker,
     });
+  }
+
+  // GET /api/journal/alpha — real return vs. SPY over each trade's own real
+  // holding period (explicit user request, 2026-08-13, professional-
+  // investor audit follow-up: "benchmark-relative performance... being up
+  // 12% means nothing if SPY was up 15%"). Real SPY closes on the real
+  // open/close dates (src/spy-history.js) — never a guessed benchmark
+  // return, and trades missing real dates/prices are honestly excluded.
+  if (pathname === "/api/journal/alpha" && req.method === "GET") {
+    try {
+      const entries = loadJournal();
+      const report = await computeJournalAlpha(entries);
+      return writeJson(res, 200, report);
+    } catch (err) {
+      return writeJson(res, 200, { ok: false, error: err instanceof Error ? err.message : "alpha report failed" });
+    }
   }
 
   // GET /api/journal/export.csv
