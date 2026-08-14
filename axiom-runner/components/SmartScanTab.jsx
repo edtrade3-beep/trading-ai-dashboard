@@ -5,6 +5,16 @@ import { FIVEX_REF } from "./fivex-data.js";
 import { computeAPlusScore, computeRegime } from "./market-helpers.js";
 import { computeSniperDecision } from "./sniper-decision.js";
 import { computeHeatRisk, computeCortexVerdict } from "./cortex-engine.js";
+// Category tabs (2026-08-14, explicit user request: "make smart scan just
+// like discover or better") — real category system ported from
+// RhProScanner.jsx/Discover, same ids/labels, no invented categories.
+// Embedded standalone components reused as-is, same pattern Discover
+// already uses (GapScanner/DayTradeTab/SqueezeTab/InsiderTab are
+// self-fetching, need no new parent state threaded through).
+import GapScanner from "./GapScanner.jsx";
+import DayTradeTab from "./DayTradeTab.jsx";
+import SqueezeTab from "./SqueezeTab.jsx";
+import InsiderTab from "./InsiderTab.jsx";
 
 // ── Early Warning — "stocks before it pops / before it drops" (2026-07-29,
 // explicit user request) — the exact same real precursor patterns the
@@ -54,6 +64,34 @@ function computeEarlySignal(row, trendRow) {
   return null;
 }
 
+// Real category list — same ids/labels as Discover (RhProScanner.jsx),
+// so a category means the exact same thing in both places. This first
+// batch covers every category computable off data Smart Scan already has
+// (smartScanTrendMap, the real trend-screen row) or a genuinely
+// self-fetching standalone tab — no new props threaded from axiom-live.jsx
+// needed. Options Sweep/Dark Pool/Earnings/Sector Rotation intentionally
+// NOT included yet — those need ~15 more props threaded from
+// axiom-live.jsx's already-computed top-level state (same as Discover
+// receives), a separate follow-up rather than silently half-wiring them.
+const SMARTSCAN_CATEGORIES = [
+  { id: "all", label: "All / Ranked" },
+  { id: "breakout", label: "Breakout" },
+  { id: "pullback", label: "Pullback" },
+  { id: "rvol", label: "High RVOL" },
+  { id: "momentum", label: "Momentum Leaders" },
+  { id: "reversal", label: "Reversal Watch" },
+  { id: "prepop", label: "Pre-Pop" },
+  { id: "extended", label: "Extended" },
+  { id: "avoid", label: "Avoid List" },
+  { id: "higherlows", label: "Building Higher Lows" },
+  { id: "relstrength", label: "Relative Strength" },
+  { id: "gap", label: "Gap Up/Down" },
+  { id: "daytrade", label: "Day Trade" },
+  { id: "shortsqueeze", label: "Short Squeeze" },
+  { id: "insider", label: "Insider Buying" },
+];
+const SMARTSCAN_EMBEDDED_CATEGORIES = ["gap", "daytrade", "shortsqueeze", "insider"];
+
 export default function SmartScanTab({
   C, MONO, SANS, isTablet, macroData, watchlistSymbols,
   scanResults, scanExpanded, scanError, scanLoading, scanProgress, scanLastRun,
@@ -80,6 +118,8 @@ export default function SmartScanTab({
           // needed) — cheap to re-open as a refresher, doesn't nag once
           // closed.
           const [showGuide, setShowGuide] = useState(true);
+          // Category tabs (see SMARTSCAN_CATEGORIES above).
+          const [smartScanCategory, setSmartScanCategory] = useState("all");
           // A+ Score — the platform's separate real 9-dimension composite
           // (market-helpers.js), deliberately NOT merged into this tab's own
           // SMC/momentum score above — same "keep parallel scoring systems
@@ -131,8 +171,51 @@ export default function SmartScanTab({
             borderRadius: 6, padding: "3px 8px", whiteSpace: "nowrap",
           });
 
+          // ── Category scoping — real predicates ported from Discover
+          // (RhProScanner.jsx), reading the exact same real trend-screen
+          // fields, here off smartScanTrendMap[r.ticker] instead of a row
+          // property directly (different data shape, same real source
+          // route: /api/market/trend-screen). Sort-based categories
+          // (rvol/extended/avoid/relstrength) return a real sorted order;
+          // filteredResults' own favorites-repin is skipped when a category
+          // is active so that real order isn't disturbed.
+          let categoryScoped = scanResults;
+          let categoryNote = null;
+          const tr = (r) => smartScanTrendMap[r.ticker];
+          if (smartScanCategory === "breakout") {
+            categoryScoped = scanResults.filter(r => tr(r)?.atBuyPoint && tr(r)?.volConfirmed);
+            categoryNote = "Real buy point (trend-template eligible + actionable, not extended) with volume ≥1.4x the 50-day average.";
+          } else if (smartScanCategory === "pullback") {
+            categoryScoped = scanResults.filter(r => tr(r)?.actionable && !tr(r)?.atBuyPoint && !tr(r)?.extended);
+            categoryNote = "Actionable setup, not yet at a confirmed buy point, not extended.";
+          } else if (smartScanCategory === "rvol") {
+            categoryScoped = [...scanResults].filter(r => Number.isFinite(tr(r)?.volRatio)).sort((a, b) => (tr(b)?.volRatio || 0) - (tr(a)?.volRatio || 0));
+            categoryNote = "Sorted by real volume vs the 50-day average, highest first.";
+          } else if (smartScanCategory === "momentum") {
+            categoryScoped = scanResults.filter(r => (tr(r)?.rsRating || 0) >= 80 && (tr(r)?.stage || "").includes("2"));
+            categoryNote = "RS ≥ 80 in a confirmed Stage 2 uptrend.";
+          } else if (smartScanCategory === "reversal") {
+            categoryScoped = scanResults.filter(r => (tr(r)?.pctFromHigh || 0) <= -20 && (tr(r)?.volRatio || 0) >= 1.4);
+            categoryNote = "≥20% off the 52-week high with volume picking up — real data, a simplified heuristic (not the full Bottom Signal model).";
+          } else if (smartScanCategory === "prepop") {
+            categoryScoped = scanResults.filter(r => tr(r)?.actionable && !tr(r)?.atBuyPoint && !tr(r)?.extended && tr(r)?.tightening && tr(r)?.abovePivotPct != null && tr(r).abovePivotPct < 0 && tr(r).abovePivotPct > -5);
+            categoryNote = "Real VCP base contracting AND within 5% below the real pivot buy point — coiled right at the edge.";
+          } else if (smartScanCategory === "extended") {
+            categoryScoped = [...scanResults].filter(r => tr(r)?.extended).sort((a, b) => (tr(b)?.abovePivotPct || 0) - (tr(a)?.abovePivotPct || 0));
+            categoryNote = "More than 10% above the real pivot buy point — chasing risk, often due for a pullback.";
+          } else if (smartScanCategory === "avoid") {
+            categoryScoped = [...scanResults].filter(r => tr(r)).sort((a, b) => computeAPlusScore(tr(a), smartScanRegime).score - computeAPlusScore(tr(b), smartScanRegime).score).slice(0, 10);
+            categoryNote = "The real bottom of this scan by A+ Score.";
+          } else if (smartScanCategory === "higherlows") {
+            categoryScoped = scanResults.filter(r => tr(r)?.higherLows);
+            categoryNote = "Real swing-low sequence: each of the last 3 real swing lows is strictly above the one before it.";
+          } else if (smartScanCategory === "relstrength") {
+            categoryScoped = [...scanResults].filter(r => Number.isFinite(tr(r)?.rsRating)).sort((a, b) => (tr(b)?.rsRating || 0) - (tr(a)?.rsRating || 0));
+            categoryNote = "Sorted by real RS Rating (vs SPY), highest first.";
+          }
+
           // ── Apply filters using hoisted state (sfSig, sfMinScore, sfMaxPrice, sfZone) ──
-          const filteredResults = scanResults.filter(r => {
+          const filteredResults = categoryScoped.filter(r => {
             const px = Number(r.quote?.price || 0);
             if (sfSig !== "ALL" && r.signal !== sfSig) return false;
             if (sfMinScore > 0 && (r.score || 0) < sfMinScore) return false;
@@ -158,8 +241,11 @@ export default function SmartScanTab({
               if (sfEarly === "COIL" && !(es && es.dir === null)) return false;
             }
             return true;
-          // Sort: favorites pinned to top
+          // Sort: favorites pinned to top — skipped when a category is
+          // active (Array.sort is stable, so returning 0 preserves the
+          // category's own real sort order instead of fighting it).
           }).sort((a, b) => {
+            if (smartScanCategory !== "all") return 0;
             const aFav = scanFavorites.has(a.ticker) ? 1 : 0;
             const bFav = scanFavorites.has(b.ticker) ? 1 : 0;
             return bFav - aFav; // favorites first, then original order
@@ -230,6 +316,31 @@ export default function SmartScanTab({
                 )}
               </div>
 
+              {/* ── Category tabs — real categories ported from Discover ── */}
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+                {SMARTSCAN_CATEGORIES.map(cat => (
+                  <button key={cat.id} onClick={() => setSmartScanCategory(cat.id)}
+                    style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, padding: "6px 12px", borderRadius: 7, cursor: "pointer",
+                      border: `1px solid ${smartScanCategory === cat.id ? C.accent : C.border}`,
+                      background: smartScanCategory === cat.id ? C.accent : C.surface,
+                      color: smartScanCategory === cat.id ? "#fff" : C.textSec }}>
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+              {categoryNote && (
+                <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginBottom: 10, fontStyle: "italic" }}>{categoryNote}</div>
+              )}
+
+              {SMARTSCAN_EMBEDDED_CATEGORIES.includes(smartScanCategory) ? (
+                <>
+                  {smartScanCategory === "gap" && <GapScanner C={C} MONO={MONO} SANS={SANS} />}
+                  {smartScanCategory === "daytrade" && <DayTradeTab C={C} MONO={MONO} SANS={SANS} />}
+                  {smartScanCategory === "shortsqueeze" && <SqueezeTab C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} />}
+                  {smartScanCategory === "insider" && <InsiderTab C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} />}
+                </>
+              ) : (
+              <>
               {/* ── PDF zone export ── */}
               <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
                 <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.textDim }}>📄 EXPORT PDF:</span>
@@ -2497,6 +2608,8 @@ export default function SmartScanTab({
                     Click any row to expand deep dive ↓ · Badge = real Cortex Verdict · A+ = Trade Setup Score
                   </div>
                 </div>
+              )}
+              </>
               )}
             {/* ── SCAN HISTORY ── */}
             {scanHistory.length > 0 && (
