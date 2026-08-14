@@ -48,6 +48,18 @@ export const SIDEBAR_ITEMS = [
   // keeps this row highlighted while on any of the 3 sub-views.
   { id: "discover",  label: "Discover",   icon: "🎯", tab: "rhpro-scan", alsoActive: ["rhpro-lists", "flow"] },
 
+  // Smart Scan — AI-scored momentum + SMC structure + trend quality scanner
+  // (SmartScanTab.jsx), promoted from keyboard-shortcut-only ("s") into a
+  // real sidebar row (2026-08-13, explicit user request after asking how
+  // to find candidates quickly). Distinct real component from Discover
+  // above (RhProScanner.jsx) — kept as its own row rather than merged in,
+  // same "don't force two different real tools to share one nav slot"
+  // reasoning Discover's own merge above didn't apply here. Its per-row
+  // verdict now reuses the real Cortex Verdict (2026-08-13 fix), so this
+  // and Cortex below are the two-step real workflow: scan here, confirm
+  // there.
+  { id: "smartscan", label: "Smart Scan", icon: "🔍", tab: "smartscan" },
+
   // Workspace — Market Terminal, relabeled (was "Charts") to match what it
   // actually is now: the one per-symbol page (chart + decision + trade
   // plan + institutional summary + AI explanation + options + news +
