@@ -1657,6 +1657,16 @@ async function screenTrendTemplate(symbols, filters = {}) {
           vcpGrade: r.setup.vcp ? r.setup.vcp.grade : "-", tCount: r.setup.vcp ? r.setup.vcp.footprint : "-",
           state: r.setup.breakout.state, signal: r.setup.breakout.signal, confidence: r.setup.breakout.confidence,
           vcpScore: r.setup.report.score, vcpVerdict: r.setup.report.verdict, riskState: r.setup.report.riskState,
+          // Real per-leg contraction depths (e.g. [18, 11, 6, 3]) + the VCP
+          // engine's own pivot (highest high of the FINAL contraction leg —
+          // a real, distinct value from r.setup.pivot above, which is the
+          // Minervini-template entry pivot; kept separate rather than
+          // overloading the existing field). Widened for the scanner UI/A+
+          // integration, 2026-08-14 VCP engine extension (Phase 1) —
+          // real data already computed by vcpBreakoutEngine, just never
+          // reached the bulk scan payload before now.
+          vcpDepths: r.setup.vcp ? r.setup.vcp.depths : [],
+          vcpPivotPrice: r.setup.breakout.pivot.price, vcpPivotDistancePct: r.setup.breakout.pivot.distancePct,
           momentum: r.momentum, volRatio: r.volRatio, volConfirmed,
           // Reversal Detector inputs (2026-08-04, "early get in and early
           // get out ... like climax") — same real fields the Chart page's

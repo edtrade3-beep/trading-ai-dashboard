@@ -770,11 +770,21 @@ export default function RhProScanner({
                   )}
                 </td>
                 {/* CONF — real VCP breakout-confidence score (0-100), computed
-                    for every row all along but never exposed until now. */}
+                    for every row all along but never exposed until now.
+                    2026-08-14 VCP engine extension Phase 1: added the real
+                    breakout state as a compact badge alongside it (state
+                    machine + vcpScore were already computed for every row,
+                    just never surfaced here) — no new detection logic. */}
                 <td style={{ ...cell, ...num }}>
                   {Number.isFinite(r.confidence)
                     ? <span style={{ fontWeight: 700, fontSize: 12, color: r.confidence >= 70 ? C.green : r.confidence >= 40 ? C.amber : C.textDim }}>{Math.round(r.confidence)}%</span>
                     : <span style={{ color: C.textDim, fontSize: 12 }}>—</span>}
+                  {r.vcpVerdict && r.vcpVerdict !== "INVALID VCP" && r.state && (
+                    <div title={`VCP Setup Score ${r.vcpScore}/100 — ${r.vcpVerdict}`}
+                      style={{ marginTop: 2, fontSize: 9, fontWeight: 900, color: "#fff", display: "inline-block",
+                        background: r.state === "CONFIRMED" ? "#0d9465" : r.state === "BREAKOUT_ACTIVE" ? "#5ab552" : r.state === "SETUP_READY" ? "#d6a312" : r.state === "FAILED" ? "#c8282a" : "#8a94a6",
+                        borderRadius: 3, padding: "1px 4px" }}>{r.state.replace(/_/g, " ")}</div>
+                  )}
                 </td>
                 <td style={{ ...cell, ...num }}>
                   {win == null ? <span style={{ color: C.textDim, fontSize: 12 }}>—</span>

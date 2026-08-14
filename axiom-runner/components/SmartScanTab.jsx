@@ -904,6 +904,16 @@ export default function SmartScanTab({
                                   {/* A+ — separate real 9-dimension score, additive not replacing */}
                                   <span title={aplus.reasons.join(" · ")} style={{ marginLeft: 5, fontFamily: MONO, fontSize: 10, fontWeight: 900, color: "#fff", cursor: "help",
                                     background: aplus.score >= 80 ? "#0d9465" : aplus.score >= 60 ? "#d6a312" : "#c8282a", borderRadius: 4, padding: "2px 5px" }}>A+{aplus.score}</span>
+                                  {/* VCP Engine badge — real score/verdict already computed
+                                      server-side (vcpBreakoutEngine/vcpReport), 2026-08-14 VCP
+                                      engine extension Phase 1. Only shown when a real VCP base
+                                      exists (vcpVerdict !== "INVALID VCP"), never fabricated. */}
+                                  {trendRow?.vcpVerdict && trendRow.vcpVerdict !== "INVALID VCP" && (
+                                    <span title={`VCP ${trendRow.vcpScore}/100 — ${trendRow.vcpVerdict} — ${trendRow.state}`}
+                                      style={{ marginLeft: 5, fontFamily: MONO, fontSize: 10, fontWeight: 900, color: "#fff", cursor: "help",
+                                        background: trendRow.state === "CONFIRMED" ? "#0d9465" : trendRow.state === "BREAKOUT_ACTIVE" ? "#5ab552" : trendRow.state === "SETUP_READY" ? "#d6a312" : trendRow.state === "FAILED" ? "#c8282a" : "#8a94a6",
+                                        borderRadius: 4, padding: "2px 5px" }}>VCP {trendRow.vcpScore}</span>
+                                  )}
                                   <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: verdictColor, marginTop: 2 }}>{composite.toFixed(0)}/100</div>
                                 </div>
                               </td>

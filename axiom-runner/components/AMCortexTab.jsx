@@ -414,6 +414,22 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
                       )) : <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>DATA UNAVAILABLE — {row.passCount ?? "?"}/8 pass overall.</div>}
                       <StatRow C={C} MONO={MONO} SANS={SANS} label="VCP grade" value={row.vcpGrade && row.vcpGrade !== "-" ? row.vcpGrade : null} />
                       <StatRow C={C} MONO={MONO} SANS={SANS} label="Base tightening" value={row.tightening ? "Yes — each pullback shallower than the last" : "No"} color={row.tightening ? "#0d9465" : C.textDim} />
+                      {/* Real VCP Engine detail — already computed server-side
+                          (vcpBreakoutEngine/vcpReport, src/routes/market.js)
+                          but never surfaced here before now. 2026-08-14 VCP
+                          engine extension, Phase 1: expose existing data,
+                          no new detection logic. */}
+                      <StatRow C={C} MONO={MONO} SANS={SANS} label="VCP Setup Score" value={Number.isFinite(row.vcpScore) ? `${row.vcpScore}/100` : null}
+                        color={row.vcpScore >= 80 ? "#0d9465" : row.vcpScore >= 60 ? "#5ab552" : row.vcpScore >= 40 ? "#d6a312" : "#c8282a"} />
+                      <StatRow C={C} MONO={MONO} SANS={SANS} label="VCP Verdict" value={row.vcpVerdict || null}
+                        color={row.vcpVerdict === "A+ SETUP" ? "#0d9465" : row.vcpVerdict === "WATCHLIST" ? "#5ab552" : row.vcpVerdict === "WEAK SETUP" ? "#d6a312" : "#c8282a"} />
+                      <StatRow C={C} MONO={MONO} SANS={SANS} label="Breakout State" value={row.state || null}
+                        color={row.state === "CONFIRMED" ? "#0d9465" : row.state === "BREAKOUT_ACTIVE" ? "#5ab552" : row.state === "SETUP_READY" ? "#d6a312" : row.state === "FAILED" ? "#c8282a" : C.textDim} />
+                      <StatRow C={C} MONO={MONO} SANS={SANS} label="Real Pivot (final contraction high)" value={row.vcpPivotPrice ? `$${row.vcpPivotPrice}` : null} />
+                      <StatRow C={C} MONO={MONO} SANS={SANS} label="Distance to Pivot" value={Number.isFinite(row.vcpPivotDistancePct) ? `${row.vcpPivotDistancePct >= 0 ? row.vcpPivotDistancePct + "% below" : Math.abs(row.vcpPivotDistancePct) + "% above"}` : null} />
+                      {Array.isArray(row.vcpDepths) && row.vcpDepths.length > 0 && (
+                        <StatRow C={C} MONO={MONO} SANS={SANS} label="Contractions" value={row.vcpDepths.map((d, i) => `C${i + 1}: -${d}%`).join("  →  ")} />
+                      )}
                     </div>
                   )}
 
