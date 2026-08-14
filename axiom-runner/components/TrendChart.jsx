@@ -157,8 +157,18 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
     // intraday VWAP — chart.bars are real daily bars, same honest scope note
     // checklist-engine.js documents.
     const ema9 = mk("#38bdf8", 1), ema21 = mk("#f472b6", 1), vwap20 = mk("#facc15", 1);
+    // VCP contraction zigzag (2026-08-14, VCP engine integration Phase 3) —
+    // traces the real swing high/low sequence vcpBreakoutEngine's own base
+    // detection already found (setup.vcp.points), instead of adding more
+    // horizontal price lines to an already-dense pl() stack (10 potential
+    // lines already share this axis with 3.5%-proximity dedup — a real risk
+    // of contraction highs/lows silently losing that fight against PIVOT/
+    // BASE LOW, which sit in the exact same tight range by definition).
+    // Labeled C1/C2/C3/C4 via markers below, not T1/T2/T3 — those already
+    // mean 1R/2R/3R profit targets on this same chart.
+    const vcpZigzag = mk("#9c5cff", 2);
     chartRef.current = chart;
-    seriesRef.current = { candle, vol, ma50, ma150, ma200, bbU, bbL, ema9, ema21, vwap20, priceLines: [] };
+    seriesRef.current = { candle, vol, ma50, ma150, ma200, bbU, bbL, ema9, ema21, vwap20, vcpZigzag, priceLines: [] };
     symRef.current = null; // force a fitContent on next data fill
     const onResize = () => {
       chart.applyOptions({ width: el.clientWidth || 800 });
@@ -303,6 +313,20 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
     };
     setMA(s.vwap20, vwap20Series());
 
+    // VCP contraction zigzag — real swing high/low sequence (setup.vcp.points),
+    // each point already carries the real bar index this chart's own bars
+    // array uses, so no re-detection here, just plotting what
+    // vcpBreakoutEngine already found. Sparse (null everywhere else,
+    // matching setMA's existing null-gap convention).
+    const vcpPoints = data.setup && data.setup.vcp && Array.isArray(data.setup.vcp.points) ? data.setup.vcp.points : [];
+    if (vcpPoints.length >= 2) {
+      const zz = new Array(n).fill(null);
+      vcpPoints.forEach(p => { if (p.i >= 0 && p.i < n) zz[p.i] = p.price; });
+      setMA(s.vcpZigzag, zz);
+    } else {
+      setMA(s.vcpZigzag, []);
+    }
+
     s.priceLines.forEach(pl => { try { s.candle.removePriceLine(pl); } catch {} }); s.priceLines = [];
     const su = data.setup, LS = window.LightweightCharts.LineStyle || {};
     // Up to 10 price lines (PRICE/PIVOT/STOP/T1/T2/T3/BASE LOW/AI TARGET/
@@ -392,6 +416,19 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
     const markers = [];
     if (trendOK && buyIdx >= 0) markers.push({ time: toTime(bars[buyIdx].time), position: "belowBar", color: C.green, shape: "arrowUp", text: "BUY" });
     if (exitIdx >= 0) markers.push({ time: toTime(bars[exitIdx].time), position: "aboveBar", color: C.red, shape: "arrowDown", text: "EXIT" });
+    // VCP contraction labels — C1/C2/C3/C4 (not T1/T2/T3, which already mean
+    // 1R/2R/3R profit targets on this chart), one per real contraction leg,
+    // placed at each leg's real low with its real depth %.
+    const vcpContractions = data.setup && data.setup.vcp && Array.isArray(data.setup.vcp.contractions) ? data.setup.vcp.contractions : [];
+    vcpContractions.forEach((c, i) => {
+      if (c.lowIdx == null || c.lowIdx < 0 || c.lowIdx >= n) return;
+      markers.push({ time: toTime(bars[c.lowIdx].time), position: "belowBar", color: "#9c5cff", shape: "circle", text: `C${i + 1} -${c.depth}%` });
+    });
+    markers.sort((a, b) => {
+      const ta = isIntraday ? a.time : new Date(a.time.year, a.time.month - 1, a.time.day).getTime();
+      const tb = isIntraday ? b.time : new Date(b.time.year, b.time.month - 1, b.time.day).getTime();
+      return ta - tb;
+    });
     s.candle.setMarkers(markers);
 
     // Re-fit on a symbol OR timeframe change (switching 5m→1D on the same
@@ -439,6 +476,7 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
     ["🔵 9 EMA / 🩷 21 EMA", "Fast trend-following averages — same real formula as the Trade Checklist's 9/21 EMA pass/fail checks, drawn as a full line here."],
     ["🟡 20D VWAP", "Real 20-day rolling volume-weighted average price — not intraday VWAP (this chart's bars are daily), same real definition the Trade Checklist uses."],
     ["🟣 SUPPORT / RESISTANCE", "Nearest real swing high/low on each side of price — broader than PIVOT/BASE LOW, which only bracket the current base."],
+    ["🟪 VCP ZIGZAG / C1 C2 C3…", "Real swing high→low sequence forming the base (vcpBreakoutEngine's own detection) — each circle marks one real contraction leg with its real % depth. Progressively smaller (e.g. C1 -18% → C2 -11% → C3 -6%) is the real tightening pattern this setup needs."],
   ];
   return (
     <div style={{ position: "relative", width: "100%", height: H }}>
