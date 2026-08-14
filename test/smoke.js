@@ -282,14 +282,22 @@ console.log("Checking institutional-redesign presentation-layer modules (ESM, lo
       technicals: { donchian: { pctPosition: 90 }, bollinger: { percentB: 70 } },
       institutionalGrade: { score: 77, breakdown: { technicalPts: 12 } },
       stockQuality: { score: 65 },
-      aPlusScore: { breakdown: { entryPts: 18, breakoutPts: 12, volatilityPts: 4 } },
+      // entryPts/breakoutPts/vcpPts source maxes are 15/10/15 (2026-08-14,
+      // VCP engine integration Phase 2 reweight — vcpPts replaced the old
+      // volatilityPts/5 proxy with the real 0-100 VCP Setup Score scaled to
+      // 15). Each rescales independently into the Timing score's own
+      // 50/38/12 target split (deriveTopLevelScores' timingMax) — the two
+      // scales aren't proportional to each other, so the expected value
+      // below mirrors that same per-dimension rescale, not a shortcut sum.
+      aPlusScore: { breakdown: { entryPts: 13, breakoutPts: 8, vcpPts: 12 } },
     });
     assert.strictEqual(out.market.score, 80, "Market should pass through regime.score unchanged");
     assert.strictEqual(out.sector.score, 100, "rank 1 of 11 should rescale to 100");
     assert.strictEqual(out.stockQuality.score, 65, "Stock Quality should pass through unchanged");
     assert.strictEqual(out.institutional.score, 77, "Institutional should pass through unchanged");
     assert.ok(out.technical.score > 0 && out.technical.score <= 100, "Technical should be a valid 0-100 blend");
-    assert.strictEqual(out.timing.score, Math.round(((18 + 12 + 4) / 40) * 100), "Timing should be the exact rescaled subset-sum");
+    const expectedTiming = Math.round(13 / 15 * 50) + Math.round(8 / 10 * 38) + Math.round(12 / 15 * 12);
+    assert.strictEqual(out.timing.score, expectedTiming, "Timing should be the exact rescaled subset-sum");
   });
   ok("deriveTopLevelScores: honest null when a real input is missing, never fabricated", () => {
     const out = deriveTopLevelScores({});
