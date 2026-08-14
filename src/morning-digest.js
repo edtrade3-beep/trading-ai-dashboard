@@ -1,15 +1,15 @@
 // morning-digest.js — once-daily consolidated Telegram summary, replacing
-// 8 scattered "opportunity" pings with one clean read (explicit user
+// scattered "opportunity" pings with one clean read (explicit user
 // request, 2026-08-14: "consolidate the alerts into one morning digest...
-// fits the 15-seconds-every-morning goal best"). Deliberately calls the 8
+// fits the 15-seconds-every-morning goal best"). Deliberately calls the 9
 // real check functions itself (rather than relying on their own
-// independent 15-min server.js intervals to have already fired since
-// open) so the digest is always built off a genuinely fresh same-morning
-// scan, not whatever happened to be sitting in the buffer at whatever
-// moment this job's own interval landed. Those 8 jobs' own intervals keep
-// running too — this doesn't replace their real state-diffing logic
-// (needed so an afternoon transition isn't lost, it just rolls into
-// tomorrow's digest), only their delivery.
+// independent server.js intervals to have already fired since open) so
+// the digest is always built off a genuinely fresh same-morning scan, not
+// whatever happened to be sitting in the buffer at whatever moment this
+// job's own interval landed. Those 9 jobs' own intervals keep running too
+// — this doesn't replace their real state-diffing logic (needed so an
+// afternoon transition isn't lost, it just rolls into tomorrow's digest),
+// only their delivery.
 //
 // Deliberately excludes position-reversal-alerts.js and paper-positions.js's
 // reprice job — those cover actual held capital ("early get-out" / "Exit
@@ -36,6 +36,7 @@ const CHECKS = [
   () => require("./bearish-setups-alerts").checkBearishSetupsAlerts(),
   () => require("./watchlist-institutional-alerts").checkWatchlistInstitutionalAlerts(),
   () => require("./vcp-alerts").checkVcpAlerts(),
+  () => require("./watchlist-daytrade-alerts").checkWatchlistDayTradeAlerts(),
 ];
 
 function todayET() {

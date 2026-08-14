@@ -1055,6 +1055,41 @@ console.log("Checking institutional-redesign presentation-layer modules (ESM, lo
     { stage: "Stage 2", pctFromHigh: -3, abovePivotPct: 0.2, pivot: 98, volRatio: 1.2 }
   );
 
+  // Parity check — src/day-trade-calc.js is a hand-ported server-side copy
+  // of this same computeDayTradeSignal (2026-08-06, real Telegram Day Trade
+  // Mode GREEN-signal alert needs it runnable outside the browser). Same
+  // drift guard as the greenlight parity checks above.
+  const { computeDayTradeSignal } = await import("../axiom-runner/components/trading-utils.js");
+  const { computeDayTradeSignal: computeDayTradeSignalServer } = require("../src/day-trade-calc.js");
+  const DAYTRADE_PARITY_FIELDS = [
+    "px", "chg", "passed", "signal", "tradeable", "bestEntry", "entryNote", "atEntry",
+    "stop", "target", "rr", "rrPass", "quality", "grade", "qualifiesAPlus", "marketPass",
+  ];
+  const assertDayTradeParity = (label, row, spyChg) => {
+    ok(`day-trade-calc.js parity: ${label}`, () => {
+      const client = computeDayTradeSignal(row, spyChg);
+      const server = computeDayTradeSignalServer(row, spyChg);
+      for (const f of DAYTRADE_PARITY_FIELDS) {
+        assert.deepStrictEqual(server[f], client[f], `field "${f}" diverged — client=${JSON.stringify(client[f])} server=${JSON.stringify(server[f])}`);
+      }
+    });
+  };
+  assertDayTradeParity(
+    "real GREEN 5/5 breakout row (above VWAP, OR breakout, RVOL, bullish 15m EMA stack)",
+    { symbol: "NVDA", price: 121.5, vwap: 119.8, rvol: 2.3, aboveVwap: true, orBreakout: true, orHigh: 120.9, bull15: true, closeStrong: true, chgPct: 2.1, score: 82 },
+    0.3
+  );
+  assertDayTradeParity(
+    "real RED row (below VWAP, no breakout, thin volume, market unsafe)",
+    { symbol: "XYZ", price: 48.2, vwap: 49.1, rvol: 0.6, aboveVwap: false, orBreakout: false, orHigh: 49.5, bull15: false, closeStrong: false, chgPct: -1.4, score: 20 },
+    -0.8
+  );
+  assertDayTradeParity(
+    "borderline YELLOW row (3 of 5 checks pass)",
+    { symbol: "ABC", price: 60.0, vwap: 59.5, rvol: 1.8, aboveVwap: true, orBreakout: false, orHigh: 60.4, bull15: true, closeStrong: true, chgPct: 0.4, score: 55 },
+    0.1
+  );
+
   console.log(`\n${passed} checks passed.`);
   if (process.exitCode) console.error("SMOKE TEST FAILED"); else console.log("SMOKE TEST OK");
 

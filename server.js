@@ -431,13 +431,24 @@ server.listen(PORT, HOST, () => {
   setInterval(() => require("./src/vcp-alerts").checkVcpAlerts().catch(() => {}), 15 * 60_000);
   console.log("[VCP] Setup-ready / breakout / failed-breakout detection active — every 15 min, feeds the morning digest");
 
-  // Morning digest — once-daily consolidated Telegram summary of the 8
+  // Watchlist Day Trade Mode alerts (2026-08-06) — real Telegram ping the
+  // moment a Watchlist symbol's real Day Trade Mode signal (VWAP/opening-
+  // range breakout/RVOL/9-21 EMA stack) crosses into GREEN. This was built
+  // earlier in the session alongside a pure extraction of the real scan
+  // logic into src/routes/market.js's fetchDayTradeScanRows(), which sat
+  // uncommitted until now — found + finished 2026-08-14 while checking on
+  // stale untracked files. Same persisted-diff pattern as the alert jobs
+  // above, feeds the morning digest below rather than sending immediately.
+  setInterval(() => require("./src/watchlist-daytrade-alerts").checkWatchlistDayTradeAlerts().catch(() => {}), 15 * 60_000);
+  console.log("[Watchlist Day Trade] GREEN-signal detection active — every 15 min, feeds the morning digest");
+
+  // Morning digest — once-daily consolidated Telegram summary of the 9
   // "opportunity" detection jobs above (explicit user request, 2026-08-14:
   // "consolidate the alerts into one morning digest" for a professional
   // 15-second morning read, over an explicit AskUserQuestion). Checked
   // every 5 min (cheap — it no-ops once already sent today or outside
   // market hours) so it fires promptly after the open rather than waiting
-  // up to 15 min; does the real 8-scan work itself only on the one tick
+  // up to 15 min; does the real 9-scan work itself only on the one tick
   // per day the gate actually passes. Does not affect position-reversal-
   // alerts.js or paper-positions.js's reprice job — those stay real-time.
   setInterval(() => require("./src/morning-digest").checkMorningDigest().catch(() => {}), 5 * 60_000);

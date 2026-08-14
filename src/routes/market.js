@@ -134,6 +134,84 @@ const DAYTRADE_UNIVERSE = [
 let _dtCache = { key: null, at: 0, rows: null };
 let _fgCache = { at: 0, data: null };   // Fear & Greed (slow — Yahoo-dependent)
 
+// Real intraday momentum scan (Alpaca 15-min bars) — gap %, RVOL, VWAP
+// position, opening-range breakout, 9/21 EMA stack. Extracted from the
+// /api/market/daytrade-scan route handler (2026-08-06) so the same real
+// scan can also drive watchlist-daytrade-alerts.js's background Telegram
+// job, same "extract + export for a background alert job" pattern already
+// used for screenWatchlistCached/fetchOptionsFlow/fetchDarkPoolPrints/
+// fetchGammaForSymbol below. Cached 90s, keyed by the exact universe.
+async function fetchDayTradeScanRows(universe) {
+  const uniq = [...new Set(universe)];
+  const now = Date.now();
+  const cacheKey = uniq.join(",");
+  if (_dtCache.rows && _dtCache.key === cacheKey && (now - _dtCache.at) < 55000) {
+    return { rows: _dtCache.rows, generatedAt: new Date(_dtCache.at).toISOString(), cached: true };
+  }
+  const { fetchAlpacaBars } = require("../providers/alpaca-data");
+  const out = [];
+  for (let i = 0; i < uniq.length; i += 12) {
+    const chunk = uniq.slice(i, i + 12);
+    const done = await Promise.all(chunk.map(async (sym) => {
+      try {
+        // 15-minute timeframe only.
+        const [intraday, daily] = await Promise.all([
+          withTimeout(fetchAlpacaBars(sym, "5d", "15m"), 6000, null),
+          withTimeout(fetchAlpacaBars(sym, "1mo", "1d"), 6000, null),
+        ]);
+        if (!Array.isArray(intraday) || intraday.length < 3 || !Array.isArray(daily) || daily.length < 5) return null;
+        // Today's session = bars sharing the latest bar's calendar day.
+        const lastDay = new Date(intraday[intraday.length - 1].time).toDateString();
+        const today = intraday.filter(b => new Date(b.time).toDateString() === lastDay);
+        if (today.length < 2) return null;
+        const price = today[today.length - 1].close;
+        const prevClose = daily[daily.length - 2].close;
+        if (!prevClose) return null;
+        const gapPct = Math.round(((today[0].open - prevClose) / prevClose) * 10000) / 100;
+        const chgPct = Math.round(((price - prevClose) / prevClose) * 10000) / 100;
+        // VWAP over today's 15-min bars
+        let pv = 0, vv = 0;
+        today.forEach(b => { const tp = (b.high + b.low + b.close) / 3; pv += tp * (b.volume || 0); vv += (b.volume || 0); });
+        const vwap = vv ? pv / vv : price;
+        const vsVwap = Math.round(((price - vwap) / vwap) * 10000) / 100;
+        // Opening range = first 2 fifteen-min bars (~30 min)
+        const orBars = today.slice(0, 2);
+        const orHigh = Math.max(...orBars.map(b => b.high));
+        const orLow = Math.min(...orBars.map(b => b.low));
+        const orBreakout = price > orHigh;
+        // RVOL — today volume so far vs avg full-day volume (last ~20 sessions)
+        const todayVol = today.reduce((s, b) => s + (b.volume || 0), 0);
+        const avgVol = daily.slice(-21, -1).reduce((s, b) => s + (b.volume || 0), 0) / Math.max(1, daily.slice(-21, -1).length);
+        const rvol = avgVol ? Math.round((todayVol / avgVol) * 100) / 100 : null;
+        // 9 / 21 / 50 EMA on the 15-min series (include the last few prior-day bars
+        // so the EMA has enough data early in the session).
+        const ema = (vals, p) => { const k = 2 / (p + 1); let e = vals[0]; for (let i = 1; i < vals.length; i++) e = vals[i] * k + e * (1 - k); return e; };
+        const c15 = intraday.map(b => b.close);   // full 15m series (multi-day) for stable EMAs
+        const ema9 = c15.length >= 9 ? ema(c15, 9) : null;
+        const ema21 = c15.length >= 21 ? ema(c15, 21) : null;
+        const ema50 = c15.length >= 50 ? ema(c15, 50) : null;
+        // Bullish stack = price > 9EMA > 21EMA on 15-min.
+        const bull15 = ema9 != null && ema21 != null && price > ema9 && ema9 > ema21;
+        // Close strength: where the last 15m bar closed within its own range.
+        const lb = today[today.length - 1];
+        const rng = lb.high - lb.low;
+        const closeStrong = rng > 0 ? ((lb.close - lb.low) / rng) >= 0.6 : price >= vwap;
+        const rnd = (v) => v == null ? null : Math.round(v * 100) / 100;
+        return { symbol: sym, price: rnd(price), chgPct, gapPct, rvol, vsVwap, aboveVwap: price >= vwap, orBreakout, orHigh: rnd(orHigh), orLow: rnd(orLow),
+          ema9: rnd(ema9), ema21: rnd(ema21), ema50: rnd(ema50), vwap: rnd(vwap), closeStrong, bull15, bull5: bull15 };
+      } catch { return null; }
+    }));
+    out.push(...done.filter(Boolean));
+  }
+  // Score: momentum bias — breakout + above VWAP + gap + RVOL + move.
+  const score = (r) => (r.orBreakout ? 35 : 0) + (r.aboveVwap ? 22 : -10) + (r.bull5 ? 20 : 0) + (r.bull15 ? 15 : 0) + Math.max(0, Math.min(18, r.gapPct * 3)) + Math.max(0, Math.min(25, (r.rvol || 0) * 8)) + Math.max(-15, Math.min(18, r.chgPct * 2));
+  const rows = out.map(r => ({ ...r, score: Math.round(score(r)) })).sort((a, b) => b.score - a.score);
+  // Only cache a non-empty result — a scan that failed (all fetches null during
+  // a redeploy / rate-limit) must not poison the cache for 90s.
+  if (rows.length) _dtCache = { key: cacheKey, at: now, rows };
+  return { rows, generatedAt: new Date(now).toISOString(), cached: false };
+}
+
 // Bucket enriched rows into the four Market-Terminal categories.
 function buildLeaderboard(rows, n, at) {
   const withVol = rows.filter(r => typeof r.volRatio === "number");
@@ -2599,73 +2677,9 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
   // VWAP position, and opening-range breakout. Cached 90s.
   if (pathname === "/api/market/daytrade-scan") {
     const custom = (searchParams.get("symbols") || "").split(",").map(s => s.trim().toUpperCase()).filter(Boolean);
-    const universe = [...new Set((custom.length ? custom.slice(0, 130) : DAYTRADE_UNIVERSE))];
-    const now = Date.now();
-    if (_dtCache.rows && _dtCache.key === universe.join(",") && (now - _dtCache.at) < 55000) {
-      return writeJson(res, 200, { ok: true, cached: true, rows: _dtCache.rows, generatedAt: new Date(_dtCache.at).toISOString() });
-    }
-    const { fetchAlpacaBars } = require("../providers/alpaca-data");
-    const out = [];
-    for (let i = 0; i < universe.length; i += 12) {
-      const chunk = universe.slice(i, i + 12);
-      const done = await Promise.all(chunk.map(async (sym) => {
-        try {
-          // 15-minute timeframe only.
-          const [intraday, daily] = await Promise.all([
-            withTimeout(fetchAlpacaBars(sym, "5d", "15m"), 6000, null),
-            withTimeout(fetchAlpacaBars(sym, "1mo", "1d"), 6000, null),
-          ]);
-          if (!Array.isArray(intraday) || intraday.length < 3 || !Array.isArray(daily) || daily.length < 5) return null;
-          // Today's session = bars sharing the latest bar's calendar day.
-          const lastDay = new Date(intraday[intraday.length - 1].time).toDateString();
-          const today = intraday.filter(b => new Date(b.time).toDateString() === lastDay);
-          if (today.length < 2) return null;
-          const price = today[today.length - 1].close;
-          const prevClose = daily[daily.length - 2].close;
-          if (!prevClose) return null;
-          const gapPct = Math.round(((today[0].open - prevClose) / prevClose) * 10000) / 100;
-          const chgPct = Math.round(((price - prevClose) / prevClose) * 10000) / 100;
-          // VWAP over today's 15-min bars
-          let pv = 0, vv = 0;
-          today.forEach(b => { const tp = (b.high + b.low + b.close) / 3; pv += tp * (b.volume || 0); vv += (b.volume || 0); });
-          const vwap = vv ? pv / vv : price;
-          const vsVwap = Math.round(((price - vwap) / vwap) * 10000) / 100;
-          // Opening range = first 2 fifteen-min bars (~30 min)
-          const orBars = today.slice(0, 2);
-          const orHigh = Math.max(...orBars.map(b => b.high));
-          const orLow = Math.min(...orBars.map(b => b.low));
-          const orBreakout = price > orHigh;
-          // RVOL — today volume so far vs avg full-day volume (last ~20 sessions)
-          const todayVol = today.reduce((s, b) => s + (b.volume || 0), 0);
-          const avgVol = daily.slice(-21, -1).reduce((s, b) => s + (b.volume || 0), 0) / Math.max(1, daily.slice(-21, -1).length);
-          const rvol = avgVol ? Math.round((todayVol / avgVol) * 100) / 100 : null;
-          // 9 / 21 / 50 EMA on the 15-min series (include the last few prior-day bars
-          // so the EMA has enough data early in the session).
-          const ema = (vals, p) => { const k = 2 / (p + 1); let e = vals[0]; for (let i = 1; i < vals.length; i++) e = vals[i] * k + e * (1 - k); return e; };
-          const c15 = intraday.map(b => b.close);   // full 15m series (multi-day) for stable EMAs
-          const ema9 = c15.length >= 9 ? ema(c15, 9) : null;
-          const ema21 = c15.length >= 21 ? ema(c15, 21) : null;
-          const ema50 = c15.length >= 50 ? ema(c15, 50) : null;
-          // Bullish stack = price > 9EMA > 21EMA on 15-min.
-          const bull15 = ema9 != null && ema21 != null && price > ema9 && ema9 > ema21;
-          // Close strength: where the last 15m bar closed within its own range.
-          const lb = today[today.length - 1];
-          const rng = lb.high - lb.low;
-          const closeStrong = rng > 0 ? ((lb.close - lb.low) / rng) >= 0.6 : price >= vwap;
-          const rnd = (v) => v == null ? null : Math.round(v * 100) / 100;
-          return { symbol: sym, price: rnd(price), chgPct, gapPct, rvol, vsVwap, aboveVwap: price >= vwap, orBreakout, orHigh: rnd(orHigh), orLow: rnd(orLow),
-            ema9: rnd(ema9), ema21: rnd(ema21), ema50: rnd(ema50), vwap: rnd(vwap), closeStrong, bull15, bull5: bull15 };
-        } catch { return null; }
-      }));
-      out.push(...done.filter(Boolean));
-    }
-    // Score: momentum bias — breakout + above VWAP + gap + RVOL + move.
-    const score = (r) => (r.orBreakout ? 35 : 0) + (r.aboveVwap ? 22 : -10) + (r.bull5 ? 20 : 0) + (r.bull15 ? 15 : 0) + Math.max(0, Math.min(18, r.gapPct * 3)) + Math.max(0, Math.min(25, (r.rvol || 0) * 8)) + Math.max(-15, Math.min(18, r.chgPct * 2));
-    const rows = out.map(r => ({ ...r, score: Math.round(score(r)) })).sort((a, b) => b.score - a.score);
-    // Only cache a non-empty result — a scan that failed (all fetches null during
-    // a redeploy / rate-limit) must not poison the cache for 90s.
-    if (rows.length) _dtCache = { key: universe.join(","), at: now, rows };
-    return writeJson(res, 200, { ok: true, rows, generatedAt: new Date(now).toISOString() });
+    const universe = custom.length ? custom.slice(0, 130) : DAYTRADE_UNIVERSE;
+    const { rows, generatedAt, cached } = await fetchDayTradeScanRows(universe);
+    return writeJson(res, 200, { ok: true, cached, rows, generatedAt });
   }
 
   // Market-Terminal style leaderboard: Movers Up/Down + Up/Down on Volume, each
@@ -5070,3 +5084,4 @@ module.exports.fetchOptionsFlow = fetchOptionsFlow; // exposed for watchlist-ins
 module.exports.fetchDarkPoolPrints = fetchDarkPoolPrints; // exposed for the same file's real dark-pool-spike alert
 module.exports.fetchGammaForSymbol = fetchGammaForSymbol; // exposed for the same file's real gamma-breakout alert (Phase 14)
 module.exports.screenWatchlistCached = screenWatchlistCached; // exposed for the 3 watchlist-*-alerts.js background jobs (CTO audit item #4) — shared cache, not for live/manual-refresh routes
+module.exports.fetchDayTradeScanRows = fetchDayTradeScanRows; // exposed for watchlist-daytrade-alerts.js's real Day Trade Mode GREEN-signal alert
