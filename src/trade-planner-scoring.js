@@ -27,16 +27,20 @@ function computeAPlusScore(row, regime) {
 
   const regimePts = Math.round((regimeScore / 100) * 20);
 
+  // Entry/Breakout trimmed 20→15 / 15→10 (2026-08-14, VCP engine
+  // integration Phase 2) to make room for the new standalone VCP Setup
+  // Score dimension below — real overlap already existed with VCP's own
+  // pivot-distance and breakout-readiness sub-components.
   const abovePivotPct = Number(row?.abovePivotPct);
   const idealDist = !Number.isFinite(abovePivotPct) ? null
     : abovePivotPct < 0 ? -abovePivotPct : Math.max(0, abovePivotPct - 5);
-  const entryPts = idealDist == null ? 10 : Math.round(Math.max(0, Math.min(1, (15 - idealDist) / 15)) * 20);
+  const entryPts = idealDist == null ? 8 : Math.round(Math.max(0, Math.min(1, (15 - idealDist) / 15)) * 15);
 
   const isGo = row?.verdict === "GO" || (row?.atBuyPoint && row?.volConfirmed);
   const breakoutConf = Number(row?.confidence) || 0;
-  const breakoutBase = isGo ? 12 : row?.actionable ? 7 : 0;
-  const breakoutBonus = Math.round((breakoutConf / 100) * 3);
-  const breakoutPts = Math.min(15, breakoutBase + breakoutBonus);
+  const breakoutBase = isGo ? 8 : row?.actionable ? 5 : 0;
+  const breakoutBonus = Math.round((breakoutConf / 100) * 2);
+  const breakoutPts = Math.min(10, breakoutBase + breakoutBonus);
 
   const volRatio = Number(row?.volRatio);
   const volPts = Number.isFinite(volRatio) ? Math.round(Math.max(0, Math.min(1, volRatio / 2)) * 10) : 5;
@@ -47,9 +51,13 @@ function computeAPlusScore(row, regime) {
   const pctFromHigh = Number(row?.pctFromHigh);
   const supportPts = Number.isFinite(pctFromHigh) ? Math.round(Math.max(0, Math.min(1, (pctFromHigh + 25) / 25)) * 10) : 5;
 
-  const volatilityPts = row?.tightening ? 5 : (row?.vcpGrade && row.vcpGrade !== "-" ? 3 : 2);
+  // VCP Setup Score — the real, standalone 0-100 score from vcpReport()
+  // (src/routes/market.js's own 5-component rubric), replacing the old
+  // crude tightening-flag proxy. 2026-08-14 VCP engine integration Phase 2.
+  const vcpScoreRaw = Number(row?.vcpScore);
+  const vcpPts = Number.isFinite(vcpScoreRaw) ? Math.round((vcpScoreRaw / 100) * 15) : 7;
 
-  const score = Math.max(0, Math.min(100, regimePts + entryPts + breakoutPts + volPts + riskPts + supportPts + volatilityPts));
+  const score = Math.max(0, Math.min(100, regimePts + entryPts + breakoutPts + volPts + riskPts + supportPts + vcpPts));
   const cautions = [];
   if (row?.earningsSoon) cautions.push(`⚠️ Earnings within ${row.earningsDte} day${row.earningsDte === 1 ? "" : "s"} — added gap risk (not scored, timing-only caution)`);
   const reasons = [
@@ -62,9 +70,9 @@ function computeAPlusScore(row, regime) {
     Number.isFinite(volRatio) ? `Volume ${volRatio.toFixed(1)}x the 50-day average` : "Volume data unavailable",
     Number.isFinite(riskPct) && riskPct > 0 ? `${riskPct.toFixed(1)}% risk to stop — ${riskPct <= 5 ? "tight, low-risk entry" : riskPct <= 8 ? "moderate risk" : "wide stop, higher risk"}` : "Risk distance unavailable",
     Number.isFinite(pctFromHigh) ? `${Math.abs(pctFromHigh).toFixed(1)}% ${pctFromHigh < 0 ? "below" : "at"} the 52-week high` : "52-week high distance unavailable",
-    row?.tightening ? "VCP tightening — each pullback shallower than the last" : row?.vcpGrade && row.vcpGrade !== "-" ? `VCP grade ${row.vcpGrade}, not yet tightening` : "No real VCP base detected",
+    Number.isFinite(vcpScoreRaw) ? `VCP Setup Score ${vcpScoreRaw}/100${row?.vcpVerdict ? ` (${row.vcpVerdict})` : ""}` : "No real VCP base detected",
   ];
-  return { score, reasons, cautions, breakdown: { regimePts, entryPts, breakoutPts, volPts, riskPts, supportPts, volatilityPts }, passCount };
+  return { score, reasons, cautions, breakdown: { regimePts, entryPts, breakoutPts, volPts, riskPts, supportPts, vcpPts }, passCount };
 }
 
 function computeNextAction(row) {

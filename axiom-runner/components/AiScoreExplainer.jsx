@@ -16,12 +16,16 @@
 // scoring function's breakdown key order AND reasons[] array order.
 export const TRADE_SETUP_DIMENSIONS = [
   { key: "regimePts", max: 20, label: "Market Regime", improve: "Market-wide, not stock-specific — recovers automatically as SPY/QQQ/VIX conditions turn more favorable." },
-  { key: "entryPts", max: 20, label: "Entry Timing", improve: "Needs to sit closer to the real pivot buy zone (0-5% above pivot) — not yet broken out, or already extended." },
-  { key: "breakoutPts", max: 15, label: "Breakout Confirmation", improve: "Needs to reach a real buy point with volume confirmation, or get closer to actionable." },
+  { key: "entryPts", max: 15, label: "Entry Timing", improve: "Needs to sit closer to the real pivot buy zone (0-5% above pivot) — not yet broken out, or already extended." },
+  { key: "breakoutPts", max: 10, label: "Breakout Confirmation", improve: "Needs to reach a real buy point with volume confirmation, or get closer to actionable." },
   { key: "volPts", max: 10, label: "Volume Confirmation", improve: "Volume needs to climb toward 2x the 50-day average or higher." },
   { key: "riskPts", max: 20, label: "Risk Discipline", improve: "Entry needs to sit closer to the stop (tighter % risk) for the same fixed 2R target." },
   { key: "supportPts", max: 10, label: "Support / Structure", improve: "Needs to trade closer to the real 52-week high — less overhead resistance between here and new highs." },
-  { key: "volatilityPts", max: 5, label: "Volatility / Base Tightness", improve: "Needs a real VCP base where each pullback contracts tighter than the last." },
+  // Reweighted 5->15 (2026-08-14, VCP engine integration Phase 2) — was a
+  // crude tightening-flag proxy, now the real standalone 0-100 VCP Setup
+  // Score (vcpReport(), src/routes/market.js), scaled to this dimension's
+  // share of the 100-point total.
+  { key: "vcpPts", max: 15, label: "VCP Setup Score", improve: "Needs a real VCP base where each pullback contracts tighter than the last, with volume drying up into the apex." },
 ];
 const TRADE_SETUP_LABEL = "TRADE SETUP SCORE";
 
@@ -78,7 +82,7 @@ const TECHNICAL_LABEL = "TECHNICAL";
 export const TIMING_DIMENSIONS = [
   { key: "entryPts", max: 50, label: "Entry Timing", improve: "Needs to sit closer to the real pivot buy zone (0-5% above pivot) — not yet broken out, or already extended." },
   { key: "breakoutPts", max: 38, label: "Breakout Confirmation", improve: "Needs to reach a real buy point with volume confirmation, or get closer to actionable." },
-  { key: "volatilityPts", max: 12, label: "Volatility / Base Tightness", improve: "Needs a real VCP base where each pullback contracts tighter than the last." },
+  { key: "vcpPts", max: 12, label: "VCP Setup Score", improve: "Needs a real VCP base where each pullback contracts tighter than the last, with volume drying up into the apex." },
 ];
 const TIMING_LABEL = "TIMING";
 

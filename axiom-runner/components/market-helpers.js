@@ -293,18 +293,26 @@ export function computeAPlusScore(row, regime) {
   // Ideal real entry window is 0% to +5% above pivot (a fresh, unextended
   // breakout); below the pivot means the base isn't broken yet, above +5%
   // means chasing an extended move — both are real timing penalties.
+  // Reduced from 20→15 (2026-08-14, VCP engine integration Phase 2) to make
+  // room for the new standalone VCP Setup Score dimension below — real
+  // overlap already existed here (VCP's own pivot-distance sub-component).
   const abovePivotPct = Number(row?.abovePivotPct);
   const idealDist = !Number.isFinite(abovePivotPct) ? null
     : abovePivotPct < 0 ? -abovePivotPct : Math.max(0, abovePivotPct - 5);
-  const entryPts = idealDist == null ? 10 : Math.round(Math.max(0, Math.min(1, (15 - idealDist) / 15)) * 20);
+  const entryPts = idealDist == null ? 8 : Math.round(Math.max(0, Math.min(1, (15 - idealDist) / 15)) * 15);
 
   // 3. Breakout confirmation — actionability plus the real breakout-engine
   // confidence (0-100, from vcpBreakoutEngine) when a breakout state exists.
+  // Reduced from 15→10 (2026-08-14, VCP Phase 2) — vcpReport's own real
+  // 10-pt breakout-readiness sub-component now covers most of this signal
+  // more precisely; kept as its own dimension rather than removed since it
+  // also reflects the app's separate Minervini trend-template actionability
+  // gate, not purely VCP-derived.
   const isGo = row?.verdict === "GO" || (row?.atBuyPoint && row?.volConfirmed);
   const breakoutConf = Number(row?.confidence) || 0;
-  const breakoutBase = isGo ? 12 : row?.actionable ? 7 : 0;
-  const breakoutBonus = Math.round((breakoutConf / 100) * 3);
-  const breakoutPts = Math.min(15, breakoutBase + breakoutBonus);
+  const breakoutBase = isGo ? 8 : row?.actionable ? 5 : 0;
+  const breakoutBonus = Math.round((breakoutConf / 100) * 2);
+  const breakoutPts = Math.min(10, breakoutBase + breakoutBonus);
 
   // 4. Volume confirmation — real volume vs the 50-day average; 2x+ = full credit.
   const volRatio = Number(row?.volRatio);
@@ -322,11 +330,18 @@ export function computeAPlusScore(row, regime) {
   const pctFromHigh = Number(row?.pctFromHigh);
   const supportPts = Number.isFinite(pctFromHigh) ? Math.round(Math.max(0, Math.min(1, (pctFromHigh + 25) / 25)) * 10) : 5;
 
-  // 7. Volatility/base tightness — real VCP contraction pattern (each pullback
-  // shallower than the last) is Minervini's own volatility-contraction signal.
-  const volatilityPts = row?.tightening ? 5 : (row?.vcpGrade && row.vcpGrade !== "-" ? 3 : 2);
+  // 7. VCP Setup Score — the real, standalone 0-100 score from vcpReport()
+  // (src/routes/market.js), a genuine 5-component rubric (trend/contraction/
+  // volatility/volume/breakout) built specifically to grade a Volatility
+  // Contraction Pattern base — not this app's own crude tightening-flag
+  // proxy it replaces. 2026-08-14, VCP engine integration Phase 2 ("Add VCP
+  // as another input" per the user's own spec — additive, not a new/second
+  // A+ engine). Honest half-credit default when vcpScore isn't on the row
+  // yet (e.g. a scan payload from before this field existed), never a guess.
+  const vcpScoreRaw = Number(row?.vcpScore);
+  const vcpPts = Number.isFinite(vcpScoreRaw) ? Math.round((vcpScoreRaw / 100) * 15) : 7;
 
-  const score = Math.max(0, Math.min(100, regimePts + entryPts + breakoutPts + volPts + riskPts + supportPts + volatilityPts));
+  const score = Math.max(0, Math.min(100, regimePts + entryPts + breakoutPts + volPts + riskPts + supportPts + vcpPts));
   const cautions = [];
   if (row?.earningsSoon) cautions.push(`⚠️ Earnings within ${row.earningsDte} day${row.earningsDte === 1 ? "" : "s"} — added gap risk (not scored, timing-only caution)`);
   const reasons = [
@@ -339,9 +354,9 @@ export function computeAPlusScore(row, regime) {
     Number.isFinite(volRatio) ? `Volume ${volRatio.toFixed(1)}x the 50-day average` : "Volume data unavailable",
     Number.isFinite(riskPct) && riskPct > 0 ? `${riskPct.toFixed(1)}% risk to stop — ${riskPct <= 5 ? "tight, low-risk entry" : riskPct <= 8 ? "moderate risk" : "wide stop, higher risk"}` : "Risk distance unavailable",
     Number.isFinite(pctFromHigh) ? `${Math.abs(pctFromHigh).toFixed(1)}% ${pctFromHigh < 0 ? "below" : "at"} the 52-week high` : "52-week high distance unavailable",
-    row?.tightening ? "VCP tightening — each pullback shallower than the last" : row?.vcpGrade && row.vcpGrade !== "-" ? `VCP grade ${row.vcpGrade}, not yet tightening` : "No real VCP base detected",
+    Number.isFinite(vcpScoreRaw) ? `VCP Setup Score ${vcpScoreRaw}/100${row?.vcpVerdict ? ` (${row.vcpVerdict})` : ""}` : "No real VCP base detected",
   ];
-  return { score, reasons, cautions, breakdown: { regimePts, entryPts, breakoutPts, volPts, riskPts, supportPts, volatilityPts }, passCount };
+  return { score, reasons, cautions, breakdown: { regimePts, entryPts, breakoutPts, volPts, riskPts, supportPts, vcpPts }, passCount };
 }
 
 // Fundamentals deep-dive — "why is this stock good or bad" (explicit user
@@ -1057,19 +1072,20 @@ export function deriveTopLevelScores({ regime, sectorInfo, technicals, instituti
   ];
 
   // Timing (new) — strict subset-sum of Trade Setup Score's OWN Entry
-  // Timing(20) + Breakout Confirmation(15) + Volatility/Base Tightness(5)
-  // sub-dimensions, each rescaled proportionally into a 0-100 total
-  // (50/38/12 max split) so the breakdown modal's parts sum to the same
+  // Timing + Breakout Confirmation + VCP Setup Score sub-dimensions, each
+  // rescaled proportionally into a 0-100 total (50/38/12 max split, kept
+  // from before the 2026-08-14 VCP integration's Trade Setup Score reweight
+  // 20/15/5 -> 15/10/15) so the breakdown modal's parts sum to the same
   // scale as the headline score. No cross-function blending — the
   // lowest-risk of the two new derived scores.
   const ab = aPlusScore?.breakdown;
-  const timingMax = { entryPts: 50, breakoutPts: 38, volatilityPts: 12 };
+  const timingMax = { entryPts: 50, breakoutPts: 38, vcpPts: 12 };
   const timingBreakdown = ab ? {
-    entryPts: Math.round((ab.entryPts / 20) * timingMax.entryPts),
-    breakoutPts: Math.round((ab.breakoutPts / 15) * timingMax.breakoutPts),
-    volatilityPts: Math.round((ab.volatilityPts / 5) * timingMax.volatilityPts),
+    entryPts: Math.round((ab.entryPts / 15) * timingMax.entryPts),
+    breakoutPts: Math.round((ab.breakoutPts / 10) * timingMax.breakoutPts),
+    vcpPts: Math.round((ab.vcpPts / 15) * timingMax.vcpPts),
   } : null;
-  const timingScore = timingBreakdown ? clamp(timingBreakdown.entryPts + timingBreakdown.breakoutPts + timingBreakdown.volatilityPts) : null;
+  const timingScore = timingBreakdown ? clamp(timingBreakdown.entryPts + timingBreakdown.breakoutPts + timingBreakdown.vcpPts) : null;
   const timingReasons = [
     aPlusScore?.reasons?.[1] || "Pivot distance unavailable",
     aPlusScore?.reasons?.[2] || "Breakout confirmation unavailable",

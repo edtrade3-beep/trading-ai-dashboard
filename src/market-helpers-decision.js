@@ -1,79 +1,25 @@
 "use strict";
 
 // market-helpers-decision.js — server-side CommonJS port of the
-// market-helpers.js pure functions AM Cortex needs (Market Regime, A+
-// Score, Institutional Grade, Fundamentals Read, Entry Type), kept
-// byte-identical to axiom-runner/components/market-helpers.js (same
-// dual-port convention as sniper-decision.js / cortex-decision.js — see
-// those files' own headers). Exists so Telegram's /cortex command can show
-// the same real Cortex decision the web app shows, without a browser.
+// market-helpers.js pure functions AM Cortex needs, kept byte-identical to
+// axiom-runner/components/market-helpers.js (same dual-port convention as
+// sniper-decision.js / cortex-decision.js — see those files' own headers).
+// Exists so Telegram's /cortex command can show the same real Cortex
+// decision the web app shows, without a browser.
 //
-// If you change computeRegime/computeAPlusScore/computeInstitutionalGrade/
-// computeFundamentalsRead/classifyEntryType in market-helpers.js, mirror
-// the change here too.
+// computeRegime/computeAPlusScore are NOT duplicated here — a real
+// duplicate was accidentally introduced when this file was first created
+// (2026-08-13) despite src/trade-planner-scoring.js already being the
+// established server-side port of those two (used by 7+ files: Telegram
+// /plan, aplus-score-history.js, watchlist alert jobs, x-intel-engine).
+// Found and fixed 2026-08-14 during the VCP engine integration — this file
+// now delegates to that single real source instead of maintaining a
+// second copy that could silently drift out of sync.
+//
+// If you change computeInstitutionalGrade/computeFundamentalsRead/
+// classifyEntryType in market-helpers.js, mirror the change here too.
 
-function computeRegime(macroData) {
-  const find = s => (macroData || []).find(m => (m.symbol || "").toUpperCase() === s);
-  const spy = find("SPY"), qqq = find("QQQ"), vix = find("VIX") || find("^VIX") || find("VIXY");
-  const chg = q => Number(q?.changesPercentage || 0);
-  const factors = [];
-  factors.push({ label: "SPY up", pass: spy ? chg(spy) > -0.1 : false, pts: 20 });
-  factors.push({ label: "QQQ up", pass: qqq ? chg(qqq) > -0.1 : false, pts: 20 });
-  const vixVal = Number(vix?.price || vix?.regularMarketPrice || 0);
-  factors.push({ label: "VIX < 20", pass: vixVal > 0 ? vixVal < 20 : (spy ? chg(spy) > -0.3 : false), pts: 20 });
-  factors.push({ label: "Breadth +", pass: spy && qqq ? (chg(spy) > 0 && chg(qqq) > 0) : false, pts: 20 });
-  factors.push({ label: "Trend day", pass: spy ? chg(spy) > 0.4 : false, pts: 20 });
-  const score = factors.reduce((s, f) => s + (f.pass ? f.pts : 0), 0);
-  const label = score >= 75 ? "GREEN" : score >= 55 ? "YELLOW" : score >= 40 ? "ORANGE" : "RED";
-  const color = score >= 75 ? "#22c55e" : score >= 55 ? "#d6a312" : score >= 40 ? "#e07b1a" : "#ef4444";
-  return { score, label, color, factors, vixVal };
-}
-
-function computeAPlusScore(row, regime) {
-  const passCount = Number(row?.passCount || 0);
-  const regimeScore = Number(regime?.score ?? 0);
-
-  const regimePts = Math.round((regimeScore / 100) * 20);
-
-  const abovePivotPct = Number(row?.abovePivotPct);
-  const idealDist = !Number.isFinite(abovePivotPct) ? null
-    : abovePivotPct < 0 ? -abovePivotPct : Math.max(0, abovePivotPct - 5);
-  const entryPts = idealDist == null ? 10 : Math.round(Math.max(0, Math.min(1, (15 - idealDist) / 15)) * 20);
-
-  const isGo = row?.verdict === "GO" || (row?.atBuyPoint && row?.volConfirmed);
-  const breakoutConf = Number(row?.confidence) || 0;
-  const breakoutBase = isGo ? 12 : row?.actionable ? 7 : 0;
-  const breakoutBonus = Math.round((breakoutConf / 100) * 3);
-  const breakoutPts = Math.min(15, breakoutBase + breakoutBonus);
-
-  const volRatio = Number(row?.volRatio);
-  const volPts = Number.isFinite(volRatio) ? Math.round(Math.max(0, Math.min(1, volRatio / 2)) * 10) : 5;
-
-  const riskPct = Number(row?.riskPct);
-  const riskPts = Number.isFinite(riskPct) && riskPct > 0 ? Math.round(Math.max(0, Math.min(1, (10 - riskPct) / 7)) * 20) : 10;
-
-  const pctFromHigh = Number(row?.pctFromHigh);
-  const supportPts = Number.isFinite(pctFromHigh) ? Math.round(Math.max(0, Math.min(1, (pctFromHigh + 25) / 25)) * 10) : 5;
-
-  const volatilityPts = row?.tightening ? 5 : (row?.vcpGrade && row.vcpGrade !== "-" ? 3 : 2);
-
-  const score = Math.max(0, Math.min(100, regimePts + entryPts + breakoutPts + volPts + riskPts + supportPts + volatilityPts));
-  const cautions = [];
-  if (row?.earningsSoon) cautions.push(`⚠️ Earnings within ${row.earningsDte} day${row.earningsDte === 1 ? "" : "s"} — added gap risk (not scored, timing-only caution)`);
-  const reasons = [
-    `Market regime ${regime?.label || "?"} (${regimeScore}/100)${regimeScore >= 75 ? " — favorable for breakouts" : regimeScore >= 55 ? " — mixed, be selective" : " — unfavorable, high failure risk"}`,
-    idealDist == null ? "Pivot distance unavailable"
-      : abovePivotPct < 0 ? `${Math.abs(abovePivotPct).toFixed(1)}% below pivot — base not yet broken`
-      : abovePivotPct <= 5 ? `${abovePivotPct.toFixed(1)}% above pivot — fresh, unextended entry`
-      : `${abovePivotPct.toFixed(1)}% above pivot — extended, chasing risk`,
-    isGo ? `At buy point with volume confirmation${breakoutConf ? ` (${breakoutConf}% breakout confidence)` : ""}` : row?.actionable ? "Near pivot, not yet confirmed" : "Not yet actionable",
-    Number.isFinite(volRatio) ? `Volume ${volRatio.toFixed(1)}x the 50-day average` : "Volume data unavailable",
-    Number.isFinite(riskPct) && riskPct > 0 ? `${riskPct.toFixed(1)}% risk to stop — ${riskPct <= 5 ? "tight, low-risk entry" : riskPct <= 8 ? "moderate risk" : "wide stop, higher risk"}` : "Risk distance unavailable",
-    Number.isFinite(pctFromHigh) ? `${Math.abs(pctFromHigh).toFixed(1)}% ${pctFromHigh < 0 ? "below" : "at"} the 52-week high` : "52-week high distance unavailable",
-    row?.tightening ? "VCP tightening — each pullback shallower than the last" : row?.vcpGrade && row.vcpGrade !== "-" ? `VCP grade ${row.vcpGrade}, not yet tightening` : "No real VCP base detected",
-  ];
-  return { score, reasons, cautions, breakdown: { regimePts, entryPts, breakoutPts, volPts, riskPts, supportPts, volatilityPts }, passCount };
-}
+const { computeRegime, computeAPlusScore } = require("./trade-planner-scoring");
 
 function computeInstitutionalGrade(row, technicals, regime, sectorInfo, optionsFlow) {
   const passCount = Number(row?.passCount);

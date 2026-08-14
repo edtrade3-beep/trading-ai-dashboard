@@ -361,12 +361,12 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
               <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: 14, marginBottom: 14 }}>
                 <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: C.text, marginBottom: 10 }}>A+ SCORE — {aplus.score}/100</div>
                 <ScoreBar C={C} MONO={MONO} label="Market Regime" pts={aplus.breakdown.regimePts} max={20} />
-                <ScoreBar C={C} MONO={MONO} label="Entry Timing" pts={aplus.breakdown.entryPts} max={20} />
-                <ScoreBar C={C} MONO={MONO} label="Breakout Confirmation" pts={aplus.breakdown.breakoutPts} max={15} />
+                <ScoreBar C={C} MONO={MONO} label="Entry Timing" pts={aplus.breakdown.entryPts} max={15} />
+                <ScoreBar C={C} MONO={MONO} label="Breakout Confirmation" pts={aplus.breakdown.breakoutPts} max={10} />
                 <ScoreBar C={C} MONO={MONO} label="Volume" pts={aplus.breakdown.volPts} max={10} />
                 <ScoreBar C={C} MONO={MONO} label="Risk Discipline" pts={aplus.breakdown.riskPts} max={20} />
                 <ScoreBar C={C} MONO={MONO} label="Support / Structure" pts={aplus.breakdown.supportPts} max={10} />
-                <ScoreBar C={C} MONO={MONO} label="Volatility Contraction" pts={aplus.breakdown.volatilityPts} max={5} />
+                <ScoreBar C={C} MONO={MONO} label="VCP Setup Score" pts={aplus.breakdown.vcpPts} max={15} />
               </div>
 
               <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
