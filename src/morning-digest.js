@@ -19,11 +19,12 @@
 "use strict";
 
 const path = require("node:path");
-const { ROOT } = require("./config");
+const { ROOT, resolveProviderKeys } = require("./config");
 const { writeJsonAtomic, readJsonSafe } = require("./atomic-write");
 const { sendTelegramMessage, isConfigured: telegramConfigured } = require("./telegram");
 const { flushDigestBuffer } = require("./alert-buffer");
 const { isMarketHoursET } = require("./risk-guardrails");
+const { computeRegime } = require("./trade-planner-scoring");
 
 const STORE_PATH = path.join(ROOT, "data", "morning-digest-state.json");
 
@@ -51,17 +52,30 @@ async function checkMorningDigest() {
   const today = todayET();
   if (state.lastSentDate === today) return { ok: true, skipped: "already sent today" };
 
+  // Real regime read (same computeRegime the alert jobs' own A+ Score calls
+  // already use) — fetched once here rather than a 10th duplicate fetch,
+  // since none of the 9 checks below return their macro quotes to this
+  // caller. Best-effort: an honest missing line beats blocking the whole
+  // digest on one failed quote fetch.
+  let regimeLine = "";
+  try {
+    const macroRows = await require("./routes/market").fetchMarketQuotes(["SPY", "QQQ", "VIXY"], resolveProviderKeys(new URLSearchParams()));
+    const regime = computeRegime(Array.isArray(macroRows) ? macroRows : []);
+    regimeLine = `Regime: ${regime.label} (${regime.score}/100)${Number.isFinite(regime.vixVal) && regime.vixVal > 0 ? ` · VIX ${regime.vixVal.toFixed(1)}` : ""}`;
+  } catch { /* honest omission below if this fails */ }
+
   await Promise.allSettled(CHECKS.map((fn) => fn()));
   const items = flushDigestBuffer();
 
   // Mark today as sent regardless of item count — an honest "nothing new"
-  // digest still beats silence, and prevents re-running all 8 real scans
+  // digest still beats silence, and prevents re-running all 9 real scans
   // again every 5 min for the rest of the day.
   writeJsonAtomic(STORE_PATH, { lastSentDate: today });
 
   const et = new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit" });
   const divider = "━━━━━━━━━━━━━━━━━━━━";
   const lines = [`☀️ MORNING BRIEF — ${today}, ${et} ET`, divider];
+  if (regimeLine) { lines.push(regimeLine); lines.push(""); }
 
   if (!items.length) {
     lines.push("Nothing new — no real setup crossed a signal since the last brief.");
