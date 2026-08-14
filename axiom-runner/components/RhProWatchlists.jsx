@@ -2,8 +2,13 @@ import { useState, useEffect } from "react";
 import { RH_UNIVERSE, rhScreenProgressive } from "./rhpro-shared.jsx";
 import { computeRegime, computeInstitutionalGrade, computeAPlusScore, computeNextAction, computePrediction, SECTOR_ETFS, STOCK_TO_SECTOR } from "./market-helpers.js";
 import { mapToAiAction } from "./ai-actions.js";
+// Cortex slide-over (2026-08-14, same linked-panel treatment SmartScanTab.jsx
+// got — "wire them together... professional way like bloomberg", extended
+// to every other "Open in Cortex" entry point rather than leaving this one
+// as a full-page jump while Smart Scan's stays in place).
+import AMCortexTab from "./AMCortexTab.jsx";
 
-export default function RhProWatchlists({ C, MONO, SANS, setActiveTab, macroData, sectorData }) {
+export default function RhProWatchlists({ C, MONO, SANS, setActiveTab, macroData, sectorData, watchlistSymbols, setTerminalSymbol }) {
   const regime = computeRegime(macroData);
 
   // Same real per-symbol sector-rank lookup MarketTerminalTab.jsx (Workspace)
@@ -56,9 +61,10 @@ export default function RhProWatchlists({ C, MONO, SANS, setActiveTab, macroData
   // "make Cortex the one decision layer"). Jumps into Cortex's full
   // analysis via the same real localStorage handoff (cortex_open_symbol)
   // the Telegram deep-link uses.
+  const [cortexPanelSymbol, setCortexPanelSymbol] = useState(null);
   const openInCortex = (symbol) => {
     try { localStorage.setItem("cortex_open_symbol", symbol.toUpperCase()); } catch {}
-    setActiveTab && setActiveTab("cortex");
+    setCortexPanelSymbol(symbol.toUpperCase());
   };
 
   const st2 = r => (r.stage || "").includes("2");
@@ -152,6 +158,7 @@ export default function RhProWatchlists({ C, MONO, SANS, setActiveTab, macroData
   const { lists } = buildLists(rows);
 
   return (
+    <>
     <div style={{ padding: "8px 4px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
         {/* Renamed from "SMART WATCHLISTS" — real site-reorg finding: this
@@ -212,5 +219,28 @@ export default function RhProWatchlists({ C, MONO, SANS, setActiveTab, macroData
       </div>
       <div style={{ marginTop: 10, fontFamily: SANS, fontSize: 10, color: C.textDim }}>Tap any ticker to open the Trade Analyzer. Analysis only — no orders.</div>
     </div>
+
+    {/* ── Cortex slide-over — same linked-panel pattern as SmartScanTab.jsx ── */}
+    {cortexPanelSymbol && (
+      <div onClick={() => setCortexPanelSymbol(null)}
+        style={{ position: "fixed", inset: 0, background: "rgba(8,18,34,0.45)", zIndex: 1300, display: "flex", justifyContent: "flex-end" }}>
+        <div onClick={e => e.stopPropagation()}
+          style={{ width: "min(900px, 100%)", height: "100%", background: C.bg, boxShadow: "-8px 0 40px rgba(0,0,0,0.25)",
+            display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 18px",
+            borderBottom: `1px solid ${C.border}`, background: C.card, flexShrink: 0 }}>
+            <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text }}>🧠 CORTEX — {cortexPanelSymbol}</div>
+            <button onClick={() => setCortexPanelSymbol(null)}
+              style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.textDim, background: "transparent",
+                border: `1px solid ${C.border}`, borderRadius: 6, padding: "4px 10px", cursor: "pointer" }}>✕ Close</button>
+          </div>
+          <div style={{ flex: 1, overflowY: "auto", padding: "14px 18px" }}>
+            <AMCortexTab key={cortexPanelSymbol} C={C} MONO={MONO} SANS={SANS} macroData={macroData} sectorData={sectorData}
+              watchlistSymbols={watchlistSymbols} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} />
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }

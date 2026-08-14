@@ -7206,7 +7206,7 @@ export default function App() {
             { id: "flow", label: "OPTIONS FLOW" },
             { id: "rhpro-future", label: "FUTURE/VALUE" },
           ]} />
-          <RhProWatchlists C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} macroData={macroData} sectorData={sectorData} />
+          <RhProWatchlists C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} macroData={macroData} sectorData={sectorData} watchlistSymbols={watchlistSymbols} setTerminalSymbol={setTerminalSymbol} />
         </>
       )}
       {activeTab === "rhpro-future" && (

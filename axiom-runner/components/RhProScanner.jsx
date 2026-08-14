@@ -28,6 +28,10 @@ import FlowTab from "./FlowTab.jsx";
 import DarkPoolTab from "./DarkPoolTab.jsx";
 import EarningsTab from "./EarningsTab.jsx";
 import RotationTab from "./RotationTab.jsx";
+// Cortex slide-over (2026-08-14, same linked-panel treatment SmartScanTab.jsx
+// got — "wire them together... professional way like bloomberg", extended
+// to every "Open in Cortex" entry point).
+import AMCortexTab from "./AMCortexTab.jsx";
 // winProbFor/bucketOf/MIN_WIN_SAMPLE moved to market-helpers.js (2026-07-29)
 // so MarketTerminalTab's new AI Score Card can reuse the exact same real
 // win-probability lookup instead of re-deriving it independently.
@@ -242,9 +246,10 @@ export default function RhProScanner({
   // into its Deep Scan as evidence"). Now jumps straight into Cortex's
   // full analysis for the row's symbol via the same real localStorage
   // handoff convention (cortex_open_symbol) the Telegram deep-link uses.
+  const [cortexPanelSymbol, setCortexPanelSymbol] = useState(null);
   const openInCortex = (symbol) => {
     try { localStorage.setItem("cortex_open_symbol", symbol.toUpperCase()); } catch {}
-    setActiveTab && setActiveTab("cortex");
+    setCortexPanelSymbol(symbol.toUpperCase());
   };
   // Row expand-in-place — institutional redesign (2026-07-29), same real
   // pattern SmartScanTab.jsx already uses for its own per-row deep-dive,
@@ -531,6 +536,7 @@ export default function RhProScanner({
   const th = { fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", padding: "6px 10px", textAlign: "left", position: "sticky", top: 0, background: C.card };
 
   return (
+    <>
     <div style={{ padding: "8px 4px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 10 }}>
         <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.text }}>AI SNIPER SCANNER PRO</div>
@@ -938,5 +944,28 @@ export default function RhProScanner({
       </>
       )}
     </div>
+
+    {/* ── Cortex slide-over — same linked-panel pattern as SmartScanTab.jsx ── */}
+    {cortexPanelSymbol && (
+      <div onClick={() => setCortexPanelSymbol(null)}
+        style={{ position: "fixed", inset: 0, background: "rgba(8,18,34,0.45)", zIndex: 1300, display: "flex", justifyContent: "flex-end" }}>
+        <div onClick={e => e.stopPropagation()}
+          style={{ width: "min(900px, 100%)", height: "100%", background: C.bg, boxShadow: "-8px 0 40px rgba(0,0,0,0.25)",
+            display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 18px",
+            borderBottom: `1px solid ${C.border}`, background: C.card, flexShrink: 0 }}>
+            <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text }}>🧠 CORTEX — {cortexPanelSymbol}</div>
+            <button onClick={() => setCortexPanelSymbol(null)}
+              style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.textDim, background: "transparent",
+                border: `1px solid ${C.border}`, borderRadius: 6, padding: "4px 10px", cursor: "pointer" }}>✕ Close</button>
+          </div>
+          <div style={{ flex: 1, overflowY: "auto", padding: "14px 18px" }}>
+            <AMCortexTab key={cortexPanelSymbol} C={C} MONO={MONO} SANS={SANS} macroData={macroData} sectorData={sectorData}
+              watchlistSymbols={watchlistSymbols} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} />
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
