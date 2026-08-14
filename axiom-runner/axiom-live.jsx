@@ -6695,7 +6695,7 @@ export default function App() {
 
         {activeTab === "smartscan" && (
           <SmartScanTab
-            C={C} MONO={MONO} SANS={SANS} isTablet={isTablet} macroData={macroData} watchlistSymbols={watchlistSymbols}
+            C={C} MONO={MONO} SANS={SANS} isTablet={isTablet} macroData={macroData} sectorData={sectorData} watchlistSymbols={watchlistSymbols}
             scanResults={scanResults} scanExpanded={scanExpanded} scanError={scanError} scanLoading={scanLoading}
             scanProgress={scanProgress} scanLastRun={scanLastRun}
             scanFavorites={scanFavorites} scanHistory={scanHistory} scanDeepData={scanDeepData} scanDeepLoad={scanDeepLoad}

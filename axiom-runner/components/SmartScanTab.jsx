@@ -13,6 +13,14 @@ import { computeHeatRisk, computeCortexVerdict } from "./cortex-engine.js";
 // self-fetching, need no new parent state threaded through).
 import GapScanner from "./GapScanner.jsx";
 import DayTradeTab from "./DayTradeTab.jsx";
+// Cortex slide-over (2026-08-14, explicit user request: "wire them
+// together... professional way like bloomberg" — Bloomberg's core pattern
+// is linked panels that stay on screen together, not full-page jumps that
+// lose your place). Reuses the real AMCortexTab component as-is via the
+// same cortex_open_symbol localStorage handoff every other entry point
+// already uses — just rendered in an overlay instead of a full tab
+// navigation, so the scan list stays visible underneath.
+import AMCortexTab from "./AMCortexTab.jsx";
 import SqueezeTab from "./SqueezeTab.jsx";
 import InsiderTab from "./InsiderTab.jsx";
 
@@ -93,7 +101,7 @@ const SMARTSCAN_CATEGORIES = [
 const SMARTSCAN_EMBEDDED_CATEGORIES = ["gap", "daytrade", "shortsqueeze", "insider"];
 
 export default function SmartScanTab({
-  C, MONO, SANS, isTablet, macroData, watchlistSymbols,
+  C, MONO, SANS, isTablet, macroData, sectorData, watchlistSymbols,
   scanResults, scanExpanded, scanError, scanLoading, scanProgress, scanLastRun,
   scanFavorites, scanHistory, scanDeepData, scanDeepLoad, scanTickerInput, customScanTickers,
   deepSocialData, autoScanMins, autoScanOn, autoScanCountdown, autoExecStatus,
@@ -120,6 +128,8 @@ export default function SmartScanTab({
           const [showGuide, setShowGuide] = useState(true);
           // Category tabs (see SMARTSCAN_CATEGORIES above).
           const [smartScanCategory, setSmartScanCategory] = useState("all");
+          // Cortex slide-over target symbol — null when closed.
+          const [cortexPanelSymbol, setCortexPanelSymbol] = useState(null);
           // A+ Score — the platform's separate real 9-dimension composite
           // (market-helpers.js), deliberately NOT merged into this tab's own
           // SMC/momentum score above — same "keep parallel scoring systems
@@ -905,11 +915,14 @@ export default function SmartScanTab({
                                     {row.ticker}
                                     {ref?.company && <span style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, fontWeight: 400, marginLeft: 6 }}>{ref.company}</span>}
                                   </div>
-                                  {/* Open full AM Cortex analysis for this row — same real
+                                  {/* Open full AM Cortex analysis in a slide-over — same real
                                       localStorage handoff (cortex_open_symbol) Discover/
-                                      Watchlists/Telegram already use. Explicit user request,
-                                      2026-08-14: "add cortex to smart scan." */}
-                                  <button onClick={(e) => { e.stopPropagation(); try { localStorage.setItem("cortex_open_symbol", row.ticker.toUpperCase()); } catch {} setActiveTab && setActiveTab("cortex"); }}
+                                      Watchlists/Telegram already use, but rendered in an
+                                      overlay instead of a full tab navigation so the scan list
+                                      stays visible underneath (2026-08-14, "wire them together
+                                      ... professional way like bloomberg" — linked panels, not
+                                      full-page jumps that lose your place). */}
+                                  <button onClick={(e) => { e.stopPropagation(); try { localStorage.setItem("cortex_open_symbol", row.ticker.toUpperCase()); } catch {} setCortexPanelSymbol(row.ticker.toUpperCase()); }}
                                     title="Open the full AI Cortex analysis for this symbol — WHY / SETUP / LEVELS / RISK / VERDICT"
                                     style={{ fontSize: 10, fontWeight: 800, border: "1px solid #d6a312", background: "#d6a31214", color: "#d6a312",
                                       borderRadius: 4, padding: "2px 6px", cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>🧠 Cortex</button>
@@ -2631,6 +2644,32 @@ export default function SmartScanTab({
                       {i === 0 && <span style={{ fontFamily: SANS, fontSize: 10, color: C.accent, flexShrink: 0 }}>LATEST</span>}
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {/* ── Cortex slide-over — Bloomberg-style linked panel, not a
+                full-page navigation. key={cortexPanelSymbol} forces a fresh
+                AMCortexTab mount per symbol so its own real analysis runs
+                fresh each time (same real cortex_open_symbol handoff its
+                mount-effect already reads). ── */}
+            {cortexPanelSymbol && (
+              <div onClick={() => setCortexPanelSymbol(null)}
+                style={{ position: "fixed", inset: 0, background: "rgba(8,18,34,0.45)", zIndex: 1300, display: "flex", justifyContent: "flex-end" }}>
+                <div onClick={e => e.stopPropagation()}
+                  style={{ width: "min(900px, 100%)", height: "100%", background: C.bg, boxShadow: "-8px 0 40px rgba(0,0,0,0.25)",
+                    display: "flex", flexDirection: "column", overflow: "hidden" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 18px",
+                    borderBottom: `1px solid ${C.border}`, background: C.card, flexShrink: 0 }}>
+                    <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text }}>🧠 CORTEX — {cortexPanelSymbol}</div>
+                    <button onClick={() => setCortexPanelSymbol(null)}
+                      style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.textDim, background: "transparent",
+                        border: `1px solid ${C.border}`, borderRadius: 6, padding: "4px 10px", cursor: "pointer" }}>✕ Close</button>
+                  </div>
+                  <div style={{ flex: 1, overflowY: "auto", padding: "14px 18px" }}>
+                    <AMCortexTab key={cortexPanelSymbol} C={C} MONO={MONO} SANS={SANS} macroData={macroData} sectorData={sectorData}
+                      watchlistSymbols={watchlistSymbols} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} />
+                  </div>
                 </div>
               </div>
             )}
