@@ -53,6 +53,32 @@ function fmtHold(openedAt, closedAt) {
   return `${(hrs / 24).toFixed(1)}d`;
 }
 
+// Pure classifier — no formatting — so the weekly review's discipline
+// score (src/ai-coach.js's runWeeklyReview) can reuse the exact same real
+// verdict logic instead of a second, potentially-drifting copy. Only
+// "stop_violated" represents an actual broken risk plan (a loss that ran
+// past the real stop); "early_exit_loss" means the loss was CUT SMALLER
+// than planned, the opposite of a violation.
+function classifyExit(t, match) {
+  if (!match || !match.entry || !match.stop) return { verdict: "no_plan" };
+  const slipPct = match.entry ? ((t.entry - match.entry) / match.entry) * 100 : null;
+  const risk = match.entry > match.stop ? match.entry - match.stop : null;
+  const rMultiple = risk && match.qty ? t.pnl / (risk * match.qty) : null;
+  // A real stop-loss order fills AT OR BELOW the stop price (long-only app),
+  // typically within a small slippage band either side of the trigger — the
+  // band below is normal fill slippage ("honored"); materially further below
+  // means the actual loss exceeded the planned risk unit ("violated"),
+  // regardless of cause (gap-through, widened stop, manual override).
+  const stopLo = match.stop * (1 - STOP_TOLERANCE);
+  const stopHi = match.stop * (1 + STOP_TOLERANCE);
+  let verdict;
+  if (match.target && t.exit >= match.target * (1 - TARGET_TOLERANCE)) verdict = "target_hit";
+  else if (t.exit >= stopLo && t.exit <= stopHi) verdict = "stop_honored";
+  else if (t.exit < stopLo) verdict = "stop_violated";
+  else verdict = t.pnl > 0 ? "early_exit_win" : "early_exit_loss";
+  return { verdict, slipPct, risk, rMultiple };
+}
+
 function gradeTrade(t, match) {
   const win = t.pnl > 0;
   const result = `${win ? "+" : ""}$${t.pnl.toFixed(2)} (${win ? "WIN" : "LOSS"})`;
@@ -63,30 +89,27 @@ function gradeTrade(t, match) {
     `Entry $${t.entry.toFixed(2)} → Exit $${t.exit.toFixed(2)} · ${t.qty} sh${hold ? ` · held ${hold}` : ""}`,
   ];
 
-  if (!match || !match.entry || !match.stop) {
+  const c = classifyExit(t, match);
+  if (c.verdict === "no_plan") {
     base.push("No real plan on file for this trade (untagged/manual entry) — logged for the record only.");
     return base.join("\n");
   }
 
-  const slipPct = match.entry ? ((t.entry - match.entry) / match.entry) * 100 : null;
-  const risk = match.entry > match.stop ? match.entry - match.stop : null;
-  const rMultiple = risk && match.qty ? t.pnl / (risk * match.qty) : null;
-
   const planParts = [`Plan: entry $${match.entry.toFixed(2)}`];
-  if (slipPct != null && Math.abs(slipPct) >= 0.05) planParts.push(`(${slipPct >= 0 ? "+" : ""}${slipPct.toFixed(1)}% slippage)`);
+  if (c.slipPct != null && Math.abs(c.slipPct) >= 0.05) planParts.push(`(${c.slipPct >= 0 ? "+" : ""}${c.slipPct.toFixed(1)}% slippage)`);
   planParts.push(`· stop $${match.stop.toFixed(2)}`);
   if (match.target) planParts.push(`· target $${match.target.toFixed(2)}`);
   base.push(planParts.join(" "));
 
-  if (rMultiple != null) base.push(`R: ${rMultiple >= 0 ? "+" : ""}${rMultiple.toFixed(1)}R`);
+  if (c.rMultiple != null) base.push(`R: ${c.rMultiple >= 0 ? "+" : ""}${c.rMultiple.toFixed(1)}R`);
 
-  if (match.target && t.exit >= match.target * (1 - TARGET_TOLERANCE)) {
+  if (c.verdict === "target_hit") {
     base.push("Exit at/near the real target — plan followed.");
-  } else if (t.exit <= match.stop * (1 + STOP_TOLERANCE)) {
-    base.push(t.exit < match.stop
-      ? `Exited past the real stop ($${t.exit.toFixed(2)} vs $${match.stop.toFixed(2)}) — bigger loss than the planned risk unit.`
-      : "Stopped out at/near the real stop — risk plan honored.");
-  } else if (win) {
+  } else if (c.verdict === "stop_violated") {
+    base.push(`Exited past the real stop ($${t.exit.toFixed(2)} vs $${match.stop.toFixed(2)}) — bigger loss than the planned risk unit.`);
+  } else if (c.verdict === "stop_honored") {
+    base.push("Stopped out at/near the real stop — risk plan honored.");
+  } else if (c.verdict === "early_exit_win") {
     base.push("Closed for a win before reaching the real target — early exit, not a plan violation by itself.");
   } else {
     base.push("Closed for a loss without hitting the real stop — exited manually ahead of plan.");
@@ -133,4 +156,4 @@ async function checkTradeAutopsy() {
   return { ok: true, checked: trades.length, graded: graded.map((g) => ({ symbol: g.symbol, closedAt: g.closedAt })) };
 }
 
-module.exports = { checkTradeAutopsy };
+module.exports = { checkTradeAutopsy, classifyExit };

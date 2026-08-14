@@ -5,8 +5,9 @@
 const { callAnthropicApi, MODELS } = require("./anthropic");
 const { sendTelegramMessage, isConfigured } = require("./telegram");
 const { PORT } = require("./config");
-const { tierStatsLine } = require("./autopilot-journal");
-const { patternSummaryLine } = require("./journal-analytics");
+const { tierStatsLine, readJournal } = require("./autopilot-journal");
+const { patternSummaryLine, journalMatchFor } = require("./journal-analytics");
+const { classifyExit } = require("./trade-autopsy");
 // Shared "informational" daily budget — a safety net against a scheduling
 // bug flooding Telegram, not a throttle on normal once-a-day operation. See
 // the comment above shouldSendAlert() in telegram-bot.js for why these
@@ -92,8 +93,24 @@ async function runWeeklyReview() {
   const tiers = tierStatsLine(week);
   const tierBlock = tiers ? `\n\nBY SETUP:\n${tiers}` : "";
   const patternBlock = patterns ? `\n\nPATTERNS:\n${patterns}` : "";
-  saveCoachOutput("weekly", { text: review.trim(), stats, tiers, patterns });
-  if (shouldSendAlert({ category: "ai-coach" })) sendTelegramMessage(`📅 *WEEKLY REVIEW*\n${stats}${tierBlock}${patternBlock}\n\n${review.trim()}`).catch(() => {});
+  // Discipline score (2026-08-14) — reuses trade-autopsy.js's real
+  // classifyExit verdict (same join against autopilot-journal.js's real
+  // planned entry/stop/target trade-autopsy.js already uses for the
+  // per-trade Telegram receipt) rolled up across the week. Only counts
+  // trades with a real plan on file; "stop_violated" is the one verdict
+  // that means an actual broken risk plan (a loss ran past the real
+  // stop) — early exits and stop-honored losses are NOT violations.
+  // Honestly omitted from the message when no trade this week has a real
+  // plan to grade against.
+  const journal = readJournal();
+  const classified = week.map((t) => classifyExit(t, journalMatchFor(t, journal))).filter((c) => c.verdict !== "no_plan");
+  const violations = classified.filter((c) => c.verdict === "stop_violated").length;
+  const disciplinePct = classified.length ? Math.round(((classified.length - violations) / classified.length) * 100) : null;
+  const disciplineLine = disciplinePct != null
+    ? `\n\nSTOP DISCIPLINE: ${disciplinePct}% (${classified.length - violations}/${classified.length} plan-tracked trades never lost more than the real planned risk)`
+    : "";
+  saveCoachOutput("weekly", { text: review.trim(), stats, tiers, patterns, disciplinePct });
+  if (shouldSendAlert({ category: "ai-coach" })) sendTelegramMessage(`📅 *WEEKLY REVIEW*\n${stats}${tierBlock}${patternBlock}${disciplineLine}\n\n${review.trim()}`).catch(() => {});
 }
 
 // ── Monthly Deep Review — 1st of month, Fable judges whether the edge is real. ──
