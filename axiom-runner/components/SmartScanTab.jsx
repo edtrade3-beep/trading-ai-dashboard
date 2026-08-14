@@ -789,9 +789,19 @@ export default function SmartScanTab({
 
                               {/* Ticker + Quick Read */}
                               <td style={{ padding: "10px 12px", borderBottom: `1px solid ${C.border}22`, minWidth: 180 }}>
-                                <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.text }}>
-                                  {row.ticker}
-                                  {ref?.company && <span style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, fontWeight: 400, marginLeft: 6 }}>{ref.company}</span>}
+                                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                  <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.text }}>
+                                    {row.ticker}
+                                    {ref?.company && <span style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, fontWeight: 400, marginLeft: 6 }}>{ref.company}</span>}
+                                  </div>
+                                  {/* Open full AM Cortex analysis for this row — same real
+                                      localStorage handoff (cortex_open_symbol) Discover/
+                                      Watchlists/Telegram already use. Explicit user request,
+                                      2026-08-14: "add cortex to smart scan." */}
+                                  <button onClick={(e) => { e.stopPropagation(); try { localStorage.setItem("cortex_open_symbol", row.ticker.toUpperCase()); } catch {} setActiveTab && setActiveTab("cortex"); }}
+                                    title="Open the full AI Cortex analysis for this symbol — WHY / SETUP / LEVELS / RISK / VERDICT"
+                                    style={{ fontSize: 10, fontWeight: 800, border: "1px solid #d6a312", background: "#d6a31214", color: "#d6a312",
+                                      borderRadius: 4, padding: "2px 6px", cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>🧠 Cortex</button>
                                 </div>
                                 {/* ── QUICK READ: key signals in one line ── */}
                                 {(() => {
