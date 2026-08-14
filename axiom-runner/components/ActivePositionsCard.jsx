@@ -73,6 +73,15 @@ export default function ActivePositionsCard({ C, MONO, SANS, setTerminalSymbol, 
           {positions.map(p => {
             const pl = Number(p.unrealizedPL) || 0;
             const plPct = Number(p.unrealizedPLpc) || 0;
+            // Live R-multiple readout (explicit user request, 2026-08-14:
+            // "currently at 1.8R of your 3R target" mid-trade, not just a
+            // Telegram receipt after the fact). Real risk unit = |planned
+            // entry - planned stop| from the /api/alpaca/positions overlay
+            // above; honestly hidden (not "0R") when this position has no
+            // real matching plan on file.
+            const risk = (p.plannedEntry > 0 && p.plannedStop > 0) ? Math.abs(p.plannedEntry - p.plannedStop) : null;
+            const rNow = risk ? (Number(p.current || 0) - p.plannedEntry) / risk : null;
+            const rTarget = (risk && p.plannedTarget > 0) ? (p.plannedTarget - p.plannedEntry) / risk : null;
             return (
               <div key={p.symbol} onClick={() => { setTerminalSymbol?.(p.symbol); setActiveTab?.("mterminal"); }}
                 style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 4px", borderRadius: 6, cursor: "pointer", gap: 8 }}>
@@ -95,6 +104,12 @@ export default function ActivePositionsCard({ C, MONO, SANS, setTerminalSymbol, 
                   <div style={{ fontFamily: MONO, fontSize: 10, color: pl >= 0 ? C.green : C.red, ...num }}>
                     {plPct >= 0 ? "+" : ""}{plPct.toFixed(1)}%
                   </div>
+                  {rNow != null && (
+                    <div title={`Real risk unit $${risk.toFixed(2)}/sh — from plan entry $${p.plannedEntry.toFixed(2)} / stop $${p.plannedStop.toFixed(2)}${p.plannedTarget ? ` / target $${p.plannedTarget.toFixed(2)}` : ""}`}
+                      style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim, ...num, marginTop: 1 }}>
+                      {rNow >= 0 ? "+" : ""}{rNow.toFixed(1)}R{rTarget != null ? ` / ${rTarget.toFixed(1)}R` : ""}
+                    </div>
+                  )}
                 </div>
               </div>
             );

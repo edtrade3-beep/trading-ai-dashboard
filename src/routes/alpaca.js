@@ -1,7 +1,7 @@
 // Alpaca PAPER trading bridge — keys stay server-side, orders go to the paper API only.
 // Set ALPACA_KEY_ID and ALPACA_SECRET_KEY in the environment (use PAPER keys).
 const { writeJson } = require("../utils");
-const { tierStats, appendJournal } = require("../autopilot-journal");
+const { tierStats, appendJournal, readJournal } = require("../autopilot-journal");
 const { computeLearningGates } = require("../learning-engine");
 const { sectorOf } = require("../risk-guardrails");
 const { resolveAlpacaKeys, alpacaTradingRequest } = require("../providers/alpaca-client");
@@ -185,6 +185,31 @@ async function handleAlpaca(req, res, requestUrl) {
       unrealizedPL: Number(p.unrealized_pl), unrealizedPLpc: Number(p.unrealized_plpc) * 100, side: p.side,
       openedAt: openedAt[p.symbol] || null,
     }));
+    // Real planned stop/target overlay (2026-08-14, live R-multiple readout)
+    // — same real autopilot-journal.js entries trade-autopsy.js already
+    // joins against CLOSED trades, applied here to OPEN positions instead:
+    // the journal buy closest in time to this position's own real opening
+    // fill (openedAt above), within a 24h window (autopilot/tagged buys are
+    // journaled at the moment of the fill, so a same-day match is the real
+    // plan — a much older or unrelated entry is never guessed as the plan
+    // for a different open lot). Positions with no real match (manual/
+    // untagged buys, or opened before this journal existed) simply don't
+    // get plannedStop/plannedTarget — honestly omitted, never fabricated.
+    try {
+      const journal = readJournal();
+      for (const pos of positions) {
+        if (!pos.openedAt) continue;
+        const openTs = new Date(pos.openedAt).getTime();
+        const match = journal
+          .filter(j => j.symbol === pos.symbol && Math.abs(j.ts - openTs) < 24 * 3600_000)
+          .sort((x, y) => Math.abs(x.ts - openTs) - Math.abs(y.ts - openTs))[0];
+        if (match && match.entry > 0 && match.stop > 0) {
+          pos.plannedEntry = match.entry;
+          pos.plannedStop = match.stop;
+          pos.plannedTarget = match.target > 0 ? match.target : null;
+        }
+      }
+    } catch { /* best-effort — real P&L above still returns even if this overlay fails */ }
     return writeJson(res, 200, { ok: true, positions });
   }
 
