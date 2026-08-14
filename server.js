@@ -411,6 +411,14 @@ server.listen(PORT, HOST, () => {
   setInterval(() => require("./src/watchlist-institutional-alerts").checkWatchlistInstitutionalAlerts().catch(() => {}), 15 * 60_000);
   console.log("[Watchlist institutional] Smart money / dark pool / options flow / earnings / sentiment alerts active — every 15 min, market hours only");
 
+  // VCP engine alerts — Phase 4 of the VCP integration spec (explicit user
+  // approval, 2026-08-14). Real Telegram ping on a real vcpBreakoutEngine
+  // state-machine transition (WATCH -> SETUP_READY, -> BREAKOUT_ACTIVE/
+  // CONFIRMED, or a confirmed breakout -> FAILED) for Watchlist symbols.
+  // Same persisted-diff pattern as the alert jobs above, read-only.
+  setInterval(() => require("./src/vcp-alerts").checkVcpAlerts().catch(() => {}), 15 * 60_000);
+  console.log("[VCP] Setup-ready / breakout / failed-breakout alerts active — every 15 min, market hours only");
+
   // Paper Position Manager — AI Exit Engine, options platform redesign
   // Phase 11. Repricess every real open paper position off a fresh real
   // chain fetch every 15 min during market hours, same standalone-interval
