@@ -141,4 +141,4 @@ function patternSummaryLine(closedTrades) {
   return lines.join("\n");
 }
 
-module.exports = { winRateByDayOfWeek, winRateByHour, avgHoldTime, sectorPerformance, bestWorstTrades, patternSummaryLine };
+module.exports = { winRateByDayOfWeek, winRateByHour, avgHoldTime, sectorPerformance, bestWorstTrades, patternSummaryLine, journalMatchFor };

@@ -388,6 +388,18 @@ server.listen(PORT, HOST, () => {
   setInterval(() => require("./src/position-reversal-alerts").checkPositionReversals().catch(() => {}), 5 * 60_000);
   console.log("[Position Reversal] Early get-out alerts for held positions active — every 5 min, market hours only");
 
+  // Trade autopsy (explicit user request, 2026-08-14: "which one do I need
+  // most" -> the automatic post-trade grade, over a live R-multiple
+  // readout, specifically because it needs no attention while a trade is
+  // open). Real Telegram receipt the moment a real round-trip trade closes
+  // (getClosedTrades()'s FIFO fill-matching over real Alpaca paper
+  // activities) — real entry slippage, real R-multiple, and whether the
+  // exit landed near the real planned stop/target. Read-only, sent
+  // immediately per trade (not routed through the morning digest — a
+  // one-off receipt, not a recurring opportunity scan).
+  setInterval(() => require("./src/trade-autopsy").checkTradeAutopsy().catch(() => {}), 15 * 60_000);
+  console.log("[Trade Autopsy] Post-trade plan-vs-actual grading active — every 15 min, market hours only");
+
   // Best Opportunities "new GO" alerts (explicit user request, 2026-08-03:
   // "alert me on go not working" — the existing button is a browser
   // Notification, which silently fails once permission is denied or the tab
