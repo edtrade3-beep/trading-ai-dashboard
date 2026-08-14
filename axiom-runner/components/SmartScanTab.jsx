@@ -1720,55 +1720,21 @@ export default function SmartScanTab({
                                       );
                                     })()}
 
-                                    <div
-                                      ref={el => {
-                                        if (!el) return;
-                                        // Mouse drag (desktop)
-                                        el.onmousedown = e => {
-                                          const startX = e.pageX - el.offsetLeft;
-                                          const scrollLeft = el.scrollLeft;
-                                          el.style.cursor = "grabbing";
-                                          el.style.userSelect = "none";
-                                          const onMove = mv => { el.scrollLeft = scrollLeft - (mv.pageX - el.offsetLeft - startX); };
-                                          const onUp = () => { el.style.cursor = "grab"; el.style.userSelect = ""; window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
-                                          window.addEventListener("mousemove", onMove);
-                                          window.addEventListener("mouseup", onUp);
-                                        };
-                                        // Touch drag (iPad / iPhone)
-                                        el.ontouchstart = e => {
-                                          const touch = e.touches[0];
-                                          const startX = touch.pageX;
-                                          const scrollLeft = el.scrollLeft;
-                                          const onMove = mv => {
-                                            const dx = mv.touches[0].pageX - startX;
-                                            el.scrollLeft = scrollLeft - dx;
-                                          };
-                                          const onEnd = () => { el.removeEventListener("touchmove", onMove); el.removeEventListener("touchend", onEnd); };
-                                          el.addEventListener("touchmove", onMove, { passive: true });
-                                          el.addEventListener("touchend", onEnd);
-                                        };
-                                      }}
-                                      style={{ display: "flex", gap: 10, height: isTablet ? 520 : 460, overflowX: "auto", overflowY: "hidden", cursor: "grab", scrollbarWidth: "thin", paddingBottom: 4, WebkitOverflowScrolling: "touch" }}>
-
-                                      {/* ── Col 1: TradingView mini chart ── */}
-                                      <div style={{ width: 220, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", padding: "0 12px 0 0", borderRight: `1px solid ${C.border}33`}}>
-                                        <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 8, letterSpacing: "0.06em", paddingBottom: 5, borderBottom: `2px solid ${C.border}`, minHeight: 32, display: "flex", alignItems: "center", position: "sticky", top: 0, background: C.bg, zIndex: 2 }}>
-                                          📊 CHART
-                                        </div>
-                                        <div style={{ borderRadius: 6, overflow: "hidden", flex: 1,
-                                          border: `1px solid ${C.border}` }}>
-                                          <iframe
-                                            title={`tv-${row.ticker}`}
-                                            scrolling="no"
-                                            style={{ width: "100%", height: "100%", display: "block", border: "none" }}
-                                            src={`/client/tv-widget.html?w=mini-symbol-overview&s=${encodeURIComponent(row.ticker)}&t=${themeMode === "dark" ? "dark" : "light"}&h=400`}
-                                          />
-                                        </div>
-                                      </div>
+                                    {/* ── Deep-dive panels — responsive grid (was a fixed-width
+                                        drag-to-scroll strip; explicit user request 2026-08-14,
+                                        "make it pro and remove chart"). The per-symbol TradingView
+                                        mini chart (Col 1) is removed — real Chart access already
+                                        exists one click away via the row's own "Open Plan"/Cortex
+                                        buttons, so this panel now spends its space entirely on
+                                        real analysis instead of a second, smaller chart. Columns
+                                        reflow to fill the real available width instead of forcing
+                                        horizontal scrolling on desktop. ── */}
+                                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 14,
+                                      maxHeight: isTablet ? 620 : 540, overflowY: "auto", paddingBottom: 4 }}>
 
                                       {/* ── Col 2: TECHNICALS (indicators + signals + entry zones) ── */}
-                                      <div style={{ width: 215, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto", padding: "0 12px", borderRight: `1px solid ${C.border}33`}}>
-                                        <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 8, letterSpacing: "0.06em", paddingBottom: 5, borderBottom: `2px solid ${C.border}`, minHeight: 32, display: "flex", alignItems: "center", position: "sticky", top: 0, background: C.bg, zIndex: 2 }}>
+                                      <div style={{ display: "flex", flexDirection: "column", maxHeight: isTablet ? 620 : 540, overflowY: "auto", padding: 12, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8 }}>
+                                        <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 8, letterSpacing: "0.06em", paddingBottom: 5, borderBottom: `2px solid ${C.border}`, minHeight: 32, display: "flex", alignItems: "center", position: "sticky", top: 0, background: C.card, zIndex: 2 }}>
                                           ⚡ TECHNICALS
                                         </div>
                                         {/* Key indicator values */}
@@ -1978,8 +1944,8 @@ export default function SmartScanTab({
                                         const smc = deepData?.smc;
                                         const px  = Number(livePrice || row.quote?.price || 0);
                                         return (
-                                          <div style={{ width: 240, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto", padding: "0 12px", borderRight: `1px solid ${C.border}33`}}>
-                                            <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 8, letterSpacing: "0.06em", paddingBottom: 5, borderBottom: `2px solid ${C.border}`, minHeight: 32, display: "flex", alignItems: "center", position: "sticky", top: 0, background: C.bg, zIndex: 2 }}>
+                                          <div style={{ display: "flex", flexDirection: "column", maxHeight: isTablet ? 620 : 540, overflowY: "auto", padding: 12, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8 }}>
+                                            <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 8, letterSpacing: "0.06em", paddingBottom: 5, borderBottom: `2px solid ${C.border}`, minHeight: 32, display: "flex", alignItems: "center", position: "sticky", top: 0, background: C.card, zIndex: 2 }}>
                                               🧱 SMC ANALYSIS
                                             </div>
                                             {!smc ? (
@@ -2105,8 +2071,8 @@ export default function SmartScanTab({
                                       })()}
 
                                       {/* ── Col 5: RECENT NEWS ── */}
-                                      <div style={{ width: 220, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto", padding: "0 12px", borderRight: `1px solid ${C.border}33`}}>
-                                        <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 8, letterSpacing: "0.06em", paddingBottom: 5, borderBottom: `2px solid ${C.border}`, minHeight: 32, display: "flex", alignItems: "center", gap: 8, position: "sticky", top: 0, background: C.bg, zIndex: 2 }}>
+                                      <div style={{ display: "flex", flexDirection: "column", maxHeight: isTablet ? 620 : 540, overflowY: "auto", padding: 12, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8 }}>
+                                        <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 8, letterSpacing: "0.06em", paddingBottom: 5, borderBottom: `2px solid ${C.border}`, minHeight: 32, display: "flex", alignItems: "center", gap: 8, position: "sticky", top: 0, background: C.card, zIndex: 2 }}>
                                           📰 RECENT NEWS
                                           {/* WHY MOVING — computed from keywords, no state needed */}
                                           {deepData?.news?.length > 0 && (() => {
@@ -2184,8 +2150,8 @@ export default function SmartScanTab({
                                       </div>
 
                                       {/* ── Col 6: ANALYST RATINGS + EARNINGS ── */}
-                                      <div style={{ width: 220, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto", padding: "0 12px", borderRight: `1px solid ${C.border}33`}}>
-                                        <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 8, letterSpacing: "0.06em", paddingBottom: 5, borderBottom: `2px solid ${C.border}`, minHeight: 32, display: "flex", alignItems: "center", position: "sticky", top: 0, background: C.bg, zIndex: 2 }}>
+                                      <div style={{ display: "flex", flexDirection: "column", maxHeight: isTablet ? 620 : 540, overflowY: "auto", padding: 12, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8 }}>
+                                        <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 8, letterSpacing: "0.06em", paddingBottom: 5, borderBottom: `2px solid ${C.border}`, minHeight: 32, display: "flex", alignItems: "center", position: "sticky", top: 0, background: C.card, zIndex: 2 }}>
                                           🎯 ANALYST & EARNINGS
                                         </div>
 
@@ -2388,7 +2354,7 @@ export default function SmartScanTab({
                                       </div>
 
                                       {/* ── Col 7: AI Trade Setup + Auto-Execute ── */}
-                                      <div style={{ width: 280, flexShrink: 0, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto", padding: "0 12px", borderRight: `1px solid ${C.border}33`}}>
+                                      <div style={{ display: "flex", flexDirection: "column", maxHeight: isTablet ? 620 : 540, overflowY: "auto", padding: 12, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8 }}>
                                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                                           <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700,
                                             color: C.textDim, letterSpacing: "0.06em" }}>
