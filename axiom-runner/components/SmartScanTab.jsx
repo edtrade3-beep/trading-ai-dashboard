@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { computeGreenLight, computeRvol } from "./trading-utils.js";
 import { smartScanZoneOf, exportSmartScanZonePDF } from "./smartscan-shared.js";
 import { FIVEX_REF } from "./fivex-data.js";
-import { computeAPlusScore, computeRegime } from "./market-helpers.js";
+import { computeAPlusScore, computeRegime, computePrediction } from "./market-helpers.js";
 import { computeSniperDecision } from "./sniper-decision.js";
 import { computeHeatRisk, computeCortexVerdict } from "./cortex-engine.js";
 // Category tabs (2026-08-14, explicit user request: "make smart scan just
@@ -1061,6 +1061,24 @@ export default function SmartScanTab({
                                           {ch.txt}
                                         </span>
                                       ))}
+                                    </div>
+                                  );
+                                })()}
+                                {/* Real Quick Read prediction — same computePrediction engine
+                                    Workspace's "AI SUMMARY" card uses (market-helpers.js),
+                                    explicit user request 2026-08-14: "apply [Workspace's
+                                    one-line verdict summary] in smart scan tab". Deterministic
+                                    off real trend/price data already on this row — no new
+                                    fetch, no LLM. */}
+                                {(() => {
+                                  const pred = computePrediction(row.quote, smartScanTrendMap[row.ticker]);
+                                  if (!pred) return null;
+                                  const dirColor = pred.dir === "BULLISH" ? "#0d9465" : pred.dir === "LEAN UP" ? "#5ab552"
+                                    : pred.dir === "BEARISH" ? "#c8282a" : pred.dir === "LEAN DOWN" ? "#e08a1e" : C.textDim;
+                                  return (
+                                    <div style={{ marginTop: 4, fontFamily: MONO, fontSize: 10.5, color: C.textDim }} title={pred.why.join(" · ")}>
+                                      Quick Read: <span style={{ color: dirColor, fontWeight: 800 }}>{pred.dir}</span>
+                                      {" "}→ ${pred.target} ({pred.movePct >= 0 ? "+" : ""}{pred.movePct}%) · {pred.conf}% confidence
                                     </div>
                                   );
                                 })()}
