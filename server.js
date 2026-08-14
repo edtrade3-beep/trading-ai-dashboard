@@ -344,14 +344,14 @@ server.listen(PORT, HOST, () => {
   // runs unconditionally — not gated behind SERVER_AUTOPILOT like the
   // stop-ratcheting/trade-mutating automation above.
   setInterval(() => require("./src/watchlist-turn-alerts").checkWatchlistTurns().catch(() => {}), 15 * 60_000);
-  console.log("[Watchlist turns] Buy/sell verdict-change alerts active — every 15 min, market hours only");
+  console.log("[Watchlist turns] Buy/sell verdict-change detection active — every 15 min, feeds the morning digest");
 
   // Watchlist setup alerts — Phase 4 of the Institutional Scanner work
   // (2026-07-28): real Trade Setup Score tradeable-tier crossing (≥70) and
   // real buy-zone entry (atBuyPoint false→true), same persisted-diff
   // pattern as the verdict-turn alert above, read-only.
   setInterval(() => require("./src/watchlist-setup-alerts").checkWatchlistSetupAlerts().catch(() => {}), 15 * 60_000);
-  console.log("[Watchlist setup] Trade Setup Score + buy-zone alerts active — every 15 min, market hours only");
+  console.log("[Watchlist setup] Trade Setup Score + buy-zone detection active — every 15 min, feeds the morning digest");
 
   // Watchlist Green Light entry alerts (explicit user request, 2026-08-03,
   // annotated screenshot: "alert me when it goes to buy" on a real
@@ -360,7 +360,7 @@ server.listen(PORT, HOST, () => {
   // "at support" (price reaches its real EMA21/MA50/pivot entry level).
   // Same persisted-diff pattern as the alert jobs above, read-only.
   setInterval(() => require("./src/watchlist-greenlight-alerts").checkWatchlistGreenLightAlerts().catch(() => {}), 15 * 60_000);
-  console.log("[Watchlist Green Light] Real entry-price-reached alerts active — every 15 min, market hours only");
+  console.log("[Watchlist Green Light] Real entry-price-reached detection active — every 15 min, feeds the morning digest");
 
   // Watchlist AI Sniper alerts (explicit user request, 2026-08-10/11: "wire
   // AI Sniper Scanner Pro in Telegram... when to get out before stock goes
@@ -370,7 +370,7 @@ server.listen(PORT, HOST, () => {
   // Same persisted-diff pattern as the alerts above, read-only. Each message
   // carries a deep-link button straight to that symbol's Sniper screen.
   setInterval(() => require("./src/watchlist-sniper-alerts").checkWatchlistSniperTurns().catch(() => {}), 15 * 60_000);
-  console.log("[Watchlist AI Sniper] Enter-long / get-out alerts active — every 15 min, market hours only");
+  console.log("[Watchlist AI Sniper] Enter-long / get-out detection active — every 15 min, feeds the morning digest");
 
   // Position reversal alerts (explicit user request, 2026-08-11: "I DONT
   // WANT TO THINK TOO MUCH I WANT PLATFORM TO WORK ME" / "THE SYSTEM TELL
@@ -395,13 +395,13 @@ server.listen(PORT, HOST, () => {
   // ~100-symbol scan universe Best Opportunities uses (not just Watchlist),
   // so it can surface names the user isn't watching yet.
   setInterval(() => require("./src/best-opportunities-alerts").checkBestOpportunitiesAlerts().catch(() => {}), 15 * 60_000);
-  console.log("[Best Opportunities] Real new-GO-setup alerts active — every 15 min, market hours only");
+  console.log("[Best Opportunities] Real new-GO-setup detection active — every 15 min, feeds the morning digest");
 
   // Bearish setups alerts (explicit user request, 2026-08-03: "when market
   // is down what stocks to short") — the real bearish counterpart to the
   // job above. Puts, not equity shorts (long-only guardrail stays intact).
   setInterval(() => require("./src/bearish-setups-alerts").checkBearishSetupsAlerts().catch(() => {}), 15 * 60_000);
-  console.log("[Bearish Setups] Real new-put-candidate alerts active — every 15 min, market hours only");
+  console.log("[Bearish Setups] Real new-put-candidate detection active — every 15 min, feeds the morning digest");
 
   // Watchlist institutional alerts — Phase 5 of the Institutional Research
   // Upgrade (2026-07-29): 5 more real, previously-missing alert categories
@@ -409,7 +409,7 @@ server.listen(PORT, HOST, () => {
   // released, sentiment shift), same persisted-diff pattern + Watchlist-only
   // scope as the two alert files above, read-only.
   setInterval(() => require("./src/watchlist-institutional-alerts").checkWatchlistInstitutionalAlerts().catch(() => {}), 15 * 60_000);
-  console.log("[Watchlist institutional] Smart money / dark pool / options flow / earnings / sentiment alerts active — every 15 min, market hours only");
+  console.log("[Watchlist institutional] Smart money / dark pool / options flow / earnings / sentiment detection active — every 15 min, feeds the morning digest");
 
   // VCP engine alerts — Phase 4 of the VCP integration spec (explicit user
   // approval, 2026-08-14). Real Telegram ping on a real vcpBreakoutEngine
@@ -417,7 +417,19 @@ server.listen(PORT, HOST, () => {
   // CONFIRMED, or a confirmed breakout -> FAILED) for Watchlist symbols.
   // Same persisted-diff pattern as the alert jobs above, read-only.
   setInterval(() => require("./src/vcp-alerts").checkVcpAlerts().catch(() => {}), 15 * 60_000);
-  console.log("[VCP] Setup-ready / breakout / failed-breakout alerts active — every 15 min, market hours only");
+  console.log("[VCP] Setup-ready / breakout / failed-breakout detection active — every 15 min, feeds the morning digest");
+
+  // Morning digest — once-daily consolidated Telegram summary of the 8
+  // "opportunity" detection jobs above (explicit user request, 2026-08-14:
+  // "consolidate the alerts into one morning digest" for a professional
+  // 15-second morning read, over an explicit AskUserQuestion). Checked
+  // every 5 min (cheap — it no-ops once already sent today or outside
+  // market hours) so it fires promptly after the open rather than waiting
+  // up to 15 min; does the real 8-scan work itself only on the one tick
+  // per day the gate actually passes. Does not affect position-reversal-
+  // alerts.js or paper-positions.js's reprice job — those stay real-time.
+  setInterval(() => require("./src/morning-digest").checkMorningDigest().catch(() => {}), 5 * 60_000);
+  console.log("[Morning Digest] Once-daily consolidated summary active — checked every 5 min, market hours only");
 
   // Paper Position Manager — AI Exit Engine, options platform redesign
   // Phase 11. Repricess every real open paper position off a fresh real

@@ -21,8 +21,8 @@
 const path = require("node:path");
 const { ROOT, resolveProviderKeys } = require("./config");
 const { writeJsonAtomic, readJsonSafe } = require("./atomic-write");
-const { sendTelegramMessage, isConfigured: telegramConfigured } = require("./telegram");
-const { shouldSendAlert } = require("./telegram-bot");
+const { isConfigured: telegramConfigured } = require("./telegram");
+const { pushDigestLines } = require("./alert-buffer");
 const { isMarketHoursET } = require("./risk-guardrails");
 const { SCAN_UNIVERSE } = require("./advisor-ai");
 
@@ -75,11 +75,11 @@ async function checkBestOpportunitiesAlerts() {
 
   saveState(next);
 
-  if (alerts.length && shouldSendAlert({ category: "opportunity" })) {
+  if (alerts.length) {
     const lines = alerts.map((a) =>
       `🎯 ${a.symbol}: new GO buy-point at $${Number(a.price).toFixed(2)} — entry $${a.entry}, stop $${a.stop}${a.target ? `, target $${a.target}` : ""} · RS ${a.rsRating}`
     );
-    await sendTelegramMessage(`⚡ *BEST OPPORTUNITIES — NEW GO*\n\n${lines.join("\n")}`).catch(() => {});
+    pushDigestLines("opportunity", "⚡ BEST OPPORTUNITIES — NEW GO", lines);
   }
 
   return { ok: true, checked: rows.length, alerts };

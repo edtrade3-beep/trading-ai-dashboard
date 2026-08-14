@@ -27,8 +27,8 @@
 const path = require("node:path");
 const { ROOT } = require("./config");
 const { writeJsonAtomic, readJsonSafe } = require("./atomic-write");
-const { sendTelegramMessage, isConfigured: telegramConfigured } = require("./telegram");
-const { shouldSendAlert } = require("./telegram-bot");
+const { isConfigured: telegramConfigured } = require("./telegram");
+const { pushDigestLines } = require("./alert-buffer");
 const { loadWatchlist } = require("./routes/watchlist");
 const { isMarketHoursET } = require("./risk-guardrails");
 const { computeSniperDecision } = require("./sniper-decision");
@@ -79,32 +79,15 @@ async function checkWatchlistSniperTurns() {
 
   saveActions(next);
 
-  if (turns.length && shouldSendAlert({ category: "watchlist-sniper" })) {
-    for (const t of turns) {
+  if (turns.length) {
+    const lines = turns.map((t) => {
       const url = `${BASE()}/?symbol=${encodeURIComponent(t.symbol)}&open=sniper`;
-      // Raw URL also appended as plain text (2026-08-11, real user report:
-      // "click on bottom link it fails") — a second, independent way to
-      // reach the same link if the inline button misbehaves on some
-      // Telegram client (Telegram auto-linkifies plain URLs too).
       if (t.direction === "buy") {
-        const parts = [
-          `🎯 AI SNIPER — ${t.symbol}`,
-          `🟢 ENTER LONG (was ${t.from === "ENTER_LONG" ? "—" : t.from})`,
-          t.d.reason,
-          t.d.entry != null ? `Entry $${t.d.entry.toFixed(2)} · Stop $${t.d.stop.toFixed(2)} · Target $${t.d.target2?.toFixed(2) ?? "—"}${t.d.rr != null ? ` · R:R ${t.d.rr.toFixed(1)}:1` : ""}` : null,
-          "", url,
-        ].filter(Boolean);
-        await sendTelegramMessage(parts.join("\n"), { url, buttonText: `Open ${t.symbol} Sniper →` }).catch(() => {});
-      } else {
-        const parts = [
-          `🎯 AI SNIPER — ${t.symbol}`,
-          `🟠 GET OUT WARNING — ${t.to === "AVOID" ? "AVOID" : "NO CHASE"} (was ENTER LONG)`,
-          t.d.reason,
-          "", url,
-        ].filter(Boolean);
-        await sendTelegramMessage(parts.join("\n"), { url, buttonText: `Open ${t.symbol} Sniper →` }).catch(() => {});
+        return `🟢 ${t.symbol} — ENTER LONG (was ${t.from === "ENTER_LONG" ? "—" : t.from}): ${t.d.reason}${t.d.entry != null ? ` · Entry $${t.d.entry.toFixed(2)} · Stop $${t.d.stop.toFixed(2)} · Target $${t.d.target2?.toFixed(2) ?? "—"}${t.d.rr != null ? ` · R:R ${t.d.rr.toFixed(1)}:1` : ""}` : ""} · ${url}`;
       }
-    }
+      return `🟠 ${t.symbol} — GET OUT WARNING (${t.to === "AVOID" ? "AVOID" : "NO CHASE"}, was ENTER LONG): ${t.d.reason} · ${url}`;
+    });
+    pushDigestLines("watchlist-sniper", "🎯 AI SNIPER", lines);
   }
 
   return { ok: true, checked: symbols.length, turns };

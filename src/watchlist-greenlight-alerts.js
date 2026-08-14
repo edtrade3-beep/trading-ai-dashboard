@@ -16,8 +16,8 @@
 const path = require("node:path");
 const { ROOT, resolveProviderKeys } = require("./config");
 const { writeJsonAtomic, readJsonSafe } = require("./atomic-write");
-const { sendTelegramMessage, isConfigured: telegramConfigured } = require("./telegram");
-const { shouldSendAlert } = require("./telegram-bot");
+const { isConfigured: telegramConfigured } = require("./telegram");
+const { pushDigestLines } = require("./alert-buffer");
 const { loadWatchlist } = require("./routes/watchlist");
 const { isMarketHoursET } = require("./risk-guardrails");
 const { computeGreenLight } = require("./greenlight-calc");
@@ -86,11 +86,11 @@ async function checkWatchlistGreenLightAlerts() {
 
   saveState(next);
 
-  if (alerts.length && shouldSendAlert({ category: "opportunity" })) {
+  if (alerts.length) {
     const lines = alerts.map((a) =>
       `🎯 ${a.symbol}: hit its real entry at $${Number(a.price).toFixed(2)} (target $${a.bestEntry}) — ${a.signal} ${a.tradeable ? "· tradeable" : ""} · Grade ${a.grade}`
     );
-    await sendTelegramMessage(`⚡ *WATCHLIST GREEN LIGHT ENTRY*\n\n${lines.join("\n")}`).catch(() => {});
+    pushDigestLines("opportunity", "⚡ GREEN LIGHT ENTRY", lines);
   }
 
   return { ok: true, checked: symbols.length, alerts };

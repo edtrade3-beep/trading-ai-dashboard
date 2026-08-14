@@ -5,8 +5,9 @@
 // and watchlist-setup-alerts.js) and reusing the exact same real persisted-
 // diff pattern those two files already use (durable store survives
 // redeploys, first-seen-per-symbol seeds silently rather than alerting on
-// startup). Each category is budget-gated independently via
-// shouldSendAlert so one noisy category never crowds out another.
+// startup). Each category queues into the shared morning digest
+// (src/alert-buffer.js, 2026-08-14) rather than sending its own Telegram
+// message immediately.
 //
 //   1. smart-money-detected — real BOS newly appears (smc-engine.js, already
 //      attached to every trend-screen row).
@@ -40,8 +41,8 @@
 const path = require("node:path");
 const { ROOT, resolveProviderKeys } = require("./config");
 const { writeJsonAtomic, readJsonSafe } = require("./atomic-write");
-const { sendTelegramMessage, isConfigured: telegramConfigured } = require("./telegram");
-const { shouldSendAlert } = require("./telegram-bot");
+const { isConfigured: telegramConfigured } = require("./telegram");
+const { pushDigestLines } = require("./alert-buffer");
 const { loadWatchlist } = require("./routes/watchlist");
 const { isMarketHoursET } = require("./risk-guardrails");
 
@@ -100,9 +101,8 @@ function saveSnapshot(s) {
 
 // Real history log (2026-07-29, "don't see what you just built" — the
 // checks above only pinged Telegram, with nothing to look at in the app
-// itself). Logs every real trigger regardless of the Telegram budget gate
-// below, so the Alerts tab shows what actually happened even on a check
-// where shouldSendAlert throttled the Telegram message itself.
+// itself). Logs every real trigger the moment it's detected, independent
+// of whether/when the morning digest ends up delivering it.
 function loadHistory() {
   const parsed = readJsonSafe(HISTORY_PATH, []);
   return Array.isArray(parsed) ? parsed : [];
@@ -283,9 +283,7 @@ async function checkWatchlistInstitutionalAlerts() {
   const send = async (category, header, items, lineFn, textFn) => {
     if (!items.length) return;
     historyEntries.push(...items.map((a) => ({ category, symbol: a.symbol, text: textFn(a), at: now })));
-    if (shouldSendAlert({ category })) {
-      await sendTelegramMessage(`${header}\n\n${items.map(lineFn).join("\n")}`).catch(() => {});
-    }
+    pushDigestLines(category, header, items.map(lineFn));
   };
 
   // $-prefixed ticker (2026-08-04, explicit user request — real screenshot

@@ -18,8 +18,8 @@
 const path = require("node:path");
 const { ROOT, resolveProviderKeys } = require("./config");
 const { writeJsonAtomic, readJsonSafe } = require("./atomic-write");
-const { sendTelegramMessage, isConfigured: telegramConfigured } = require("./telegram");
-const { shouldSendAlert } = require("./telegram-bot");
+const { isConfigured: telegramConfigured } = require("./telegram");
+const { pushDigestLines } = require("./alert-buffer");
 const { loadWatchlist } = require("./routes/watchlist");
 const { isMarketHoursET } = require("./risk-guardrails");
 
@@ -77,13 +77,13 @@ async function checkWatchlistSetupAlerts() {
 
   saveState(next);
 
-  if (alerts.length && shouldSendAlert({ category: "watchlist-setup-alert" })) {
+  if (alerts.length) {
     const lines = alerts.map((a) =>
       a.kind === "score"
         ? `📈 ${a.symbol}: Trade Setup Score ${a.from} → ${a.to} — now in the tradeable range (≥${SCORE_TIER_THRESHOLD})`
         : `🎯 ${a.symbol}: entered the real buy zone at $${Number(a.price).toFixed(2)} (confirmed pivot breakout, volume-confirmed)`
     );
-    await sendTelegramMessage(`⚡ *WATCHLIST SETUP ALERT*\n\n${lines.join("\n")}`).catch(() => {});
+    pushDigestLines("watchlist-setup-alert", "⚡ WATCHLIST SETUP", lines);
   }
 
   return { ok: true, checked: symbols.length, alerts };

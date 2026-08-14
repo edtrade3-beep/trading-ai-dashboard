@@ -20,8 +20,8 @@
 const path = require("node:path");
 const { ROOT } = require("./config");
 const { writeJsonAtomic, readJsonSafe } = require("./atomic-write");
-const { sendTelegramMessage, isConfigured: telegramConfigured } = require("./telegram");
-const { shouldSendAlert } = require("./telegram-bot");
+const { isConfigured: telegramConfigured } = require("./telegram");
+const { pushDigestLines } = require("./alert-buffer");
 const { loadWatchlist } = require("./routes/watchlist");
 const { isMarketHoursET } = require("./risk-guardrails");
 
@@ -76,9 +76,9 @@ async function checkWatchlistTurns() {
 
   saveVerdicts(next);
 
-  if (turns.length && shouldSendAlert({ category: "watchlist-turn" })) {
+  if (turns.length) {
     const lines = turns.map((t) => `${t.direction === "buy" ? "🟢 BUY" : "🔴 SELL/EXIT"} — ${t.symbol}: ${t.from} → ${t.to}`);
-    await sendTelegramMessage(`📊 *WATCHLIST TURN*\n\n${lines.join("\n")}`).catch(() => {});
+    pushDigestLines("watchlist-turn", "📊 WATCHLIST TURN", lines);
   }
 
   return { ok: true, checked: symbols.length, turns };

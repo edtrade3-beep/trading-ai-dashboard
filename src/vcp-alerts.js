@@ -24,8 +24,8 @@
 const path = require("node:path");
 const { ROOT, resolveProviderKeys } = require("./config");
 const { writeJsonAtomic, readJsonSafe } = require("./atomic-write");
-const { sendTelegramMessage, isConfigured: telegramConfigured } = require("./telegram");
-const { shouldSendAlert } = require("./telegram-bot");
+const { isConfigured: telegramConfigured } = require("./telegram");
+const { pushDigestLines } = require("./alert-buffer");
 const { loadWatchlist } = require("./routes/watchlist");
 const { isMarketHoursET } = require("./risk-guardrails");
 
@@ -83,8 +83,8 @@ async function checkVcpAlerts() {
 
   saveState(next);
 
-  if (alerts.length && shouldSendAlert({ category: "vcp-alert" })) {
-    for (const a of alerts) {
+  if (alerts.length) {
+    const lines = alerts.map((a) => {
       const { row } = a;
       const { score: aplusScore } = computeAPlusScore(row, regime);
       const price = Number(row.price);
@@ -92,34 +92,15 @@ async function checkVcpAlerts() {
       const dist = Number(row.vcpPivotDistancePct);
       const depths = Array.isArray(row.vcpDepths) ? row.vcpDepths.map((d) => `${d}%`).join(" → ") : null;
 
-      let text;
       if (a.kind === "ready") {
-        text = [
-          `🟡 *${symbol} — VCP READY*`,
-          `VCP Score: ${row.vcpScore}/100 (${row.vcpVerdict})`,
-          `Pivot: $${pivot.toFixed(2)}   Price: $${price.toFixed(2)}`,
-          `Distance: ${dist >= 0 ? dist.toFixed(1) + "% below" : Math.abs(dist).toFixed(1) + "% above"}`,
-          depths ? `Contractions: ${depths}` : null,
-          `WAITING FOR BREAKOUT`,
-        ].filter(Boolean).join("\n");
-      } else if (a.kind === "breakout") {
-        text = [
-          `🟢 *${symbol} — VCP BREAKOUT*`,
-          `Pivot: $${pivot.toFixed(2)}   Price: $${price.toFixed(2)}`,
-          `Relative Volume: ${Number.isFinite(row.volRatio) ? row.volRatio.toFixed(1) + "x" : "—"}`,
-          `VCP Score: ${row.vcpScore}/100   Breakout Confidence: ${row.confidence}%   A+ Score: ${aplusScore}/100`,
-          row.state === "CONFIRMED" ? "Volume-confirmed." : "Not yet volume-confirmed — watch for follow-through.",
-        ].join("\n");
-      } else {
-        text = [
-          `🔴 *${symbol} — FAILED BREAKOUT*`,
-          `Pivot: $${pivot.toFixed(2)}   Price: $${price.toFixed(2)} (lost the pivot)`,
-          `VCP Score: ${row.vcpScore}/100`,
-          `Setup invalidated — real early warning, not a stop-loss trigger by itself.`,
-        ].join("\n");
+        return `🟡 ${a.symbol} — VCP READY: Score ${row.vcpScore}/100 (${row.vcpVerdict}) · Pivot $${pivot.toFixed(2)} · Price $${price.toFixed(2)} (${dist >= 0 ? dist.toFixed(1) + "% below" : Math.abs(dist).toFixed(1) + "% above"})${depths ? ` · Contractions ${depths}` : ""}`;
       }
-      await sendTelegramMessage(text).catch(() => {});
-    }
+      if (a.kind === "breakout") {
+        return `🟢 ${a.symbol} — VCP BREAKOUT: Pivot $${pivot.toFixed(2)} · Price $${price.toFixed(2)} · RVOL ${Number.isFinite(row.volRatio) ? row.volRatio.toFixed(1) + "x" : "—"} · VCP ${row.vcpScore}/100 · A+ ${aplusScore}/100${row.state === "CONFIRMED" ? " · volume-confirmed" : " · not yet volume-confirmed"}`;
+      }
+      return `🔴 ${a.symbol} — FAILED BREAKOUT: Pivot $${pivot.toFixed(2)} · Price $${price.toFixed(2)} (lost the pivot) · VCP was ${row.vcpScore}/100`;
+    });
+    pushDigestLines("vcp-alert", "🟪 VCP ENGINE", lines);
   }
 
   return { ok: true, checked: symbols.length, alerts: alerts.map((a) => ({ symbol: a.symbol, kind: a.kind })) };

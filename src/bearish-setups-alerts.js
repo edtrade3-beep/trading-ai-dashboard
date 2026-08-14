@@ -16,8 +16,8 @@
 const path = require("node:path");
 const { ROOT, PORT } = require("./config");
 const { writeJsonAtomic, readJsonSafe } = require("./atomic-write");
-const { sendTelegramMessage, isConfigured: telegramConfigured } = require("./telegram");
-const { shouldSendAlert } = require("./telegram-bot");
+const { isConfigured: telegramConfigured } = require("./telegram");
+const { pushDigestLines } = require("./alert-buffer");
 const { isMarketHoursET } = require("./risk-guardrails");
 
 const STORE_PATH = path.join(ROOT, "data", "bearish-setups-alert-state.json");
@@ -60,13 +60,13 @@ async function checkBearishSetupsAlerts() {
 
   saveState(next);
 
-  if (alerts.length && shouldSendAlert({ category: "opportunity" })) {
+  if (alerts.length) {
     const lines = alerts.map((s) =>
       `📉 ${s.sym}: new bearish setup at $${Number(s.entry).toFixed(2)} (${s.confidence}, score ${s.score}/100)` +
       `${s.optDetail ? ` — ${s.optDetail.tradeStr}` : (s.optionType ? ` — ${s.optionType}` : "")}` +
       ` · Stop $${s.stop} · T1 $${s.target1} · T2 $${s.target2} · R:R ${s.rr}:1`
     );
-    await sendTelegramMessage(`⚡ *NEW BEARISH SETUP*\n\n${lines.join("\n")}`).catch(() => {});
+    pushDigestLines("opportunity", "📉 NEW BEARISH SETUP", lines);
   }
 
   return { ok: true, checked: sigData.signals.length, alerts };
