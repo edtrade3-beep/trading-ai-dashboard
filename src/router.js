@@ -104,6 +104,15 @@ async function handleRequest(req, res) {
       return writeJson(res, 200, { ok: true, state: getAlertState() });
     }
 
+    // Real diagnostic for the ~14 background alert jobs' health (2026-08-15,
+    // same "confirm without SSH/Telegram" need as the status route above —
+    // same job-heartbeat.js data the /jobs Telegram command reads).
+    // Read-only, no auth needed (same category as /api/health).
+    if (pathname === "/api/jobs/health" && req.method === "GET") {
+      const { loadHeartbeats } = require("./job-heartbeat");
+      return writeJson(res, 200, { ok: true, jobs: loadHeartbeats() });
+    }
+
     if (pathname === "/api/webhooks/tradingview" || pathname === "/api/market/tv-alerts") {
       return await handleWebhooks(req, res, requestUrl);
     }
