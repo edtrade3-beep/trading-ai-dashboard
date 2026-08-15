@@ -314,11 +314,12 @@ server.listen(PORT, HOST, () => {
   }
 
   // ADOL22 — scan every 15 min during market hours (9:30 AM – 4:00 PM ET)
+  // Real primary watchlist (data/watchlist.json) — not settings.watchlistSymbols,
+  // a separate legacy store found to have silently diverged (2026-08-14 unify).
+  // This periodic trigger was missed in that sweep (found in a follow-up audit).
   setInterval(() => {
     try {
-      const { loadSettings } = require("./src/settings-store");
-      const s  = loadSettings() || {};
-      const wl = Array.isArray(s.watchlistSymbols) ? s.watchlistSymbols : [];
+      const wl = require("./src/routes/watchlist").loadWatchlist().symbols || [];
       runAdol22(wl).catch(() => {});
     } catch {}
   }, 15 * 60_000);
