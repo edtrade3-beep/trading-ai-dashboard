@@ -3792,12 +3792,23 @@ export default function App() {
       .then((data) => {
         if (!data?.settings) return;
         const s = data.settings;
-        if (Array.isArray(s.watchlistSymbols) && s.watchlistSymbols.length > 0) {
-          setWatchlistSymbols(s.watchlistSymbols);
-          setWatchlistInput(s.watchlistSymbols.join(","));
-        }
         if (s.themeMode === "dark" || s.themeMode === "light") {
           setSettings((prev) => ({ ...prev, themeMode: s.themeMode }));
+        }
+      })
+      .catch(() => {});
+    // Real primary watchlist (data/watchlist.json via /api/watchlist) — NOT
+    // /api/settings' watchlistSymbols, a separate legacy store found to have
+    // silently diverged from it (2026-08-14 unify, server-side jobs fixed
+    // first; this was the one remaining client-side consumer still pulling
+    // the stale list on every page load, overriding both the hardcoded
+    // default and whatever the localStorage cache above had restored).
+    fetch("/api/watchlist")
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => {
+        if (Array.isArray(d?.symbols) && d.symbols.length > 0) {
+          setWatchlistSymbols(d.symbols);
+          setWatchlistInput(d.symbols.join(","));
         }
       })
       .catch(() => {});
