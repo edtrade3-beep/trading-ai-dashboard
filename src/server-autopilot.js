@@ -82,8 +82,10 @@ async function runServerAutopilot() {
 
   // Universe = your watchlist + a curated set of liquid market leaders, so there
   // are always enough candidates to find trades (more opportunities = more trades).
+  // Real primary watchlist (data/watchlist.json) — not settings.watchlistSymbols,
+  // a separate legacy store found to have silently diverged (2026-08-14 unify).
   let syms = [];
-  try { syms = (require("./settings-store").loadSettings() || {}).watchlistSymbols || []; } catch {}
+  try { syms = require("./routes/watchlist").loadWatchlist().symbols || []; } catch {}
   syms = [...new Set([...syms, ...LEADERS].filter(Boolean))].slice(0, 60);
   if (!syms.length) return;
   const screen = await getJson(`/api/market/trend-screen?symbols=${encodeURIComponent(syms.join(","))}`);

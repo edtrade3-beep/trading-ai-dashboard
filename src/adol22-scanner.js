@@ -516,9 +516,7 @@ async function handleAdol22Api(req, res, requestUrl) {
 
   if (requestUrl.pathname === "/api/adol22/scan" && req.method === "POST") {
     try {
-      const { loadSettings } = require("./settings-store");
-      const s  = loadSettings() || {};
-      const wl = Array.isArray(s.watchlistSymbols) ? s.watchlistSymbols : [];
+      const wl = require("./routes/watchlist").loadWatchlist().symbols || [];
       global._adol22Manual = true; // flag as manual so we send "no setup" message
       runAdol22(wl).catch(() => {});
       return writeJson(res, 200, { ok: true, message: "ADOL22 scan started" });

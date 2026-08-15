@@ -48,7 +48,7 @@ process.on("uncaughtException", (err) => {
 const { PORT, HOST } = require("./src/config");
 const handleRequest = require("./src/router");
 const { startPriceAlertMonitor } = require("./src/price-alert-monitor");
-const { startMarketScanner, sendMacroReport, scanWatchlistAlerts, scanEntryZoneAlerts } = require("./src/market-scanner");
+const { startMarketScanner, sendMacroReport } = require("./src/market-scanner");
 const { startTelegramBot }    = require("./src/telegram-bot");
 const { checkDealWatches }   = require("./src/routes/deals");
 const { startCOTScheduler }  = require("./src/cot/scheduler");
@@ -111,29 +111,16 @@ server.listen(PORT, HOST, () => {
   startPreMarketAlerts(); // ONE gap scan alert at 9:00 AM ET only
   try { require("./src/dealership/fb-hub").startCrmScheduler(); } catch (e) { console.error("CRM scheduler failed:", e.message); }
 
-  // Persistent default watchlist — baked into code so buy-point ALERTS survive
-  // Render free-tier restarts (which wipe the settings file). Merged with whatever
-  // the app has saved in settings.
-  const DEFAULT_WATCHLIST = [
-    "MU","TSM","VRT","NEE","WMB","CCJ","CEG","DELL","AVGO","SMCI",       // AI infrastructure
-    "MARA","RIOT","CLSK","CIFR","WULF","IREN","CORZ","HUT",              // Bitcoin miners
-  ];
-  // Watchlist alerts — scan every 15 min for Bull BOS + high score
-  // Entry zone alerts — scan every 15 min for price entering buy zones
-  setInterval(() => {
-    try {
-      const { loadSettings } = require("./src/settings-store");
-      const settings = loadSettings() || {};
-      const saved = Array.isArray(settings.watchlistSymbols) ? settings.watchlistSymbols :
-                 Array.isArray(settings.watchlists?.[0]?.symbols) ? settings.watchlists[0].symbols : [];
-      const wl = [...new Set([...saved, ...DEFAULT_WATCHLIST])];   // always includes the defaults
-      if (wl.length > 0) {
-        scanWatchlistAlerts(wl).catch(() => {});
-        scanEntryZoneAlerts(wl, {}).catch(() => {}); // {} = no 5X ref, uses 52w range
-      }
-    } catch {}
-  }, 15 * 60_000);
-  console.log("[WL Alerts] Watchlist + Entry Zone scanner active — checks every 15 min");
+  // Retired 2026-08-14 (watchlist store unification): this job scanned a
+  // hardcoded DEFAULT_WATCHLIST merged with settings.watchlistSymbols — a
+  // separate legacy store found to have silently diverged from the real
+  // primary watchlist (data/watchlist.json) the modern alert jobs use.
+  // Its "Bull BOS + high score" / "price entering buy zones" signals are
+  // already covered by watchlist-turn-alerts.js and watchlist-greenlight-
+  // alerts.js/watchlist-setup-alerts.js on the real watchlist, now feeding
+  // the morning digest. DEFAULT_WATCHLIST's 2 symbols not already in the
+  // real watchlist (CORZ, HUT) were folded in before this was removed —
+  // nothing dropped, just no more duplicate scan of a stale list.
 
   // One-time data correction: prediction-tracker.js's SHORT grading logic
   // was written only for Command Center's borrowed-bullish-scan semantics

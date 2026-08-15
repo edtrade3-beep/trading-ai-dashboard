@@ -27,8 +27,10 @@ async function getJson(path, opts) {
 // ── Morning Game Plan ──────────────────────────────────────────────────────
 async function runMorningGamePlan() {
   if (!KEY() || !isConfigured()) return;
+  // Real primary watchlist (data/watchlist.json) — not settings.watchlistSymbols,
+  // a separate legacy store found to have silently diverged (2026-08-14 unify).
   let syms = [];
-  try { syms = (require("./settings-store").loadSettings() || {}).watchlistSymbols || []; } catch {}
+  try { syms = require("./routes/watchlist").loadWatchlist().symbols || []; } catch {}
   // 90, not 40 — confirmed bug: with a real 133-symbol watchlist, a fixed
   // slice(0,40) here (before any trend-scoring even happens) meant only
   // the first 40 symbols in the watchlist's stored order could EVER be

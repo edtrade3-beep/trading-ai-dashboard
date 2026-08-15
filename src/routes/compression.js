@@ -222,13 +222,13 @@ async function handleCompression(req, res, requestUrl) {
     const extra = requestUrl.searchParams.get("symbols");
     const extraSyms = extra ? extra.split(",").map(s => s.trim().toUpperCase()).filter(Boolean) : [];
 
-    // Load user watchlist from settings
+    // Load user watchlist — the real primary store (data/watchlist.json),
+    // not settings.watchlistSymbols, a separate legacy store found to have
+    // silently diverged from it (unified 2026-08-14).
     let watchlistSyms = [];
     try {
-      const { loadSettings } = require("../settings-store");
-      const settings = loadSettings() || {};
-      watchlistSyms = Array.isArray(settings.watchlistSymbols) ? settings.watchlistSymbols
-        : Array.isArray(settings.watchlists?.[0]?.symbols) ? settings.watchlists[0].symbols : [];
+      const { loadWatchlist } = require("./watchlist");
+      watchlistSyms = loadWatchlist().symbols || [];
     } catch {}
 
     // Merge all, deduplicate, cap at 80

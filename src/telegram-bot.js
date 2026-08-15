@@ -760,8 +760,14 @@ async function cmdCancel(args) {
 }
 
 async function cmdWatchlist() {
-  const settings = loadSettings();
-  const symbols  = (settings.watchlistSymbols || []).slice(0, 20);
+  // Real primary watchlist (data/watchlist.json via routes/watchlist.js) —
+  // NOT settings.watchlistSymbols, a separate legacy store the modern
+  // alert jobs (watchlist-turn/setup/greenlight/sniper/vcp/daytrade-
+  // alerts.js, morning-digest.js) never read. Unified 2026-08-14 after
+  // finding the two had silently diverged (139 vs 51 symbols) — this was
+  // showing you a real but stale list.
+  const { loadWatchlist } = require("./routes/watchlist");
+  const symbols = (loadWatchlist().symbols || []).slice(0, 20);
   if (!symbols.length) return reply("No watchlist saved. Add symbols from the trading platform.");
   try {
     const quotes = await withTimeout(Promise.all(symbols.map(fetchLiveQuote)), 25000, []);
@@ -1216,7 +1222,12 @@ const COMMANDS = {
   pa:        () => cmdAlerts(),
   cancel:    (a) => cmdCancel(a),
   watchlist: () => cmdWatchlist(),
-  wl:        () => cmdWatchlist(),
+  // No separate "wl:" entry here — the real handler is defined once, further
+  // down (search "Watchlist management"), with add/remove/display all in
+  // one place. A duplicate "wl:" key used to exist here too; since object
+  // literals silently let the later key win, it was permanently shadowed
+  // dead code (found + removed 2026-08-14 while unifying the two watchlist
+  // stores).
   scanner:   (a) => cmdScanner(a),
   sniper:    (a) => cmdSniper(a),
   snipe:     (a) => cmdSniper(a),
@@ -1397,19 +1408,20 @@ const COMMANDS = {
   },
 
   // ── Watchlist management ─────────────────────────────────────────────────────
+  // Real primary watchlist (data/watchlist.json) — unified 2026-08-14, see
+  // cmdWatchlist's comment above for why this isn't settings.watchlistSymbols.
   wl: async (args) => {
-    const { loadSettings, saveSettings } = require("./settings-store");
-    const settings = loadSettings() || {};
-    const wl = Array.isArray(settings.watchlistSymbols) ? settings.watchlistSymbols : [];
+    const { loadWatchlist, saveWatchlist } = require("./routes/watchlist");
+    const wl = loadWatchlist().symbols || [];
     const action = (args[0] || "").toLowerCase();
     const sym    = (args[1] || "").toUpperCase();
     if (action === "add" && sym) {
-      if (!wl.includes(sym)) { wl.push(sym); settings.watchlistSymbols = wl; saveSettings(settings); }
+      if (!wl.includes(sym)) { wl.push(sym); saveWatchlist(wl); }
       return reply(`✅ ${sym} added to watchlist\nWatchlist (${wl.length}): ${wl.join(", ")}`);
     }
     if ((action === "remove" || action === "rm") && sym) {
       const idx = wl.indexOf(sym);
-      if (idx >= 0) { wl.splice(idx, 1); settings.watchlistSymbols = wl; saveSettings(settings); }
+      if (idx >= 0) { wl.splice(idx, 1); saveWatchlist(wl); }
       return reply(`❌ ${sym} removed\nWatchlist (${wl.length}): ${wl.join(", ")}`);
     }
     // Show watchlist with live prices
@@ -1427,13 +1439,12 @@ const COMMANDS = {
 
   // ── /adol22 — trigger ADOL22 scan or show last result ───────────────────────
   adol22: async (args) => {
-    const { loadSettings } = require("./settings-store");
+    const { loadWatchlist } = require("./routes/watchlist");
     const { runAdol22, loadHistory } = require("./adol22-scanner");
 
     if (args[0] === "scan" || args[0] === "run") {
       await reply("🔴 ADOL22 scanning 35 symbols…\nChecking 15m patterns + 7 confirmations.\nResults arrive here in ~60 seconds.");
-      const s  = loadSettings() || {};
-      const wl = Array.isArray(s.watchlistSymbols) ? s.watchlistSymbols : [];
+      const wl = loadWatchlist().symbols || [];
       global._adol22Manual = true;
       runAdol22(wl).catch(e => reply(`Scan error: ${e.message}`));
       return;
@@ -1453,8 +1464,7 @@ const COMMANDS = {
         "",
         "Also runs automatically every 15 min during market hours.",
       ].join("\n"));
-      const s  = loadSettings() || {};
-      const wl = Array.isArray(s.watchlistSymbols) ? s.watchlistSymbols : [];
+      const wl = require("./routes/watchlist").loadWatchlist().symbols || [];
       global._adol22Manual = true;
       runAdol22(wl).catch(() => {});
       return;
@@ -1611,9 +1621,7 @@ const COMMANDS = {
   // ── /risk — quick portfolio risk check ────────────────────────────────────
   risk: async () => {
     try {
-      const { loadSettings } = require("./settings-store");
-      const s  = loadSettings() || {};
-      const wl = Array.isArray(s.watchlistSymbols) ? s.watchlistSymbols : [];
+      const wl = require("./routes/watchlist").loadWatchlist().symbols || [];
       const { fetchYahooQuoteBatch } = require("./providers/yahoo");
       const quotes = wl.length ? await fetchYahooQuoteBatch(wl.slice(0, 15)).catch(() => []) : [];
       const movers = quotes
