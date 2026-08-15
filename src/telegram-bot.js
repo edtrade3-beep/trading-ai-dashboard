@@ -660,6 +660,27 @@ async function cmdStatus() {
   return reply(msg.trim());
 }
 
+// ── /jobs — real health of the ~14 background alert jobs (job-heartbeat.js) ──
+// Explicit user request, 2026-08-15: on-demand visibility into whether the
+// background machinery is actually running, complementing the automatic
+// sustained-failure alert registerJob() already sends on its own.
+async function cmdJobs() {
+  const { loadHeartbeats } = require("./job-heartbeat");
+  const hb = loadHeartbeats();
+  const names = Object.keys(hb).sort();
+  if (!names.length) return reply("No job runs recorded yet — the server may have just started.");
+  const lines = names.map((name) => {
+    const j = hb[name];
+    const et = j.lastRunAt
+      ? new Date(j.lastRunAt).toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit" })
+      : "never";
+    const icon = j.lastOk ? "🟢" : "🔴";
+    const fail = !j.lastOk ? ` — FAILING (${j.consecutiveFailures}x): ${String(j.lastError || "").slice(0, 60)}` : "";
+    return `${icon} ${name} — ${et} ET${fail}`;
+  });
+  return reply(`⚙️ JOB HEALTH (${names.length})\n━━━━━━━━━━━━━━━━━━━━\n${lines.join("\n")}`);
+}
+
 async function cmdTop() {
   const { lastHits } = getScannerStatus();
   const buys = (lastHits || []).filter(h => h.signal === "BUY").slice(0, 6);
@@ -1205,6 +1226,7 @@ const COMMANDS = {
   run:       () => cmdScan(),
   status:    () => cmdStatus(),
   st:        () => cmdStatus(),
+  jobs:      () => cmdJobs(),
   top:       () => cmdTop(),
   best:      () => cmdTop(),
   worst:     (a) => cmdWorst(a),

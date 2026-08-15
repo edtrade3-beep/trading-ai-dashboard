@@ -70,6 +70,7 @@ const { runMeanrevPaper, sendMeanrevSummary } = require("./src/meanrev-paper");
 const { pollGmailLeads } = require("./src/gmail-leads");
 const { runAdol22, handleAdol22Api } = require("./src/adol22-scanner");
 const { updateCOTData, isDataFresh } = require("./src/cot/cotService");
+const { registerJob } = require("./src/job-heartbeat");
 
 const server = http.createServer(handleRequest);
 
@@ -331,14 +332,14 @@ server.listen(PORT, HOST, () => {
   // AskUserQuestion). Read-only (never places/modifies a trade), so this
   // runs unconditionally — not gated behind SERVER_AUTOPILOT like the
   // stop-ratcheting/trade-mutating automation above.
-  setInterval(() => require("./src/watchlist-turn-alerts").checkWatchlistTurns().catch(() => {}), 15 * 60_000);
+  registerJob("Watchlist Turn", 15 * 60_000, () => require("./src/watchlist-turn-alerts").checkWatchlistTurns());
   console.log("[Watchlist turns] Buy/sell verdict-change detection active — every 15 min, feeds the morning digest");
 
   // Watchlist setup alerts — Phase 4 of the Institutional Scanner work
   // (2026-07-28): real Trade Setup Score tradeable-tier crossing (≥70) and
   // real buy-zone entry (atBuyPoint false→true), same persisted-diff
   // pattern as the verdict-turn alert above, read-only.
-  setInterval(() => require("./src/watchlist-setup-alerts").checkWatchlistSetupAlerts().catch(() => {}), 15 * 60_000);
+  registerJob("Watchlist Setup", 15 * 60_000, () => require("./src/watchlist-setup-alerts").checkWatchlistSetupAlerts());
   console.log("[Watchlist setup] Trade Setup Score + buy-zone detection active — every 15 min, feeds the morning digest");
 
   // Watchlist Green Light entry alerts (explicit user request, 2026-08-03,
@@ -347,7 +348,7 @@ server.listen(PORT, HOST, () => {
   // symbol's real Green Light entryNote flips from "wait for pullback" to
   // "at support" (price reaches its real EMA21/MA50/pivot entry level).
   // Same persisted-diff pattern as the alert jobs above, read-only.
-  setInterval(() => require("./src/watchlist-greenlight-alerts").checkWatchlistGreenLightAlerts().catch(() => {}), 15 * 60_000);
+  registerJob("Watchlist Green Light", 15 * 60_000, () => require("./src/watchlist-greenlight-alerts").checkWatchlistGreenLightAlerts());
   console.log("[Watchlist Green Light] Real entry-price-reached detection active — every 15 min, feeds the morning digest");
 
   // Watchlist AI Sniper alerts (explicit user request, 2026-08-10/11: "wire
@@ -357,7 +358,7 @@ server.listen(PORT, HOST, () => {
   // newly becomes ENTER_LONG, or drops from ENTER_LONG into NO_CHASE/AVOID.
   // Same persisted-diff pattern as the alerts above, read-only. Each message
   // carries a deep-link button straight to that symbol's Sniper screen.
-  setInterval(() => require("./src/watchlist-sniper-alerts").checkWatchlistSniperTurns().catch(() => {}), 15 * 60_000);
+  registerJob("Watchlist AI Sniper", 15 * 60_000, () => require("./src/watchlist-sniper-alerts").checkWatchlistSniperTurns());
   console.log("[Watchlist AI Sniper] Enter-long / get-out detection active — every 15 min, feeds the morning digest");
 
   // Position reversal alerts (explicit user request, 2026-08-11: "I DONT
@@ -373,7 +374,7 @@ server.listen(PORT, HOST, () => {
   // SERVER_AUTOPILOT like the trade-mutating automation below. 5-min
   // cadence (not 15) since actual held positions warrant closer watching
   // than a scan of names you don't yet own.
-  setInterval(() => require("./src/position-reversal-alerts").checkPositionReversals().catch(() => {}), 5 * 60_000);
+  registerJob("Position Reversal", 5 * 60_000, () => require("./src/position-reversal-alerts").checkPositionReversals());
   console.log("[Position Reversal] Early get-out alerts for held positions active — every 5 min, market hours only");
 
   // Trade autopsy (explicit user request, 2026-08-14: "which one do I need
@@ -385,7 +386,7 @@ server.listen(PORT, HOST, () => {
   // exit landed near the real planned stop/target. Read-only, sent
   // immediately per trade (not routed through the morning digest — a
   // one-off receipt, not a recurring opportunity scan).
-  setInterval(() => require("./src/trade-autopsy").checkTradeAutopsy().catch(() => {}), 15 * 60_000);
+  registerJob("Trade Autopsy", 15 * 60_000, () => require("./src/trade-autopsy").checkTradeAutopsy());
   console.log("[Trade Autopsy] Post-trade plan-vs-actual grading active — every 15 min, market hours only");
 
   // Best Opportunities "new GO" alerts (explicit user request, 2026-08-03:
@@ -394,13 +395,13 @@ server.listen(PORT, HOST, () => {
   // is closed). This is the durable Telegram equivalent, scoped to the same
   // ~100-symbol scan universe Best Opportunities uses (not just Watchlist),
   // so it can surface names the user isn't watching yet.
-  setInterval(() => require("./src/best-opportunities-alerts").checkBestOpportunitiesAlerts().catch(() => {}), 15 * 60_000);
+  registerJob("Best Opportunities", 15 * 60_000, () => require("./src/best-opportunities-alerts").checkBestOpportunitiesAlerts());
   console.log("[Best Opportunities] Real new-GO-setup detection active — every 15 min, feeds the morning digest");
 
   // Bearish setups alerts (explicit user request, 2026-08-03: "when market
   // is down what stocks to short") — the real bearish counterpart to the
   // job above. Puts, not equity shorts (long-only guardrail stays intact).
-  setInterval(() => require("./src/bearish-setups-alerts").checkBearishSetupsAlerts().catch(() => {}), 15 * 60_000);
+  registerJob("Bearish Setups", 15 * 60_000, () => require("./src/bearish-setups-alerts").checkBearishSetupsAlerts());
   console.log("[Bearish Setups] Real new-put-candidate detection active — every 15 min, feeds the morning digest");
 
   // Watchlist institutional alerts — Phase 5 of the Institutional Research
@@ -408,7 +409,7 @@ server.listen(PORT, HOST, () => {
   // (smart-money BOS, dark-pool spike, unusual options flow, earnings
   // released, sentiment shift), same persisted-diff pattern + Watchlist-only
   // scope as the two alert files above, read-only.
-  setInterval(() => require("./src/watchlist-institutional-alerts").checkWatchlistInstitutionalAlerts().catch(() => {}), 15 * 60_000);
+  registerJob("Watchlist Institutional", 15 * 60_000, () => require("./src/watchlist-institutional-alerts").checkWatchlistInstitutionalAlerts());
   console.log("[Watchlist institutional] Smart money / dark pool / options flow / earnings / sentiment detection active — every 15 min, feeds the morning digest");
 
   // VCP engine alerts — Phase 4 of the VCP integration spec (explicit user
@@ -416,7 +417,7 @@ server.listen(PORT, HOST, () => {
   // state-machine transition (WATCH -> SETUP_READY, -> BREAKOUT_ACTIVE/
   // CONFIRMED, or a confirmed breakout -> FAILED) for Watchlist symbols.
   // Same persisted-diff pattern as the alert jobs above, read-only.
-  setInterval(() => require("./src/vcp-alerts").checkVcpAlerts().catch(() => {}), 15 * 60_000);
+  registerJob("VCP Alerts", 15 * 60_000, () => require("./src/vcp-alerts").checkVcpAlerts());
   console.log("[VCP] Setup-ready / breakout / failed-breakout detection active — every 15 min, feeds the morning digest");
 
   // Watchlist Day Trade Mode alerts (2026-08-06) — real Telegram ping the
@@ -427,7 +428,7 @@ server.listen(PORT, HOST, () => {
   // uncommitted until now — found + finished 2026-08-14 while checking on
   // stale untracked files. Same persisted-diff pattern as the alert jobs
   // above, feeds the morning digest below rather than sending immediately.
-  setInterval(() => require("./src/watchlist-daytrade-alerts").checkWatchlistDayTradeAlerts().catch(() => {}), 15 * 60_000);
+  registerJob("Watchlist Day Trade", 15 * 60_000, () => require("./src/watchlist-daytrade-alerts").checkWatchlistDayTradeAlerts());
   console.log("[Watchlist Day Trade] GREEN-signal detection active — every 15 min, feeds the morning digest");
 
   // Morning digest — once-daily consolidated Telegram summary of the 9
@@ -439,7 +440,7 @@ server.listen(PORT, HOST, () => {
   // up to 15 min; does the real 9-scan work itself only on the one tick
   // per day the gate actually passes. Does not affect position-reversal-
   // alerts.js or paper-positions.js's reprice job — those stay real-time.
-  setInterval(() => require("./src/morning-digest").checkMorningDigest().catch(() => {}), 5 * 60_000);
+  registerJob("Morning Digest", 5 * 60_000, () => require("./src/morning-digest").checkMorningDigest());
   console.log("[Morning Digest] Once-daily consolidated summary active — checked every 5 min, market hours only");
 
   // Paper Position Manager — AI Exit Engine, options platform redesign
@@ -449,7 +450,7 @@ server.listen(PORT, HOST, () => {
   // once-daily _sent!==today loop, since positions need continuous
   // intraday repricing). Sends a real Telegram alert only on a genuine
   // Exit Now transition.
-  setInterval(() => require("./src/routes/paper-positions").repriceAllOpenPositions().catch((e) => console.error("[Paper Positions] reprice failed:", e.message)), 15 * 60_000);
+  registerJob("Paper Positions Reprice", 15 * 60_000, () => require("./src/routes/paper-positions").repriceAllOpenPositions());
   console.log("[Paper Positions] AI Exit Engine reprice active — every 15 min, market hours only");
 
   // Market auto-watchlist — real, continuous scan of a curated ~96-symbol
@@ -462,7 +463,7 @@ server.listen(PORT, HOST, () => {
   // the account — no SERVER_AUTOPILOT gate needed. Runs every 30 min
   // (heavier scan than the 15-min Watchlist-only check above) during market
   // hours only.
-  setInterval(() => require("./src/market-auto-watchlist").runMarketAutoWatchlist().catch(() => {}), 30 * 60_000);
+  registerJob("Market Auto-Watchlist", 30 * 60_000, () => require("./src/market-auto-watchlist").runMarketAutoWatchlist());
   console.log("[Market auto-watchlist] Continuous GO/WATCH scan active — every 30 min, market hours only");
 
   // Deal watches: disabled from Telegram (not trading-related)
