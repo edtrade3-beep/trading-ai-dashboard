@@ -57,6 +57,37 @@ async function initPgStore() {
   const { rows } = await pool.query("SELECT key, value FROM kv_store");
   cache = new Map(rows.map(r => [r.key, r.value]));
   console.log(`[atomic-write] Postgres store ready — ${cache.size} key(s) loaded.`);
+
+  // Real production OOM fix, 2026-08-15 — two stores (x-intel-mentions.json,
+  // x-intel-sentiment.json) grew unbounded for weeks before their own
+  // read/write paths were capped (see those files' own comments). Capping
+  // the store module's load() wasn't enough on its own: this bootstrap's
+  // SELECT above already pulls the full oversized JSONB value into memory
+  // (and Postgres query result) BEFORE any store-module code ever runs, so
+  // an already-huge stored value still spikes memory on every single boot
+  // regardless of later trimming. Shrink these two specific known-unbounded
+  // keys right here, immediately after load, and persist the trim back to
+  // Postgres so subsequent boots never pull the oversized value over the
+  // network again either. Not a generic mechanism (deliberately narrow —
+  // this app's other ~56 KV stores are all genuinely small/bounded) —
+  // revisit if another store shows the same unbounded-growth pattern.
+  const OVERSIZED_KEY_TRIMS = [
+    { key: "x-intel-mentions.json", arrayField: "mentions", max: 50_000 },
+    { key: "x-intel-sentiment.json", arrayField: "snapshots", max: 20_000 },
+  ];
+  for (const { key, arrayField, max } of OVERSIZED_KEY_TRIMS) {
+    const v = cache.get(key);
+    const arr = v && Array.isArray(v[arrayField]) ? v[arrayField] : null;
+    if (arr && arr.length > max) {
+      const trimmed = { ...v, [arrayField]: arr.slice(arr.length - max) };
+      cache.set(key, trimmed);
+      pool.query(
+        "UPDATE kv_store SET value = $2, updated_at = now() WHERE key = $1",
+        [key, JSON.stringify(trimmed)]
+      ).catch(err => console.error(`[atomic-write] boot-time trim persist failed for "${key}":`, err.message));
+      console.log(`[atomic-write] Boot-time trim: "${key}" had ${arr.length} entries, capped to ${max}.`);
+    }
+  }
 }
 
 function isDbMode() { return cache !== null; }
