@@ -72,7 +72,6 @@ import SmartMoneyBrief from "./components/SmartMoneyBrief.jsx";
 import AdvisorAiTab from "./components/AdvisorAiTab.jsx";
 import CommandCenterTab from "./components/CommandCenterTab.jsx";
 import MarketHealthTab from "./components/MarketHealthTab.jsx";
-import XIntelTab from "./components/XIntelTab.jsx";
 import CeoAiCard from "./components/CeoAiCard.jsx";
 import CashGoldSilverAdvisor from "./components/CashGoldSilverAdvisor.jsx";
 import TrendTemplateTab from "./components/TrendTemplateTab.jsx";
@@ -1585,7 +1584,7 @@ export default function App() {
       localStorage.setItem("axiom_seen_start", "1");
       return "start";
     }
-    return "ceo-ai";  // default landing: CEO AI Advisor (changed 2026-07-28 per the MISSION doc + explicit user confirmation — was X Intelligence Engine)
+    return "ceo-ai";  // default landing: CEO AI Advisor
   });
   // Save tab on change
   React.useEffect(() => { try { localStorage.setItem("last_tab", activeTab); } catch {} }, [activeTab]);
@@ -4092,7 +4091,6 @@ export default function App() {
       CIO: "advisor-ai",
       CEOAI: "ceo-ai",
       COMMANDCENTER: "command-center",
-      XINTEL: "x-intel",
       // Best Opportunities retired as its own destination (2026-07-29,
       // product/UX redesign audit item #5 — folded into Sniper Scanner as
       // a category, same real scan/component, not rebuilt). Palette
@@ -6524,12 +6522,6 @@ export default function App() {
             trade-idea track record, both genuinely new. */}
         {activeTab === "command-center" && <CommandCenterTab C={C} MONO={MONO} SANS={SANS} />}
         {activeTab === "market-health" && <MarketHealthTab C={C} MONO={MONO} SANS={SANS} />}
-
-        {/* X Intelligence Engine — new tab under CEO AI (2026-07-21, user
-            request). No X API, no scraping — real web-search-grounded
-            coverage of watched accounts, same mechanism as Command
-            Center's event feed. See XIntelTab.jsx/x-intel-ai.js headers. */}
-        {activeTab === "x-intel" && <XIntelTab C={C} MONO={MONO} SANS={SANS} macroData={macroData} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} />}
 
         {/* Best Opportunities as its own destination retired (2026-07-29,
             product/UX redesign audit item #5) — folded into Sniper Scanner

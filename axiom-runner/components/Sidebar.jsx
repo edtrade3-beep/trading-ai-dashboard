@@ -99,14 +99,14 @@ export const SIDEBAR_ITEMS = [
 // it as a nav destination either. Reachable from Dashboard's
 // AiCopilotLauncherCard.
 //
-// CEO AI / Command Center / X Intelligence / Alerts dropped from the
-// sidebar rows rather than kept — per the approved redesign plan, CEO AI's
-// brief + Command Center's real Sector Rotation/Portfolio Risk Summary
-// sections are slated to redistribute into Dashboard's new 4-card grid
-// (Phase 4 of the redesign), X Intelligence into a News sub-tab, and
-// Alerts into a Dashboard/Portfolio panel — that embedding work hasn't
-// landed yet as of this file's rewrite, so for now all four are palette-
-// only (CEO-AI is still the default landing tab regardless of sidebar
+// CEO AI / Command Center / Alerts dropped from the sidebar rows rather
+// than kept — per the approved redesign plan, CEO AI's brief + Command
+// Center's real Sector Rotation/Portfolio Risk Summary sections are
+// slated to redistribute into Dashboard's new 4-card grid (Phase 4 of
+// the redesign), and Alerts into a Dashboard/Portfolio panel — that
+// embedding work hasn't landed yet as of this file's rewrite, so for now
+// these are palette-only (CEO-AI is still the default landing tab
+// regardless of sidebar
 // presence; COMMANDCENTER / XINTEL / ALERTS for their full standalone
 // views) until Phase 4 gives them a real embedded home.
 
