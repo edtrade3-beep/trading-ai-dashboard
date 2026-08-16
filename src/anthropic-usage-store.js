@@ -14,11 +14,18 @@ const { computeCallCost } = require("./anthropic-pricing");
 
 const STORE_PATH = path.join(ROOT, "data", "anthropic-usage.json");
 const RETENTION_MS = 400 * 24 * 3600_000; // ~13 months — enough for real month-over-month comparison
+// Safety backstop only (2026-08-16, same real production OOM class as
+// x-intel-mentions-store.js/x-intel-sentiment-store.js) — this store is
+// written on EVERY real Anthropic call across the whole app, age-pruned
+// only, no prior entry cap. 13 months of real call volume is a genuine
+// unbounded-growth risk; age-pruning above stays the real intended bound.
+const MAX_ENTRIES = 100_000;
 
 function load() {
   const data = readJsonSafe(STORE_PATH, { entries: [], warnedThresholds: {} });
+  const entries = Array.isArray(data.entries) ? data.entries : [];
   return {
-    entries: Array.isArray(data.entries) ? data.entries : [],
+    entries: entries.length > MAX_ENTRIES ? entries.slice(entries.length - MAX_ENTRIES) : entries,
     warnedThresholds: data.warnedThresholds || {}, // { "2026-07": 75 } — highest % threshold already warned this real month
   };
 }
@@ -32,7 +39,7 @@ function save(state) {
 function logUsage({ feature = "unclassified", model, usage, webSearchCount = 0 }) {
   const state = load();
   const cutoff = Date.now() - RETENTION_MS;
-  const pruned = state.entries.filter((e) => new Date(e.at).getTime() >= cutoff);
+  let pruned = state.entries.filter((e) => new Date(e.at).getTime() >= cutoff);
   const costUSD = computeCallCost({ model, usage, webSearchCount });
   pruned.push({
     at: new Date().toISOString(),
@@ -44,6 +51,7 @@ function logUsage({ feature = "unclassified", model, usage, webSearchCount = 0 }
     webSearchCount: Number(webSearchCount) || 0,
     costUSD,
   });
+  if (pruned.length > MAX_ENTRIES) pruned = pruned.slice(pruned.length - MAX_ENTRIES);
   save({ entries: pruned, warnedThresholds: state.warnedThresholds });
   return costUSD;
 }

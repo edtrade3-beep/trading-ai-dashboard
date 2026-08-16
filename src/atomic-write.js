@@ -46,7 +46,18 @@ function keyFor(filePath) {
 async function initPgStore() {
   if (!DATABASE_URL) return; // no DB configured — stays in file mode
   const { Pool } = require("pg");
-  pool = new Pool({ connectionString: DATABASE_URL, ssl: { rejectUnauthorized: false } });
+  // Real connection limits, 2026-08-16 — this pool previously had none (pg's
+  // own defaults), and a SECOND, entirely separate pool existed in
+  // dealership/photo-store.js against the same DATABASE_URL. Under today's
+  // rapid crash-restart cycling (a real production OOM incident), two
+  // unbounded pools × many restarts was a real, plausible contributor to
+  // the "Connection terminated unexpectedly" errors seen in Render's logs.
+  // photo-store.js now reuses THIS pool via getPool() instead of creating
+  // its own — one shared, bounded pool for the whole process.
+  pool = new Pool({
+    connectionString: DATABASE_URL, ssl: { rejectUnauthorized: false },
+    max: 10, idleTimeoutMillis: 30_000, connectionTimeoutMillis: 10_000, keepAlive: true,
+  });
   await pool.query(`
     CREATE TABLE IF NOT EXISTS kv_store (
       key TEXT PRIMARY KEY,
@@ -167,4 +178,11 @@ function getDbStatus() {
   return { configured: Boolean(DATABASE_URL), connected: isDbMode(), kvRowCount: cache ? cache.size : null };
 }
 
-module.exports = { writeJsonAtomic, readJsonSafe, writeBinaryAtomic, initPgStore, isDbMode, getDbStatus };
+// The one shared Postgres pool for the whole process (null in file mode).
+// dealership/photo-store.js uses this instead of creating its own — see
+// initPgStore's own comment for why a second pool was a real problem.
+function getPool() {
+  return pool;
+}
+
+module.exports = { writeJsonAtomic, readJsonSafe, writeBinaryAtomic, initPgStore, isDbMode, getDbStatus, getPool };

@@ -14,6 +14,10 @@ const { writeJsonAtomic, readJsonSafe } = require("./atomic-write");
 
 const STORE_PATH = path.join(ROOT, "data", "x-api-usage.json");
 const RETENTION_MS = 400 * 24 * 3600_000; // ~13 months, same retention as the Anthropic ledger
+// Safety backstop only (2026-08-16, same real production OOM class as
+// x-intel-mentions-store.js/anthropic-usage-store.js) — age-pruning above
+// stays the real intended bound.
+const MAX_ENTRIES = 100_000;
 const COST_PER_READ = 0.005; // X's real, published pay-per-use rate
 // Real hard monthly cap — user explicitly lowered this from the original
 // $25 to $10 to try the X API path at smaller real spend first (2026-07).
@@ -23,8 +27,9 @@ const X_API_BUDGET_USD = 10;
 
 function load() {
   const data = readJsonSafe(STORE_PATH, { entries: [], warnedThresholds: {} });
+  const entries = Array.isArray(data.entries) ? data.entries : [];
   return {
-    entries: Array.isArray(data.entries) ? data.entries : [],
+    entries: entries.length > MAX_ENTRIES ? entries.slice(entries.length - MAX_ENTRIES) : entries,
     warnedThresholds: data.warnedThresholds || {},
   };
 }
@@ -36,9 +41,10 @@ function save(state) { writeJsonAtomic(STORE_PATH, state); }
 function logReads({ feature = "x-intel", reads = 1 }) {
   const state = load();
   const cutoff = Date.now() - RETENTION_MS;
-  const pruned = state.entries.filter((e) => new Date(e.at).getTime() >= cutoff);
+  let pruned = state.entries.filter((e) => new Date(e.at).getTime() >= cutoff);
   const costUSD = Math.round(reads * COST_PER_READ * 1_000_000) / 1_000_000;
   pruned.push({ at: new Date().toISOString(), feature, reads, costUSD });
+  if (pruned.length > MAX_ENTRIES) pruned = pruned.slice(pruned.length - MAX_ENTRIES);
   save({ entries: pruned, warnedThresholds: state.warnedThresholds });
   return costUSD;
 }

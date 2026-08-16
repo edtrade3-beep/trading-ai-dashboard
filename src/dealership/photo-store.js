@@ -15,21 +15,27 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { ROOT } = require("../config");
-const { writeBinaryAtomic } = require("../atomic-write");
+const { writeBinaryAtomic, getPool } = require("../atomic-write");
 
 const PHOTOS_ROOT = path.join(ROOT, "data", "photos");
 const DATABASE_URL = (process.env.DATABASE_URL || "").trim();
 
 let pool = null;
 
-// Call once from server.js at startup, alongside atomic-write's
-// initPgStore() — same fail-loudly contract: if DATABASE_URL is set but
-// this can't connect/create its table, the caller should refuse to start
-// rather than silently falling back to the ephemeral disk.
+// Call once from server.js at startup, AFTER atomic-write's initPgStore()
+// has completed (server.js sequences these, not parallel — this needs
+// initPgStore's pool to already exist). Reuses that one shared, bounded
+// pool instead of creating a second one — a real production issue found
+// 2026-08-16: two separate unbounded pg.Pool instances against the same
+// DATABASE_URL, under rapid crash-restart cycling, was a real contributor
+// to Postgres connection errors during an OOM incident. Same fail-loudly
+// contract as before: if DATABASE_URL is set but the table can't be
+// created, the caller should refuse to start rather than silently falling
+// back to the ephemeral disk.
 async function initPhotoStore() {
   if (!DATABASE_URL) return; // local dev / no DB configured — stays file-mode
-  const { Pool } = require("pg");
-  pool = new Pool({ connectionString: DATABASE_URL, ssl: { rejectUnauthorized: false } });
+  pool = getPool();
+  if (!pool) throw new Error("photo-store: DATABASE_URL is set but atomic-write's shared pool isn't ready — check init order in server.js");
   await pool.query(`
     CREATE TABLE IF NOT EXISTS photo_store (
       vehicle_id TEXT NOT NULL,

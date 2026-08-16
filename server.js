@@ -86,7 +86,13 @@ const server = http.createServer(handleRequest);
 const { initPgStore } = require("./src/atomic-write");
 const { initPhotoStore } = require("./src/dealership/photo-store");
 
-Promise.all([initPgStore(), initPhotoStore()])
+// Sequenced, not parallel (2026-08-16): initPhotoStore() now reuses
+// initPgStore()'s shared pool (see atomic-write.js's getPool()) instead of
+// creating its own — a real, previously-unnoticed second Postgres pool
+// against the same DATABASE_URL. It needs initPgStore's pool to already
+// exist before it runs.
+initPgStore()
+  .then(() => initPhotoStore())
   .then(() => startServer())
   .catch((err) => {
     console.error("[startup] DATABASE_URL is set but Postgres bootstrap failed — refusing to start:", err.message);
