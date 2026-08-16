@@ -739,9 +739,17 @@ export default function SmartScanTab({
                             data column — e.g. "RSI" over the live Price cell. RSI/Upside/
                             raw Thesis text columns were also dropped here since they only
                             duplicated info already in the Ticker cell's Quick Read chips.) */}
+                        {/* First column relabeled SCORE -> TECH (2026-08-16, real user
+                            confusion: an 83 here next to an "AVOID A+37" badge in the
+                            same row read as contradictory — this column is the raw
+                            technicals-only momentum score elsewhere in this file already
+                            called "(tech only)", not the actionable decision score. The
+                            SIGNAL column's verdict + A+ score is the one that accounts
+                            for trend/regime and should be trusted; TECH can legitimately
+                            be strong while the real verdict is AVOID. */}
                         {(isTablet
-                          ? ["#","SCORE","SIGNAL","TICKER","PRICE","ZONE","PATTERN",""]
-                          : ["#","SCORE","SIGNAL","TICKER","SECTOR","PRICE","ZONE","PATTERN","SHORT %",""]
+                          ? ["#","TECH","SIGNAL","TICKER","PRICE","ZONE","PATTERN",""]
+                          : ["#","TECH","SIGNAL","TICKER","SECTOR","PRICE","ZONE","PATTERN","SHORT %",""]
                         ).map(h => (
                           <th key={h} style={{ fontFamily: MONO, fontSize: isTablet ? 11 : 10, fontWeight: 700,
                             color: C.textDim, padding: isTablet ? "10px 10px" : "8px 10px",
@@ -881,8 +889,9 @@ export default function SmartScanTab({
                               </td>
 
                               {/* Score bar */}
-                              <td style={{ padding: "12px 12px", borderBottom: `1px solid ${C.border}22`,
-                                minWidth: 90 }}>
+                              <td title="Technical/momentum strength only (RSI, MACD, moving averages) — NOT the actionable decision score. Trust the SIGNAL column's verdict + A+ score instead, which also weighs trend/regime."
+                                style={{ padding: "12px 12px", borderBottom: `1px solid ${C.border}22`,
+                                minWidth: 90, cursor: "help" }}>
                                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                                   <div style={{ flex: 1, height: 6, background: C.border, borderRadius: 5,
                                     overflow: "hidden", minWidth: 50 }}>
