@@ -155,16 +155,34 @@ function parseLegacyRow(row) {
 /**
  * Parse an entire CFTC CSV string.
  * Returns Map<lowerCaseMarketName, Record[]> sorted by reportDate ascending.
+ *
+ * `wantedPatterns` (real production OOM fix, 2026-08-15) — the CFTC's
+ * DISAGG report alone covers 100+ distinct futures contracts, but this app
+ * only ever tracks a handful per report type (cotMarkets.json: 11 TFF / 4
+ * DISAGG / 1 LEGACY). Building + retaining a full normalized record for
+ * every one of those 100+ markets — on a report that can run 10-15MB of
+ * raw CSV — was a real, confirmed OOM trigger (V8 heap crash, Render log).
+ * Optional and additive: omitting it keeps the original full-parse
+ * behavior for any future caller that genuinely needs every market.
  */
-function parseCOTCsv(csvText, reportType) {
+function parseCOTCsv(csvText, reportType, wantedPatterns = null) {
   const { rows } = parseCSV(csvText);
   const byMarket = new Map();
+  const wantedUpper = wantedPatterns ? wantedPatterns.map((p) => p.toUpperCase()) : null;
 
   const parseRow = reportType === "TFF"    ? parseTFFRow
                  : reportType === "DISAGG" ? parseDisaggRow
                  :                           parseLegacyRow;
 
   for (const row of rows) {
+    // Cheap pre-filter on the raw column value, before building the full
+    // normalized record object — skips the vast majority of rows entirely
+    // for reports with far more markets than this app tracks.
+    if (wantedUpper) {
+      const rawName = (col(row, "Market and Exchange Names", "Market_and_Exchange_Names") || "").toUpperCase();
+      if (!rawName || !wantedUpper.some((p) => rawName.includes(p))) continue;
+    }
+
     const rec = parseRow(row);
     if (!rec.marketName || !rec.reportDate) continue;
 

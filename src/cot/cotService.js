@@ -33,14 +33,19 @@ async function processReportType(reportType) {
   const { csv, stale, year } = await fetchCOTCsv(reportType);
   console.log(`[COT] ${reportType} ${year}: downloaded ${(csv.length/1024).toFixed(0)} KB`);
 
-  const parsed = parseCOTCsv(csv, reportType);
+  const marketList = MARKETS[reportType] || [];
+
+  // Real production OOM fix, 2026-08-15 — only build/retain records for the
+  // markets this app actually tracks (see parseCOTCsv's own comment). A
+  // report covering 100+ contracts otherwise materializes every one of
+  // them into memory just to use a handful.
+  const parsed = parseCOTCsv(csv, reportType, marketList.map((m) => m.pattern));
   console.log(`[COT] ${reportType}: parsed ${parsed.size} unique markets from CSV`);
 
   // Log first 5 market names so we can verify patterns match
   const sample = Array.from(parsed.keys()).slice(0, 5).join(" | ");
   console.log(`[COT] ${reportType} sample markets: ${sample}`);
 
-  const marketList = MARKETS[reportType] || [];
   const results = [];
 
   for (const mkt of marketList) {
