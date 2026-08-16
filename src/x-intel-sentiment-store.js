@@ -14,10 +14,14 @@ const { writeJsonAtomic, readJsonSafe } = require("./atomic-write");
 
 const STORE_PATH = path.join(ROOT, "data", "x-intel-sentiment.json");
 const RETENTION_MS = 90 * 24 * 3600_000; // ~90 days per the plan's retention target
+// Safety backstop only (same reasoning as x-intel-mentions-store.js,
+// 2026-08-15, real production OOM) — age-pruning above is the real bound.
+const MAX_ENTRIES = 20_000;
 
 function load() {
   const data = readJsonSafe(STORE_PATH, { snapshots: [] });
-  return Array.isArray(data.snapshots) ? data.snapshots : [];
+  const snapshots = Array.isArray(data.snapshots) ? data.snapshots : [];
+  return snapshots.length > MAX_ENTRIES ? snapshots.slice(snapshots.length - MAX_ENTRIES) : snapshots;
 }
 
 function save(snapshots) {
@@ -32,8 +36,9 @@ function save(snapshots) {
 function logSentimentSnapshot({ symbol, bullish = 0, bearish = 0, neutral = 0, avgConfidence = null }) {
   const snapshots = load();
   const cutoff = Date.now() - RETENTION_MS;
-  const pruned = snapshots.filter((s) => new Date(s.at).getTime() >= cutoff);
+  let pruned = snapshots.filter((s) => new Date(s.at).getTime() >= cutoff);
   pruned.push({ symbol, bullish, bearish, neutral, avgConfidence, at: new Date().toISOString() });
+  if (pruned.length > MAX_ENTRIES) pruned = pruned.slice(pruned.length - MAX_ENTRIES);
   save(pruned);
 }
 

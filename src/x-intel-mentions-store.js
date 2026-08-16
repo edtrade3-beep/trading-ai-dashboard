@@ -6,19 +6,34 @@
 // with no real historical baseline to compare today's volume against.
 //
 // Same atomic-write/readJsonSafe pattern as x-intel-store.js. Age-pruned
-// (not entry-count-capped) at write time, since mention volume is bursty —
-// a flat entry cap could silently drop today's real spike during a busy
-// news day while keeping weeks-old noise.
+// at write time (not entry-count-capped as the PRIMARY bound), since
+// mention volume is bursty — a flat entry cap could silently drop today's
+// real spike during a busy news day while keeping weeks-old noise.
+//
+// MAX_ENTRIES below is a pure safety backstop, added 2026-08-15 after a
+// real production OOM crash (V8 heap allocation failure, confirmed via
+// Render's crash log) — this store had NO upper bound at all before now,
+// and with Postgres backing, its entire array is both fully loaded/cloned
+// on every single logMention() call AND held permanently resident in the
+// in-memory KV cache for the process's whole lifetime. 30-day age-pruning
+// alone doesn't protect against a genuinely runaway logging rate (a bug
+// elsewhere calling this far more than intended). 50,000 is generous
+// enough to never trip during any realistic single busy day.
 const path = require("node:path");
 const { ROOT } = require("./config");
 const { writeJsonAtomic, readJsonSafe } = require("./atomic-write");
 
 const STORE_PATH = path.join(ROOT, "data", "x-intel-mentions.json");
 const RETENTION_MS = 30 * 24 * 3600_000; // 30 days — enough for a real 7-day baseline plus slack
+const MAX_ENTRIES = 50_000; // safety backstop only — age-pruning above is the real, intended bound
 
 function load() {
   const data = readJsonSafe(STORE_PATH, { mentions: [] });
-  return Array.isArray(data.mentions) ? data.mentions : [];
+  const mentions = Array.isArray(data.mentions) ? data.mentions : [];
+  // Cap enforced on read too (not just on write) — self-corrects an
+  // already-oversized store the moment the process boots, without waiting
+  // for the next logMention() call.
+  return mentions.length > MAX_ENTRIES ? mentions.slice(mentions.length - MAX_ENTRIES) : mentions;
 }
 
 function save(mentions) {
@@ -31,8 +46,11 @@ function save(mentions) {
 function logMention({ symbol = null, sector = null, themes = [], source, category }) {
   const mentions = load();
   const cutoff = Date.now() - RETENTION_MS;
-  const pruned = mentions.filter((m) => new Date(m.at).getTime() >= cutoff);
+  let pruned = mentions.filter((m) => new Date(m.at).getTime() >= cutoff);
   pruned.push({ symbol, sector, themes, source, category, at: new Date().toISOString() });
+  // Hard cap, oldest-first drop — only ever engages if age-pruning above
+  // somehow wasn't enough (runaway logging rate), never in normal use.
+  if (pruned.length > MAX_ENTRIES) pruned = pruned.slice(pruned.length - MAX_ENTRIES);
   save(pruned);
 }
 
