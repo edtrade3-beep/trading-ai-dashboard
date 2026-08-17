@@ -2673,6 +2673,24 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
     });
   }
 
+  // TEMP diagnostic (2026-08-17) — isolating a live-only bug where
+  // fetchDayTradeScanRows returns 0 rows for every symbol despite Alpaca
+  // bars working fine through other routes (trend-screen's interval=15m).
+  // Remove once root-caused.
+  if (pathname === "/api/market/_debug-alpaca-bars") {
+    const symbol = (searchParams.get("symbol") || "TSLA").toUpperCase();
+    const { fetchAlpacaBars } = require("../providers/alpaca-data");
+    const [intraday, daily] = await Promise.all([
+      withTimeout(fetchAlpacaBars(symbol, "5d", "15m"), 6000, null).catch((e) => ({ __err: String(e) })),
+      withTimeout(fetchAlpacaBars(symbol, "1mo", "1d"), 6000, null).catch((e) => ({ __err: String(e) })),
+    ]);
+    return writeJson(res, 200, {
+      symbol,
+      intraday: Array.isArray(intraday) ? { count: intraday.length, last3: intraday.slice(-3) } : intraday,
+      daily: Array.isArray(daily) ? { count: daily.length, last3: daily.slice(-3) } : daily,
+    });
+  }
+
   // Day-trade scanner: intraday momentum from Alpaca 5-min bars — gap %, RVOL,
   // VWAP position, and opening-range breakout. Cached 90s.
   if (pathname === "/api/market/daytrade-scan") {
