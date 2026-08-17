@@ -37,7 +37,7 @@ function LightBoxCardInner({ C, MONO, SANS, data, showSecondary }) {
         alignItems: "center",
         gap: 4,
         textAlign: "center",
-        minHeight: showSecondary ? 168 : 118,
+        minHeight: showSecondary ? 196 : 148,
         transition: "background 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease",
         animation: pulsing ? "lightboxPulse 1.5s ease-out 1" : "none",
       }}
@@ -53,9 +53,22 @@ function LightBoxCardInner({ C, MONO, SANS, data, showSecondary }) {
         </div>
       )}
 
+      {data.reason && (
+        <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, marginTop: 2 }}>{data.reason}</div>
+      )}
+      {data.quality != null && (
+        <div style={{ width: "100%", marginTop: 4 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 9.5, color: C.textDim, marginBottom: 2 }}>
+            <span>A+</span><span>{data.quality}</span>
+          </div>
+          <div style={{ width: "100%", height: 4, borderRadius: 2, background: C.border, overflow: "hidden" }}>
+            <div style={{ width: `${Math.max(0, Math.min(100, data.quality))}%`, height: "100%", background: col, transition: "width 0.4s ease" }} />
+          </div>
+        </div>
+      )}
+
       {showSecondary && (
         <div style={{ marginTop: 6, paddingTop: 6, borderTop: `1px solid ${C.border}`, width: "100%", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2px 8px" }}>
-          <SecondaryStat label="A+" value={data.quality != null ? `${data.quality}` : "—"} C={C} SANS={SANS} MONO={MONO} />
           <SecondaryStat label="RVOL" value={data.rvol != null ? `${Number(data.rvol).toFixed(1)}x` : "—"} C={C} SANS={SANS} MONO={MONO} />
           <SecondaryStat label="VWAP" value={data.vwap != null ? `$${Number(data.vwap).toFixed(2)}` : "—"} C={C} SANS={SANS} MONO={MONO} />
           <SecondaryStat label="Entry" value={data.bestEntry != null ? `$${Number(data.bestEntry).toFixed(2)}` : "—"} C={C} SANS={SANS} MONO={MONO} />

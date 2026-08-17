@@ -49,4 +49,33 @@ function stepSymbol(prevEntry, rawSignal, generatedAt, confirmBars) {
   };
 }
 
-module.exports = { stepSymbol };
+// A short, honest one-line explanation of WHY a symbol is in its current
+// state — built only from fields computeDayTradeSignal already computed
+// for real (orBreakout, aboveVwap, bull15, rvol, vsVwap), never a
+// decorative/generic label. state: "BUY"|"WAIT"|"SELL" (the display
+// vocabulary); raw: the computeDayTradeSignal result object for this row.
+function computeReason(state, raw) {
+  if (!raw) return "";
+  const rvol = Number(raw.rvol) || 0;
+  const vsVwap = Number(raw.vsVwap ?? (raw.vwap && raw.px ? ((raw.px - raw.vwap) / raw.vwap) * 100 : 0)) || 0;
+
+  if (state === "BUY") {
+    if (raw.orBreakout && rvol >= 1.5) return "Breakout + volume confirmation";
+    if (raw.orBreakout) return "Opening-range breakout";
+    if (raw.bull15 && raw.aboveVwap) return "Above VWAP, EMA stack bullish";
+    return "Above VWAP";
+  }
+  if (state === "SELL") {
+    if (!raw.aboveVwap && vsVwap <= -0.3) return "VWAP rejection";
+    if (!raw.aboveVwap && !raw.bull15) return "Below VWAP, momentum breakdown";
+    if (!raw.aboveVwap) return "Below VWAP";
+    return "Bearish momentum";
+  }
+  // WAIT — closest real condition to flipping, not a generic filler.
+  if (raw.aboveVwap && !raw.orBreakout) return "Approaching VWAP breakout";
+  if (raw.bull15 && !raw.orBreakout) return "Momentum confirmation building";
+  if (rvol >= 1.0 && rvol < 1.5) return "Building volume";
+  return "Mixed signals";
+}
+
+module.exports = { stepSymbol, computeReason };

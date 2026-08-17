@@ -2696,6 +2696,7 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
   if (pathname === "/api/market/lightbox") {
     const { getLightBoxState, setConfirmBars } = require("../lightbox-state-store");
     const { SIGNAL_TO_STATE } = require("../lightbox-config");
+    const { computeReason } = require("../lightbox-engine");
     const { loadWatchlist } = require("./watchlist");
 
     const confirmBarsParam = searchParams.get("confirmBars");
@@ -2710,11 +2711,13 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
       const entry = state.bySymbol[sym];
       if (!entry) return null;
       const r = entry.raw || {};
+      const displayState = SIGNAL_TO_STATE[entry.confirmed] || entry.confirmed;
       return {
         symbol: sym,
-        state: SIGNAL_TO_STATE[entry.confirmed] || entry.confirmed,
+        state: displayState,
         rawState: SIGNAL_TO_STATE[entry.pendingSignal] || entry.pendingSignal,
         pendingCount: entry.pendingCount,
+        reason: computeReason(displayState, r),
         price: r.px ?? null, chg: r.chg ?? null, quality: r.quality ?? null, grade: r.grade ?? null,
         vwap: r.vwap ?? null, rvol: r.rvol ?? null, aboveVwap: !!r.aboveVwap,
         stop: r.stop ?? null, target: r.target ?? null, rr: r.rr ?? null,
