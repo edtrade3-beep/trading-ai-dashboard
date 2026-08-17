@@ -2673,45 +2673,35 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
     });
   }
 
-  // TEMP diagnostic (2026-08-17, round 2) — rate-limiting is confirmed
-  // cleared (trend-screen's Alpaca 15m call works), but daytrade-scan
-  // still returns 0 rows. Replicates fetchDayTradeScanRows's exact
-  // per-symbol bail conditions without swallowing them, to find which one
-  // is actually firing. Remove once root-caused.
+  // TEMP diagnostic (2026-08-17, round 3) — rate-limiting is confirmed
+  // cleared. Round 2 showed BOTH the "5d/15m" and "1mo/1d" calls returning
+  // non-arrays together via Promise.all + withTimeout, while trend-screen's
+  // single plain-awaited "1mo/15m" call succeeds. This round isolates:
+  // (a) each call run SEQUENTIALLY/individually (not concurrently), and
+  // (b) with vs without the withTimeout wrapper — to find which variable
+  // actually matters. Remove once root-caused.
   if (pathname === "/api/market/_debug-dtscan") {
     const sym = (searchParams.get("symbol") || "TSLA").toUpperCase();
     const { fetchAlpacaBars } = require("../providers/alpaca-data");
-    try {
-      const [intraday, daily] = await Promise.all([
-        withTimeout(fetchAlpacaBars(sym, "5d", "15m"), 6000, null),
-        withTimeout(fetchAlpacaBars(sym, "1mo", "1d"), 6000, null),
-      ]);
-      const out = {
-        intradayIsArray: Array.isArray(intraday), intradayLen: Array.isArray(intraday) ? intraday.length : null,
-        dailyIsArray: Array.isArray(daily), dailyLen: Array.isArray(daily) ? daily.length : null,
-      };
-      if (!Array.isArray(intraday) || intraday.length < 3 || !Array.isArray(daily) || daily.length < 5) {
-        return writeJson(res, 200, { sym, bailAt: "array/length check", ...out });
+    const test = async (label, range, tf, useTimeout) => {
+      const t0 = Date.now();
+      try {
+        const p = fetchAlpacaBars(sym, range, tf);
+        const bars = useTimeout ? await withTimeout(p, 6000, "__TIMED_OUT__") : await p;
+        const ms = Date.now() - t0;
+        if (bars === "__TIMED_OUT__") return { label, ms, result: "TIMED_OUT" };
+        return { label, ms, isArray: Array.isArray(bars), len: Array.isArray(bars) ? bars.length : null, value: Array.isArray(bars) ? null : bars };
+      } catch (e) {
+        return { label, ms: Date.now() - t0, error: String((e && e.stack) || e) };
       }
-      const lastDay = new Date(intraday[intraday.length - 1].time).toDateString();
-      const today = intraday.filter((b) => new Date(b.time).toDateString() === lastDay);
-      out.lastBarTime = new Date(intraday[intraday.length - 1].time).toISOString();
-      out.lastDayString = lastDay;
-      out.todayLen = today.length;
-      out.serverNow = new Date().toISOString();
-      if (today.length < 2) {
-        return writeJson(res, 200, { sym, bailAt: "today.length < 2", ...out });
-      }
-      const prevClose = daily[daily.length - 2].close;
-      out.prevClose = prevClose;
-      out.lastDailyBarTime = new Date(daily[daily.length - 1].time).toISOString();
-      if (!prevClose) {
-        return writeJson(res, 200, { sym, bailAt: "!prevClose", ...out });
-      }
-      return writeJson(res, 200, { sym, bailAt: null, out, todayBars: today.map((b) => ({ t: new Date(b.time).toISOString(), c: b.close, v: b.volume })) });
-    } catch (e) {
-      return writeJson(res, 200, { sym, bailAt: "exception", error: String(e && e.stack || e) });
-    }
+    };
+    const results = [];
+    results.push(await test("1mo/15m plain (control)", "1mo", "15m", false));
+    results.push(await test("5d/15m plain", "5d", "15m", false));
+    results.push(await test("1mo/1d plain", "1mo", "1d", false));
+    results.push(await test("5d/15m withTimeout", "5d", "15m", true));
+    results.push(await test("1mo/1d withTimeout", "1mo", "1d", true));
+    return writeJson(res, 200, { sym, results });
   }
 
   // Day-trade scanner: intraday momentum from Alpaca 5-min bars — gap %, RVOL,
