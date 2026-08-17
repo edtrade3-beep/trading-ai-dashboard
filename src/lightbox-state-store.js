@@ -65,10 +65,22 @@ function setConfirmBars(n) {
 // RVOL signal is only meaningful intraday, same real gate
 // watchlist-daytrade-alerts.js uses, so a stale after-hours read never gets
 // "confirmed" as if it were live.
+// Real incident, 2026-08-17: this job originally scanned the FULL real
+// watchlist (grown to 180 symbols the same day) every 60s — each tick is
+// 2 Alpaca bars requests per symbol (fetchDayTradeScanRows), so a full
+// pass burst ~360 real requests in well under a minute. That tripped
+// Alpaca's rate limit (confirmed via a raw 429 "too many requests" from
+// data.alpaca.markets) and stalled Day Trade Mode/Light Box for the whole
+// app, not just this job. Capped here — not just a slower interval —
+// because the burst-per-tick size was the real problem; a slower interval
+// alone still bursts the same request count each time it fires.
+const MAX_SCAN_SYMBOLS = 50;
+
 async function tickLightBox() {
   if (!isMarketHoursET()) return { ok: true, skipped: "outside market hours" };
-  const { symbols } = loadWatchlist();
-  if (!Array.isArray(symbols) || !symbols.length) return { ok: true, checked: 0 };
+  const { symbols: allSymbols } = loadWatchlist();
+  if (!Array.isArray(allSymbols) || !allSymbols.length) return { ok: true, checked: 0 };
+  const symbols = allSymbols.slice(0, MAX_SCAN_SYMBOLS);
 
   // Lazy require (not top-level) — src/routes/market.js's route handler
   // lazily requires this file too, so a top-level require here would form

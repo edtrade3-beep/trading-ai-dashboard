@@ -382,13 +382,20 @@ server.listen(PORT, HOST, () => {
   // confirmation tick for the full-card BUY/WAIT/SELL grid. Reuses the same
   // real fetchDayTradeScanRows/computeDayTradeSignal engine as the alert job
   // above, adding multi-tick confirmation (src/lightbox-engine.js) so the
-  // UI doesn't flicker on noise. Deliberately much faster than every other
-  // job here (all others are >=5 min) since this one drives a live-looking
-  // UI a user is actively watching, not a once-per-signal alert — watch
-  // /api/jobs/health after deploy to confirm it isn't causing rate-limit
-  // pressure on Alpaca before leaving it this fast.
-  registerJob("Light Box Confirm", 60_000, () => require("./src/lightbox-state-store").tickLightBox());
-  console.log("[Light Box] Confirmation tick active — every 60s, market hours only");
+  // UI doesn't flicker on noise.
+  //
+  // Real incident, 2026-08-17: originally 60s. At 60s against a (then) 180-
+  // symbol real watchlist, this burst ~360 real Alpaca requests every
+  // single minute and tripped Alpaca's rate limit (confirmed via a raw 429
+  // "too many requests" from data.alpaca.markets), which silently broke
+  // Day Trade Mode / Light Box app-wide since every caller of
+  // fetchDayTradeScanRows shares the same rate-limited API key. Fixed on
+  // two axes: this interval (5 min, matching every other job's convention)
+  // AND a per-tick symbol cap (MAX_SCAN_SYMBOLS in lightbox-state-store.js)
+  // — the interval alone wasn't enough, since each individual tick still
+  // bursts its full request count regardless of how often it fires.
+  registerJob("Light Box Confirm", 5 * 60_000, () => require("./src/lightbox-state-store").tickLightBox());
+  console.log("[Light Box] Confirmation tick active — every 5 min (top 50 watchlist symbols), market hours only");
 
   // Morning digest — once-daily consolidated Telegram summary of the 9
   // "opportunity" detection jobs above (explicit user request, 2026-08-14:
