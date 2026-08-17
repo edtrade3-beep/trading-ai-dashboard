@@ -9,14 +9,13 @@ import { LIGHTBOX_DEFAULTS, STATE_COLOR_KEY, BAR_COLOR_KEY } from "./lightbox-co
 // is what makes "only affected boxes update" cheap even at hundreds of
 // symbols.
 //
-// Visual style (2026-08-17): matches a reference design the user provided
-// — flat card, no background tint or glow, a single blue accent border/
-// badge/progress-bar for BUY and WAIT, breaking only to the app's
-// strongest neutral ink color for SELL/EXIT. See lightbox-config.js's
-// STATE_COLOR_KEY comment for the explicit tradeoff this accepts.
+// Visual style (2026-08-17): reverted back to the original green/amber/red
+// full-card traffic light (explicit user request, after briefly trying a
+// single blue accent to match a reference design) — border, badge, glow,
+// and progress bar all key off the symbol's own real BUY/WAIT/SELL color.
 function LightBoxCardInner({ C, MONO, SANS, data, showSecondary }) {
   const col = C[STATE_COLOR_KEY[data.state]] || C.textDim;
-  const barCol = C[BAR_COLOR_KEY] || C.accent;
+  const barCol = BAR_COLOR_KEY ? (C[BAR_COLOR_KEY] || C.accent) : col;
   const prevStateRef = useRef(data.state);
   const [pulsing, setPulsing] = useState(false);
 
@@ -29,25 +28,28 @@ function LightBoxCardInner({ C, MONO, SANS, data, showSecondary }) {
     }
   }, [data.state]);
 
+  const glow = `0 0 ${LIGHTBOX_DEFAULTS.glowBlur}px ${col}55, 0 0 ${LIGHTBOX_DEFAULTS.glowSpread}px ${col}88`;
+
   return (
     <div
       style={{
-        background: C.card,
+        background: `${col}14`,
         border: `2px solid ${col}`,
         borderRadius: 12,
         padding: "14px 16px",
+        boxShadow: glow,
         display: "flex",
         flexDirection: "column",
         gap: 6,
         minHeight: showSecondary ? 196 : 148,
-        transition: "border-color 0.4s ease",
+        transition: "background 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease",
         animation: pulsing ? "lightboxPulse 1.5s ease-out 1" : "none",
       }}
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <span style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.text, letterSpacing: "0.02em" }}>{data.symbol}</span>
         <span style={{
-          fontFamily: SANS, fontSize: 11, fontWeight: 700, color: barCol, background: `${barCol}1c`,
+          fontFamily: SANS, fontSize: 11, fontWeight: 700, color: col, background: `${col}22`,
           borderRadius: 999, padding: "4px 11px", whiteSpace: "nowrap",
         }}>
           {data.state === "SELL" ? "SELL / EXIT" : data.state}
