@@ -2682,6 +2682,59 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
     return writeJson(res, 200, { ok: true, cached, rows, generatedAt });
   }
 
+  // Live Trade Light Box — confirmed BUY/WAIT/SELL per symbol + recent
+  // transition log. Thin read of the persisted state src/lightbox-state-
+  // store.js's background job (registered in server.js) already computed —
+  // no recompute in the request path, same "route just reads, a background
+  // job does the real work" split as /api/market/jobs-health. Default
+  // symbol set is the real watchlist (same scoping GreenLightTab.jsx
+  // already uses for daytrade-scan); ?universe=full switches to the fixed
+  // DAYTRADE_UNIVERSE for an ad-hoc broader look (that wider set isn't
+  // continuously confirmed in the background — only the watchlist is — so
+  // full-universe rows may show a fresher rawState than confirmed state
+  // until the user adds them to the real watchlist).
+  if (pathname === "/api/market/lightbox") {
+    const { getLightBoxState, setConfirmBars } = require("../lightbox-state-store");
+    const { SIGNAL_TO_STATE } = require("../lightbox-config");
+    const { loadWatchlist } = require("./watchlist");
+
+    const confirmBarsParam = searchParams.get("confirmBars");
+    if (confirmBarsParam != null && confirmBarsParam !== "") setConfirmBars(confirmBarsParam);
+
+    const custom = (searchParams.get("symbols") || "").split(",").map(s => s.trim().toUpperCase()).filter(Boolean);
+    const universeParam = searchParams.get("universe") === "full" ? "full" : "watchlist";
+    const symbols = custom.length ? custom : (universeParam === "full" ? DAYTRADE_UNIVERSE : (loadWatchlist().symbols || []));
+
+    const state = getLightBoxState();
+    const rows = symbols.map((sym) => {
+      const entry = state.bySymbol[sym];
+      if (!entry) return null;
+      const r = entry.raw || {};
+      return {
+        symbol: sym,
+        state: SIGNAL_TO_STATE[entry.confirmed] || entry.confirmed,
+        rawState: SIGNAL_TO_STATE[entry.pendingSignal] || entry.pendingSignal,
+        pendingCount: entry.pendingCount,
+        price: r.px ?? null, chg: r.chg ?? null, quality: r.quality ?? null, grade: r.grade ?? null,
+        vwap: r.vwap ?? null, rvol: r.rvol ?? null, aboveVwap: !!r.aboveVwap,
+        stop: r.stop ?? null, target: r.target ?? null, rr: r.rr ?? null,
+        bestEntry: r.bestEntry ?? null, entryNote: r.entryNote ?? null,
+        ema9: r.ema9 ?? null, ema21: r.ema21 ?? null, ema50: r.ema50 ?? null,
+        orBreakout: !!r.orBreakout, bull15: !!r.bull15,
+        updatedAt: entry.updatedAt || null,
+      };
+    }).filter(Boolean);
+
+    return writeJson(res, 200, {
+      ok: true,
+      rows,
+      transitions: (state.transitions || []).slice(0, 100),
+      generatedAt: state.updatedAt || null,
+      confirmBars: state.config.confirmBars,
+      universe: universeParam,
+    });
+  }
+
   // Market-Terminal style leaderboard: Movers Up/Down + Up/Down on Volume, each
   // row carrying Price, Day %, YTD %, and Volume-vs-50-day-average. Enriches a
   // liquid universe with daily bars (for YTD + avg volume). Cached 3 min.

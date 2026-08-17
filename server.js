@@ -378,6 +378,18 @@ server.listen(PORT, HOST, () => {
   registerJob("Watchlist Day Trade", 15 * 60_000, () => require("./src/watchlist-daytrade-alerts").checkWatchlistDayTradeAlerts());
   console.log("[Watchlist Day Trade] GREEN-signal detection active — every 15 min, feeds the morning digest");
 
+  // Live Trade Light Box (2026-08-16, explicit user request) — background
+  // confirmation tick for the full-card BUY/WAIT/SELL grid. Reuses the same
+  // real fetchDayTradeScanRows/computeDayTradeSignal engine as the alert job
+  // above, adding multi-tick confirmation (src/lightbox-engine.js) so the
+  // UI doesn't flicker on noise. Deliberately much faster than every other
+  // job here (all others are >=5 min) since this one drives a live-looking
+  // UI a user is actively watching, not a once-per-signal alert — watch
+  // /api/jobs/health after deploy to confirm it isn't causing rate-limit
+  // pressure on Alpaca before leaving it this fast.
+  registerJob("Light Box Confirm", 60_000, () => require("./src/lightbox-state-store").tickLightBox());
+  console.log("[Light Box] Confirmation tick active — every 60s, market hours only");
+
   // Morning digest — once-daily consolidated Telegram summary of the 9
   // "opportunity" detection jobs above (explicit user request, 2026-08-14:
   // "consolidate the alerts into one morning digest" for a professional

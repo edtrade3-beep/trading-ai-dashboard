@@ -173,6 +173,7 @@ import FedWatchTab from "./components/FedWatchTab.jsx";
 import DarkPoolTab from "./components/DarkPoolTab.jsx";
 import DpHeatmapTab from "./components/DpHeatmapTab.jsx";
 import CotTab from "./components/CotTab.jsx";
+import LightBoxTab from "./components/LightBoxTab.jsx";
 
 // Attach the API token (if the user set one) to every same-origin /api request,
 // so money-moving routes work when server-side API_AUTH_TOKEN auth is enabled.
@@ -414,6 +415,12 @@ const DEFAULT_SETTINGS = {
   tvWebhookToken: "",
   providerKeys: { finnhubKey: "", fmpKey: "", polygonKey: "", uwKey: "", tradierKey: "" },
   flowFilters: { flowType: "all", minNotional: "0", unusualOnly: false, autoAlertNotional: "250000" },
+  // Live Trade Light Box (2026-08-16, explicit user request) — confirmBars
+  // is the only field that actually round-trips to the server (via
+  // /api/market/lightbox's ?confirmBars= param, since the confirmation
+  // itself is computed by a background job, not per-request); the rest
+  // stay purely client-side display preferences, same as flowFilters above.
+  lightbox: { confirmBars: 3, soundOn: false, notifyOn: false, secondarySort: "score", showDetails: false, universe: "watchlist" },
 };
 
 function getMarketSessionET(now = new Date()) {
@@ -1389,6 +1396,7 @@ export default function App() {
   const cycleZoom = () => { const next = pageZoom >= 1.5 ? 1 : pageZoom >= 1.25 ? 1.5 : pageZoom >= 1 ? 1.25 : 1; setPageZoom(next); localStorage.setItem("axiom_page_zoom", String(next)); };
   const [providerKeys, setProviderKeys] = useState(DEFAULT_SETTINGS.providerKeys);
   const [flowFilters, setFlowFilters] = useState(DEFAULT_SETTINGS.flowFilters);
+  const [lightboxSettings, setLightboxSettings] = useState(DEFAULT_SETTINGS.lightbox);
   const [riskAccount, setRiskAccount] = useState(() => {
     try {
       const saved = localStorage.getItem("risk_account");
@@ -3670,6 +3678,16 @@ export default function App() {
             autoAlertNotional: String(saved.settings.flowFilters.autoAlertNotional || "250000"),
           });
         }
+        if (saved.settings.lightbox && typeof saved.settings.lightbox === "object") {
+          setLightboxSettings({
+            confirmBars: Number(saved.settings.lightbox.confirmBars) || 3,
+            soundOn: Boolean(saved.settings.lightbox.soundOn),
+            notifyOn: Boolean(saved.settings.lightbox.notifyOn),
+            secondarySort: String(saved.settings.lightbox.secondarySort || "score"),
+            showDetails: Boolean(saved.settings.lightbox.showDetails),
+            universe: String(saved.settings.lightbox.universe || "watchlist"),
+          });
+        }
       }
       if (saved.riskSettings && typeof saved.riskSettings === "object") {
         setRiskAccount(String(saved.riskSettings.riskAccount || "10000"));
@@ -3725,14 +3743,14 @@ export default function App() {
         portfolioHoldings,
         scannerFilters,
         workflowState,
-        settings: { ...settings, terminalLayout, hotkeyProfile, providerKeys, flowFilters },
+        settings: { ...settings, terminalLayout, hotkeyProfile, providerKeys, flowFilters, lightbox: lightboxSettings },
         riskSettings: {
           riskAccount, riskPct, riskEntry, riskStop, riskSide,
           riskMaxPosPct, riskCorrCap, riskAtrPct, riskSlipBps, riskSetupQuality,
         },
       }));
     } catch {}
-  }, [watchlistSymbols, customAlerts, portfolioHoldings, scannerFilters, workflowState, settings, terminalLayout, hotkeyProfile, providerKeys, flowFilters, riskAccount, riskPct, riskEntry, riskStop, riskSide, riskMaxPosPct, riskCorrCap, riskAtrPct, riskSlipBps, riskSetupQuality]);
+  }, [watchlistSymbols, customAlerts, portfolioHoldings, scannerFilters, workflowState, settings, terminalLayout, hotkeyProfile, providerKeys, flowFilters, lightboxSettings, riskAccount, riskPct, riskEntry, riskStop, riskSide, riskMaxPosPct, riskCorrCap, riskAtrPct, riskSlipBps, riskSetupQuality]);
 
   useEffect(() => {
     const t = setInterval(() => setClockNow(Date.now()), 1000);
@@ -4043,6 +4061,10 @@ export default function App() {
       AI: "agent",
       WORKFLOW: "workflow",
       FLOW: "flow",
+      // Live Trade Light Box (2026-08-16) — also has a real Sidebar.jsx row,
+      // this is the redundant one-keystroke path every sidebar tab gets.
+      LIGHTBOX: "lightbox",
+      LIGHTS: "lightbox",
       // PORTFOLIO/SCANNER repointed 2026-07-29 (institutional redesign) to
       // match what those words now mean in the sidebar — the real Alpaca-
       // backed Portfolio (portfolio-tab) and Sniper Scanner (rhpro-scan),
@@ -7093,6 +7115,7 @@ export default function App() {
       {activeTab === "holdings" && <HoldingsTab C={C} MONO={MONO} SANS={SANS} macroData={macroData} />}
       {activeTab === "gl-backtest" && <GLBacktestTab C={C} MONO={MONO} SANS={SANS} watchlistSymbols={watchlistSymbols} />}
       {activeTab === "predictions" && <PredictionsTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} macroData={macroData} />}
+      {activeTab === "lightbox" && <LightBoxTab C={C} MONO={MONO} SANS={SANS} lightboxSettings={lightboxSettings} setLightboxSettings={setLightboxSettings} />}
       {/* SETTINGS — composite sidebar destination (institutional redesign,
           2026-07-29) folding Coach/Learn/Quran/account-risk settings into
           one nav item, per the approved plan's "Settings" mapping — Tools

@@ -14,7 +14,8 @@
     "node": ">=20"
   },
   "devDependencies": {
-    "esbuild": "^0.28.1"
+    "esbuild": "^0.28.1",
+    "playwright": "^1.62.1"
   },
   "dependencies": {
     "imapflow": "^1.4.3",

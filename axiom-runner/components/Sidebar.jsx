@@ -86,6 +86,14 @@ export const SIDEBAR_ITEMS = [
   // agree on what "journal" means everywhere in the app.
   { id: "journal",   label: "Journal",    icon: "📓", tab: "rhpro-journal" },
 
+  // Light Box — "is it BUY, WAIT, or SELL, right now?" (2026-08-16,
+  // explicit user request: a full-card color-coded signal grid meant to be
+  // read in one second). Given its own permanent row rather than staying
+  // palette-only, same reasoning Cortex/Smart Scan were promoted for —
+  // explicit standalone request, meant as a primary trading surface, not a
+  // sub-view of an existing tab.
+  { id: "lightbox",  label: "Light Box",  icon: "🚦", tab: "lightbox" },
+
   // Settings — not one of the 7 "question" surfaces (it doesn't answer a
   // daily trading question, it configures the app), kept as a permanent
   // utility row rather than folded into the palette so account/risk/coach
