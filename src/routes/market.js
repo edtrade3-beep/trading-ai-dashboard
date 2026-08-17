@@ -2673,27 +2673,6 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
     });
   }
 
-  // TEMP diagnostic (2026-08-17, round 4) — round 3's "control" was a false
-  // signal: trend-screen's rsi/volRatio are always Yahoo-daily-derived
-  // regardless of ?interval=, and its own altBars/intervalUsed field
-  // (the actual Alpaca-dependent part) has been silently undefined this
-  // whole time — meaning Alpaca has likely never actually recovered. This
-  // hits data.alpaca.markets directly, raw, no app logic, for an
-  // unambiguous HTTP status. Remove once root-caused.
-  if (pathname === "/api/market/_debug-dtscan") {
-    const sym = (searchParams.get("symbol") || "TSLA").toUpperCase();
-    const { fetchAlpacaBars } = require("../providers/alpaca-data");
-    const [intraday, daily] = await Promise.all([
-      fetchAlpacaBars(sym, "5d", "15m").catch((e) => ({ __err: String(e) })),
-      fetchAlpacaBars(sym, "1mo", "1d").catch((e) => ({ __err: String(e) })),
-    ]);
-    return writeJson(res, 200, {
-      sym,
-      intraday: Array.isArray(intraday) ? { count: intraday.length, last2: intraday.slice(-2) } : intraday,
-      daily: Array.isArray(daily) ? { count: daily.length, last2: daily.slice(-2) } : daily,
-    });
-  }
-
   // Day-trade scanner: intraday momentum from Alpaca 5-min bars — gap %, RVOL,
   // VWAP position, and opening-range breakout. Cached 90s.
   if (pathname === "/api/market/daytrade-scan") {
