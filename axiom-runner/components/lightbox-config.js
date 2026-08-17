@@ -22,4 +22,16 @@ export const LIGHTBOX_DEFAULTS = {
 export const SIGNAL_TO_STATE = { GREEN: "BUY", YELLOW: "WAIT", RED: "SELL" };
 
 // state ("BUY"|"WAIT"|"SELL") -> the matching theme color token key on C.
-export const STATE_COLOR_KEY = { BUY: "green", WAIT: "amber", SELL: "red" };
+// 2026-08-17: switched from a green/amber/red traffic light to match a
+// reference design the user provided — a single blue accent for BUY/WAIT
+// (badge, border, progress bar) with only the SELL/EXIT card's border
+// breaking to the app's strongest neutral ink color. Explicit, informed
+// tradeoff (confirmed via AskUserQuestion): BUY and WAIT now read the same
+// color at a glance, distinguished only by the state text/badge itself,
+// not by card color — the opposite of the original "green=BUY, amber=
+// WAIT, red=SELL, one-second glance" spec. If that one-second-glance
+// requirement matters again later, this is the one map to change back.
+export const STATE_COLOR_KEY = { BUY: "accent", WAIT: "accent", SELL: "text" };
+// Progress bar fill is always this same blue accent regardless of state,
+// matching the reference (every example card had a blue bar).
+export const BAR_COLOR_KEY = "accent";
