@@ -2673,6 +2673,47 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
     });
   }
 
+  // TEMP diagnostic (2026-08-17, round 2) — rate-limiting is confirmed
+  // cleared (trend-screen's Alpaca 15m call works), but daytrade-scan
+  // still returns 0 rows. Replicates fetchDayTradeScanRows's exact
+  // per-symbol bail conditions without swallowing them, to find which one
+  // is actually firing. Remove once root-caused.
+  if (pathname === "/api/market/_debug-dtscan") {
+    const sym = (searchParams.get("symbol") || "TSLA").toUpperCase();
+    const { fetchAlpacaBars } = require("../providers/alpaca-data");
+    try {
+      const [intraday, daily] = await Promise.all([
+        withTimeout(fetchAlpacaBars(sym, "5d", "15m"), 6000, null),
+        withTimeout(fetchAlpacaBars(sym, "1mo", "1d"), 6000, null),
+      ]);
+      const out = {
+        intradayIsArray: Array.isArray(intraday), intradayLen: Array.isArray(intraday) ? intraday.length : null,
+        dailyIsArray: Array.isArray(daily), dailyLen: Array.isArray(daily) ? daily.length : null,
+      };
+      if (!Array.isArray(intraday) || intraday.length < 3 || !Array.isArray(daily) || daily.length < 5) {
+        return writeJson(res, 200, { sym, bailAt: "array/length check", ...out });
+      }
+      const lastDay = new Date(intraday[intraday.length - 1].time).toDateString();
+      const today = intraday.filter((b) => new Date(b.time).toDateString() === lastDay);
+      out.lastBarTime = new Date(intraday[intraday.length - 1].time).toISOString();
+      out.lastDayString = lastDay;
+      out.todayLen = today.length;
+      out.serverNow = new Date().toISOString();
+      if (today.length < 2) {
+        return writeJson(res, 200, { sym, bailAt: "today.length < 2", ...out });
+      }
+      const prevClose = daily[daily.length - 2].close;
+      out.prevClose = prevClose;
+      out.lastDailyBarTime = new Date(daily[daily.length - 1].time).toISOString();
+      if (!prevClose) {
+        return writeJson(res, 200, { sym, bailAt: "!prevClose", ...out });
+      }
+      return writeJson(res, 200, { sym, bailAt: null, out, todayBars: today.map((b) => ({ t: new Date(b.time).toISOString(), c: b.close, v: b.volume })) });
+    } catch (e) {
+      return writeJson(res, 200, { sym, bailAt: "exception", error: String(e && e.stack || e) });
+    }
+  }
+
   // Day-trade scanner: intraday momentum from Alpaca 5-min bars — gap %, RVOL,
   // VWAP position, and opening-range breakout. Cached 90s.
   if (pathname === "/api/market/daytrade-scan") {
