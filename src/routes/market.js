@@ -2682,20 +2682,16 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
   // unambiguous HTTP status. Remove once root-caused.
   if (pathname === "/api/market/_debug-dtscan") {
     const sym = (searchParams.get("symbol") || "TSLA").toUpperCase();
-    const { resolveAlpacaKeys } = require("../providers/alpaca-client");
-    const { id, secret } = resolveAlpacaKeys();
-    let raw = null;
-    try {
-      const start = new Date(Date.now() - 8 * 86400000).toISOString();
-      const url = `https://data.alpaca.markets/v2/stocks/${sym}/bars?timeframe=15Min&start=${encodeURIComponent(start)}&limit=20&adjustment=all&feed=iex&extended_hours=true`;
-      const t0 = Date.now();
-      const r = await fetch(url, { headers: { "APCA-API-KEY-ID": id, "APCA-API-SECRET-KEY": secret } });
-      const text = await r.text();
-      raw = { status: r.status, ok: r.ok, ms: Date.now() - t0, bodyPreview: text.slice(0, 400) };
-    } catch (e) {
-      raw = { error: String((e && e.stack) || e) };
-    }
-    return writeJson(res, 200, { sym, hasKeys: !!(id && secret), idPreview: id ? id.slice(0, 4) + "…" : null, raw });
+    const { fetchAlpacaBars } = require("../providers/alpaca-data");
+    const [intraday, daily] = await Promise.all([
+      fetchAlpacaBars(sym, "5d", "15m").catch((e) => ({ __err: String(e) })),
+      fetchAlpacaBars(sym, "1mo", "1d").catch((e) => ({ __err: String(e) })),
+    ]);
+    return writeJson(res, 200, {
+      sym,
+      intraday: Array.isArray(intraday) ? { count: intraday.length, last2: intraday.slice(-2) } : intraday,
+      daily: Array.isArray(daily) ? { count: daily.length, last2: daily.slice(-2) } : daily,
+    });
   }
 
   // Day-trade scanner: intraday momentum from Alpaca 5-min bars — gap %, RVOL,
