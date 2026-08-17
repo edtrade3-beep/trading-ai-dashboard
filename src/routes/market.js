@@ -2673,35 +2673,29 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
     });
   }
 
-  // TEMP diagnostic (2026-08-17, round 3) — rate-limiting is confirmed
-  // cleared. Round 2 showed BOTH the "5d/15m" and "1mo/1d" calls returning
-  // non-arrays together via Promise.all + withTimeout, while trend-screen's
-  // single plain-awaited "1mo/15m" call succeeds. This round isolates:
-  // (a) each call run SEQUENTIALLY/individually (not concurrently), and
-  // (b) with vs without the withTimeout wrapper — to find which variable
-  // actually matters. Remove once root-caused.
+  // TEMP diagnostic (2026-08-17, round 4) — round 3's "control" was a false
+  // signal: trend-screen's rsi/volRatio are always Yahoo-daily-derived
+  // regardless of ?interval=, and its own altBars/intervalUsed field
+  // (the actual Alpaca-dependent part) has been silently undefined this
+  // whole time — meaning Alpaca has likely never actually recovered. This
+  // hits data.alpaca.markets directly, raw, no app logic, for an
+  // unambiguous HTTP status. Remove once root-caused.
   if (pathname === "/api/market/_debug-dtscan") {
     const sym = (searchParams.get("symbol") || "TSLA").toUpperCase();
-    const { fetchAlpacaBars } = require("../providers/alpaca-data");
-    const test = async (label, range, tf, useTimeout) => {
+    const { resolveAlpacaKeys } = require("../providers/alpaca-client");
+    const { id, secret } = resolveAlpacaKeys();
+    let raw = null;
+    try {
+      const start = new Date(Date.now() - 8 * 86400000).toISOString();
+      const url = `https://data.alpaca.markets/v2/stocks/${sym}/bars?timeframe=15Min&start=${encodeURIComponent(start)}&limit=20&adjustment=all&feed=iex&extended_hours=true`;
       const t0 = Date.now();
-      try {
-        const p = fetchAlpacaBars(sym, range, tf);
-        const bars = useTimeout ? await withTimeout(p, 6000, "__TIMED_OUT__") : await p;
-        const ms = Date.now() - t0;
-        if (bars === "__TIMED_OUT__") return { label, ms, result: "TIMED_OUT" };
-        return { label, ms, isArray: Array.isArray(bars), len: Array.isArray(bars) ? bars.length : null, value: Array.isArray(bars) ? null : bars };
-      } catch (e) {
-        return { label, ms: Date.now() - t0, error: String((e && e.stack) || e) };
-      }
-    };
-    const results = [];
-    results.push(await test("1mo/15m plain (control)", "1mo", "15m", false));
-    results.push(await test("5d/15m plain", "5d", "15m", false));
-    results.push(await test("1mo/1d plain", "1mo", "1d", false));
-    results.push(await test("5d/15m withTimeout", "5d", "15m", true));
-    results.push(await test("1mo/1d withTimeout", "1mo", "1d", true));
-    return writeJson(res, 200, { sym, results });
+      const r = await fetch(url, { headers: { "APCA-API-KEY-ID": id, "APCA-API-SECRET-KEY": secret } });
+      const text = await r.text();
+      raw = { status: r.status, ok: r.ok, ms: Date.now() - t0, bodyPreview: text.slice(0, 400) };
+    } catch (e) {
+      raw = { error: String((e && e.stack) || e) };
+    }
+    return writeJson(res, 200, { sym, hasKeys: !!(id && secret), idPreview: id ? id.slice(0, 4) + "…" : null, raw });
   }
 
   // Day-trade scanner: intraday momentum from Alpaca 5-min bars — gap %, RVOL,
