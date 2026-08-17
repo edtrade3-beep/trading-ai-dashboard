@@ -31,13 +31,22 @@ async function fetchAlpacaBars(symbol, range, interval) {
   let bars = [], token = null, pages = 0;
   try {
     do {
-      // extended_hours=true — real 4am-8pm ET pre-market/after-hours bars,
-      // not just the 9:30-4:00 regular session (explicit user request,
-      // "use chart for after hours too and pre market"). Alpaca only
-      // honors this for intraday timeframes; it's a documented no-op for
-      // 1Day/1Week, so safe to always send regardless of caller.
+      // extended_hours=true was here (real 4am-8pm ET pre-market/after-
+      // hours bars, explicit user request: "use chart for after hours too
+      // and pre market") — REMOVED 2026-08-17 after it started hard-
+      // failing every single bars request app-wide with a real, confirmed
+      // 400 from data.alpaca.markets: {"message":"unexpected query
+      // parameter(s): extended_hours"}. Alpaca's API no longer recognizes
+      // this param on this endpoint/plan (was likely valid when originally
+      // added; a real external API change, not a local regression) — this
+      // silently broke Day Trade Mode, Light Box, and every interval-based
+      // MultiTf/trend-screen chart fetch, since fetchAlpacaBars swallows
+      // non-ok responses into a plain `null` with no visible error
+      // anywhere. If real extended-hours bars are wanted again, check
+      // Alpaca's current docs for the live param name/plan requirement
+      // before re-adding — don't just restore this literal query string.
       const url = `https://data.alpaca.markets/v2/stocks/${encodeURIComponent(symbol)}/bars`
-        + `?timeframe=${tf}&start=${encodeURIComponent(start)}&limit=10000&adjustment=all&feed=iex&extended_hours=true`
+        + `?timeframe=${tf}&start=${encodeURIComponent(start)}&limit=10000&adjustment=all&feed=iex`
         + (token ? `&page_token=${encodeURIComponent(token)}` : "");
       const r = await fetch(url, { headers });
       if (!r.ok) return bars.length ? bars : null;
