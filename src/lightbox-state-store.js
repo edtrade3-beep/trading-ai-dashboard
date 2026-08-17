@@ -76,11 +76,30 @@ function setConfirmBars(n) {
 // alone still bursts the same request count each time it fires.
 const MAX_SCAN_SYMBOLS = 50;
 
+// Real follow-up, same day: capping to the first 50 watchlist symbols
+// meant the other 130 (of 180) never got scanned at all — user reported
+// only ~25-50 tickers ever showing up. Fix keeps the same per-tick burst
+// size (still safe against the rate limit above) but rotates which slice
+// of the watchlist gets scanned each tick, so the whole watchlist cycles
+// through over a few ticks instead of the same head-of-list 50 forever.
+// Offset persists in state.config so it survives restarts/redeploys.
+function rotateSlice(arr, offset, count) {
+  if (arr.length <= count) return arr;
+  const out = [];
+  for (let i = 0; i < count; i++) out.push(arr[(offset + i) % arr.length]);
+  return out;
+}
+
 async function tickLightBox() {
   if (!isMarketHoursET()) return { ok: true, skipped: "outside market hours" };
   const { symbols: allSymbols } = loadWatchlist();
   if (!Array.isArray(allSymbols) || !allSymbols.length) return { ok: true, checked: 0 };
-  const symbols = allSymbols.slice(0, MAX_SCAN_SYMBOLS);
+
+  const state = loadState();
+  const confirmBars = state.config.confirmBars || LIGHTBOX_DEFAULTS.confirmBars;
+  const offset = Number(state.config.scanOffset) || 0;
+  const symbols = rotateSlice(allSymbols, offset, MAX_SCAN_SYMBOLS);
+  const nextOffset = allSymbols.length ? (offset + MAX_SCAN_SYMBOLS) % allSymbols.length : 0;
 
   // Lazy require (not top-level) — src/routes/market.js's route handler
   // lazily requires this file too, so a top-level require here would form
@@ -101,9 +120,6 @@ async function tickLightBox() {
   const spyRow = (macroRows || []).find((m) => m.symbol === "SPY");
   const spyChg = Number(spyRow?.changesPercentage || 0);
   const generatedAt = scanResult.generatedAt || new Date().toISOString();
-
-  const state = loadState();
-  const confirmBars = state.config.confirmBars || LIGHTBOX_DEFAULTS.confirmBars;
   // Start from the previous map so a symbol whose real fetch failed this
   // tick (rate limit / transient timeout) keeps its last-known state
   // instead of dropping out of the grid.
@@ -131,8 +147,8 @@ async function tickLightBox() {
   }
 
   const transitions = [...newTransitions, ...state.transitions].slice(0, LIGHTBOX_DEFAULTS.maxTransitions);
-  saveState({ config: state.config, bySymbol: nextBySymbol, transitions, updatedAt: nowIso });
-  return { ok: true, checked: symbols.length, newTransitions: newTransitions.length };
+  saveState({ config: { ...state.config, scanOffset: nextOffset }, bySymbol: nextBySymbol, transitions, updatedAt: nowIso });
+  return { ok: true, checked: symbols.length, scannedThisTick: symbols, watchlistSize: allSymbols.length, newTransitions: newTransitions.length };
 }
 
 module.exports = { getLightBoxState, setConfirmBars, tickLightBox };
