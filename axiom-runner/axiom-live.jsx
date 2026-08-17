@@ -1592,7 +1592,7 @@ export default function App() {
       localStorage.setItem("axiom_seen_start", "1");
       return "start";
     }
-    return "ceo-ai";  // default landing: CEO AI Advisor
+    return "lightbox";  // default landing (2026-08-17, explicit user request — was "ceo-ai")
   });
   // Save tab on change
   React.useEffect(() => { try { localStorage.setItem("last_tab", activeTab); } catch {} }, [activeTab]);
