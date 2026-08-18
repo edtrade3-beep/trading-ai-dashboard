@@ -12,6 +12,8 @@ const { seedFutureWalletUniverse, getUniverse, SEED_UNIVERSE } = require("../fut
 const { runQuantScreen, getLatestQuantMetrics } = require("../future-wallet-quant");
 const { runTechnicalScreen, getLatestTechnicalScores } = require("../future-wallet-technical");
 const { runFuturePotentialScoring, getLatestFuturePotential } = require("../future-wallet-potential");
+const { runAgentSwarm, getLatestAgentAnalysis, PILOT_AGENTS } = require("../future-wallet-agents");
+const { ANTHROPIC_API_KEY } = require("../config");
 
 async function handleFutureWallet(req, res, requestUrl) {
   const { pathname } = requestUrl;
@@ -103,6 +105,32 @@ async function handleFutureWallet(req, res, requestUrl) {
   if (pathname === "/api/future-wallet/future-potential" && req.method === "GET") {
     const rows = await getLatestFuturePotential();
     return writeJson(res, 200, { ok: true, count: rows.length, rows });
+  }
+
+  // Phase 8 (PILOT SCOPE — explicit user request 2026-08-18: small pilot
+  // first, not the full 15-agent x ~20-candidate spec). Real Claude calls,
+  // real shared $25/mo budget — defaults to 5 agents x 5 top-ranked
+  // candidates (25 calls) unless the caller narrows it further. See
+  // future-wallet-agents.js's header for the full real-data-only framing.
+  if (pathname === "/api/future-wallet/run-agent-swarm" && req.method === "POST") {
+    if (!ANTHROPIC_API_KEY) return writeJson(res, 200, { ok: false, error: "ANTHROPIC_API_KEY not set" });
+    let body = {};
+    try {
+      const raw = await readRequestBody(req);
+      body = raw ? JSON.parse(raw) : {};
+    } catch {}
+    const symbols = Array.isArray(body.symbols) && body.symbols.length ? body.symbols : undefined;
+    const candidateCount = Number(body.candidateCount) > 0 ? Math.min(Number(body.candidateCount), 10) : 5;
+    const agentNames = Array.isArray(body.agents) && body.agents.length ? body.agents : undefined;
+    const result = await runAgentSwarm({ symbols, candidateCount, agentNames, apiKey: ANTHROPIC_API_KEY });
+    return writeJson(res, 200, { ok: true, ...result });
+  }
+
+  if (pathname === "/api/future-wallet/agent-analysis" && req.method === "GET") {
+    const symbolParam = requestUrl.searchParams.get("symbols");
+    const symbols = symbolParam ? symbolParam.split(",").map((s) => s.trim()).filter(Boolean) : undefined;
+    const rows = await getLatestAgentAnalysis(symbols);
+    return writeJson(res, 200, { ok: true, count: rows.length, availableAgents: PILOT_AGENTS.map((a) => a.name), rows });
   }
 
   return writeJson(res, 404, { ok: false, error: "Not found" });
