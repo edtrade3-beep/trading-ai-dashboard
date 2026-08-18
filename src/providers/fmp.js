@@ -138,6 +138,13 @@ async function fetchFmpFundamentals(symbol, fmpKey) {
     sector: profile?.sector || null,
     industry: profile?.industry || null,
     description: profile?.description || null,
+    // Additive (2026-08-17, Future Wallet universe seeding) — the profile
+    // response already carried these, this function just didn't surface
+    // them before. Backward-compatible: existing callers only ever read
+    // the keys they already used.
+    exchange: profile?.exchangeShortName || profile?.exchange || null,
+    country: profile?.country || null,
+    currency: profile?.currency || null,
     // NOT profile?.lastDividend — that's the last dividend *amount*, not an
     // earnings date. This function doesn't fetch a real earnings calendar
     // (fetchFmpEarnings below does, for a different endpoint); leaving this
