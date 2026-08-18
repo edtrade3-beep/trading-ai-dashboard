@@ -5141,3 +5141,4 @@ module.exports.fetchDarkPoolPrints = fetchDarkPoolPrints; // exposed for the sam
 module.exports.fetchGammaForSymbol = fetchGammaForSymbol; // exposed for the same file's real gamma-breakout alert (Phase 14)
 module.exports.screenWatchlistCached = screenWatchlistCached; // exposed for the 3 watchlist-*-alerts.js background jobs (CTO audit item #4) — shared cache, not for live/manual-refresh routes
 module.exports.fetchDayTradeScanRows = fetchDayTradeScanRows; // exposed for watchlist-daytrade-alerts.js's real Day Trade Mode GREEN-signal alert
+module.exports.atrAt = atrAt; // exposed for daytrade-console-engine.js's real 15-min ATR (same real Wilder true-range formula, just fed intraday bars instead of daily)
