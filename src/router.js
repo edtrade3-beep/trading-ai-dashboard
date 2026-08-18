@@ -21,6 +21,7 @@ const handleSettings = require("./routes/settings");
 const handlePlan = require("./routes/plan");
 const handleWatchlist = require("./routes/watchlist");
 const { handleFutureWallet } = require("./routes/future-wallet");
+const { handleAiUsage } = require("./routes/ai-usage");
 const handleFinviz = require("./routes/finviz");
 const handleScanner = require("./routes/scanner");
 const handleDeals   = require("./routes/deals");
@@ -264,6 +265,10 @@ async function handleRequest(req, res) {
 
     if (pathname.startsWith("/api/future-wallet/")) {
       return await handleFutureWallet(req, res, requestUrl);
+    }
+
+    if (pathname === "/api/ai-usage") {
+      return await handleAiUsage(req, res, requestUrl);
     }
 
     // POST /api/notify — sends a freeform Telegram message from the platform UI.
