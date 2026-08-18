@@ -12,7 +12,7 @@ const { seedFutureWalletUniverse, getUniverse, SEED_UNIVERSE } = require("../fut
 const { runQuantScreen, getLatestQuantMetrics } = require("../future-wallet-quant");
 const { runTechnicalScreen, getLatestTechnicalScores } = require("../future-wallet-technical");
 const { runFuturePotentialScoring, getLatestFuturePotential } = require("../future-wallet-potential");
-const { runAgentSwarm, getLatestAgentAnalysis, PILOT_AGENTS } = require("../future-wallet-agents");
+const { runAgentSwarm, getLatestAgentAnalysis, getRawStats, dedupeAgentAnalysis, PILOT_AGENTS } = require("../future-wallet-agents");
 const { ANTHROPIC_API_KEY } = require("../config");
 
 async function handleFutureWallet(req, res, requestUrl) {
@@ -131,6 +131,20 @@ async function handleFutureWallet(req, res, requestUrl) {
     const symbols = symbolParam ? symbolParam.split(",").map((s) => s.trim()).filter(Boolean) : undefined;
     const rows = await getLatestAgentAnalysis(symbols);
     return writeJson(res, 200, { ok: true, count: rows.length, availableAgents: PILOT_AGENTS.map((a) => a.name), rows });
+  }
+
+  // Diagnostic: real raw (symbol, agent_name) row counts — reveals an
+  // accidental duplicate run that getLatestAgentAnalysis's DISTINCT ON
+  // would otherwise hide.
+  if (pathname === "/api/future-wallet/agent-analysis-stats" && req.method === "GET") {
+    const stats = await getRawStats();
+    return writeJson(res, 200, { ok: true, ...stats });
+  }
+
+  // Real DELETE, keeps only the most recent row per (symbol, agent_name).
+  if (pathname === "/api/future-wallet/dedupe-agent-analysis" && req.method === "POST") {
+    const result = await dedupeAgentAnalysis();
+    return writeJson(res, 200, { ok: true, ...result });
   }
 
   return writeJson(res, 404, { ok: false, error: "Not found" });

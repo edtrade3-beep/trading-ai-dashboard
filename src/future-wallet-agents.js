@@ -232,8 +232,44 @@ async function getLatestAgentAnalysis(symbols) {
   return rows;
 }
 
+// Diagnostic: real raw row counts per (symbol, agent_name) — unlike
+// getLatestAgentAnalysis (which DISTINCT ONs to the latest row and would
+// silently hide a duplicate run), this surfaces every row actually on
+// disk, so an accidental duplicate POST (e.g. a client-side timeout that
+// looked like a failure but wasn't, followed by a retry) is visible
+// before it's mistaken for "only one run happened."
+async function getRawStats() {
+  const pool = requirePool();
+  const { rows: total } = await pool.query(`SELECT COUNT(*)::int AS n FROM fw_agent_analysis`);
+  const { rows: groups } = await pool.query(`
+    SELECT symbol, agent_name, COUNT(*)::int AS n, MIN(run_at) AS first_run, MAX(run_at) AS last_run
+    FROM fw_agent_analysis GROUP BY symbol, agent_name ORDER BY n DESC, symbol, agent_name
+  `);
+  const duplicateGroups = groups.filter((g) => g.n > 1);
+  return {
+    totalRows: total[0].n,
+    distinctPairs: groups.length,
+    duplicateGroups,
+    totalDuplicateRows: duplicateGroups.reduce((s, g) => s + (g.n - 1), 0),
+  };
+}
+
+// Deletes every row except the most recent per (symbol, agent_name) —
+// keeps the latest real analysis, removes stale duplicate rows from an
+// accidental re-run. Real DELETE, run only on explicit request.
+async function dedupeAgentAnalysis() {
+  const pool = requirePool();
+  const { rows } = await pool.query(`
+    DELETE FROM fw_agent_analysis a
+    USING fw_agent_analysis b
+    WHERE a.symbol = b.symbol AND a.agent_name = b.agent_name AND a.run_at < b.run_at
+    RETURNING a.id
+  `);
+  return { deletedCount: rows.length };
+}
+
 module.exports = {
   PILOT_AGENTS,
   rankScore, selectCandidates, getSymbolContext, buildContextText, parseAgentResponse,
-  runAgentSwarm, getLatestAgentAnalysis,
+  runAgentSwarm, getLatestAgentAnalysis, getRawStats, dedupeAgentAnalysis,
 };
