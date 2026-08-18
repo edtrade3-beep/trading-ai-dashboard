@@ -94,6 +94,14 @@ export const SIDEBAR_ITEMS = [
   // sub-view of an existing tab.
   { id: "lightbox",  label: "Light Box",  icon: "🚦", tab: "lightbox" },
 
+  // Future Wallet — the real Future Wallet 100 market-regime + candidate-
+  // research report (2026-08-16 build, 2026-08-17 explicit request to
+  // surface it "in my platform" after it existed only as a separate
+  // published artifact). Given a real row, same as Light Box above —
+  // explicit standalone request confirmed via AskUserQuestion, not a
+  // sub-view of an existing tab.
+  { id: "futurewallet", label: "Future Wallet", icon: "💰", tab: "futurewallet" },
+
   // Settings — not one of the 7 "question" surfaces (it doesn't answer a
   // daily trading question, it configures the app), kept as a permanent
   // utility row rather than folded into the palette so account/risk/coach

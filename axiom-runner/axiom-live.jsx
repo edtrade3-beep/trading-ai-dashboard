@@ -174,6 +174,7 @@ import DarkPoolTab from "./components/DarkPoolTab.jsx";
 import DpHeatmapTab from "./components/DpHeatmapTab.jsx";
 import CotTab from "./components/CotTab.jsx";
 import LightBoxTab from "./components/LightBoxTab.jsx";
+import FutureWalletTab from "./components/FutureWalletTab.jsx";
 
 // Attach the API token (if the user set one) to every same-origin /api request,
 // so money-moving routes work when server-side API_AUTH_TOKEN auth is enabled.
@@ -4065,6 +4066,10 @@ export default function App() {
       // this is the redundant one-keystroke path every sidebar tab gets.
       LIGHTBOX: "lightbox",
       LIGHTS: "lightbox",
+      // Future Wallet 100 report (2026-08-17) — also has a real Sidebar.jsx
+      // row, this is the redundant one-keystroke path every sidebar tab gets.
+      FUTUREWALLET: "futurewallet",
+      WALLET: "futurewallet",
       // PORTFOLIO/SCANNER repointed 2026-07-29 (institutional redesign) to
       // match what those words now mean in the sidebar — the real Alpaca-
       // backed Portfolio (portfolio-tab) and Sniper Scanner (rhpro-scan),
@@ -7116,6 +7121,7 @@ export default function App() {
       {activeTab === "gl-backtest" && <GLBacktestTab C={C} MONO={MONO} SANS={SANS} watchlistSymbols={watchlistSymbols} />}
       {activeTab === "predictions" && <PredictionsTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} macroData={macroData} />}
       {activeTab === "lightbox" && <LightBoxTab C={C} MONO={MONO} SANS={SANS} lightboxSettings={lightboxSettings} setLightboxSettings={setLightboxSettings} />}
+      {activeTab === "futurewallet" && <FutureWalletTab C={C} MONO={MONO} SANS={SANS} />}
       {/* SETTINGS — composite sidebar destination (institutional redesign,
           2026-07-29) folding Coach/Learn/Quran/account-risk settings into
           one nav item, per the approved plan's "Settings" mapping — Tools
