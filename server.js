@@ -419,6 +419,17 @@ server.listen(PORT, HOST, () => {
   registerJob("Premarket Engine", 7 * 60_000, () => require("./src/premarket-store").tickPremarket());
   console.log("[Premarket] Score cache tick active — every 7 min (real watchlist), 7:00-9:35 ET weekdays only");
 
+  // Day-Trade Autopilot — ALERT mode only, zero order execution (spec's
+  // "AM TRADING — LIGHT BOX + AUTOPILOT", explicit user request
+  // 2026-08-19; Phase 7, deliberately conservative first slice). A
+  // separate, third system from server-autopilot.js (swing, already live)
+  // — reads lightbox-state-store.js's already-computed state, never
+  // fetches/scores anything itself. Real Telegram alert only when mode
+  // != OFF (default OFF, changed only by explicit user action via
+  // /api/autopilot/mode).
+  registerJob("Day-Trade Autopilot", 90_000, () => require("./src/autopilot-tick").tickAutopilot());
+  console.log("[Autopilot] Day-trade tick active — every 90s (ALERT mode only, no order execution), market hours only");
+
   // Morning digest — once-daily consolidated Telegram summary of the 9
   // "opportunity" detection jobs above (explicit user request, 2026-08-14:
   // "consolidate the alerts into one morning digest" for a professional

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import LightBoxCard from "./LightBoxCard.jsx";
 import PremarketPanel from "./PremarketPanel.jsx";
+import AutopilotPanel from "./AutopilotPanel.jsx";
 import { LIGHTBOX_DEFAULTS, STATE_COLOR_KEY } from "./lightbox-config.js";
 import { riskBuzz } from "./monitor-shared.js";
 
@@ -158,6 +159,8 @@ export default function LightBoxTab({ C, MONO, SANS, lightboxSettings, setLightb
           </div>
         </div>
       </div>
+
+      <AutopilotPanel C={C} MONO={MONO} SANS={SANS} />
 
       <PremarketPanel C={C} MONO={MONO} SANS={SANS} />
 
