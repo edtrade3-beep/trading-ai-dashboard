@@ -4,6 +4,21 @@ import { computeGreenLight } from "./trading-utils.js";
 import { findWeakestPosition } from "./portfolio-rotation-engine.js";
 import { AI_ACTIONS } from "./ai-actions.js";
 
+// Day-trade HOLD/TRAIL/TAKE_PARTIAL/EXIT badge — "AM Trading — Final
+// Trading Logic Redesign" Phase 2+3 (explicit user request, 2026-08-19).
+// Real, server-computed (src/routes/alpaca.js's dayTradeState overlay on
+// /api/alpaca/positions), advisory only — this badge never triggers any
+// order action, purely informational. HOLD is neutral (not exciting —
+// it's the default, "nothing to do" state); TRAIL/TAKE_PARTIAL/EXIT use
+// the same green/amber/red semantic tokens Light Box's own states use.
+const DAYTRADE_STATE_LABEL = { HOLD: "HOLD", TRAIL: "TRAIL", TAKE_PARTIAL: "PARTIAL", EXIT: "EXIT" };
+function DAYTRADE_STATE_COLOR(C, state) {
+  if (state === "TRAIL") return C.green;
+  if (state === "TAKE_PARTIAL") return C.amber;
+  if (state === "EXIT") return C.red;
+  return C.textDim; // HOLD
+}
+
 // ── Active Positions — the one genuinely missing piece research found:
 // PortfolioSnapshotCard shows aggregate equity/cash/P&L but never the
 // actual list of what's open. Same /api/alpaca/positions endpoint
@@ -92,6 +107,13 @@ export default function ActivePositionsCard({ C, MONO, SANS, setTerminalSymbol, 
                       <span title="Lowest real Green Light quality score among your open, watchlist-scored positions — the same read AutoPilot's rotation logic uses to decide what to close first."
                         style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: AI_ACTIONS.ROTATE.color, border: `1px solid ${AI_ACTIONS.ROTATE.color}`, borderRadius: 4, padding: "1px 5px" }}>
                         WEAKEST
+                      </span>
+                    )}
+                    {p.dayTradeState && (
+                      <span title={p.dayTradeReason ? `${p.dayTradeReason} (real-time 15m read, advisory only — not auto-executed)` : undefined}
+                        style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: DAYTRADE_STATE_COLOR(C, p.dayTradeState),
+                          border: `1px solid ${DAYTRADE_STATE_COLOR(C, p.dayTradeState)}`, borderRadius: 4, padding: "1px 5px" }}>
+                        {DAYTRADE_STATE_LABEL[p.dayTradeState] || p.dayTradeState}
                       </span>
                     )}
                   </div>

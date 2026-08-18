@@ -210,6 +210,72 @@ async function handleAlpaca(req, res, requestUrl) {
         }
       }
     } catch { /* best-effort — real P&L above still returns even if this overlay fails */ }
+
+    // Real day-trade weighted-engine overlay ("AM Trading — Final Trading
+    // Logic Redesign" Phase 2+3, explicit user request 2026-08-19) —
+    // ADVISORY ONLY, never auto-executes (explicit user choice). For each
+    // real open position, fetch real 15-min intraday data + SPY/QQQ/VIX
+    // and run the same Phase 1 weighted engine Light Box uses, then
+    // classify HOLD/TRAIL/TAKE_PARTIAL/EXIT via position-decision-engine.js.
+    // A real open-position list is small (a handful, not Light Box's
+    // 50-symbol grid), so a fresh per-symbol fetch here is safe. A symbol
+    // with no real day-trade data (illiquid, no real intraday bars) simply
+    // doesn't get dayTradeState — honestly omitted, never fabricated, same
+    // convention as the plannedStop/plannedTarget overlay above.
+    if (positions.length) {
+      try {
+        const { fetchDayTradeScanRows, fetchMarketQuotes } = require("./market");
+        const engine = require("../daytrade-console-engine");
+        const { computePositionState } = require("../position-decision-engine");
+        const { resolveProviderKeys } = require("../config");
+
+        const symbols = positions.map((p) => p.symbol);
+        const providerKeys = resolveProviderKeys(new URLSearchParams());
+        const [scanResult, macroRows] = await Promise.all([
+          fetchDayTradeScanRows(symbols).catch(() => ({ rows: [] })),
+          fetchMarketQuotes(["SPY", "QQQ", "^VIX"], providerKeys).catch(() => []),
+        ]);
+        const spyRow = (macroRows || []).find((m) => m.symbol === "SPY");
+        const spyChg = spyRow ? Number(spyRow.changesPercentage || 0) : null;
+        const qqqRow = (macroRows || []).find((m) => m.symbol === "QQQ");
+        const qqqChg = qqqRow ? Number(qqqRow.changesPercentage || 0) : null;
+        const rowsBySymbol = new Map((scanResult.rows || []).map((r) => [r.symbol, r]));
+
+        for (const pos of positions) {
+          const row = rowsBySymbol.get(pos.symbol);
+          if (!row || spyChg == null) continue; // honest — dayTradeState left absent
+
+          const marketScore = Math.max(0, Math.min(100, 50 + spyChg * 30));
+          const trendStackScore = engine.computeTrendScore(row.price, row.vwap, row.ema9 ?? null, row.ema21 ?? null, row.ema50 ?? null);
+          const orb = engine.computeOrbScore({ price: row.price, orHigh: row.orHigh ?? null, orLow: row.orLow ?? null, rvol: row.rvol, aboveVwap: row.aboveVwap, bull15: row.bull15, marketBullish: spyChg > -0.1 });
+          const vwapScore = engine.computeVwapScore(row.price, row.vwap, null);
+          const momentumScore = engine.computeMomentumScore({ rsi: row.rsi15m ?? null, roc: row.roc15m ?? null, macdHistogram: row.macdHistogram15m ?? null, priceMomentumPct: null, rvol: row.rvol, trendStackScore });
+          const volumeScore = engine.computeVolumeScore(row.rvol);
+          const rs = engine.computeRelativeStrength(row.chgPct, spyChg, qqqChg, null);
+          const priceActionScore = engine.computePriceActionScore(row.priceAction || {});
+          const minerviniScore = engine.computeMinerviniScore(null);
+          const vcpScore = engine.computeVcpScore(null);
+
+          const subscores = { orb: orb.score, vwap: vwapScore, momentum: momentumScore, volume: volumeScore, relativeStrength: rs.score, market: marketScore, priceAction: priceActionScore, minervini: minerviniScore, vcp: vcpScore };
+          const mixed = engine.computeMixedSignals(subscores);
+          const master = engine.computeMasterScore(subscores);
+
+          // Same real R-multiple math ActivePositionsCard.jsx already
+          // computes and displays — reused as-is (not side-inverted) so
+          // this overlay's rNow/rTarget never disagrees with what's
+          // already shown for the same position.
+          const risk = (pos.plannedEntry > 0 && pos.plannedStop > 0) ? Math.abs(pos.plannedEntry - pos.plannedStop) : null;
+          const rNow = risk ? (Number(pos.current || 0) - pos.plannedEntry) / risk : null;
+          const rTarget = (risk && pos.plannedTarget > 0) ? (pos.plannedTarget - pos.plannedEntry) / risk : null;
+
+          const decision = computePositionState({ side: pos.side, gainPct: pos.unrealizedPLpc, mixedVerdict: mixed.verdict, mixedReason: mixed.reason, rNow, rTarget });
+          pos.dayTradeState = decision.state;
+          pos.dayTradeReason = decision.reason;
+          pos.dayTradeScore = master.score;
+        }
+      } catch { /* best-effort overlay — real positions/P&L above still return even if this fails */ }
+    }
+
     return writeJson(res, 200, { ok: true, positions });
   }
 
