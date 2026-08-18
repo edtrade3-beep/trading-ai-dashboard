@@ -10,6 +10,7 @@ const { writeJson, readRequestBody } = require("../utils");
 const { isReady } = require("../future-wallet-store");
 const { seedFutureWalletUniverse, getUniverse, SEED_UNIVERSE } = require("../future-wallet-universe");
 const { runQuantScreen, getLatestQuantMetrics } = require("../future-wallet-quant");
+const { runTechnicalScreen, getLatestTechnicalScores } = require("../future-wallet-technical");
 
 async function handleFutureWallet(req, res, requestUrl) {
   const { pathname } = requestUrl;
@@ -58,6 +59,28 @@ async function handleFutureWallet(req, res, requestUrl) {
 
   if (pathname === "/api/future-wallet/quant-metrics" && req.method === "GET") {
     const rows = await getLatestQuantMetrics();
+    return writeJson(res, 200, { ok: true, count: rows.length, rows });
+  }
+
+  // Phases 5+6: Technical Score + the real VCP engine, via the existing
+  // screenTrendTemplate (same reuse pattern — no new fetch/rate-limit code).
+  if (pathname === "/api/future-wallet/run-technical-screen" && req.method === "POST") {
+    let symbols;
+    try {
+      const raw = await readRequestBody(req);
+      const body = raw ? JSON.parse(raw) : {};
+      if (Array.isArray(body.symbols) && body.symbols.length) symbols = body.symbols;
+    } catch {}
+    if (!symbols) {
+      const universe = await getUniverse();
+      symbols = universe.map((r) => r.ticker);
+    }
+    const result = await runTechnicalScreen(symbols);
+    return writeJson(res, 200, { ok: true, ...result });
+  }
+
+  if (pathname === "/api/future-wallet/technical-scores" && req.method === "GET") {
+    const rows = await getLatestTechnicalScores();
     return writeJson(res, 200, { ok: true, count: rows.length, rows });
   }
 
