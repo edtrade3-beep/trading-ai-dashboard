@@ -11,6 +11,7 @@ const { isReady } = require("../future-wallet-store");
 const { seedFutureWalletUniverse, getUniverse, SEED_UNIVERSE } = require("../future-wallet-universe");
 const { runQuantScreen, getLatestQuantMetrics } = require("../future-wallet-quant");
 const { runTechnicalScreen, getLatestTechnicalScores } = require("../future-wallet-technical");
+const { runFuturePotentialScoring, getLatestFuturePotential } = require("../future-wallet-potential");
 
 async function handleFutureWallet(req, res, requestUrl) {
   const { pathname } = requestUrl;
@@ -81,6 +82,26 @@ async function handleFutureWallet(req, res, requestUrl) {
 
   if (pathname === "/api/future-wallet/technical-scores" && req.method === "GET") {
     const rows = await getLatestTechnicalScores();
+    return writeJson(res, 200, { ok: true, count: rows.length, rows });
+  }
+
+  // Phase 7: Future Potential (quantitative portion only — qualitative
+  // dimensions are recorded as PENDING for the Phase 8 agent swarm; see
+  // future-wallet-potential.js's header for why that split is deliberate).
+  // Reads straight from the stored fw_quant_metrics rows — no refetching.
+  if (pathname === "/api/future-wallet/run-future-potential" && req.method === "POST") {
+    let symbols;
+    try {
+      const raw = await readRequestBody(req);
+      const body = raw ? JSON.parse(raw) : {};
+      if (Array.isArray(body.symbols) && body.symbols.length) symbols = body.symbols;
+    } catch {}
+    const result = await runFuturePotentialScoring(symbols);
+    return writeJson(res, 200, { ok: true, ...result });
+  }
+
+  if (pathname === "/api/future-wallet/future-potential" && req.method === "GET") {
+    const rows = await getLatestFuturePotential();
     return writeJson(res, 200, { ok: true, count: rows.length, rows });
   }
 
