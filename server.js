@@ -400,6 +400,16 @@ server.listen(PORT, HOST, () => {
   registerJob("Light Box Confirm", 5 * 60_000, () => require("./src/lightbox-state-store").tickLightBox());
   console.log("[Light Box] Confirmation tick active — every 5 min (top 50 watchlist symbols), market hours only");
 
+  // Trend Quality cache — real Minervini Trend Template + VCP, precomputed
+  // on a slow cadence (daily-timeframe data that doesn't meaningfully
+  // change tick-to-tick) so the day-trade weighted engine can read a
+  // cached {trendScore, trendLabel, vcpScore, vcpVerdict} per symbol
+  // without calling the ~200-daily-bar Trend Template scan inline on
+  // every fast Light Box tick. "AM Trading — Final Trading Logic Redesign"
+  // spec, explicit user request 2026-08-19.
+  registerJob("Trend Quality Cache", 25 * 60_000, () => require("./src/trend-quality-store").tickTrendQuality());
+  console.log("[Trend Quality] Minervini/VCP cache tick active — every 25 min (top 60 watchlist symbols), market hours only");
+
   // Morning digest — once-daily consolidated Telegram summary of the 9
   // "opportunity" detection jobs above (explicit user request, 2026-08-14:
   // "consolidate the alerts into one morning digest" for a professional

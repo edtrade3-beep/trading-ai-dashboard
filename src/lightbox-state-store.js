@@ -111,14 +111,26 @@ async function tickLightBox() {
   } catch {
     return { ok: false, checked: 0 };
   }
+  const { etfOf } = require("./sector-theme-map");
+  const { getTrendQuality } = require("./trend-quality-store");
 
+  // Real QQQ/VIX + whichever real sector ETFs this tick's symbols actually
+  // need, still ONE batched quote call (not per-symbol) — the same
+  // rate-limit-safety discipline this job's own header comments already
+  // document two real prior incidents about. Feeds Relative Strength
+  // (vs QQQ + sector) and the Market dimension's real VIX read into
+  // computeDayTradeSignal's optional `extra` param.
+  const sectorEtfs = [...new Set(symbols.map((s) => etfOf(s)).filter(Boolean))];
   const keys = resolveProviderKeys(new URLSearchParams());
   const [scanResult, macroRows] = await Promise.all([
     fetchDayTradeScanRows(symbols).catch(() => ({ rows: [], generatedAt: null })),
-    fetchMarketQuotes(["SPY"], keys).catch(() => []),
+    fetchMarketQuotes(["SPY", "QQQ", "^VIX", ...sectorEtfs], keys).catch(() => []),
   ]);
   const spyRow = (macroRows || []).find((m) => m.symbol === "SPY");
   const spyChg = Number(spyRow?.changesPercentage || 0);
+  const qqqRow = (macroRows || []).find((m) => m.symbol === "QQQ");
+  const qqqChg = qqqRow ? Number(qqqRow.changesPercentage || 0) : null;
+  const sectorChgByEtf = new Map((macroRows || []).map((m) => [m.symbol, Number(m.changesPercentage || 0)]));
   const generatedAt = scanResult.generatedAt || new Date().toISOString();
   // Start from the previous map so a symbol whose real fetch failed this
   // tick (rate limit / transient timeout) keeps its last-known state
@@ -128,7 +140,10 @@ async function tickLightBox() {
   const nowIso = new Date().toISOString();
 
   for (const row of scanResult.rows || []) {
-    const dt = computeDayTradeSignal(row, spyChg);
+    const sectorEtf = etfOf(row.symbol);
+    const tq = getTrendQuality(row.symbol);
+    const extra = { qqqChg, sectorChg: sectorEtf ? sectorChgByEtf.get(sectorEtf) ?? null : null, trendLabel: tq.trendLabel, vcpVerdict: tq.vcpVerdict };
+    const dt = computeDayTradeSignal(row, spyChg, extra);
     if (!dt) continue;
     const symbol = dt.symbol;
     const prev = state.bySymbol[symbol];

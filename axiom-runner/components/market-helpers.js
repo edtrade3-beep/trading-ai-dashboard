@@ -108,7 +108,11 @@ export function computeRegime(macroData) {
   // that's just mixed (2-3 real factors).
   const label = score >= 75 ? "GREEN" : score >= 55 ? "YELLOW" : score >= 40 ? "ORANGE" : "RED";
   const color = score >= 75 ? "#22c55e" : score >= 55 ? "#d6a312" : score >= 40 ? "#e07b1a" : "#ef4444";
-  return { score, label, color, factors, vixVal };
+  // sixBand: additive-only field, parity with the server copy in
+  // src/trade-planner-scoring.js — see that file's comment for why `label`
+  // itself must never change.
+  const sixBand = score >= 85 ? "STRONG_BULL" : score >= 70 ? "BULL" : score >= 55 ? "NEUTRAL" : score >= 40 ? "TRANSITION" : score >= 25 ? "BEAR" : "STRONG_BEAR";
+  return { score, label, color, factors, vixVal, sixBand };
 }
 
 // Canonical Market Bias — options platform redesign Phase 1 (2026-08-02,

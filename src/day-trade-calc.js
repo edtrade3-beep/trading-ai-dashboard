@@ -8,9 +8,47 @@
 // axiom-runner/components/trading-utils.js if the client version's real
 // logic ever changes. Same "hand-ported, parity-tested" pattern already
 // established by greenlight-calc.js for the swing entry alert.
+//
+// 2026-08-19 ("AM Trading — Final Trading Logic Redesign", explicit user
+// request): `signal`/`quality`/`grade` now come from the real weighted,
+// un-gated daytrade-console-engine.js (the same engine the Day Trade
+// Console page uses) instead of a hard passed>=4/3 count over 5 equally-
+// weighted checks — the exact "too strict, blocks valid setups" problem
+// the spec describes. `checks`/`passed` stay as a real, honest informational
+// checklist (still genuinely computed, still shown in GreenLightTab's
+// Day Trade Mode UI) — they just no longer gate `signal`. This function's
+// call signature and return shape are UNCHANGED so every existing
+// consumer (Light Box, the Telegram alert, GreenLightTab) needs zero
+// changes — see the plan's "keep exact same return shape" requirement.
 "use strict";
 
-function computeDayTradeSignal(row, spyChg) {
+const engine = require("./daytrade-console-engine");
+
+// Market dimension: this call site only ever has real SPY data (no QQQ/
+// VIX — those come from lightbox-state-store.js's own macro fetch, a
+// separate concern from this pure function). Running the full 5-factor
+// computeRegime with only SPY would let 3 real-missing factors silently
+// default to "fail," dragging an honestly flat/mildly-positive tape down
+// into a false "bearish" market reading — confirmed as a real bug during
+// testing (a genuine 5/5 breakout setup read YELLOW instead of GREEN
+// purely because of this, not real evidence). A direct, honest SPY-only
+// proxy instead — same real -0.1/-0.5 thresholds dotFromChg already uses
+// for its own SPY dot (green-ish/amber-ish/red-ish), just expressed as a
+// continuous 0-100 score rather than 3 buckets.
+function marketScoreFromSpy(spyChg) {
+  if (spyChg == null || !Number.isFinite(spyChg)) return null;
+  return Math.max(0, Math.min(100, 50 + spyChg * 30));
+}
+
+// `extra` (optional, defaults identically on both server/client so the
+// strict 2-arg parity test in test/smoke.js is unaffected): richer
+// real context ONLY lightbox-state-store.js's tick can cheaply supply —
+// { qqqChg, sectorChg, trendLabel, vcpVerdict } from its own extended
+// macro fetch + trend-quality-store's per-symbol cache. Every field
+// defaults to null (honest — Relative Strength/Minervini/VCP just fall
+// back to their existing neutral-default behavior when omitted), so
+// GreenLightTab's simpler 2-arg client call keeps working unchanged.
+function computeDayTradeSignal(row, spyChg, extra = {}) {
   const px = Number(row?.price || 0);
   if (!(px > 0)) return null;
   const vwap = Number(row?.vwap || 0) || px;
@@ -33,7 +71,26 @@ function computeDayTradeSignal(row, spyChg) {
       tip: "Price above 9EMA above 21EMA on the 15-minute chart — momentum stack intact" },
   ];
   const passed = checks.filter((c) => c.pass).length;
-  const signal = passed >= 4 ? "GREEN" : passed >= 3 ? "YELLOW" : "RED";
+
+  // Real weighted scoring — same 9-dimension engine as the Day Trade
+  // Console. Minervini/VCP/QQQ/sector use `extra` when the caller supplied
+  // it (lightbox-state-store.js's tick), else fall back to their existing
+  // honest neutral defaults — identical to the old always-null behavior.
+  const marketScore = marketScoreFromSpy(spyChg);
+  const trendStackScore = engine.computeTrendScore(px, vwap, row?.ema9 ?? null, row?.ema21 ?? null, row?.ema50 ?? null);
+  const orb = engine.computeOrbScore({ price: px, orHigh: row?.orHigh ?? null, orLow: row?.orLow ?? null, rvol, aboveVwap, bull15, marketBullish: spyChg != null ? spyChg > -0.1 : null });
+  const vwapScore = engine.computeVwapScore(px, vwap, null);
+  const momentumScore = engine.computeMomentumScore({ rsi: row?.rsi15m ?? null, roc: row?.roc15m ?? null, macdHistogram: row?.macdHistogram15m ?? null, priceMomentumPct: null, rvol, trendStackScore });
+  const volumeScore = engine.computeVolumeScore(rvol);
+  const rs = engine.computeRelativeStrength(Number(row?.chgPct || 0), spyChg, extra?.qqqChg ?? null, extra?.sectorChg ?? null);
+  const priceActionScore = engine.computePriceActionScore(row?.priceAction || {});
+  const minerviniScore = engine.computeMinerviniScore(extra?.trendLabel ?? null);
+  const vcpScore = engine.computeVcpScore(extra?.vcpVerdict ?? null);
+
+  const subscores = { orb: orb.score, vwap: vwapScore, momentum: momentumScore, volume: volumeScore, relativeStrength: rs.score, market: marketScore, priceAction: priceActionScore, minervini: minerviniScore, vcp: vcpScore };
+  const mixed = engine.computeMixedSignals(subscores);
+  const master = engine.computeMasterScore(subscores);
+  const signal = mixed.verdict === "BULLISH" ? "GREEN" : mixed.verdict === "BEARISH" ? "RED" : "YELLOW";
 
   const stop = +(Math.min(vwap, px) * 0.999).toFixed(2);
   const riskDist = Math.max(0.01, px - stop);
@@ -44,7 +101,7 @@ function computeDayTradeSignal(row, spyChg) {
   const entryNote = orBreakout ? "at breakout ✅" : "wait for OR breakout";
   const atEntry = orBreakout;
 
-  const quality = Math.max(0, Math.min(100, Math.round(Number(row?.score) || 0)));
+  const quality = master.score != null ? master.score : Math.max(0, Math.min(100, Math.round(Number(row?.score) || 0)));
   const grade = quality >= 90 ? "ELITE" : quality >= 75 ? "A+" : quality >= 60 ? "GOOD" : quality >= 45 ? "WATCH" : "IGNORE";
   const marketPass = spyChg > -0.5;
   const qualifiesAPlus = signal === "GREEN" && marketPass && atEntry;

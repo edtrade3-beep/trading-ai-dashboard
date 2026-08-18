@@ -108,13 +108,22 @@ function computeVwapScore(price, vwap, vwapMomentumPct) {
 // price momentum. Averages only over whichever real inputs are available
 // (same honest-coverage pattern as Future Wallet's scorers), never
 // penalizing for a genuinely-missing component. ──
-function computeMomentumScore({ rsi, roc, macdHistogram, priceMomentumPct, rvol }) {
+// trendStackScore: optional, the 15m EMA-stack Trend score (computeTrendScore
+// below, already 0-100 bullish-scale — no transform needed). Folded in here
+// as a contributing Momentum input rather than kept as its own top-level
+// MASTER_WEIGHTS slot ("AM Trading — Final Trading Logic Redesign" spec's
+// weight table doesn't name a separate 15m-stack dimension; Minervini now
+// owns the standalone "trend quality" weighted slot — see
+// computeMinerviniScore below). computeTrendScore/trendLabel stay exported
+// as-is for direct display (e.g. the Day Trade Console's own Trend box).
+function computeMomentumScore({ rsi, roc, macdHistogram, priceMomentumPct, rvol, trendStackScore }) {
   const parts = [];
   if (rsi != null) parts.push(clamp(rsi, 0, 100)); // RSI is already 0-100
   if (roc != null) parts.push(clamp(50 + roc * 5, 0, 100));
   if (macdHistogram != null) parts.push(clamp(50 + macdHistogram * 20, 0, 100));
   if (priceMomentumPct != null) parts.push(clamp(50 + priceMomentumPct * 10, 0, 100));
   if (rvol != null) parts.push(clamp(30 + rvol * 25, 0, 100)); // volume-confirmed momentum
+  if (trendStackScore != null) parts.push(clamp(trendStackScore, 0, 100));
   if (!parts.length) return null;
   return Math.round(parts.reduce((s, v) => s + v, 0) / parts.length);
 }
@@ -204,6 +213,28 @@ function computeMarketConfirmation(regime, spyChg, qqqChg, sectorChg) {
   };
 }
 
+// ── Minervini Trend + VCP — "AM Trading — Final Trading Logic Redesign"
+// spec (explicit user request 2026-08-19): KEEP both, but as weighted
+// confidence factors for day trading, never a hard entry gate (§2/§24).
+// Real inputs come from src/trend-quality-store.js's slow-cadence cache
+// (Minervini Trend Template + VCP need ~200 daily bars/symbol — too slow
+// to compute inline per Light Box tick, see that file's header). A
+// symbol not yet in the cache gets trendLabel "NEUTRAL" (never fabricated
+// as STRONG or WEAK) — same honest-default discipline as every other
+// scorer here: missing data must never read as bearish. ──
+function computeMinerviniScore(trendLabel) {
+  if (trendLabel === "STRONG") return 80;
+  if (trendLabel === "WEAK") return 25;
+  return 50; // NEUTRAL or unknown — real neutral default, not a penalty
+}
+function computeVcpScore(vcpVerdict) {
+  if (vcpVerdict == null) return 50; // not yet scored — honest neutral default
+  if (vcpVerdict === "A+ SETUP") return 90;
+  if (vcpVerdict === "WATCHLIST") return 65;
+  if (vcpVerdict === "WEAK SETUP") return 35;
+  return 20; // "INVALID VCP" / "BROKEN" — real, but still a soft weighted input, not a block
+}
+
 // ── Price Action — genuinely new: real higher-highs/higher-lows from
 // 15-min bar swing structure, breakout/retest/failed-breakout state
 // against a real resistance/support level, and 15-min ATR (reuses the
@@ -287,7 +318,25 @@ function computePriceActionScore(pa) {
 // ── Mixed Signals — the spec's own explicit centerpiece: real per-box
 // bullish/neutral/bearish classification, counts, and a grounded reasoning
 // sentence naming exactly which real conditions disagree. ──
-const SUBSCORE_LABELS = { orb: "ORB", vwap: "VWAP", momentum: "Momentum", volume: "Volume", relativeStrength: "Relative Strength", market: "Market Regime", trend: "Trend", priceAction: "Price Action" };
+// "trend" (15m EMA-stack) dropped from this classified set — folded into
+// Momentum (see computeMomentumScore's trendStackScore param above).
+//
+// Minervini/VCP are DELIBERATELY EXCLUDED here even though they're real
+// inputs to computeMasterScore below. This is the direct implementation
+// of the redesign spec's central, most-repeated rule (§2/§24): Minervini
+// Trend and VCP are supportive confidence factors for day trading, never
+// entry-blocking evidence. Verified against a real conflict caught during
+// testing: including them in this bullish/bearish tally means one weak
+// Minervini reading can flip an otherwise-clean 3-bullish-core-dimension
+// setup to MIXED -> NO_TRADE, which is exactly the "too strict" failure
+// mode the spec's own worked example (§1) explicitly says must NOT
+// happen. A pure weighted-margin threshold can't distinguish that case
+// from the OTHER already-shipped Day Trade Console worked example (a
+// bearish CORE dimension like Volume contradicting) — the two produce an
+// identical weighted margin but require opposite verdicts. Excluding
+// Minervini/VCP from this tally (while keeping them as small, real,
+// numeric-only contributors to the master score) resolves both correctly.
+const SUBSCORE_LABELS = { orb: "ORB", vwap: "VWAP", momentum: "Momentum", volume: "Volume", relativeStrength: "Relative Strength", market: "Market Regime", priceAction: "Price Action" };
 function classify(score) { if (score == null) return "unknown"; return score >= 60 ? "bullish" : score <= 40 ? "bearish" : "neutral"; }
 
 function computeMixedSignals(subscores) {
@@ -335,7 +384,12 @@ function computeMixedSignals(subscores) {
 // from the Mixed Signals verdict; the score itself is direction-agnostic
 // "quality of the real setup," relabeled per direction at the end (spec
 // section 11's "for bearish setups, invert the directional interpretation"). ──
-const MASTER_WEIGHTS = { orb: 20, vwap: 15, momentum: 15, volume: 15, trend: 10, relativeStrength: 10, market: 10, priceAction: 5 };
+// Spec's exact weight table ("AM Trading — Final Trading Logic Redesign",
+// §9) — "trend" (15m EMA-stack) is no longer its own slot (folded into
+// Momentum); Minervini and VCP take the two new 5% slots. Sums to 100.
+// Spec explicitly frames this as a starting point the system may
+// dynamically adjust — these are the literal stated weights, not tuned.
+const MASTER_WEIGHTS = { orb: 20, vwap: 15, momentum: 15, volume: 15, relativeStrength: 10, market: 10, priceAction: 5, minervini: 5, vcp: 5 };
 
 function computeMasterScore(subscores) {
   let weighted = 0, weightAvailable = 0;
@@ -346,6 +400,26 @@ function computeMasterScore(subscores) {
   const totalWeight = Object.values(MASTER_WEIGHTS).reduce((s, w) => s + w, 0);
   if (!weightAvailable) return { score: null, coverage: 0 };
   return { score: Math.round(weighted / weightAvailable), coverage: Math.round((weightAvailable / totalWeight) * 100) };
+}
+
+// ── Signal Quality — spec §10's explicit requirement: quality bands are
+// NOT automatic commands ("79 does not mean cannot trade, 81 does not
+// mean must trade"). This is a genuinely separate output from direction
+// (BULLISH/BEARISH/MIXED, from computeMixedSignals) and from
+// classifyMasterScore's direction-flavored BUY/SELL labels above — the
+// returned label here never encodes direction, only "how strong is the
+// real evidence." `direction` is still needed as an input (not baked into
+// the output) purely to read the bearish-scale-inverted score correctly —
+// same real reason classifyMasterScore takes it, see that function's
+// comment. ──
+function classifySignalQuality(score, direction) {
+  if (score == null) return "NO_DATA";
+  const bandScore = direction === "BEARISH" ? 100 - score : score;
+  if (bandScore >= 90) return "A_PLUS_SETUP";
+  if (bandScore >= 80) return "STRONG_SETUP";
+  if (bandScore >= 70) return "DEVELOPING_SETUP";
+  if (bandScore >= 60) return "WATCH";
+  return "LOW_QUALITY";
 }
 
 // `score` is on a single bullish-scaled 0-100 axis (0=bearish evidence,
@@ -403,9 +477,10 @@ module.exports = {
   computeVolumeScore, volumeState,
   computeTrendScore, trendLabel,
   computeRelativeStrength, computeMarketConfirmation, dotFromChg, dotFromVix,
+  computeMinerviniScore, computeVcpScore,
   detectPriceAction, computePriceActionScore, findSwingPoints,
   computeMixedSignals, classify,
-  computeMasterScore, classifyMasterScore, MASTER_WEIGHTS,
+  computeMasterScore, classifyMasterScore, classifySignalQuality, MASTER_WEIGHTS,
   computeTradePlan,
   // real, already-existing engine reused for MACD/RSI/EMA inputs by the route:
   computeRSI, computeMACDSeries, computeEMA,

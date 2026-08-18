@@ -197,8 +197,24 @@ async function fetchDayTradeScanRows(universe) {
         const rng = lb.high - lb.low;
         const closeStrong = rng > 0 ? ((lb.close - lb.low) / rng) >= 0.6 : price >= vwap;
         const rnd = (v) => v == null ? null : Math.round(v * 100) / 100;
+
+        // Real RSI/ROC/MACD/price-action from data ALREADY fetched above
+        // (c15 = 5d of 15m bars, today = today's session bars) — zero new
+        // API calls. Reuses daytrade-console-engine.js's own scorer inputs
+        // rather than reimplementing them, so Light Box's fast grid scan
+        // and the Day Trade Console's deep single-symbol view compute
+        // these from the identical real formulas. "AM Trading — Final
+        // Trading Logic Redesign" spec, explicit user request 2026-08-19.
+        const { computeRSI, computeMACDSeries, computeROC, detectPriceAction } = require("../daytrade-console-engine");
+        const rsi15m = c15.length > 14 ? rnd(computeRSI(c15, 14)) : null;
+        const roc15m = c15.length > 10 ? rnd(computeROC(c15, 10)) : null;
+        const macd = c15.length > 26 ? computeMACDSeries(intraday, 12, 26, 9) : null;
+        const macdHistogram15m = macd && macd.histogram.length ? rnd(macd.histogram[macd.histogram.length - 1].value) : null;
+        const priceAction = detectPriceAction(today, orHigh, orLow);
+
         return { symbol: sym, price: rnd(price), chgPct, gapPct, rvol, vsVwap, aboveVwap: price >= vwap, orBreakout, orHigh: rnd(orHigh), orLow: rnd(orLow),
-          ema9: rnd(ema9), ema21: rnd(ema21), ema50: rnd(ema50), vwap: rnd(vwap), closeStrong, bull15, bull5: bull15 };
+          ema9: rnd(ema9), ema21: rnd(ema21), ema50: rnd(ema50), vwap: rnd(vwap), closeStrong, bull15, bull5: bull15,
+          rsi15m, roc15m, macdHistogram15m, priceAction };
       } catch { return null; }
     }));
     out.push(...done.filter(Boolean));
@@ -2690,7 +2706,9 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
       const engine = require("../daytrade-console-engine");
       const { fetchAlpacaBars } = require("../providers/alpaca-data");
       const { computeRegime } = require("../trade-planner-scoring");
+      const { getTrendQuality } = require("../trend-quality-store");
       const sectorEtf = SECTOR_THEME_MAP.etfOf(symbol);
+      const tq = getTrendQuality(symbol);
 
       const [scanResult, bars, quotes] = await Promise.all([
         fetchDayTradeScanRows([symbol]),
@@ -2727,17 +2745,20 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
 
       const orb = engine.computeOrbScore({ price: row.price, orHigh: row.orHigh, orLow: row.orLow, rvol: row.rvol, aboveVwap: row.aboveVwap, bull15: row.bull15, marketBullish: regime?.score != null ? regime.score >= 55 : null });
       const vwapScore = engine.computeVwapScore(row.price, row.vwap, vwapMomentumPct);
-      const momentumScore = engine.computeMomentumScore({ rsi: rsiVal, roc: rocVal, macdHistogram: macdHist, priceMomentumPct, rvol: row.rvol });
-      const volumeScore = engine.computeVolumeScore(row.rvol);
       const trendScore = engine.computeTrendScore(row.price, row.vwap, ema9, ema20, ema50);
+      const momentumScore = engine.computeMomentumScore({ rsi: rsiVal, roc: rocVal, macdHistogram: macdHist, priceMomentumPct, rvol: row.rvol, trendStackScore: trendScore });
+      const volumeScore = engine.computeVolumeScore(row.rvol);
       const rs = engine.computeRelativeStrength(row.chgPct, spyChg, qqqChg, sectorChg);
       const market = engine.computeMarketConfirmation(regime, spyChg, qqqChg, sectorChg);
       const priceActionScore = engine.computePriceActionScore(pa);
+      const minerviniScore = engine.computeMinerviniScore(tq.trendLabel);
+      const vcpScore = engine.computeVcpScore(tq.vcpVerdict);
 
-      const subscores = { orb: orb.score, vwap: vwapScore, momentum: momentumScore, volume: volumeScore, relativeStrength: rs.score, market: market.score, trend: trendScore, priceAction: priceActionScore };
+      const subscores = { orb: orb.score, vwap: vwapScore, momentum: momentumScore, volume: volumeScore, relativeStrength: rs.score, market: market.score, priceAction: priceActionScore, minervini: minerviniScore, vcp: vcpScore };
       const mixed = engine.computeMixedSignals(subscores);
       const master = engine.computeMasterScore(subscores);
       const masterClass = engine.classifyMasterScore(master.score, mixed.verdict);
+      const signalQuality = engine.classifySignalQuality(master.score, mixed.verdict);
       const tradePlan = engine.computeTradePlan({ price: row.price, atr15m, direction: mixed.verdict, rr: null });
 
       return writeJson(res, 200, {
@@ -2750,7 +2771,7 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
         orHigh: row.orHigh,
         orLow: row.orLow,
         rvol: row.rvol,
-        primarySignal: { verdict: mixed.verdict, masterScore: master.score, confidence: Math.round((Math.max(mixed.bullishCount, mixed.bearishCount) / 8) * 100), classification: masterClass },
+        primarySignal: { verdict: mixed.verdict, masterScore: master.score, confidence: Math.round((Math.max(mixed.bullishCount, mixed.bearishCount) / (mixed.bullishCount + mixed.bearishCount + mixed.neutralCount)) * 100), classification: masterClass, signalQuality },
         orb: { ...orb, orHigh: row.orHigh, orLow: row.orLow, distanceAboveHigh: row.orHigh ? +(((row.price - row.orHigh) / row.orHigh) * 100).toFixed(2) : null, distanceBelowLow: row.orLow ? +(((row.orLow - row.price) / row.orLow) * 100).toFixed(2) : null, rvol: row.rvol, volumeConfirmed: row.rvol != null ? (row.rvol >= 1.5 ? "CONFIRMED" : row.rvol >= 1.0 ? "WEAK" : "FAILED") : null },
         vwapBox: { vwap: row.vwap, price: row.price, distancePct: row.vwap ? +(((row.price - row.vwap) / row.vwap) * 100).toFixed(2) : null, position: row.aboveVwap == null ? null : row.aboveVwap ? "ABOVE" : "BELOW", momentumPct: r1v(vwapMomentumPct), score: vwapScore },
         momentumBox: { score: momentumScore, rsi: rsiVal != null ? Math.round(rsiVal) : null, roc: r1v(rocVal), macdState: engine.macdStateFromHistogram(macdHist), priceMomentumPct: r1v(priceMomentumPct), rvol: row.rvol, direction: engine.momentumDirectionFromRocTrend(rocVal, rocPrev) },
@@ -2759,8 +2780,10 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
         relativeStrengthBox: rs,
         marketBox: market,
         priceActionBox: { ...pa, score: priceActionScore, atr15m: r1v(atr15m) },
+        minerviniBox: { score: minerviniScore, label: tq.trendLabel, trendScore: tq.trendScore, asOf: tq.asOf },
+        vcpBox: { score: vcpScore, verdict: tq.vcpVerdict, riskState: tq.riskState, asOf: tq.asOf },
         mixedSignals: mixed,
-        masterScore: { score: master.score, coverage: master.coverage, classification: masterClass, verdict: mixed.verdict },
+        masterScore: { score: master.score, coverage: master.coverage, classification: masterClass, signalQuality, verdict: mixed.verdict },
         tradePlan,
       });
     } catch (err) {

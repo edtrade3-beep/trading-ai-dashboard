@@ -18,7 +18,14 @@ function computeRegime(macroData) {
   const score = factors.reduce((s, f) => s + (f.pass ? f.pts : 0), 0);
   const label = score >= 75 ? "GREEN" : score >= 55 ? "YELLOW" : score >= 40 ? "ORANGE" : "RED";
   const color = score >= 75 ? "#22c55e" : score >= 55 ? "#d6a312" : score >= 40 ? "#e07b1a" : "#ef4444";
-  return { score, label, color, factors, vixVal };
+  // sixBand: additive-only field for the "AM Trading — Final Trading Logic
+  // Redesign" spec's 6-level Market Regime classification (§18). `label`
+  // (GREEN/YELLOW/ORANGE/RED) stays exactly as-is — dozens of existing
+  // consumers do `regime.label === "GREEN"` string comparisons across both
+  // client and server; changing that field would be a wide, unrelated
+  // regression. New code reads `sixBand` instead.
+  const sixBand = score >= 85 ? "STRONG_BULL" : score >= 70 ? "BULL" : score >= 55 ? "NEUTRAL" : score >= 40 ? "TRANSITION" : score >= 25 ? "BEAR" : "STRONG_BEAR";
+  return { score, label, color, factors, vixVal, sixBand };
 }
 
 function computeAPlusScore(row, regime) {

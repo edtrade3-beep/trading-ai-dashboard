@@ -435,7 +435,169 @@ export function computeGreenLight(q, spyChg, scanRow, regime = null, trend = nul
 // measure genuinely different things (today's session structure vs. a
 // multi-day trend) and this app's standing rule is to keep parallel scoring
 // systems separate rather than force one shape to fit both.
-export function computeDayTradeSignal(row, spyChg) {
+// ── Hand-ported parity mirror of src/daytrade-console-engine.js's real
+// weighted scorers (+ src/day-trade-calc.js's marketScoreFromSpy) — same
+// "keep byte-identical" discipline already established for computeRegime
+// (market-helpers.js / trade-planner-scoring.js). computeDayTradeSignal
+// below is compared field-by-field against its server twin in
+// test/smoke.js via assert.deepStrictEqual, so these formulas must match
+// EXACTLY, not just in spirit. "AM Trading — Final Trading Logic
+// Redesign", explicit user request 2026-08-19 — see daytrade-console-
+// engine.js for the full design rationale on every formula below.
+const dtClamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
+const dtClamp01 = (x) => dtClamp(x, 0, 1);
+
+function dtComputeOrbScore({ price, orHigh, orLow, rvol, aboveVwap, bull15, marketBullish }) {
+  if (!(price > 0) || !(orHigh > 0) || !(orLow > 0)) return { score: null, status: "NO_DATA", direction: null };
+  const orRange = Math.max(orHigh - orLow, 0.01);
+  let direction = null;
+  let pricePts = 20;
+  if (price > orHigh) {
+    direction = "bullish";
+    const distPct = ((price - orHigh) / orHigh) * 100;
+    pricePts = 20 + dtClamp01(distPct / 1.5) * 20;
+  } else if (price < orLow) {
+    direction = "bearish";
+    const distPct = ((orLow - price) / orLow) * 100;
+    pricePts = 20 + dtClamp01(distPct / 1.5) * 20;
+  } else {
+    const distToHigh = (orHigh - price) / orRange;
+    const distToLow = (price - orLow) / orRange;
+    pricePts = 20 * (1 - Math.min(distToHigh, distToLow));
+  }
+  const volPts = rvol == null ? 10 : rvol >= 1.5 ? 20 : rvol >= 1.0 ? 12 : 4;
+  let vwapPts = 7.5;
+  if (direction && aboveVwap != null) vwapPts = (direction === "bullish") === aboveVwap ? 15 : 0;
+  let momPts = 7.5;
+  if (direction && bull15 != null) momPts = (direction === "bullish") === bull15 ? 15 : 0;
+  let marketPts = 5;
+  if (direction && marketBullish != null) marketPts = (direction === "bullish") === marketBullish ? 10 : 0;
+  const score = Math.round(pricePts + volPts + vwapPts + momPts + marketPts);
+  let status;
+  if (direction === "bullish" && score >= 65) status = "BULLISH_BREAKOUT";
+  else if (direction === "bearish" && score >= 65) status = "BEARISH_BREAKDOWN";
+  else status = "MIXED_WAIT";
+  return { score: dtClamp(score, 0, 100), status, direction };
+}
+
+function dtComputeVwapScore(price, vwap, vwapMomentumPct) {
+  if (!(price > 0) || !(vwap > 0)) return null;
+  const distPct = ((price - vwap) / vwap) * 100;
+  let score = 50 + dtClamp(distPct * 12, -35, 35);
+  if (vwapMomentumPct != null) score += dtClamp(vwapMomentumPct * 8, -15, 15);
+  return Math.round(dtClamp(score, 0, 100));
+}
+
+function dtComputeMomentumScore({ rsi, roc, macdHistogram, priceMomentumPct, rvol, trendStackScore }) {
+  const parts = [];
+  if (rsi != null) parts.push(dtClamp(rsi, 0, 100));
+  if (roc != null) parts.push(dtClamp(50 + roc * 5, 0, 100));
+  if (macdHistogram != null) parts.push(dtClamp(50 + macdHistogram * 20, 0, 100));
+  if (priceMomentumPct != null) parts.push(dtClamp(50 + priceMomentumPct * 10, 0, 100));
+  if (rvol != null) parts.push(dtClamp(30 + rvol * 25, 0, 100));
+  if (trendStackScore != null) parts.push(dtClamp(trendStackScore, 0, 100));
+  if (!parts.length) return null;
+  return Math.round(parts.reduce((s, v) => s + v, 0) / parts.length);
+}
+
+function dtComputeVolumeScore(rvol) {
+  if (rvol == null || !Number.isFinite(rvol)) return null;
+  return Math.round(dtClamp(rvol * 45, 0, 100));
+}
+
+function dtComputeTrendScore(price, vwap, ema9, ema20, ema50) {
+  if (!(price > 0)) return null;
+  const checks = [
+    vwap != null && price > vwap,
+    ema9 != null && price > ema9,
+    ema9 != null && ema20 != null && ema9 > ema20,
+    ema20 != null && ema50 != null && ema20 > ema50,
+  ];
+  const scorable = [vwap != null, ema9 != null, ema9 != null && ema20 != null, ema20 != null && ema50 != null];
+  const applicable = scorable.filter(Boolean).length;
+  if (!applicable) return null;
+  const passed = checks.filter((c, i) => scorable[i] && c).length;
+  return Math.round((passed / applicable) * 100);
+}
+
+function dtComputeRelativeStrength(chg, spyChg, qqqChg, sectorChg) {
+  const vsSpy = chg != null && spyChg != null ? chg - spyChg : null;
+  const vsQqq = chg != null && qqqChg != null ? chg - qqqChg : null;
+  const vsSector = chg != null && sectorChg != null ? chg - sectorChg : null;
+  const diffs = [vsSpy, vsQqq, vsSector].filter((v) => v != null);
+  const score = diffs.length ? Math.round(dtClamp(50 + (diffs.reduce((s, v) => s + v, 0) / diffs.length) * 10, 0, 100)) : null;
+  return { vsSpy, vsQqq, vsSector, score };
+}
+
+function dtComputeMinerviniScore(trendLabelVal) {
+  if (trendLabelVal === "STRONG") return 80;
+  if (trendLabelVal === "WEAK") return 25;
+  return 50;
+}
+function dtComputeVcpScore(vcpVerdict) {
+  if (vcpVerdict == null) return 50;
+  if (vcpVerdict === "A+ SETUP") return 90;
+  if (vcpVerdict === "WATCHLIST") return 65;
+  if (vcpVerdict === "WEAK SETUP") return 35;
+  return 20;
+}
+
+function dtComputePriceActionScore(pa) {
+  const flags = [
+    pa.higherHighs, pa.higherLows, pa.breakout,
+    pa.breakdown == null ? null : !pa.breakdown,
+    pa.retest,
+    pa.failedBreakout == null ? null : !pa.failedBreakout,
+    pa.failedBreakdown,
+  ];
+  const known = flags.filter((f) => f != null);
+  if (!known.length) return null;
+  const bullish = known.filter((f) => f === true).length;
+  return Math.round((bullish / known.length) * 100);
+}
+
+const DT_SUBSCORE_LABELS = { orb: "ORB", vwap: "VWAP", momentum: "Momentum", volume: "Volume", relativeStrength: "Relative Strength", market: "Market Regime", priceAction: "Price Action" };
+function dtClassify(score) { if (score == null) return "unknown"; return score >= 60 ? "bullish" : score <= 40 ? "bearish" : "neutral"; }
+
+function dtComputeMixedSignals(subscores) {
+  const classified = {};
+  for (const key of Object.keys(DT_SUBSCORE_LABELS)) classified[key] = dtClassify(subscores[key]);
+  const bullish = Object.keys(classified).filter((k) => classified[k] === "bullish");
+  const bearish = Object.keys(classified).filter((k) => classified[k] === "bearish");
+  let verdict;
+  if (bearish.length === 0 && bullish.length >= 5) verdict = "BULLISH";
+  else if (bullish.length === 0 && bearish.length >= 5) verdict = "BEARISH";
+  else if (bullish.length - bearish.length >= 4) verdict = "BULLISH";
+  else if (bearish.length - bullish.length >= 4) verdict = "BEARISH";
+  else verdict = "MIXED";
+  return { verdict };
+}
+
+const DT_MASTER_WEIGHTS = { orb: 20, vwap: 15, momentum: 15, volume: 15, relativeStrength: 10, market: 10, priceAction: 5, minervini: 5, vcp: 5 };
+function dtComputeMasterScore(subscores) {
+  let weighted = 0, weightAvailable = 0;
+  for (const [key, w] of Object.entries(DT_MASTER_WEIGHTS)) {
+    const v = subscores[key];
+    if (v != null) { weighted += v * w; weightAvailable += w; }
+  }
+  if (!weightAvailable) return { score: null };
+  return { score: Math.round(weighted / weightAvailable) };
+}
+
+// Market dimension proxy from SPY alone — see day-trade-calc.js's
+// marketScoreFromSpy for why the full 5-factor computeRegime isn't used
+// at this reduced-context call site (missing QQQ/VIX would otherwise
+// silently read as bearish).
+function dtMarketScoreFromSpy(spyChg) {
+  if (spyChg == null || !Number.isFinite(spyChg)) return null;
+  return Math.max(0, Math.min(100, 50 + spyChg * 30));
+}
+
+// `extra` (optional, defaults identically on both server/client so the
+// strict 2-arg parity test in test/smoke.js is unaffected): see
+// src/day-trade-calc.js's matching comment — only the server tick
+// supplies this.
+export function computeDayTradeSignal(row, spyChg, extra = {}) {
   const px = Number(row?.price || 0);
   if (!(px > 0)) return null;
   const vwap = Number(row?.vwap || 0) || px;
@@ -445,9 +607,9 @@ export function computeDayTradeSignal(row, spyChg) {
   const bull15 = !!row?.bull15;
   const closeStrong = !!row?.closeStrong;
 
-  // ── 5-check system, mirrors the swing checklist's shape but every check
-  // is intraday-real (same fields the Day Trade Scanner's own status board
-  // already shows — no new signals invented here). ──
+  // ── 5-check system — real, honest, informational checklist (still shown
+  // in GreenLightTab's Day Trade Mode UI). No longer gates `signal` — see
+  // the weighted engine below. ──
   const checks = [
     { label: "Market safe", pass: spyChg > -0.5,
       tip: `SPY ${spyChg >= 0 ? "+" : ""}${spyChg.toFixed(2)}% — buy only when the tape is safe` },
@@ -461,7 +623,25 @@ export function computeDayTradeSignal(row, spyChg) {
       tip: "Price above 9EMA above 21EMA on the 15-minute chart — momentum stack intact" },
   ];
   const passed = checks.filter(c => c.pass).length;
-  const signal = passed >= 4 ? "GREEN" : passed >= 3 ? "YELLOW" : "RED";
+
+  // ── Real weighted scoring — same formulas as daytrade-console-engine.js
+  // (server), hand-ported above. Minervini/VCP/QQQ/sector use `extra` when
+  // supplied, else fall back to the existing honest neutral defaults. ──
+  const marketScore = dtMarketScoreFromSpy(spyChg);
+  const trendStackScore = dtComputeTrendScore(px, vwap, row?.ema9 ?? null, row?.ema21 ?? null, row?.ema50 ?? null);
+  const orb = dtComputeOrbScore({ price: px, orHigh: row?.orHigh ?? null, orLow: row?.orLow ?? null, rvol, aboveVwap, bull15, marketBullish: spyChg != null ? spyChg > -0.1 : null });
+  const vwapScore = dtComputeVwapScore(px, vwap, null);
+  const momentumScore = dtComputeMomentumScore({ rsi: row?.rsi15m ?? null, roc: row?.roc15m ?? null, macdHistogram: row?.macdHistogram15m ?? null, priceMomentumPct: null, rvol, trendStackScore });
+  const volumeScore = dtComputeVolumeScore(rvol);
+  const rs = dtComputeRelativeStrength(Number(row?.chgPct || 0), spyChg, extra?.qqqChg ?? null, extra?.sectorChg ?? null);
+  const priceActionScore = dtComputePriceActionScore(row?.priceAction || {});
+  const minerviniScore = dtComputeMinerviniScore(extra?.trendLabel ?? null);
+  const vcpScore = dtComputeVcpScore(extra?.vcpVerdict ?? null);
+
+  const subscores = { orb: orb.score, vwap: vwapScore, momentum: momentumScore, volume: volumeScore, relativeStrength: rs.score, market: marketScore, priceAction: priceActionScore, minervini: minerviniScore, vcp: vcpScore };
+  const mixed = dtComputeMixedSignals(subscores);
+  const master = dtComputeMasterScore(subscores);
+  const signal = mixed.verdict === "BULLISH" ? "GREEN" : mixed.verdict === "BEARISH" ? "RED" : "YELLOW";
 
   // ── Fast, tight, same-session levels — NOT the swing system's ATR/+5%/
   // +10% multi-day math. Stop = just below VWAP (the standard intraday
@@ -477,11 +657,7 @@ export function computeDayTradeSignal(row, spyChg) {
   const entryNote = orBreakout ? "at breakout ✅" : "wait for OR breakout";
   const atEntry = orBreakout;
 
-  // Quality (0-100, clamped) — reuses the server's own real composite
-  // (daytrade-scan's `score`, already weighted off breakout/VWAP/RVOL/EMA
-  // stack/gap/move) rather than re-deriving a second formula for the same
-  // real inputs.
-  const quality = Math.max(0, Math.min(100, Math.round(Number(row?.score) || 0)));
+  const quality = master.score != null ? master.score : Math.max(0, Math.min(100, Math.round(Number(row?.score) || 0)));
   const grade = quality >= 90 ? "ELITE" : quality >= 75 ? "A+" : quality >= 60 ? "GOOD" : quality >= 45 ? "WATCH" : "IGNORE";
   const marketPass = spyChg > -0.5;
   const qualifiesAPlus = signal === "GREEN" && marketPass && atEntry;
