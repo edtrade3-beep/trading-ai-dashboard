@@ -6,7 +6,7 @@
 // follows.
 "use strict";
 
-const { writeJson } = require("../utils");
+const { writeJson, readRequestBody } = require("../utils");
 const { isReady } = require("../future-wallet-store");
 const { seedFutureWalletUniverse, getUniverse, SEED_UNIVERSE } = require("../future-wallet-universe");
 
@@ -23,7 +23,16 @@ async function handleFutureWallet(req, res, requestUrl) {
   }
 
   if (pathname === "/api/future-wallet/seed-universe" && req.method === "POST") {
-    const result = await seedFutureWalletUniverse();
+    // Optional {symbols:[...]} body targets a specific subset (e.g.
+    // retrying just what failed last time) instead of re-running the
+    // full ~100-symbol default every time.
+    let symbols;
+    try {
+      const raw = await readRequestBody(req);
+      const body = raw ? JSON.parse(raw) : {};
+      if (Array.isArray(body.symbols) && body.symbols.length) symbols = body.symbols;
+    } catch {}
+    const result = await seedFutureWalletUniverse(symbols);
     return writeJson(res, 200, { ok: true, ...result });
   }
 

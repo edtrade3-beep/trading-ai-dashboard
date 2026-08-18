@@ -59,17 +59,51 @@ async function seedOneSymbol(pool, ticker) {
   return { ticker, ok: true };
 }
 
-// Batched (12 concurrent at a time, same convention fetchDayTradeScanRows
-// already uses in src/routes/market.js) to stay well under FMP's rate
-// limit rather than firing ~100 requests at once.
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Real incident, 2026-08-17: an earlier version of this batched 12 symbols
+// concurrently, matching fetchDayTradeScanRows' own convention — but that
+// function fires 2 requests/symbol, while fetchFmpFundamentals fires 6
+// (quote+profile+ratios+key-metrics+growth+price-target in parallel), so
+// 12-symbol batches meant up to 72 simultaneous FMP requests. Live testing
+// showed a consistent ~50/100 failure rate that didn't improve across
+// several retries spaced minutes apart — consistent with a burst/
+// concurrency cap, not a simple per-minute window. Fixed on two axes
+// (spec section 34's explicit "rate-limit protection" requirement): much
+// smaller batches (3 symbols = up to 18 concurrent FMP requests) and a
+// real delay between batches, plus one retry for any symbol whose first
+// attempt failed (spec section 33: transient provider failures get one
+// retry before being marked genuinely unavailable).
+const BATCH_SIZE = 3;
+const BATCH_DELAY_MS = 1500;
+
 async function seedFutureWalletUniverse(symbols = SEED_UNIVERSE) {
   const pool = requirePool();
   const uniq = [...new Set(symbols.map((s) => String(s).trim().toUpperCase()).filter(Boolean))];
   const results = [];
-  for (let i = 0; i < uniq.length; i += 12) {
-    const chunk = uniq.slice(i, i + 12);
+  for (let i = 0; i < uniq.length; i += BATCH_SIZE) {
+    const chunk = uniq.slice(i, i + BATCH_SIZE);
     const done = await Promise.all(chunk.map((sym) => seedOneSymbol(pool, sym).catch((e) => ({ ticker: sym, ok: false, reason: String(e && e.message || e) }))));
     results.push(...done);
+    if (i + BATCH_SIZE < uniq.length) await sleep(BATCH_DELAY_MS);
+  }
+
+  // One retry pass for whatever failed — a real transient burst/rate-limit
+  // hit is exactly the case a single retry (with the batch already spread
+  // out in time) should recover; a symbol that fails twice is reported as
+  // genuinely unavailable, never silently dropped.
+  const firstFailures = results.filter((r) => !r.ok);
+  if (firstFailures.length) {
+    await sleep(BATCH_DELAY_MS);
+    for (let i = 0; i < firstFailures.length; i += BATCH_SIZE) {
+      const chunk = firstFailures.slice(i, i + BATCH_SIZE);
+      const retried = await Promise.all(chunk.map((f) => seedOneSymbol(pool, f.ticker).catch((e) => ({ ticker: f.ticker, ok: false, reason: String(e && e.message || e) }))));
+      for (const r of retried) {
+        const idx = results.findIndex((x) => x.ticker === r.ticker);
+        if (idx !== -1) results[idx] = r;
+      }
+      if (i + BATCH_SIZE < firstFailures.length) await sleep(BATCH_DELAY_MS);
+    }
   }
   const ok = results.filter((r) => r.ok);
   const skipped = results.filter((r) => !r.ok);
