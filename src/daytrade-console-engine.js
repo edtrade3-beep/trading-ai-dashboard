@@ -348,9 +348,22 @@ function computeMasterScore(subscores) {
   return { score: Math.round(weighted / weightAvailable), coverage: Math.round((weightAvailable / totalWeight) * 100) };
 }
 
+// `score` is on a single bullish-scaled 0-100 axis (0=bearish evidence,
+// 100=bullish evidence) — the same axis every subscore uses. A real,
+// strong bearish sweep therefore scores LOW on this axis, not high. The
+// band thresholds below are conviction bands ("how extreme is the real
+// evidence"), so for a BEARISH verdict they must be read off the
+// distance-from-bullish (100 - score), not off the raw score directly —
+// otherwise a genuine high-conviction short (real low raw score) would
+// band into AVOID/WEAK and get labeled "avoid shorting", the exact
+// opposite of what the data shows. This is the spec's "invert the
+// directional interpretation for bearish setups" rule, scoped correctly
+// to this final classification step only (not to any individual subscore
+// — see trendLabel above).
 function classifyMasterScore(score, direction) {
   if (score == null) return "NO_DATA";
-  const bands = score >= 90 ? "A_PLUS" : score >= 80 ? "STRONG" : score >= 70 ? "WATCH" : score >= 60 ? "WAIT" : score >= 50 ? "WEAK" : "AVOID";
+  const bandScore = direction === "BEARISH" ? 100 - score : score;
+  const bands = bandScore >= 90 ? "A_PLUS" : bandScore >= 80 ? "STRONG" : bandScore >= 70 ? "WATCH" : bandScore >= 60 ? "WAIT" : bandScore >= 50 ? "WEAK" : "AVOID";
   if (direction === "BEARISH") {
     return { A_PLUS: "A_PLUS_SELL", STRONG: "SELL", WATCH: "WATCH_SHORT", WAIT: "WAIT", WEAK: "WEAK_NO_TRADE", AVOID: "AVOID_SHORT" }[bands];
   }
