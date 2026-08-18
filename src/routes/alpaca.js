@@ -231,9 +231,15 @@ async function handleAlpaca(req, res, requestUrl) {
 
         const symbols = positions.map((p) => p.symbol);
         const providerKeys = resolveProviderKeys(new URLSearchParams());
+        // SPY/QQQ only — VIX isn't consumed here (this overlay's Market
+        // dimension is the same real SPY-only proxy day-trade-calc.js
+        // uses, not the full computeRegime). "^VIX" is deliberately
+        // omitted: it diverges from this codebase's own established
+        // fetchMarketQuotes convention (see market.js line ~1922, which
+        // uses "VIXY" instead) and isn't needed anyway.
         const [scanResult, macroRows] = await Promise.all([
           fetchDayTradeScanRows(symbols).catch(() => ({ rows: [] })),
-          fetchMarketQuotes(["SPY", "QQQ", "^VIX"], providerKeys).catch(() => []),
+          fetchMarketQuotes(["SPY", "QQQ"], providerKeys).catch(() => []),
         ]);
         const spyRow = (macroRows || []).find((m) => m.symbol === "SPY");
         const spyChg = spyRow ? Number(spyRow.changesPercentage || 0) : null;
