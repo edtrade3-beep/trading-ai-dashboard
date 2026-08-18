@@ -2673,6 +2673,101 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
     });
   }
 
+  // Day Trade Console — single-symbol 15-min intraday decision page
+  // (explicit user request, 2026-08-18). Real data only: reuses
+  // fetchDayTradeScanRows for the VWAP/OR/RVOL/EMA-stack base signal,
+  // fetches the same real 15-min bars directly for price-action/ROC/RSI/
+  // MACD (fetchDayTradeScanRows computes derived fields but doesn't
+  // return the raw bar array), and real SPY/QQQ/VIX/sector-ETF quotes for
+  // Relative Strength + Market Confirmation. All scoring happens in
+  // src/daytrade-console-engine.js (pure, unit-tested) — this route only
+  // assembles real inputs and calls it.
+  if (pathname === "/api/market/daytrade-console") {
+    const symbol = (searchParams.get("symbol") || "").trim().toUpperCase();
+    if (!symbol) return writeJson(res, 400, { ok: false, error: "symbol required" });
+    const r1v = (x) => (x == null || !Number.isFinite(x) ? null : Math.round(x * 10) / 10);
+    try {
+      const engine = require("../daytrade-console-engine");
+      const { fetchAlpacaBars } = require("../providers/alpaca-data");
+      const { computeRegime } = require("../trade-planner-scoring");
+      const sectorEtf = SECTOR_THEME_MAP.etfOf(symbol);
+
+      const [scanResult, bars, quotes] = await Promise.all([
+        fetchDayTradeScanRows([symbol]),
+        withTimeout(fetchAlpacaBars(symbol, "5d", "15m"), 8000, null),
+        fetchYahooQuoteBatch([symbol, "SPY", "QQQ", "^VIX", ...(sectorEtf ? [sectorEtf] : [])]).catch(() => []),
+      ]);
+      const row = (scanResult.rows || [])[0] || null;
+      if (!row) return writeJson(res, 200, { ok: false, error: "no real intraday data available for " + symbol, symbol });
+
+      const qByStandardSymbol = (sym) => {
+        const q = quotes.find((x) => x.symbol === sym);
+        return q ? { symbol: sym, price: q.regularMarketPrice, changesPercentage: q.regularMarketChangePercent } : null;
+      };
+      const spyQ = qByStandardSymbol("SPY"), qqqQ = qByStandardSymbol("QQQ"), vixQ = qByStandardSymbol("^VIX");
+      const sectorQ = sectorEtf ? qByStandardSymbol(sectorEtf) : null;
+      const macroData = [spyQ, qqqQ, vixQ].filter(Boolean);
+      const regime = computeRegime(macroData);
+      const spyChg = spyQ?.changesPercentage ?? null, qqqChg = qqqQ?.changesPercentage ?? null, sectorChg = sectorQ?.changesPercentage ?? null;
+
+      const closes = Array.isArray(bars) ? bars.map((b) => b.close) : [];
+      const rsiVal = closes.length > 14 ? engine.computeRSI(closes, 14) : null;
+      const rocVal = engine.computeROC(closes, 10);
+      const macd = closes.length > 26 ? engine.computeMACDSeries(bars, 12, 26, 9) : null;
+      const macdHist = macd && macd.histogram.length ? macd.histogram[macd.histogram.length - 1].value : null;
+      const ema9 = closes.length >= 9 ? engine.computeEMA(closes.slice(-9), 9) : null;
+      const ema20 = closes.length >= 20 ? engine.computeEMA(closes.slice(-20), 20) : null;
+      const ema50 = closes.length >= 50 ? engine.computeEMA(closes.slice(-50), 50) : null;
+      const atr15m = Array.isArray(bars) && bars.length > 14 ? atrAt(bars, 14, bars.length - 1) : null;
+      const priceMomentumPct = closes.length > 3 ? ((closes[closes.length - 1] - closes[closes.length - 4]) / closes[closes.length - 4]) * 100 : null;
+      const vwapMomentumPct = engine.computeVwapMomentum(bars || []);
+      const rocPrev = closes.length > 11 ? engine.computeROC(closes.slice(0, -1), 10) : null;
+
+      const pa = engine.detectPriceAction(bars || [], row.orHigh, row.orLow);
+
+      const orb = engine.computeOrbScore({ price: row.price, orHigh: row.orHigh, orLow: row.orLow, rvol: row.rvol, aboveVwap: row.aboveVwap, bull15: row.bull15, marketBullish: regime?.score != null ? regime.score >= 55 : null });
+      const vwapScore = engine.computeVwapScore(row.price, row.vwap, vwapMomentumPct);
+      const momentumScore = engine.computeMomentumScore({ rsi: rsiVal, roc: rocVal, macdHistogram: macdHist, priceMomentumPct, rvol: row.rvol });
+      const volumeScore = engine.computeVolumeScore(row.rvol);
+      const trendScore = engine.computeTrendScore(row.price, row.vwap, ema9, ema20, ema50);
+      const rs = engine.computeRelativeStrength(row.chgPct, spyChg, qqqChg, sectorChg);
+      const market = engine.computeMarketConfirmation(regime, spyChg, qqqChg, sectorChg);
+      const priceActionScore = engine.computePriceActionScore(pa);
+
+      const subscores = { orb: orb.score, vwap: vwapScore, momentum: momentumScore, volume: volumeScore, relativeStrength: rs.score, market: market.score, trend: trendScore, priceAction: priceActionScore };
+      const mixed = engine.computeMixedSignals(subscores);
+      const master = engine.computeMasterScore(subscores);
+      const masterClass = engine.classifyMasterScore(master.score, mixed.verdict);
+      const tradePlan = engine.computeTradePlan({ price: row.price, atr15m, direction: mixed.verdict, rr: null });
+
+      return writeJson(res, 200, {
+        ok: true,
+        symbol,
+        generatedAt: scanResult.generatedAt,
+        price: row.price,
+        chgPct: row.chgPct,
+        vwap: row.vwap,
+        orHigh: row.orHigh,
+        orLow: row.orLow,
+        rvol: row.rvol,
+        primarySignal: { verdict: mixed.verdict, masterScore: master.score, confidence: Math.round((Math.max(mixed.bullishCount, mixed.bearishCount) / 8) * 100), classification: masterClass },
+        orb: { ...orb, orHigh: row.orHigh, orLow: row.orLow, distanceAboveHigh: row.orHigh ? +(((row.price - row.orHigh) / row.orHigh) * 100).toFixed(2) : null, distanceBelowLow: row.orLow ? +(((row.orLow - row.price) / row.orLow) * 100).toFixed(2) : null, rvol: row.rvol, volumeConfirmed: row.rvol != null ? (row.rvol >= 1.5 ? "CONFIRMED" : row.rvol >= 1.0 ? "WEAK" : "FAILED") : null },
+        vwapBox: { vwap: row.vwap, price: row.price, distancePct: row.vwap ? +(((row.price - row.vwap) / row.vwap) * 100).toFixed(2) : null, position: row.aboveVwap == null ? null : row.aboveVwap ? "ABOVE" : "BELOW", momentumPct: r1v(vwapMomentumPct), score: vwapScore },
+        momentumBox: { score: momentumScore, rsi: rsiVal != null ? Math.round(rsiVal) : null, roc: r1v(rocVal), macdState: engine.macdStateFromHistogram(macdHist), priceMomentumPct: r1v(priceMomentumPct), rvol: row.rvol, direction: engine.momentumDirectionFromRocTrend(rocVal, rocPrev) },
+        volumeBox: { volume: row.rvol != null ? row.rvol : null, score: volumeScore, state: engine.volumeState(row.rvol) },
+        trendBox: { price: row.price, vwap: row.vwap, ema9: r1v(ema9), ema20: r1v(ema20), ema50: r1v(ema50), score: trendScore, label: engine.trendLabel(trendScore) },
+        relativeStrengthBox: rs,
+        marketBox: market,
+        priceActionBox: { ...pa, score: priceActionScore, atr15m: r1v(atr15m) },
+        mixedSignals: mixed,
+        masterScore: { score: master.score, coverage: master.coverage, classification: masterClass, verdict: mixed.verdict },
+        tradePlan,
+      });
+    } catch (err) {
+      return writeJson(res, 200, { ok: false, error: err instanceof Error ? err.message : "daytrade-console failed", symbol });
+    }
+  }
+
   // Day-trade scanner: intraday momentum from Alpaca 5-min bars — gap %, RVOL,
   // VWAP position, and opening-range breakout. Cached 90s.
   if (pathname === "/api/market/daytrade-scan") {
