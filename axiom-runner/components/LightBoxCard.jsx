@@ -11,8 +11,13 @@ import { LIGHTBOX_DEFAULTS, STATE_COLOR_KEY, BAR_COLOR_KEY } from "./lightbox-co
 //
 // Visual style (2026-08-17): reverted back to the original green/amber/red
 // full-card traffic light (explicit user request, after briefly trying a
-// single blue accent to match a reference design) — border, badge, glow,
-// and progress bar all key off the symbol's own real BUY/WAIT/SELL color.
+// single blue accent to match a reference design) — border, badge, and
+// progress bar all key off the symbol's own real BUY/WAIT/SELL color.
+// (2026-08-18: swapped the always-on colored glow for the app's standard
+// neutral card shadow — explicit "light, clean, modern, not dark/
+// Bloomberg-style" request. State is still unmistakable at a glance via
+// the border/badge/bar color; the glow only remains as a brief pulse on
+// an actual state change, see `pulsing` below.)
 function LightBoxCardInner({ C, MONO, SANS, data, showSecondary, onOpenSymbol }) {
   const col = C[STATE_COLOR_KEY[data.state]] || C.textDim;
   const barCol = BAR_COLOR_KEY ? (C[BAR_COLOR_KEY] || C.accent) : col;
@@ -28,7 +33,12 @@ function LightBoxCardInner({ C, MONO, SANS, data, showSecondary, onOpenSymbol })
     }
   }, [data.state]);
 
-  const glow = `0 0 ${LIGHTBOX_DEFAULTS.glowBlur}px ${col}55, 0 0 ${LIGHTBOX_DEFAULTS.glowSpread}px ${col}88`;
+  // Resting state: the app's standard neutral elevation shadow. A state
+  // change still gets a brief colored glow pulse (matches lightboxPulse's
+  // brightness animation) so a fresh BUY/SELL flip stays noticeable
+  // without every card glowing all the time.
+  const restShadow = C.shadow || "0 1px 3px rgba(15,23,42,0.07), 0 1px 2px rgba(15,23,42,0.05)";
+  const pulseGlow = `0 0 ${LIGHTBOX_DEFAULTS.glowBlur}px ${col}55, 0 0 ${LIGHTBOX_DEFAULTS.glowSpread}px ${col}88`;
 
   return (
     <div
@@ -39,7 +49,7 @@ function LightBoxCardInner({ C, MONO, SANS, data, showSecondary, onOpenSymbol })
         border: `2px solid ${col}`,
         borderRadius: 12,
         padding: "14px 16px",
-        boxShadow: glow,
+        boxShadow: pulsing ? pulseGlow : restShadow,
         display: "flex",
         flexDirection: "column",
         gap: 6,
