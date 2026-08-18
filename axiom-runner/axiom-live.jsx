@@ -174,6 +174,7 @@ import DarkPoolTab from "./components/DarkPoolTab.jsx";
 import DpHeatmapTab from "./components/DpHeatmapTab.jsx";
 import CotTab from "./components/CotTab.jsx";
 import LightBoxTab from "./components/LightBoxTab.jsx";
+import DayTradeConsoleTab from "./components/DayTradeConsoleTab.jsx";
 import FutureWalletTab from "./components/FutureWalletTab.jsx";
 
 // Attach the API token (if the user set one) to every same-origin /api request,
@@ -1588,6 +1589,11 @@ export default function App() {
         try { window.history.replaceState({}, "", window.location.pathname); } catch {}
         return "cortex";
       }
+      if (params.get("open") === "daytrade" && openSym) {
+        try { localStorage.setItem("daytrade_console_open_symbol", openSym.toUpperCase()); } catch {}
+        try { window.history.replaceState({}, "", window.location.pathname); } catch {}
+        return "daytrade-console";
+      }
     }
     if (typeof window !== "undefined" && !localStorage.getItem("axiom_seen_start")) {
       localStorage.setItem("axiom_seen_start", "1");
@@ -1595,6 +1601,26 @@ export default function App() {
     }
     return "lightbox";  // default landing (2026-08-17, explicit user request — was "ceo-ai")
   });
+  // Day Trade Console: opened from a Light Box card click (or the console's
+  // own symbol search). Stable callback so it never invalidates
+  // LightBoxCard's React.memo comparator (which intentionally doesn't
+  // compare callback props — see LightBoxCard.jsx). Must be declared AFTER
+  // activeTab — its initializer reads the localStorage key that activeTab's
+  // initializer above just set for the ?open=daytrade&symbol=X deep link
+  // (same handoff convention as cortex_open_symbol); declaring it earlier
+  // would read before that write happens in the same render pass.
+  const [daytradeConsoleSymbol, setDaytradeConsoleSymbol] = useState(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const sym = localStorage.getItem("daytrade_console_open_symbol");
+      if (sym) localStorage.removeItem("daytrade_console_open_symbol");
+      return sym;
+    } catch { return null; }
+  });
+  const openDaytradeConsole = React.useCallback((sym) => {
+    setDaytradeConsoleSymbol(sym);
+    setActiveTab("daytrade-console");
+  }, []);
   // Save tab on change
   React.useEffect(() => { try { localStorage.setItem("last_tab", activeTab); } catch {} }, [activeTab]);
   // In-app Back/Forward nav history (explicit user request, 2026-08-03:
@@ -7120,7 +7146,11 @@ export default function App() {
       {activeTab === "holdings" && <HoldingsTab C={C} MONO={MONO} SANS={SANS} macroData={macroData} />}
       {activeTab === "gl-backtest" && <GLBacktestTab C={C} MONO={MONO} SANS={SANS} watchlistSymbols={watchlistSymbols} />}
       {activeTab === "predictions" && <PredictionsTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} macroData={macroData} />}
-      {activeTab === "lightbox" && <LightBoxTab C={C} MONO={MONO} SANS={SANS} lightboxSettings={lightboxSettings} setLightboxSettings={setLightboxSettings} />}
+      {activeTab === "lightbox" && <LightBoxTab C={C} MONO={MONO} SANS={SANS} lightboxSettings={lightboxSettings} setLightboxSettings={setLightboxSettings} onOpenSymbol={openDaytradeConsole} />}
+
+      {activeTab === "daytrade-console" && (
+        <DayTradeConsoleTab C={C} MONO={MONO} SANS={SANS} symbol={daytradeConsoleSymbol} onBack={() => setActiveTab("lightbox")} />
+      )}
       {activeTab === "futurewallet" && <FutureWalletTab C={C} MONO={MONO} SANS={SANS} />}
       {/* SETTINGS — composite sidebar destination (institutional redesign,
           2026-07-29) folding Coach/Learn/Quran/account-risk settings into

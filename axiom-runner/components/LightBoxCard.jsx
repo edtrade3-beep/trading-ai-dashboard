@@ -13,7 +13,7 @@ import { LIGHTBOX_DEFAULTS, STATE_COLOR_KEY, BAR_COLOR_KEY } from "./lightbox-co
 // full-card traffic light (explicit user request, after briefly trying a
 // single blue accent to match a reference design) — border, badge, glow,
 // and progress bar all key off the symbol's own real BUY/WAIT/SELL color.
-function LightBoxCardInner({ C, MONO, SANS, data, showSecondary }) {
+function LightBoxCardInner({ C, MONO, SANS, data, showSecondary, onOpenSymbol }) {
   const col = C[STATE_COLOR_KEY[data.state]] || C.textDim;
   const barCol = BAR_COLOR_KEY ? (C[BAR_COLOR_KEY] || C.accent) : col;
   const prevStateRef = useRef(data.state);
@@ -32,6 +32,8 @@ function LightBoxCardInner({ C, MONO, SANS, data, showSecondary }) {
 
   return (
     <div
+      onClick={onOpenSymbol ? () => onOpenSymbol(data.symbol) : undefined}
+      title={onOpenSymbol ? `Open ${data.symbol} in Day Trade Console` : undefined}
       style={{
         background: `${col}14`,
         border: `2px solid ${col}`,
@@ -42,6 +44,7 @@ function LightBoxCardInner({ C, MONO, SANS, data, showSecondary }) {
         flexDirection: "column",
         gap: 6,
         minHeight: showSecondary ? 196 : 148,
+        cursor: onOpenSymbol ? "pointer" : "default",
         transition: "background 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease",
         animation: pulsing ? "lightboxPulse 1.5s ease-out 1" : "none",
       }}

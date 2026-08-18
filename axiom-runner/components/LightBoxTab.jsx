@@ -41,7 +41,7 @@ function sortRows(rows, secondarySort) {
 // component does zero signal math of its own, it only renders what the
 // server already confirmed. See src/lightbox-engine.js/lightbox-state-
 // store.js for why confirmation has to live server-side.
-export default function LightBoxTab({ C, MONO, SANS, lightboxSettings, setLightboxSettings }) {
+export default function LightBoxTab({ C, MONO, SANS, lightboxSettings, setLightboxSettings, onOpenSymbol }) {
   const [bySymbol, setBySymbol] = useState({});
   const [transitions, setTransitions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -169,7 +169,7 @@ export default function LightBoxTab({ C, MONO, SANS, lightboxSettings, setLightb
             </div>
           ) : (
             <div style={{ display: "grid", gridTemplateColumns: `repeat(auto-fill,minmax(${lightboxSettings.showDetails ? 190 : 150}px,1fr))`, gap: 10 }}>
-              {rows.map((r) => <LightBoxCard key={r.symbol} C={C} MONO={MONO} SANS={SANS} data={r} showSecondary={!!lightboxSettings.showDetails} />)}
+              {rows.map((r) => <LightBoxCard key={r.symbol} C={C} MONO={MONO} SANS={SANS} data={r} showSecondary={!!lightboxSettings.showDetails} onOpenSymbol={onOpenSymbol} />)}
             </div>
           )}
         </div>
