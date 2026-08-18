@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import LightBoxCard from "./LightBoxCard.jsx";
+import PremarketPanel from "./PremarketPanel.jsx";
 import { LIGHTBOX_DEFAULTS, STATE_COLOR_KEY } from "./lightbox-config.js";
 import { riskBuzz } from "./monitor-shared.js";
 
@@ -157,6 +158,8 @@ export default function LightBoxTab({ C, MONO, SANS, lightboxSettings, setLightb
           </div>
         </div>
       </div>
+
+      <PremarketPanel C={C} MONO={MONO} SANS={SANS} />
 
       <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
         {/* Grid */}

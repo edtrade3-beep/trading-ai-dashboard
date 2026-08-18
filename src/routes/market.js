@@ -2856,6 +2856,26 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
     });
   }
 
+  // Premarket Engine — real gap%/volume/catalyst score per watchlist
+  // symbol before the 9:30 open (spec §4-6, explicit user request
+  // 2026-08-19). Thin read of src/premarket-store.js's cached tick, same
+  // "route just reads, a background job does the real work" split as
+  // /api/market/lightbox above.
+  if (pathname === "/api/market/premarket") {
+    const { getAllPremarket, isPremarketHoursET } = require("../premarket-store");
+    const state = getAllPremarket();
+    const rows = Object.entries(state.bySymbol)
+      .map(([symbol, r]) => ({ symbol, ...r }))
+      .filter((r) => r.score != null)
+      .sort((a, b) => b.score - a.score);
+    return writeJson(res, 200, {
+      ok: true,
+      rows,
+      generatedAt: state.updatedAt || null,
+      inPremarketWindow: isPremarketHoursET(),
+    });
+  }
+
   // Market-Terminal style leaderboard: Movers Up/Down + Up/Down on Volume, each
   // row carrying Price, Day %, YTD %, and Volume-vs-50-day-average. Enriches a
   // liquid universe with daily bars (for YTD + avg volume). Cached 3 min.
