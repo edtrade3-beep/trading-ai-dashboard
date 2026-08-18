@@ -134,6 +134,7 @@ import WorkflowTab from "./components/WorkflowTab.jsx";
 import AlertsTab from "./components/AlertsTab.jsx";
 import AcademyTab from "./components/AcademyTab.jsx";
 import ToolsTab from "./components/ToolsTab.jsx";
+import IntegrationsTab from "./components/IntegrationsTab.jsx";
 import ScannerTab from "./components/ScannerTab.jsx";
 import MacroTab from "./components/MacroTab.jsx";
 import AiLabTab from "./components/AiLabTab.jsx";
@@ -7165,10 +7166,12 @@ export default function App() {
         <>
           <PageSubNav C={C} MONO={MONO} active={settingsSubTab} setActive={setSettingsSubTab} tabs={[
             { id: "tools", label: "ACCOUNT & RISK" },
+            { id: "integrations", label: "INTEGRATIONS" },
             { id: "coach", label: "COACH" },
             { id: "learn", label: "LEARN" },
             { id: "quran", label: "QURAN" },
           ]} />
+          {settingsSubTab === "integrations" && <IntegrationsTab C={C} MONO={MONO} SANS={SANS} />}
           {settingsSubTab === "tools" && (
             <ToolsTab
               C={C} MONO={MONO} riskPlan={riskPlan}

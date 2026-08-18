@@ -251,7 +251,7 @@ async function handleRequest(req, res) {
       return await handlePriceAlerts(req, res, requestUrl);
     }
 
-    if (pathname === "/api/settings") {
+    if (pathname === "/api/settings" || pathname === "/api/settings/integrations") {
       return await handleSettings(req, res, requestUrl);
     }
 
