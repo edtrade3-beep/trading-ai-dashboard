@@ -146,7 +146,23 @@ async function computeMetricsForSymbol(symbol, quote, bars, spyCloses, fmpKey) {
   const vol = volatility(closes);
   const rs = relativeStrength(closes, spyCloses);
 
-  const fundamentals = await fetchFmpFundamentals(symbol, fmpKey).catch(() => null);
+  // Real incident, 2026-08-18: this was a bare single-attempt
+  // `.catch(() => null)`. FMP rate-limited a contiguous block of ~31
+  // symbols mid-run (alphabetically M-S, since the universe is processed
+  // in ticker order) and every one silently wrote a row with ALL
+  // fundamentals null — indistinguishable from a company that genuinely
+  // has no fundamentals data — while the run still reported
+  // "computed: 100, failed: 0". Worse, those degraded rows became the
+  // "latest" row per symbol, so downstream Phase 7 scoring read nulls for
+  // NVDA/MSFT/META, which demonstrably HAD real fundamentals minutes
+  // earlier. Fixed per spec section 33 (retry once before declaring a
+  // provider field unavailable) — and the caller now reports the real
+  // fundamentals-coverage count instead of hiding it behind "failed: 0".
+  let fundamentals = await fetchFmpFundamentals(symbol, fmpKey).catch(() => null);
+  if (!fundamentals) {
+    await sleep(1200);
+    fundamentals = await fetchFmpFundamentals(symbol, fmpKey).catch(() => null);
+  }
 
   const sources = {};
   const note = (field, ok, provider) => { sources[field] = ok ? { source: provider, timestamp: new Date().toISOString(), confidence: "high" } : { source: null, confidence: "unavailable" }; };
@@ -193,6 +209,10 @@ async function computeMetricsForSymbol(symbol, quote, bars, spyCloses, fmpKey) {
     ev_ebitda: fundamentals?.evToEbitda ?? null,
     fcf_yield: fundamentals?.fcfYield ?? null,
     sources,
+    // Not a DB column — a real per-symbol flag the caller uses to report
+    // honest fundamentals coverage instead of counting a degraded row as
+    // a clean success (see the retry comment above).
+    _fundamentalsOk: !!fundamentals,
   };
 }
 
@@ -248,7 +268,7 @@ async function runQuantScreen(symbols) {
         const bars = await fetchYahooBars(sym, "1y", "1d").catch(() => null);
         const metrics = await computeMetricsForSymbol(sym, quoteBySymbol.get(sym), bars, spyCloses, FMP_API_KEY);
         await upsertQuantMetrics(pool, metrics);
-        return { symbol: sym, ok: true };
+        return { symbol: sym, ok: true, fundamentalsOk: metrics._fundamentalsOk, barsOk: Array.isArray(bars) && bars.length > 0 };
       } catch (e) {
         return { symbol: sym, ok: false, reason: String((e && e.message) || e) };
       }
@@ -257,7 +277,21 @@ async function runQuantScreen(symbols) {
     if (i + BATCH_SIZE < uniq.length) await sleep(BATCH_DELAY_MS);
   }
   const ok = results.filter((r) => r.ok);
-  return { requested: uniq.length, computed: ok.length, failed: results.length - ok.length, failedDetail: results.filter((r) => !r.ok) };
+  const noFundamentals = ok.filter((r) => !r.fundamentalsOk).map((r) => r.symbol);
+  const noBars = ok.filter((r) => !r.barsOk).map((r) => r.symbol);
+  return {
+    requested: uniq.length,
+    computed: ok.length,
+    failed: results.length - ok.length,
+    failedDetail: results.filter((r) => !r.ok),
+    // Real data-coverage reporting — a row written with null fundamentals
+    // is NOT a clean success, and hiding that behind "failed: 0" is what
+    // let the 2026-08-18 rate-limit incident go unnoticed until Phase 7
+    // surfaced it downstream.
+    withFundamentals: ok.length - noFundamentals.length,
+    missingFundamentals: noFundamentals,
+    missingBars: noBars,
+  };
 }
 
 async function getLatestQuantMetrics() {
