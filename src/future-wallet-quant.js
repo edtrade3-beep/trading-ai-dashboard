@@ -131,7 +131,16 @@ async function computeMetricsForSymbol(symbol, quote, bars, spyCloses, fmpKey) {
   const { high: hi52, low: lo52 } = week52HighLow(bars || []);
   const rsiVal = closes.length > 14 ? computeRSI(closes, 14) : null;
   const atrVal = atr(bars || []);
-  const volRatio = volumeRatio(Number(quote?.volume), Number(quote?.avgVolume));
+  // quote.avgVolume is a known real gap — this app's own quote aggregator
+  // never populates it for Alpaca-covered symbols (see the same real note
+  // in axiom-runner/components/trading-utils.js's computeRvol). Real
+  // fallback: compute a genuine 50-day average from the bars already
+  // fetched here, same "use real bars data instead of going dark" pattern
+  // that function already established — not a new workaround invented here.
+  const avgVolFromBars = Array.isArray(bars) && bars.length >= 50
+    ? bars.slice(-50).reduce((s, b) => s + (b.volume || 0), 0) / 50
+    : null;
+  const volRatio = volumeRatio(Number(quote?.volume) || (lastBar ? lastBar.volume : null), Number(quote?.avgVolume) || avgVolFromBars);
   const mom = momentum3m(closes);
   const trendScore = trendScoreFromStack(price, ma50, ma100, ma200);
   const vol = volatility(closes);
@@ -151,7 +160,7 @@ async function computeMetricsForSymbol(symbol, quote, bars, spyCloses, fmpKey) {
     price: price ?? null,
     market_cap: Number(quote?.marketCap) || Number(fundamentals?.marketCap) || null,
     volume: Number(quote?.volume) || null,
-    avg_volume: Number(quote?.avgVolume) || null,
+    avg_volume: Number(quote?.avgVolume) || avgVolFromBars,
     atr: atrVal, rsi: rsiVal, ma50, ma100, ma200,
     relative_strength: rs,
     week52_high: hi52, week52_low: lo52,
