@@ -218,6 +218,14 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   // is NOT part of this toggle (it lives in the dTab sub-nav content below,
   // which stays expanded) — only the extra score cards collapse.
   const [showSupportingDetail, setShowSupportingDetail] = useState(false);
+  // Zone 3 "Market Snapshot" — collapsed by default (2026-08-18, workspace
+  // simplification audit): this block renders unconditionally below every
+  // dTab sub-tab (Chart/Smart Scan/Options Flow/etc.), so it looked
+  // identically repeated across all 9 sub-tabs in user screenshots. Its
+  // index quotes (SPY/QQQ/DIA) also duplicate the app's own persistent top
+  // ticker strip. Same collapse-by-default pattern as showMoversZone — real
+  // content, still one click away, just not force-visible on every tab.
+  const [showMarketSnapshot, setShowMarketSnapshot] = useState(false);
   const [chartTf, setChartTf] = useState("1d"); // chart candle granularity, 5m → 1wk
   // Trend & Base Rating overlay visibility (2026-08-06, explicit user
   // request "make trend base rating hidable") — persisted so a user who
@@ -1670,7 +1678,14 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
         Track — the other performance/risk-health cards it belongs with),
         since this page is for browsing charts, not tracking your P&L. */}
     <div style={{ marginTop: 14 }}>
-      <SectionHeader icon="🌍" label="Market Snapshot" />
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+        <div style={{ flex: 1 }}><SectionHeader icon="🌍" label="Market Snapshot" /></div>
+        <button onClick={() => setShowMarketSnapshot(v => !v)}
+          style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.accent, background: "transparent", border: `1px solid ${C.accent}55`, borderRadius: 6, padding: "3px 9px", cursor: "pointer", whiteSpace: "nowrap", marginTop: -6 }}>
+          {showMarketSnapshot ? "Hide ▴" : "Show ▾"}
+        </button>
+      </div>
+      {showMarketSnapshot && <>
       <MarketPulseBar C={C} MONO={MONO} SANS={SANS} />
       <SentimentRow C={C} MONO={MONO} SANS={SANS} />
       <SectorHeatStrip sectorData={sectorData} C={C} MONO={MONO} SANS={SANS} />
@@ -1681,6 +1696,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
           per-symbol movers list above the chart. */}
       <COTPanel C={C} MONO={MONO} SANS={SANS} />
       <PredictionMarkets C={C} MONO={MONO} SANS={SANS} />
+      </>}
     </div>
     {explain && <AiScoreExplainer C={C} MONO={MONO} SANS={SANS} symbol={explain.symbol} aplus={explain.aplus} dimensions={explain.dimensions} label={explain.label} onClose={() => setExplain(null)} />}
     </div>
