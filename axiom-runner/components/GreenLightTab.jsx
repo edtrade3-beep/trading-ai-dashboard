@@ -31,8 +31,19 @@ function DayTradeRow({ r, C, MONO, SANS, num, badge, neutralCard, accentCard, se
             <span style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 700, color: r.chg >= 0 ? C.green : C.red, ...num }}>{r.chg >= 0 ? "+" : ""}{r.chg.toFixed(2)}%</span>
             <span style={badge(r.grade === "ELITE" ? "#7c3aed" : r.grade === "A+" ? "#16a34a" : r.grade === "GOOD" ? C.green : r.grade === "WATCH" ? C.amber : C.red, true)}>{r.grade} {r.quality}</span>
             {r.rvol >= 1.5 && <span style={badge(C.amber)}>VOL {r.rvol.toFixed(1)}x</span>}
-            {r.atEntry ? <span style={badge(C.green)}>at breakout</span> : <span style={badge(C.amber)}>{r.entryNote}</span>}
+            <span style={badge(
+                r.entryTriggerStatus === "CONFIRMED" ? C.green :
+                r.entryTriggerStatus === "APPROACHING" ? C.amber :
+                r.entryTriggerStatus === "INVALIDATED" ? C.red : C.textDim
+              )}>
+              {r.entryTriggerStatus === "CONFIRMED" ? "✓ CONFIRMED" :
+               r.entryTriggerStatus === "APPROACHING" ? "↗ APPROACHING" :
+               r.entryTriggerStatus === "INVALIDATED" ? "✕ INVALIDATED" : "⏳ NOT READY"}
+            </span>
           </div>
+          {r.signalReason && (
+            <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginBottom: 8, lineHeight: 1.4 }}>{r.signalReason}</div>
+          )}
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             {r.checks.map((c, i) => (
               <span key={i} title={c.tip} style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: c.pass ? C.green : C.red,
@@ -314,6 +325,23 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
   // just filtered to symbols=<watchlist> instead of its 100+ universe. ──
   const [glMode, setGlMode] = useState(() => { try { return localStorage.getItem("gl_mode") || "swing"; } catch { return "swing"; } });
   const setMode = (m) => { setGlMode(m); try { localStorage.setItem("gl_mode", m); } catch {} };
+  // Server-persisted minimum quality score to trade (2026-08-19, "Fix
+  // Trading Signal Logic" spec) — same threshold Light Box and the
+  // Telegram alert read via getMinBuyScore(); fetched once on mount so
+  // this client stays in sync with whatever was last saved, and updated
+  // optimistically (local state first, POST in the background) so the
+  // input feels instant.
+  const [minBuyScore, setMinBuyScoreState] = useState(60);
+  useEffect(() => {
+    fetch("/api/market/daytrade-config").then(r => r.json())
+      .then(d => { if (d?.ok && Number.isFinite(d.minBuyScore)) setMinBuyScoreState(d.minBuyScore); })
+      .catch(() => {});
+  }, []);
+  const updateMinBuyScore = (n) => {
+    const clamped = Math.max(0, Math.min(100, Math.round(Number(n) || 0)));
+    setMinBuyScoreState(clamped);
+    fetch("/api/market/daytrade-config", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ minBuyScore: clamped }) }).catch(() => {});
+  };
   const [dtRows, setDtRows] = useState([]);
   const [dtState, setDtState] = useState("idle");
   useEffect(() => {
@@ -329,7 +357,7 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
     const t = setInterval(scan, 60000);
     return () => { cancelled = true; clearInterval(t); };
   }, [glMode, wlSymsKey]);
-  const dtResults = dtRows.map(row => computeDayTradeSignal(row, spyChg)).filter(Boolean).sort((a, b) => b.quality - a.quality);
+  const dtResults = dtRows.map(row => computeDayTradeSignal(row, spyChg, { minBuyScore })).filter(Boolean).sort((a, b) => b.quality - a.quality);
   const dtGreen = dtResults.filter(r => r.signal === "GREEN");
   const dtYellow = dtResults.filter(r => r.signal === "YELLOW");
   const dtRed = dtResults.filter(r => r.signal === "RED");
@@ -1089,6 +1117,13 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
               {marketSession === "REGULAR" && flattenCountdown && (
                 <div style={{ fontFamily: MONO, fontSize: 10.5, color: C.amber, marginTop: 2, fontWeight: 700 }}>⏱ {flattenCountdown} — every open day trade auto-closes at 3:55 PM ET, win or lose</div>
               )}
+            </div>
+            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }} title="Minimum setup quality required before a signal can go GREEN (BUY) — same threshold Light Box and the Telegram alert use">
+              <label style={{ fontFamily: MONO, fontSize: 10.5, color: C.textDim, fontWeight: 700 }}>MIN BUY SCORE</label>
+              <input type="number" min={0} max={100} value={minBuyScore}
+                onChange={(e) => updateMinBuyScore(e.target.value)}
+                style={{ width: 56, fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text, background: C.bg,
+                  border: `1px solid ${C.border}`, borderRadius: 5, padding: "4px 6px", textAlign: "center" }} />
             </div>
           </div>
 

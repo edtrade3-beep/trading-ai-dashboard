@@ -1064,11 +1064,12 @@ console.log("Checking institutional-redesign presentation-layer modules (ESM, lo
   const DAYTRADE_PARITY_FIELDS = [
     "px", "chg", "passed", "signal", "tradeable", "bestEntry", "entryNote", "atEntry",
     "stop", "target", "rr", "rrPass", "quality", "grade", "qualifiesAPlus", "marketPass",
+    "entryTriggerStatus", "direction", "signalReason",
   ];
-  const assertDayTradeParity = (label, row, spyChg) => {
+  const assertDayTradeParity = (label, row, spyChg, extra) => {
     ok(`day-trade-calc.js parity: ${label}`, () => {
-      const client = computeDayTradeSignal(row, spyChg);
-      const server = computeDayTradeSignalServer(row, spyChg);
+      const client = computeDayTradeSignal(row, spyChg, extra);
+      const server = computeDayTradeSignalServer(row, spyChg, extra);
       for (const f of DAYTRADE_PARITY_FIELDS) {
         assert.deepStrictEqual(server[f], client[f], `field "${f}" diverged — client=${JSON.stringify(client[f])} server=${JSON.stringify(server[f])}`);
       }
@@ -1088,6 +1089,93 @@ console.log("Checking institutional-redesign presentation-layer modules (ESM, lo
     "borderline YELLOW row (3 of 5 checks pass)",
     { symbol: "ABC", price: 60.0, vwap: 59.5, rvol: 1.8, aboveVwap: true, orBreakout: false, orHigh: 60.4, bull15: true, closeStrong: true, chgPct: 0.4, score: 55 },
     0.1
+  );
+
+  // ── "Fix Trading Signal Logic — A+ Score vs Entry Trigger" (2026-08-19) —
+  // validation-table cases straight from the user's own spec: a high setup
+  // score alone must never auto-BUY, a real confirmed trigger can BUY even
+  // at a lower score, an invalidated/mixed/below-threshold setup must never
+  // BUY regardless of score. Each row below is a real, hand-verified
+  // computeDayTradeSignal() output (not a guessed shape) — see the probe
+  // scripts run during development. assertDayTradeParity also gives each
+  // case a free client/server drift check on top of the outcome assertion.
+  const strongBullishRow = (overrides) => Object.assign({
+    symbol: "TEST", price: 100, vwap: 98, rvol: 2.2, aboveVwap: true, orBreakout: true, orHigh: 99.5, orLow: 97,
+    bull15: true, closeStrong: true, chgPct: 2.5, score: 80,
+    ema9: 100.2, ema21: 99.5, ema50: 98, rsi15m: 65, roc15m: 1.5, macdHistogram15m: 0.4,
+    priceAction: { higherHighs: true, higherLows: true, breakout: true, breakdown: false, retest: true, failedBreakout: false, failedBreakdown: null },
+  }, overrides);
+
+  const assertSignal = (label, row, spyChg, extra, expected) => {
+    ok(`signal logic: ${label}`, () => {
+      const result = computeDayTradeSignalServer(row, spyChg, extra);
+      assert.strictEqual(result.signal, expected.signal, `signal — got ${result.signal}, quality=${result.quality}, trigger=${result.entryTriggerStatus}, direction=${result.direction}`);
+      if (expected.entryTriggerStatus) assert.strictEqual(result.entryTriggerStatus, expected.entryTriggerStatus, "entryTriggerStatus");
+      if (expected.direction) assert.strictEqual(result.direction, expected.direction, "direction");
+      assert.ok(result.signalReason && result.signalReason.length > 0, "signalReason must always be a non-empty explanation");
+    });
+    assertDayTradeParity(`${label} (parity)`, row, spyChg, extra);
+  };
+
+  // 1. MA-style: real quality (61, GOOD), but no breakout/retest and thin
+  //    volume — trigger is NOT_READY, so a high-ish score must NOT auto-BUY.
+  assertSignal(
+    "high quality but NOT_READY trigger never auto-BUYs",
+    strongBullishRow({ symbol: "MA", orBreakout: false, aboveVwap: true, rvol: 0.75,
+      priceAction: { higherHighs: true, higherLows: true, breakout: false, breakdown: false, retest: false, failedBreakout: false, failedBreakdown: null } }),
+    0.2, undefined,
+    { signal: "YELLOW", entryTriggerStatus: "NOT_READY", direction: "BULLISH" }
+  );
+
+  // 2. AMZN-style: moderate quality (73) but a real confirmed OR breakout —
+  //    proves a lower score CAN still BUY with a genuine confirmed trigger.
+  assertSignal(
+    "moderate quality with CONFIRMED trigger can BUY",
+    strongBullishRow({ symbol: "AMZN", rvol: 1.8, orBreakout: true, aboveVwap: true, score: 65 }),
+    0.2, undefined,
+    { signal: "GREEN", entryTriggerStatus: "CONFIRMED", direction: "BULLISH" }
+  );
+
+  // 3. Same confirmed-trigger row as #2, but with the configurable
+  //    MIN_BUY_SCORE raised above its quality (73 < 80) — proves the
+  //    threshold gate overrides a confirmed trigger, and that it's real
+  //    and wired, not decorative.
+  assertSignal(
+    "CONFIRMED trigger still can't BUY below a raised MIN_BUY_SCORE",
+    strongBullishRow({ symbol: "AMZN", rvol: 1.8, orBreakout: true, aboveVwap: true, score: 65 }),
+    0.2, { minBuyScore: 80 },
+    { signal: "RED", entryTriggerStatus: "CONFIRMED", direction: "BULLISH" }
+  );
+
+  // 4. A real breakout that failed (failedBreakout: true) — invalidated
+  //    setups must never BUY regardless of how high the score is.
+  assertSignal(
+    "invalidated (failed breakout) setup never BUYs",
+    strongBullishRow({ symbol: "INV", orBreakout: true, aboveVwap: true, rvol: 2,
+      priceAction: { higherHighs: true, higherLows: false, breakout: false, breakdown: false, retest: false, failedBreakout: true, failedBreakdown: null } }),
+    0.2, undefined,
+    { signal: "RED", entryTriggerStatus: "INVALIDATED", direction: "BULLISH" }
+  );
+
+  // 5. Real retest in progress but no confirmed breakout yet — APPROACHING,
+  //    a strong setup that's still waiting, not a BUY yet.
+  assertSignal(
+    "APPROACHING trigger waits, doesn't BUY",
+    strongBullishRow({ symbol: "APP", orBreakout: false, aboveVwap: true, rvol: 1.0,
+      priceAction: { higherHighs: true, higherLows: true, breakout: false, breakdown: false, retest: true, failedBreakout: false, failedBreakdown: null } }),
+    0.2, undefined,
+    { signal: "YELLOW", entryTriggerStatus: "APPROACHING", direction: "BULLISH" }
+  );
+
+  // 6. Genuinely mixed real signals (below VWAP, thin volume, weak 15m
+  //    stack, but an OR breakout) — no clear directional edge, must WAIT.
+  assertSignal(
+    "MIXED direction always WAITs",
+    strongBullishRow({ symbol: "MIX", orBreakout: true, aboveVwap: false, rvol: 0.5, bull15: false, closeStrong: false,
+      rsi15m: 50, roc15m: -0.2, macdHistogram15m: -0.1,
+      priceAction: { higherHighs: false, higherLows: true, breakout: true, breakdown: false, retest: false, failedBreakout: false, failedBreakdown: null } }),
+    0.2, undefined,
+    { signal: "YELLOW", direction: "MIXED" }
   );
 
   console.log(`\n${passed} checks passed.`);

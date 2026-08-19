@@ -19,6 +19,7 @@ const { ROOT, resolveProviderKeys } = require("./config");
 const { writeJsonAtomic, readJsonSafe } = require("./atomic-write");
 const { loadWatchlist } = require("./routes/watchlist");
 const { computeDayTradeSignal } = require("./day-trade-calc");
+const { getMinBuyScore } = require("./day-trade-signal-store");
 const { stepSymbol } = require("./lightbox-engine");
 const { LIGHTBOX_DEFAULTS, SIGNAL_TO_STATE } = require("./lightbox-config");
 
@@ -170,10 +171,15 @@ async function tickLightBox() {
   const newTransitions = [];
   const nowIso = new Date().toISOString();
 
+  // Real, configurable quality gate (2026-08-19, "Fix Trading Signal
+  // Logic" spec) — same threshold every other real caller reads, so Light
+  // Box's BUY/WAIT/SELL state stays consistent with Green Light's and the
+  // Telegram alert's.
+  const minBuyScore = getMinBuyScore();
   for (const row of scanResult.rows || []) {
     const sectorEtf = etfOf(row.symbol);
     const tq = getTrendQuality(row.symbol);
-    const extra = { qqqChg, sectorChg: sectorEtf ? sectorChgByEtf.get(sectorEtf) ?? null : null, trendLabel: tq.trendLabel, vcpVerdict: tq.vcpVerdict };
+    const extra = { qqqChg, sectorChg: sectorEtf ? sectorChgByEtf.get(sectorEtf) ?? null : null, trendLabel: tq.trendLabel, vcpVerdict: tq.vcpVerdict, minBuyScore };
     const dt = computeDayTradeSignal(row, spyChg, extra);
     if (!dt) continue;
     const symbol = dt.symbol;

@@ -18,6 +18,7 @@ const { pushDigestLines } = require("./alert-buffer");
 const { loadWatchlist } = require("./routes/watchlist");
 const { isMarketHoursET } = require("./risk-guardrails");
 const { computeDayTradeSignal } = require("./day-trade-calc");
+const { getMinBuyScore } = require("./day-trade-signal-store");
 
 const STORE_PATH = path.join(ROOT, "data", "watchlist-daytrade-state.json");
 
@@ -53,9 +54,15 @@ async function checkWatchlistDayTradeAlerts() {
   const prev = loadState();
   const next = { ...prev };
   const alerts = [];
+  // Real, configurable quality gate (2026-08-19, "Fix Trading Signal
+  // Logic" spec) — GREEN now already requires quality>=minBuyScore inside
+  // computeDayTradeSignal itself, so this alert automatically inherits
+  // the fix by passing the same real configured threshold every other
+  // caller uses, rather than needing its own separate check.
+  const minBuyScore = getMinBuyScore();
 
   for (const row of scanResult.rows || []) {
-    const dt = computeDayTradeSignal(row, spyChg);
+    const dt = computeDayTradeSignal(row, spyChg, { minBuyScore });
     if (!dt) continue;
     const symbol = dt.symbol;
     const last = prev[symbol] || {};

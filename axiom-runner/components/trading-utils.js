@@ -584,6 +584,30 @@ function dtComputeMasterScore(subscores) {
   return { score: Math.round(weighted / weightAvailable) };
 }
 
+// Real, configurable default — hand-mirrors src/day-trade-config.js's
+// DAY_TRADE_DEFAULTS.minBuyScore (a plain constant, not require()-able
+// across the server/client boundary, so duplicated here same as every
+// other formula on this page — see the file's own top-of-section comment
+// on the "keep byte-identical" discipline).
+const DT_MIN_BUY_SCORE_DEFAULT = 60;
+
+// Entry Trigger classifier (2026-08-19, "Fix Trading Signal Logic — A+
+// Score vs Entry Trigger", explicit user request) — hand-ported twin of
+// src/day-trade-calc.js's classifyEntryTrigger, byte-identical logic.
+function dtClassifyEntryTrigger({ orBreakout, aboveVwap, rvol, priceAction, direction }) {
+  const pa = priceAction || {};
+  if (direction === "BEARISH") {
+    if (pa.failedBreakdown) return "INVALIDATED";
+    if (pa.breakdown && !aboveVwap && rvol >= 1) return "CONFIRMED";
+    if (pa.retest || (!aboveVwap && rvol >= 0.8)) return "APPROACHING";
+    return "NOT_READY";
+  }
+  if (pa.failedBreakout) return "INVALIDATED";
+  if (orBreakout && aboveVwap && rvol >= 1.5) return "CONFIRMED";
+  if (pa.retest || pa.breakout || (aboveVwap && rvol >= 0.8)) return "APPROACHING";
+  return "NOT_READY";
+}
+
 // Market dimension proxy from SPY alone — see day-trade-calc.js's
 // marketScoreFromSpy for why the full 5-factor computeRegime isn't used
 // at this reduced-context call site (missing QQQ/VIX would otherwise
@@ -641,7 +665,15 @@ export function computeDayTradeSignal(row, spyChg, extra = {}) {
   const subscores = { orb: orb.score, vwap: vwapScore, momentum: momentumScore, volume: volumeScore, relativeStrength: rs.score, market: marketScore, priceAction: priceActionScore, minervini: minerviniScore, vcp: vcpScore };
   const mixed = dtComputeMixedSignals(subscores);
   const master = dtComputeMasterScore(subscores);
-  const signal = mixed.verdict === "BULLISH" ? "GREEN" : mixed.verdict === "BEARISH" ? "RED" : "YELLOW";
+  // Real setup direction — see src/day-trade-calc.js's matching comment.
+  const direction = mixed.verdict;
+
+  // Direction-corrected Setup Quality — hand-ported twin of
+  // src/day-trade-calc.js's identical fix, see its comment for the real
+  // bug this closes (a bearish setup showing an un-inverted "ELITE 99").
+  const rawQuality = master.score != null ? master.score : Math.max(0, Math.min(100, Math.round(Number(row?.score) || 0)));
+  const quality = direction === "BEARISH" ? Math.max(0, Math.min(100, 100 - rawQuality)) : rawQuality;
+  const grade = quality >= 90 ? "ELITE" : quality >= 75 ? "A+" : quality >= 60 ? "GOOD" : quality >= 45 ? "WATCH" : "IGNORE";
 
   // ── Fast, tight, same-session levels — NOT the swing system's ATR/+5%/
   // +10% multi-day math. Stop = just below VWAP (the standard intraday
@@ -652,20 +684,48 @@ export function computeDayTradeSignal(row, spyChg, extra = {}) {
   const riskDist = Math.max(0.01, px - stop);
   const target = +(px + riskDist * 1.5).toFixed(2);
   const rr = +((target - px) / riskDist).toFixed(1);
+  const rrPass = rr >= 1.2;
+  const marketPass = spyChg > -0.5;
 
   const bestEntry = orBreakout ? px : (Number(row?.orHigh) || px);
   const entryNote = orBreakout ? "at breakout ✅" : "wait for OR breakout";
   const atEntry = orBreakout;
 
-  const quality = master.score != null ? master.score : Math.max(0, Math.min(100, Math.round(Number(row?.score) || 0)));
-  const grade = quality >= 90 ? "ELITE" : quality >= 75 ? "A+" : quality >= 60 ? "GOOD" : quality >= 45 ? "WATCH" : "IGNORE";
-  const marketPass = spyChg > -0.5;
-  const qualifiesAPlus = signal === "GREEN" && marketPass && atEntry;
+  // Entry Trigger — hand-ported twin, see src/day-trade-calc.js's comment.
+  const entryTriggerStatus = dtClassifyEntryTrigger({ orBreakout, aboveVwap, rvol, priceAction: row?.priceAction, direction });
+
+  // Final Signal — hand-ported twin, see src/day-trade-calc.js's comment
+  // for the full rationale (verified by hand against all 6 of the spec's
+  // contradiction-prevention examples).
+  const minBuyScore = Number.isFinite(extra?.minBuyScore) ? extra.minBuyScore : DT_MIN_BUY_SCORE_DEFAULT;
+  let signal, signalReason;
+  if (direction === "MIXED") {
+    signal = "YELLOW";
+    signalReason = "No clear directional edge yet — signals are mixed.";
+  } else if (quality < minBuyScore) {
+    signal = "RED";
+    signalReason = `Setup quality ${quality}/100 is below the minimum bar (${minBuyScore}) to trade.`;
+  } else if (entryTriggerStatus === "INVALIDATED") {
+    signal = "RED";
+    signalReason = "Setup invalidated — the breakout/breakdown failed.";
+  } else if (entryTriggerStatus === "CONFIRMED" && rrPass && marketPass) {
+    signal = "GREEN";
+    signalReason = direction === "BEARISH" ? "Breakdown confirmed and entry conditions are active." : "Opening-range breakout confirmed and entry conditions are active.";
+  } else if (entryTriggerStatus === "CONFIRMED") {
+    signal = "YELLOW";
+    signalReason = !marketPass ? "Entry confirmed, but the broader market isn't supportive right now." : "Entry confirmed, but risk/reward isn't favorable enough yet.";
+  } else {
+    signal = "YELLOW";
+    signalReason = `Strong setup — waiting for ${direction === "BEARISH" ? "breakdown" : "breakout"} confirmation.`;
+  }
+
+  const qualifiesAPlus = signal === "GREEN" && marketPass && entryTriggerStatus === "CONFIRMED";
 
   return {
     symbol: row.symbol, px, chg: Number(row?.chgPct || 0), checks, passed, signal,
     tradeable: signal === "GREEN", bestEntry: +bestEntry.toFixed(2), entryNote, atEntry,
-    stop, target, rr, rrPass: rr >= 1.2, quality, grade, qualifiesAPlus, marketPass,
+    stop, target, rr, rrPass, quality, grade, qualifiesAPlus, marketPass,
+    direction, entryTriggerStatus, signalReason, minBuyScore,
     vwap, rvol, orHigh: row?.orHigh ?? null, orLow: row?.orLow ?? null, orBreakout, bull15, closeStrong,
     // Real indicator readout — same 15-min EMA9/21/50 the Day Trade Scanner
     // already computes server-side, threaded through so Green Light's Day

@@ -2836,6 +2836,24 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
     }
   }
 
+  // Real, configurable MIN_BUY_SCORE (2026-08-19, "Fix Trading Signal
+  // Logic — A+ Score vs Entry Trigger" spec) — GET reads the current
+  // threshold, POST persists a new one. Same real "small dedicated store,
+  // not the generic settings.json" pattern already proven by Light Box's
+  // own ?confirmBars= handling below — nothing today reads
+  // data/settings.json from a background job, so a value the Telegram
+  // alert/Light Box tick both need to read has to live in its own store.
+  if (pathname === "/api/market/daytrade-config" && req.method === "GET") {
+    const { getMinBuyScore } = require("../day-trade-signal-store");
+    return writeJson(res, 200, { ok: true, minBuyScore: getMinBuyScore() });
+  }
+  if (pathname === "/api/market/daytrade-config" && req.method === "POST") {
+    const { setMinBuyScore } = require("../day-trade-signal-store");
+    let body; try { body = JSON.parse((await readRequestBody(req)) || "{}"); } catch { body = {}; }
+    const minBuyScore = setMinBuyScore(body?.minBuyScore);
+    return writeJson(res, 200, { ok: true, minBuyScore });
+  }
+
   // Day-trade scanner: intraday momentum from Alpaca 5-min bars — gap %, RVOL,
   // VWAP position, and opening-range breakout. Cached 90s.
   if (pathname === "/api/market/daytrade-scan") {
