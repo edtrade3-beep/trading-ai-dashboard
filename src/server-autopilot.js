@@ -73,7 +73,15 @@ async function runServerAutopilot() {
   const positions = (posR && posR.ok && Array.isArray(posR.data)) ? posR.data : [];
   const normPositions = positions.map(p => ({ symbol: p.symbol, qty: p.qty, avgEntryPrice: p.avg_entry_price }));
   const held = new Set(positions.map(p => p.symbol));
-  const maxPos = Number(process.env.SERVER_AUTOPILOT_MAXPOS) || 12;
+  // Raised 12->20 (2026-08-19, real user report: "not having lots of
+  // trades" — confirmed live in production the account had sat pinned at
+  // exactly 12/12 positions since 2026-07-23, ~4 weeks, silently blocking
+  // every single tick before it even looked at the watchlist, regardless
+  // of how many good Tier A/B setups existed. Safe to raise: aggregate
+  // risk is still independently capped by openRiskPct below (6% of
+  // equity) and per-sector by maxPerSector — this cap was blocking trade
+  // COUNT specifically, not exposure.
+  const maxPos = Number(process.env.SERVER_AUTOPILOT_MAXPOS) || 20;
   if (positions.length >= maxPos) return;
 
   // Total open-risk ceiling (Σ |qty|×entry×5% assumed stop) ≤ 6% of equity.
