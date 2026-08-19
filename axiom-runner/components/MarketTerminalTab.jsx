@@ -135,6 +135,57 @@ function SectionHeaderStandalone({ icon, label, C, SANS }) {
     </div>
   );
 }
+
+// Section header — same treatment for every section on this page. Module-
+// level (2026-08-19 real bug fix — was previously defined INSIDE
+// MarketTerminalTab's render body, which meant React saw a brand-new
+// component function on every single render and unmounted+remounted every
+// <SectionHeader> instance each time, same real bug AccordionSection below
+// had, just harmless here since this one has no children/effects of its
+// own). `tone` defaults to the brand accent; "gold" is reserved for AI
+// SUMMARY only (theme.js's documented gold contract).
+function SectionHeader({ icon, label, tone, C, SANS }) {
+  const tc = tone === "gold" ? C.gold : C.accent;
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, paddingBottom: 7, marginBottom: 6, borderBottom: `2px solid ${tc}` }}>
+      <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 22, height: 22,
+        borderRadius: 6, background: `${tc}1c`, fontSize: 12, flexShrink: 0 }}>{icon}</span>
+      <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 900, letterSpacing: 0.3, color: C.text, textTransform: "uppercase" }}>{label}</span>
+    </div>
+  );
+}
+
+// One-section-open-at-a-time accordion wrapper (2026-08-19 reorg). Module-
+// level — REAL BUG FIX, 2026-08-19: this was originally defined INSIDE
+// MarketTerminalTab's render body (closing over `openSection`/
+// `setOpenSection` directly). That made it a brand-new component function
+// on every single render of the page, so React tore down and rebuilt the
+// ENTIRE open section's subtree (DecisionCard, MarketPulseBar, the chart,
+// everything) on every re-render — including refiring every child's mount-
+// time fetch (MarketPulseBar's SPY/QQQ/DIA + VIX/BTC calls, etc.) dozens of
+// times a second. That's the real cause of a live user report: "the whole
+// workspace is static[ally] flashing." Fixed by hoisting to module scope
+// with explicit props (same fix already applied to SectionHeader above,
+// same reason `SectionHeaderStandalone` already lived at module scope) —
+// a stable function reference now, so React correctly treats it as the
+// same component across renders and only re-renders (not remounts) it.
+function AccordionSection({ id, icon, label, summary, tone, children, C, MONO, SANS, openSection, setOpenSection }) {
+  const isOpen = openSection === id;
+  const tc = tone === "gold" ? C.gold : C.accent;
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <div onClick={() => setOpenSection(isOpen ? null : id)}
+        style={{ display: "flex", alignItems: "center", gap: 10, paddingBottom: 7, marginBottom: isOpen ? 10 : 0, borderBottom: `2px solid ${tc}`, cursor: "pointer" }}>
+        <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 22, height: 22,
+          borderRadius: 6, background: `${tc}1c`, fontSize: 12, flexShrink: 0 }}>{icon}</span>
+        <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 900, letterSpacing: 0.3, color: C.text, textTransform: "uppercase", flexShrink: 0 }}>{label}</span>
+        {!isOpen && summary && <span style={{ fontFamily: SANS, fontSize: 11.5, color: C.textDim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{summary}</span>}
+        <span style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.accent, flexShrink: 0 }}>{isOpen ? "▴ Close" : "▾ Open"}</span>
+      </div>
+      {isOpen && <PanelErrorBoundary label={label}>{children}</PanelErrorBoundary>}
+    </div>
+  );
+}
 import CompanyOverviewCard from "./CompanyOverviewCard.jsx";
 import { rhLoadJournal } from "./rhpro-journal.jsx";
 import TrendSetupPanel from "./TrendSetupPanel.jsx";
@@ -729,25 +780,10 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
     return null;
   })();
 
-  // Section header — same treatment for all 12 sections on this page (Chart /
-  // Movers & Watchlist / Market Snapshot) so a long page reads as clearly
-  // delineated chapters instead of one undifferentiated scroll. `tone`
-  // defaults to the brand accent (routine structural color, not a bull/bear
-  // signal — see theme.js's 4-color status system note); "gold" is reserved
-  // for AI SUMMARY only, matching theme.js's own documented gold contract
-  // ("marks the single highest-conviction idea on a page").
-  const SectionHeader = ({ icon, label, tone }) => {
-    const tc = tone === "gold" ? C.gold : C.accent;
-    return (
-      <div style={{ display: "flex", alignItems: "center", gap: 8, paddingBottom: 7, marginBottom: 6, borderBottom: `2px solid ${tc}` }}>
-        <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 22, height: 22,
-          borderRadius: 6, background: `${tc}1c`, fontSize: 12, flexShrink: 0 }}>{icon}</span>
-        <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 900, letterSpacing: 0.3, color: C.text, textTransform: "uppercase" }}>{label}</span>
-      </div>
-    );
-  };
-
-  // The 6-tier hierarchy, in reading order — also drives the breadcrumb.
+  // SectionHeader/AccordionSection are now module-level components (real
+  // remount-loop bug fix, 2026-08-19 — see their definitions near
+  // SectionHeaderStandalone above for why). Only the static section-order
+  // array stays here.
   const SECTIONS = [
     { id: "decision", label: "DECISION" },
     { id: "setup", label: "SETUP" },
@@ -756,31 +792,6 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
     { id: "business", label: "BUSINESS" },
     { id: "intelligence", label: "INTELLIGENCE" },
   ];
-
-  // One-section-open-at-a-time accordion wrapper (2026-08-19 reorg). Reuses
-  // SectionHeader's exact visual language for the label row; closed
-  // sections show a real one-line `summary` (built by the caller from
-  // already-computed values) instead of full content, so collapsing a
-  // section doesn't mean losing context on what's inside it. Each section's
-  // body is wrapped in its own PanelErrorBoundary (spec section 17 — one
-  // broken section must never take down the others).
-  const AccordionSection = ({ id, icon, label, summary, tone, children }) => {
-    const isOpen = openSection === id;
-    const tc = tone === "gold" ? C.gold : C.accent;
-    return (
-      <div style={{ marginBottom: 14 }}>
-        <div onClick={() => setOpenSection(isOpen ? null : id)}
-          style={{ display: "flex", alignItems: "center", gap: 10, paddingBottom: 7, marginBottom: isOpen ? 10 : 0, borderBottom: `2px solid ${tc}`, cursor: "pointer" }}>
-          <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 22, height: 22,
-            borderRadius: 6, background: `${tc}1c`, fontSize: 12, flexShrink: 0 }}>{icon}</span>
-          <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 900, letterSpacing: 0.3, color: C.text, textTransform: "uppercase", flexShrink: 0 }}>{label}</span>
-          {!isOpen && summary && <span style={{ fontFamily: SANS, fontSize: 11.5, color: C.textDim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{summary}</span>}
-          <span style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.accent, flexShrink: 0 }}>{isOpen ? "▴ Close" : "▾ Open"}</span>
-        </div>
-        {isOpen && <PanelErrorBoundary label={label}>{children}</PanelErrorBoundary>}
-      </div>
-    );
-  };
 
   // Decision Card inputs, hoisted out of JSX (2026-08-19 reorg) so both the
   // top summary strip and the DECISION section body read the same real
@@ -822,7 +833,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
           looks at the real app; this reflects the current one. ── */}
       <div style={{ width: "100%" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-          <div style={{ flex: 1 }}><SectionHeader icon="🔥" label="Movers & Watchlist" /></div>
+          <div style={{ flex: 1 }}><SectionHeader icon="🔥" label="Movers & Watchlist" C={C} SANS={SANS} /></div>
           <button onClick={() => setShowMoversZone(v => !v)}
             style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.accent, background: "transparent", border: `1px solid ${C.accent}55`, borderRadius: 6, padding: "3px 9px", cursor: "pointer", whiteSpace: "nowrap", marginTop: -6 }}>
             {showMoversZone ? "Hide ▴" : "Show ▾"}
@@ -996,7 +1007,8 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
 
         {/* ══════════════════════ DECISION (open by default) ══════════════════════ */}
         <AccordionSection id="decision" icon="🎯" label="Decision"
-          summary={decisionInputs ? `${decisionInputs.vLabel} · A+ ${aPlusScore ? aPlusScore.score : "—"} · Entry $${decisionInputs.su.entry} / Stop $${decisionInputs.su.stop} / Target $${decisionInputs.target1R}` : "Loading…"}>
+          summary={decisionInputs ? `${decisionInputs.vLabel} · A+ ${aPlusScore ? aPlusScore.score : "—"} · Entry $${decisionInputs.su.entry} / Stop $${decisionInputs.su.stop} / Target $${decisionInputs.target1R}` : "Loading…"}
+          C={C} MONO={MONO} SANS={SANS} openSection={openSection} setOpenSection={setOpenSection}>
         {/* ── Decision Card — minimal default view (2026-08-19, explicit
             user wireframe): verdict / A+ score / entry-stop-target /
             trend-volume-risk / market, built entirely from data already
@@ -1094,7 +1106,8 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
 
         {/* ══════════════════════ SETUP ══════════════════════ */}
         <AccordionSection id="setup" icon="📐" label="Setup"
-          summary={decisionInputs ? `Entry $${decisionInputs.su.entry} · Stop $${decisionInputs.su.stop} · Target $${decisionInputs.target1R}` : "—"}>
+          summary={decisionInputs ? `Entry $${decisionInputs.su.entry} · Stop $${decisionInputs.su.stop} · Target $${decisionInputs.target1R}` : "—"}
+          C={C} MONO={MONO} SANS={SANS} openSection={openSection} setOpenSection={setOpenSection}>
         {/* SECTION 2 — Execution Card (2026-08-04 decision-first redesign,
             explicit user spec) — real Entry/Stop/Targets (TrendSetupPanel,
             same _buildTrendTemplate pivot/stop/2R/3R every other real card
@@ -1114,7 +1127,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             so Trade Planner needed zero changes to receive it). */}
         {chart && (
           <div style={{ marginBottom: 14 }}>
-            <SectionHeader icon="🎯" label="EXECUTION" />
+            <SectionHeader icon="🎯" label="EXECUTION" C={C} SANS={SANS} />
             {/* Caption added here, not inside TrendSetupPanel itself
                 (2026-08-09, decision-clarity audit) — that component is
                 shared with DayTradeTab, where there's no Hero card above it
@@ -1218,7 +1231,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
         {checklistResult && (
           <div style={{ marginBottom: 14 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
-              <SectionHeader icon="✅" label="TRADE READINESS" />
+              <SectionHeader icon="✅" label="TRADE READINESS" C={C} SANS={SANS} />
               <span style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: checklistResult.passCount / checklistResult.total >= 0.75 ? C.green : checklistResult.passCount / checklistResult.total >= 0.45 ? C.amber : C.red }}>
                 {Math.round((checklistResult.passCount / checklistResult.total) * 100)}%
               </span>
@@ -1272,7 +1285,8 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
 
         {/* ══════════════════════ TECHNICAL ══════════════════════ */}
         <AccordionSection id="technical" icon="📈" label="Technical"
-          summary={chart && chart.stage ? `${chart.stage}${symTrend?.volRatio != null ? " · Vol " + symTrend.volRatio.toFixed(1) + "×" : ""}` : "Loading…"}>
+          summary={chart && chart.stage ? `${chart.stage}${symTrend?.volRatio != null ? " · Vol " + symTrend.volRatio.toFixed(1) + "×" : ""}` : "Loading…"}
+          C={C} MONO={MONO} SANS={SANS} openSection={openSection} setOpenSection={setOpenSection}>
         {chart && (
           <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
             {(() => {
@@ -1338,7 +1352,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             buildTrendTemplate for this), RVOL, 50-day MA. */}
         {sym && chart && (
           <div style={{ marginBottom: 14 }}>
-            <SectionHeader icon="🔄" label="EARLY IN / EARLY OUT" />
+            <SectionHeader icon="🔄" label="EARLY IN / EARLY OUT" C={C} SANS={SANS} />
             {(() => {
               const rd = computeReversalDetector({
                 price: chart.livePrice ?? chart.price,
@@ -1507,7 +1521,8 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
 
         {/* ══════════════════════ MARKET & CONTEXT ══════════════════════ */}
         <AccordionSection id="market" icon="🌍" label="Market & Context"
-          summary={`${regime.label}${symSectorInfo ? " · " + symSectorInfo.name + " #" + symSectorInfo.rank : ""}${institutionScore ? " · " + institutionScore.label : ""}`}>
+          summary={`${regime.label}${symSectorInfo ? " · " + symSectorInfo.name + " #" + symSectorInfo.rank : ""}${institutionScore ? " · " + institutionScore.label : ""}`}
+          C={C} MONO={MONO} SANS={SANS} openSection={openSection} setOpenSection={setOpenSection}>
         {/* Market/Sector — single real numbers with no sub-dimension
             breakdown, so they get a plain tooltip instead of the full
             AiScoreExplainer modal (unlike Technical/Timing in TECHNICAL). */}
@@ -1586,7 +1601,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             leaving the page. One real shared component, two mount sites —
             not a second, divergent copy. */}
         <div style={{ marginBottom: 14 }}>
-          <SectionHeader icon="🌍" label="MARKET CONTEXT" />
+          <SectionHeader icon="🌍" label="MARKET CONTEXT" C={C} SANS={SANS} />
           <MacroStatusStrip C={C} MONO={MONO} macroData={macroData} distData={distData} fred={macroFred} />
         </div>
         {/* SECTION 6 — Smart Money (moved back inline 2026-08-05 per
@@ -1600,7 +1615,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             Dark Pool evidence (SmartMoneyPanel.jsx) collapsed underneath. */}
         {chart && sym && (
           <div style={{ marginTop: 14, marginBottom: 14 }}>
-            <SectionHeader icon="🧱" label="SMART MONEY" />
+            <SectionHeader icon="🧱" label="SMART MONEY" C={C} SANS={SANS} />
             {/* heroAction (2026-08-09, decision-clarity audit) — this
                 panel used to compute its own separate headline verdict
                 server-side (computeNextAction + a ported copy of the
@@ -1629,7 +1644,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             than duplicating that real data a second time here. */}
         {chart && sym && (
           <div style={{ marginBottom: 14 }}>
-            <SectionHeader icon="📅" label="CATALYSTS" />
+            <SectionHeader icon="📅" label="CATALYSTS" C={C} SANS={SANS} />
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12 }}>
               <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 14px", background: C.card }}>
                 <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 6 }}>EARNINGS</div>
@@ -1668,7 +1683,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             (2026-08-19 reorg) instead of a separate block at the bottom of
             the page, so market-wide context has exactly one home. */}
         <div style={{ marginTop: 14 }}>
-          <SectionHeader icon="📡" label="MARKET SNAPSHOT" />
+          <SectionHeader icon="📡" label="MARKET SNAPSHOT" C={C} SANS={SANS} />
           <MarketPulseBar C={C} MONO={MONO} SANS={SANS} />
           <SentimentRow C={C} MONO={MONO} SANS={SANS} />
           <SectorHeatStrip sectorData={sectorData} C={C} MONO={MONO} SANS={SANS} />
@@ -1682,7 +1697,8 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
 
         {/* ══════════════════════ BUSINESS ══════════════════════ */}
         <AccordionSection id="business" icon="🏢" label="Business"
-          summary={`${fund && fund.name ? fund.name + " · " : ""}${topScores?.stockQuality ? "Quality " + (topScores.stockQuality.score ?? "—") : ""}`}>
+          summary={`${fund && fund.name ? fund.name + " · " : ""}${topScores?.stockQuality ? "Quality " + (topScores.stockQuality.score ?? "—") : ""}`}
+          C={C} MONO={MONO} SANS={SANS} openSection={openSection} setOpenSection={setOpenSection}>
         {/* Company Overview + Last Earnings (2026-08-05, explicit user
             request: "everything i need to know about company and last
             earning right underneath ticker and price and deep dive about
@@ -1726,7 +1742,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
         )}
         {sym && (
           <div>
-            <SectionHeader icon="📊" label="FUNDAMENTALS" />
+            <SectionHeader icon="📊" label="FUNDAMENTALS" C={C} SANS={SANS} />
             <FundamentalsPanel symbol={sym} C={C} MONO={MONO} SANS={SANS} />
             <span onClick={() => setDTab("valuation")} style={{ fontFamily: MONO, fontSize: 11, color: C.accent, cursor: "pointer", fontWeight: 700, display: "inline-block", marginTop: 8 }}>Full Fundamentals & Valuation →</span>
           </div>
@@ -1735,7 +1751,8 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
 
         {/* ══════════════════════ INTELLIGENCE ══════════════════════ */}
         <AccordionSection id="intelligence" icon="🧠" label="Intelligence" tone="gold"
-          summary={oneLiner || "AI analysis, history & research"}>
+          summary={oneLiner || "AI analysis, history & research"}
+          C={C} MONO={MONO} SANS={SANS} openSection={openSection} setOpenSection={setOpenSection}>
         {/* SECTION 3 — AI Summary (institutional redesign, 2026-07-29).
             Same real, free, deterministic BullBearPanel — splits the real
             Institutional Grade dimensions by which side of the case they
@@ -1743,7 +1760,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             bull/bear reason list by design — never a long generated essay. */}
         {chart && (
           <div style={{ marginBottom: 14 }}>
-            <SectionHeader icon="🧠" label="AI SUMMARY" tone="gold" />
+            <SectionHeader icon="🧠" label="AI SUMMARY" tone="gold" C={C} SANS={SANS} />
             <BullBearPanel symbol={sym} bullBear={bullBear} C={C} MONO={MONO} SANS={SANS} />
           </div>
         )}
