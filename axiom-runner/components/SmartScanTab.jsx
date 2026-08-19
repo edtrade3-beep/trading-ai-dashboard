@@ -910,7 +910,7 @@ export default function SmartScanTab({
                                   setScanShowFullAnalysis(false);
                                   loadDeepDive(row.ticker);
                                   loadDeepSocial(row.ticker);
-                                  setTimeout(() => fetchTradeSetup(row.ticker, row), 1200);
+                                  setTimeout(() => fetchTradeSetup(row.ticker, { ...row, cortexVerdict: cortexV?.verdict ?? null, cortexReason: cortexV?.reason ?? null, cortexScore: aplus.score ?? null }), 1200);
                                 }
                               }}
                               style={{
@@ -2418,7 +2418,7 @@ export default function SmartScanTab({
                                           </div>
                                           {!tradeSetups[row.ticker] && (
                                             <button
-                                              onClick={() => { if (!deepData) { loadDeepDive(row.ticker).then(() => fetchTradeSetup(row.ticker, row)); } else { fetchTradeSetup(row.ticker, row); } }}
+                                              onClick={() => { const rowWithCortex = { ...row, cortexVerdict: cortexV?.verdict ?? null, cortexReason: cortexV?.reason ?? null, cortexScore: aplus.score ?? null }; if (!deepData) { loadDeepDive(row.ticker).then(() => fetchTradeSetup(row.ticker, rowWithCortex)); } else { fetchTradeSetup(row.ticker, rowWithCortex); } }}
                                               disabled={tradeSetupLoad[row.ticker]}
                                               style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700,
                                                 background: tradeSetupLoad[row.ticker] ? C.surface : `${C.accent}18`,

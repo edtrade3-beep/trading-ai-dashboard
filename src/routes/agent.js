@@ -620,15 +620,44 @@ function reviewJournal(trades) {
 }
 
 // ── Trade setup (rule-based) ──────────────────────────────────────────────────
+// Cortex Verdict (AVOID/OVEREXTENDED/BUY ZONE/WATCH/WAIT, computeCortexVerdict
+// in cortex-engine.js) -> this panel's LONG/SHORT/NEUTRAL bias + conviction.
+// Cortex is long-only trend-following (no validated short signal in this
+// app — see the "AUTO TRADE" callout's own copy), so nothing here ever
+// maps to SHORT; AVOID means "no long entry here," not "go short."
+const CORTEX_TO_BIAS = {
+  "BUY ZONE": "LONG", WATCH: "LONG", WAIT: "NEUTRAL", OVEREXTENDED: "NEUTRAL", AVOID: "NEUTRAL",
+};
+const CORTEX_TO_CONVICTION = {
+  "BUY ZONE": "HIGH", WATCH: "MODERATE", WAIT: "LOW", OVEREXTENDED: "LOW", AVOID: "LOW",
+};
+
 function buildTradeSetup(body) {
   const { ticker, score, signal, signals = [], rsiVal, macdBull,
-          livePrice, liveChg, ref, fundamentals, news = [] } = body;
+          livePrice, liveChg, ref, fundamentals, news = [],
+          cortexVerdict, cortexReason, cortexScore } = body;
   const price = Number(livePrice || 0);
   const rsi   = Number(rsiVal || 50);
   const chg   = Number(liveChg || 0);
 
-  const bias = (score >= 70 || signal === "LONG") ? "LONG" : (score <= 30 || signal === "SHORT") ? "SHORT" : "NEUTRAL";
-  const conviction = score >= 80 ? "HIGH" : score >= 60 ? "MODERATE" : "LOW";
+  // Real bug fixed 2026-08-19 (user report: Smart Scan's IONQ card showed
+  // FINAL VERDICT: WATCH (55/100), BIAS: LONG right next to the same row's
+  // Cortex Verdict AVOID (A+32) and the "AUTO TRADE — Cortex Verdict:
+  // AVOID" callout below it — three disagreeing verdicts on one card, same
+  // bug class the row SIGNAL badge and TECH column already got fixed for
+  // (2026-08-13/16). Cortex Verdict (computeCortexVerdict) is this app's
+  // one authoritative verdict function — the row badge and AUTO TRADE
+  // callout both already use it directly. When the caller passes it
+  // through (SmartScanTab.jsx does, computed once per row), use it as-is
+  // instead of re-deriving a second, disconnected verdict from a crude
+  // local trend-template re-score. Falls back to the old local formula
+  // only if some future caller doesn't pass Cortex context.
+  const hasCortex = typeof cortexVerdict === "string" && cortexVerdict.length > 0;
+
+  const bias = hasCortex ? (CORTEX_TO_BIAS[cortexVerdict] || "NEUTRAL")
+    : (score >= 70 || signal === "LONG") ? "LONG" : (score <= 30 || signal === "SHORT") ? "SHORT" : "NEUTRAL";
+  const conviction = hasCortex ? (CORTEX_TO_CONVICTION[cortexVerdict] || "LOW")
+    : score >= 80 ? "HIGH" : score >= 60 ? "MODERATE" : "LOW";
 
   const stop    = ref?.stop    || price * (bias === "LONG" ? 0.95 : 1.05);
   const target1 = ref?.trigger || price * (bias === "LONG" ? 1.08 : 0.92);
@@ -641,28 +670,48 @@ function buildTradeSetup(body) {
 
   const newsHeadlines = news.slice(0, 3).map(n => `• ${n.title || n.headline || ""}`).join("\n");
 
-  // Final Verdict using same 4-signal formula as frontend
-  const ma50  = Number(fundamentals?.priceAvg50  || body?.ema21v || 0);
-  const ma200 = Number(fundamentals?.priceAvg200 || 0);
-  const ttPx = [
-    (ma200 > 0 && price > ma200),
-    (ma50 > 0 && ma200 > 0 && ma50 > ma200),
-    (ma50 > 0 && price > ma50),
-    (rsi >= 55),
-    (bias === "LONG"),
-  ].filter(Boolean).length;
-  const ttScore = Math.round(ttPx / 5 * 100);
-  const macdScore2 = macdBull === true ? 72 : macdBull === false ? 30 : 50;
-  const fvComposite = Math.round((score||50)*0.35 + ttScore*0.35 + macdScore2*0.15 + 50*0.15);
-  const fvLabel = fvComposite >= 72 ? "A+ LONG" : fvComposite >= 62 ? "LONG" :
-                  fvComposite >= 53 ? "WATCH" : fvComposite >= 40 ? "AVOID" : "SHORT";
+  let fvComposite, fvLabel;
+  if (hasCortex) {
+    fvComposite = Number.isFinite(cortexScore) ? cortexScore : Math.round(Number(score) || 50);
+    fvLabel = cortexVerdict;
+  } else {
+    // Legacy fallback formula — same 4-signal re-score this panel always
+    // used before Cortex context was wired through. Kept only for a
+    // caller that doesn't supply cortexVerdict; SmartScanTab.jsx (the only
+    // known real caller) always does now. Known gap left as-is: fvLabel's
+    // own bands can independently land on "SHORT" while `bias` above was
+    // computed separately from raw score/signal thresholds, so this path
+    // can still show a mismatched FINAL VERDICT/BIAS pair — the same bug
+    // class this whole fix addresses, just not worth a deeper reorder for
+    // a path nothing currently reaches. Fix here too if a new caller ever
+    // needs this branch for real.
+    const ma50  = Number(fundamentals?.priceAvg50  || body?.ema21v || 0);
+    const ma200 = Number(fundamentals?.priceAvg200 || 0);
+    const ttPx = [
+      (ma200 > 0 && price > ma200),
+      (ma50 > 0 && ma200 > 0 && ma50 > ma200),
+      (ma50 > 0 && price > ma50),
+      (rsi >= 55),
+      (bias === "LONG"),
+    ].filter(Boolean).length;
+    const ttScore = Math.round(ttPx / 5 * 100);
+    const macdScore2 = macdBull === true ? 72 : macdBull === false ? 30 : 50;
+    fvComposite = Math.round((score||50)*0.35 + ttScore*0.35 + macdScore2*0.15 + 50*0.15);
+    fvLabel = fvComposite >= 72 ? "A+ LONG" : fvComposite >= 62 ? "LONG" :
+              fvComposite >= 53 ? "WATCH" : fvComposite >= 40 ? "AVOID" : "SHORT";
+  }
 
   const plan = [
     `TRADE SETUP — ${ticker.toUpperCase()}`,
     `${"═".repeat(40)}`,
     ``,
-    `FINAL VERDICT: ${fvLabel}  (${fvComposite}/100)`,
-    `BIAS: ${bias}  |  CONVICTION: ${conviction}  |  AI SCORE: ${score}/100`,
+    `FINAL VERDICT: ${fvLabel}  (${fvComposite}/100)${hasCortex ? "  — Cortex Verdict" : ""}`,
+    hasCortex && cortexReason ? `  ${cortexReason}` : "",
+    // Relabeled from "AI SCORE" (2026-08-19) — this is the same TECH-only
+    // score shown in the row's TECH column, not a second independent AI
+    // judgment; the old label read as competing with FINAL VERDICT above,
+    // which is exactly the confusion that prompted this whole fix.
+    `BIAS: ${bias}  |  CONVICTION: ${conviction}  |  TECH SCORE: ${score}/100`,
     ``,
     `ENTRY`,
     `  Primary entry:  $${fmt2(entry1)}`,
@@ -691,6 +740,10 @@ function buildTradeSetup(body) {
       ? `Enter ${ticker} long near $${fmt2(entry1)}. Stop below $${fmt2(stop)}. First target $${fmt2(target1)} (${fmt1(Math.abs(target1 - price) / price * 100)}% gain). Trail stop after 5% gain.`
       : bias === "SHORT"
       ? `Enter ${ticker} short near $${fmt2(entry1)}. Cover above $${fmt2(stop)}. First target $${fmt2(target1)} (${fmt1(Math.abs(target1 - price) / price * 100)}% down).`
+      // hasCortex ? real, specific reason instead of a generic "bias
+      // unclear" — Cortex reached an actual verdict (AVOID/OVEREXTENDED/
+      // WAIT), it just isn't a LONG entry, which isn't the same as "mixed."
+      : hasCortex ? `${cortexVerdict}${cortexReason ? `: ${cortexReason}.` : ""} No long entry justified here right now.`
       : `Mixed signals on ${ticker}. Wait for cleaner setup or reduce size. Bias unclear.`,
     ``,
     `Position sizing: Risk no more than 1-2% of portfolio on this trade.`,

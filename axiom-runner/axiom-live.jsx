@@ -3076,6 +3076,14 @@ export default function App() {
           ref:        row.ref,
           fundamentals: deep.fundamentals || null,
           news:         deep.news || [],
+          // Real Cortex Verdict context (2026-08-19 fix) — SmartScanTab.jsx
+          // attaches these onto `row` before calling fetchTradeSetup, so
+          // the server can use the SAME authoritative verdict the row
+          // badge and AUTO TRADE callout already show, instead of
+          // re-deriving a second, disconnected one.
+          cortexVerdict: row.cortexVerdict ?? null,
+          cortexReason:  row.cortexReason ?? null,
+          cortexScore:   row.cortexScore ?? null,
         }),
       });
       const data = await res.json();
