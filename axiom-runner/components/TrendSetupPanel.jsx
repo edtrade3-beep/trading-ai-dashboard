@@ -38,7 +38,15 @@ export default function TrendSetupPanel({ data, C, MONO, SANS }) {
   const passN = Number(data.score) || 0;
   const vColor = su.verdict === "GO" ? "#0d9465" : su.verdict === "WAIT" ? "#d6a312" : "#c8282a";
   const bl = (() => {
-    if (su.verdict === "GO") return `Buy candidate — ${passN}/8 pass and it's breaking out. Enter above ${su.entry} pivot, stop ${su.stop}.`;
+    // GO covers two real, distinct server-side cases (routes/market.js) that
+    // used to share one hardcoded "it's breaking out. Enter above $X" line —
+    // wrong when price has already cleared the pivot without volume
+    // confirmation (real bug: banner said "enter above" a level price was
+    // already 2%+ past, while Volume Confirmation showed a red X). Now only
+    // the actually-confirmed case gets "breaking out"; the unconfirmed case
+    // uses the server's own accurate verdictReason instead.
+    if (su.verdict === "GO" && su.breakoutConfirmed) return `Buy candidate — ${passN}/8 pass and it's breaking out. Enter above ${su.entry} pivot, stop ${su.stop}.`;
+    if (su.verdict === "GO") return `Buy candidate — ${su.verdictReason}. Pivot ${su.entry}, stop ${su.stop}.`;
     if (su.verdict === "WAIT" && passN >= 6) return `Strong trend (${passN}/8) but not at a buy point — wait for a break above ${su.entry} on volume.`;
     if (/Stage\s*4/i.test(data.stage || "")) return `Downtrend — ${8 - passN}/8 checks failing (below key MAs). Not a buy; wait to reclaim the averages.`;
     if (passN <= 5) return `Not in gear — ${passN}/8 pass. Avoid until the trend re-aligns.`;
