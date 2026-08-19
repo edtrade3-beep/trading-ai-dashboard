@@ -3084,8 +3084,17 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
       // Polymarket Gamma API — active markets sorted by volume
       const markets = await getJson("https://gamma-api.polymarket.com/markets?closed=false&active=true&order=volume24hr&ascending=false&limit=120");
       const arr = Array.isArray(markets) ? markets : [];
-      // Keywords for trader-relevant events
-      const KW = /fed|rate|interest|recession|inflation|cpi|gdp|jobs|unemployment|s&p|sp500|nasdaq|dow|stock|market|bitcoin|btc|ethereum|eth|crypto|tariff|trump|election|powell|treasury|yield|gold|oil|nvidia|tesla|government shutdown/i;
+      // Keywords for trader-relevant events. Real bug fixed 2026-08-19 (user
+      // report + screenshots: nonsensical entries like "Will Belete Molla be
+      // the next Prime Minister of Ethiopia?" showing up here) — every token
+      // below used to be a bare substring match with no word boundary, so
+      // "eth" (meant to catch Ethereum/ETH) matched inside "Ethiopia", "gold"
+      // matched inside "Goldman", "dow" matched inside "widow"/"shadow",
+      // "rate" matched inside "corporate"/"separate", etc. Confirmed live
+      // against the real Polymarket Gamma API response, not guessed. \b word
+      // boundaries fix all of it while still matching plurals/inflections
+      // that actually matter (rates, jobs, tariffs, elections, yields).
+      const KW = /\bfed\b|\brates?\b|\binterest\b|\brecession\b|\binflation\b|\bcpi\b|\bgdp\b|\bjobs?\b|\bunemployment\b|s&p|\bsp500\b|\bnasdaq\b|\bdow\b|\bstocks?\b|\bmarkets?\b|\bbitcoin\b|\bbtc\b|\bethereum\b|\beth\b|\bcrypto\b|\btariffs?\b|\btrump\b|\belections?\b|\bpowell\b|\btreasury\b|\byields?\b|\bgold\b|\boil\b|\bnvidia\b|\btesla\b|\bgovernment shutdown\b/i;
       const relevant = arr.filter(m => KW.test(m.question || "") && m.outcomes && m.outcomePrices)
         .map(m => {
           let outcomes = [], prices = [];
@@ -3098,10 +3107,15 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
             outcomes: outcomes.map((o, i) => ({ label: o, pct: Math.round(Number(prices[i] || 0) * 100) })),
             volume: Math.round(Number(m.volume || m.volumeNum || 0)),
             endDate: m.endDate || null,
-            category: /fed|rate|powell|inflation|cpi|recession|gdp|jobs|treasury|yield/i.test(m.question) ? "MACRO"
-                    : /bitcoin|btc|eth|crypto/i.test(m.question) ? "CRYPTO"
-                    : /trump|election|shutdown|government/i.test(m.question) ? "POLITICS"
-                    : /s&p|nasdaq|dow|stock|nvidia|tesla|market/i.test(m.question) ? "STOCKS" : "OTHER",
+            // Same word-boundary fix applied to category classification —
+            // otherwise a market that slipped past the outer KW filter (or
+            // one whose real keyword hit came from a different category's
+            // token) could still get bucketed by an unrelated substring
+            // match, e.g. "eth" inside a non-crypto word landing it in CRYPTO.
+            category: /\bfed\b|\brates?\b|\bpowell\b|\binflation\b|\bcpi\b|\brecession\b|\bgdp\b|\bjobs?\b|\btreasury\b|\byields?\b/i.test(m.question) ? "MACRO"
+                    : /\bbitcoin\b|\bbtc\b|\bethereum\b|\beth\b|\bcrypto\b/i.test(m.question) ? "CRYPTO"
+                    : /\btrump\b|\belections?\b|\bshutdown\b|\bgovernment\b/i.test(m.question) ? "POLITICS"
+                    : /s&p|\bnasdaq\b|\bdow\b|\bstocks?\b|\bnvidia\b|\btesla\b|\bmarkets?\b/i.test(m.question) ? "STOCKS" : "OTHER",
           };
         })
         .filter(m => m.yesPct !== null)
