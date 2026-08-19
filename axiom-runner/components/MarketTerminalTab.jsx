@@ -226,6 +226,22 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   // ticker strip. Same collapse-by-default pattern as showMoversZone — real
   // content, still one click away, just not force-visible on every tab.
   const [showMarketSnapshot, setShowMarketSnapshot] = useState(false);
+  // Full Analysis — collapsed by default (2026-08-19, explicit user spec: a
+  // minimal decision card — verdict/A+ score/entry-stop-target/trend-volume-
+  // risk/chart — as the default view, with the Institutional Grade badge,
+  // Trade Readiness/Checklist, AI Summary, Smart Money, and Quick Read all
+  // moved behind this one toggle. Also gates the fetches that exclusively
+  // back those sections (see fullAnalysisFetchedForRef below) — the user's
+  // explicit "most important part": stop *fetching* this data on every
+  // symbol load, not just stop rendering it, since that's the real
+  // contributor to memory/502 issues, not just visual clutter.
+  const [showFullAnalysis, setShowFullAnalysis] = useState(false);
+  // Tracks which symbol the secondary (options-flow/dark-pool/gamma/short-
+  // interest/news+sentiment/fundamentals) fetches have already run for, so
+  // toggling Full Analysis open/closed/open again for the SAME symbol
+  // doesn't re-fire them, but switching symbols while it's open still gets
+  // fresh data.
+  const fullAnalysisFetchedForRef = useRef(null);
   const [chartTf, setChartTf] = useState("1d"); // chart candle granularity, 5m → 1wk
   // Trend & Base Rating overlay visibility (2026-08-06, explicit user
   // request "make trend base rating hidable") — persisted so a user who
@@ -309,6 +325,10 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   const loadSym = useCallback((s, tf) => {
     const symbol = String(s || "").trim().toUpperCase();
     if (!symbol) return;
+    // Real symbol change (not just a timeframe change on the same symbol) —
+    // clear the Full Analysis fetch-guard so the secondary fetches run
+    // again for the new symbol next time that section is open.
+    if (symbol !== sym) fullAnalysisFetchedForRef.current = null;
     const useTf = tf || chartTf;
     setSym(symbol); setLoadingChart(true);
     fetch(`/api/market/trend-template?symbol=${encodeURIComponent(symbol)}&interval=${encodeURIComponent(useTf)}`)
@@ -316,7 +336,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
       .then(d => { if (!d.error) setChart(d); })
       .catch(() => {})
       .finally(() => setLoadingChart(false));
-  }, [chartTf]);
+  }, [chartTf, sym]);
   useEffect(() => {
     let pending = null;
     try {
@@ -364,13 +384,20 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   const scrollToPlanPendingRef = useRef(false);
 
   // Market cap + P/E from fundamentals (Yahoo local / FMP on cloud). Best-effort.
+  // Gated on showFullAnalysis (2026-08-19, Decision Card redesign) — the
+  // Market Cap/P/E pills and Valuation dTab this fed live inside the
+  // collapsed-by-default full analysis section (Valuation's own FundamentalsPanel
+  // self-fetches independently, unaffected). One honest side effect: the
+  // header's "{fund.name}" subtitle next to the ticker also goes quiet until
+  // Full Analysis is opened — an accepted minor tradeoff, not a bug, in
+  // exchange for not fetching this on every symbol load.
   const [fund, setFund] = useState(null);
   useEffect(() => {
-    if (!sym) return;
+    if (!sym || !showFullAnalysis) return;
     setFund(null);
     fetch("/api/market/fundamentals?symbol=" + encodeURIComponent(sym))
       .then(r => r.json()).then(j => setFund(j && !j.error ? j : null)).catch(() => {});
-  }, [sym]);
+  }, [sym, showFullAnalysis]);
 
   // Own trend-screen row for the loaded symbol — the Movers/Watchlist
   // termTrendMap below only covers rows currently on screen in that list,
@@ -393,15 +420,18 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   // summary block is used, not the contract list already shown in full on
   // the Options Flow tab). Explicit user request 2026-07-29 ("institutional
   // AI grade") — additive, doesn't touch Stock Quality/Trade Setup scores.
+  // Gated on showFullAnalysis — only feeds the Institutional Grade badge,
+  // checklist, and Smart Money, all inside the collapsed-by-default full
+  // analysis section (2026-08-19, Decision Card redesign).
   const [symOptionsFlow, setSymOptionsFlow] = useState(null);
   useEffect(() => {
-    if (!sym) return;
+    if (!sym || !showFullAnalysis) return;
     setSymOptionsFlow(null);
     fetch(`/api/market/options-flow?symbols=${encodeURIComponent(sym)}&limit=1`)
       .then(r => r.json())
       .then(j => setSymOptionsFlow(j && !j.error ? j.summary || null : null))
       .catch(() => {});
-  }, [sym]);
+  }, [sym, showFullAnalysis]);
 
   // AI Trade Engine inputs (options platform redesign, Phase 3) — real
   // dark pool prints, real per-symbol news sentiment, and real gamma
@@ -418,8 +448,18 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   // same real Yahoo-sourced field short-interest tools elsewhere in this
   // app already use.
   const [symShortInterest, setSymShortInterest] = useState(null);
+  // Gated on showFullAnalysis + a per-symbol dedup guard (2026-08-19,
+  // Decision Card redesign) — dark pool/gamma/short interest/news
+  // sentiment only ever feed the checklist, Institution Score, and AI
+  // Summary, all inside the collapsed-by-default full analysis section.
+  // This is the biggest chunk of the ~10 unconditional per-symbol-load
+  // fetches this page used to make (4 real requests, one of them chained
+  // into a 5th) — deferring it is the actual fix for the memory/502
+  // concern, not just a render-visibility change.
   useEffect(() => {
-    if (!sym) return;
+    if (!sym || !showFullAnalysis) return;
+    if (fullAnalysisFetchedForRef.current === sym) return;
+    fullAnalysisFetchedForRef.current = sym;
     setSymDarkPool(null); setSymNewsSentiment(null); setSymGamma(null); setSymShortInterest(null);
     fetch(`/api/market/darkpool?symbol=${encodeURIComponent(sym)}`).then(r => r.json()).then(j => setSymDarkPool(j?.ok ? j : null)).catch(() => {});
     fetch(`/api/market/gamma?symbol=${encodeURIComponent(sym)}`).then(r => r.json()).then(j => setSymGamma(j?.ok ? j : null)).catch(() => {});
@@ -432,7 +472,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
         return fetch("/api/agent/sentiment-by-symbol", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ headlines }) })
           .then(r => r.json()).then(d => { if (d?.ok) setSymNewsSentiment(d); });
       }).catch(() => {});
-  }, [sym]);
+  }, [sym, showFullAnalysis]);
 
   // Real forward-return win-probability log — market-wide, fetched once
   // (not per-symbol), same real source RhProScanner already uses.
@@ -445,14 +485,20 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   // per-symbol insider transactions + analyst ratings, same existing
   // endpoints InsiderTab/AnalystPeerPanel already use market-wide, scoped
   // here to just the loaded symbol. No new backend routes.
+  // Gated on showSupportingDetail (2026-08-19, Decision Card redesign) — the
+  // JSX consuming these was already gated by this same flag; the fetch
+  // wasn't, so it fired on every symbol load regardless of whether the
+  // (already-collapsed-by-default) Supporting Detail section was ever
+  // opened. showSupportingDetail is only reachable once showFullAnalysis is
+  // already open, so gating on it alone is sufficient here.
   const [symInsider, setSymInsider] = useState(null);
   const [symAnalyst, setSymAnalyst] = useState(null);
   useEffect(() => {
-    if (!sym) return;
+    if (!sym || !showSupportingDetail) return;
     setSymInsider(null); setSymAnalyst(null);
     fetch(`/api/market/insider?ticker=${encodeURIComponent(sym)}`).then(r => r.json()).then(j => setSymInsider(j?.ok ? j : null)).catch(() => {});
     fetch(`/api/market/analyst?tickers=${encodeURIComponent(sym)}`).then(r => r.json()).then(j => setSymAnalyst(Array.isArray(j?.results) ? j.results[0] : (Array.isArray(j) ? j[0] : null))).catch(() => {});
-  }, [sym]);
+  }, [sym, showSupportingDetail]);
 
   const [wlMsg, setWlMsg] = useState("");
   const addToWatchlist = useCallback(() => {
@@ -855,6 +901,73 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             </button>
           ))}
         </div>
+        {/* ── Decision Card — minimal default view (2026-08-19, explicit
+            user wireframe): verdict / A+ score / entry-stop-target /
+            trend-volume-risk / market, built entirely from data already
+            fetched for the primary view (chart.setup from trend-template,
+            symTrend/aPlusScore from trend-screen, regime from macroData) —
+            zero new fetches. Everything below this card (Institutional
+            Grade, Trade Readiness, AI Summary, Smart Money, Quick Read)
+            moves behind the "Show Full Analysis" toggle — real content,
+            still one click away, just not force-visible or force-fetched
+            on every symbol load. The chart itself stays outside the
+            toggle, further down (see showFullAnalysis wrapping below). */}
+        {wsTab === "decision" && chart && chart.setup && (() => {
+          const su = chart.setup;
+          const verdict = su.verdict; // "GO" | "WAIT" | "AVOID"
+          const vColor = verdict === "GO" ? "#0d9465" : verdict === "WAIT" ? "#d6a312" : "#c8282a";
+          const vIcon = verdict === "GO" ? "🟢" : verdict === "WAIT" ? "🟡" : "🔴";
+          const vLabel = verdict === "GO" ? "BUY" : verdict === "WAIT" ? "WAIT" : "AVOID";
+          const target1R = Math.round((su.entry + (su.entry - su.stop)) * 100) / 100;
+          const stage = String(chart.stage || "");
+          const trendColor = stage.includes("Stage 2") ? "#0d9465" : stage.includes("Transition") ? "#d6a312" : stage.includes("Stage 4") ? "#c8282a" : C.textDim;
+          const vol = Number(symTrend?.volRatio);
+          const volColor = !Number.isFinite(vol) ? C.textDim : vol >= 1.5 ? "#0d9465" : vol >= 0.8 ? "#d6a312" : "#c8282a";
+          const risk = Number(su.riskPct);
+          const riskColor = !Number.isFinite(risk) ? C.textDim : risk <= 5 ? "#0d9465" : risk <= 7 ? "#d6a312" : "#c8282a";
+          const statBox = (label, val, col) => (
+            <div key={label} style={{ flex: "1 1 90px", textAlign: "center", background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 10px" }}>
+              <div style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 700, color: C.textDim, letterSpacing: 0.4 }}>{label}</div>
+              <div style={{ fontFamily: NUM, fontSize: 18, fontWeight: 800, color: col || C.text }}>{val}</div>
+            </div>
+          );
+          const statDot = (label, col) => (
+            <div key={label} style={{ flex: "1 1 90px", textAlign: "center", background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 10px" }}>
+              <div style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 700, color: C.textDim, letterSpacing: 0.4, marginBottom: 4 }}>{label}</div>
+              <div style={{ fontSize: 16 }}>{col === C.textDim ? "⚪" : col === "#0d9465" ? "🟢" : col === "#d6a312" ? "🟡" : "🔴"}</div>
+            </div>
+          );
+          return (
+            <div style={{ marginBottom: 14, border: `2px solid ${vColor}55`, borderRadius: 14, padding: "14px 16px", background: `${vColor}0a` }}>
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 6 }}>MARKET</div>
+                <MarketPulseBar C={C} MONO={MONO} SANS={SANS} />
+              </div>
+              <div style={{ textAlign: "center", padding: "8px 0", borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, marginBottom: 10 }}>
+                <div style={{ fontFamily: SANS, fontSize: 24, fontWeight: 900, color: vColor }}>{vIcon} {vLabel}</div>
+                <div style={{ fontFamily: MONO, fontSize: 13, color: C.textSec, marginTop: 4 }}>
+                  A+ SCORE: <b style={{ color: C.text }}>{aPlusScore ? aPlusScore.score : "—"}</b> · {sym}
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
+                {statBox("ENTRY", "$" + su.entry, C.accent)}
+                {statBox("STOP", "$" + su.stop, "#c8282a")}
+                {statBox("TARGET", "$" + target1R, "#0d9465")}
+              </div>
+              <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+                {statDot("TREND", trendColor)}
+                {statDot("VOLUME", volColor)}
+                {statDot("RISK", riskColor)}
+              </div>
+              <button onClick={() => setShowFullAnalysis(v => !v)}
+                style={{ width: "100%", fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "8px 12px", borderRadius: 8, cursor: "pointer",
+                  border: `1px solid ${C.accent}`, background: showFullAnalysis ? `${C.accent}18` : "transparent", color: C.accent }}>
+                {showFullAnalysis ? "▲ Hide Full Analysis" : "▼ Show Full Analysis (Institutional Grade, Checklist, AI Summary, Smart Money, Quick Read)"}
+              </button>
+            </div>
+          );
+        })()}
+        {showFullAnalysis && <>
         {wsTab === "decision" && chart && (
           <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
             {(() => {
@@ -1434,6 +1547,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             FUNDAMENTALS | TECHNICAL side-by-side section above, right
             under Market Context. Promoted, not duplicated. */}
         </>}
+        </>}
         {/* ── Per-symbol detail tabs — real price chart + sub-nav live
             here, deliberately NOT part of the collapsed section above,
             since this is the Chart page and the chart itself stays visible.
@@ -1490,7 +1604,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                 case they support, zero new fetch/API cost. Moved ahead of
                 the chart to match the spec's section order (Header→Scores→
                 Summary→Trade Plan→Chart). */}
-            {wsTab === "decision" && chart && (
+            {wsTab === "decision" && chart && showFullAnalysis && (
               <div style={{ marginBottom: 14 }}>
                 <SectionHeader icon="🧠" label="AI SUMMARY" tone="gold" />
                 <BullBearPanel symbol={sym} bullBear={bullBear} C={C} MONO={MONO} SANS={SANS} />
@@ -1555,7 +1669,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                 Plan -> 3 Traffic Lights reading order, with the full raw
                 Order Blocks/FVGs/Liquidity/VWAP/Volume Profile/Dark Pool
                 evidence (SmartMoneyPanel.jsx) collapsed underneath. */}
-            {wsTab === "decision" && chart && sym && (
+            {wsTab === "decision" && chart && sym && showFullAnalysis && (
               <div style={{ marginTop: 14, marginBottom: 14 }}>
                 <SectionHeader icon="🧱" label="SMART MONEY" />
                 {/* heroAction (2026-08-09, decision-clarity audit) — this
@@ -1622,7 +1736,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
               </div>
             )}
             {wsTab === "deepdive" && <AiWhyPanel symbol={sym} price={chart && chart.price} changePct={symDayPct} C={C} MONO={MONO} SANS={SANS} />}
-            {wsTab === "decision" && chart && (() => {
+            {wsTab === "decision" && chart && showFullAnalysis && (() => {
               // Real, free, deterministic ~1-week read — the same engine
               // formerly the standalone Predictions tab (moved 2026-07-28
               // so it shows inline with whatever's already loaded here
