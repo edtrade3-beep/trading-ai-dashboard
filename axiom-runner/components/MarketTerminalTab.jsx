@@ -147,6 +147,7 @@ import {
   OptionsFlowPanel,
 } from "./terminal-panels.jsx";
 import { PanelErrorBoundary } from "./ui-atoms.jsx";
+import DecisionCard from "./DecisionCard.jsx";
 // SCORE + real RVOL for the Movers/Watchlist mini-list — explicit user
 // request 2026-07-27 ("add score and rvol in list before i click on each
 // one"). Watchlist rows previously hardcoded volRatio: null (this list's
@@ -926,46 +927,15 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
           const volColor = !Number.isFinite(vol) ? C.textDim : vol >= 1.5 ? "#0d9465" : vol >= 0.8 ? "#d6a312" : "#c8282a";
           const risk = Number(su.riskPct);
           const riskColor = !Number.isFinite(risk) ? C.textDim : risk <= 5 ? "#0d9465" : risk <= 7 ? "#d6a312" : "#c8282a";
-          const statBox = (label, val, col) => (
-            <div key={label} style={{ flex: "1 1 90px", textAlign: "center", background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 10px" }}>
-              <div style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 700, color: C.textDim, letterSpacing: 0.4 }}>{label}</div>
-              <div style={{ fontFamily: NUM, fontSize: 18, fontWeight: 800, color: col || C.text }}>{val}</div>
-            </div>
-          );
-          const statDot = (label, col) => (
-            <div key={label} style={{ flex: "1 1 90px", textAlign: "center", background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 10px" }}>
-              <div style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 700, color: C.textDim, letterSpacing: 0.4, marginBottom: 4 }}>{label}</div>
-              <div style={{ fontSize: 16 }}>{col === C.textDim ? "⚪" : col === "#0d9465" ? "🟢" : col === "#d6a312" ? "🟡" : "🔴"}</div>
-            </div>
-          );
           return (
-            <div style={{ marginBottom: 14, border: `2px solid ${vColor}55`, borderRadius: 14, padding: "14px 16px", background: `${vColor}0a` }}>
-              <div style={{ marginBottom: 10 }}>
-                <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 6 }}>MARKET</div>
-                <MarketPulseBar C={C} MONO={MONO} SANS={SANS} />
-              </div>
-              <div style={{ textAlign: "center", padding: "8px 0", borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, marginBottom: 10 }}>
-                <div style={{ fontFamily: SANS, fontSize: 24, fontWeight: 900, color: vColor }}>{vIcon} {vLabel}</div>
-                <div style={{ fontFamily: MONO, fontSize: 13, color: C.textSec, marginTop: 4 }}>
-                  A+ SCORE: <b style={{ color: C.text }}>{aPlusScore ? aPlusScore.score : "—"}</b> · {sym}
-                </div>
-              </div>
-              <div style={{ display: "flex", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
-                {statBox("ENTRY", "$" + su.entry, C.accent)}
-                {statBox("STOP", "$" + su.stop, "#c8282a")}
-                {statBox("TARGET", "$" + target1R, "#0d9465")}
-              </div>
-              <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
-                {statDot("TREND", trendColor)}
-                {statDot("VOLUME", volColor)}
-                {statDot("RISK", riskColor)}
-              </div>
-              <button onClick={() => setShowFullAnalysis(v => !v)}
-                style={{ width: "100%", fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "8px 12px", borderRadius: 8, cursor: "pointer",
-                  border: `1px solid ${C.accent}`, background: showFullAnalysis ? `${C.accent}18` : "transparent", color: C.accent }}>
-                {showFullAnalysis ? "▲ Hide Full Analysis" : "▼ Show Full Analysis (Institutional Grade, Checklist, AI Summary, Smart Money, Quick Read)"}
-              </button>
-            </div>
+            <DecisionCard C={C} MONO={MONO} SANS={SANS} NUM={NUM}
+              symbol={sym}
+              verdictIcon={vIcon} verdictLabel={vLabel} verdictColor={vColor}
+              aPlusScore={aPlusScore ? aPlusScore.score : null}
+              entry={su.entry} stop={su.stop} target={target1R}
+              trendColor={trendColor} volumeColor={volColor} riskColor={riskColor}
+              showFullAnalysis={showFullAnalysis} onToggleFullAnalysis={() => setShowFullAnalysis(v => !v)}
+              fullAnalysisLabel="Institutional Grade, Checklist, AI Summary, Smart Money, Quick Read" />
           );
         })()}
         {showFullAnalysis && <PanelErrorBoundary label="Full Analysis"><>

@@ -6,6 +6,8 @@ import { computeAPlusScore, computeRegime, computePrediction } from "./market-he
 import { computeSniperDecision } from "./sniper-decision.js";
 import { computeHeatRisk, computeCortexVerdict } from "./cortex-engine.js";
 import { PanelErrorBoundary } from "./ui-atoms.jsx";
+import DecisionCard from "./DecisionCard.jsx";
+import { NUM } from "./theme.js";
 // Category tabs (2026-08-14, explicit user request: "make smart scan just
 // like discover or better") — real category system ported from
 // RhProScanner.jsx/Discover, same ids/labels, no invented categories.
@@ -1412,81 +1414,68 @@ export default function SmartScanTab({
 
                                       const vBg = `${vColor}0e`;
 
-                                      // Signal boxes — same language as Compression Scanner
-                                      const sigBoxes = [
-                                        {
-                                          label: "TECHNICALS",
-                                          score: Math.round((techScore + macdScore) / 2),
-                                          icon: (techScore + macdScore) / 2 >= 65 ? "🔥" : (techScore + macdScore) / 2 >= 45 ? "✅" : "⬜",
-                                          status: (techScore + macdScore) / 2 >= 65 ? "STRONG" : (techScore + macdScore) / 2 >= 45 ? "OK" : "WEAK",
-                                          color: (techScore + macdScore) / 2 >= 65 ? C.green : (techScore + macdScore) / 2 >= 45 ? C.amber : C.red,
-                                        },
-                                        {
-                                          label: "TREND",
-                                          score: trendScore,
-                                          icon: trendScore >= 65 ? "🔥" : trendScore >= 45 ? "✅" : "⬜",
-                                          status: trendScore >= 65 ? "WITH TREND" : trendScore >= 45 ? "MIXED" : "AGAINST",
-                                          color: trendScore >= 65 ? C.green : trendScore >= 45 ? C.amber : C.red,
-                                        },
-                                        {
-                                          label: "STRUCTURE",
-                                          score: smcScore,
-                                          icon: smcScore >= 65 ? "🔥" : smcScore >= 45 ? "✅" : "⬜",
-                                          status: smcScore >= 65 ? "BULLISH" : smcScore >= 45 ? "NEUTRAL" : "BEARISH",
-                                          color: smcScore >= 65 ? C.green : smcScore >= 45 ? C.amber : C.red,
-                                        },
-                                      ];
+                                      // ── Decision Card unification (2026-08-19, explicit user
+                                      // request: "smart scan just like workspace") — position-
+                                      // sizing inputs hoisted here (used to live in a separate
+                                      // nested IIFE below) so the header's real Entry/Stop/Target
+                                      // boxes and the Position Sizing card use the exact same
+                                      // numbers, computed once. All of vLabel/vColor/vIcon/
+                                      // composite/vAction/vWarnings above are UNCHANGED — this only
+                                      // touches how they're rendered, not the real long/short
+                                      // signal logic itself. The old inline "3 signal boxes"
+                                      // (TECHNICALS/TREND/STRUCTURE) are superseded by
+                                      // DecisionCard's own Trend/Volume/Risk dots below, which add
+                                      // a real Volume read (computeRvol) the old boxes didn't have.
+                                      const isShort = /SHORT|SELL/i.test(vLabel);
+                                      const isAvoid = !isShort && /AVOID|WAIT|NEUTRAL/i.test(vLabel);
+                                      const acct    = Number(riskAccount || 10000);
+                                      const riskPctFrac = Number(riskPct || 1) / 100;
+                                      const riskAmt = acct * riskPctFrac;
+                                      let stop5 = null, t1 = null, t2 = null, shares = 0, cost = 0, profitT1 = 0, stopPct = "0.0";
+                                      const dirLabel = isShort ? "SHORT" : "BUY", tgtSign = isShort ? "-" : "+";
+                                      if (px && !isAvoid) {
+                                        stop5 = isShort
+                                          ? Math.max(ma50v > px ? ma50v * 1.03 : px * 1.03, px * 1.03)
+                                          : Math.min(ma50v > 0 && ma50v < px ? ma50v * 0.97 : px * 0.97, px * 0.97);
+                                        const riskPerShare = Math.max(px * 0.01, Math.abs(px - stop5));
+                                        shares = Math.floor(riskAmt / riskPerShare);
+                                        cost = shares * px;
+                                        t1 = isShort ? px * 0.92 : px * 1.08;
+                                        t2 = isShort ? px * 0.85 : px * 1.15;
+                                        profitT1 = shares * Math.abs(t1 - px);
+                                        stopPct = (Math.abs(px - stop5) / px * 100).toFixed(1);
+                                      }
+                                      // Real signals already computed above — same [0d9465]/[d6a312]/
+                                      // [c8282a] convention DecisionCard's Trend/Volume/Risk dots use
+                                      // on the Workspace page, for visual + logical consistency.
+                                      const trendDotColor = trendScore >= 65 ? "#0d9465" : trendScore >= 45 ? "#d6a312" : "#c8282a";
+                                      const rvol = computeRvol(row.quote, smartScanTrendMap[row.ticker]);
+                                      const volDotColor = !rvol ? C.textDim : rvol >= 1.5 ? "#0d9465" : rvol >= 0.8 ? "#d6a312" : "#c8282a";
+                                      const riskDotColor = isAvoid || !stop5 ? C.textDim : Number(stopPct) <= 5 ? "#0d9465" : Number(stopPct) <= 7 ? "#d6a312" : "#c8282a";
 
                                       return (
-                                        <div style={{ padding: "14px 16px", marginBottom: 12,
-                                          background: vBg, borderRadius: 10,
-                                          border: `1px solid ${vColor}55`,
-                                          borderLeft: `6px solid ${vColor}` }}>
-
-                                          {/* Row 1: Verdict + Score */}
-                                          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, flexWrap: "wrap", minWidth: 0 }}>
-                                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                                              <span style={{ fontSize: 24 }}>{vIcon}</span>
-                                              <div>
-                                                <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: vColor, letterSpacing: "0.05em" }}>
-                                                  {vLabel}
-                                                </div>
-                                                <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 2 }}>
-                                                  Setup: {vSetup}
-                                                </div>
-                                              </div>
-                                            </div>
-                                            <div style={{ flex: 1, minWidth: 120, maxWidth: 280 }}>
-                                              <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 3 }}>
-                                                <span>ALIGNMENT</span>
-                                                <span style={{ color: vColor, fontWeight: 900, fontSize: 13 }}>{composite}/100</span>
-                                              </div>
-                                              <div style={{ height: 8, borderRadius: 5, background: C.border, overflow: "hidden" }}>
-                                                <div style={{ width: `${composite}%`, height: "100%", background: vColor, borderRadius: 5, transition: "width 0.5s" }} />
-                                              </div>
-                                            </div>
-                                            {/* 3 Signal boxes — compact inline */}
-                                            <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                                              {sigBoxes.map(s => (
-                                                <div key={s.label} style={{ textAlign: "center", padding: "5px 8px",
-                                                  background: C.surface, borderRadius: 7,
-                                                  border: `1px solid ${s.score >= 65 ? s.color + "55" : C.border}` }}>
-                                                  <div style={{ fontFamily: MONO, fontSize: 8, color: C.textDim, marginBottom: 2, letterSpacing: "0.05em" }}>{s.label}</div>
-                                                  <div style={{ fontSize: 14, lineHeight: 1 }}>{s.icon}</div>
-                                                  <div style={{ fontFamily: MONO, fontSize: 8, color: s.color, marginTop: 2, fontWeight: 800 }}>{s.status}</div>
-                                                </div>
-                                              ))}
-                                            </div>
-                                          </div>
-
+                                        <DecisionCard C={C} MONO={MONO} SANS={SANS} NUM={NUM}
+                                          symbol={row.ticker}
+                                          verdictIcon={vIcon} verdictLabel={vLabel} verdictColor={vColor}
+                                          aPlusScore={aplus.score}
+                                          entry={!isAvoid && px ? px.toFixed(2) : null}
+                                          stop={!isAvoid && stop5 ? stop5.toFixed(2) : null}
+                                          target={!isAvoid && t1 ? t1.toFixed(2) : null}
+                                          trendColor={trendDotColor} volumeColor={volDotColor} riskColor={riskDotColor}
+                                          showMarketRow={false}
+                                          showFullAnalysis={scanShowFullAnalysis}
+                                          onToggleFullAnalysis={() => setScanShowFullAnalysis(v => !v)}
+                                          fullAnalysisLabel="Options, Technicals, SMC, News, Analyst & Earnings"
+                                          extra={<>
+                                          <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginBottom: 6 }}>Setup: {vSetup} · Alignment {composite}/100</div>
                                           {/* Row 2: Action */}
-                                          <div style={{ fontFamily: SANS, fontSize: 13, color: C.textSec, marginBottom: vWarnings.length ? 8 : 0, lineHeight: 1.5 }}>
+                                          <div style={{ fontFamily: SANS, fontSize: 13, color: C.textSec, marginBottom: vWarnings.length ? 8 : 8, lineHeight: 1.5 }}>
                                             {vAction}
                                           </div>
 
                                           {/* Row 3: Warnings */}
                                           {vWarnings.length > 0 && (
-                                            <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                                            <div style={{ display: "flex", flexDirection: "column", gap: 3, marginBottom: 8 }}>
                                               {vWarnings.map((w, wi) => (
                                                 <div key={wi} style={{ fontFamily: SANS, fontSize: 12, color: C.amber }}>
                                                   ⚠ {w}
@@ -1494,74 +1483,47 @@ export default function SmartScanTab({
                                               ))}
                                             </div>
                                           )}
-                                          {/* ── POSITION CALCULATOR (direction-aware) ── */}
-                                          {(() => {
-                                            const px5   = Number(livePrice || row.quote?.price || 0);
-                                            const ma505 = Number(row.quote?.priceAvg50 || 0);
-                                            const acct  = Number(riskAccount || 10000);
-                                            const pct   = Number(riskPct || 1) / 100;
-                                            const riskAmt = acct * pct;
-                                            if (!px5) return null;
-                                            const isShort = /SHORT|SELL/i.test(vLabel);
-                                            const isAvoid = !isShort && /AVOID|WAIT|NEUTRAL/i.test(vLabel);
-
-                                            // No actionable trade → show a wait notice instead of a misleading BUY plan.
-                                            if (isAvoid) {
-                                              return (
-                                                <div style={{ marginTop: 10, padding: "12px 14px", borderRadius: 10, background: `${C.amber}12`, border: `1px solid ${C.amber}44` }}>
-                                                  <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.amber }}>⏸ NO TRADE — verdict is {vLabel}</div>
-                                                  <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 3 }}>The trend is against a long here. Wait for a reversal/confirmation signal before sizing a position.</div>
+                                          {/* ── POSITION CALCULATOR (direction-aware) — reuses the
+                                              hoisted isShort/isAvoid/px/stop5/shares/etc. above
+                                              instead of recomputing them (2026-08-19, Decision Card
+                                              unification), same real math as before, not duplicated. */}
+                                          {!px ? null : isAvoid ? (
+                                            <div style={{ marginTop: 10, padding: "12px 14px", borderRadius: 10, background: `${C.amber}12`, border: `1px solid ${C.amber}44` }}>
+                                              <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.amber }}>⏸ NO TRADE — verdict is {vLabel}</div>
+                                              <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 3 }}>The trend is against a long here. Wait for a reversal/confirmation signal before sizing a position.</div>
+                                            </div>
+                                          ) : shares > 0 && (
+                                            <div style={{ marginTop: 10, padding: "12px 14px", borderRadius: 10,
+                                              background: isShort ? `${C.red}08` : `${C.accent}08`, border: `1px solid ${isShort ? C.red : C.accent}22` }}>
+                                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                                                <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em" }}>
+                                                  💰 POSITION SIZING {isShort ? "· SHORT" : ""}
                                                 </div>
-                                              );
-                                            }
-
-                                            // Long: stop below, targets above. Short: stop above, targets below.
-                                            const stop5 = isShort
-                                              ? Math.max(ma505 > px5 ? ma505 * 1.03 : px5 * 1.03, px5 * 1.03)
-                                              : Math.min(ma505 > 0 && ma505 < px5 ? ma505 * 0.97 : px5 * 0.97, px5 * 0.97);
-                                            const riskPerShare = Math.max(px5 * 0.01, Math.abs(px5 - stop5));
-                                            const shares = Math.floor(riskAmt / riskPerShare);
-                                            const cost   = shares * px5;
-                                            const t1     = isShort ? px5 * 0.92 : px5 * 1.08;
-                                            const t2     = isShort ? px5 * 0.85 : px5 * 1.15;
-                                            const profitT1 = shares * Math.abs(t1 - px5);
-                                            const stopPct  = (Math.abs(px5 - stop5) / px5 * 100).toFixed(1);
-                                            if (shares <= 0) return null;
-                                            const dirLabel = isShort ? "SHORT" : "BUY";
-                                            const tgtSign  = isShort ? "-" : "+";
-                                            return (
-                                              <div style={{ marginTop: 10, padding: "12px 14px", borderRadius: 10,
-                                                background: isShort ? `${C.red}08` : `${C.accent}08`, border: `1px solid ${isShort ? C.red : C.accent}22` }}>
-                                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                                                  <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em" }}>
-                                                    💰 POSITION SIZING {isShort ? "· SHORT" : ""}
-                                                  </div>
-                                                  <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>
-                                                    ${acct.toLocaleString()} acct · {(pct*100).toFixed(1)}% risk = <strong style={{ color: C.red }}>${riskAmt.toFixed(0)} max loss</strong>
-                                                  </div>
-                                                </div>
-                                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
-                                                  <div style={{ background: C.surface, borderRadius: 8, padding: "10px 12px" }}>
-                                                    <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginBottom: 3 }}>{dirLabel}</div>
-                                                    <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: isShort ? C.red : C.text }}>{shares} shares</div>
-                                                    <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>@ ${px5.toFixed(2)} = ${cost >= 1000 ? (cost/1000).toFixed(1)+"k" : cost.toFixed(0)}</div>
-                                                  </div>
-                                                  <div style={{ background: C.surface, borderRadius: 8, padding: "10px 12px" }}>
-                                                    <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginBottom: 3 }}>IF TARGET HIT ({tgtSign}8%)</div>
-                                                    <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.green }}>+${profitT1.toFixed(0)}</div>
-                                                    <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>@ ${t1.toFixed(2)} · T2 ${t2.toFixed(2)}</div>
-                                                  </div>
-                                                </div>
-                                                <div style={{ display: "flex", gap: 6, fontSize: 11, flexWrap: "wrap" }}>
-                                                  <span style={{ fontFamily: MONO, color: C.red, fontWeight: 700 }}>🛑 Stop ${stop5.toFixed(2)} ({isShort ? "+" : "-"}{stopPct}%)</span>
-                                                  <span style={{ color: C.textDim }}>·</span>
-                                                  <span style={{ fontFamily: MONO, color: C.textDim }}>Max loss ${riskAmt.toFixed(0)}</span>
-                                                  <span style={{ color: C.textDim }}>·</span>
-                                                  <span style={{ fontFamily: MONO, color: C.green }}>T1 {tgtSign}8% · T2 {tgtSign}15%</span>
+                                                <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>
+                                                  ${acct.toLocaleString()} acct · {(riskPctFrac*100).toFixed(1)}% risk = <strong style={{ color: C.red }}>${riskAmt.toFixed(0)} max loss</strong>
                                                 </div>
                                               </div>
-                                            );
-                                          })()}
+                                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+                                                <div style={{ background: C.surface, borderRadius: 8, padding: "10px 12px" }}>
+                                                  <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginBottom: 3 }}>{dirLabel}</div>
+                                                  <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: isShort ? C.red : C.text }}>{shares} shares</div>
+                                                  <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>@ ${px.toFixed(2)} = ${cost >= 1000 ? (cost/1000).toFixed(1)+"k" : cost.toFixed(0)}</div>
+                                                </div>
+                                                <div style={{ background: C.surface, borderRadius: 8, padding: "10px 12px" }}>
+                                                  <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginBottom: 3 }}>IF TARGET HIT ({tgtSign}8%)</div>
+                                                  <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.green }}>+${profitT1.toFixed(0)}</div>
+                                                  <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>@ ${t1.toFixed(2)} · T2 ${t2.toFixed(2)}</div>
+                                                </div>
+                                              </div>
+                                              <div style={{ display: "flex", gap: 6, fontSize: 11, flexWrap: "wrap" }}>
+                                                <span style={{ fontFamily: MONO, color: C.red, fontWeight: 700 }}>🛑 Stop ${stop5.toFixed(2)} ({isShort ? "+" : "-"}{stopPct}%)</span>
+                                                <span style={{ color: C.textDim }}>·</span>
+                                                <span style={{ fontFamily: MONO, color: C.textDim }}>Max loss ${riskAmt.toFixed(0)}</span>
+                                                <span style={{ color: C.textDim }}>·</span>
+                                                <span style={{ fontFamily: MONO, color: C.green }}>T1 {tgtSign}8% · T2 {tgtSign}15%</span>
+                                              </div>
+                                            </div>
+                                          )}
 
                                           {/* Copy Trade Plan */}
                                           <button onClick={() => {
@@ -1672,12 +1634,10 @@ export default function SmartScanTab({
                                               );
                                             })()}
                                           </div>
-
-                                          <button onClick={(e) => { e.stopPropagation(); setScanShowFullAnalysis(v => !v); }}
-                                            style={{ width: "100%", marginTop: 10, fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "7px 12px", borderRadius: 8, cursor: "pointer",
-                                              border: `1px solid ${C.accent}`, background: scanShowFullAnalysis ? `${C.accent}18` : "transparent", color: C.accent }}>
-                                            {scanShowFullAnalysis ? "▲ Hide Full Analysis" : "▼ Show Full Analysis (Options, Technicals, SMC, News, Analyst & Earnings)"}
-                                          </button>
+                                          </>}
+                                        />
+                                      );
+                                    })()}
 
                                         {scanShowFullAnalysis && <PanelErrorBoundary label="Options"><>
                                         {/* ── OPTIONS RECOMMENDATION ── */}
@@ -1814,9 +1774,6 @@ export default function SmartScanTab({
                                           );
                                         })()}
                                         </></PanelErrorBoundary>}
-                                      </div>
-                                      );
-                                    })()}
 
                                     {scanShowFullAnalysis && <PanelErrorBoundary label="Deep Dive Analysis"><>
                                     {/* ── Deep-dive panels — responsive grid (was a fixed-width
