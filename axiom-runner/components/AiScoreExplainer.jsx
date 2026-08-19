@@ -107,6 +107,26 @@ export const AI_TRADE_ENGINE_DIMENSIONS = [
 ];
 const AI_TRADE_ENGINE_LABEL = "AI TRADE ENGINE";
 
+// Foundation Score — Technical Foundation & V-Recovery Engine (2026-08-19,
+// explicit user spec). A separate dimension from every score above:
+// "how strong is the stock" (A+ Score) vs "how technically ready is the
+// stock" (Foundation Score) — see src/foundation-engine.js's
+// computeFoundationScore. Key order MUST match that function's breakdown
+// key order (Object.keys(FOUNDATION_WEIGHTS)) AND its reasons[] array
+// order, same rule as every other config here.
+export const FOUNDATION_DIMENSIONS = [
+  { key: "baseDuration", max: 15, label: "Base Duration", improve: "Needs more real trading days spent stabilizing since the low, relative to how severe the prior decline was." },
+  { key: "tightness", max: 15, label: "Price Tightness", improve: "Daily range (ATR) needs to compact further toward a real, controlled trading band." },
+  { key: "support", max: 15, label: "Support Quality", improve: "Needs real, held tests of support with a clean higher-low sequence, no revisit of the original low." },
+  { key: "volatility", max: 15, label: "Volatility Contraction", improve: "Weekly range needs to progressively contract week over week, not expand." },
+  { key: "supply", max: 10, label: "Overhead Supply", improve: "Needs less real volume concentrated above the current price between here and the prior high." },
+  { key: "absorption", max: 10, label: "Supply Absorption", improve: "Needs more real, held tests of the nearest supply zone with shrinking pullbacks and declining down-day volume." },
+  { key: "higherLows", max: 10, label: "Higher Lows", improve: "Real swing lows since the major low need to trend consistently higher." },
+  { key: "volume", max: 5, label: "Volume Behavior", improve: "Up-day (demand) volume needs to build while down-day (selling) volume keeps declining." },
+  { key: "pivot", max: 5, label: "Pivot Quality", improve: "Needs a real, valid VCP pivot to develop (see the Technical section's VCP/base detail)." },
+];
+export const FOUNDATION_LABEL = "TECHNICAL FOUNDATION SCORE";
+
 // Back-compat default — existing call sites (Trade Planner) that don't pass
 // a dimensions/title prop keep the original A+ Score framing untouched.
 const DIMENSIONS = TRADE_SETUP_DIMENSIONS;

@@ -1975,6 +1975,51 @@ async function handleMarket(req, res, requestUrl) {
     }
   }
 
+  // Technical Foundation & V-Recovery Engine (2026-08-19, explicit user
+  // spec) — reuses buildTrendTemplate's already-real VCP/pivot/RS (zero new
+  // VCP computation) plus a real 2y daily bars fetch (longer than trend-
+  // template's own 1y window, needed to find a real "meaningful prior
+  // high" before a decline) and, best-effort, SPY + this symbol's real
+  // sector ETF bars over the same window for the Recovery Compression
+  // read. Same stateless-with-cache shape as trend-template above — no
+  // background job, this is a per-symbol on-demand read.
+  if (pathname === "/api/market/foundation" && req.method === "GET") {
+    const symbol = (searchParams.get("symbol") || "").trim().toUpperCase();
+    if (!symbol) return writeJson(res, 400, { error: "Symbol is required." });
+    try {
+      const cacheKey = "fnd:" + symbol;
+      const hit = _ttCache.get(cacheKey);
+      if (hit && Date.now() - hit.ts < TT_TTL_MS) return writeJson(res, 200, hit.data);
+
+      const [bars, chart] = await Promise.all([
+        fetchYahooBars(symbol, "2y", "1d"),
+        buildTrendTemplate(symbol, { interval: "1d" }).catch(() => null),
+      ]);
+      if (!Array.isArray(bars) || !bars.length) {
+        return writeJson(res, 502, { error: "No real bars available for " + symbol + "." });
+      }
+
+      // Best-effort market/sector context — honest-null in the engine if
+      // either fetch fails or no real sector mapping exists, never a guess.
+      const sectorEtf = SECTOR_THEME_MAP.etfOf ? SECTOR_THEME_MAP.etfOf(symbol) : null;
+      const [spyBars, sectorBars] = await Promise.all([
+        fetchYahooBars("SPY", "2y", "1d").catch(() => null),
+        sectorEtf ? fetchYahooBars(sectorEtf, "2y", "1d").catch(() => null) : Promise.resolve(null),
+      ]);
+
+      const { computeFoundationAnalysis } = require("../foundation-engine");
+      const result = computeFoundationAnalysis(bars, symbol, {
+        rsRating: chart && Number.isFinite(chart.rsRating) ? chart.rsRating : null,
+        vcpSetup: chart ? chart.setup : null,
+        spyBars, sectorBars,
+      });
+      _ttCache.set(cacheKey, { ts: Date.now(), data: result });
+      return writeJson(res, 200, result);
+    } catch (err) {
+      return writeJson(res, 502, { error: err instanceof Error ? err.message : "Foundation analysis failed." });
+    }
+  }
+
   // Market-implied Fed rate read from 30-day fed funds futures (ZQ). Implied rate = 100 − price.
   // Falling implied rate over recent weeks = market pricing CUTS; rising = HIKES.
   if (pathname === "/api/market/fedwatch" && req.method === "GET") {

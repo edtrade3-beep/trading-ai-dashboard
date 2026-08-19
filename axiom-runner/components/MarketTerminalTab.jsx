@@ -148,6 +148,7 @@ import {
 } from "./terminal-panels.jsx";
 import { PanelErrorBoundary } from "./ui-atoms.jsx";
 import DecisionCard from "./DecisionCard.jsx";
+import FoundationCard from "./FoundationCard.jsx";
 // SCORE + real RVOL for the Movers/Watchlist mini-list — explicit user
 // request 2026-07-27 ("add score and rvol in list before i click on each
 // one"). Watchlist rows previously hardcoded volRatio: null (this list's
@@ -162,7 +163,7 @@ import {
 } from "./market-helpers.js";
 import AiScoreExplainer, {
   AplusBadge, TRADE_SETUP_DIMENSIONS, STOCK_QUALITY_DIMENSIONS, INSTITUTIONAL_GRADE_DIMENSIONS,
-  TECHNICAL_DIMENSIONS, TIMING_DIMENSIONS, AI_TRADE_ENGINE_DIMENSIONS,
+  TECHNICAL_DIMENSIONS, TIMING_DIMENSIONS, AI_TRADE_ENGINE_DIMENSIONS, FOUNDATION_DIMENSIONS, FOUNDATION_LABEL,
 } from "./AiScoreExplainer.jsx";
 import { stockQualityBreakdown } from "./rhpro-shared.jsx";
 import { mapToAiAction } from "./ai-actions.js";
@@ -406,6 +407,25 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
       .then(j => { const row = (j.results || []).find(r => !r.error); setSymTrend(row || null); })
       .catch(() => {});
   }, [sym]);
+
+  // Technical Foundation & V-Recovery Engine (2026-08-19, explicit user
+  // spec) — gated specifically on the TECHNICAL section being open (not
+  // the broader `deepOpen`), since this is TECHNICAL-only content and the
+  // real 2y-bars + SPY/sector fetch behind it is heavier than the rest of
+  // this page's secondary data. Per-symbol dedup guard so reopening
+  // TECHNICAL for the same symbol doesn't refire the fetch.
+  const [symFoundation, setSymFoundation] = useState(null);
+  const foundationFetchedForRef = useRef(null);
+  useEffect(() => {
+    if (!sym || openSection !== "technical") return;
+    if (foundationFetchedForRef.current === sym) return;
+    foundationFetchedForRef.current = sym;
+    setSymFoundation(null);
+    fetch(`/api/market/foundation?symbol=${encodeURIComponent(sym)}`)
+      .then(r => r.json())
+      .then(j => setSymFoundation(j && j.ok ? j : null))
+      .catch(() => {});
+  }, [sym, openSection]);
 
   // Real call/put notional summary for the loaded symbol — the one input
   // the new Institutional Grade / AI Score Card (below) needs that isn't
@@ -1270,6 +1290,17 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
               ];
             })()}
           </div>
+        )}
+        {/* Technical Foundation & V-Recovery Engine (2026-08-19, explicit
+            user spec) — a separate dimension from A+ Score/momentum above:
+            "has this stock actually repaired its structure," not "is it
+            strong." Fetched only while TECHNICAL is open (see the
+            symFoundation effect above) via /api/market/foundation, which
+            reuses this same chart's real VCP/pivot/RS — zero duplicate
+            VCP computation. */}
+        {symFoundation && (
+          <FoundationCard C={C} MONO={MONO} SANS={SANS} NUM={NUM} symbol={sym} data={symFoundation}
+            onExplain={() => setExplain({ symbol: sym, aplus: { score: symFoundation.foundationScore, breakdown: symFoundation.breakdown, reasons: symFoundation.reasons }, dimensions: FOUNDATION_DIMENSIONS, label: FOUNDATION_LABEL })} />
         )}
         {sym && (
           <div style={{ marginBottom: 14 }}>
