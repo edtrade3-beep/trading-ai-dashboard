@@ -95,7 +95,17 @@ function isLightBoxHoursET() {
 // app, not just this job. Capped here — not just a slower interval —
 // because the burst-per-tick size was the real problem; a slower interval
 // alone still bursts the same request count each time it fires.
-const MAX_SCAN_SYMBOLS = 50;
+// Raised 50 -> 80 (2026-08-19, real user report: with today's real
+// watchlist at 73 symbols, the rotation below meant any single symbol only
+// refreshed once every 2 ticks — up to 10 minutes stale — even though the
+// client polls every 25s and looked live. 80 symbols/tick = ~160 requests
+// per 5-minute tick (still one burst every 5 min, same interval as before,
+// not touched), comfortably under the ~360-request burst that actually
+// tripped the rate limit. If the real watchlist grows past 80, the
+// rotation below still protects against a repeat of the 2026-08-17
+// incident — it degrades to "some symbols take 2 ticks" again, not a
+// renewed burst risk.
+const MAX_SCAN_SYMBOLS = 80;
 
 // Real follow-up, same day: capping to the first 50 watchlist symbols
 // meant the other 130 (of 180) never got scanned at all — user reported
