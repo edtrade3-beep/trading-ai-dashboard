@@ -18,7 +18,6 @@ const path = require("node:path");
 const { ROOT, resolveProviderKeys } = require("./config");
 const { writeJsonAtomic, readJsonSafe } = require("./atomic-write");
 const { loadWatchlist } = require("./routes/watchlist");
-const { isMarketHoursET } = require("./risk-guardrails");
 const { computeDayTradeSignal } = require("./day-trade-calc");
 const { stepSymbol } = require("./lightbox-engine");
 const { LIGHTBOX_DEFAULTS, SIGNAL_TO_STATE } = require("./lightbox-config");
@@ -59,12 +58,34 @@ function setConfirmBars(n) {
   return clamped;
 }
 
+// Light Box's own hours gate — explicit user request, 2026-08-19: "light
+// box start at 4 am to 8pm" (the same real 4:00 AM-8:00 PM ET extended-
+// session window this app already uses elsewhere, e.g.
+// institutional-scoring.js's getMarketSessionET PREMARKET/AFTERMARKET
+// boundaries — 240/1200 minutes, not new numbers). Deliberately a separate
+// function from risk-guardrails.js's isMarketHoursET (9:35-15:55 ET) rather
+// than widening that one: isMarketHoursET gates real order-placement safety
+// checks in server-autopilot.js/quick-trade-service.js/routes/autoexec.js
+// and 15+ other files — widening it to cover illiquid extended hours would
+// be a real, unintended risk change to live trading logic, not just Light
+// Box's display window.
+function isLightBoxHoursET() {
+  const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+  const day = et.getDay(); if (day < 1 || day > 5) return false;
+  const mins = et.getHours() * 60 + et.getMinutes();
+  return mins >= 4 * 60 && mins <= 20 * 60;   // 4:00 AM - 8:00 PM ET
+}
+
 // The real background tick — fetches real day-trade-scan rows for the real
 // watchlist, steps each symbol's confirmation state, persists any real
-// transitions. Gated to market hours: Day Trade Mode's VWAP/opening-range/
-// RVOL signal is only meaningful intraday, same real gate
-// watchlist-daytrade-alerts.js uses, so a stale after-hours read never gets
-// "confirmed" as if it were live.
+// transitions. Gated to Light Box's own extended-hours window above — real
+// honest caveat, not silently glossed over: Day Trade Mode's VWAP/opening-
+// range/RVOL signal is a regular-session concept (opening range = the
+// first 5-15 min after the real 9:30 open; VWAP accumulates from the real
+// session start), so premarket/after-hours reads outside 9:35-15:55 ET are
+// real, live data but computed against thinner, less representative volume
+// — same underlying signal engine, not rebuilt for extended-hours
+// semantics. Not the same gate watchlist-daytrade-alerts.js uses anymore.
 // Real incident, 2026-08-17: this job originally scanned the FULL real
 // watchlist (grown to 180 symbols the same day) every 60s — each tick is
 // 2 Alpaca bars requests per symbol (fetchDayTradeScanRows), so a full
@@ -91,7 +112,7 @@ function rotateSlice(arr, offset, count) {
 }
 
 async function tickLightBox() {
-  if (!isMarketHoursET()) return { ok: true, skipped: "outside market hours" };
+  if (!isLightBoxHoursET()) return { ok: true, skipped: "outside Light Box hours (4 AM-8 PM ET)" };
   const { symbols: allSymbols } = loadWatchlist();
   if (!Array.isArray(allSymbols) || !allSymbols.length) return { ok: true, checked: 0 };
 

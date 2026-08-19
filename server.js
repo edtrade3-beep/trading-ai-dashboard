@@ -398,7 +398,7 @@ server.listen(PORT, HOST, () => {
   // — the interval alone wasn't enough, since each individual tick still
   // bursts its full request count regardless of how often it fires.
   registerJob("Light Box Confirm", 5 * 60_000, () => require("./src/lightbox-state-store").tickLightBox());
-  console.log("[Light Box] Confirmation tick active — every 5 min (top 50 watchlist symbols), market hours only");
+  console.log("[Light Box] Confirmation tick active — every 5 min (top 50 watchlist symbols), 4 AM-8 PM ET weekdays");
 
   // Trend Quality cache — real Minervini Trend Template + VCP, precomputed
   // on a slow cadence (daily-timeframe data that doesn't meaningfully
