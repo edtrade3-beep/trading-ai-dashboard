@@ -194,7 +194,7 @@ import {
   EarningsSnapshot, EarningsBars, AiWhyPanel, BullBearPanel, NewsPanel, SectorHeatStrip,
   MarketPulseBar, SentimentRow, MarketNewsWire, AnalystPeerPanel,
   FundamentalsPanel, CompanyProfile, AiPredictPanel, COTPanel,
-  PredictionMarkets, SocialFeed, InvestorsPanel,
+  SocialFeed, InvestorsPanel,
   OptionsFlowPanel,
 } from "./terminal-panels.jsx";
 import { PanelErrorBoundary } from "./ui-atoms.jsx";
@@ -1688,7 +1688,6 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
           <SentimentRow C={C} MONO={MONO} SANS={SANS} />
           <SectorHeatStrip sectorData={sectorData} C={C} MONO={MONO} SANS={SANS} />
           <COTPanel C={C} MONO={MONO} SANS={SANS} />
-          <PredictionMarkets C={C} MONO={MONO} SANS={SANS} />
         </div>
         <div style={{ marginTop: 10 }}>
           <span onClick={() => setDTab("flow")} style={{ fontFamily: MONO, fontSize: 11, color: C.accent, cursor: "pointer", fontWeight: 700 }}>Full Options Flow detail →</span>
