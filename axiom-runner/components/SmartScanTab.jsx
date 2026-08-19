@@ -141,6 +141,17 @@ export default function SmartScanTab({
           // four (18 buttons combined) collapse behind "More Filters" since
           // they're real but secondary refinements, not the everyday path.
           const [showMoreFilters, setShowMoreFilters] = useState(false);
+          // Expanded-row "Full Analysis" — collapsed by default (2026-08-19,
+          // same Workspace Decision Card treatment applied here per explicit
+          // user request "I want smart scan just like workspace"). Verdict +
+          // Position Sizing stay visible when a row expands; the Options
+          // recommendation and the Technicals/SMC Analysis/Recent News/
+          // Analyst & Earnings/Auto-Exec grid — the same "everything at once"
+          // dump Workspace had — move behind this one toggle. A single
+          // shared flag is enough since only one row is ever expanded at a
+          // time (scanExpanded); reset to false whenever a different row
+          // opens so re-expanding always starts collapsed.
+          const [scanShowFullAnalysis, setScanShowFullAnalysis] = useState(false);
           // Category tabs (see SMARTSCAN_CATEGORIES above).
           const [smartScanCategory, setSmartScanCategory] = useState("all");
           // Cortex slide-over target symbol — null when closed.
@@ -893,6 +904,7 @@ export default function SmartScanTab({
                                   setScanExpanded(null);
                                 } else {
                                   setScanExpanded(row.ticker);
+                                  setScanShowFullAnalysis(false);
                                   loadDeepDive(row.ticker);
                                   loadDeepSocial(row.ticker);
                                   setTimeout(() => fetchTradeSetup(row.ticker, row), 1200);
@@ -1660,6 +1672,13 @@ export default function SmartScanTab({
                                             })()}
                                           </div>
 
+                                          <button onClick={(e) => { e.stopPropagation(); setScanShowFullAnalysis(v => !v); }}
+                                            style={{ width: "100%", marginTop: 10, fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "7px 12px", borderRadius: 8, cursor: "pointer",
+                                              border: `1px solid ${C.accent}`, background: scanShowFullAnalysis ? `${C.accent}18` : "transparent", color: C.accent }}>
+                                            {scanShowFullAnalysis ? "▲ Hide Full Analysis" : "▼ Show Full Analysis (Options, Technicals, SMC, News, Analyst & Earnings)"}
+                                          </button>
+
+                                        {scanShowFullAnalysis && <>
                                         {/* ── OPTIONS RECOMMENDATION ── */}
                                         {(() => {
                                           const px      = Number(livePrice || row.quote?.price || 0);
@@ -1793,10 +1812,12 @@ export default function SmartScanTab({
                                             </div>
                                           );
                                         })()}
+                                        </>}
                                       </div>
                                       );
                                     })()}
 
+                                    {scanShowFullAnalysis && <>
                                     {/* ── Deep-dive panels — responsive grid (was a fixed-width
                                         drag-to-scroll strip; explicit user request 2026-08-14,
                                         "make it pro and remove chart"). The per-symbol TradingView
@@ -2636,6 +2657,7 @@ export default function SmartScanTab({
                                       </div>
 
                                     </div>
+                                    </>}
                                     </>
                                   )}
                                 </td>
