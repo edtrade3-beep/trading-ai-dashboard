@@ -18,8 +18,29 @@ import { LIGHTBOX_DEFAULTS, STATE_COLOR_KEY, BAR_COLOR_KEY } from "./lightbox-co
 // Bloomberg-style" request. State is still unmistakable at a glance via
 // the border/badge/bar color; the glow only remains as a brief pulse on
 // an actual state change, see `pulsing` below.)
+// Relative "as of" age — real user confusion, 2026-08-19: a card here can
+// legitimately show a lower/stale price+state than what the same symbol
+// reads right now elsewhere (e.g. Day Trade Console's own fresh fetch),
+// because this data only refreshes on tickLightBox's real background
+// cadence (currently every 5 min, rotating through the watchlist — see
+// src/lightbox-state-store.js), not on every render. Both reads are real
+// for their own moment; the fix is making that moment visible instead of
+// implicit, same "label it, don't hide it" pattern already used for
+// Institution Score vs Institutional Grade and the "Options:" prefix.
+function ageLabel(updatedAt) {
+  if (!updatedAt) return null;
+  const ms = Date.now() - new Date(updatedAt).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return null;
+  const mins = Math.round(ms / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.round(mins / 60);
+  return `${hrs}h ago`;
+}
+
 function LightBoxCardInner({ C, MONO, SANS, data, showSecondary, onOpenSymbol }) {
   const col = C[STATE_COLOR_KEY[data.state]] || C.textDim;
+  const age = ageLabel(data.updatedAt);
   const barCol = BAR_COLOR_KEY ? (C[BAR_COLOR_KEY] || C.accent) : col;
   const prevStateRef = useRef(data.state);
   const [pulsing, setPulsing] = useState(false);
@@ -78,6 +99,12 @@ function LightBoxCardInner({ C, MONO, SANS, data, showSecondary, onOpenSymbol })
             {data.chg >= 0 ? "+" : ""}{Number(data.chg).toFixed(2)}%
           </span>
         )}
+        {age && (
+          <span title="How old this card's price/state read is — a live fetch elsewhere (e.g. Day Trade Console) can legitimately show a newer number for the same symbol."
+            style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim, marginLeft: "auto" }}>
+            as of {age}
+          </span>
+        )}
       </div>
 
       {data.reason && (
@@ -98,7 +125,7 @@ function LightBoxCardInner({ C, MONO, SANS, data, showSecondary, onOpenSymbol })
         <div style={{ marginTop: 4, paddingTop: 6, borderTop: `1px solid ${C.border}`, width: "100%", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2px 8px" }}>
           <SecondaryStat label="RVOL" value={data.rvol != null ? `${Number(data.rvol).toFixed(1)}x` : "—"} C={C} SANS={SANS} MONO={MONO} />
           <SecondaryStat label="VWAP" value={data.vwap != null ? `$${Number(data.vwap).toFixed(2)}` : "—"} C={C} SANS={SANS} MONO={MONO} />
-          <SecondaryStat label="Entry" value={data.bestEntry != null ? `$${Number(data.bestEntry).toFixed(2)}` : "—"} C={C} SANS={SANS} MONO={MONO} />
+          <SecondaryStat label="Suggested Entry" value={data.bestEntry != null ? `$${Number(data.bestEntry).toFixed(2)}` : "—"} C={C} SANS={SANS} MONO={MONO} />
           <SecondaryStat label="Stop" value={data.stop != null ? `$${Number(data.stop).toFixed(2)}` : "—"} C={C} SANS={SANS} MONO={MONO} />
           <SecondaryStat label="Target" value={data.target != null ? `$${Number(data.target).toFixed(2)}` : "—"} C={C} SANS={SANS} MONO={MONO} />
         </div>
