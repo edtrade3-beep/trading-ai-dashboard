@@ -5814,11 +5814,24 @@ export default function App() {
   // once scrolling settles. Desktop is untouched: the cluster is a much
   // smaller fraction of a 1440px+ viewport and doesn't need this.
   const [fabScrolling, setFabScrolling] = useState(false);
+  // Real, measured, always-reproducible collision on top of the scroll-
+  // fading above (2026-08-19): on the Workspace tab, the 🎯 Decision/🔍 Deep
+  // Dive sub-tab row sits at the very top of the page (right below the
+  // ticker header) and lands directly under the mobile FAB band even at
+  // scrollTop 0 — confirmed via getBoundingClientRect on a real iPhone
+  // viewport (both rects at y≈566-602 vs the FABs' y≈566-610), so it's
+  // covered on first load, before any scrolling ever happens, which the
+  // scroll-fade above can't help with. Fading the FABs specifically while
+  // resting near the top of this one tab (same fabFading mechanism every
+  // FAB already respects) fixes the confirmed case without changing FAB
+  // behavior on tabs where no collision was found.
+  const [wsScrollNearTop, setWsScrollNearTop] = useState(true);
   useEffect(() => {
     if (!isMobile) return;
     let hideTimer = null;
     const onScroll = () => {
       setFabScrolling(true);
+      setWsScrollNearTop((document.body.scrollTop || 0) < 220);
       clearTimeout(hideTimer);
       hideTimer = setTimeout(() => setFabScrolling(false), 550);
     };
@@ -5829,9 +5842,18 @@ export default function App() {
     // ancestor still see them, so listening on `document` with capture:true
     // catches it regardless of which element ends up doing the scrolling.
     document.addEventListener("scroll", onScroll, { passive: true, capture: true });
+    onScroll();
     return () => { document.removeEventListener("scroll", onScroll, { capture: true }); clearTimeout(hideTimer); };
   }, [isMobile]);
-  const fabFading = isMobile && fabScrolling;
+  // Re-check on every Workspace visit/symbol load — activeTab/terminalSymbol
+  // changes don't fire a scroll event on their own, so without this a user
+  // who was already scrolled down elsewhere and then opens the Workspace
+  // tab would keep a stale "not near top" reading.
+  useEffect(() => {
+    if (!isMobile || activeTab !== "mterminal") return;
+    setWsScrollNearTop((document.body.scrollTop || 0) < 220);
+  }, [isMobile, activeTab, terminalSymbol]);
+  const fabFading = isMobile && (fabScrolling || (activeTab === "mterminal" && wsScrollNearTop));
 
   if (!appUnlocked) {
     return (
