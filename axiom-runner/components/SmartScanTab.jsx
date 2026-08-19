@@ -124,8 +124,23 @@ export default function SmartScanTab({
           // 2026-08-13, after asking how to spot good trades quickly.
           // Collapsible rather than a one-time dismiss (no localStorage
           // needed) — cheap to re-open as a refresher, doesn't nag once
-          // closed.
-          const [showGuide, setShowGuide] = useState(true);
+          // closed. Defaults collapsed (2026-08-19, "easier not overloaded"
+          // declutter pass) — a static how-to card doesn't need to reclaim
+          // the same ~140px of top-of-page space on every single visit;
+          // still one click away.
+          const [showGuide, setShowGuide] = useState(false);
+          // Manage-universe block (Add Stock input + custom-ticker chips +
+          // 20 suggestion chips) — collapsed by default for the same reason:
+          // setup/configuration UI, not something glanced at on every visit.
+          // Same collapse-by-default pattern as MarketTerminalTab's
+          // showMoversZone/showMarketSnapshot.
+          const [showManageUniverse, setShowManageUniverse] = useState(false);
+          // Secondary filters (ZONE/EARLY WARNING/MIN SCORE/MAX $) — the
+          // guide's own documented workflow only calls for SIGNAL + the A+
+          // one-click filter, so those two stay always visible; the other
+          // four (18 buttons combined) collapse behind "More Filters" since
+          // they're real but secondary refinements, not the everyday path.
+          const [showMoreFilters, setShowMoreFilters] = useState(false);
           // Category tabs (see SMARTSCAN_CATEGORIES above).
           const [smartScanCategory, setSmartScanCategory] = useState("all");
           // Cortex slide-over target symbol — null when closed.
@@ -472,6 +487,16 @@ export default function SmartScanTab({
                 return (
                   <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10,
                     padding: "12px 16px", marginBottom: 10 }}>
+                    <button onClick={() => setShowManageUniverse(v => !v)}
+                      style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+                        background: "transparent", border: "none", cursor: "pointer", padding: 0,
+                        marginBottom: showManageUniverse ? 10 : 0 }}>
+                      <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text }}>
+                        ➕ MANAGE SCAN LIST <span style={{ color: C.textDim, fontWeight: 600 }}>({FIVEX_TICKERS.length} stocks{customScanTickers.length ? `, ${customScanTickers.length} custom` : ""})</span>
+                      </span>
+                      <span style={{ fontFamily: MONO, fontSize: 11, color: C.accent }}>{showManageUniverse ? "hide ▲" : "show ▼"}</span>
+                    </button>
+                    {showManageUniverse && <>
                     {/* Add row */}
                     <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
                       <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, whiteSpace: "nowrap" }}>
@@ -547,6 +572,7 @@ export default function SmartScanTab({
                         </button>
                       ))}
                     </div>
+                    </>}
                   </div>
                 );
               })()}
@@ -593,7 +619,13 @@ export default function SmartScanTab({
                 </div>
               )}
 
-              {/* ── FILTER BAR — always shown ── */}
+              {/* ── FILTER BAR ── SIGNAL + A+ one-click cover the guide's own
+                  documented workflow ("filter to BUY ZONE, sort by A+") and
+                  stay always visible; ZONE/EARLY WARNING/MIN SCORE/MAX $ are
+                  real but secondary refinements (18 buttons combined) —
+                  collapsed behind "More Filters" by default (2026-08-19,
+                  "easier not overloaded" declutter pass). Nothing removed,
+                  just not force-visible on every visit. */}
               {(
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap",
                   marginBottom: 10, padding: "10px 14px",
@@ -614,6 +646,32 @@ export default function SmartScanTab({
                     ))}
                   </div>
 
+                  <span style={{ width: 1, height: 20, background: C.border }} />
+
+                  {/* A+ ONE-CLICK filter */}
+                  <button
+                    onClick={() => {
+                      const isAPlus = sfMinScore === 80 && sfZone === "ALL" && sfSig === "ALL";
+                      if (isAPlus) { setSfMinScore(0); setSfZone("ALL"); setSfSig("ALL"); try{localStorage.setItem("sf_score","0");localStorage.setItem("sf_sig","ALL");}catch{} }
+                      else { setSfMinScore(80); setSfZone("ALL"); setSfSig("ALL"); try{localStorage.setItem("sf_score","80");localStorage.setItem("sf_sig","ALL");}catch{} }
+                    }}
+                    style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, border: "none",
+                      background: sfMinScore === 80 ? C.accent : `${C.accent}18`,
+                      color: sfMinScore === 80 ? "#fff" : C.accent,
+                      borderRadius: 6, padding: "5px 12px", cursor: "pointer", whiteSpace: "nowrap" }}>
+                    {sfMinScore === 80 ? "✓ A+ ONLY" : "⚡ A+ FILTER"}
+                  </button>
+
+                  {/* More Filters toggle */}
+                  <button onClick={() => setShowMoreFilters(v => !v)}
+                    style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700,
+                      border: `1px solid ${(sfZone !== "ALL" || sfEarly !== "ALL" || sfMinScore > 0 && sfMinScore !== 80 || sfMaxPrice > 0) ? C.accent : C.border}`,
+                      background: C.surface, color: C.textSec, borderRadius: 6,
+                      padding: "5px 12px", cursor: "pointer", whiteSpace: "nowrap" }}>
+                    {showMoreFilters ? "▲ Fewer Filters" : "▼ More Filters (ZONE / EARLY WARNING / SCORE / PRICE)"}
+                  </button>
+
+                  {showMoreFilters && <>
                   <span style={{ width: 1, height: 20, background: C.border }} />
 
                   {/* Zone filter */}
@@ -685,20 +743,7 @@ export default function SmartScanTab({
                         background: C.surface, border: `1px solid ${C.border}`,
                         color: C.text, borderRadius: 6, padding: "4px 6px" }} />
                   </div>
-
-                  {/* A+ ONE-CLICK filter */}
-                  <button
-                    onClick={() => {
-                      const isAPlus = sfMinScore === 80 && sfZone === "ALL" && sfSig === "ALL";
-                      if (isAPlus) { setSfMinScore(0); setSfZone("ALL"); setSfSig("ALL"); try{localStorage.setItem("sf_score","0");localStorage.setItem("sf_sig","ALL");}catch{} }
-                      else { setSfMinScore(80); setSfZone("ALL"); setSfSig("ALL"); try{localStorage.setItem("sf_score","80");localStorage.setItem("sf_sig","ALL");}catch{} }
-                    }}
-                    style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, border: "none",
-                      background: sfMinScore === 80 ? C.accent : `${C.accent}18`,
-                      color: sfMinScore === 80 ? "#fff" : C.accent,
-                      borderRadius: 6, padding: "5px 12px", cursor: "pointer", whiteSpace: "nowrap" }}>
-                    {sfMinScore === 80 ? "✓ A+ ONLY" : "⚡ A+ FILTER"}
-                  </button>
+                  </>}
 
                   {/* Active filter count + clear */}
                   <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
