@@ -47,7 +47,7 @@ export default function LightBoxTab({ C, MONO, SANS, lightboxSettings, setLightb
   const [bySymbol, setBySymbol] = useState({});
   const [transitions, setTransitions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [confirmBarsInput, setConfirmBarsInput] = useState(String(lightboxSettings.confirmBars || 3));
+  const [confirmBarsInput, setConfirmBarsInput] = useState(String(lightboxSettings.confirmBars || 2));
   const lastSeenTsRef = useRef(null);
   const firstLoadRef = useRef(true);
 
@@ -57,7 +57,7 @@ export default function LightBoxTab({ C, MONO, SANS, lightboxSettings, setLightb
       try {
         const params = new URLSearchParams();
         if (lightboxSettings.universe === "full") params.set("universe", "full");
-        params.set("confirmBars", String(lightboxSettings.confirmBars || 3));
+        params.set("confirmBars", String(lightboxSettings.confirmBars || 2));
         const r = await fetch(`/api/market/lightbox?${params.toString()}`);
         const j = await r.json();
         if (!alive || !j.ok) return;
@@ -106,7 +106,7 @@ export default function LightBoxTab({ C, MONO, SANS, lightboxSettings, setLightb
   };
 
   const commitConfirmBars = () => {
-    const n = Math.max(1, Math.min(10, Math.round(Number(confirmBarsInput)) || 3));
+    const n = Math.max(1, Math.min(10, Math.round(Number(confirmBarsInput)) || 2));
     setConfirmBarsInput(String(n));
     setLightboxSettings((s) => ({ ...s, confirmBars: n }));
   };

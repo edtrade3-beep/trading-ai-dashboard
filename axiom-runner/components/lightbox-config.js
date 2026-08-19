@@ -8,7 +8,7 @@
 // this app's theme system instead of fighting it. Only the glow's
 // intensity (numeric, theme-independent) lives here as config.
 export const LIGHTBOX_DEFAULTS = {
-  confirmBars: 3,        // default; user-adjustable via Settings, sent to /api/market/lightbox
+  confirmBars: 2,        // default (2026-08-19: lowered from 3 — see src/lightbox-config.js); user-adjustable via Settings, sent to /api/market/lightbox
   pollMs: 25000,         // client poll cadence — the route reads persisted state (cheap), safe to poll faster than the underlying ~55s scan cache
   timeframe: "15m",
   glowBlur: 26,           // px

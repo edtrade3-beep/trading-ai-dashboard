@@ -423,7 +423,7 @@ const DEFAULT_SETTINGS = {
   // /api/market/lightbox's ?confirmBars= param, since the confirmation
   // itself is computed by a background job, not per-request); the rest
   // stay purely client-side display preferences, same as flowFilters above.
-  lightbox: { confirmBars: 3, soundOn: false, notifyOn: false, secondarySort: "score", showDetails: false, universe: "watchlist" },
+  lightbox: { confirmBars: 2, soundOn: false, notifyOn: false, secondarySort: "score", showDetails: false, universe: "watchlist" },
 };
 
 function getMarketSessionET(now = new Date()) {
@@ -3708,7 +3708,7 @@ export default function App() {
         }
         if (saved.settings.lightbox && typeof saved.settings.lightbox === "object") {
           setLightboxSettings({
-            confirmBars: Number(saved.settings.lightbox.confirmBars) || 3,
+            confirmBars: Number(saved.settings.lightbox.confirmBars) || 2,
             soundOn: Boolean(saved.settings.lightbox.soundOn),
             notifyOn: Boolean(saved.settings.lightbox.notifyOn),
             secondarySort: String(saved.settings.lightbox.secondarySort || "score"),

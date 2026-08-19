@@ -10,11 +10,18 @@
 const LIGHTBOX_DEFAULTS = {
   // Consecutive genuinely-new daytrade-scan refreshes (gated on the scan's
   // own generatedAt, not raw HTTP polls — see lightbox-engine.js) that must
-  // agree before a state change is confirmed. The scan itself is cached
-  // ~55s server-side, so confirmBars=3 means roughly 2-5 real minutes of
-  // sustained agreement, the closest practical approximation of "N bars"
-  // without building real 15m-bar-close scheduling.
-  confirmBars: 3,
+  // agree before a state change is confirmed. Light Box's own background
+  // tick (server.js's "Light Box Confirm" job) runs every 5 real minutes,
+  // so confirmBars=N means a real N*5 minutes of sustained agreement before
+  // the displayed state flips — NOT the ~2-5min this comment previously
+  // (inaccurately) claimed. Lowered 3->2 (2026-08-19, real user report:
+  // the underlying signal indicators are genuinely 15m-bar-scoped already
+  // — VWAP/opening-range/RVOL/EMA/RSI/ROC/MACD all come straight off real
+  // Alpaca 15m bars (fetchDayTradeScanRows) — but confirmBars=3 stacked an
+  // extra 15 real minutes of display lag ON TOP of that, roughly doubling
+  // the effective reaction time of an already-15m system). 2*5=10min still
+  // filters single-tick noise/flicker without adding as much extra lag.
+  confirmBars: 2,
   confirmBarsMin: 1,
   confirmBarsMax: 10,
   timeframe: "15m",
