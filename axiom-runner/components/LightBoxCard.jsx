@@ -38,6 +38,19 @@ function ageLabel(updatedAt) {
   return `${hrs}h ago`;
 }
 
+const ENTRY_TRIGGER_LABEL = {
+  CONFIRMED: "✓ CONFIRMED",
+  APPROACHING: "↗ APPROACHING",
+  NOT_READY: "⏳ NOT READY",
+  INVALIDATED: "✕ INVALIDATED",
+};
+function entryTriggerColor(status, C) {
+  if (status === "CONFIRMED") return C.green;
+  if (status === "APPROACHING") return C.amber;
+  if (status === "INVALIDATED") return C.red;
+  return C.textDim;
+}
+
 function LightBoxCardInner({ C, MONO, SANS, data, showSecondary, onOpenSymbol }) {
   const col = C[STATE_COLOR_KEY[data.state]] || C.textDim;
   const age = ageLabel(data.updatedAt);
@@ -80,14 +93,27 @@ function LightBoxCardInner({ C, MONO, SANS, data, showSecondary, onOpenSymbol })
         animation: pulsing ? "lightboxPulse 1.5s ease-out 1" : "none",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
         <span style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.text, letterSpacing: "0.02em" }}>{data.symbol}</span>
-        <span style={{
-          fontFamily: SANS, fontSize: 11, fontWeight: 700, color: col, background: `${col}22`,
-          borderRadius: 999, padding: "4px 11px", whiteSpace: "nowrap",
-        }}>
-          {data.state === "SELL" ? "SELL / EXIT" : data.state}
-        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+          {data.entryTriggerStatus && (
+            <span title={data.signalReason || "Entry trigger status — same CONFIRMED/APPROACHING/NOT_READY/INVALIDATED classification Green Light's Day Trade Mode uses"}
+              style={{
+                fontFamily: SANS, fontSize: 9.5, fontWeight: 700,
+                color: entryTriggerColor(data.entryTriggerStatus, C),
+                background: `${entryTriggerColor(data.entryTriggerStatus, C)}1c`,
+                borderRadius: 999, padding: "3px 8px", whiteSpace: "nowrap",
+              }}>
+              {ENTRY_TRIGGER_LABEL[data.entryTriggerStatus] || data.entryTriggerStatus}
+            </span>
+          )}
+          <span style={{
+            fontFamily: SANS, fontSize: 11, fontWeight: 700, color: col, background: `${col}22`,
+            borderRadius: 999, padding: "4px 11px", whiteSpace: "nowrap",
+          }}>
+            {data.state === "SELL" ? "SELL / EXIT" : data.state}
+          </span>
+        </div>
       </div>
 
       <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>

@@ -2905,6 +2905,15 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
         bestEntry: r.bestEntry ?? null, entryNote: r.entryNote ?? null,
         ema9: r.ema9 ?? null, ema21: r.ema21 ?? null, ema50: r.ema50 ?? null,
         orBreakout: !!r.orBreakout, bull15: !!r.bull15,
+        // Real entry-trigger classification + signal reasoning (2026-08-19,
+        // "Fix Trading Signal Logic" spec) — same fields Green Light's Day
+        // Trade Mode now surfaces, straight off the same computeDayTradeSignal
+        // output already stored as this symbol's `raw`. Kept separate from
+        // `reason` above (which explains the debounce-confirmed `state`,
+        // Light Box's own concept) — this describes the underlying fresh
+        // signal's trigger condition instead.
+        entryTriggerStatus: r.entryTriggerStatus ?? null, direction: r.direction ?? null,
+        signalReason: r.signalReason ?? null,
         updatedAt: entry.updatedAt || null,
       };
     }).filter(Boolean);
