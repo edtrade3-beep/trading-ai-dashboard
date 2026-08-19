@@ -5822,9 +5822,13 @@ export default function App() {
   // viewport (both rects at y≈566-602 vs the FABs' y≈566-610), so it's
   // covered on first load, before any scrolling ever happens, which the
   // scroll-fade above can't help with. Fading the FABs specifically while
-  // resting near the top of this one tab (same fabFading mechanism every
+  // resting near the top of these tabs (same fabFading mechanism every
   // FAB already respects) fixes the confirmed case without changing FAB
-  // behavior on tabs where no collision was found.
+  // behavior on tabs where no collision was found. Extended to Smart Scan
+  // (2026-08-19 follow-up) — same real collision confirmed there too: its
+  // 14 category buttons push the "EXPORT PDF" row into the identical band
+  // at scrollTop 0.
+  const FAB_TOP_COLLISION_TABS = ["mterminal", "smartscan"];
   const [wsScrollNearTop, setWsScrollNearTop] = useState(true);
   useEffect(() => {
     if (!isMobile) return;
@@ -5850,10 +5854,10 @@ export default function App() {
   // who was already scrolled down elsewhere and then opens the Workspace
   // tab would keep a stale "not near top" reading.
   useEffect(() => {
-    if (!isMobile || activeTab !== "mterminal") return;
+    if (!isMobile || !FAB_TOP_COLLISION_TABS.includes(activeTab)) return;
     setWsScrollNearTop((document.body.scrollTop || 0) < 220);
   }, [isMobile, activeTab, terminalSymbol]);
-  const fabFading = isMobile && (fabScrolling || (activeTab === "mterminal" && wsScrollNearTop));
+  const fabFading = isMobile && (fabScrolling || (FAB_TOP_COLLISION_TABS.includes(activeTab) && wsScrollNearTop));
 
   if (!appUnlocked) {
     return (
