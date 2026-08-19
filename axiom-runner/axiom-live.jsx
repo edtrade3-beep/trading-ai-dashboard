@@ -4544,19 +4544,20 @@ export default function App() {
     }
   }, [watchlistSymbols, providerKeys, flowFilters]);
 
+  // Real bug fixed 2026-08-19 (app-wide audit): this used to also start its
+  // own setInterval into the shared `intervalRef` here. That interval was
+  // immediately clobbered on the very next render by the `[apiKey, fetchAll]`
+  // effect below (submitting a key here always changes `apiKey`, which is in
+  // that effect's deps) — so this one never actually survived, and worse,
+  // the effect below hardcoded a 180s cadence instead of using
+  // settings.refreshMs, meaning the user-facing refresh-interval dropdown in
+  // QuotesTab.jsx (which even labels itself "Auto-refreshes every Xm") never
+  // had any real effect. Fixed at the source below instead of here.
   const handleApiKey = useCallback((key) => {
     setApiKey(key || "YAHOO_LOCAL");
     setLoading(true);
     fetchAll(key).finally(() => setLoading(false));
-
-    // Auto-refresh from user settings (stored locally)
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    intervalRef.current = setInterval(() => fetchAll(key), settings.refreshMs);
-  }, [fetchAll, settings.refreshMs]);
-
-  useEffect(() => {
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, []);
+  }, [fetchAll]);
 
   // Options Flow — dedicated ~12s refresh (Phase 18, options platform
   // redesign, per the confirmed "faster polling, not WebSockets" decision:
@@ -5716,14 +5717,18 @@ export default function App() {
     if (idx === 0) setTerminalSymbol(symbol);
   }, []);
 
+  // This is now the single owner of intervalRef (see handleApiKey above) —
+  // real bug fixed 2026-08-19: was hardcoded to 180000ms regardless of the
+  // user's real settings.refreshMs choice; now respects it and restarts the
+  // interval when the user actually changes it.
   useEffect(() => {
     if (!apiKey) return;
     setLoading(true);
     fetchAll(apiKey).finally(() => setLoading(false));
     if (intervalRef.current) clearInterval(intervalRef.current);
-    intervalRef.current = setInterval(() => fetchAll(apiKey), 180000);
+    intervalRef.current = setInterval(() => fetchAll(apiKey), settings.refreshMs);
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [apiKey, fetchAll]);
+  }, [apiKey, fetchAll, settings.refreshMs]);
 
   useEffect(() => {
     if (scannerFilters.scope !== "market") return;

@@ -1,9 +1,43 @@
-import { C, MONO } from "./theme.js";
+import { C, MONO, SANS } from "./theme.js";
 
 // Tiny shared UI atoms used throughout the app. Unlike most extracted
 // components, these read C/MONO directly from theme.js instead of
 // receiving them as props — that's how they were already written in the
 // monolith (no prop drilling for something this small), preserved as-is.
+
+// Per-module failure isolation (2026-08-19, app-wide audit — explicit user
+// spec section 17: "one broken module must never crash the entire
+// Workspace"). Confirmed via direct code reading that the only error
+// boundary in the whole app is RhErrorBoundary at the very root
+// (axiom-live.jsx), wrapping <App> — a crash in any single panel (Options
+// Flow, News, AI Research, a dTab sub-tab, etc.) currently takes down the
+// entire page to that boundary's generic "Something hit an error" screen.
+// This is a small, inline-sized sibling to that one — same
+// getDerivedStateFromError/componentDidCatch mechanics (React's own error
+// boundary API, not custom logic), but renders a compact "X temporarily
+// unavailable" message in place instead of replacing the whole viewport, so
+// everything else on the page keeps working. React only supports error
+// boundaries as class components — no hook equivalent exists.
+export class PanelErrorBoundary extends React.Component {
+  constructor(p) { super(p); this.state = { err: null }; }
+  static getDerivedStateFromError(err) { return { err }; }
+  componentDidCatch(err, info) {
+    try { console.error(`[Panel crash: ${this.props.label || "module"}]`, err, info && info.componentStack); } catch {}
+  }
+  render() {
+    if (!this.state.err) return this.props.children;
+    return (
+      <div style={{ padding: "12px 14px", border: `1px solid ${C.border}`, borderRadius: 10, background: C.card, textAlign: "center" }}>
+        <div style={{ fontFamily: SANS, fontSize: 12.5, fontWeight: 700, color: C.textDim }}>
+          ⚠ {this.props.label || "This section"} temporarily unavailable
+        </div>
+        <div style={{ fontFamily: MONO, fontSize: 10.5, color: C.textDim, marginTop: 4 }}>
+          The rest of the page is unaffected. Reload if this persists.
+        </div>
+      </div>
+    );
+  }
+}
 
 export const Badge = ({ children, color = C.accent, bg }) => (
   <span style={{

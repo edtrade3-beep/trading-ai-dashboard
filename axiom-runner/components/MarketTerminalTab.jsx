@@ -146,6 +146,7 @@ import {
   PredictionMarkets, SocialFeed, InvestorsPanel,
   OptionsFlowPanel,
 } from "./terminal-panels.jsx";
+import { PanelErrorBoundary } from "./ui-atoms.jsx";
 // SCORE + real RVOL for the Movers/Watchlist mini-list — explicit user
 // request 2026-07-27 ("add score and rvol in list before i click on each
 // one"). Watchlist rows previously hardcoded volRatio: null (this list's
@@ -967,7 +968,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             </div>
           );
         })()}
-        {showFullAnalysis && <>
+        {showFullAnalysis && <PanelErrorBoundary label="Full Analysis"><>
         {wsTab === "decision" && chart && (
           <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
             {(() => {
@@ -1547,7 +1548,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             FUNDAMENTALS | TECHNICAL side-by-side section above, right
             under Market Context. Promoted, not duplicated. */}
         </>}
-        </>}
+        </></PanelErrorBoundary>}
         {/* ── Per-symbol detail tabs — real price chart + sub-nav live
             here, deliberately NOT part of the collapsed section above,
             since this is the Chart page and the chart itself stays visible.
@@ -1605,10 +1606,12 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                 the chart to match the spec's section order (Header→Scores→
                 Summary→Trade Plan→Chart). */}
             {wsTab === "decision" && chart && showFullAnalysis && (
+              <PanelErrorBoundary label="AI Summary">
               <div style={{ marginBottom: 14 }}>
                 <SectionHeader icon="🧠" label="AI SUMMARY" tone="gold" />
                 <BullBearPanel symbol={sym} bullBear={bullBear} C={C} MONO={MONO} SANS={SANS} />
               </div>
+              </PanelErrorBoundary>
             )}
             {/* Execution Card (Entry/Stop/Targets) now renders above the
                 "SUPPORTING DETAIL" divider, right under the hero verdict
@@ -1670,6 +1673,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                 Order Blocks/FVGs/Liquidity/VWAP/Volume Profile/Dark Pool
                 evidence (SmartMoneyPanel.jsx) collapsed underneath. */}
             {wsTab === "decision" && chart && sym && showFullAnalysis && (
+              <PanelErrorBoundary label="Smart Money">
               <div style={{ marginTop: 14, marginBottom: 14 }}>
                 <SectionHeader icon="🧱" label="SMART MONEY" />
                 {/* heroAction (2026-08-09, decision-clarity audit) — this
@@ -1686,6 +1690,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                     competing verdict language that's gone, not the data. */}
                 <SmartMoneyDecisionPanel symbol={sym} C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} isMobile={isMobile} heroAction={primaryAction} />
               </div>
+              </PanelErrorBoundary>
             )}
             {/* SECTION 7 — Catalysts (institutional redesign, 2026-07-29,
                 explicit user spec: "Earnings, Analyst Upgrades/Downgrades,
@@ -1750,6 +1755,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
               const dirCol = p.dir.includes("BULL") || p.dir === "LEAN UP" ? C.green : p.dir.includes("BEAR") || p.dir === "LEAN DOWN" ? C.red : C.textDim;
               const dirIcon = p.dir.includes("BULL") || p.dir === "LEAN UP" ? "📈" : p.dir.includes("BEAR") || p.dir === "LEAN DOWN" ? "📉" : "➡️";
               return (
+                <PanelErrorBoundary label="Quick Read">
                 <div style={{ marginTop: 14, border: `1px solid ${dirCol}55`, borderRadius: 12, padding: "12px 14px", background: `${dirCol}0d` }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                     <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 800, color: C.text }}>{dirIcon} Quick Read — next ~1 week</div>
@@ -1761,6 +1767,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                   </div>
                   <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 6 }}>Free, deterministic, real trend-template based — not an AI call.</div>
                 </div>
+                </PanelErrorBoundary>
               );
             })()}
             {wsTab === "deepdive" && <AiPredictPanel symbol={sym} chart={chart} C={C} MONO={MONO} SANS={SANS} />}
@@ -1771,15 +1778,23 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                 duplicated inline on every wsTab view. */}
           </>
         )}
-        {dTab === "smart" && <SmartScanPanel symbol={sym} chart={chart} C={C} MONO={MONO} SANS={SANS} />}
-        {dTab === "flow" && <OptionsFlowPanel symbol={sym} C={C} MONO={MONO} SANS={SANS} />}
-        {dTab === "valuation" && <FundamentalsPanel symbol={sym} C={C} MONO={MONO} SANS={SANS} />}
-        {dTab === "analysts" && <AnalystPeerPanel symbol={sym} price={chart && chart.price} lb={lb} C={C} MONO={MONO} SANS={SANS} />}
-        {dTab === "investors" && <InvestorsPanel symbol={sym} C={C} MONO={MONO} SANS={SANS} />}
-        {dTab === "earnings" && <><EarningsSnapshot symbol={sym} C={C} MONO={MONO} SANS={SANS} /><EarningsBars symbol={sym} C={C} MONO={MONO} SANS={SANS} /></>}
-        {dTab === "company" && <CompanyProfile symbol={sym} C={C} MONO={MONO} SANS={SANS} />}
-        {dTab === "social" && <SocialFeed symbol={sym} C={C} MONO={MONO} SANS={SANS} />}
-        {dTab === "news" && <><NewsPanel symbol={sym} C={C} MONO={MONO} SANS={SANS} /><JournalNotesPanel sym={sym} C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} /></>}
+        {/* Each dTab sub-tab wrapped in its own PanelErrorBoundary
+            (2026-08-19, app-wide audit, spec section 17: "one broken module
+            must never crash the entire Workspace") — confirmed before this
+            change that the only error boundary in the app was the root one
+            in axiom-live.jsx, so a crash in e.g. News or Investors took down
+            the whole page. Now a crash in one sub-tab shows a small "X
+            temporarily unavailable" message and the rest of the page
+            (chart, decision card, other sub-tabs) keeps working. */}
+        {dTab === "smart" && <PanelErrorBoundary label="Smart Scan"><SmartScanPanel symbol={sym} chart={chart} C={C} MONO={MONO} SANS={SANS} /></PanelErrorBoundary>}
+        {dTab === "flow" && <PanelErrorBoundary label="Options Flow"><OptionsFlowPanel symbol={sym} C={C} MONO={MONO} SANS={SANS} /></PanelErrorBoundary>}
+        {dTab === "valuation" && <PanelErrorBoundary label="Valuation"><FundamentalsPanel symbol={sym} C={C} MONO={MONO} SANS={SANS} /></PanelErrorBoundary>}
+        {dTab === "analysts" && <PanelErrorBoundary label="Analysts"><AnalystPeerPanel symbol={sym} price={chart && chart.price} lb={lb} C={C} MONO={MONO} SANS={SANS} /></PanelErrorBoundary>}
+        {dTab === "investors" && <PanelErrorBoundary label="Investors"><InvestorsPanel symbol={sym} C={C} MONO={MONO} SANS={SANS} /></PanelErrorBoundary>}
+        {dTab === "earnings" && <PanelErrorBoundary label="Earnings"><EarningsSnapshot symbol={sym} C={C} MONO={MONO} SANS={SANS} /><EarningsBars symbol={sym} C={C} MONO={MONO} SANS={SANS} /></PanelErrorBoundary>}
+        {dTab === "company" && <PanelErrorBoundary label="Company"><CompanyProfile symbol={sym} C={C} MONO={MONO} SANS={SANS} /></PanelErrorBoundary>}
+        {dTab === "social" && <PanelErrorBoundary label="Social"><SocialFeed symbol={sym} C={C} MONO={MONO} SANS={SANS} /></PanelErrorBoundary>}
+        {dTab === "news" && <PanelErrorBoundary label="News"><NewsPanel symbol={sym} C={C} MONO={MONO} SANS={SANS} /><JournalNotesPanel sym={sym} C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} /></PanelErrorBoundary>}
       </div>
     </div>
 

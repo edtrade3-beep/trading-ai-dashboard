@@ -5,6 +5,7 @@ import { FIVEX_REF } from "./fivex-data.js";
 import { computeAPlusScore, computeRegime, computePrediction } from "./market-helpers.js";
 import { computeSniperDecision } from "./sniper-decision.js";
 import { computeHeatRisk, computeCortexVerdict } from "./cortex-engine.js";
+import { PanelErrorBoundary } from "./ui-atoms.jsx";
 // Category tabs (2026-08-14, explicit user request: "make smart scan just
 // like discover or better") — real category system ported from
 // RhProScanner.jsx/Discover, same ids/labels, no invented categories.
@@ -1678,7 +1679,7 @@ export default function SmartScanTab({
                                             {scanShowFullAnalysis ? "▲ Hide Full Analysis" : "▼ Show Full Analysis (Options, Technicals, SMC, News, Analyst & Earnings)"}
                                           </button>
 
-                                        {scanShowFullAnalysis && <>
+                                        {scanShowFullAnalysis && <PanelErrorBoundary label="Options"><>
                                         {/* ── OPTIONS RECOMMENDATION ── */}
                                         {(() => {
                                           const px      = Number(livePrice || row.quote?.price || 0);
@@ -1812,12 +1813,12 @@ export default function SmartScanTab({
                                             </div>
                                           );
                                         })()}
-                                        </>}
+                                        </></PanelErrorBoundary>}
                                       </div>
                                       );
                                     })()}
 
-                                    {scanShowFullAnalysis && <>
+                                    {scanShowFullAnalysis && <PanelErrorBoundary label="Deep Dive Analysis"><>
                                     {/* ── Deep-dive panels — responsive grid (was a fixed-width
                                         drag-to-scroll strip; explicit user request 2026-08-14,
                                         "make it pro and remove chart"). The per-symbol TradingView
@@ -2657,7 +2658,7 @@ export default function SmartScanTab({
                                       </div>
 
                                     </div>
-                                    </>}
+                                    </></PanelErrorBoundary>}
                                     </>
                                   )}
                                 </td>
