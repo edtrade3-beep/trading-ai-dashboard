@@ -196,53 +196,43 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   const [chart, setChart] = useState(null);
   const [loadingChart, setLoadingChart] = useState(false);
   const [query, setQuery] = useState("");
-  const [dTab, setDTab] = useState("chart");   // per-symbol detail tab
-  // Decision-clarity redesign (2026-08-09) — the always-visible span above
-  // the dTab tab-strip had grown to ~9 stacked sections (stat pills, hero,
-  // company overview, execution, trade readiness, market context,
-  // fundamentals/technical, early in/out, supporting detail), 6-9 screens
-  // of scroll before a first-time viewer reached the chart. wsTab splits
-  // that same content into what's needed to decide right now vs. research
-  // reached for after — nothing removed, same real sections, just gated by
-  // this instead of always rendering together.
-  const [wsTab, setWsTab] = useState("decision");
+  // Deep-link sub-tab (2026-08-19 reorg) — Smart Scan/Options Flow/
+  // Valuation/Analysts/Investors/Earnings/Company/Social/News, each a real
+  // self-contained panel reached from the 6-section hierarchy's "→" links
+  // below rather than shown inline. The chart itself used to be one of
+  // these ("chart") — it's now permanently part of the TECHNICAL section
+  // instead, so it's no longer a dTab option.
+  const [dTab, setDTab] = useState("smart");
   // Collapsed by default (2026-08-10, Workspace-length audit) — Zone 1
   // (Movers/Watchlist table + Market Wire headlines) measured at ~2100px,
   // 30% of the page, and it's generic market-discovery content, not
   // specific to whichever symbol is actually loaded below it. Same
-  // collapse-by-default pattern as Supporting Detail — real content, just
-  // not the first thing between a viewer and "should I buy this."
+  // collapse-by-default pattern as the accordion sections below — real
+  // content, just not the first thing between a viewer and "should I buy
+  // this."
   const [showMoversZone, setShowMoversZone] = useState(false);
-  // Collapsed by default (2026-08-04, "chart is too crowded") — the 6-tile
-  // score grid through the technical-indicator pills are 5-6 separate
-  // bordered cards stacked one after another below the hero verdict, the
-  // actual source of the crowding complaint. The real price chart itself
-  // is NOT part of this toggle (it lives in the dTab sub-nav content below,
-  // which stays expanded) — only the extra score cards collapse.
-  const [showSupportingDetail, setShowSupportingDetail] = useState(false);
-  // Zone 3 "Market Snapshot" — collapsed by default (2026-08-18, workspace
-  // simplification audit): this block renders unconditionally below every
-  // dTab sub-tab (Chart/Smart Scan/Options Flow/etc.), so it looked
-  // identically repeated across all 9 sub-tabs in user screenshots. Its
-  // index quotes (SPY/QQQ/DIA) also duplicate the app's own persistent top
-  // ticker strip. Same collapse-by-default pattern as showMoversZone — real
-  // content, still one click away, just not force-visible on every tab.
-  const [showMarketSnapshot, setShowMarketSnapshot] = useState(false);
-  // Full Analysis — collapsed by default (2026-08-19, explicit user spec: a
-  // minimal decision card — verdict/A+ score/entry-stop-target/trend-volume-
-  // risk/chart — as the default view, with the Institutional Grade badge,
-  // Trade Readiness/Checklist, AI Summary, Smart Money, and Quick Read all
-  // moved behind this one toggle. Also gates the fetches that exclusively
-  // back those sections (see fullAnalysisFetchedForRef below) — the user's
-  // explicit "most important part": stop *fetching* this data on every
-  // symbol load, not just stop rendering it, since that's the real
-  // contributor to memory/502 issues, not just visual clutter.
-  const [showFullAnalysis, setShowFullAnalysis] = useState(false);
+  // Six-section hierarchy (2026-08-19, "AM TRADING — FINAL STOCK WORKSPACE
+  // ORGANIZATION" spec) — replaces the old wsTab (decision/deepdive) +
+  // showFullAnalysis + showSupportingDetail three-flag system with one:
+  // DECISION → SETUP → TECHNICAL → MARKET & CONTEXT → BUSINESS →
+  // INTELLIGENCE, one section open at a time (opening a new one collapses
+  // whichever was open — see AccordionSection below), DECISION open by
+  // default. Every real panel keeps its exact original computation — this
+  // only changes which section it renders under and when. `null` means
+  // every section is collapsed (user closed Decision without opening
+  // anything else).
+  const [openSection, setOpenSection] = useState("decision");
+  // True once the user has opened ANY section other than Decision — same
+  // role the old showFullAnalysis flag played for fetch-gating (stop
+  // *fetching* secondary data on every symbol load, not just stop
+  // rendering it — the real fix for memory/502 pressure, not just visual
+  // clutter).
+  const deepOpen = openSection != null && openSection !== "decision";
   // Tracks which symbol the secondary (options-flow/dark-pool/gamma/short-
   // interest/news+sentiment/fundamentals) fetches have already run for, so
-  // toggling Full Analysis open/closed/open again for the SAME symbol
-  // doesn't re-fire them, but switching symbols while it's open still gets
-  // fresh data.
+  // opening/closing/reopening any non-Decision section for the SAME symbol
+  // doesn't re-fire them, but switching symbols while one is open still
+  // gets fresh data.
   const fullAnalysisFetchedForRef = useRef(null);
   const [chartTf, setChartTf] = useState("1d"); // chart candle granularity, 5m → 1wk
   // Trend & Base Rating overlay visibility (2026-08-06, explicit user
@@ -386,20 +376,21 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   const scrollToPlanPendingRef = useRef(false);
 
   // Market cap + P/E from fundamentals (Yahoo local / FMP on cloud). Best-effort.
-  // Gated on showFullAnalysis (2026-08-19, Decision Card redesign) — the
-  // Market Cap/P/E pills and Valuation dTab this fed live inside the
-  // collapsed-by-default full analysis section (Valuation's own FundamentalsPanel
+  // Gated on deepOpen (2026-08-19, Decision Card redesign; renamed from
+  // showFullAnalysis in the 6-section reorg, same behavior) — the Market
+  // Cap/P/E pills (now in BUSINESS) and Valuation dTab this fed live inside
+  // sections closed by default (Valuation's own FundamentalsPanel
   // self-fetches independently, unaffected). One honest side effect: the
   // header's "{fund.name}" subtitle next to the ticker also goes quiet until
-  // Full Analysis is opened — an accepted minor tradeoff, not a bug, in
-  // exchange for not fetching this on every symbol load.
+  // any non-Decision section is opened — an accepted minor tradeoff, not a
+  // bug, in exchange for not fetching this on every symbol load.
   const [fund, setFund] = useState(null);
   useEffect(() => {
-    if (!sym || !showFullAnalysis) return;
+    if (!sym || !deepOpen) return;
     setFund(null);
     fetch("/api/market/fundamentals?symbol=" + encodeURIComponent(sym))
       .then(r => r.json()).then(j => setFund(j && !j.error ? j : null)).catch(() => {});
-  }, [sym, showFullAnalysis]);
+  }, [sym, deepOpen]);
 
   // Own trend-screen row for the loaded symbol — the Movers/Watchlist
   // termTrendMap below only covers rows currently on screen in that list,
@@ -422,18 +413,19 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   // summary block is used, not the contract list already shown in full on
   // the Options Flow tab). Explicit user request 2026-07-29 ("institutional
   // AI grade") — additive, doesn't touch Stock Quality/Trade Setup scores.
-  // Gated on showFullAnalysis — only feeds the Institutional Grade badge,
-  // checklist, and Smart Money, all inside the collapsed-by-default full
-  // analysis section (2026-08-19, Decision Card redesign).
+  // Gated on deepOpen — only feeds the Institutional Grade badge, checklist,
+  // and Smart Money, all inside sections closed by default (2026-08-19,
+  // Decision Card redesign; renamed from showFullAnalysis in the 6-section
+  // reorg, same behavior).
   const [symOptionsFlow, setSymOptionsFlow] = useState(null);
   useEffect(() => {
-    if (!sym || !showFullAnalysis) return;
+    if (!sym || !deepOpen) return;
     setSymOptionsFlow(null);
     fetch(`/api/market/options-flow?symbols=${encodeURIComponent(sym)}&limit=1`)
       .then(r => r.json())
       .then(j => setSymOptionsFlow(j && !j.error ? j.summary || null : null))
       .catch(() => {});
-  }, [sym, showFullAnalysis]);
+  }, [sym, deepOpen]);
 
   // AI Trade Engine inputs (options platform redesign, Phase 3) — real
   // dark pool prints, real per-symbol news sentiment, and real gamma
@@ -450,16 +442,16 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   // same real Yahoo-sourced field short-interest tools elsewhere in this
   // app already use.
   const [symShortInterest, setSymShortInterest] = useState(null);
-  // Gated on showFullAnalysis + a per-symbol dedup guard (2026-08-19,
-  // Decision Card redesign) — dark pool/gamma/short interest/news
-  // sentiment only ever feed the checklist, Institution Score, and AI
-  // Summary, all inside the collapsed-by-default full analysis section.
-  // This is the biggest chunk of the ~10 unconditional per-symbol-load
-  // fetches this page used to make (4 real requests, one of them chained
-  // into a 5th) — deferring it is the actual fix for the memory/502
-  // concern, not just a render-visibility change.
+  // Gated on deepOpen + a per-symbol dedup guard (2026-08-19, Decision Card
+  // redesign; renamed from showFullAnalysis in the 6-section reorg, same
+  // behavior) — dark pool/gamma/short interest/news sentiment only ever
+  // feed the checklist, Institution Score, and AI Summary, all inside
+  // sections closed by default. This is the biggest chunk of the ~10
+  // unconditional per-symbol-load fetches this page used to make (4 real
+  // requests, one of them chained into a 5th) — deferring it is the actual
+  // fix for the memory/502 concern, not just a render-visibility change.
   useEffect(() => {
-    if (!sym || !showFullAnalysis) return;
+    if (!sym || !deepOpen) return;
     if (fullAnalysisFetchedForRef.current === sym) return;
     fullAnalysisFetchedForRef.current = sym;
     setSymDarkPool(null); setSymNewsSentiment(null); setSymGamma(null); setSymShortInterest(null);
@@ -474,7 +466,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
         return fetch("/api/agent/sentiment-by-symbol", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ headlines }) })
           .then(r => r.json()).then(d => { if (d?.ok) setSymNewsSentiment(d); });
       }).catch(() => {});
-  }, [sym, showFullAnalysis]);
+  }, [sym, deepOpen]);
 
   // Real forward-return win-probability log — market-wide, fetched once
   // (not per-symbol), same real source RhProScanner already uses.
@@ -487,20 +479,19 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   // per-symbol insider transactions + analyst ratings, same existing
   // endpoints InsiderTab/AnalystPeerPanel already use market-wide, scoped
   // here to just the loaded symbol. No new backend routes.
-  // Gated on showSupportingDetail (2026-08-19, Decision Card redesign) — the
-  // JSX consuming these was already gated by this same flag; the fetch
-  // wasn't, so it fired on every symbol load regardless of whether the
-  // (already-collapsed-by-default) Supporting Detail section was ever
-  // opened. showSupportingDetail is only reachable once showFullAnalysis is
-  // already open, so gating on it alone is sufficient here.
+  // Gated on deepOpen (2026-08-19, Decision Card redesign; renamed from
+  // showSupportingDetail in the 6-section reorg — Catalysts now lives
+  // directly inside MARKET & CONTEXT rather than behind a nested
+  // sub-toggle, so it fetches whenever any non-Decision section opens,
+  // same as the rest of the secondary data).
   const [symInsider, setSymInsider] = useState(null);
   const [symAnalyst, setSymAnalyst] = useState(null);
   useEffect(() => {
-    if (!sym || !showSupportingDetail) return;
+    if (!sym || !deepOpen) return;
     setSymInsider(null); setSymAnalyst(null);
     fetch(`/api/market/insider?ticker=${encodeURIComponent(sym)}`).then(r => r.json()).then(j => setSymInsider(j?.ok ? j : null)).catch(() => {});
     fetch(`/api/market/analyst?tickers=${encodeURIComponent(sym)}`).then(r => r.json()).then(j => setSymAnalyst(Array.isArray(j?.results) ? j.results[0] : (Array.isArray(j) ? j[0] : null))).catch(() => {});
-  }, [sym, showSupportingDetail]);
+  }, [sym, deepOpen]);
 
   const [wlMsg, setWlMsg] = useState("");
   const addToWatchlist = useCallback(() => {
@@ -651,6 +642,10 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   useEffect(() => {
     if (aiTradeScore && scrollToPlanPendingRef.current) {
       scrollToPlanPendingRef.current = false;
+      // tradePlanRef's real element (AiTradeCard) now lives inside the
+      // SETUP section (2026-08-19 reorg), closed by default — open it so
+      // there's actually something to scroll to.
+      setOpenSection("setup");
       // Real content above the AI Trade Card (chart panels, catalysts,
       // prediction markets) keeps loading asynchronously after
       // aiTradeScore itself resolves — an immediate single scroll can land
@@ -731,6 +726,62 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
       </div>
     );
   };
+
+  // The 6-tier hierarchy, in reading order — also drives the breadcrumb.
+  const SECTIONS = [
+    { id: "decision", label: "DECISION" },
+    { id: "setup", label: "SETUP" },
+    { id: "technical", label: "TECHNICAL" },
+    { id: "market", label: "MARKET" },
+    { id: "business", label: "BUSINESS" },
+    { id: "intelligence", label: "INTELLIGENCE" },
+  ];
+
+  // One-section-open-at-a-time accordion wrapper (2026-08-19 reorg). Reuses
+  // SectionHeader's exact visual language for the label row; closed
+  // sections show a real one-line `summary` (built by the caller from
+  // already-computed values) instead of full content, so collapsing a
+  // section doesn't mean losing context on what's inside it. Each section's
+  // body is wrapped in its own PanelErrorBoundary (spec section 17 — one
+  // broken section must never take down the others).
+  const AccordionSection = ({ id, icon, label, summary, tone, children }) => {
+    const isOpen = openSection === id;
+    const tc = tone === "gold" ? C.gold : C.accent;
+    return (
+      <div style={{ marginBottom: 14 }}>
+        <div onClick={() => setOpenSection(isOpen ? null : id)}
+          style={{ display: "flex", alignItems: "center", gap: 10, paddingBottom: 7, marginBottom: isOpen ? 10 : 0, borderBottom: `2px solid ${tc}`, cursor: "pointer" }}>
+          <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 22, height: 22,
+            borderRadius: 6, background: `${tc}1c`, fontSize: 12, flexShrink: 0 }}>{icon}</span>
+          <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 900, letterSpacing: 0.3, color: C.text, textTransform: "uppercase", flexShrink: 0 }}>{label}</span>
+          {!isOpen && summary && <span style={{ fontFamily: SANS, fontSize: 11.5, color: C.textDim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{summary}</span>}
+          <span style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.accent, flexShrink: 0 }}>{isOpen ? "▴ Close" : "▾ Open"}</span>
+        </div>
+        {isOpen && <PanelErrorBoundary label={label}>{children}</PanelErrorBoundary>}
+      </div>
+    );
+  };
+
+  // Decision Card inputs, hoisted out of JSX (2026-08-19 reorg) so both the
+  // top summary strip and the DECISION section body read the same real
+  // values without recomputing — verbatim math from the original inline
+  // computation (verdict off chart.setup.verdict, stage off chart.stage,
+  // volume off symTrend.volRatio, risk off chart.setup.riskPct).
+  const decisionInputs = (chart && chart.setup) ? (() => {
+    const su = chart.setup;
+    const verdict = su.verdict; // "GO" | "WAIT" | "AVOID"
+    const vColor = verdict === "GO" ? "#0d9465" : verdict === "WAIT" ? "#d6a312" : "#c8282a";
+    const vIcon = verdict === "GO" ? "🟢" : verdict === "WAIT" ? "🟡" : "🔴";
+    const vLabel = verdict === "GO" ? "BUY" : verdict === "WAIT" ? "WAIT" : "AVOID";
+    const target1R = Math.round((su.entry + (su.entry - su.stop)) * 100) / 100;
+    const stage = String(chart.stage || "");
+    const trendColor = stage.includes("Stage 2") ? "#0d9465" : stage.includes("Transition") ? "#d6a312" : stage.includes("Stage 4") ? "#c8282a" : C.textDim;
+    const vol = Number(symTrend?.volRatio);
+    const volColor = !Number.isFinite(vol) ? C.textDim : vol >= 1.5 ? "#0d9465" : vol >= 0.8 ? "#d6a312" : "#c8282a";
+    const risk = Number(su.riskPct);
+    const riskColor = !Number.isFinite(risk) ? C.textDim : risk <= 5 ? "#0d9465" : risk <= 7 ? "#d6a312" : "#c8282a";
+    return { su, verdict, vColor, vIcon, vLabel, target1R, trendColor, volColor, riskColor };
+  })() : null;
 
   return (
     <div style={{ width: "100%" }}>
@@ -843,9 +894,16 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
         </>}
       </div>
 
-      {/* ── ZONE 2: pro chart ── */}
+      {/* ── Stock detail — ticker header, one-line decision summary,
+          breadcrumb, then the 6-tier DECISION → SETUP → TECHNICAL →
+          MARKET & CONTEXT → BUSINESS → INTELLIGENCE hierarchy (2026-08-19,
+          "AM TRADING — FINAL STOCK WORKSPACE ORGANIZATION" spec). Replaces
+          the old wsTab(decision/deepdive) + showFullAnalysis +
+          showSupportingDetail flag stack — same real content and
+          computations throughout, reorganized into exactly one home per
+          metric instead of a flat decision/deep-dive split. Light Box
+          itself is untouched by this reorg — separate tab, separate file. ── */}
       <div ref={chartZoneRef} style={{ width: "100%" }}>
-        <SectionHeader icon="📈" label="Chart" />
         <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 8, flexWrap: "wrap" }}>
           <span style={{ fontFamily: SANS, fontSize: 24, fontWeight: 900, color: C.accent }}>{sym}</span>
           {/* Real company/fund name from the same fundamentals fetch already
@@ -888,82 +946,51 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
           </button>
           {wlMsg && <span style={{ fontFamily: MONO, fontSize: 12, color: "#22d47e" }}>{wlMsg}</span>}
         </div>
-        {/* wsTab — see the state declaration above for why this exists.
-            Decision is everything needed to decide right now; Deep Dive is
-            the research reached for after (company overview, market
-            context, fundamentals/technical detail, early in/out, the
-            already-collapsed supporting-score detail). */}
-        <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
-          {[["decision", "🎯 Decision"], ["deepdive", "🔍 Deep Dive"]].map(([id, lbl]) => (
-            <button key={id} onClick={() => setWsTab(id)}
-              style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "7px 16px", borderRadius: 8, cursor: "pointer",
-                border: `1px solid ${wsTab === id ? C.accent : C.border}`, background: wsTab === id ? `${C.accent}18` : "transparent",
-                color: wsTab === id ? C.accent : C.textSec }}>
-              {lbl}
-            </button>
+        {/* Top-level summary strip (spec: Ticker/Company/Price/Change/
+            Primary Signal/Score/Confidence/Entry/Stop/Target/one-line why,
+            above the 6 sections) — composed entirely from values already
+            computed for the DECISION section below, zero new data. */}
+        {decisionInputs && (
+          <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.textSec, marginBottom: 8, display: "flex", flexWrap: "wrap", gap: 6, alignItems: "baseline" }}>
+            <span style={{ fontWeight: 900, color: decisionInputs.vColor }}>{decisionInputs.vIcon} {decisionInputs.vLabel}</span>
+            {aPlusScore && <span>· A+ <b style={{ color: C.text }}>{aPlusScore.score}</b></span>}
+            {prediction && <span>· <b style={{ color: C.text }}>{prediction.conf}%</b> confidence</span>}
+            <span>· Entry <b style={{ color: C.text }}>${decisionInputs.su.entry}</b> / Stop <b style={{ color: C.text }}>${decisionInputs.su.stop}</b> / Target <b style={{ color: C.text }}>${decisionInputs.target1R}</b></span>
+            {oneLiner && <span style={{ color: C.textDim }}>· {oneLiner}</span>}
+          </div>
+        )}
+        {/* Breadcrumb / depth indicator — click any name to jump straight
+            to that section (same effect as clicking its own header). */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center", marginBottom: 14, fontFamily: MONO, fontSize: 10.5 }}>
+          <span style={{ color: C.textDim, fontWeight: 700 }}>{sym}</span>
+          {SECTIONS.map((s) => (
+            <span key={s.id} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+              <span style={{ color: C.textDim }}>→</span>
+              <span onClick={() => setOpenSection(openSection === s.id ? null : s.id)}
+                style={{ cursor: "pointer", fontWeight: openSection === s.id ? 900 : 600, color: openSection === s.id ? C.accent : C.textDim }}>
+                {s.label}
+              </span>
+            </span>
           ))}
         </div>
+
+        {/* ══════════════════════ DECISION (open by default) ══════════════════════ */}
+        <AccordionSection id="decision" icon="🎯" label="Decision"
+          summary={decisionInputs ? `${decisionInputs.vLabel} · A+ ${aPlusScore ? aPlusScore.score : "—"} · Entry $${decisionInputs.su.entry} / Stop $${decisionInputs.su.stop} / Target $${decisionInputs.target1R}` : "Loading…"}>
         {/* ── Decision Card — minimal default view (2026-08-19, explicit
             user wireframe): verdict / A+ score / entry-stop-target /
             trend-volume-risk / market, built entirely from data already
             fetched for the primary view (chart.setup from trend-template,
             symTrend/aPlusScore from trend-screen, regime from macroData) —
-            zero new fetches. Everything below this card (Institutional
-            Grade, Trade Readiness, AI Summary, Smart Money, Quick Read)
-            moves behind the "Show Full Analysis" toggle — real content,
-            still one click away, just not force-visible or force-fetched
-            on every symbol load. The chart itself stays outside the
-            toggle, further down (see showFullAnalysis wrapping below). */}
-        {wsTab === "decision" && chart && chart.setup && (() => {
-          const su = chart.setup;
-          const verdict = su.verdict; // "GO" | "WAIT" | "AVOID"
-          const vColor = verdict === "GO" ? "#0d9465" : verdict === "WAIT" ? "#d6a312" : "#c8282a";
-          const vIcon = verdict === "GO" ? "🟢" : verdict === "WAIT" ? "🟡" : "🔴";
-          const vLabel = verdict === "GO" ? "BUY" : verdict === "WAIT" ? "WAIT" : "AVOID";
-          const target1R = Math.round((su.entry + (su.entry - su.stop)) * 100) / 100;
-          const stage = String(chart.stage || "");
-          const trendColor = stage.includes("Stage 2") ? "#0d9465" : stage.includes("Transition") ? "#d6a312" : stage.includes("Stage 4") ? "#c8282a" : C.textDim;
-          const vol = Number(symTrend?.volRatio);
-          const volColor = !Number.isFinite(vol) ? C.textDim : vol >= 1.5 ? "#0d9465" : vol >= 0.8 ? "#d6a312" : "#c8282a";
-          const risk = Number(su.riskPct);
-          const riskColor = !Number.isFinite(risk) ? C.textDim : risk <= 5 ? "#0d9465" : risk <= 7 ? "#d6a312" : "#c8282a";
-          return (
-            <DecisionCard C={C} MONO={MONO} SANS={SANS} NUM={NUM}
-              symbol={sym}
-              verdictIcon={vIcon} verdictLabel={vLabel} verdictColor={vColor}
-              aPlusScore={aPlusScore ? aPlusScore.score : null}
-              entry={su.entry} stop={su.stop} target={target1R}
-              trendColor={trendColor} volumeColor={volColor} riskColor={riskColor}
-              showFullAnalysis={showFullAnalysis} onToggleFullAnalysis={() => setShowFullAnalysis(v => !v)}
-              fullAnalysisLabel="Institutional Grade, Checklist, AI Summary, Smart Money, Quick Read" />
-          );
-        })()}
-        {showFullAnalysis && <PanelErrorBoundary label="Full Analysis"><>
-        {wsTab === "decision" && chart && (
-          <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
-            {(() => {
-              const s = chart, pill = (label, val, col) => (
-                <div key={label} style={{ flex: "1 1 120px", minWidth: 110, border: `1px solid ${C.border}`, borderRadius: 8, padding: "7px 10px", background: C.card }}>
-                  <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim, letterSpacing: 0.5 }}>{label}</div>
-                  <div style={{ fontFamily: NUM, fontSize: 14, fontWeight: 800, color: col || C.text }}>{val}</div>
-                </div>
-              );
-              const num = (v) => (v == null || isNaN(v)) ? null : v;
-              const mc = fund && Number(fund.marketCap) > 0 ? Number(fund.marketCap) : null;
-              const mcStr = mc == null ? "—" : mc >= 1e12 ? "$" + (mc / 1e12).toFixed(2) + "T" : mc >= 1e9 ? "$" + (mc / 1e9).toFixed(1) + "B" : "$" + (mc / 1e6).toFixed(0) + "M";
-              const pe = fund && Number(fund.pe || fund.trailingPE) > 0 ? Number(fund.pe || fund.trailingPE) : null;
-              return [
-                pill("MARKET CAP", mcStr),
-                pill("P/E", pe != null ? pe.toFixed(1) : "—"),
-                pill("% TO 52W HIGH", s.pctFromHigh != null ? s.pctFromHigh.toFixed(1) + "%" : "—", s.pctFromHigh != null && s.pctFromHigh > -3 ? "#22d47e" : C.text),
-                pill("52W HIGH", num(s.hi52) != null ? "$" + s.hi52.toFixed(2) : "—"),
-                pill("52W LOW", num(s.lo52) != null ? "$" + s.lo52.toFixed(2) : "—"),
-                pill("RS RATING", num(s.rsRating) != null ? String(s.rsRating) : "—", s.rsRating >= 80 ? "#22d47e" : s.rsRating >= 70 ? "#d6a312" : "#ef4444"),
-                pill("VOL vs AVG", num(s.volRatio) != null ? s.volRatio.toFixed(2) + "×" : "—", s.volRatio >= 1.5 ? "#f59e0b" : C.text),
-                pill("MOMENTUM", num(s.momentum) != null ? (s.momentum > 0 ? "+" : "") + s.momentum.toFixed(1) + "%" : "—", s.momentum > 0 ? "#22d47e" : "#ef4444"),
-              ];
-            })()}
-          </div>
+            zero new fetches. */}
+        {decisionInputs && (
+          <DecisionCard C={C} MONO={MONO} SANS={SANS} NUM={NUM}
+            symbol={sym}
+            verdictIcon={decisionInputs.vIcon} verdictLabel={decisionInputs.vLabel} verdictColor={decisionInputs.vColor}
+            aPlusScore={aPlusScore ? aPlusScore.score : null}
+            entry={decisionInputs.su.entry} stop={decisionInputs.su.stop} target={decisionInputs.target1R}
+            trendColor={decisionInputs.trendColor} volumeColor={decisionInputs.volColor} riskColor={decisionInputs.riskColor}
+            hideToggle />
         )}
         {/* SECTION 1 — Ticker / Overall Grade / AI Conviction / Primary
             Action (institutional redesign, 2026-07-29, explicit user spec).
@@ -977,7 +1004,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             win-rate log, honestly gated below its real sample floor. No
             fabricated metrics (no DCF, no gamma exposure, no 13F, etc — see
             the plan's "explicitly NOT building" list). */}
-        {wsTab === "decision" && institutionalGrade && (() => {
+        {institutionalGrade && (() => {
           const rec = institutionalRecommendation(institutionalGrade.score);
           const letter = institutionalLetterGrade(institutionalGrade.score);
           const stat = (label, val, col, title) => (
@@ -1032,17 +1059,22 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
               {oneLiner && (
                 <div style={{ fontFamily: SANS, fontSize: 13, fontWeight: 600, color: C.text, marginTop: 10, paddingTop: 10, borderTop: `1px solid ${rec.color}33` }}>{oneLiner}</div>
               )}
+              {/* "What would change the decision" (spec section 4) — reuses
+                  the same real checklist failure reasons the SETUP section's
+                  Trade Readiness card shows below, not a new judgment. */}
+              {checklistResult && checklistResult.dots.some(d => d.pass === false) && (
+                <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.textDim, marginTop: 8 }}>
+                  What would change this: {checklistResult.dots.filter(d => d.pass === false).slice(0, 2).map(d => d.label).join(", ")}.
+                </div>
+              )}
             </div>
           );
         })()}
-        {/* Company Overview + Last Earnings — right underneath the ticker/
-            price hero above (2026-08-05, explicit user request:
-            "everything i need to know about company and last earning right
-            underneath ticker and price and deep dive about company"). Real
-            fundamentals + real last-reported-quarter earnings result, full
-            profile/margins/growth/analyst breakdown collapsed under its own
-            "Deep Dive" toggle. */}
-        {wsTab === "deepdive" && sym && <CompanyOverviewCard symbol={sym} C={C} MONO={MONO} SANS={SANS} />}
+        </AccordionSection>
+
+        {/* ══════════════════════ SETUP ══════════════════════ */}
+        <AccordionSection id="setup" icon="📐" label="Setup"
+          summary={decisionInputs ? `Entry $${decisionInputs.su.entry} · Stop $${decisionInputs.su.stop} · Target $${decisionInputs.target1R}` : "—"}>
         {/* SECTION 2 — Execution Card (2026-08-04 decision-first redesign,
             explicit user spec) — real Entry/Stop/Targets (TrendSetupPanel,
             same _buildTrendTemplate pivot/stop/2R/3R every other real card
@@ -1060,7 +1092,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             same localStorage["tradeplanner_load_plan"] shape Green Light's
             "🎯 PLAN" button already writes — GreenLightTab.jsx:581-587 —
             so Trade Planner needed zero changes to receive it). */}
-        {wsTab === "decision" && chart && (
+        {chart && (
           <div style={{ marginBottom: 14 }}>
             <SectionHeader icon="🎯" label="EXECUTION" />
             {/* Caption added here, not inside TrendSetupPanel itself
@@ -1163,7 +1195,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             Flow/Market/Sector/Risk Reward) don't map 1:1 onto any single
             existing engine in this app; this real, already-built 11-dot
             system covers the same spirit without fabricating a new one. */}
-        {wsTab === "decision" && checklistResult && (
+        {checklistResult && (
           <div style={{ marginBottom: 14 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
               <SectionHeader icon="✅" label="TRADE READINESS" />
@@ -1202,41 +1234,45 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             )}
           </div>
         )}
-        {/* SECTION 4 — Market Context (2026-08-04 decision-first redesign)
-            — the same real MacroStatusStrip component MacroTab.jsx mounts
-            (SPY/QQQ/IWM/DIA/VIX/DXY-proxy/10Y/Gold/Oil/BTC, real
-            Green/Yellow/Red per instrument), so a trader can see at a
-            glance whether the broader market supports this trade without
-            leaving the page. One real shared component, two mount sites —
-            not a second, divergent copy. */}
-        {wsTab === "deepdive" && (
-          <div style={{ marginBottom: 14 }}>
-            <SectionHeader icon="🌍" label="MARKET CONTEXT" />
-            <MacroStatusStrip C={C} MONO={MONO} macroData={macroData} distData={distData} fred={macroFred} />
+        {sym && (
+          <div ref={tradePlanRef} style={{ marginBottom: 10 }}>
+            <AiTradeCard
+              symbol={sym} price={chart?.price} aiTradeScore={aiTradeScore} institutionScore={institutionScore}
+              gammaExposure={symGamma} shortFloatPct={symShortInterest?.shortFloat} rvol={symTrend?.volRatio}
+              earningsDte={symTrend?.earningsDte} onTopContract={setTopContract} C={C} MONO={MONO} SANS={SANS}
+            />
           </div>
         )}
-        {/* SECTION 4.5 — Fundamentals | Technical, side by side (2026-08-04,
-            explicit user request: "add fundamental in one side and
-            technical in other side squeeze them together"). Both promoted
-            to always-visible, real estate right under the hero verdict —
-            Fundamentals used to be reachable only by clicking into the
-            "Valuation" sub-nav tab below the chart (easy to miss entirely);
-            Technical (ADX/Donchian/Bollinger) used to live inside the
-            collapsed Supporting Detail section. Neither's underlying data
-            or computation changed — FundamentalsPanel is the same real
-            component the Valuation tab already used (own fetch, unchanged);
-            the technical pills are the same chart.technicals math already
-            computed for the chart, just moved up and out of the collapse.
-            auto-fit/minmax (this file's own established responsive
-            pattern) stacks to one column on mobile. */}
-        {wsTab === "deepdive" && sym && (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12, marginBottom: 14 }}>
-            <div>
-              <SectionHeader icon="📊" label="FUNDAMENTALS" />
-              <FundamentalsPanel symbol={sym} C={C} MONO={MONO} SANS={SANS} />
-            </div>
-            <div>
-              <SectionHeader icon="📐" label="TECHNICAL" />
+        {sym && (
+          <div style={{ marginBottom: 10 }}>
+            <StrategySelectorCard symbol={sym} marketBias={computeMarketBias({ macroData, distData })} C={C} MONO={MONO} SANS={SANS} />
+          </div>
+        )}
+        </AccordionSection>
+
+        {/* ══════════════════════ TECHNICAL ══════════════════════ */}
+        <AccordionSection id="technical" icon="📈" label="Technical"
+          summary={chart && chart.stage ? `${chart.stage}${symTrend?.volRatio != null ? " · Vol " + symTrend.volRatio.toFixed(1) + "×" : ""}` : "Loading…"}>
+        {chart && (
+          <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+            {(() => {
+              const s = chart, pill = (label, val, col) => (
+                <div key={label} style={{ flex: "1 1 120px", minWidth: 110, border: `1px solid ${C.border}`, borderRadius: 8, padding: "7px 10px", background: C.card }}>
+                  <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim, letterSpacing: 0.5 }}>{label}</div>
+                  <div style={{ fontFamily: NUM, fontSize: 14, fontWeight: 800, color: col || C.text }}>{val}</div>
+                </div>
+              );
+              const num = (v) => (v == null || isNaN(v)) ? null : v;
+              return [
+                pill("RS RATING", num(s.rsRating) != null ? String(s.rsRating) : "—", s.rsRating >= 80 ? "#22d47e" : s.rsRating >= 70 ? "#d6a312" : "#ef4444"),
+                pill("VOL vs AVG", num(s.volRatio) != null ? s.volRatio.toFixed(2) + "×" : "—", s.volRatio >= 1.5 ? "#f59e0b" : C.text),
+                pill("MOMENTUM", num(s.momentum) != null ? (s.momentum > 0 ? "+" : "") + s.momentum.toFixed(1) + "%" : "—", s.momentum > 0 ? "#22d47e" : "#ef4444"),
+              ];
+            })()}
+          </div>
+        )}
+        {sym && (
+          <div style={{ marginBottom: 14 }}>
               {chart && chart.technicals ? (() => {
                 const t = chart.technicals;
                 const row = (label, val, col, title) => (
@@ -1258,7 +1294,6 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
               })() : (
                 <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, padding: "16px 14px", background: C.bg, fontFamily: MONO, fontSize: 12, color: C.textDim, textAlign: "center" }}>Loading…</div>
               )}
-            </div>
           </div>
         )}
         {/* EARLY IN / EARLY OUT — Reversal Detector (2026-08-04, explicit
@@ -1270,7 +1305,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             the Chart page. All real inputs already on this page's own
             chart payload: 52w hi/lo, RSI(14)/day-%/week-% (added to
             buildTrendTemplate for this), RVOL, 50-day MA. */}
-        {wsTab === "deepdive" && sym && chart && (
+        {sym && chart && (
           <div style={{ marginBottom: 14 }}>
             <SectionHeader icon="🔄" label="EARLY IN / EARLY OUT" />
             {(() => {
@@ -1324,68 +1359,16 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             })()}
           </div>
         )}
-        {/* "SUPPORTING DETAIL" divider — audit fix #4, 2026-08-04. Real
-            finding: the hero card above already IS a complete verdict
-            (letter grade + stars + Recommendation + Primary Action), but
-            the up to 8 cards below it (score grid, AI Trade Engine, Smart
-            Money Flow, AI Trade Card, Strategy Selector, Checklist) read as
-            visually co-equal peers with no signal that the hero already
-            answered the question — a user had to mentally average all of
-            them to decide. They can legitimately disagree (different real
-            math over different real inputs) by design, so this doesn't
-            reconcile them into one number; it just labels what's already
-            true: the hero is the answer, everything below is the evidence
-            for it. Nothing removed, nothing hidden — nothing to lose the
-            deep-dive. */}
-        {wsTab === "decision" && institutionalGrade && (
-          // flexWrap (2026-08-04 mobile audit, real bug found via mobile
-          // screenshot): without it, the label + divider + toggle button
-          // (all nowrap) overflowed past narrow viewports and pushed the
-          // toggle button off-screen, un-clickable on mobile.
-          <div style={{ display: "flex", alignItems: "center", gap: 10, rowGap: 6, flexWrap: "wrap", margin: "4px 0 12px" }}>
-            <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: "0.1em", whiteSpace: "nowrap" }}>
-              SUPPORTING DETAIL — for the verdict above
-            </div>
-            <div style={{ flex: 1, minWidth: 20, height: 1, background: C.border }} />
-            {/* Collapsed by default (2026-08-04, "chart is too crowded") —
-                the 6-tile score grid through the technical-indicator pills
-                below are 5-6 separate bordered cards, none of which gate
-                any real behavior (verified before this change: real paper-
-                trading/Telegram-alert code reads these same scoring
-                functions' raw values directly, not through this UI), so
-                collapsing the display costs nothing functionally. */}
-            <button onClick={() => setShowSupportingDetail(v => !v)}
-              style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.accent, background: "transparent", border: `1px solid ${C.accent}55`, borderRadius: 6, padding: "3px 9px", cursor: "pointer", whiteSpace: "nowrap" }}>
-              {showSupportingDetail ? "Hide ▴" : "Show (6 more scores) ▾"}
-            </button>
-          </div>
-        )}
-        {wsTab === "decision" && showSupportingDetail && <>
-        {/* SECTION 2 — Six core scores (institutional redesign, 2026-07-29,
-            explicit user spec: "Market, Sector, Stock Quality, Institutional,
-            Technical, Timing"), each clickable into a real breakdown.
-            deriveTopLevelScores (market-helpers.js) is presentation-layer
-            only — Stock Quality/Institutional pass through the exact same
-            real objects computed above (their own real dimension arrays,
-            unchanged); Technical/Timing are the two genuinely new derived
-            scores (Phase 0/3), each with its own real breakdown/reasons
-            wired into the same AiScoreExplainer pattern. Market/Sector are
-            single real numbers with no sub-dimension breakdown, so they get
-            a plain tooltip instead of the full modal. */}
+        {/* SECTION 2 — Technical/Timing scores (institutional redesign,
+            2026-07-29, explicit user spec: "Market, Sector, Stock Quality,
+            Institutional, Technical, Timing" — split across sections in the
+            2026-08-19 reorg per the "one home per metric" rule: Market/
+            Sector → MARKET & CONTEXT, Stock Quality → BUSINESS, Technical/
+            Timing stay here). deriveTopLevelScores (market-helpers.js) is
+            presentation-layer only — nothing underlying recomputed. */}
         {topScores && (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 8, marginBottom: 10 }}>
             {[
-              { key: "market", label: "MARKET", tile: topScores.market, onClick: null,
-                title: `Real market regime score (SPY/QQQ/VIX-derived) — ${regime.label}` },
-              { key: "sector", label: "SECTOR", tile: topScores.sector, onClick: null,
-                title: symSectorInfo ? `${symSectorInfo.name} ranked #${symSectorInfo.rank} of ${symSectorInfo.of} S&P sectors today` : "Sector rank unavailable" },
-              { key: "stockQuality", label: "STOCK QUALITY", tile: topScores.stockQuality,
-                onClick: () => setExplain({ symbol: sym, aplus: stockQuality, dimensions: STOCK_QUALITY_DIMENSIONS, label: "STOCK QUALITY SCORE" }) },
-              // INSTITUTIONAL tile removed 2026-08-04 — real duplicate, not just
-              // similar: same institutionalGrade object as the hero card above
-              // (L644), same score, same letter, same breakdown modal. The hero
-              // card already owns this number; showing it twice 15 lines apart
-              // cost the user a second read with no new information.
               { key: "technical", label: "TECHNICAL", tile: topScores.technical,
                 onClick: () => setExplain({ symbol: sym, aplus: topScores.technical, dimensions: TECHNICAL_DIMENSIONS, label: "TECHNICAL" }) },
               { key: "timing", label: "TIMING", tile: topScores.timing,
@@ -1441,6 +1424,85 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             </div>
           </button>
         )}
+        {/* Candle timeframe — 5 min through weekly. Real Alpaca intraday
+            bars under a day, real Yahoo weekly bars for 1W; the daily
+            Minervini rating/pivot/stop/target never change with this —
+            see the "Rating reflects the daily setup" note on the chart
+            for anything other than 1D. */}
+        <div style={{ display: "flex", gap: 4, marginBottom: 8, flexWrap: "wrap" }}>
+          {[["5m", "5m"], ["15m", "15m"], ["30m", "30m"], ["1h", "1H"], ["1d", "1D"], ["1wk", "1W"]].map(([id, lbl]) => (
+            <button key={id} onClick={() => setTf(id)} disabled={loadingChart}
+              style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "5px 12px", borderRadius: 7, cursor: loadingChart ? "default" : "pointer",
+                border: `1px solid ${chartTf === id ? C.accent : C.border}`, background: chartTf === id ? `${C.accent}18` : "transparent",
+                color: chartTf === id ? C.accent : C.textDim, opacity: loadingChart ? 0.6 : 1 }}>
+              {lbl}
+            </button>
+          ))}
+          <button onClick={toggleTrendRating} title={showTrendRating ? "Hide the Trend & Base Rating overlay on the chart" : "Show the Trend & Base Rating overlay on the chart"}
+            style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "5px 12px", borderRadius: 7, cursor: "pointer",
+              border: `1px solid ${showTrendRating ? C.accent : C.border}`, background: showTrendRating ? `${C.accent}18` : "transparent",
+              color: showTrendRating ? C.accent : C.textDim }}>
+            {showTrendRating ? "📊 Rating: On" : "📊 Rating: Off"}
+          </button>
+        </div>
+        {/* SECTION 5 — large interactive chart. Right padding reserves
+            clearance for the fixed bottom-right FAB cluster (Copilot/
+            QuickTrade/RealityCheck, right:18, ~54-70px wide each) — the
+            chart's own right price scale would otherwise render directly
+            under those icons and get covered (confirmed live). Real, live
+            TradingView advanced-chart embed (same widget DayTradeTab/
+            MultiTfTab/TrendTemplateTab/TerminalWorkspace use) — real
+            intraday ticks, not a polled snapshot. chartTf drives the real
+            TradingView interval via TV_INTERVAL so the 5m/15m/30m/1H/1D/1W
+            buttons above control it. Untouched by the 2026-08-19 reorg —
+            same pixels, just now living inside TECHNICAL instead of its
+            own dTab. */}
+        <div style={{ paddingRight: 90, position: "relative" }}>
+          {chart && sym
+            ? <>
+                <iframe key={`chart-${sym}-${chartTf}-${tvTheme}`} title={`${sym} live chart`}
+                  src={`/client/tv-widget.html?w=advanced-chart&s=${encodeURIComponent(sym)}&t=${tvTheme}&h=720&iv=${TV_INTERVAL[chartTf] || "D"}&st=ma50,ma150,ma200,bb,volume`}
+                  style={{ width: "100%", height: 720, border: `1px solid ${C.border}`, borderRadius: 12, display: "block" }} />
+                {/* Trend & Base Rating + trade levels overlay — real
+                    rating + PIVOT/STOP/T1/T2/T3 numbers TradingView has no
+                    way to know, using the exact same formula TrendChart.jsx
+                    used. Collapsed to a small pill by default — tap to
+                    expand. Untouched by the 2026-08-19 reorg. */}
+                {showTrendRating && <TrendRatingOverlay chart={chart} C={C} MONO={MONO} SANS={SANS} isMobile={isMobile} />}
+              </>
+            : <div style={{ height: 720, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: 13, color: C.textDim, border: `1px solid ${C.border}`, borderRadius: 12 }}>Select a mover to load the chart…</div>}
+        </div>
+        </AccordionSection>
+
+        {/* ══════════════════════ MARKET & CONTEXT ══════════════════════ */}
+        <AccordionSection id="market" icon="🌍" label="Market & Context"
+          summary={`${regime.label}${symSectorInfo ? " · " + symSectorInfo.name + " #" + symSectorInfo.rank : ""}${institutionScore ? " · " + institutionScore.label : ""}`}>
+        {/* Market/Sector — single real numbers with no sub-dimension
+            breakdown, so they get a plain tooltip instead of the full
+            AiScoreExplainer modal (unlike Technical/Timing in TECHNICAL). */}
+        {topScores && (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 8, marginBottom: 10 }}>
+            {[
+              { key: "market", label: "MARKET", tile: topScores.market, onClick: null,
+                title: `Real market regime score (SPY/QQQ/VIX-derived) — ${regime.label}` },
+              { key: "sector", label: "SECTOR", tile: topScores.sector, onClick: null,
+                title: symSectorInfo ? `${symSectorInfo.name} ranked #${symSectorInfo.rank} of ${symSectorInfo.of} S&P sectors today` : "Sector rank unavailable" },
+            ].map(({ key, label, tile, onClick, title }) => {
+              const Tag = onClick ? "button" : "div";
+              return (
+                <Tag key={key} onClick={onClick || undefined} title={title}
+                  style={{ font: "inherit", textAlign: "left", border: `1px solid ${C.border}`, borderRadius: 10, padding: "9px 12px",
+                    background: C.card, cursor: onClick ? "pointer" : title ? "help" : "default" }}>
+                  <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 3 }}>{label}</div>
+                  <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: tile.color }}>
+                    {tile.score ?? "—"}{tile.score != null && <span style={{ fontSize: 11, color: C.textDim }}> /100</span>}
+                  </div>
+                  <div style={{ fontFamily: SANS, fontSize: 10, color: tile.color, fontWeight: 700 }}>{tile.label}</div>
+                </Tag>
+              );
+            })}
+          </div>
+        )}
         {/* Institution Score — options platform redesign, Phase 4. "What is
             institutional money doing right now": real dark pool + options
             flow + insider transactions + 13F-derived institutional
@@ -1485,56 +1547,232 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             </div>
           </div>
         )}
-        {/* AI Trade Card — Option Contract Recommender's top-pick card,
-            options platform redesign Phase 5. Self-contained (fetches its
-            own real chain + IV rank); receives this page's already-real
-            scores/gamma/short-interest/earnings-DTE as props rather than
-            re-deriving them. */}
-        {sym && (
-          <div ref={tradePlanRef} style={{ marginBottom: 10 }}>
-            <AiTradeCard
-              symbol={sym} price={chart?.price} aiTradeScore={aiTradeScore} institutionScore={institutionScore}
-              gammaExposure={symGamma} shortFloatPct={symShortInterest?.shortFloat} rvol={symTrend?.volRatio}
-              earningsDte={symTrend?.earningsDte} onTopContract={setTopContract} C={C} MONO={MONO} SANS={SANS}
-            />
+        {/* SECTION 4 — Market Context (2026-08-04 decision-first redesign)
+            — the same real MacroStatusStrip component MacroTab.jsx mounts
+            (SPY/QQQ/IWM/DIA/VIX/DXY-proxy/10Y/Gold/Oil/BTC, real
+            Green/Yellow/Red per instrument), so a trader can see at a
+            glance whether the broader market supports this trade without
+            leaving the page. One real shared component, two mount sites —
+            not a second, divergent copy. */}
+        <div style={{ marginBottom: 14 }}>
+          <SectionHeader icon="🌍" label="MARKET CONTEXT" />
+          <MacroStatusStrip C={C} MONO={MONO} macroData={macroData} distData={distData} fred={macroFred} />
+        </div>
+        {/* SECTION 6 — Smart Money (moved back inline 2026-08-05 per
+            explicit user request, "move smart money tab under ai summary
+            under the chart in chart tab" — it briefly lived as its own
+            standalone page/sidebar tab earlier the same day; this is the
+            same real decision-engine content (SmartMoneyDecisionPanel).
+            Not a raw SMC data dump — real AI Verdict -> Institutional
+            Summary -> Trade Plan -> 3 Traffic Lights reading order, with
+            the full raw Order Blocks/FVGs/Liquidity/VWAP/Volume Profile/
+            Dark Pool evidence (SmartMoneyPanel.jsx) collapsed underneath. */}
+        {chart && sym && (
+          <div style={{ marginTop: 14, marginBottom: 14 }}>
+            <SectionHeader icon="🧱" label="SMART MONEY" />
+            {/* heroAction (2026-08-09, decision-clarity audit) — this
+                panel used to compute its own separate headline verdict
+                server-side (computeNextAction + a ported copy of the
+                grade formula), which could genuinely disagree with the
+                page's own Hero verdict above for the same symbol at the
+                same instant (different decision-tree logic, not just
+                different data). Passing the same primaryAction down
+                guarantees this panel's headline always agrees with the
+                Hero card by construction — its own institutional
+                evidence (trade plan, traffic lights, key reasons) stays
+                exactly as real and unfiltered as before, it's the
+                competing verdict language that's gone, not the data. */}
+            <SmartMoneyDecisionPanel symbol={sym} C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} isMobile={isMobile} heroAction={primaryAction} />
           </div>
         )}
-        {/* AI Strategy Selector — options platform redesign Phase 9.
-            Real Market Bias (computeMarketBias, Phase 1) computed here and
-            passed down so the server route never re-derives its own regime
-            formula. Self-contained beyond that: fetches its own real IV
-            Rank + strategy/legs. */}
-        {sym && (
-          <div style={{ marginBottom: 10 }}>
-            <StrategySelectorCard symbol={sym} marketBias={computeMarketBias({ macroData, distData })} C={C} MONO={MONO} SANS={SANS} />
+        {/* SECTION 7 — Catalysts (institutional redesign, 2026-07-29,
+            explicit user spec: "Earnings, Analyst Upgrades/Downgrades,
+            Insider Activity, Options Flow, News, Economic Events").
+            Real per-symbol insider transactions + analyst ratings
+            (existing endpoints, previously only market-wide list-scoped
+            — InsiderTab/AnalystPeerPanel — now filtered here to just
+            this symbol), real options-flow bias (symOptionsFlow, already
+            fetched for the AI Score Card above), real earnings date
+            (fund.earningsDate). News/Economic Events stay one click away
+            via the "News & Journal" dTab below and Calendar page rather
+            than duplicating that real data a second time here. */}
+        {chart && sym && (
+          <div style={{ marginBottom: 14 }}>
+            <SectionHeader icon="📅" label="CATALYSTS" />
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12 }}>
+              <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 14px", background: C.card }}>
+                <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 6 }}>EARNINGS</div>
+                <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text }}>{fund?.earningsDate ? new Date(fund.earningsDate).toLocaleDateString() : "—"}</div>
+              </div>
+              <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 14px", background: C.card }}>
+                <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 6 }}>ANALYSTS</div>
+                {symAnalyst?.numAnalysts ? (
+                  <>
+                    <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text }}>{symAnalyst.recommendation || "—"} · {symAnalyst.numAnalysts} analysts</div>
+                    <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>Target ${symAnalyst.targetLow}–${symAnalyst.targetHigh} (mean ${symAnalyst.targetMean})</div>
+                    {symAnalyst.history?.[0] && <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, marginTop: 3 }}>{symAnalyst.history[0].firm}: {symAnalyst.history[0].action} ({symAnalyst.history[0].toGrade}) {symAnalyst.history[0].date}</div>}
+                  </>
+                ) : <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim }}>—</div>}
+              </div>
+              <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 14px", background: C.card }}>
+                <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 6 }}>INSIDER ACTIVITY</div>
+                {symInsider?.insiderTransactions?.transactions?.length ? symInsider.insiderTransactions.transactions.slice(0, 2).map((t, i) => (
+                  <div key={i} style={{ fontFamily: SANS, fontSize: 11, color: t.type === "BUY" ? C.green : C.red, marginBottom: 2 }}>
+                    {t.type === "BUY" ? "🟢" : "🔴"} {t.name} — {t.type} {t.shares ? t.shares.toLocaleString() + " sh" : ""} {t.date}
+                  </div>
+                )) : <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim }}>No recent real filings</div>}
+              </div>
+              <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 14px", background: C.card }}>
+                <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 6 }}>OPTIONS FLOW</div>
+                {symOptionsFlow ? (
+                  <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: Number(symOptionsFlow.callNotional) > Number(symOptionsFlow.putNotional) ? C.green : C.red }}>
+                    {Number(symOptionsFlow.callNotional) > Number(symOptionsFlow.putNotional) ? "Call-weighted" : "Put-weighted"}
+                  </div>
+                ) : <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim }}>—</div>}
+              </div>
+            </div>
           </div>
         )}
-        {/* Trade Checklist / Trade Readiness now renders above the
-            "SUPPORTING DETAIL" divider, right under the Execution Card
-            (2026-08-04 decision-first redesign) — same ChecklistCard,
-            promoted, not duplicated. */}
-        {/* Technical indicators (ADX/Donchian/Bollinger) moved out of this
-            collapsed section 2026-08-04 — now in the always-visible
-            FUNDAMENTALS | TECHNICAL side-by-side section above, right
-            under Market Context. Promoted, not duplicated. */}
-        </>}
-        </></PanelErrorBoundary>}
-        {/* ── Per-symbol detail tabs — real price chart + sub-nav live
-            here, deliberately NOT part of the collapsed section above,
-            since this is the Chart page and the chart itself stays visible.
-            "Symbol News" not bare "News" — this is a per-symbol detail
-            tab, and the Sidebar has its own separate, global "📰 News"
-            nav item (different page entirely). Same exact-label-collision
-            class already found and fixed once this session in
-            XIntelTab.jsx's sub-nav.
+        {/* Former standalone "Zone 3" Market Snapshot — folded in here
+            (2026-08-19 reorg) instead of a separate block at the bottom of
+            the page, so market-wide context has exactly one home. */}
+        <div style={{ marginTop: 14 }}>
+          <SectionHeader icon="📡" label="MARKET SNAPSHOT" />
+          <MarketPulseBar C={C} MONO={MONO} SANS={SANS} />
+          <SentimentRow C={C} MONO={MONO} SANS={SANS} />
+          <SectorHeatStrip sectorData={sectorData} C={C} MONO={MONO} SANS={SANS} />
+          <COTPanel C={C} MONO={MONO} SANS={SANS} />
+          <PredictionMarkets C={C} MONO={MONO} SANS={SANS} />
+        </div>
+        <div style={{ marginTop: 10 }}>
+          <span onClick={() => setDTab("flow")} style={{ fontFamily: MONO, fontSize: 11, color: C.accent, cursor: "pointer", fontWeight: 700 }}>Full Options Flow detail →</span>
+        </div>
+        </AccordionSection>
+
+        {/* ══════════════════════ BUSINESS ══════════════════════ */}
+        <AccordionSection id="business" icon="🏢" label="Business"
+          summary={`${fund && fund.name ? fund.name + " · " : ""}${topScores?.stockQuality ? "Quality " + (topScores.stockQuality.score ?? "—") : ""}`}>
+        {/* Company Overview + Last Earnings (2026-08-05, explicit user
+            request: "everything i need to know about company and last
+            earning right underneath ticker and price and deep dive about
+            company"). Real fundamentals + real last-reported-quarter
+            earnings result. */}
+        {sym && <CompanyOverviewCard symbol={sym} C={C} MONO={MONO} SANS={SANS} />}
+        {chart && (
+          <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+            {(() => {
+              const s = chart, pill = (label, val, col) => (
+                <div key={label} style={{ flex: "1 1 120px", minWidth: 110, border: `1px solid ${C.border}`, borderRadius: 8, padding: "7px 10px", background: C.card }}>
+                  <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim, letterSpacing: 0.5 }}>{label}</div>
+                  <div style={{ fontFamily: NUM, fontSize: 14, fontWeight: 800, color: col || C.text }}>{val}</div>
+                </div>
+              );
+              const num = (v) => (v == null || isNaN(v)) ? null : v;
+              const mc = fund && Number(fund.marketCap) > 0 ? Number(fund.marketCap) : null;
+              const mcStr = mc == null ? "—" : mc >= 1e12 ? "$" + (mc / 1e12).toFixed(2) + "T" : mc >= 1e9 ? "$" + (mc / 1e9).toFixed(1) + "B" : "$" + (mc / 1e6).toFixed(0) + "M";
+              const pe = fund && Number(fund.pe || fund.trailingPE) > 0 ? Number(fund.pe || fund.trailingPE) : null;
+              return [
+                pill("MARKET CAP", mcStr),
+                pill("P/E", pe != null ? pe.toFixed(1) : "—"),
+                pill("% TO 52W HIGH", s.pctFromHigh != null ? s.pctFromHigh.toFixed(1) + "%" : "—", s.pctFromHigh != null && s.pctFromHigh > -3 ? "#22d47e" : C.text),
+                pill("52W HIGH", num(s.hi52) != null ? "$" + s.hi52.toFixed(2) : "—"),
+                pill("52W LOW", num(s.lo52) != null ? "$" + s.lo52.toFixed(2) : "—"),
+              ];
+            })()}
+          </div>
+        )}
+        {topScores && (
+          <div style={{ maxWidth: 220, marginBottom: 10 }}>
+            <button onClick={() => setExplain({ symbol: sym, aplus: stockQuality, dimensions: STOCK_QUALITY_DIMENSIONS, label: "STOCK QUALITY SCORE" })}
+              style={{ font: "inherit", textAlign: "left", width: "100%", border: `1px solid ${C.border}`, borderRadius: 10, padding: "9px 12px", background: C.card, cursor: "pointer" }}>
+              <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 3 }}>STOCK QUALITY</div>
+              <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: topScores.stockQuality.color }}>
+                {topScores.stockQuality.score ?? "—"}{topScores.stockQuality.score != null && <span style={{ fontSize: 11, color: C.textDim }}> /100</span>}
+              </div>
+              <div style={{ fontFamily: SANS, fontSize: 10, color: topScores.stockQuality.color, fontWeight: 700 }}>{topScores.stockQuality.label}</div>
+            </button>
+          </div>
+        )}
+        {sym && (
+          <div>
+            <SectionHeader icon="📊" label="FUNDAMENTALS" />
+            <FundamentalsPanel symbol={sym} C={C} MONO={MONO} SANS={SANS} />
+            <span onClick={() => setDTab("valuation")} style={{ fontFamily: MONO, fontSize: 11, color: C.accent, cursor: "pointer", fontWeight: 700, display: "inline-block", marginTop: 8 }}>Full Fundamentals & Valuation →</span>
+          </div>
+        )}
+        </AccordionSection>
+
+        {/* ══════════════════════ INTELLIGENCE ══════════════════════ */}
+        <AccordionSection id="intelligence" icon="🧠" label="Intelligence" tone="gold"
+          summary={oneLiner || "AI analysis, history & research"}>
+        {/* SECTION 3 — AI Summary (institutional redesign, 2026-07-29).
+            Same real, free, deterministic BullBearPanel — splits the real
+            Institutional Grade dimensions by which side of the case they
+            support, zero new fetch/API cost. Compressed to its own real
+            bull/bear reason list by design — never a long generated essay. */}
+        {chart && (
+          <div style={{ marginBottom: 14 }}>
+            <SectionHeader icon="🧠" label="AI SUMMARY" tone="gold" />
+            <BullBearPanel symbol={sym} bullBear={bullBear} C={C} MONO={MONO} SANS={SANS} />
+          </div>
+        )}
+        {chart && (() => {
+          // Real, free, deterministic ~1-week read — the same engine
+          // formerly the standalone Predictions tab. Distinct from
+          // AiPredictPanel below, which is a manual, paid (Fable) AI-
+          // generated target — this one is always-on and costs nothing.
+          // Reuses the `prediction` computed once above (also feeds the
+          // AI Score Card) instead of recomputing the same real read twice.
+          const p = prediction;
+          if (!p) return null;
+          const dirCol = p.dir.includes("BULL") || p.dir === "LEAN UP" ? C.green : p.dir.includes("BEAR") || p.dir === "LEAN DOWN" ? C.red : C.textDim;
+          const dirIcon = p.dir.includes("BULL") || p.dir === "LEAN UP" ? "📈" : p.dir.includes("BEAR") || p.dir === "LEAN DOWN" ? "📉" : "➡️";
+          return (
+            <div style={{ marginBottom: 14, border: `1px solid ${dirCol}55`, borderRadius: 12, padding: "12px 14px", background: `${dirCol}0d` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 800, color: C.text }}>{dirIcon} Quick Read — next ~1 week</div>
+                <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: dirCol }}>{p.dir}</span>
+                <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>target ${p.target} ({p.movePct >= 0 ? "+" : ""}{p.movePct}%) · {p.conf}% confidence</span>
+              </div>
+              <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.textSec, marginTop: 6 }}>
+                {p.why.length ? p.why.join(" · ") : "No strong real signal either way — real trend template + volume are roughly neutral right now."}
+              </div>
+              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 6 }}>Free, deterministic, real trend-template based — not an AI call.</div>
+            </div>
+          );
+        })()}
+        <AiWhyPanel symbol={sym} price={chart && chart.price} changePct={symDayPct} C={C} MONO={MONO} SANS={SANS} />
+        <AiPredictPanel symbol={sym} chart={chart} C={C} MONO={MONO} SANS={SANS} />
+        {/* History & Deep Research (spec sections 8-9) — no dedicated
+            backtest/similar-setup engine or SEC-filing research engine
+            exists in this app today; rather than fabricate either, this
+            honestly links to the closest real equivalents instead. */}
+        <div style={{ marginTop: 14, borderTop: `1px solid ${C.border}`, paddingTop: 10 }}>
+          <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 6 }}>HISTORY & DEEP RESEARCH</div>
+          <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.textDim, marginBottom: 6 }}>
+            No dedicated backtest/similar-setup history engine exists yet for individual symbols — the closest real record is this symbol's own journal notes.
+          </div>
+          <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+            <span onClick={() => setActiveTab && setActiveTab("rhpro-journal")} style={{ fontFamily: MONO, fontSize: 11, color: C.accent, cursor: "pointer", fontWeight: 700 }}>Journal history →</span>
+            <span onClick={() => setDTab("company")} style={{ fontFamily: MONO, fontSize: 11, color: C.accent, cursor: "pointer", fontWeight: 700 }}>Company profile →</span>
+            <span onClick={() => setDTab("investors")} style={{ fontFamily: MONO, fontSize: 11, color: C.accent, cursor: "pointer", fontWeight: 700 }}>Institutional ownership →</span>
+            <span onClick={() => setDTab("social")} style={{ fontFamily: MONO, fontSize: 11, color: C.accent, cursor: "pointer", fontWeight: 700 }}>Social/analyst chatter →</span>
+            <span onClick={() => setDTab("news")} style={{ fontFamily: MONO, fontSize: 11, color: C.accent, cursor: "pointer", fontWeight: 700 }}>News & journal →</span>
+          </div>
+        </div>
+        </AccordionSection>
+
+        {/* ── Deep-link sub-tabs — Smart Scan/Options Flow/Valuation/
+            Analysts/Investors/Earnings/Company/Social/News, each a real,
+            already-self-contained panel; the 6 sections above link into
+            these via "→" jump links rather than duplicating their content.
+            The chart itself is no longer one of these — it now lives
+            permanently inside the TECHNICAL section above.
             Horizontal-scroll single row, not flexWrap — standardized
             across every tab's internal sub-nav in the 2026-07-22 site
-            reorg, same fix already shipped for XIntelTab.jsx after
-            flexWrap wrapped into the fixed FAB cluster's screen position
-            on mobile there. 9 tabs here is the widest sub-nav in the app,
-            so this one benefits most from scrolling instead of wrapping. */}
+            reorg. */}
         <div style={{ display: "flex", gap: 4, margin: "4px 0 12px", flexWrap: "nowrap", overflowX: "auto", scrollbarWidth: "none", borderBottom: `1px solid ${C.border}`, paddingBottom: 8 }}>
-          {[["chart", "📈 Chart"], ["smart", "🔬 Smart Scan"], ["flow", "💵 Options Flow"], ["valuation", "📊 Valuation"], ["analysts", "🎯 Analysts"], ["investors", "🏦 Investors"], ["earnings", "💰 Earnings"], ["company", "🏢 Company"], ["social", "💬 Social"], ["news", "📰 News & Journal"]].map(([id, lbl]) => (
+          {[["smart", "🔬 Smart Scan"], ["flow", "💵 Options Flow"], ["valuation", "📊 Valuation"], ["analysts", "🎯 Analysts"], ["investors", "🏦 Investors"], ["earnings", "💰 Earnings"], ["company", "🏢 Company"], ["social", "💬 Social"], ["news", "📰 News & Journal"]].map(([id, lbl]) => (
             <button key={id} onClick={() => setDTab(id)}
               style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 11px", borderRadius: 7, cursor: "pointer",
                 whiteSpace: "nowrap", flexShrink: 0, minHeight: 40,
@@ -1543,211 +1781,6 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             </button>
           ))}
         </div>
-
-        {dTab === "chart" && (
-          <>
-            {/* Candle timeframe — 5 min through weekly. Real Alpaca intraday
-                bars under a day, real Yahoo weekly bars for 1W; the daily
-                Minervini rating/pivot/stop/target never change with this —
-                see the "Rating reflects the daily setup" note on the chart
-                for anything other than 1D. */}
-            {wsTab === "decision" && (
-            <div style={{ display: "flex", gap: 4, marginBottom: 8, flexWrap: "wrap" }}>
-              {[["5m", "5m"], ["15m", "15m"], ["30m", "30m"], ["1h", "1H"], ["1d", "1D"], ["1wk", "1W"]].map(([id, lbl]) => (
-                <button key={id} onClick={() => setTf(id)} disabled={loadingChart}
-                  style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "5px 12px", borderRadius: 7, cursor: loadingChart ? "default" : "pointer",
-                    border: `1px solid ${chartTf === id ? C.accent : C.border}`, background: chartTf === id ? `${C.accent}18` : "transparent",
-                    color: chartTf === id ? C.accent : C.textDim, opacity: loadingChart ? 0.6 : 1 }}>
-                  {lbl}
-                </button>
-              ))}
-              <button onClick={toggleTrendRating} title={showTrendRating ? "Hide the Trend & Base Rating overlay on the chart" : "Show the Trend & Base Rating overlay on the chart"}
-                style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "5px 12px", borderRadius: 7, cursor: "pointer",
-                  border: `1px solid ${showTrendRating ? C.accent : C.border}`, background: showTrendRating ? `${C.accent}18` : "transparent",
-                  color: showTrendRating ? C.accent : C.textDim }}>
-                {showTrendRating ? "📊 Rating: On" : "📊 Rating: Off"}
-              </button>
-            </div>
-            )}
-            {/* SECTION 3 — AI Summary (institutional redesign, 2026-07-29).
-                Same real, free, deterministic BullBearPanel — splits the
-                real Institutional Grade dimensions by which side of the
-                case they support, zero new fetch/API cost. Moved ahead of
-                the chart to match the spec's section order (Header→Scores→
-                Summary→Trade Plan→Chart). */}
-            {wsTab === "decision" && chart && showFullAnalysis && (
-              <PanelErrorBoundary label="AI Summary">
-              <div style={{ marginBottom: 14 }}>
-                <SectionHeader icon="🧠" label="AI SUMMARY" tone="gold" />
-                <BullBearPanel symbol={sym} bullBear={bullBear} C={C} MONO={MONO} SANS={SANS} />
-              </div>
-              </PanelErrorBoundary>
-            )}
-            {/* Execution Card (Entry/Stop/Targets) now renders above the
-                "SUPPORTING DETAIL" divider, right under the hero verdict
-                (2026-08-04 decision-first redesign) — same TrendSetupPanel,
-                promoted, not duplicated. Position sizing itself was later
-                relocated off this page entirely (see "Size this trade →"
-                note above the Execution Card). */}
-            {/* SECTION 5 — large interactive chart. Right padding reserves
-                clearance for the fixed bottom-right FAB cluster (Copilot/
-                QuickTrade/RealityCheck, right:18, ~54-70px wide each) — the
-                chart's own right price scale would otherwise render
-                directly under those icons and get covered (confirmed live).
-                2026-08-05: replaced the custom canvas TrendChart (daily
-                bars, 45s silent poll) with the same real, live TradingView
-                advanced-chart embed already proven in DayTradeTab/MultiTfTab/
-                TrendTemplateTab/TerminalWorkspace — real intraday ticks, not
-                a polled snapshot — per explicit user request ("still dont
-                like the chart can you make it live and stretched"). Height
-                raised 620 -> 720 and width stretched to 100% of the
-                available column for "stretched"; chartTf drives the real
-                TradingView interval via TV_INTERVAL so the 5m/15m/30m/1H/1D/
-                1W buttons above still control it. */}
-            {wsTab === "decision" && (
-            <div style={{ paddingRight: 90, position: "relative" }}>
-              {chart && sym
-                ? <>
-                    <iframe key={`chart-${sym}-${chartTf}-${tvTheme}`} title={`${sym} live chart`}
-                      src={`/client/tv-widget.html?w=advanced-chart&s=${encodeURIComponent(sym)}&t=${tvTheme}&h=720&iv=${TV_INTERVAL[chartTf] || "D"}&st=ma50,ma150,ma200,bb,volume`}
-                      style={{ width: "100%", height: 720, border: `1px solid ${C.border}`, borderRadius: 12, display: "block" }} />
-                    {/* Trend & Base Rating + trade levels overlay — 2026-08-05,
-                        explicit user request ("i want same i want to use
-                        indicators from this in chart") after the old canvas
-                        TrendChart (which drew this card + MA50/150/200/
-                        Bollinger + price-line levels directly on-chart) was
-                        replaced with the live TradingView embed above. The
-                        real MA/Bollinger lines now come from TradingView's
-                        own studies (st= param); this card restores the real
-                        rating + PIVOT/STOP/T1/T2/T3 numbers TradingView has
-                        no way to know, using the exact same formula
-                        TrendChart.jsx used (never re-derived differently).
-                        Collapsed to a small pill by default (2026-08-05
-                        follow-up, real user report + screenshot: the always-
-                        open card was opaque and large enough to hide real
-                        candles/price behind it) — tap to expand. */}
-                    {showTrendRating && <TrendRatingOverlay chart={chart} C={C} MONO={MONO} SANS={SANS} isMobile={isMobile} />}
-                  </>
-                : <div style={{ height: 720, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: 13, color: C.textDim, border: `1px solid ${C.border}`, borderRadius: 12 }}>Select a mover to load the chart…</div>}
-            </div>
-            )}
-            {/* SECTION 6 — Smart Money (moved back inline 2026-08-05 per
-                explicit user request, "move smart money tab under ai
-                summary under the chart in chart tab" — it briefly lived as
-                its own standalone page/sidebar tab earlier the same day;
-                this is the same real decision-engine content
-                (SmartMoneyDecisionPanel), just embedded here instead,
-                directly under AI Summary and the chart. Not a raw SMC data
-                dump — real AI Verdict -> Institutional Summary -> Trade
-                Plan -> 3 Traffic Lights reading order, with the full raw
-                Order Blocks/FVGs/Liquidity/VWAP/Volume Profile/Dark Pool
-                evidence (SmartMoneyPanel.jsx) collapsed underneath. */}
-            {wsTab === "decision" && chart && sym && showFullAnalysis && (
-              <PanelErrorBoundary label="Smart Money">
-              <div style={{ marginTop: 14, marginBottom: 14 }}>
-                <SectionHeader icon="🧱" label="SMART MONEY" />
-                {/* heroAction (2026-08-09, decision-clarity audit) — this
-                    panel used to compute its own separate headline verdict
-                    server-side (computeNextAction + a ported copy of the
-                    grade formula), which could genuinely disagree with the
-                    page's own Hero verdict above for the same symbol at the
-                    same instant (different decision-tree logic, not just
-                    different data). Passing the same primaryAction down
-                    guarantees this panel's headline always agrees with the
-                    Hero card by construction — its own institutional
-                    evidence (trade plan, traffic lights, key reasons) stays
-                    exactly as real and unfiltered as before, it's the
-                    competing verdict language that's gone, not the data. */}
-                <SmartMoneyDecisionPanel symbol={sym} C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} isMobile={isMobile} heroAction={primaryAction} />
-              </div>
-              </PanelErrorBoundary>
-            )}
-            {/* SECTION 7 — Catalysts (institutional redesign, 2026-07-29,
-                explicit user spec: "Earnings, Analyst Upgrades/Downgrades,
-                Insider Activity, Options Flow, News, Economic Events").
-                Real per-symbol insider transactions + analyst ratings
-                (existing endpoints, previously only market-wide list-scoped
-                — InsiderTab/AnalystPeerPanel — now filtered here to just
-                this symbol), real options-flow bias (symOptionsFlow, already
-                fetched for the AI Score Card above), real earnings date
-                (fund.earningsDate). News/Economic Events stay one click away
-                via the existing "Symbol News" sub-tab and Calendar page
-                rather than duplicating that real data a second time here. */}
-            {wsTab === "deepdive" && chart && sym && (
-              <div style={{ marginBottom: 14 }}>
-                <SectionHeader icon="📅" label="CATALYSTS" />
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12 }}>
-                  <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 14px", background: C.card }}>
-                    <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 6 }}>EARNINGS</div>
-                    <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text }}>{fund?.earningsDate ? new Date(fund.earningsDate).toLocaleDateString() : "—"}</div>
-                  </div>
-                  <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 14px", background: C.card }}>
-                    <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 6 }}>ANALYSTS</div>
-                    {symAnalyst?.numAnalysts ? (
-                      <>
-                        <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text }}>{symAnalyst.recommendation || "—"} · {symAnalyst.numAnalysts} analysts</div>
-                        <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>Target ${symAnalyst.targetLow}–${symAnalyst.targetHigh} (mean ${symAnalyst.targetMean})</div>
-                        {symAnalyst.history?.[0] && <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, marginTop: 3 }}>{symAnalyst.history[0].firm}: {symAnalyst.history[0].action} ({symAnalyst.history[0].toGrade}) {symAnalyst.history[0].date}</div>}
-                      </>
-                    ) : <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim }}>—</div>}
-                  </div>
-                  <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 14px", background: C.card }}>
-                    <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 6 }}>INSIDER ACTIVITY</div>
-                    {symInsider?.insiderTransactions?.transactions?.length ? symInsider.insiderTransactions.transactions.slice(0, 2).map((t, i) => (
-                      <div key={i} style={{ fontFamily: SANS, fontSize: 11, color: t.type === "BUY" ? C.green : C.red, marginBottom: 2 }}>
-                        {t.type === "BUY" ? "🟢" : "🔴"} {t.name} — {t.type} {t.shares ? t.shares.toLocaleString() + " sh" : ""} {t.date}
-                      </div>
-                    )) : <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim }}>No recent real filings</div>}
-                  </div>
-                  <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 14px", background: C.card }}>
-                    <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 6 }}>OPTIONS FLOW</div>
-                    {symOptionsFlow ? (
-                      <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: Number(symOptionsFlow.callNotional) > Number(symOptionsFlow.putNotional) ? C.green : C.red }}>
-                        {Number(symOptionsFlow.callNotional) > Number(symOptionsFlow.putNotional) ? "Call-weighted" : "Put-weighted"}
-                      </div>
-                    ) : <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim }}>—</div>}
-                  </div>
-                </div>
-              </div>
-            )}
-            {wsTab === "deepdive" && <AiWhyPanel symbol={sym} price={chart && chart.price} changePct={symDayPct} C={C} MONO={MONO} SANS={SANS} />}
-            {wsTab === "decision" && chart && showFullAnalysis && (() => {
-              // Real, free, deterministic ~1-week read — the same engine
-              // formerly the standalone Predictions tab (moved 2026-07-28
-              // so it shows inline with whatever's already loaded here
-              // instead of needing its own tab). Distinct from AiPredictPanel
-              // below, which is a manual, paid (Fable) AI-generated target —
-              // this one is always-on and costs nothing. Reuses the `prediction`
-              // computed once above (also feeds the new AI Score Card) instead
-              // of recomputing the same real read twice.
-              const p = prediction;
-              if (!p) return null;
-              const dirCol = p.dir.includes("BULL") || p.dir === "LEAN UP" ? C.green : p.dir.includes("BEAR") || p.dir === "LEAN DOWN" ? C.red : C.textDim;
-              const dirIcon = p.dir.includes("BULL") || p.dir === "LEAN UP" ? "📈" : p.dir.includes("BEAR") || p.dir === "LEAN DOWN" ? "📉" : "➡️";
-              return (
-                <PanelErrorBoundary label="Quick Read">
-                <div style={{ marginTop: 14, border: `1px solid ${dirCol}55`, borderRadius: 12, padding: "12px 14px", background: `${dirCol}0d` }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                    <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 800, color: C.text }}>{dirIcon} Quick Read — next ~1 week</div>
-                    <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: dirCol }}>{p.dir}</span>
-                    <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>target ${p.target} ({p.movePct >= 0 ? "+" : ""}{p.movePct}%) · {p.conf}% confidence</span>
-                  </div>
-                  <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.textSec, marginTop: 6 }}>
-                    {p.why.length ? p.why.join(" · ") : "No strong real signal either way — real trend template + volume are roughly neutral right now."}
-                  </div>
-                  <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 6 }}>Free, deterministic, real trend-template based — not an AI call.</div>
-                </div>
-                </PanelErrorBoundary>
-              );
-            })()}
-            {wsTab === "deepdive" && <AiPredictPanel symbol={sym} chart={chart} C={C} MONO={MONO} SANS={SANS} />}
-            {/* News + Journal Notes moved off this tab (2026-08-09,
-                decision-clarity/length audit) — into the "📰 Symbol News"
-                dTab sub-tab below instead, alongside a "News & Journal"
-                framing. Same real NewsPanel/journal read, just no longer
-                duplicated inline on every wsTab view. */}
-          </>
-        )}
         {/* Each dTab sub-tab wrapped in its own PanelErrorBoundary
             (2026-08-19, app-wide audit, spec section 17: "one broken module
             must never crash the entire Workspace") — confirmed before this
@@ -1767,36 +1800,11 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
         {dTab === "news" && <PanelErrorBoundary label="News"><NewsPanel symbol={sym} C={C} MONO={MONO} SANS={SANS} /><JournalNotesPanel sym={sym} C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} /></PanelErrorBoundary>}
       </div>
     </div>
-
-    {/* ── ZONE 3: market-wide snapshot ──
-        BestOpportunities used to also render here — removed (2026-07-25,
-        user request) since it's genuinely the same real component/scan
-        already on its own dedicated sidebar tab; keeping both was pure
-        duplication, not two different views of it. My Performance moved
-        out the same day, to Mission Status (with Portfolio Risk/A+ Score
-        Track — the other performance/risk-health cards it belongs with),
-        since this page is for browsing charts, not tracking your P&L. */}
-    <div style={{ marginTop: 14 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-        <div style={{ flex: 1 }}><SectionHeader icon="🌍" label="Market Snapshot" /></div>
-        <button onClick={() => setShowMarketSnapshot(v => !v)}
-          style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.accent, background: "transparent", border: `1px solid ${C.accent}55`, borderRadius: 6, padding: "3px 9px", cursor: "pointer", whiteSpace: "nowrap", marginTop: -6 }}>
-          {showMarketSnapshot ? "Hide ▴" : "Show ▾"}
-        </button>
-      </div>
-      {showMarketSnapshot && <>
-      <MarketPulseBar C={C} MONO={MONO} SANS={SANS} />
-      <SentimentRow C={C} MONO={MONO} SANS={SANS} />
-      <SectorHeatStrip sectorData={sectorData} C={C} MONO={MONO} SANS={SANS} />
-      {/* Moved here from ZONE 1 "Movers & Watchlist" (2026-08-03, real user
-          report: "cot and prediction not in right place") — both are
-          market-wide/macro data, not per-stock, so they belong with the
-          other market-wide cards in this zone, not sandwiched into the
-          per-symbol movers list above the chart. */}
-      <COTPanel C={C} MONO={MONO} SANS={SANS} />
-      <PredictionMarkets C={C} MONO={MONO} SANS={SANS} />
-      </>}
-    </div>
+    {/* Zone 3 "Market Snapshot" (MarketPulseBar/SentimentRow/SectorHeatStrip/
+        COTPanel/PredictionMarkets) used to be a separate standalone block
+        here — folded into the MARKET & CONTEXT section above (2026-08-19
+        reorg) instead, so market-wide context has exactly one home instead
+        of two. */}
     {explain && <AiScoreExplainer C={C} MONO={MONO} SANS={SANS} symbol={explain.symbol} aplus={explain.aplus} dimensions={explain.dimensions} label={explain.label} onClose={() => setExplain(null)} />}
     </div>
   );

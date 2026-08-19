@@ -20,6 +20,12 @@ export default function DecisionCard({
   showMarketRow = true,
   extra,
   showFullAnalysis, onToggleFullAnalysis, fullAnalysisLabel,
+  // hideToggle (2026-08-19, Workspace 6-section reorg) — Workspace now owns
+  // "full analysis" visibility via its own accordion sections, so its own
+  // caller passes this to skip rendering the card's built-in toggle button
+  // entirely rather than passing a no-op handler. Smart Scan (the other
+  // caller) doesn't pass it, so its own Show/Hide button is unaffected.
+  hideToggle = false,
 }) {
   const statBox = (label, val, col) => (
     <div key={label} style={{ flex: "1 1 90px", textAlign: "center", background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 10px" }}>
@@ -58,11 +64,13 @@ export default function DecisionCard({
         {statDot("RISK", riskColor)}
       </div>
       {extra}
-      <button onClick={onToggleFullAnalysis}
-        style={{ width: "100%", marginTop: extra ? 4 : 0, fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "8px 12px", borderRadius: 8, cursor: "pointer",
-          border: `1px solid ${C.accent}`, background: showFullAnalysis ? `${C.accent}18` : "transparent", color: C.accent }}>
-        {showFullAnalysis ? "▲ Hide Full Analysis" : `▼ Show Full Analysis (${fullAnalysisLabel})`}
-      </button>
+      {!hideToggle && (
+        <button onClick={onToggleFullAnalysis}
+          style={{ width: "100%", marginTop: extra ? 4 : 0, fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "8px 12px", borderRadius: 8, cursor: "pointer",
+            border: `1px solid ${C.accent}`, background: showFullAnalysis ? `${C.accent}18` : "transparent", color: C.accent }}>
+          {showFullAnalysis ? "▲ Hide Full Analysis" : `▼ Show Full Analysis (${fullAnalysisLabel})`}
+        </button>
+      )}
     </div>
   );
 }
