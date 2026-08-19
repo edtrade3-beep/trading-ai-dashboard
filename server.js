@@ -82,6 +82,7 @@ const server = http.createServer(handleRequest);
 const { initPgStore } = require("./src/atomic-write");
 const { initPhotoStore } = require("./src/dealership/photo-store");
 const { initFutureWalletStore } = require("./src/future-wallet-store");
+const { initNewsStore } = require("./src/news/store");
 
 // Sequenced, not parallel (2026-08-16): initPhotoStore() now reuses
 // initPgStore()'s shared pool (see atomic-write.js's getPool()) instead of
@@ -89,9 +90,12 @@ const { initFutureWalletStore } = require("./src/future-wallet-store");
 // against the same DATABASE_URL. It needs initPgStore's pool to already
 // exist before it runs. initFutureWalletStore() (2026-08-17, Future
 // Wallet 100 Phase 1) reuses the same shared pool for the same reason.
+// initNewsStore() (2026-08-19, News Intelligence) follows the identical
+// pattern — its own dedicated news_items table over the same shared pool.
 initPgStore()
   .then(() => initPhotoStore())
   .then(() => initFutureWalletStore())
+  .then(() => initNewsStore())
   .then(() => startServer())
   .catch((err) => {
     console.error("[startup] DATABASE_URL is set but Postgres bootstrap failed — refusing to start:", err.message);
@@ -399,6 +403,19 @@ server.listen(PORT, HOST, () => {
   // bursts its full request count regardless of how often it fires.
   registerJob("Light Box Confirm", 5 * 60_000, () => require("./src/lightbox-state-store").tickLightBox());
   console.log("[Light Box] Confirmation tick active — every 5 min (top 50 watchlist symbols), 4 AM-8 PM ET weekdays");
+
+  // News Intelligence ingestion (2026-08-19, explicit user spec: "Finviz
+  // News Intelligence layer") — real provider (Finnhub->Polygon->Yahoo/
+  // Google, the same authorized chain /api/market/news already uses) ->
+  // normalize -> dedupe -> classify -> sentiment -> price/volume
+  // confirmation -> impact score -> verdict, persisted to a dedicated
+  // Postgres table. Same 5-min interval + per-tick symbol-rotation cap as
+  // Light Box above, same real rate-limit-safety discipline (src/news/
+  // pipeline.js's MAX_TICKERS_PER_TICK). No-ops entirely if DATABASE_URL
+  // isn't configured (src/news/store.js stays inert) — never crashes the
+  // rest of the app if news ingestion fails.
+  registerJob("News Intelligence Ingest", 5 * 60_000, () => require("./src/news/pipeline").runIngestionTick());
+  console.log("[News Intel] Ingestion tick active — every 5 min (rotating watchlist slice)");
 
   // Trend Quality cache — real Minervini Trend Template + VCP, precomputed
   // on a slow cadence (daily-timeframe data that doesn't meaningfully

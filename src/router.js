@@ -24,6 +24,7 @@ const { handleFutureWallet } = require("./routes/future-wallet");
 const { handleAiUsage } = require("./routes/ai-usage");
 const { handleAutopilot } = require("./routes/autopilot");
 const handleFinviz = require("./routes/finviz");
+const handleNewsIntel = require("./routes/news-intel");
 const handleScanner = require("./routes/scanner");
 const handleDeals   = require("./routes/deals");
 const handleCOT     = require("./routes/cot");
@@ -129,6 +130,10 @@ async function handleRequest(req, res) {
 
     if (pathname.startsWith("/api/finviz/")) {
       return await handleFinviz(req, res, requestUrl);
+    }
+
+    if (pathname.startsWith("/api/news/")) {
+      return await handleNewsIntel(req, res, requestUrl);
     }
 
     if (pathname === "/api/scanner/future-value") return await handleFutureValueScan(req, res, requestUrl);

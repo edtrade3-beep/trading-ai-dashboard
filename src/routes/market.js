@@ -5339,3 +5339,4 @@ module.exports.fetchGammaForSymbol = fetchGammaForSymbol; // exposed for the sam
 module.exports.screenWatchlistCached = screenWatchlistCached; // exposed for the 3 watchlist-*-alerts.js background jobs (CTO audit item #4) — shared cache, not for live/manual-refresh routes
 module.exports.fetchDayTradeScanRows = fetchDayTradeScanRows; // exposed for watchlist-daytrade-alerts.js's real Day Trade Mode GREEN-signal alert
 module.exports.atrAt = atrAt; // exposed for daytrade-console-engine.js's real 15-min ATR (same real Wilder true-range formula, just fed intraday bars instead of daily)
+module.exports.fetchMarketNews = fetchMarketNews; // exposed for src/news/provider.js's NewsProvider implementation — same real Finnhub->Polygon->Yahoo/Google chain this route already uses, not a second news fetch path

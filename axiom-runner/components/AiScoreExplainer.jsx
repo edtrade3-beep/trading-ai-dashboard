@@ -127,6 +127,18 @@ export const FOUNDATION_DIMENSIONS = [
 ];
 export const FOUNDATION_LABEL = "TECHNICAL FOUNDATION SCORE";
 
+// News Impact Score — News Intelligence layer (2026-08-19, explicit user
+// spec). Key order MUST match computeNewsImpactScore's breakdown key order
+// (market-helpers.js) AND its reasons[] array order, same rule as every
+// other config here.
+export const NEWS_IMPACT_DIMENSIONS = [
+  { key: "articleVolume", max: 25, label: "Article Volume", improve: "Needs more real recent coverage tracked for this symbol." },
+  { key: "sentimentBalance", max: 25, label: "Sentiment Balance", improve: "Needs a more one-sided real bullish/bearish split across recent articles — a genuinely mixed read caps this dimension low by design." },
+  { key: "latestCatalyst", max: 25, label: "Catalyst Strength", improve: "Needs a more market-moving real catalyst (earnings, M&A, FDA, guidance) rather than a routine/minor headline." },
+  { key: "freshness", max: 25, label: "Freshness", improve: "Needs a more recent real article — this decays as coverage ages." },
+];
+export const NEWS_IMPACT_LABEL = "NEWS IMPACT SCORE";
+
 // Back-compat default — existing call sites (Trade Planner) that don't pass
 // a dimensions/title prop keep the original A+ Score framing untouched.
 const DIMENSIONS = TRADE_SETUP_DIMENSIONS;

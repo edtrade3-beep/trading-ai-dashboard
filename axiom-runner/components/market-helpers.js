@@ -759,6 +759,62 @@ export function computeInstitutionScore({ darkPool, optionsFlow, insiderData, sh
   };
 }
 
+// News Impact Score — News Intelligence layer (2026-08-19, explicit user
+// spec). A NEW, standalone sibling score, same pattern as
+// computeInstitutionScore/computeAiTradeScore above — never touches
+// computeAPlusScore. Consumes the real per-ticker aggregate already
+// computed server-side (GET /api/news/ticker/:symbol, src/news/store.js's
+// getTickerAggregation — itself built from src/news/scorer.js's real
+// catalyst/freshness/source/sentiment/confirmation weighting per article),
+// re-expressed here as 4 client-facing dimensions so it plugs into the
+// same AiScoreExplainer "why?" modal every other score uses. Honest-null:
+// no real recent articles for this symbol returns score: null, never a
+// fabricated number.
+export function computeNewsImpactScore(tickerAggregation) {
+  if (!tickerAggregation || !tickerAggregation.ok || !tickerAggregation.articleCount) {
+    return {
+      score: null,
+      breakdown: { articleVolume: 0, sentimentBalance: 0, latestCatalyst: 0, freshness: 0 },
+      label: "No Material News",
+      reasons: ["No real recent articles tracked for this symbol.", "—", "—", "—"],
+    };
+  }
+  const { articleCount, bullish, bearish, avgImpact, latestCatalyst, trend, rows } = tickerAggregation;
+
+  // Article volume (0-25) — real recent coverage, capped so one symbol's
+  // volume can't dominate the whole 100pt budget on count alone.
+  const articleVolume = Math.min(25, Math.round((articleCount / 5) * 25));
+
+  // Sentiment balance (0-25) — how one-sided the real bull/bear split is;
+  // a unanimous real read scores higher than a genuinely mixed one.
+  const total = bullish + bearish;
+  const balanceRatio = total > 0 ? Math.abs(bullish - bearish) / total : 0;
+  const sentimentBalance = Math.round(balanceRatio * 25);
+
+  // Latest catalyst (0-25) — direct scaling of the server's own real
+  // avgImpact (already a weighted composite of catalyst/freshness/source/
+  // sentiment/confirmation per article, src/news/scorer.js), not re-derived.
+  const latestCatalystPts = Math.round(((avgImpact || 0) / 100) * 25);
+
+  // Freshness (0-25) — real age of the most recent tracked article.
+  const latestAt = rows && rows[0] ? rows[0].received_at : null;
+  const ageMin = latestAt ? (Date.now() - new Date(latestAt).getTime()) / 60000 : null;
+  const freshness = ageMin == null ? 12 : ageMin <= 60 ? 25 : ageMin <= 240 ? 18 : ageMin <= 1440 ? 10 : 3;
+
+  const breakdown = { articleVolume, sentimentBalance, latestCatalyst: latestCatalystPts, freshness };
+  const score = Math.max(0, Math.min(100, Object.values(breakdown).reduce((a, b) => a + b, 0)));
+  const label = trend === "BULLISH" ? "Bullish Coverage" : trend === "BEARISH" ? "Bearish Coverage" : "Mixed Coverage";
+
+  const reasons = [
+    `${articleCount} real article(s) tracked recently.`,
+    `${bullish} bullish vs ${bearish} bearish — ${trend} trend.`,
+    latestCatalyst ? `Latest real catalyst: ${latestCatalyst}.` : "No specific catalyst tagged on the latest article.",
+    ageMin != null ? `Most recent article ${Math.round(ageMin)} min old.` : "Freshness unavailable.",
+  ];
+
+  return { score, breakdown, label, reasons };
+}
+
 // Letter-grade read for computeInstitutionalGrade's 0-100 score — a
 // bond/institutional-rating style label (distinct visual language from the
 // numeric-only Stock Quality/Trade Setup badges) since this score is

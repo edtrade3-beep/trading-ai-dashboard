@@ -13,12 +13,84 @@ export default function NewsTab({
   refreshNews, newsLoading, newsData, scoreNewsSentiment, newsSentLoading,
   watchlistSymbols, newsSentiments, setTerminalSymbol, setActiveTab, setQuickLogModal, setWatchlistSymbols,
 }) {
-  const [viewMode, setViewMode] = useState("headlines"); // headlines | bysymbol
+  const [viewMode, setViewMode] = useState("headlines"); // headlines | bysymbol | intel
   const [symbolSentiment, setSymbolSentiment] = useState({}); // symbol -> {sentiment, score, oneLiner, bulls, bears, total}
   const [symbolLoading, setSymbolLoading] = useState(false);
   const [marketMovingOnly, setMarketMovingOnly] = useState(false);
   const [marketMovingMap, setMarketMovingMap] = useState({}); // headline title -> bool
   const [marketMovingLoading, setMarketMovingLoading] = useState(false);
+
+  // ── News Intelligence layer (2026-08-19, explicit user spec) — additive
+  // third view mode, self-contained (own fetch/state, does not touch the
+  // parent's newsData/refreshNews plumbing the two existing views above
+  // use). Reads the real, background-ingested, catalyst/impact/sentiment/
+  // confirmation-scored feed from GET /api/news/feed and GET /api/news/
+  // ticker/:symbol (src/news/*, src/routes/news-intel.js) — a genuinely
+  // different real data source from the raw /api/market/news headlines
+  // the existing views show, so it's a new view rather than a retrofit of
+  // those two.
+  const [newsStatus, setNewsStatus] = useState(null); // {status, reason?}
+  const [intelRows, setIntelRows] = useState([]);
+  const [intelLoading, setIntelLoading] = useState(false);
+  const [intelCategory, setIntelCategory] = useState("ALL");
+  const [intelSentiment, setIntelSentiment] = useState("ALL");
+  const [intelFreshness, setIntelFreshness] = useState(null); // minutes, null = no filter
+  const [intelMinImpact, setIntelMinImpact] = useState(0);
+  const [tickerLookup, setTickerLookup] = useState("");
+  const [tickerIntel, setTickerIntel] = useState(null);
+  const [tickerIntelLoading, setTickerIntelLoading] = useState(false);
+
+  useEffect(() => {
+    if (viewMode !== "intel") return;
+    let alive = true;
+    fetch("/api/news/status").then(r => r.json()).then(d => { if (alive) setNewsStatus(d); }).catch(() => {});
+    return () => { alive = false; };
+  }, [viewMode]);
+
+  useEffect(() => {
+    if (viewMode !== "intel") return;
+    let alive = true;
+    setIntelLoading(true);
+    const params = new URLSearchParams();
+    if (intelCategory !== "ALL") params.set("category", intelCategory);
+    if (intelSentiment !== "ALL") params.set("sentiment", intelSentiment);
+    if (intelFreshness != null) params.set("sinceMinutes", String(intelFreshness));
+    if (intelMinImpact > 0) params.set("minImpact", String(intelMinImpact));
+    params.set("limit", "60");
+    fetch(`/api/news/feed?${params.toString()}`).then(r => r.json())
+      .then(d => { if (alive && d.ok) setIntelRows(d.rows || []); })
+      .catch(() => {}).finally(() => { if (alive) setIntelLoading(false); });
+    return () => { alive = false; };
+  }, [viewMode, intelCategory, intelSentiment, intelFreshness, intelMinImpact]);
+
+  const runTickerLookup = () => {
+    const sym = tickerLookup.trim().toUpperCase();
+    if (!sym) return;
+    setTickerIntelLoading(true);
+    fetch(`/api/news/ticker/${encodeURIComponent(sym)}`).then(r => r.json())
+      .then(d => setTickerIntel(d))
+      .catch(() => setTickerIntel(null))
+      .finally(() => setTickerIntelLoading(false));
+  };
+
+  const IMPACT_COLOR = (score) => score >= 90 ? "#0d9465" : score >= 80 ? "#22c55e" : score >= 70 ? "#d6a312" : score >= 60 ? "#f59e0b" : C.textDim;
+  const IMPACT_LABEL = (score) => score >= 90 ? "EXTREME" : score >= 80 ? "HIGH" : score >= 70 ? "SIGNIFICANT" : score >= 60 ? "MODERATE" : "LOW";
+  const SENTIMENT_COLOR = (s) => (s === "STRONGLY_BULLISH" || s === "BULLISH") ? C.green : (s === "STRONGLY_BEARISH" || s === "BEARISH") ? C.red : C.textDim;
+  const VERDICT_META = {
+    STRONG_BULLISH_CONFIRMATION: { icon: "🟢", label: "STRONG BULLISH CONFIRMATION", color: "#0d9465" },
+    BULLISH_CATALYST: { icon: "🟢", label: "BULLISH CATALYST", color: "#22c55e" },
+    WATCH: { icon: "🟡", label: "WATCH", color: "#d6a312" },
+    WAIT_FOR_CONFIRMATION: { icon: "🟡", label: "WAIT FOR CONFIRMATION", color: "#d6a312" },
+    CONFLICTING_SIGNAL: { icon: "🟠", label: "CONFLICTING SIGNAL", color: "#f59e0b" },
+    BEARISH_CATALYST: { icon: "🔴", label: "BEARISH CATALYST", color: "#c8282a" },
+    HIGH_RISK: { icon: "🔴", label: "HIGH RISK", color: "#c8282a" },
+  };
+  const CATEGORY_CHIPS = ["ALL", "EARNINGS", "GUIDANCE", "ANALYST_UPGRADE", "ANALYST_DOWNGRADE", "M&A", "FDA", "AI", "CONTRACT", "MACRO", "OTHER"];
+  const FRESHNESS_CHIPS = [["1m", 1], ["5m", 5], ["15m", 15], ["1h", 60], ["Today", 24 * 60]];
+  const chipBtn = (active) => ({
+    fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 10px", borderRadius: 6, cursor: "pointer",
+    border: `1px solid ${active ? C.accent : C.border}`, background: active ? `${C.accent}18` : C.card, color: active ? C.accent : C.textSec,
+  });
 
   // Real per-symbol grouped sentiment — fetched once per distinct symbol
   // set whenever the "BY SYMBOL" view is opened or newsData changes while
@@ -156,6 +228,11 @@ export default function NewsTab({
                     style={{ border: "none", background: viewMode === "bysymbol" ? C.accent : C.surface, color: viewMode === "bysymbol" ? "#fff" : C.text, fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "6px 10px", cursor: "pointer" }}>
                     BY SYMBOL
                   </button>
+                  <button onClick={() => setViewMode("intel")}
+                    title="Catalyst classification, impact score, and price/volume-confirmed verdicts — a real background-scored feed, distinct from the raw headlines above"
+                    style={{ border: "none", background: viewMode === "intel" ? C.accent : C.surface, color: viewMode === "intel" ? "#fff" : C.text, fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "6px 10px", cursor: "pointer" }}>
+                    🧠 INTEL
+                  </button>
                 </div>
                 <label title="Only show headlines whose real keyword-sentiment magnitude is |score| ≥ 3 on the -5..5 scale" style={{ display: "flex", alignItems: "center", gap: 5, fontFamily: MONO, fontSize: 12, color: C.textDim, cursor: "pointer" }}>
                   <input type="checkbox" checked={marketMovingOnly} onChange={e => setMarketMovingOnly(e.target.checked)} />
@@ -199,6 +276,120 @@ export default function NewsTab({
                       </div>
                     );
                   })}
+              </div>
+            )}
+            {viewMode === "intel" && (
+              <div>
+                {newsStatus && newsStatus.status !== "OK" && (
+                  <div style={{ marginBottom: 10, border: `1px solid ${newsStatus.status === "STALE" ? "#d6a312" : "#c8282a"}55`, borderRadius: 8, padding: "8px 12px", background: `${newsStatus.status === "STALE" ? "#d6a312" : "#c8282a"}0f`, fontFamily: MONO, fontSize: 12, fontWeight: 700, color: newsStatus.status === "STALE" ? "#d6a312" : "#c8282a" }}>
+                    NEWS STATUS: {newsStatus.status}{newsStatus.reason ? ` — ${newsStatus.reason}` : ""}
+                  </div>
+                )}
+
+                <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10, flexWrap: "wrap" }}>
+                  <input value={tickerLookup} onChange={(e) => setTickerLookup(e.target.value.toUpperCase())}
+                    onKeyDown={(e) => e.key === "Enter" && runTickerLookup()}
+                    placeholder="Ticker Intelligence — e.g. NVDA"
+                    style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 12, padding: "5px 8px", width: 180, borderRadius: 6 }} />
+                  <button onClick={runTickerLookup} disabled={tickerIntelLoading}
+                    style={chipBtn(false)}>{tickerIntelLoading ? "LOOKING UP…" : "LOOK UP"}</button>
+                  {tickerIntel && <button onClick={() => { setTickerIntel(null); setTickerLookup(""); }} style={chipBtn(false)}>CLEAR</button>}
+                </div>
+
+                {tickerIntel && tickerIntel.status === "DEGRADED" && (
+                  <div style={{ marginBottom: 14, fontFamily: MONO, fontSize: 12, color: C.textDim }}>News store unavailable right now.</div>
+                )}
+                {tickerIntel && tickerIntel.ok && tickerIntel.status !== "DEGRADED" && (
+                  <div style={{ marginBottom: 14, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 14 }}>
+                    <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.accent, marginBottom: 4 }}>{tickerIntel.ticker} NEWS INTELLIGENCE</div>
+                    {tickerIntel.articleCount === 0 ? (
+                      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>No real recent articles tracked for this symbol yet.</div>
+                    ) : (
+                      <>
+                        <div style={{ fontFamily: MONO, fontSize: 12, color: C.textSec, marginBottom: 4 }}>{tickerIntel.articleCount} relevant article{tickerIntel.articleCount === 1 ? "" : "s"}</div>
+                        <div style={{ display: "flex", gap: 14, fontFamily: MONO, fontSize: 12, marginBottom: 4 }}>
+                          <span style={{ color: C.green }}>Bullish: {tickerIntel.bullish}</span>
+                          <span style={{ color: C.red }}>Bearish: {tickerIntel.bearish}</span>
+                          <span style={{ color: C.textDim }}>Avg Impact: {tickerIntel.avgImpact}</span>
+                        </div>
+                        {tickerIntel.latestHeadline && <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginBottom: 4 }}>Latest catalyst: {tickerIntel.latestCatalyst || "—"} — "{tickerIntel.latestHeadline}"</div>}
+                        <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: SENTIMENT_COLOR(tickerIntel.trend === "BULLISH" ? "BULLISH" : tickerIntel.trend === "BEARISH" ? "BEARISH" : "NEUTRAL") }}>
+                          NEWS TREND: {tickerIntel.trend === "BULLISH" ? "🟢" : tickerIntel.trend === "BEARISH" ? "🔴" : "⚪"} {tickerIntel.trend}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 10 }}>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center" }}>
+                    <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginRight: 4 }}>CATEGORY</span>
+                    {CATEGORY_CHIPS.map((c) => (
+                      <button key={c} onClick={() => setIntelCategory(c)} style={chipBtn(intelCategory === c)}>{c}</button>
+                    ))}
+                  </div>
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 10 }}>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center" }}>
+                    <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginRight: 4 }}>SENTIMENT</span>
+                    {["ALL", "STRONGLY_BULLISH", "BULLISH", "NEUTRAL", "BEARISH", "STRONGLY_BEARISH"].map((s) => (
+                      <button key={s} onClick={() => setIntelSentiment(s)} style={chipBtn(intelSentiment === s)}>{s}</button>
+                    ))}
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center" }}>
+                    <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginRight: 4 }}>FRESHNESS</span>
+                    <button onClick={() => setIntelFreshness(null)} style={chipBtn(intelFreshness == null)}>ANY</button>
+                    {FRESHNESS_CHIPS.map(([label, mins]) => (
+                      <button key={label} onClick={() => setIntelFreshness(mins)} style={chipBtn(intelFreshness === mins)}>{label}</button>
+                    ))}
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center" }}>
+                    <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginRight: 4 }}>HIGH IMPACT</span>
+                    <button onClick={() => setIntelMinImpact(intelMinImpact > 0 ? 0 : 80)} style={chipBtn(intelMinImpact > 0)}>≥80 ONLY</button>
+                  </div>
+                </div>
+
+                <div style={{ display: "grid", gap: 10 }}>
+                  {intelLoading && <div style={{ color: C.textDim, fontSize: 13, fontFamily: MONO }}>Loading real scored news feed…</div>}
+                  {!intelLoading && !intelRows.length && <div style={{ color: C.textDim, fontSize: 13, fontFamily: MONO }}>No real news items matching these filters yet.</div>}
+                  {!intelLoading && intelRows.map((r) => {
+                    const verdict = VERDICT_META[r.verdict] || null;
+                    const impactColor = IMPACT_COLOR(r.impact_score || 0);
+                    let confirmation = null;
+                    try { confirmation = r.confirmation ? (typeof r.confirmation === "string" ? JSON.parse(r.confirmation) : r.confirmation) : null; } catch { confirmation = null; }
+                    return (
+                      <div key={r.id || r.dedupe_key} style={{ background: C.card, border: `1px solid ${C.border}`, borderLeft: `4px solid ${impactColor}`, borderRadius: 6, padding: 12 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 8, marginBottom: 6 }}>
+                          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                            <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.accent }}>{r.ticker}</span>
+                            {(r.impact_score || 0) >= 80 && (
+                              <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: impactColor }}>🔥 {IMPACT_LABEL(r.impact_score)} IMPACT</span>
+                            )}
+                          </div>
+                          <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: "#fff", background: impactColor, borderRadius: 5, padding: "2px 7px" }}>{r.impact_score ?? "—"}</span>
+                        </div>
+                        <div style={{ fontSize: 13, color: C.text, fontWeight: 600, marginBottom: 6 }}>
+                          {r.url ? <a href={r.url} target="_blank" rel="noreferrer" style={{ color: "inherit", textDecoration: "none" }}>{r.headline}</a> : r.headline}
+                        </div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 14, fontFamily: MONO, fontSize: 11, color: C.textDim, marginBottom: 6 }}>
+                          <span style={{ color: SENTIMENT_COLOR(r.sentiment), fontWeight: 700 }}>{r.sentiment || "—"}</span>
+                          <span>Catalyst: {r.category || "OTHER"}</span>
+                          <span>Freshness: {r.freshness_score ?? "—"}</span>
+                          <span>Price Confirmation: {confirmation && confirmation.available ? (confirmation.confirmed === true ? "YES" : confirmation.confirmed === false ? "NO" : "N/A") : "—"}</span>
+                          <span>{r.source}</span>
+                        </div>
+                        {verdict && (
+                          <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: verdict.color, marginBottom: r.url ? 4 : 0 }}>
+                            VERDICT: {verdict.icon} {verdict.label}
+                          </div>
+                        )}
+                        {r.url && (
+                          <a href={r.url} target="_blank" rel="noreferrer" style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>[View Source]</a>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
             {viewMode === "headlines" && (
