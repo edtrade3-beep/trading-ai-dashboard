@@ -23,8 +23,9 @@ const SIZING_DEFAULTS = {
 };
 
 const GATE_DEFAULTS = {
-  minQualifying: 6,
-  foundationFloor: 3,
+  minQualifyingRatio: 0.5,
+  foundationFloorRatio: 0.25,
+  minEvidenceCount: 3,
   minRR: 1.5,
 };
 
@@ -109,7 +110,10 @@ export function computeEntryStage({ price, pivot, atr, breakoutConfirmed, extend
   }
 
   if (Number.isFinite(price) && Number.isFinite(pivot) && price < pivot) {
-    if (qualifying.total > 0 && qualifying.count >= gate.minQualifying) {
+    const hasEnoughEvidence = qualifying.total >= gate.minEvidenceCount;
+    const minQualifying = hasEnoughEvidence ? Math.ceil(qualifying.total * gate.minQualifyingRatio) : Infinity;
+    const foundationFloor = Math.max(1, Math.ceil(qualifying.total * gate.foundationFloorRatio));
+    if (qualifying.total > 0 && qualifying.count >= minQualifying) {
       const nearPivot = zones.confirmationEntryZone && price >= zones.confirmationEntryZone[0];
       if (nearPivot) {
         return {
@@ -122,7 +126,7 @@ export function computeEntryStage({ price, pivot, atr, breakoutConfirmed, extend
         recommendedAction: `Start small — ${qualifying.count}/${qualifying.total} real qualifying conditions met, the setup is genuinely developing before the pivot.`,
       };
     }
-    if (qualifying.total > 0 && qualifying.count >= gate.foundationFloor) {
+    if (qualifying.total > 0 && qualifying.count >= foundationFloor) {
       return {
         stage: "FOUNDATION", entryPrice: null, sizingPct: 0,
         recommendedAction: `Wait — a base is forming (${qualifying.count}/${qualifying.total} conditions), but not enough real evidence yet for even a starter position.`,

@@ -124,6 +124,26 @@ ok("7. Missing timeframe data -> honestly reflects a small denominator, never fa
   const plan = computeEntryPlan({ price: 175, pivot: 227, atr: 5, dailyBias: "BULLISH", rsRating: 80 });
   assert.strictEqual(plan.qualifying.total, 2, `expected only the 2 real available conditions counted, got ${plan.qualifying.total}`);
   assert.notStrictEqual(plan.stage, "CONFIRMATION", "2/2 available conditions passing must not be confused with real multi-timeframe confirmation");
+  // Below minEvidenceCount (3) — the absolute floor exists specifically so
+  // a 2/2 (or 1/1) ratio can't look "100% confident" off almost no real
+  // evidence. EARLY must be unreachable here; FOUNDATION is the ceiling.
+  assert.strictEqual(plan.stage, "FOUNDATION", `too few known conditions (2 < minEvidenceCount=3) must cap at FOUNDATION even at a perfect ratio, got ${plan.stage}`);
+});
+
+ok("REGRESSION (real reported gap, 2026-08-20): a narrower evidence set (e.g. a scan that only ever evaluates 6 of 12 conditions) must not be held to the SAME ABSOLUTE bar as the full 12 — it should reach EARLY off a real majority of what IS available", () => {
+  // Exactly the BTC+HPC Deep Scan's real shape: no 4H/1H/ADX/regime data
+  // fetched, only 6 of the 12 possible conditions ever have real values.
+  const narrowEvidence = {
+    price: 88.65, pivot: 120.38, atr: 4, contractionLow: 76.03,
+    dailyBias: "NEUTRAL", rsRating: 73, higherLows: true, tightening: true,
+    vcpVerdict: "WATCHLIST", vwap20: 85, rr: 2.0,
+    breakoutConfirmed: false, extended: false, priceAction: {},
+  };
+  const plan = computeEntryPlan(narrowEvidence);
+  assert.strictEqual(plan.qualifying.total, 6, `expected exactly 6 real conditions to have data, got ${plan.qualifying.total}`);
+  assert.ok(plan.qualifying.count >= 3, `test fixture should have a real majority passing, got ${plan.qualifying.count}/6`);
+  assert.notStrictEqual(plan.stage, "NONE", "3+/6 real conditions passing must be reachable as EARLY, not stuck at NONE just because the full 12-condition evidence set wasn't fetched");
+  assert.strictEqual(plan.entryPrice, 88.65);
 });
 
 ok("8. Conflicting timeframes -> a real mixed tally (4H weak, not broken), resolves to FOUNDATION (not a false EARLY)", () => {

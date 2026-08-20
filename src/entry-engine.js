@@ -60,9 +60,23 @@ const SIZING_DEFAULTS = {
   retestPct: 20,       // remaining allocation
 };
 
+// Ratio-based, not an absolute count (fixed 2026-08-20 — a real gap found
+// live: a caller with a narrower evidence set than the full 12 conditions
+// (e.g. the BTC+HPC scan, which only ever evaluates 6 daily/fundamental
+// conditions and never fetches 4H/1H/regime) was held to the same
+// absolute "6 must pass" bar as a caller with all 12 — effectively
+// requiring a perfect 6/6 to ever reach EARLY, no matter how genuinely
+// strong the setup. Scaling to a ratio of qualifying.total fixes that
+// (6/12 -> minQualifying 6, matching the original absolute default
+// exactly; 6 available -> minQualifying 3, achievable). minEvidenceCount
+// is the floor that keeps this honest: with only 1-2 real conditions
+// known at all, the ratio alone could look "high" off pure luck — below
+// this floor, EARLY/CONFIRMATION simply can't trigger regardless of
+// ratio, capping out at FOUNDATION at most.
 const GATE_DEFAULTS = {
-  minQualifying: 6,     // out of however many conditions have real data (see computeQualifyingConditions)
-  foundationFloor: 3,   // below minQualifying but at/above this = FOUNDATION; below this = NONE
+  minQualifyingRatio: 0.5,     // fraction of AVAILABLE (known) conditions that must pass
+  foundationFloorRatio: 0.25,  // below minQualifying but at/above this ratio = FOUNDATION; below = NONE
+  minEvidenceCount: 3,         // fewer real known conditions than this -> EARLY/CONFIRMATION unreachable, FOUNDATION at most
   minRR: 1.5,
 };
 
@@ -172,7 +186,15 @@ function computeEntryStage({ price, pivot, atr, breakoutConfirmed, extended, pri
   }
 
   if (Number.isFinite(price) && Number.isFinite(pivot) && price < pivot) {
-    if (qualifying.total > 0 && qualifying.count >= gate.minQualifying) {
+    // Ratio of whatever's actually known, gated by an absolute evidence
+    // floor — see GATE_DEFAULTS' own comment for why (a narrower evidence
+    // set, e.g. only 6 of 12 conditions ever fetched, must not be held to
+    // an absolute count meant for the full 12; too few known conditions
+    // at all must not let ratio math alone fake confidence).
+    const hasEnoughEvidence = qualifying.total >= gate.minEvidenceCount;
+    const minQualifying = hasEnoughEvidence ? Math.ceil(qualifying.total * gate.minQualifyingRatio) : Infinity;
+    const foundationFloor = Math.max(1, Math.ceil(qualifying.total * gate.foundationFloorRatio));
+    if (qualifying.total > 0 && qualifying.count >= minQualifying) {
       const nearPivot = zones.confirmationEntryZone && price >= zones.confirmationEntryZone[0];
       if (nearPivot) {
         return {
@@ -185,7 +207,7 @@ function computeEntryStage({ price, pivot, atr, breakoutConfirmed, extended, pri
         recommendedAction: `Start small — ${qualifying.count}/${qualifying.total} real qualifying conditions met, the setup is genuinely developing before the pivot.`,
       };
     }
-    if (qualifying.total > 0 && qualifying.count >= gate.foundationFloor) {
+    if (qualifying.total > 0 && qualifying.count >= foundationFloor) {
       return {
         stage: "FOUNDATION", entryPrice: null, sizingPct: 0,
         recommendedAction: `Wait — a base is forming (${qualifying.count}/${qualifying.total} conditions), but not enough real evidence yet for even a starter position.`,
