@@ -1336,6 +1336,15 @@ export default function SmartScanTab({
                                       const smc  = deepData?.smc;
                                       const sd   = deepSocialData[row.ticker];
                                       const px   = Number(livePrice || row.quote?.price || 0);
+                                      // ONE ENGINE (2026-08-20, explicit user architecture
+                                      // directive — Smart Scan and the Decision Workspace must
+                                      // be "two interfaces to the exact same trading
+                                      // intelligence," not two risk/reward calculations). The
+                                      // real trend-screen row (same data source computeAPlusScore/
+                                      // computeSniperDecision above already use) carries the SAME
+                                      // real structural stop/target Sniper Decision computes for
+                                      // this exact symbol on the Workspace page.
+                                      const trendRow = smartScanTrendMap[row.ticker] || null;
                                       const ma50v = Number(row.quote?.priceAvg50  || 0);
                                       const ma200v= Number(row.quote?.priceAvg200 || 0);
                                       const hi52v = Number(row.quote?.yearHigh || 0);
@@ -1433,18 +1442,46 @@ export default function SmartScanTab({
                                       const riskAmt = acct * riskPctFrac;
                                       let stop5 = null, t1 = null, t2 = null, shares = 0, cost = 0, profitT1 = 0, stopPct = "0.0";
                                       const dirLabel = isShort ? "SHORT" : "BUY", tgtSign = isShort ? "-" : "+";
+                                      // Real structural stop/target — the SAME numbers
+                                      // Sniper Decision computes for this symbol on the
+                                      // Workspace page (trendRow.stop/target2, real Minervini
+                                      // pivot/contraction-low math), reused rather than a
+                                      // second, independent flat-% formula. Long only — no
+                                      // canonical short-side engine exists anywhere in this app
+                                      // yet, so the short case honestly keeps its own real
+                                      // (not fabricated-as-unified) flat-% approximation rather
+                                      // than pretending a long-only engine covers it too.
+                                      //
+                                      // CRITICAL validity check (caught live, 2026-08-20):
+                                      // trendRow.stop/target2 are computed relative to the
+                                      // PIVOT, not current price — coherent once price is near/
+                                      // above the pivot, but backwards (stop above price, target
+                                      // below it) for a stock trading well below its own pivot,
+                                      // which is common. Only reused when they're actually a
+                                      // sane "if you're long at this price" reading; otherwise
+                                      // honestly falls back to the flat-% approximation rather
+                                      // than showing an inverted stop/target.
+                                      const hasRealLongLevels = trendRow && Number.isFinite(trendRow.stop) && Number.isFinite(trendRow.entry)
+                                        && trendRow.entry > trendRow.stop && trendRow.stop > 0 && trendRow.stop < px;
                                       if (px && !isAvoid) {
                                         stop5 = isShort
                                           ? Math.max(ma50v > px ? ma50v * 1.03 : px * 1.03, px * 1.03)
+                                          : hasRealLongLevels ? trendRow.stop
                                           : Math.min(ma50v > 0 && ma50v < px ? ma50v * 0.97 : px * 0.97, px * 0.97);
                                         const riskPerShare = Math.max(px * 0.01, Math.abs(px - stop5));
                                         shares = Math.floor(riskAmt / riskPerShare);
                                         cost = shares * px;
-                                        t1 = isShort ? px * 0.92 : px * 1.08;
-                                        t2 = isShort ? px * 0.85 : px * 1.15;
+                                        const hasRealTarget2 = hasRealLongLevels && Number.isFinite(trendRow.target2) && trendRow.target2 > px;
+                                        t1 = isShort ? px * 0.92 : hasRealLongLevels ? Math.round((px + (px - stop5)) * 100) / 100 : px * 1.08;
+                                        t2 = isShort ? px * 0.85 : hasRealTarget2 ? trendRow.target2 : px * 1.15;
                                         profitT1 = shares * Math.abs(t1 - px);
                                         stopPct = (Math.abs(px - stop5) / px * 100).toFixed(1);
                                       }
+                                      // Real R:R off the same real stop/target above — computed
+                                      // ONCE here and reused by every downstream action (Copy
+                                      // Trade Plan, Telegram, Quick Log, T1 alert) instead of each
+                                      // one independently recomputing its own flat-% version.
+                                      const rr = (t1 != null && stop5 != null && px) ? Math.round(((t1 - px) / Math.max(Math.abs(px - stop5), 0.01)) * 100) / 100 : null;
                                       // Real signals already computed above — same [0d9465]/[d6a312]/
                                       // [c8282a] convention DecisionCard's Trend/Volume/Risk dots use
                                       // on the Workspace page, for visual + logical consistency.
@@ -1537,25 +1574,24 @@ export default function SmartScanTab({
                                             </div>
                                           )}
 
-                                          {/* Copy Trade Plan */}
+                                          {/* Copy Trade Plan — reuses the real stop5/t1/t2/rr
+                                              computed once above (2026-08-20, ONE ENGINE fix)
+                                              instead of independently recomputing its own flat-%
+                                              levels, so the clipboard text always matches what's
+                                              actually shown on screen. */}
                                           <button onClick={() => {
                                             const px4 = Number(livePrice || row.quote?.price || 0);
-                                            const ma504 = Number(row.quote?.priceAvg50 || 0);
-                                            const short4 = /SHORT|SELL/i.test(vLabel);
-                                            const avoid4 = !short4 && /AVOID|WAIT|NEUTRAL/i.test(vLabel);
-                                            const s4 = short4 ? (px4*1.03).toFixed(2) : (ma504 > 0 ? (ma504*0.97).toFixed(2) : (px4*0.92).toFixed(2));
-                                            const sign4 = short4 ? "-" : "+";
-                                            const t1m = short4 ? 0.92 : 1.08, t2m = short4 ? 0.85 : 1.15;
-                                            const plan = avoid4 ? [
+                                            const sign4 = isShort ? "-" : "+";
+                                            const plan = isAvoid ? [
                                               "TRADE PLAN — " + row.ticker,
                                               "Verdict: " + vLabel + " — NO TRADE (trend against a long)",
                                               "Wait for a reversal/confirmation signal before entering.",
                                               "Score: " + row.score + "/100  Generated: " + new Date().toLocaleString()
                                             ].join("\n") : [
-                                              "TRADE PLAN — " + row.ticker + (short4 ? " (SHORT)" : ""),
-                                              "Verdict: " + vLabel + "  Alignment: " + composite + "/100",
-                                              (short4 ? "Short: $" : "Entry: $") + px4.toFixed(2) + "  Stop: $" + s4,
-                                              "T1: $" + (px4*t1m).toFixed(2) + " (" + sign4 + "8%)  T2: $" + (px4*t2m).toFixed(2) + " (" + sign4 + "15%)",
+                                              "TRADE PLAN — " + row.ticker + (isShort ? " (SHORT)" : ""),
+                                              "Verdict: " + vLabel + "  Alignment: " + composite + "/100" + (Number.isFinite(rr) ? "  R:R " + rr + ":1" : ""),
+                                              (isShort ? "Short: $" : "Entry: $") + px4.toFixed(2) + "  Stop: $" + (stop5 != null ? stop5.toFixed(2) : "—"),
+                                              "T1: $" + (t1 != null ? t1.toFixed(2) : "—") + "  T2: $" + (t2 != null ? t2.toFixed(2) : "—"),
                                               vWarnings.length ? "Warnings: " + vWarnings.join(" | ") : "No warnings",
                                               "Score: " + row.score + "/100  Generated: " + new Date().toLocaleString()
                                             ].join("\n");
@@ -1571,23 +1607,22 @@ export default function SmartScanTab({
                                           <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
                                             {/* Set Price Alert */}
                                             <button onClick={() => {
-                                              const px = Number(livePrice || row.quote?.price || 0);
-                                              const t1 = (px * 1.08).toFixed(2);
                                               setActiveTab("alerts");
                                             }} style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700,
                                               border: `1px solid ${C.amber}55`, background: `${C.amber}12`,
                                               color: C.amber, borderRadius: 6, padding: "5px 12px", cursor: "pointer" }}>
                                               🔔 Set T1 Alert
                                             </button>
-                                            {/* Log Trade */}
+                                            {/* Log Trade — reuses the real stop5/t1 computed once
+                                                above instead of a second flat-% formula. */}
                                             <button onClick={() => {
-                                              const px = Number(livePrice || row.quote?.price || 0);
+                                              const pxLog = Number(livePrice || row.quote?.price || 0);
                                               setQuickLogModal({
-                                                symbol: row.ticker, price: px,
-                                                entry: px.toFixed(2),
-                                                stopLoss: (px * 0.97).toFixed(2),
-                                                target: (px * 1.08).toFixed(2),
-                                                side: "BUY", timeframe: "1D",
+                                                symbol: row.ticker, price: pxLog,
+                                                entry: pxLog.toFixed(2),
+                                                stopLoss: stop5 != null ? stop5.toFixed(2) : (pxLog * 0.97).toFixed(2),
+                                                target: t1 != null ? t1.toFixed(2) : (pxLog * 1.08).toFixed(2),
+                                                side: isShort ? "SHORT" : "BUY", timeframe: "1D",
                                                 style: "Breakout", notes: `Smart Scan · Score ${row.score}`,
                                                 score: row.score, chg: row.quote?.changesPercentage || 0, rvol: 0
                                               });
@@ -1608,25 +1643,22 @@ export default function SmartScanTab({
                                               color: C.accent, borderRadius: 6, padding: "5px 12px", cursor: "pointer" }}>
                                               ⭐ Watch
                                             </button>
-                                            {/* Send to Telegram — no state, use DOM directly */}
+                                            {/* Send to Telegram — reuses the real stop5/t1/t2/rr
+                                                computed once above (2026-08-20, ONE ENGINE fix)
+                                                instead of a third independent flat-% formula. */}
                                             {(() => {
-                                              const r2   = n => Math.round(n * 100) / 100;
-                                              const px   = Number(livePrice || row.quote?.price || 0);
-                                              const stop = r2(px * 0.97);
-                                              const t1   = r2(px * 1.08);
-                                              const t2   = r2(px * 1.15);
-                                              const rr   = r2((t1 - px) / Math.max(px - stop, 0.01));
+                                              const pxTg = Number(livePrice || row.quote?.price || 0);
                                               const chg  = Number(row.quote?.changesPercentage || 0);
                                               const msg  = [
-                                                `📊 ${row.ticker} SETUP — $${px} (${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%)`,
+                                                `📊 ${row.ticker} SETUP — $${pxTg} (${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%)`,
                                                 `Score: ${row.score}/100  Signal: ${row.signal || "WATCH"}`,
                                                 ``,
                                                 `💰 TRADE LEVELS`,
-                                                `Entry: $${px}`,
-                                                `Stop:  $${stop} (-3%)`,
-                                                `T1:    $${t1} (+8%)`,
-                                                `T2:    $${t2} (+15%)`,
-                                                `R:R:   ${rr}:1`,
+                                                `${isShort ? "Short" : "Entry"}: $${pxTg}`,
+                                                `Stop:  $${stop5 != null ? stop5.toFixed(2) : "—"}`,
+                                                `T1:    $${t1 != null ? t1.toFixed(2) : "—"}`,
+                                                `T2:    $${t2 != null ? t2.toFixed(2) : "—"}`,
+                                                `R:R:   ${Number.isFinite(rr) ? rr : "—"}:1`,
                                                 ``,
                                                 `⚠️ Not financial advice. Manage risk.`,
                                               ].join("\n");
@@ -1726,7 +1758,7 @@ export default function SmartScanTab({
                                             sigs      = callSigs;
                                             strikeNote= `$${otmStrike1} strike (1 OTM) or $${itmStrike} (ATM)`;
                                             expNote   = "21-35 days out (not weekly — avoid theta decay)";
-                                            exitNote  = `Sell at +50-80% profit OR if price breaks below $${(px * 0.97).toFixed(2)}`;
+                                            exitNote  = `Sell at +50-80% profit OR if price breaks below $${stop5 != null ? stop5.toFixed(2) : (px * 0.97).toFixed(2)}`;
                                           } else {
                                             direction = putScore >= 4 ? "🔴 BUY PUTS" : "🟡 CONSIDER PUTS";
                                             dirColor  = C.red;
