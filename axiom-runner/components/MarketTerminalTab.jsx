@@ -678,7 +678,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   const [acctEquity, setAcctEquity] = useState(null);
   const [riskPct, setRiskPct] = useState(1);
   useEffect(() => {
-    fetch("/api/alpaca/account").then(r => r.json()).then(d => { if (d?.ok && Number.isFinite(d.equity)) setAcctEquity(d.equity); }).catch(() => {});
+    fetch("/api/alpaca/account").then(r => r.json()).then(d => { if (d?.ok && Number.isFinite(d.account?.equity)) setAcctEquity(d.account.equity); }).catch(() => {});
   }, []);
 
   // Section 7 (Catalysts, institutional redesign 2026-07-29) — real
