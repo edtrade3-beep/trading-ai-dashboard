@@ -1432,15 +1432,23 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                     );
                   })()}
                   {[
-                    ["Pivot", sniperD.pivot],
-                    // "Entry" only shown once price has actually reached the
-                    // trigger — otherwise the block above already covers it
-                    // as a future trigger, not a current one.
-                    ["Entry", (() => {
+                    // Dedup fix (2026-08-20, explicit user report — "Pivot"
+                    // and "Entry" used to render as two separate rows with
+                    // the identical price, since sniperD.entry IS
+                    // sniperD.pivot, no separately-computed entry exists).
+                    // One row now: "Entry (Pivot Breakout)" once price has
+                    // actually reached the trigger — labels it as what it
+                    // really is (the pivot break IS the entry, not two
+                    // different numbers) instead of hiding that. Before
+                    // price reaches it, the block above already shows this
+                    // exact same price as "Future Breakout Trigger" — so no
+                    // row renders here at all, rather than repeating it a
+                    // third way.
+                    ["Entry (Pivot Breakout)", (() => {
                       const curPrice = Number(chart?.livePrice ?? chart?.price);
                       const trigger = Number(sniperD.pivot ?? sniperD.entry);
                       const notReady = Number.isFinite(curPrice) && Number.isFinite(trigger) && curPrice < trigger;
-                      return notReady ? null : sniperD.entry;
+                      return notReady ? null : (sniperD.entry ?? sniperD.pivot);
                     })()],
                     ["Stop", sniperD.stop],
                     ["Target 1", sniperD.target1],
