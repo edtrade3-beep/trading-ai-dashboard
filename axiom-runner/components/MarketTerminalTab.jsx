@@ -231,6 +231,12 @@ import {
 import { computeSniperDecision } from "./sniper-decision.js";
 import { computeHeatRisk, computeCortexVerdict } from "./cortex-engine.js";
 import { computeMtfAlignment } from "./mtf-combiner.js";
+// Staged Swing-Entry System (2026-08-20) — fixes the root bug where
+// entryPrice was unconditionally assigned the pivot price. See
+// entry-engine.js's own header for the full design; see below for where
+// entryPlanDW replaces sniperD.entry as the source of "what IS the real,
+// executable entry right now."
+import { computeEntryPlan } from "./entry-engine.js";
 import AiScoreExplainer, {
   AplusBadge, TRADE_SETUP_DIMENSIONS, STOCK_QUALITY_DIMENSIONS, INSTITUTIONAL_GRADE_DIMENSIONS,
   TECHNICAL_DIMENSIONS, TIMING_DIMENSIONS, AI_TRADE_ENGINE_DIMENSIONS, FOUNDATION_DIMENSIONS, FOUNDATION_LABEL,
@@ -936,6 +942,26 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   const { regLabel: regLabelDW, regColor: regColorDW } = computeRegimeLabel(C, { spy: spyQ, qqq: qqqQ, vix: distData?.vix || 0, loaded: !!spyQ });
   const marketRegimeDW = regLabelDW === "RISK ON" ? "RISK_ON" : regLabelDW === "RISK OFF" ? "RISK_OFF" : regLabelDW === "LOADING…" ? null : "NEUTRAL";
 
+  // Staged Swing-Entry Plan (2026-08-20) — the single source of truth for
+  // "is there a real, executable entry price right now, and what is it,"
+  // replacing the old unconditional entryPrice = pivot. Every input here
+  // is already computed elsewhere on this page (trend-screen/symTrend,
+  // symMtf's 4H/1H/ATR/Anti-Chase reads, chart.technicals.adx, sniperD's
+  // own stop/target1/target2, marketRegimeDW) — zero new fetches. Two
+  // spec-requested conditions (RS slope, sector strength) are honestly
+  // left out — no real data source for either exists in this codebase —
+  // see entry-engine.js's own header for the full disclosure.
+  const entryPlanDW = (symTrend && sniperD) ? computeEntryPlan({
+    price: Number(chart?.livePrice ?? chart?.price), pivot: sniperD.pivot, atr: symMtf?.atrLevels?.atr,
+    contractionLow: symTrend.contractionLow, dailyBias: dwDailyBias, swing4hState: symMtf?.swing4h?.state,
+    rsiTrend1h: symMtf?.early1h?.rsiTrend, adx: chart?.technicals?.adx, rsRating: symTrend.rsRating,
+    volTrend1h: symMtf?.early1h?.volTrend, higherLows: symTrend.higherLows, tightening: symTrend.tightening,
+    vcpVerdict: symTrend.vcpVerdict, marketRegime: marketRegimeDW, vwap20: symTrend?.technicals?.vwap20,
+    rr: sniperD.rr, breakoutConfirmed: symTrend.breakoutConfirmed, extended: symTrend.extended,
+    priceAction: symMtf?.swing4h?.priceAction, antiChase: symMtf?.antiChase,
+    stop: sniperD.stop, target1: sniperD.target1, target2: sniperD.target2, trailingStop: symMtf?.atrLevels?.trailingStop,
+  }) : null;
+
   // Exit Panel dimensions (Phase 5, 2026-08-20) — 6 real, already-computed
   // reads bucketed into good/bad/unknown, matching the spec's "Momentum/
   // RS/structure/Support/Trailing stop, each a colored dot" mockup. No new
@@ -1247,7 +1273,13 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             <span style={{ fontWeight: 900, color: decisionInputs.vColor }}>{decisionInputs.vIcon} {decisionInputs.vLabel}</span>
             {aPlusScore && <span>· A+ <b style={{ color: C.text }}>{aPlusScore.score}</b></span>}
             {prediction && <span>· <b style={{ color: C.text }}>{prediction.conf}%</b> confidence</span>}
-            <span>· Entry <b style={{ color: C.text }}>${decisionInputs.su.entry}</b> / Stop <b style={{ color: C.text }}>${decisionInputs.su.stop}</b> / Target <b style={{ color: C.text }}>${decisionInputs.target1R}</b></span>
+            {/* Entry Engine fix (2026-08-20): this used to always say
+                "Entry $<pivot>" here too — the same root bug, in the most
+                prominent spot on the page. Now honest: "Entry" only when
+                entryPlanDW has independently determined a real executable
+                price exists right now; otherwise "Pivot" (still the same
+                real number, correctly labeled as a reference). */}
+            <span>· {entryPlanDW?.entryPrice != null ? "Entry" : "Pivot"} <b style={{ color: C.text }}>${entryPlanDW?.entryPrice ?? decisionInputs.su.entry}</b> / Stop <b style={{ color: C.text }}>${decisionInputs.su.stop}</b> / Target <b style={{ color: C.text }}>${decisionInputs.target1R}</b></span>
             {oneLiner && <span style={{ color: C.textDim }}>· {oneLiner}</span>}
           </div>
         )}
@@ -1391,68 +1423,58 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             )}
 
             <div style={{ display: "grid", gridTemplateColumns: "minmax(180px, 260px) 1fr", gap: 18 }}>
-              {/* Entry Map — real Sniper Decision levels, not invented */}
-              {sniperD && (sniperD.pivot != null || sniperD.entry != null) && (
+              {/* Staged Entry Plan (2026-08-20) — replaces the old flat
+                  Entry Map. CRITICAL FIX: entryPrice is no longer
+                  unconditionally the pivot — entryPlanDW.entryPrice is
+                  null unless the Entry Engine has independently determined
+                  a real, executable price exists right now (a genuine
+                  EARLY/CONFIRMATION/BREAKOUT/RETEST read). The pivot is
+                  always shown too, but labeled as what it is: a breakout
+                  reference, not automatically an entry. See
+                  entry-engine.js for the full design. */}
+              {entryPlanDW && (
                 <div>
-                  <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 6 }}>ENTRY MAP</div>
-                  {/* Current price vs. future breakout trigger (data-
-                      integrity audit, 2026-08-20, explicit spec example:
-                      a future trigger price must never be labeled bare
-                      "Entry" when the current price hasn't reached it —
-                      that reads as an actionable entry when it isn't one).
-                      sniperD.entry/pivot are the SAME real trigger price
-                      (sniper-decision.js falls back to pivot when there's
-                      no confirmed entry math yet) — this only changes how
-                      it's labeled, not the underlying number. */}
-                  {(() => {
-                    const curPrice = Number(chart?.livePrice ?? chart?.price);
-                    const trigger = Number(sniperD.pivot ?? sniperD.entry);
-                    const notReady = Number.isFinite(curPrice) && Number.isFinite(trigger) && curPrice < trigger;
-                    if (!notReady) return null;
-                    const distPct = ((trigger / curPrice - 1) * 100).toFixed(1);
+                  <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 6 }}>ENTRY PLAN — {entryPlanDW.stage.replace("_", " ")}</div>
+                  <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, lineHeight: 1.4, marginBottom: 8 }}>{entryPlanDW.recommendedAction}</div>
+                  {entryPlanDW.currentPrice != null && (
+                    <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11.5, padding: "3px 0" }}>
+                      <span style={{ color: C.textDim }}>Current Price</span>
+                      <span style={{ fontWeight: 700, color: C.text }}>${entryPlanDW.currentPrice.toFixed(2)}</span>
+                    </div>
+                  )}
+                  {[
+                    ["FOUNDATION", "Foundation", null, entryPlanDW.stage === "FOUNDATION" || entryPlanDW.stage === "NONE" ? "Base forming — not enough evidence yet" : null],
+                    ["EARLY", "Early Entry", entryPlanDW.earlyEntryZone, "Start small if confirmed"],
+                    ["CONFIRMATION", "Confirmation", entryPlanDW.confirmationEntryZone, "Add if confirmed"],
+                    ["BREAKOUT", "Breakout Pivot", entryPlanDW.breakoutTrigger != null ? [entryPlanDW.breakoutTrigger, entryPlanDW.breakoutTrigger] : null, "Add if breakout confirms"],
+                    ["RETEST", "Retest", entryPlanDW.retestZone, "Add if retest holds"],
+                  ].map(([stageKey, label, zone, defaultAction]) => {
+                    const active = entryPlanDW.stage === stageKey;
+                    const zoneText = Array.isArray(zone) ? (zone[0] === zone[1] ? `$${zone[0].toFixed(2)}` : `$${zone[0].toFixed(2)}–$${zone[1].toFixed(2)}`) : "—";
                     return (
-                      <div style={{ marginBottom: 4 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11.5, padding: "3px 0" }}>
-                          <span style={{ color: C.textDim }}>Current Price</span>
-                          <span style={{ fontWeight: 700, color: C.text }}>${curPrice.toFixed(2)}</span>
-                        </div>
-                        <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11.5, padding: "3px 0" }}>
-                          <span style={{ color: C.textDim }}>Future Breakout Trigger</span>
-                          <span style={{ fontWeight: 700, color: C.text }}>${trigger.toFixed(2)}</span>
-                        </div>
-                        <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11.5, padding: "3px 0" }}>
-                          <span style={{ color: C.textDim }}>Distance to Trigger</span>
-                          <span style={{ fontWeight: 700, color: C.textSec }}>+{distPct}%</span>
-                        </div>
-                        <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11.5, padding: "3px 0" }}>
-                          <span style={{ color: C.textDim }}>Entry Status</span>
-                          <span style={{ fontWeight: 800, color: "#e08a1e" }}>NOT READY</span>
-                        </div>
+                      <div key={stageKey} style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", fontFamily: MONO, fontSize: 11.5, padding: "3px 0", opacity: active ? 1 : 0.55 }}>
+                        <span style={{ color: active ? C.text : C.textDim, fontWeight: active ? 800 : 400 }}>{active ? "▶ " : ""}{label}</span>
+                        <span style={{ fontWeight: active ? 800 : 600, color: active ? dwState.color : C.text }}>{zoneText}</span>
                       </div>
                     );
-                  })()}
+                  })}
+                  {entryPlanDW.doNotChaseZone?.band && (
+                    <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11.5, padding: "3px 0" }}>
+                      <span style={{ color: C.textDim }}>Do Not Chase</span>
+                      <span style={{ fontWeight: 700, color: entryPlanDW.doNotChaseZone.band === "DO_NOT_CHASE" ? "#c8282a" : entryPlanDW.doNotChaseZone.band === "NORMAL" ? "#22d47e" : "#e08a1e" }}>{entryPlanDW.doNotChaseZone.band.replace(/_/g, " ")}</span>
+                    </div>
+                  )}
+                  {entryPlanDW.invalidation != null && (
+                    <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11.5, padding: "3px 0" }}>
+                      <span style={{ color: C.textDim }}>Invalidation</span>
+                      <span style={{ fontWeight: 700, color: "#c8282a" }}>${entryPlanDW.invalidation.toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div style={{ fontFamily: MONO, fontSize: 8.5, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginTop: 8, marginBottom: 4 }}>{entryPlanDW.qualifying.total > 0 ? `${entryPlanDW.qualifying.count}/${entryPlanDW.qualifying.total} QUALIFYING CONDITIONS` : "QUALIFYING CONDITIONS — no real data yet"}</div>
                   {[
-                    // Dedup fix (2026-08-20, explicit user report — "Pivot"
-                    // and "Entry" used to render as two separate rows with
-                    // the identical price, since sniperD.entry IS
-                    // sniperD.pivot, no separately-computed entry exists).
-                    // One row now: "Entry (Pivot Breakout)" once price has
-                    // actually reached the trigger — labels it as what it
-                    // really is (the pivot break IS the entry, not two
-                    // different numbers) instead of hiding that. Before
-                    // price reaches it, the block above already shows this
-                    // exact same price as "Future Breakout Trigger" — so no
-                    // row renders here at all, rather than repeating it a
-                    // third way.
-                    ["Entry (Pivot Breakout)", (() => {
-                      const curPrice = Number(chart?.livePrice ?? chart?.price);
-                      const trigger = Number(sniperD.pivot ?? sniperD.entry);
-                      const notReady = Number.isFinite(curPrice) && Number.isFinite(trigger) && curPrice < trigger;
-                      return notReady ? null : (sniperD.entry ?? sniperD.pivot);
-                    })()],
-                    ["Stop", sniperD.stop],
-                    ["Target 1", sniperD.target1],
-                    ["Target 2", sniperD.target2],
+                    ["Stop", entryPlanDW.stop],
+                    ["Target 1", entryPlanDW.target1],
+                    ["Target 2", entryPlanDW.target2],
                   ].filter(([, v]) => v != null).map(([l, v]) => (
                     <div key={l} style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11.5, padding: "3px 0" }}>
                       <span style={{ color: C.textDim }}>{l}</span>
@@ -1486,18 +1508,15 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                       ))}
                     </div>
                   )}
-                  {/* Anti-Chase (Phase 4) — real extension-from-breakout
-                      band off row.abovePivotPct, the same % Sniper
-                      Decision's own NO_CHASE reason already surfaces. */}
-                  {symMtf?.antiChase?.band && symMtf.antiChase.band !== "NOT_YET_BROKEN_OUT" && (
-                    <div style={{
-                      marginTop: 8, fontFamily: SANS, fontSize: 10.5, padding: "5px 8px", borderRadius: 6,
-                      color: symMtf.antiChase.band === "NORMAL" ? "#0d9465" : symMtf.antiChase.band === "DO_NOT_CHASE" ? "#c8282a" : "#e08a1e",
-                      background: symMtf.antiChase.band === "NORMAL" ? "#0d946512" : symMtf.antiChase.band === "DO_NOT_CHASE" ? "#c8282a12" : "#e08a1e12",
-                    }}>
-                      {symMtf.antiChase.band === "DO_NOT_CHASE" ? "⚠️ " : ""}{symMtf.antiChase.label}
-                      {symMtf.antiChase.waitingFor && <div style={{ marginTop: 2, opacity: 0.85 }}>{symMtf.antiChase.waitingFor}</div>}
-                    </div>
+                  {/* Anti-Chase's real band is now shown as the "Do Not
+                      Chase" row inside the staged plan above (same real
+                      computeAntiChase output, entryPlanDW.doNotChaseZone) —
+                      this used to be a second, separate block repeating
+                      the same read; the "waitingFor" text is still worth
+                      surfacing when it's the actual reason nothing's
+                      executable right now. */}
+                  {symMtf?.antiChase?.band === "DO_NOT_CHASE" && symMtf.antiChase.waitingFor && (
+                    <div style={{ marginTop: 4, fontFamily: SANS, fontSize: 10.5, color: "#c8282a", opacity: 0.9 }}>{symMtf.antiChase.waitingFor}</div>
                   )}
                   {/* Breakout Retest (Phase 4) — real, already-computed by
                       detectPriceAction (daytrade-console-engine.js, reused
@@ -1517,43 +1536,57 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                   )}
                   {/* Position Sizing (MTF spec §26, 2026-08-20) — "never
                       recommend position size without calculating risk."
-                      Real account equity (/api/alpaca/account) × a real,
-                      adjustable risk % ÷ real risk-per-share (entry-stop,
-                      the same structural stop shown above) = shares. Only
-                      rendered once real entry/stop math exists. */}
-                  {sniperD?.entry != null && sniperD?.stop != null && sniperD.entry > sniperD.stop && (
-                    <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${C.border}` }}>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-                        <span style={{ fontFamily: MONO, fontSize: 8.5, fontWeight: 800, color: C.textDim, letterSpacing: 0.5 }}>POSITION SIZING</span>
-                        <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                          <input type="number" min={0.1} max={10} step={0.1} value={riskPct}
-                            onChange={(e) => setRiskPct(Math.max(0.1, Math.min(10, Number(e.target.value) || 1)))}
-                            style={{ width: 40, fontFamily: MONO, fontSize: 10, background: C.surface || C.card, border: `1px solid ${C.border}`, borderRadius: 4, padding: "1px 4px", color: C.text }} />
-                          <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>% risk</span>
-                        </span>
+                      FIXED (2026-08-20, Entry Engine build): this used to
+                      size off sniperD.entry — the pivot — regardless of
+                      whether that price was actually executable. Now
+                      sizes off entryPlanDW.entryPrice, the Entry Engine's
+                      real, stage-aware price, and simply doesn't render
+                      at all when there isn't one (FOUNDATION/NONE/failed-
+                      breakout/extended-breakout stages have no real entry
+                      to size). The stop used matches the stage: the
+                      tighter structural stop once a breakout/retest is
+                      real, the wider thesis-invalidation level for an
+                      earlier, less-confirmed stage — an early starter
+                      position shouldn't use a breakout-only technical stop
+                      it was never based on. */}
+                  {entryPlanDW.entryPrice != null && (() => {
+                    const usesStructuralStop = entryPlanDW.stage === "BREAKOUT" || entryPlanDW.stage === "RETEST";
+                    const stopForSizing = usesStructuralStop ? entryPlanDW.stop : entryPlanDW.invalidation;
+                    const hasRealStop = Number.isFinite(stopForSizing) && stopForSizing < entryPlanDW.entryPrice;
+                    if (!hasRealStop) return null;
+                    return (
+                      <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${C.border}` }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                          <span style={{ fontFamily: MONO, fontSize: 8.5, fontWeight: 800, color: C.textDim, letterSpacing: 0.5 }}>POSITION SIZING — {entryPlanDW.stage.replace("_", " ")}</span>
+                          <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                            <input type="number" min={0.1} max={10} step={0.1} value={riskPct}
+                              onChange={(e) => setRiskPct(Math.max(0.1, Math.min(10, Number(e.target.value) || 1)))}
+                              style={{ width: 40, fontFamily: MONO, fontSize: 10, background: C.surface || C.card, border: `1px solid ${C.border}`, borderRadius: 4, padding: "1px 4px", color: C.text }} />
+                            <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>% risk</span>
+                          </span>
+                        </div>
+                        {acctEquity != null ? (() => {
+                          const riskPerShare = entryPlanDW.entryPrice - stopForSizing;
+                          const accountRisk = acctEquity * (riskPct / 100) * (entryPlanDW.sizingPct / 100 || 1);
+                          const shares = Math.floor(accountRisk / riskPerShare);
+                          return (
+                            <div style={{ fontFamily: MONO, fontSize: 11, lineHeight: 1.6 }}>
+                              <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: C.textDim }}>Entry (this stage)</span><span style={{ fontWeight: 700, color: C.text }}>${entryPlanDW.entryPrice.toFixed(2)}</span></div>
+                              <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: C.textDim }}>Stage Allocation</span><span style={{ fontWeight: 700, color: C.text }}>{entryPlanDW.sizingPct}%</span></div>
+                              <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: C.textDim }}>Account Risk</span><span style={{ fontWeight: 700, color: C.text }}>${accountRisk.toFixed(2)}</span></div>
+                              <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: C.textDim }}>Risk/Share</span><span style={{ fontWeight: 700, color: C.text }}>${riskPerShare.toFixed(2)}</span></div>
+                              <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: C.textDim }}>Suggested Size</span><span style={{ fontWeight: 800, color: shares > 0 ? "#22d47e" : "#ef4444" }}>{shares > 0 ? `${shares} sh` : "0 sh — risk too tight"}</span></div>
+                              {marketRegimeDW === "RISK_OFF" && (
+                                <div style={{ marginTop: 4, color: "#e08a1e", fontWeight: 700 }}>⚠ Risk-off regime — consider sizing down from your usual risk %.</div>
+                              )}
+                            </div>
+                          );
+                        })() : (
+                          <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, fontStyle: "italic" }}>Account equity unavailable — sizing needs a real connected account.</div>
+                        )}
                       </div>
-                      {acctEquity != null ? (() => {
-                        const riskPerShare = sniperD.entry - sniperD.stop;
-                        const accountRisk = acctEquity * (riskPct / 100);
-                        const shares = Math.floor(accountRisk / riskPerShare);
-                        return (
-                          <div style={{ fontFamily: MONO, fontSize: 11, lineHeight: 1.6 }}>
-                            <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: C.textDim }}>Account Risk</span><span style={{ fontWeight: 700, color: C.text }}>${accountRisk.toFixed(2)}</span></div>
-                            <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: C.textDim }}>Risk/Share</span><span style={{ fontWeight: 700, color: C.text }}>${riskPerShare.toFixed(2)}</span></div>
-                            <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: C.textDim }}>Suggested Size</span><span style={{ fontWeight: 800, color: shares > 0 ? "#22d47e" : "#ef4444" }}>{shares > 0 ? `${shares} sh` : "0 sh — risk too tight"}</span></div>
-                            {/* Regime-aware sizing note (MTF spec §20) — a
-                                real, visible suggestion, never a silent
-                                override of the user's own risk % input. */}
-                            {marketRegimeDW === "RISK_OFF" && (
-                              <div style={{ marginTop: 4, color: "#e08a1e", fontWeight: 700 }}>⚠ Risk-off regime — consider sizing down from your usual risk %.</div>
-                            )}
-                          </div>
-                        );
-                      })() : (
-                        <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, fontStyle: "italic" }}>Account equity unavailable — sizing needs a real connected account.</div>
-                      )}
-                    </div>
-                  )}
+                    );
+                  })()}
                 </div>
               )}
 
