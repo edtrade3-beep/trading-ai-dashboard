@@ -211,8 +211,10 @@ import {
   computeAPlusScore, computeRegime, computePrediction, STOCK_TO_SECTOR, SECTOR_ETFS,
   computeInstitutionalGrade, institutionalLetterGrade, institutionalRecommendation, winProbFor, computeBullBearCase,
   deriveTopLevelScores, computeAiTradeScore, computeInstitutionScore, computeMarketBias, computeReversalDetector,
-  computeTechnicalRead,
+  computeTechnicalRead, classifyEntryType,
 } from "./market-helpers.js";
+import { computeSniperDecision } from "./sniper-decision.js";
+import { computeHeatRisk, computeCortexVerdict } from "./cortex-engine.js";
 import AiScoreExplainer, {
   AplusBadge, TRADE_SETUP_DIMENSIONS, STOCK_QUALITY_DIMENSIONS, INSTITUTIONAL_GRADE_DIMENSIONS,
   TECHNICAL_DIMENSIONS, TIMING_DIMENSIONS, AI_TRADE_ENGINE_DIMENSIONS, FOUNDATION_DIMENSIONS, FOUNDATION_LABEL,
@@ -691,6 +693,40 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   const winProb = (symTrend && aplusTrack) ? winProbFor(aplusTrack, aPlusScore.score) : null;
   const riskLevel = symTrend?.riskPct != null ? (symTrend.riskPct <= 5 ? "Low" : symTrend.riskPct <= 8 ? "Medium" : "High") : null;
 
+  // ── Decision Workspace (2026-08-20, Phase 1 of the MTF Decision System
+  // spec) — reuses the exact same Cortex/Sniper engines SmartScanTab.jsx's
+  // rows already use (Cortex Verdict is this app's one authoritative
+  // verdict function, fixed to be the single source of truth for Smart
+  // Scan's AI panel just yesterday) for the CURRENTLY LOADED symbol, not a
+  // list row. Zero new scoring math — this is the "re-surface what already
+  // exists" phase. Daily-timeframe only; 4H/1H/15M/5M are honestly marked
+  // unavailable rather than fabricated (spec's own "missing data" rule) —
+  // they're real future phases (MTF combiner + state machine), not
+  // something to fake here.
+  const sniperD = symTrend ? computeSniperDecision(symTrend) : null;
+  const heatD = (symTrend && sniperD) ? computeHeatRisk(symTrend, sniperD) : null;
+  const cortexV = (symTrend && sniperD && heatD && aPlusScore) ? computeCortexVerdict({ sniper: sniperD, heat: heatD, aplusScore: aPlusScore.score }) : null;
+  const entryTypeDW = (symTrend && aPlusScore) ? classifyEntryType(symTrend, aPlusScore.score) : null;
+  // Cortex's 5-verdict vocabulary, bridged into the new WATCH/EARLY/START/
+  // ADD/HOLD/WARNING/REDUCE/EXIT ladder for THIS phase only — a real 8-
+  // state machine with debounce/persistence/position-awareness is Phase 3,
+  // not invented here. This mapping is deliberately visible to the user
+  // (both labels shown together), not hidden, so it reads as "today's real
+  // verdict, framed in the new vocabulary" rather than a fabricated new
+  // state.
+  const DW_STATE_MAP = {
+    "BUY ZONE":     { label: "START",  icon: "🟢", color: "#0d9465" },
+    "WATCH":        { label: "EARLY",  icon: "🟡", color: "#5ab552" },
+    "WAIT":         { label: "WATCH",  icon: "⚪", color: "#8b93a7" },
+    "OVEREXTENDED": { label: "DO NOT CHASE", icon: "🟠", color: "#e08a1e" },
+    "AVOID":        { label: "AVOID",  icon: "🔴", color: "#c8282a" },
+  };
+  const dwState = cortexV ? (DW_STATE_MAP[cortexV.verdict] || { label: cortexV.verdict, icon: "⚪", color: C.textDim }) : null;
+  const dwDailyBias = symTrend ? (
+    (String(symTrend.stage || "").includes("2") && Number(symTrend.passCount || 0) >= 6) ? "BULLISH"
+    : String(symTrend.stage || "").includes("4") ? "BEARISH" : "NEUTRAL"
+  ) : null;
+
   // Six-score consolidation (institutional redesign, 2026-07-29) — the
   // first real consumer of Phase 0/3's deriveTopLevelScores. Presentation
   // layer only, same real inputs computed just above; none of the four
@@ -991,6 +1027,119 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             {oneLiner && <span style={{ color: C.textDim }}>· {oneLiner}</span>}
           </div>
         )}
+        {/* Decision Workspace (2026-08-20, Phase 1 — "I have 30 seconds,
+            tell me what to do"). Always-visible, above the collapsible
+            6-section hierarchy below — deliberately not itself an
+            AccordionSection, since the whole point is it shouldn't need
+            opening. Pure composition of symTrend/aPlusScore/sniperD/heatD/
+            cortexV computed above; no new fetch, no new scoring math. */}
+        {symTrend && cortexV && dwState && (
+          <div style={{ border: `1px solid ${dwState.color}55`, background: `${dwState.color}0d`, borderRadius: 12, padding: "16px 18px", marginBottom: 14 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4, flexWrap: "wrap" }}>
+              <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: 0.6 }}>🎯 DECISION WORKSPACE</span>
+              <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: dwState.color }}>{dwState.icon} {dwState.label}</span>
+              <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>(Cortex: {cortexV.verdict})</span>
+            </div>
+            {/* Real, honest disclosure — found live while shipping this:
+                the BUY/WAIT/AVOID line above (decisionInputs, driven by
+                chart.setup.verdict / computeNextAction) can disagree with
+                Cortex Verdict here, because they're two independently-built
+                engines that both pre-date this panel — not something
+                introduced by this change, just made newly visible by
+                putting them on the same screen. Not unified in Phase 1
+                (chart.setup.verdict also drives the DECISION section below
+                and other flows — a real, separate reconciliation task, not
+                a quick fix). Disclosed rather than hidden, same "label it"
+                discipline as Trade Planner's Options Recommendation. */}
+            {decisionInputs && ((decisionInputs.vLabel === "BUY") !== (dwState.label === "START")) && (
+              <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginBottom: 8 }}>
+                ⚠ The {decisionInputs.vLabel} shown above uses a different engine (chart setup verdict) than this panel's Cortex-based read — they can disagree. Reconciling these is a planned future pass, not done yet.
+              </div>
+            )}
+
+            {/* Separated scores — never blended into one number, per the spec */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))", gap: 8, marginBottom: 14 }}>
+              {[
+                ["QUALITY", aPlusScore ? `${aPlusScore.score}/100` : "—", aPlusScore ? (aPlusScore.score >= 70 ? "#22d47e" : aPlusScore.score >= 45 ? "#d6a312" : "#ef4444") : C.textDim],
+                ["SETUP", entryTypeDW ? entryTypeDW.type : "No qualifying setup", entryTypeDW ? entryTypeDW.color : C.textDim],
+                ["ENTRY", sniperD ? sniperD.meta.label : "—", sniperD ? sniperD.meta.color : C.textDim],
+                ["EXIT RISK", heatD ? heatD.label : "—", heatD ? heatD.color : C.textDim],
+              ].map(([label, val, col]) => (
+                <div key={label} style={{ border: `1px solid ${C.border}`, borderRadius: 8, padding: "7px 10px", background: C.card }}>
+                  <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim, letterSpacing: 0.5 }}>{label}</div>
+                  <div style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 800, color: col }}>{val}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* MTF panel — 1D is real (from this same symTrend); 4H/1H/15M/5M
+                honestly unavailable rather than fabricated (spec's own
+                "missing data" rule). Real work, Phase 2 of this build. */}
+            <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
+              {[
+                ["1D", dwDailyBias, dwDailyBias === "BULLISH" ? "#22d47e" : dwDailyBias === "BEARISH" ? "#ef4444" : "#d6a312"],
+                ["4H", "not available yet", C.textDim],
+                ["1H", "not available yet", C.textDim],
+                ["15M", "not available yet", C.textDim],
+                ["5M", "not available yet", C.textDim],
+              ].map(([tf, val, col]) => (
+                <div key={tf} style={{ display: "flex", alignItems: "center", gap: 5, border: `1px solid ${C.border}`, borderRadius: 20, padding: "3px 10px", background: C.card }}>
+                  <span style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 800, color: C.textDim }}>{tf}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 700, color: col }}>{val}</span>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "minmax(180px, 260px) 1fr", gap: 18 }}>
+              {/* Entry Map — real Sniper Decision levels, not invented */}
+              {sniperD && (sniperD.pivot != null || sniperD.entry != null) && (
+                <div>
+                  <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 6 }}>ENTRY MAP</div>
+                  {[
+                    ["Pivot", sniperD.pivot],
+                    ["Entry", sniperD.entry],
+                    ["Stop", sniperD.stop],
+                    ["Target 1", sniperD.target1],
+                    ["Target 2", sniperD.target2],
+                  ].filter(([, v]) => v != null).map(([l, v]) => (
+                    <div key={l} style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11.5, padding: "3px 0" }}>
+                      <span style={{ color: C.textDim }}>{l}</span>
+                      <span style={{ fontWeight: 700, color: C.text }}>${v.toFixed(2)}</span>
+                    </div>
+                  ))}
+                  {sniperD.rr != null && (
+                    <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11.5, padding: "3px 0" }}>
+                      <span style={{ color: C.textDim }}>R:R</span>
+                      <span style={{ fontWeight: 700, color: sniperD.rr >= 2 ? "#22d47e" : C.text }}>{sniperD.rr.toFixed(2)}:1</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div>
+                {/* Why panel — Sniper Decision's own real gate checklist */}
+                {sniperD && sniperD.reasons && sniperD.reasons.length > 0 && (
+                  <div style={{ marginBottom: 10 }}>
+                    <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 6 }}>WHY</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                      {sniperD.reasons.map((r, i) => (
+                        <span key={i} style={{ fontFamily: MONO, fontSize: 11, color: r.ok ? "#22d47e" : "#ef4444" }}>{r.ok ? "✓" : "✗"} {r.text}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {/* Next Action — never a bare "WAIT", always what it's waiting for */}
+                <div>
+                  <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 4 }}>NEXT ACTION</div>
+                  <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.text, lineHeight: 1.5 }}>
+                    {sniperD?.waitingFor || heatD?.reason || cortexV.reason || sniperD?.reason || "No further confirmation needed right now."}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Breadcrumb / depth indicator — click any name to jump straight
             to that section (same effect as clicking its own header). */}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center", marginBottom: 14, fontFamily: MONO, fontSize: 10.5 }}>
