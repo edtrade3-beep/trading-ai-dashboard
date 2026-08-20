@@ -1863,11 +1863,21 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             below the new simple Decision card even when that card
             correctly said WAIT/BLOCKED. Now passed the real
             entryPlanDW.entryPrice (honest "—" when there isn't one)
-            instead of always falling back to the pivot. */}
+            instead of always falling back to the pivot.
+            Verdict reconciliation (2026-08-20, follow-up): this card's own
+            "BUY" badge (decisionInputs.vLabel, driven by chart.setup.verdict
+            — a real, but older and less complete daily-only read) could
+            still disagree with the simple decision card sitting right
+            above it (simpleDecisionDW, the stricter, MTF-aware, anti-chase-
+            gated read). Rather than run two independent verdicts on the
+            same page, this card now shows the SAME verdict simpleDecisionDW
+            already computed — one page, one real answer, never two. */}
         {decisionInputs && (
           <DecisionCard C={C} MONO={MONO} SANS={SANS} NUM={NUM}
             symbol={sym}
-            verdictIcon={decisionInputs.vIcon} verdictLabel={decisionInputs.vLabel} verdictColor={decisionInputs.vColor}
+            verdictIcon={simpleDecisionDW?.icon ?? decisionInputs.vIcon}
+            verdictLabel={simpleDecisionDW?.label ?? decisionInputs.vLabel}
+            verdictColor={simpleDecisionDW?.color ?? decisionInputs.vColor}
             aPlusScore={aPlusScore ? aPlusScore.score : null}
             entry={entryPlanDW?.entryPrice} stop={decisionInputs.su.stop} target={decisionInputs.target1R}
             trendColor={decisionInputs.trendColor} volumeColor={decisionInputs.volColor} riskColor={decisionInputs.riskColor}
