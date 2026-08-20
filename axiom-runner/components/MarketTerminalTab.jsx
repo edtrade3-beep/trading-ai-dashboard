@@ -544,6 +544,13 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
       .catch(() => {});
   }, [sym]);
 
+  // AI Explanation Layer (Phase 6) — explicit opt-in button, same real
+  // "🤖 Ask Claude" second-opinion pattern GreenLightTab.jsx's
+  // AISetupReview already uses. Cleared on symbol change so a stale
+  // explanation for the previous symbol never lingers.
+  const [dwExplain, setDwExplain] = useState(null); // null | "loading" | string | {error}
+  useEffect(() => { setDwExplain(null); }, [sym]);
+
   // Technical Foundation & V-Recovery Engine (2026-08-19, explicit user
   // spec) — gated specifically on the TECHNICAL section being open (not
   // the broader `deepOpen`), since this is TECHNICAL-only content and the
@@ -1358,6 +1365,38 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                   <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.text, lineHeight: 1.5 }}>
                     {sniperD?.waitingFor || heatD?.reason || cortexV.reason || sniperD?.reason || "No further confirmation needed right now."}
                   </div>
+                </div>
+                {/* AI Explanation Layer (Phase 6) — explicit opt-in,
+                    explains the deterministic read above in plain
+                    English; never originates its own verdict. */}
+                <div style={{ marginTop: 12 }}>
+                  {dwExplain == null && (
+                    <button onClick={() => {
+                        setDwExplain("loading");
+                        fetch("/api/market/mtf-explain", {
+                          method: "POST", headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            symbol: sym, state: symMtfState?.confirmed || dwState?.label,
+                            quality: aPlusScore?.score, swingState: symMtf?.swing4h?.state,
+                            earlyScore: symMtf?.early1h?.score, entryAction: sniperD?.action,
+                            exitRiskState: heatD?.state, mtfScore: dwMtf?.score, mtfConflict: dwMtf?.conflictNote,
+                            gate: symMtfState?.gate, sniperReason: sniperD?.reason, waitingFor: sniperD?.waitingFor,
+                            heatReason: heatD?.reason,
+                          }),
+                        }).then(r => r.json()).then(d => setDwExplain(d && d.ok ? d.explanation : { error: (d && d.error) || "no response" }))
+                          .catch(e => setDwExplain({ error: e.message }));
+                      }}
+                      style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "6px 12px", borderRadius: 7, cursor: "pointer", border: `1px solid ${C.accent}`, background: `${C.accent}14`, color: C.accent }}>
+                      🤖 Explain this
+                    </button>
+                  )}
+                  {dwExplain === "loading" && <div style={{ fontFamily: MONO, fontSize: 10.5, color: C.textDim }}>🤖 Thinking…</div>}
+                  {dwExplain && dwExplain.error && <div style={{ fontFamily: SANS, fontSize: 11, color: "#e08a1e" }}>AI explanation unavailable — {dwExplain.error}</div>}
+                  {typeof dwExplain === "string" && (
+                    <div style={{ fontFamily: SANS, fontSize: 12, color: C.text, lineHeight: 1.55, whiteSpace: "pre-line", background: `${C.accent}08`, border: `1px solid ${C.accent}33`, borderRadius: 8, padding: "9px 12px" }}>
+                      {dwExplain}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

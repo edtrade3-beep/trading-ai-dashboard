@@ -2675,6 +2675,46 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
     return writeJson(res, 200, { ok: true, confirmBars });
   }
 
+  // AI Explanation Layer (MTF Decision System Phase 6, 2026-08-20) —
+  // same real pattern as ai-setup-review/ai-coach above: cheap (Haiku),
+  // cached system prompt, the model explains a fully pre-computed
+  // deterministic read, never originates a technical signal. The spec's
+  // own explicit rule: "AI must never invent a technical condition."
+  // Every number in the prompt below is already real and already shown
+  // in the Decision Workspace UI — this just translates it to plain
+  // English, per the spec's own translation examples.
+  if (pathname === "/api/market/mtf-explain" && req.method === "POST") {
+    const key = (process.env.ANTHROPIC_API_KEY || "").trim();
+    if (!key) return writeJson(res, 200, { ok: false, error: "ANTHROPIC_API_KEY not set" });
+    let b; try { b = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { ok: false, error: "bad json" }); }
+    const sym = String(b.symbol || "").toUpperCase().replace(/[^A-Z.]/g, "").slice(0, 8);
+    if (!sym) return writeJson(res, 400, { ok: false, error: "symbol required" });
+    const SYSTEM = `You explain a deterministic trading-decision engine's output in plain English for a retail investor. You do NOT have opinions of your own, you do NOT invent technical conditions, and you NEVER say a stock will go up or down — every fact you use is given to you below; only explain and connect them. Translate jargon into plain language (examples: "ADX rising" -> "trend strength is starting to increase"; "RVOL 1.2x" -> "trading volume is 20% above normal"; "MTF conflict" -> "short-term strength is fighting against the larger trend"). Respond in exactly this format, under 90 words total, no preamble:
+WHY: 1-2 sentences on why the state is what it is.
+WHAT'S MISSING: what specifically still needs to happen (skip this line if nothing is missing).
+INVALIDATION: what would break this setup.`;
+    const g = b.gate || {};
+    const gateLine = Array.isArray(g.checks) ? g.checks.map((c) => `${c.pass ? "PASS" : "FAIL"} ${c.label} (${c.detail})`).join("; ") : "not available";
+    const prompt = `Symbol: ${sym}
+Confirmed state: ${b.state || "unknown"}
+Quality score: ${b.quality ?? "?"}/100
+Setup (4H): ${b.swingState || "unknown"}
+Early development (1H): ${b.earlyScore ?? "?"}/100
+Entry trigger: ${b.entryAction || "unknown"}
+Exit risk: ${b.exitRiskState || "unknown"}
+MTF alignment: ${b.mtfScore ?? "?"}/100${b.mtfConflict ? ` — CONFLICT: ${b.mtfConflict}` : ""}
+A+ Quality Gate: ${gateLine}
+Sniper reason: ${b.sniperReason || "n/a"}
+Waiting for: ${b.waitingFor || "n/a"}
+Heat risk reason: ${b.heatReason || "n/a"}
+
+Explain this.`;
+    try {
+      const explanation = await callAnthropicApi(prompt, key, { model: MODELS.haiku, maxTokens: 220, system: SYSTEM, cache: true });
+      return writeJson(res, 200, { ok: true, symbol: sym, explanation: (explanation || "").trim() });
+    } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
+  }
+
   // A+ Score forward-tracking report — real bucketed forward returns from
   // the daily snapshot log (aplus-score-history.js). A pure forward log,
   // not a historical backtest: any horizon with no real snapshot that far

@@ -79,6 +79,7 @@ async function tickMtfStates() {
   const generatedAt = new Date().toISOString();
   const nextBySymbol = { ...state.bySymbol };
   const newTransitions = [];
+  const alertEvents = [];
 
   let trendRows = [];
   try { trendRows = await screenTrendTemplate(symbols, {}); } catch { trendRows = []; }
@@ -123,12 +124,54 @@ async function tickMtfStates() {
 
       if (prev && stepped.confirmed !== prev.confirmed) {
         newTransitions.push({ ts: generatedAt, symbol, from: prev.confirmed, to: stepped.confirmed, quality: aplus.score });
+        alertEvents.push({
+          symbol, from: prev.confirmed, to: stepped.confirmed, price: row.price,
+          quality: aplus.score, reason: sniper.reason, waitingFor: sniper.waitingFor, heatReason: heat.reason,
+        });
       }
     } catch { /* one symbol's real fetch failure never blocks the rest of the tick */ }
   }
 
   const transitions = [...newTransitions, ...state.transitions].slice(0, DEFAULTS.maxTransitions);
   saveState({ config: state.config, bySymbol: nextBySymbol, transitions, scanOffset: nextOffset, updatedAt: generatedAt });
+
+  // Alerts (Phase 6, 2026-08-20) — real transitions this tick actually
+  // confirmed, routed through the same digest-vs-immediate split every
+  // other real alert job here already uses (per alert-buffer.js's own
+  // header): EARLY/START/ADD are opportunity signals, batched into the
+  // once-daily digest; EXIT_WARNING/REDUCE/EXIT are worth surfacing
+  // immediately, same reasoning position-reversal-alerts.js's own header
+  // gives for never batching a real risk-deterioration signal. Worded as
+  // "this tracked setup," not "your position" — this system doesn't
+  // place real orders, so it has no way to know whether the user actually
+  // acted on an earlier START/ADD; overclaiming held-capital risk here
+  // would be dishonest.
+  try {
+    const opportunityLines = alertEvents
+      .filter((e) => ["EARLY", "START", "ADD"].includes(e.to))
+      .map((e) => `${e.to === "START" ? "🟢" : e.to === "ADD" ? "🔵" : "🟡"} ${e.symbol} → ${e.to} — ${e.reason || e.waitingFor || "state confirmed"}${e.price ? ` (at $${Number(e.price).toFixed(2)})` : ""}`);
+    if (opportunityLines.length) {
+      const { pushDigestLines } = require("./alert-buffer");
+      pushDigestLines("opportunity", "🎯 MTF DECISION — NEW SETUPS", opportunityLines);
+    }
+    const riskEvents = alertEvents.filter((e) => ["EXIT_WARNING", "REDUCE", "EXIT"].includes(e.to));
+    if (riskEvents.length) {
+      const { sendTelegramMessage, isConfigured } = require("./telegram");
+      if (isConfigured()) {
+        for (const e of riskEvents) {
+          const icon = e.to === "EXIT" ? "🔴" : e.to === "REDUCE" ? "🟠" : "🟡";
+          const text = [
+            `${icon} ${e.symbol} — tracked setup now reads ${e.to}`,
+            e.heatReason ? `Reason: ${e.heatReason}` : null,
+            e.price ? `Price: $${Number(e.price).toFixed(2)}` : null,
+            "(This reflects the MTF Decision System's own confirmed lifecycle for this setup — check your actual broker position separately.)",
+          ].filter(Boolean).join("\n");
+          await sendTelegramMessage(text).catch(() => {});
+        }
+      }
+    }
+  } catch { /* alerts are best-effort — the real state machine tick above already succeeded regardless */ }
+
   return { ok: true, checked: symbols.length, watchlistSize: allSymbols.length, newTransitions: newTransitions.length };
 }
 
