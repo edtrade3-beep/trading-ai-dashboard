@@ -2648,7 +2648,28 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
     // labeled, in the Decision Workspace's Entry Map.
     const currentPrice = r4h?.bars?.length ? r4h.bars[r4h.bars.length - 1].close : null;
     const atrLevels = r4h ? computeAtrRiskLevels(r4h.bars, currentPrice) : { atr: null, stop: null, target1: null, target2: null, trailingStop: null, dataInsufficient: true };
-    return writeJson(res, 200, { ok: true, symbol, swing4h, early1h, atrLevels, antiChase });
+    // 15M PRIMARY ENTRY TIMING (MTF spec §4/21, 2026-08-20) — reuses
+    // fetchDayTradeScanRows (real 15-min ORB/VWAP/RVOL/price-action, the
+    // exact same real pipeline Day Trade Mode/Light Box already use) +
+    // classifyEntryTrigger (day-trade-calc.js, already shipped and
+    // exercised in production for Day Trade Mode) rather than building a
+    // second 15M entry engine. direction is optional — the client passes
+    // its own already-computed Daily bias; omitted, this defaults to the
+    // bullish branch. Honest null (not fabricated) when 15-min data isn't
+    // available for this symbol right now.
+    let entry15m = null;
+    try {
+      const direction = (searchParams.get("direction") || "").toUpperCase() || null;
+      const { fetchDayTradeScanRows } = module.exports;
+      const { rows } = await fetchDayTradeScanRows([symbol]);
+      const row = rows.find((r) => r.symbol === symbol);
+      if (row) {
+        const { classifyEntryTrigger } = require("../day-trade-calc");
+        const status = classifyEntryTrigger({ orBreakout: row.orBreakout, aboveVwap: row.aboveVwap, rvol: row.rvol, priceAction: row.priceAction, direction });
+        entry15m = { status, orBreakout: row.orBreakout, aboveVwap: row.aboveVwap, rvol: row.rvol };
+      }
+    } catch { /* honest null on any real fetch failure — never fabricated */ }
+    return writeJson(res, 200, { ok: true, symbol, swing4h, early1h, atrLevels, antiChase, entry15m });
   }
 
   // GET /api/market/mtf-state[?symbol=X] — the persisted, server-confirmed

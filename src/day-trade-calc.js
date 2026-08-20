@@ -208,4 +208,4 @@ function computeDayTradeSignal(row, spyChg, extra = {}) {
   };
 }
 
-module.exports = { computeDayTradeSignal };
+module.exports = { computeDayTradeSignal, classifyEntryTrigger };

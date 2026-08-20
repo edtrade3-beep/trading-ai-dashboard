@@ -515,12 +515,18 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
     // arrives rather than requiring symTrend to already be loaded first,
     // since the two fetches otherwise race.
     const apctParam = Number.isFinite(symTrend?.abovePivotPct) ? `&abovePivotPct=${symTrend.abovePivotPct}` : "";
-    fetch(`/api/market/mtf?symbol=${encodeURIComponent(sym)}${apctParam}`)
+    // Real Daily bias (same one-liner as dwDailyBias below), passed
+    // through so the server's 15M entry-trigger read (entry15m) can pick
+    // the correct bullish/bearish branch — same real classification, not
+    // recomputed differently.
+    const direction = symTrend ? ((String(symTrend.stage || "").includes("2") && Number(symTrend.passCount || 0) >= 6) ? "BULLISH" : String(symTrend.stage || "").includes("4") ? "BEARISH" : "NEUTRAL") : null;
+    const dirParam = direction ? `&direction=${direction}` : "";
+    fetch(`/api/market/mtf?symbol=${encodeURIComponent(sym)}${apctParam}${dirParam}`)
       .then(r => r.json())
       .then(j => { if (!cancelled) setSymMtf(j && j.ok ? j : null); })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, [sym, symTrend?.abovePivotPct]);
+  }, [sym, symTrend?.abovePivotPct, symTrend?.stage, symTrend?.passCount]);
 
   // Real persisted, server-confirmed 8-state read (MTF Decision System
   // Phase 3, 2026-08-20) — the debounced WATCH/EARLY/START/ADD/HOLD/
@@ -880,16 +886,21 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
     (String(symTrend.stage || "").includes("2") && Number(symTrend.passCount || 0) >= 6) ? "BULLISH"
     : String(symTrend.stage || "").includes("4") ? "BEARISH" : "NEUTRAL"
   ) : null;
-  // MTF_ALIGNMENT (Phase 2) — 1D real (above), 4H/1H real (symMtf, its own
-  // fetch), 15M/5M not wired in yet (real future phases, honestly null
-  // rather than fabricated). computeMtfAlignment renormalizes over only
-  // the known timeframes and surfaces genuine higher-vs-lower conflicts
-  // rather than blind-averaging, per the spec's own explicit rule.
+  // MTF_ALIGNMENT (Phase 2, + 15M Phase 8, 2026-08-20) — 1D/4H/1H/15M real,
+  // 5M not wired in yet (real future phase, honestly null rather than
+  // fabricated). 15M reuses classifyEntryTrigger (day-trade-calc.js,
+  // already shipped for Day Trade Mode) off real 15-min ORB/VWAP/RVOL/
+  // price-action data (symMtf.entry15m, server-computed via
+  // fetchDayTradeScanRows) — the exact CONFIRMED/APPROACHING/NOT_READY/
+  // INVALIDATED vocabulary mtf-combiner.js already expected for this slot.
+  // computeMtfAlignment renormalizes over only the known timeframes and
+  // surfaces genuine higher-vs-lower conflicts rather than blind-
+  // averaging, per the spec's own explicit rule.
   const dwMtf = dwDailyBias ? computeMtfAlignment({
     "1D": dwDailyBias,
     "4H": symMtf?.swing4h?.state ?? null,
     "1H": symMtf?.early1h?.score ?? null,
-    "15M": null,
+    "15M": symMtf?.entry15m?.status ?? null,
     "5M": null,
   }) : null;
   // MTF panel reads — the SAME array (real 1D/4H/1H, honestly-unavailable
