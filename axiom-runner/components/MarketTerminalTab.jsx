@@ -515,6 +515,35 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
       .catch(() => {});
   }, [sym]);
 
+  // Decision History (Phase 5, 2026-08-20) — the real persisted state-
+  // transition log the background tick already writes (mtf-state-store.js),
+  // filtered to this symbol client-side. No new store — same log Light
+  // Box's own transition history already uses this pattern for.
+  const [mtfTransitions, setMtfTransitions] = useState([]);
+  useEffect(() => {
+    fetch(`/api/market/mtf-state`)
+      .then(r => r.json())
+      .then(j => setMtfTransitions(j && j.ok ? (j.transitions || []) : []))
+      .catch(() => {});
+  }, [sym]);
+  const symTransitions = sym ? mtfTransitions.filter(t => t.symbol === sym).slice(0, 8) : [];
+
+  // Position Management (Phase 5) — real open Alpaca position for this
+  // symbol, if any, including its already-computed real day-trade
+  // HOLD/TRAIL/TAKE_PARTIAL/EXIT overlay (src/position-decision-engine.js,
+  // joined server-side in routes/alpaca.js's /api/alpaca/positions) — not
+  // re-derived here, just read. Same endpoint ActivePositionsCard.jsx
+  // already uses elsewhere in this app.
+  const [symPosition, setSymPosition] = useState(null);
+  useEffect(() => {
+    if (!sym) return;
+    setSymPosition(null);
+    fetch("/api/alpaca/positions")
+      .then(r => r.json())
+      .then(j => { const pos = (j?.positions || []).find(p => p.symbol === sym); setSymPosition(pos || null); })
+      .catch(() => {});
+  }, [sym]);
+
   // Technical Foundation & V-Recovery Engine (2026-08-19, explicit user
   // spec) — gated specifically on the TECHNICAL section being open (not
   // the broader `deepOpen`), since this is TECHNICAL-only content and the
@@ -805,6 +834,21 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
     "15M": null,
     "5M": null,
   }) : null;
+
+  // Exit Panel dimensions (Phase 5, 2026-08-20) — 6 real, already-computed
+  // reads bucketed into good/bad/unknown, matching the spec's "Momentum/
+  // RS/structure/Support/Trailing stop, each a colored dot" mockup. No new
+  // math — every value here already exists elsewhere on this page.
+  const dwExitDims = sniperD ? [
+    { label: "Momentum (1H)", ok: symMtf?.early1h?.rsiTrend?.direction ? symMtf.early1h.rsiTrend.direction !== "down" : null },
+    { label: "RS Rating", ok: sniperD.gates?.momentumConfirmed ?? null },
+    { label: "4H Structure", ok: symMtf?.swing4h?.state ? symMtf.swing4h.state !== "BROKEN" : null },
+    { label: "Daily Trend", ok: dwDailyBias ? dwDailyBias !== "BEARISH" : null },
+    { label: "Support", ok: symMtf?.swing4h?.priceAction?.breakdown != null ? !symMtf.swing4h.priceAction.breakdown : null },
+    { label: "Trailing Stop", ok: (symMtf?.atrLevels?.trailingStop != null && chart?.livePrice != null) ? (chart.livePrice ?? chart.price) > symMtf.atrLevels.trailingStop : null },
+  ] : [];
+  const dwExitKnown = dwExitDims.filter((d) => d.ok !== null);
+  const dwExitRisk = dwExitKnown.length ? Math.round((1 - dwExitKnown.filter((d) => d.ok).length / dwExitKnown.length) * 100) : null;
 
   // Six-score consolidation (institutional redesign, 2026-07-29) — the
   // first real consumer of Phase 0/3's deriveTopLevelScores. Presentation
@@ -1317,6 +1361,80 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                 </div>
               </div>
             </div>
+
+            {/* Position Management (Phase 5, 2026-08-20) — only renders
+                for a real open Alpaca position in this symbol. Every
+                field here is already computed server-side (routes/
+                alpaca.js's /api/alpaca/positions, including its real
+                position-decision-engine.js HOLD/TRAIL/TAKE_PARTIAL/EXIT
+                overlay) — nothing re-derived. */}
+            {symPosition && (
+              <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${C.border}` }}>
+                <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 8 }}>POSITION MANAGEMENT — {Number(symPosition.qty)} SHARES</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: 8, marginBottom: symPosition.dayTradeState ? 8 : 0 }}>
+                  {[
+                    ["Entry", symPosition.plannedEntry ?? symPosition.avgEntry, C.text],
+                    ["Current", symPosition.current, C.text],
+                    ["P/L", symPosition.unrealizedPLpc, symPosition.unrealizedPLpc >= 0 ? "#22d47e" : "#ef4444"],
+                    ["Target", symPosition.plannedTarget, C.text],
+                    ["Trailing (ATR)", symMtf?.atrLevels?.trailingStop, C.text],
+                  ].filter(([, v]) => v != null).map(([l, v, col]) => (
+                    <div key={l} style={{ border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 9px", background: C.card }}>
+                      <div style={{ fontFamily: MONO, fontSize: 8.5, fontWeight: 700, color: C.textDim }}>{l}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: col }}>{l === "P/L" ? `${v >= 0 ? "+" : ""}${v.toFixed(1)}%` : `$${Number(v).toFixed(2)}`}</div>
+                    </div>
+                  ))}
+                </div>
+                {symPosition.dayTradeState && (
+                  <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.textSec }}>
+                    <span style={{ fontFamily: MONO, fontWeight: 800, color: symPosition.dayTradeState === "EXIT" ? "#c8282a" : symPosition.dayTradeState === "TAKE_PARTIAL" ? "#e08a1e" : symPosition.dayTradeState === "TRAIL" ? "#2563eb" : "#0d9465" }}>
+                      {symPosition.dayTradeState}
+                    </span> — {symPosition.dayTradeReason}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Exit Panel (Phase 5) — 6 real, already-computed dimensions
+                bucketed into good/bad, matching the spec's colored-dot
+                mockup. Distinct from Heat Risk's single state above (a
+                decomposition of it, not a re-derivation). */}
+            {dwExitDims.length > 0 && (
+              <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${C.border}` }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                  <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.5 }}>EXIT PANEL</span>
+                  {dwExitRisk != null && (
+                    <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: dwExitRisk >= 50 ? "#c8282a" : dwExitRisk >= 25 ? "#e08a1e" : "#0d9465" }}>
+                      {dwExitRisk === 0 ? "🟢 NO EXIT SIGNAL" : `Exit Risk: ${dwExitRisk}/100`}
+                    </span>
+                  )}
+                </div>
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  {dwExitDims.map((d) => (
+                    <span key={d.label} style={{ fontFamily: MONO, fontSize: 10.5, color: d.ok === null ? C.textDim : d.ok ? "#22d47e" : "#ef4444" }}>
+                      {d.ok === null ? "⚪" : d.ok ? "🟢" : "🔴"} {d.label}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Decision History (Phase 5) — real transitions this symbol
+                has actually gone through, off the same persisted log
+                mtf-state-store.js's background tick writes. */}
+            {symTransitions.length > 0 && (
+              <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${C.border}` }}>
+                <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 6 }}>DECISION HISTORY</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                  {symTransitions.map((t, i) => (
+                    <div key={i} style={{ fontFamily: MONO, fontSize: 10.5, color: C.textSec, display: "flex", gap: 8 }}>
+                      <span style={{ color: C.textDim, minWidth: 60 }}>{new Date(t.ts).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</span>
+                      <span>{t.from} → <b style={{ color: (MTF_STATE_META[t.to] || {}).color || C.text }}>{t.to}</b></span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
