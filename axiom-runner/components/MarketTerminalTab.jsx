@@ -1309,9 +1309,53 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
               {sniperD && (sniperD.pivot != null || sniperD.entry != null) && (
                 <div>
                   <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 6 }}>ENTRY MAP</div>
+                  {/* Current price vs. future breakout trigger (data-
+                      integrity audit, 2026-08-20, explicit spec example:
+                      a future trigger price must never be labeled bare
+                      "Entry" when the current price hasn't reached it —
+                      that reads as an actionable entry when it isn't one).
+                      sniperD.entry/pivot are the SAME real trigger price
+                      (sniper-decision.js falls back to pivot when there's
+                      no confirmed entry math yet) — this only changes how
+                      it's labeled, not the underlying number. */}
+                  {(() => {
+                    const curPrice = Number(chart?.livePrice ?? chart?.price);
+                    const trigger = Number(sniperD.pivot ?? sniperD.entry);
+                    const notReady = Number.isFinite(curPrice) && Number.isFinite(trigger) && curPrice < trigger;
+                    if (!notReady) return null;
+                    const distPct = ((trigger / curPrice - 1) * 100).toFixed(1);
+                    return (
+                      <div style={{ marginBottom: 4 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11.5, padding: "3px 0" }}>
+                          <span style={{ color: C.textDim }}>Current Price</span>
+                          <span style={{ fontWeight: 700, color: C.text }}>${curPrice.toFixed(2)}</span>
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11.5, padding: "3px 0" }}>
+                          <span style={{ color: C.textDim }}>Future Breakout Trigger</span>
+                          <span style={{ fontWeight: 700, color: C.text }}>${trigger.toFixed(2)}</span>
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11.5, padding: "3px 0" }}>
+                          <span style={{ color: C.textDim }}>Distance to Trigger</span>
+                          <span style={{ fontWeight: 700, color: C.textSec }}>+{distPct}%</span>
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11.5, padding: "3px 0" }}>
+                          <span style={{ color: C.textDim }}>Entry Status</span>
+                          <span style={{ fontWeight: 800, color: "#e08a1e" }}>NOT READY</span>
+                        </div>
+                      </div>
+                    );
+                  })()}
                   {[
                     ["Pivot", sniperD.pivot],
-                    ["Entry", sniperD.entry],
+                    // "Entry" only shown once price has actually reached the
+                    // trigger — otherwise the block above already covers it
+                    // as a future trigger, not a current one.
+                    ["Entry", (() => {
+                      const curPrice = Number(chart?.livePrice ?? chart?.price);
+                      const trigger = Number(sniperD.pivot ?? sniperD.entry);
+                      const notReady = Number.isFinite(curPrice) && Number.isFinite(trigger) && curPrice < trigger;
+                      return notReady ? null : sniperD.entry;
+                    })()],
                     ["Stop", sniperD.stop],
                     ["Target 1", sniperD.target1],
                     ["Target 2", sniperD.target2],
@@ -1399,6 +1443,33 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                     {sniperD?.waitingFor || heatD?.reason || cortexV.reason || sniperD?.reason || "No further confirmation needed right now."}
                   </div>
                 </div>
+                {/* "What Would Change My Mind" (data-integrity audit,
+                    2026-08-20, explicit spec requirement) — dynamically
+                    generated from the SAME real failed conditions already
+                    driving the decision above, never generic text. Prefers
+                    the server-confirmed A+ Quality Gate's real `failed`
+                    array (symMtfState.gate) when this symbol is in the
+                    watchlist rotation; falls back to Sniper Decision's own
+                    real per-reason ok/fail list otherwise — same data
+                    already shown in the A+ GATE checklist / WHY panel
+                    above, just reframed as "what needs to flip." Renders
+                    nothing once there's nothing left failing. */}
+                {(() => {
+                  const failedConditions = symMtfState?.gate?.failed?.length
+                    ? symMtfState.gate.failed.map((c) => c.label)
+                    : (sniperD?.reasons || []).filter((r) => !r.ok).map((r) => r.text);
+                  if (!failedConditions.length) return null;
+                  return (
+                    <div style={{ marginTop: 12 }}>
+                      <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 4 }}>WHAT WOULD CHANGE MY MIND?</div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                        {failedConditions.map((cond, i) => (
+                          <span key={i} style={{ fontFamily: MONO, fontSize: 11, color: C.textSec }}>✓ {cond}</span>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
                 {/* AI Explanation Layer (Phase 6) — explicit opt-in,
                     explains the deterministic read above in plain
                     English; never originates its own verdict. */}
