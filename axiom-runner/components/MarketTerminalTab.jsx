@@ -211,6 +211,7 @@ import {
   computeAPlusScore, computeRegime, computePrediction, STOCK_TO_SECTOR, SECTOR_ETFS,
   computeInstitutionalGrade, institutionalLetterGrade, institutionalRecommendation, winProbFor, computeBullBearCase,
   deriveTopLevelScores, computeAiTradeScore, computeInstitutionScore, computeMarketBias, computeReversalDetector,
+  computeTechnicalRead,
 } from "./market-helpers.js";
 import AiScoreExplainer, {
   AplusBadge, TRADE_SETUP_DIMENSIONS, STOCK_QUALITY_DIMENSIONS, INSTITUTIONAL_GRADE_DIMENSIONS,
@@ -1305,6 +1306,42 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             })()}
           </div>
         )}
+        {/* Technical Read (2026-08-20, explicit user request: "tell me
+            based on technical is it good or bad trade or neutral,
+            specially v recovery") — one plain verdict synthesizing
+            everything below (RS/Volume/Momentum/ADX/Donchian/Bollinger +
+            Foundation/V-Recovery) instead of leaving the user to eyeball
+            6+ raw numbers. See computeTechnicalRead in market-helpers.js
+            for why this is deliberately separate from DECISION's verdict
+            above, not merged into it. */}
+        {chart && chart.technicals && (() => {
+          const read = computeTechnicalRead({
+            rsRating: chart.rsRating, volRatio: chart.volRatio, momentum: chart.momentum,
+            adx: chart.technicals.adx, donchian: chart.technicals.donchian, bollinger: chart.technicals.bollinger,
+            foundation: symFoundation,
+          });
+          return (
+            <div style={{ border: `1px solid ${read.color}55`, background: `${read.color}12`, borderRadius: 10, padding: "12px 14px", marginBottom: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.5 }}>TECHNICAL READ</span>
+                <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: read.color }}>{read.verdict}</span>
+                {read.knownCount > 0 && (
+                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>({read.bullCount} bullish · {read.bearCount} bearish · {read.knownCount - read.bullCount - read.bearCount} neutral of {read.knownCount})</span>
+                )}
+              </div>
+              <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.textSec, marginBottom: read.flags.length ? 6 : 0 }}>{read.vRecovery.note}</div>
+              {read.flags.length > 0 && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  {read.flags.map((f, i) => (
+                    <div key={i} style={{ fontFamily: MONO, fontSize: 10.5, color: f.bull === true ? "#22d47e" : f.bull === false ? "#ef4444" : C.textDim }}>
+                      {f.bull === true ? "✓" : f.bull === false ? "✗" : "•"} {f.label} — {f.detail}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })()}
         {/* Technical Foundation & V-Recovery Engine (2026-08-19, explicit
             user spec) — a separate dimension from A+ Score/momentum above:
             "has this stock actually repaired its structure," not "is it

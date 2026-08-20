@@ -1205,3 +1205,83 @@ export function classifyEntryType(row, aplusScore) {
   }
   return null;
 }
+
+// Technical Read (2026-08-20, explicit user request: "TELL ME BASED ON
+// TECHNICAL IS IT GOOD OR BAD TRADE OR NEUTRAL SPECIALLY V RECOVERY") —
+// the Terminal's TECHNICAL section (RS Rating, Volume, Momentum, ADX,
+// Donchian, Bollinger, plus the Foundation/V-Recovery engine) previously
+// just listed raw numbers with no synthesis. This rolls them into one
+// GOOD/NEUTRAL/WEAK read of the technical/momentum picture specifically —
+// a distinct, narrower question from DECISION's BUY/WAIT/AVOID above
+// (which gates on the full Minervini trend-template, not these indicators
+// alone). Deliberately NOT merged into DECISION's verdict — same "label
+// it, don't hide it, don't invent one composite score" discipline as
+// Trade Planner's Options Recommendation fix — but designed so a WEAK
+// read here explains rather than contradicts a soft DECISION score (e.g.
+// low RS/thin volume here is exactly what would also drag the A+ score
+// and confidence % shown above it down).
+export function computeTechnicalRead({ rsRating, volRatio, momentum, adx, donchian, bollinger, foundation } = {}) {
+  const flags = [];
+  const num = (v) => (v == null || Number.isNaN(Number(v))) ? null : Number(v);
+
+  const rs = num(rsRating);
+  if (rs != null) {
+    flags.push({ bull: rs >= 70 ? true : rs < 60 ? false : null, label: `RS Rating ${rs}`,
+      detail: rs >= 80 ? "strong relative strength" : rs >= 70 ? "acceptable, at the institutional bar" : "below the 70 institutional bar — soft" });
+  }
+  const vol = num(volRatio);
+  if (vol != null) {
+    flags.push({ bull: vol >= 1.0 ? true : vol < 0.5 ? false : null, label: `Volume ${vol.toFixed(2)}×avg`,
+      detail: vol >= 1.5 ? "strong conviction behind the move" : vol < 0.5 ? "very thin — little real conviction behind this move" : "roughly average" });
+  }
+  const mom = num(momentum);
+  if (mom != null) {
+    flags.push({ bull: mom > 0.5 ? true : mom < -0.5 ? false : null, label: `Momentum ${mom > 0 ? "+" : ""}${mom.toFixed(1)}%`,
+      detail: Math.abs(mom) < 0.5 ? "flat" : mom > 0 ? "positive" : "negative" });
+  }
+  if (adx && adx.strength) {
+    const trending = adx.strength === "Strong";
+    flags.push({ bull: trending ? adx.direction === "Bullish" : null, label: `ADX ${adx.adx} (${adx.strength})`,
+      detail: trending ? `real ${String(adx.direction).toLowerCase()} trend` : "no real trend — range-bound/choppy" });
+  }
+  if (donchian && donchian.pctPosition != null) {
+    const p = donchian.pctPosition;
+    flags.push({ bull: p >= 80 ? true : p <= 20 ? false : null, label: `${p}% of 20d range`,
+      detail: p >= 90 ? "near range highs" : p <= 10 ? "near range lows" : "mid-range" });
+  }
+  if (bollinger && bollinger.percentB != null) {
+    const b = bollinger.percentB;
+    flags.push({ bull: b >= 80 ? true : b <= 20 ? false : null, label: `Bollinger %B ${b}%`,
+      detail: b >= 100 ? "above the upper band" : b <= 0 ? "below the lower band" : "inside the bands" });
+  }
+
+  // V-Recovery/Foundation is reported but deliberately NOT scored into the
+  // bull/bear count above when it isn't in play (recoveryType === "NONE")
+  // — most stocks aren't recovering from a real prior decline, and that's
+  // neutral information, not a bearish signal. When it IS in play, its
+  // verdict genuinely is real signal, so it counts.
+  let vRecovery = { inPlay: false, note: "No V-Recovery pattern in play — this engine only reads stocks recovering from a real, meaningful prior decline." };
+  if (foundation && foundation.dataInsufficient) {
+    vRecovery = { inPlay: false, note: `V-Recovery: not enough price history yet (${foundation.reason || "insufficient data"}).` };
+  } else if (foundation && foundation.recoveryType === "NONE") {
+    vRecovery = { inPlay: false, note: "No V-Recovery pattern in play — this engine only reads stocks recovering from a real, meaningful prior decline." };
+  } else if (foundation && foundation.verdict) {
+    const state = foundation.verdict.state || "—";
+    vRecovery = { inPlay: true, note: `V-Recovery in play — Foundation reads ${state} (${foundation.foundationScore}/100).` };
+    const strong = state === "STRONG_FOUNDATION_VALID_PIVOT" || state === "STRONG_FOUNDATION";
+    const weak = state === "WEAK_FOUNDATION";
+    flags.push({ bull: strong ? true : weak ? false : null, label: `Foundation ${state}`, detail: vRecovery.note });
+  }
+
+  const known = flags.filter(f => f.bull !== null);
+  const bullCount = known.filter(f => f.bull).length;
+  const bearCount = known.filter(f => !f.bull).length;
+
+  let verdict, color;
+  if (!known.length) { verdict = "NOT ENOUGH DATA"; color = "#94a3b8"; }
+  else if (bullCount >= bearCount + 2) { verdict = "GOOD"; color = "#22d47e"; }
+  else if (bearCount >= bullCount + 2) { verdict = "WEAK"; color = "#ef4444"; }
+  else { verdict = "NEUTRAL"; color = "#d6a312"; }
+
+  return { verdict, color, flags, vRecovery, bullCount, bearCount, knownCount: known.length };
+}
