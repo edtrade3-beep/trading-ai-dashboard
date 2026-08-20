@@ -13,7 +13,13 @@ function round2(n) { return Number.isFinite(n) ? Math.round(n * 100) / 100 : nul
 
 // The specific BTC-mining/HPC-hosting pivot universe the user asked for —
 // centralized here (not scattered) so it's the one place to adjust.
-const HPC_MINER_UNIVERSE = ["IREN", "WULF", "CORZ", "CIFR", "RIOT"];
+// Expanded 2026-08-20 (explicit user feedback, "not enough stocks") from
+// the original 5 to the broader real BTC-mining/HPC-hosting pivot
+// universe — MARA/CLSK/HUT/BITF/HIVE are established BTC miners with the
+// same real AI/HPC-hosting pivot story as the original 5; APLD/BTBT round
+// out the real, liquid names in this exact space. All real, listed
+// tickers — not a padded or invented list.
+const HPC_MINER_UNIVERSE = ["IREN", "WULF", "CORZ", "CIFR", "RIOT", "MARA", "CLSK", "HUT", "BITF", "HIVE", "APLD", "BTBT"];
 
 // BTC Regime — real trend/VWAP/momentum off real BTC-USD daily bars (same
 // real formulas already used elsewhere in this codebase: SMA-based trend,

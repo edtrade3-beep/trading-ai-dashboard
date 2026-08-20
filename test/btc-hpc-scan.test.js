@@ -11,8 +11,9 @@ function ok(name, fn) { try { fn(); passed++; console.log(`  ✓ ${name}`); } ca
 function bar(i, close, volume) { return { time: i * 86_400_000, open: close, high: close * 1.01, low: close * 0.99, close, volume: volume ?? 1000 }; }
 
 console.log("Checking HPC_MINER_UNIVERSE…");
-ok("the exact 5-ticker universe the user specified", () => {
-  assert.deepStrictEqual(HPC_MINER_UNIVERSE, ["IREN", "WULF", "CORZ", "CIFR", "RIOT"]);
+ok("the expanded real BTC-mining/HPC-hosting universe (12 tickers, user-requested expansion)", () => {
+  assert.deepStrictEqual(HPC_MINER_UNIVERSE, ["IREN", "WULF", "CORZ", "CIFR", "RIOT", "MARA", "CLSK", "HUT", "BITF", "HIVE", "APLD", "BTBT"]);
+  assert.strictEqual(new Set(HPC_MINER_UNIVERSE).size, HPC_MINER_UNIVERSE.length, "no duplicate tickers");
 });
 
 console.log("Checking computeBtcRegime…");
