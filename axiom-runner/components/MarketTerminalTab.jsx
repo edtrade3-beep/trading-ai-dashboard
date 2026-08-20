@@ -246,6 +246,11 @@ import { computeChecklist } from "./checklist-engine.js";
 // so both pages share one real implementation instead of a second,
 // potentially-diverging copy).
 import MacroStatusStrip, { useRealMacroOverrides } from "./MacroStatusStrip.jsx";
+// Real regime read (MTF spec §20, 2026-08-20) — the SAME single source of
+// truth MarketRegimeCard/MissionStatusCard already use (SPY/QQQ/VIX-based),
+// not a second regime formula. Collapsed from its 5 display labels to the
+// spec's 3-bucket RISK_ON/NEUTRAL/RISK_OFF vocabulary where it's consumed.
+import { computeRegimeLabel } from "./DashboardTab.jsx";
 // Headline-number display font — same token terminal-panels.jsx/
 // TrendSetupPanel.jsx already use for their stat-box values (P/E, targets,
 // Fear&Greed score, etc). This file's own price/stat pills previously used
@@ -904,6 +909,21 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
     qualityScore: aPlusScore?.score, setupScore: setupScoreDW, mtfScore: dwMtf?.score, gatePassRatio: gatePassRatioDW,
   });
   const dataQualityDW = computeDataQuality(mtfPanelReadsDW, { hasQuality: !!aPlusScore, hasSetup: setupScoreDW != null, hasEntry: !!sniperD });
+  // Market Regime (MTF spec §20, 2026-08-20) — real SPY/QQQ/VIX read,
+  // collapsed to RISK_ON/NEUTRAL/RISK_OFF. Deliberately NOT wired into the
+  // A+ Quality Gate or the state machine's EXIT logic this pass — the
+  // spec's own explicit rule ("do not automatically exit a healthy
+  // position just because regime changes") means that needs careful,
+  // separate handling of the server-side confirmed state too (the
+  // background tick that produces symMtfState doesn't fetch regime data
+  // today), a larger change than this pass scopes. This IS wired into
+  // Position Sizing below (real, low-risk, spec-aligned: "risk-off →
+  // smaller position") since sizing is advisory and user-adjustable, not
+  // part of the gated decision itself.
+  const spyQ = (macroData || []).find((m) => (m.symbol || "").toUpperCase() === "SPY");
+  const qqqQ = (macroData || []).find((m) => (m.symbol || "").toUpperCase() === "QQQ");
+  const { regLabel: regLabelDW, regColor: regColorDW } = computeRegimeLabel(C, { spy: spyQ, qqq: qqqQ, vix: distData?.vix || 0, loaded: !!spyQ });
+  const marketRegimeDW = regLabelDW === "RISK ON" ? "RISK_ON" : regLabelDW === "RISK OFF" ? "RISK_OFF" : regLabelDW === "LOADING…" ? null : "NEUTRAL";
 
   // Exit Panel dimensions (Phase 5, 2026-08-20) — 6 real, already-computed
   // reads bucketed into good/bad/unknown, matching the spec's "Momentum/
@@ -1239,6 +1259,12 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
               <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: 0.6 }}>🎯 {symPosition ? "POSITION STATUS" : "ENTRY STATUS"}</span>
               <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: dwState.color }}>{dwState.icon} {dwState.label}</span>
               <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>(Cortex: {cortexV.verdict})</span>
+              {/* Market Regime (MTF spec §20) — real SPY/QQQ/VIX read,
+                  informational here (not gating entries this pass — see
+                  the marketRegimeDW comment above for why). */}
+              {marketRegimeDW && (
+                <span style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 800, color: regColorDW, border: `1px solid ${regColorDW}55`, borderRadius: 20, padding: "2px 8px" }}>{marketRegimeDW.replace("_", " ")}</span>
+              )}
               {/* Decision Strength + Data Quality (MTF spec §37/50/22,
                   2026-08-20) — Decision Strength is a composite of already-
                   computed scores, deliberately NOT labeled a probability;
@@ -1496,6 +1522,12 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                             <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: C.textDim }}>Account Risk</span><span style={{ fontWeight: 700, color: C.text }}>${accountRisk.toFixed(2)}</span></div>
                             <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: C.textDim }}>Risk/Share</span><span style={{ fontWeight: 700, color: C.text }}>${riskPerShare.toFixed(2)}</span></div>
                             <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: C.textDim }}>Suggested Size</span><span style={{ fontWeight: 800, color: shares > 0 ? "#22d47e" : "#ef4444" }}>{shares > 0 ? `${shares} sh` : "0 sh — risk too tight"}</span></div>
+                            {/* Regime-aware sizing note (MTF spec §20) — a
+                                real, visible suggestion, never a silent
+                                override of the user's own risk % input. */}
+                            {marketRegimeDW === "RISK_OFF" && (
+                              <div style={{ marginTop: 4, color: "#e08a1e", fontWeight: 700 }}>⚠ Risk-off regime — consider sizing down from your usual risk %.</div>
+                            )}
                           </div>
                         );
                       })() : (
