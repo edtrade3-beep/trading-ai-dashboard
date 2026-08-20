@@ -215,6 +215,7 @@ import {
 } from "./market-helpers.js";
 import { computeSniperDecision } from "./sniper-decision.js";
 import { computeHeatRisk, computeCortexVerdict } from "./cortex-engine.js";
+import { computeMtfAlignment } from "./mtf-combiner.js";
 import AiScoreExplainer, {
   AplusBadge, TRADE_SETUP_DIMENSIONS, STOCK_QUALITY_DIMENSIONS, INSTITUTIONAL_GRADE_DIMENSIONS,
   TECHNICAL_DIMENSIONS, TIMING_DIMENSIONS, AI_TRADE_ENGINE_DIMENSIONS, FOUNDATION_DIMENSIONS, FOUNDATION_LABEL,
@@ -459,6 +460,20 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
     fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(sym)}`)
       .then(r => r.json())
       .then(j => { const row = (j.results || []).find(r => !r.error); setSymTrend(row || null); })
+      .catch(() => {});
+  }, [sym]);
+
+  // Real 4H SWING_SETUP + 1H EARLY_DEVELOPMENT reads (MTF Decision System
+  // Phase 2, 2026-08-20) for the Decision Workspace's MTF panel — own
+  // fetch since these are new, dedicated timeframes not covered by the
+  // trend-screen (Daily) or Day Trade Mode (15m) fetches elsewhere.
+  const [symMtf, setSymMtf] = useState(null);
+  useEffect(() => {
+    if (!sym) return;
+    setSymMtf(null);
+    fetch(`/api/market/mtf?symbol=${encodeURIComponent(sym)}`)
+      .then(r => r.json())
+      .then(j => setSymMtf(j && j.ok ? j : null))
       .catch(() => {});
   }, [sym]);
 
@@ -726,6 +741,18 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
     (String(symTrend.stage || "").includes("2") && Number(symTrend.passCount || 0) >= 6) ? "BULLISH"
     : String(symTrend.stage || "").includes("4") ? "BEARISH" : "NEUTRAL"
   ) : null;
+  // MTF_ALIGNMENT (Phase 2) — 1D real (above), 4H/1H real (symMtf, its own
+  // fetch), 15M/5M not wired in yet (real future phases, honestly null
+  // rather than fabricated). computeMtfAlignment renormalizes over only
+  // the known timeframes and surfaces genuine higher-vs-lower conflicts
+  // rather than blind-averaging, per the spec's own explicit rule.
+  const dwMtf = dwDailyBias ? computeMtfAlignment({
+    "1D": dwDailyBias,
+    "4H": symMtf?.swing4h?.state ?? null,
+    "1H": symMtf?.early1h?.score ?? null,
+    "15M": null,
+    "5M": null,
+  }) : null;
 
   // Six-score consolidation (institutional redesign, 2026-07-29) — the
   // first real consumer of Phase 0/3's deriveTopLevelScores. Presentation
@@ -1072,23 +1099,35 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
               ))}
             </div>
 
-            {/* MTF panel — 1D is real (from this same symTrend); 4H/1H/15M/5M
-                honestly unavailable rather than fabricated (spec's own
-                "missing data" rule). Real work, Phase 2 of this build. */}
-            <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
-              {[
-                ["1D", dwDailyBias, dwDailyBias === "BULLISH" ? "#22d47e" : dwDailyBias === "BEARISH" ? "#ef4444" : "#d6a312"],
-                ["4H", "not available yet", C.textDim],
-                ["1H", "not available yet", C.textDim],
-                ["15M", "not available yet", C.textDim],
-                ["5M", "not available yet", C.textDim],
-              ].map(([tf, val, col]) => (
-                <div key={tf} style={{ display: "flex", alignItems: "center", gap: 5, border: `1px solid ${C.border}`, borderRadius: 20, padding: "3px 10px", background: C.card }}>
-                  <span style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 800, color: C.textDim }}>{tf}</span>
-                  <span style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 700, color: col }}>{val}</span>
-                </div>
-              ))}
+            {/* MTF panel — 1D + 4H + 1H are real (Phase 2, 2026-08-20);
+                15M/5M honestly unavailable rather than fabricated (spec's
+                own "missing data" rule) — real future phases. */}
+            <div style={{ display: "flex", gap: 6, marginBottom: 6, flexWrap: "wrap", alignItems: "center" }}>
+              {(dwMtf ? dwMtf.reads : [
+                { tf: "1D", label: dwDailyBias || "loading…", known: !!dwDailyBias },
+                { tf: "4H", label: "loading…", known: false },
+                { tf: "1H", label: "loading…", known: false },
+                { tf: "15M", label: "not available yet", known: false },
+                { tf: "5M", label: "not available yet", known: false },
+              ]).map((r) => {
+                const col = !r.known ? C.textDim : r.value > 0.15 ? "#22d47e" : r.value < -0.15 ? "#ef4444" : "#d6a312";
+                return (
+                  <div key={r.tf} title={r.tf === "4H" && symMtf?.swing4h?.reasons?.length ? symMtf.swing4h.reasons.join(" ") : r.tf === "1H" && symMtf?.early1h?.reasons?.length ? symMtf.early1h.reasons.join(" ") : undefined}
+                    style={{ display: "flex", alignItems: "center", gap: 5, border: `1px solid ${C.border}`, borderRadius: 20, padding: "3px 10px", background: C.card, cursor: "help" }}>
+                    <span style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 800, color: C.textDim }}>{r.tf}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 700, color: col }}>{r.label}</span>
+                  </div>
+                );
+              })}
+              {dwMtf && dwMtf.score != null && (
+                <span style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim, marginLeft: 4 }}>MTF Alignment: <b style={{ color: C.text }}>{dwMtf.score}/100</b></span>
+              )}
             </div>
+            {dwMtf?.conflictNote && (
+              <div style={{ fontFamily: SANS, fontSize: 11, color: "#e08a1e", background: "#e08a1e12", border: "1px solid #e08a1e33", borderRadius: 6, padding: "6px 10px", marginBottom: 12 }}>
+                ⚠️ MTF CONFLICT — {dwMtf.conflictNote}
+              </div>
+            )}
 
             <div style={{ display: "grid", gridTemplateColumns: "minmax(180px, 260px) 1fr", gap: 18 }}>
               {/* Entry Map — real Sniper Decision levels, not invented */}

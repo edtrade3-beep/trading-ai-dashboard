@@ -41,6 +41,17 @@ const TIMEFRAME_CONFIG = {
 const CANDLE_TIMEFRAME_CONFIG = {
   "5M": { range: "1d", interval: "5m", aggregate: 1 },
   "15M": { range: "5d", interval: "15m", aggregate: 1 },
+  // 4H added 2026-08-20 (MTF Decision System, Phase 2) — same range/
+  // interval/aggregate already used by TIMEFRAME_CONFIG's own "4H" entry
+  // above (1h bars, 4 aggregated into one candle). That entry backs the
+  // orphaned buildLivePayload/api/live path; this one backs
+  // fetchYahooCandlesWithIndicators (src/providers/yahoo.js), which
+  // already correctly applies `aggregate` and already computes real
+  // EMA9/21/VWAP/RSI/MACD series — the real reusable primitive for the
+  // new SWING_SETUP (4H) evaluator. Validated live before use, not
+  // assumed: real NVDA 1H bars returned 163 real candles with sane
+  // EMA/RSI values.
+  "4H": { range: "1mo", interval: "1h", aggregate: 4 },
   "1H": { range: "1mo", interval: "1h", aggregate: 1 },
   "1D": { range: "6mo", interval: "1d", aggregate: 1 },
   "1W": { range: "2y", interval: "1wk", aggregate: 1 }

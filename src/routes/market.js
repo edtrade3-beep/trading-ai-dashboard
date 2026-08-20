@@ -2614,6 +2614,29 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
     }
   }
 
+  // GET /api/market/mtf?symbol=X — real 4H SWING_SETUP + 1H
+  // EARLY_DEVELOPMENT reads (MTF Decision System Phase 2, 2026-08-20).
+  // 1D bias is deliberately NOT computed here — the Decision Workspace
+  // already has it client-side from the same trend-screen row it already
+  // fetches, no reason to fetch it twice. 15M/5M aren't wired in yet
+  // (real future phases). Honest per-timeframe null on failure rather
+  // than failing the whole request — a symbol with real 4H data but thin
+  // 1H history (or vice versa) should still return what's actually known.
+  if (pathname === "/api/market/mtf" && req.method === "GET") {
+    const symbol = (searchParams.get("symbol") || "").trim().toUpperCase();
+    if (!symbol) return writeJson(res, 400, { ok: false, error: "symbol required" });
+    const { fetchYahooCandlesWithIndicators } = require("../providers/yahoo");
+    const { computeSwingSetup } = require("../mtf-swing-engine");
+    const { computeEarlyDevelopment } = require("../mtf-early-engine");
+    const [r4h, r1h] = await Promise.all([
+      fetchYahooCandlesWithIndicators(symbol, "4H").catch(() => null),
+      fetchYahooCandlesWithIndicators(symbol, "1H").catch(() => null),
+    ]);
+    const swing4h = r4h ? computeSwingSetup(r4h.bars) : { state: null, reasons: [], dataInsufficient: true, reason: "4H data unavailable." };
+    const early1h = r1h ? computeEarlyDevelopment({ bars: r1h.bars, indicators: r1h.indicators }) : { score: null, reasons: [], dataInsufficient: true };
+    return writeJson(res, 200, { ok: true, symbol, swing4h, early1h });
+  }
+
   // A+ Score forward-tracking report — real bucketed forward returns from
   // the daily snapshot log (aplus-score-history.js). A pure forward log,
   // not a historical backtest: any horizon with no real snapshot that far
