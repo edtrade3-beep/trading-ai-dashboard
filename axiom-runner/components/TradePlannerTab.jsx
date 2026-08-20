@@ -298,13 +298,32 @@ export default function TradePlannerTab({ C, MONO, SANS, macroData }) {
 
             return (
               <div style={{...card, borderTop:`3px solid ${dirColor}`, background:dirBg}}>
-                <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
+                <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:4}}>
                   <div>
                     <div style={{fontFamily:MONO,fontSize:11,fontWeight:900,color:C.textDim,letterSpacing:"0.1em",marginBottom:4}}>
                       📈 OPTIONS RECOMMENDATION
                     </div>
                     <div style={{fontFamily:MONO,fontSize:20,fontWeight:900,color:dirColor}}>{direction}</div>
                   </div>
+                </div>
+                {/* Real, confirmed disagreement risk (2026-08-19 platform
+                    audit): this direction is a standalone EMA9/21+RSI read
+                    off this planner's own 90-day daily chart — it does NOT
+                    consult A+ SCORE or NEXT ACTION above (those come from
+                    the real Minervini trend-template gates, atBuyPoint/
+                    volConfirmed/stage). A stock can be BULL here on a mild
+                    EMA cross while NEXT ACTION still honestly says WAIT
+                    because it hasn't cleared the stricter trend-template
+                    bar — same "two real, differently-scoped numbers shown
+                    together with no explanation" bug class fixed elsewhere
+                    today (Smart Scan, Day Trade Mode). Different question
+                    (short-term options lean vs. swing-entry timing), so
+                    not merged into one verdict — labeled instead. */}
+                <div style={{fontFamily:SANS,fontSize:10.5,color:C.textDim,marginBottom:12,lineHeight:1.4}}>
+                  Independent short-term read (EMA9/21 + RSI, daily chart) — not the same signal as A+ SCORE / NEXT ACTION above, which use the full trend-template criteria. Can legitimately disagree.
+                  {result.next && ((isBull && (result.next.action === "WAIT" || result.next.action === "AVOID")) || (isBear && (result.next.action === "BUY" || result.next.action === "BREAKOUT"))) && (
+                    <span style={{color:C.amber,fontWeight:700}}> ⚠ Right now it does: NEXT ACTION says {result.next.action}, this says {direction.replace(/[🟢🔴]/g,"").trim()}.</span>
+                  )}
                 </div>
 
                 {/* Evidence */}
