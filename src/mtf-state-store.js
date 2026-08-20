@@ -26,6 +26,7 @@ const { deriveCandidateState, stepMtfState, GATE_DEFAULTS } = require("./mtf-dec
 const { computeSwingSetup } = require("./mtf-swing-engine");
 const { computeEarlyDevelopment } = require("./mtf-early-engine");
 const { computeAtrRiskLevels, computeAntiChase } = require("./atr-risk-engine");
+const { recordEvent } = require("./mtf-outcome-tracker");
 
 const STORE_PATH = path.join(ROOT, "data", "mtf-state.json");
 const DEFAULTS = { confirmBars: 2, confirmBarsMin: 1, confirmBarsMax: 10, maxTransitions: 200 };
@@ -128,6 +129,12 @@ async function tickMtfStates() {
           symbol, from: prev.confirmed, to: stepped.confirmed, price: row.price,
           quality: aplus.score, reason: sniper.reason, waitingFor: sniper.waitingFor, heatReason: heat.reason,
         });
+        // Trade Outcome Feedback Engine (Phase 7) — real EARLY/START
+        // confirmations logged here; trackOutcomes() (its own background
+        // job) fills in real forward MFE/MAE/returns once real time
+        // actually passes. Best-effort — a logging failure never blocks
+        // the state machine tick that already succeeded.
+        try { recordEvent({ symbol, toState: stepped.confirmed, price: row.price, ev, gate, atrLevels, antiChase }); } catch {}
       }
     } catch { /* one symbol's real fetch failure never blocks the rest of the tick */ }
   }

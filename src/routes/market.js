@@ -2715,6 +2715,19 @@ Explain this.`;
     } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
   }
 
+  // GET /api/market/mtf-outcomes — the Trade Outcome Feedback Engine's
+  // real aggregate report (MTF Decision System Phase 7, 2026-08-20): win
+  // rate/avg return/MFE/MAE/stop-target-hit-rate per horizon (1/3/5/10
+  // real trading days) per state (EARLY vs START), off whatever real
+  // events have actually logged and had enough real time pass. Same
+  // "pure forward log, not a historical backtest" honesty as
+  // aplus-score-history.js's own report just below — a horizon/state
+  // with zero real completed events returns null, never estimated.
+  if (pathname === "/api/market/mtf-outcomes" && req.method === "GET") {
+    const { buildOutcomeReport } = require("../mtf-outcome-tracker");
+    return writeJson(res, 200, { ok: true, ...buildOutcomeReport() });
+  }
+
   // A+ Score forward-tracking report — real bucketed forward returns from
   // the daily snapshot log (aplus-score-history.js). A pure forward log,
   // not a historical backtest: any horizon with no real snapshot that far

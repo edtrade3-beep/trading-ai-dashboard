@@ -417,6 +417,17 @@ server.listen(PORT, HOST, () => {
   registerJob("MTF Decision Tick", 15 * 60_000, () => require("./src/mtf-state-store").tickMtfStates());
   console.log("[MTF Decision] Confirmation tick active — every 15 min (25 watchlist symbols per tick, rotating)");
 
+  // MTF Decision System, Phase 7 (2026-08-20) — Trade Outcome Feedback
+  // Engine's forward-tracking tick. Real EARLY/START events are logged
+  // synchronously inside the tick above (mtf-outcome-tracker.js's
+  // recordEvent); this separate, slower job just checks which logged
+  // events have crossed a real 1/3/5/10-day threshold and fetches real
+  // daily bars to fill in their real MFE/MAE/return/stop-target-hit
+  // outcomes. Hourly is plenty — these are daily-bar horizons, nothing
+  // here needs a 15-min cadence.
+  registerJob("MTF Outcome Tracking", 60 * 60_000, () => require("./src/mtf-outcome-tracker").trackOutcomes());
+  console.log("[MTF Decision] Outcome tracking tick active — every 60 min");
+
   // News Intelligence ingestion (2026-08-19, explicit user spec: "Finviz
   // News Intelligence layer") — real provider (Finnhub->Polygon->Yahoo/
   // Google, the same authorized chain /api/market/news already uses) ->
