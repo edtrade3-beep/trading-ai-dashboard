@@ -179,6 +179,7 @@ import CotTab from "./components/CotTab.jsx";
 import LightBoxTab from "./components/LightBoxTab.jsx";
 import DayTradeConsoleTab from "./components/DayTradeConsoleTab.jsx";
 import FutureWalletTab from "./components/FutureWalletTab.jsx";
+import BtcHpcScanCard from "./components/BtcHpcScanCard.jsx";
 
 // Attach the API token (if the user set one) to every same-origin /api request,
 // so money-moving routes work when server-side API_AUTH_TOKEN auth is enabled.
@@ -4107,6 +4108,10 @@ export default function App() {
       // row, this is the redundant one-keystroke path every sidebar tab gets.
       FUTUREWALLET: "futurewallet",
       WALLET: "futurewallet",
+      // BTC + HPC Deep Scan (2026-08-20) — also has a real Sidebar.jsx row,
+      // this is the redundant one-keystroke path every sidebar tab gets.
+      BTCHPC: "btc-hpc",
+      HPC: "btc-hpc",
       // PORTFOLIO/SCANNER repointed 2026-07-29 (institutional redesign) to
       // match what those words now mean in the sidebar — the real Alpaca-
       // backed Portfolio (portfolio-tab) and Sniper Scanner (rhpro-scan),
@@ -7196,6 +7201,7 @@ export default function App() {
         <DayTradeConsoleTab C={C} MONO={MONO} SANS={SANS} symbol={daytradeConsoleSymbol} onBack={() => setActiveTab("lightbox")} />
       )}
       {activeTab === "futurewallet" && <FutureWalletTab C={C} MONO={MONO} SANS={SANS} />}
+      {activeTab === "btc-hpc" && <BtcHpcScanCard C={C} MONO={MONO} SANS={SANS} />}
       {/* SETTINGS — composite sidebar destination (institutional redesign,
           2026-07-29) folding Coach/Learn/Quran/account-risk settings into
           one nav item, per the approved plan's "Settings" mapping — Tools

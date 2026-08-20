@@ -65,13 +65,27 @@ async function fetchFmpFundamentals(symbol, fmpKey) {
   if (!fmpKey || !symbol) return null;
   const k = encodeURIComponent(fmpKey), s = encodeURIComponent(symbol);
   const url = (p) => `https://financialmodelingprep.com/stable/${p}?symbol=${s}&apikey=${k}`;
-  const [quoteP, profileP, ratiosP, keyMetricsP, growthP, targetP] = await Promise.all([
+  const [quoteP, profileP, ratiosP, keyMetricsP, growthP, targetP, balanceSheetP, incomeStatementP] = await Promise.all([
     fetchJsonSafe(url(`quote`)),
     fetchJsonSafe(url(`profile`)),
     fetchJsonSafe(url(`ratios-ttm`)),
     fetchJsonSafe(url(`key-metrics-ttm`)),
     fetchJsonSafe(url(`financial-growth`) + "&limit=1"),
     fetchJsonSafe(url(`price-target-consensus`)),
+    // Real raw Cash/Debt dollar figures (2026-08-20, BTC+HPC Deep Scan) —
+    // ratios-ttm/key-metrics-ttm only carry ratios (netDebtToEbitda etc),
+    // never the actual dollar amounts. Field names below (cashAndCashEquivalents/
+    // totalDebt/netDebt) match FMP's documented /stable/balance-sheet-statement
+    // schema as of this write — NOT yet confirmed against a live response the
+    // way this file's other fields were (see header comment); verify against
+    // a real deployed response before trusting these for anything beyond
+    // display, and fix the field names here if they come back null/wrong.
+    fetchJsonSafe(url(`balance-sheet-statement`) + "&period=quarter&limit=1"),
+    // Real EBITDA growth (2026-08-20) — computed here from 2 real disclosed
+    // periods rather than trusting an ambiguous single growth-rate field
+    // (financial-growth's "ebitgrowth" is EBIT, not EBITDA — a real,
+    // different line item). Same live-verification caveat as above.
+    fetchJsonSafe(url(`income-statement`) + "&period=annual&limit=2"),
   ]);
   const quote = Array.isArray(quoteP) ? quoteP[0] : null;
   const profile = Array.isArray(profileP) ? profileP[0] : null;
@@ -79,6 +93,12 @@ async function fetchFmpFundamentals(symbol, fmpKey) {
   const keyMetrics = Array.isArray(keyMetricsP) ? keyMetricsP[0] : null;
   const growth = Array.isArray(growthP) ? growthP[0] : null;
   const target = Array.isArray(targetP) ? targetP[0] : null;
+  const balanceSheet = Array.isArray(balanceSheetP) ? balanceSheetP[0] : null;
+  const incomeStatements = Array.isArray(incomeStatementP) ? incomeStatementP : [];
+  const ebitdaNow = Number(incomeStatements[0]?.ebitda);
+  const ebitdaPrev = Number(incomeStatements[1]?.ebitda);
+  const ebitdaGrowth = (Number.isFinite(ebitdaNow) && Number.isFinite(ebitdaPrev) && ebitdaPrev !== 0)
+    ? (ebitdaNow - ebitdaPrev) / Math.abs(ebitdaPrev) : null;
   if (!quote && !profile) return null;
   const n = (v) => { const x = Number(v); return Number.isFinite(x) && x !== 0 ? x : null; };
   const tgt = n(target?.targetConsensus) || n(target?.targetMedian);
@@ -125,6 +145,13 @@ async function fetchFmpFundamentals(symbol, fmpKey) {
     // good for holders), positive = dilution (bad). Straight from FMP, not
     // a guess.
     sharesGrowth: n(growth?.weightedAverageSharesGrowth),
+    // Real raw Cash/Debt dollars + real EBITDA growth (2026-08-20, BTC+HPC
+    // Deep Scan) — see the balanceSheet/incomeStatements fetches above for
+    // the live-verification caveat on these specific field names.
+    cash: n(balanceSheet?.cashAndCashEquivalents),
+    totalDebt: n(balanceSheet?.totalDebt),
+    netDebt: n(balanceSheet?.netDebt),
+    ebitdaGrowth,
     // Analyst
     analystTarget: tgt,
     targetMeanPrice: tgt,

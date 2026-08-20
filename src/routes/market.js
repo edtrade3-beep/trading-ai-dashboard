@@ -2614,6 +2614,174 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
     }
   }
 
+  // GET /api/market/btc-hpc-scan — BTC + HPC Deep Scan, Top Rotation
+  // (explicit user request, 2026-08-20). Real BTC regime (btc-hpc-scan.js's
+  // computeBtcRegime, off real BTC-USD bars) + a ranked scan of the real
+  // BTC-mining/HPC-hosting pivot universe (IREN/WULF/CORZ/CIFR/RIOT),
+  // reusing the SAME real pipeline runAiScanTool/screenTrendTemplate
+  // already use (trend template -> A+ score -> letter grade), plus the
+  // fixed Entry Engine's staged plan for each row's real entry timing and
+  // the 6-state Final Decision label — no new scoring, no duplicate scan
+  // engine. Cached 10 min (same TTL convention as WATCHLIST_SCREEN_CACHE)
+  // since this is a small, fixed universe checked repeatedly, not a
+  // per-request bespoke query.
+  if (pathname === "/api/market/btc-hpc-scan" && req.method === "GET") {
+    try {
+      const { HPC_MINER_UNIVERSE, computeBtcRegime, classifyDeepScanDecision } = require("../btc-hpc-scan");
+      const { computeEntryPlan } = require("../entry-engine");
+      const { computeRegime, computeAPlusScore } = require("../trade-planner-scoring");
+      const { institutionalLetterGrade } = require("../institutional-scoring");
+      const data = await cached("btc-hpc-scan", 600_000, async () => {
+        const providerKeys = resolveProviderKeys(new URLSearchParams());
+        const [btcBars, macroRows, rows] = await Promise.all([
+          fetchYahooBars("BTC-USD", "6mo", "1d"),
+          fetchMarketQuotes(["SPY", "QQQ", "VIXY"], providerKeys),
+          screenTrendTemplate(HPC_MINER_UNIVERSE),
+        ]);
+        const btcRegime = computeBtcRegime(btcBars);
+        const regime = computeRegime(Array.isArray(macroRows) ? macroRows : []);
+        const rotation = rows.filter((r) => !r.error).map((r) => {
+          const aplus = computeAPlusScore(r, regime);
+          // Daily-only entry staging for the fast rotation list — no 4H/1H/
+          // 15M fetch per row here (5 symbols x full MTF would be slow for a
+          // quick ranked list); structureBroken stays unknown (null) rather
+          // than assumed healthy OR broken, honestly reflecting that this
+          // row hasn't checked 4H yet. atr is also null (no per-row bars
+          // re-fetch here) so earlyEntryZone/etc. come back null too — a
+          // click-through to the symbol's own /api/market/btc-hpc-deep gets
+          // the real ATR-based zones. Real cheap fields ARE passed (2026-08-20
+          // fix — these were missing entirely, which silently zeroed out
+          // qualifying.total and made every row resolve to NONE/WAIT
+          // regardless of real quality).
+          const dailyBias = (String(r.stage || "").includes("2") && Number(r.passCount || 0) >= 6) ? "BULLISH"
+            : String(r.stage || "").includes("4") ? "BEARISH" : "NEUTRAL";
+          const target1 = r.entry > r.stop ? round2(r.entry + (r.entry - r.stop)) : null;
+          const rr = Number.isFinite(target1) && r.entry > r.stop ? round2((target1 - r.entry) / (r.entry - r.stop)) : null;
+          const entryPlan = computeEntryPlan({
+            price: r.price, pivot: r.pivot, atr: null, contractionLow: r.contractionLow,
+            dailyBias, rsRating: r.rsRating, higherLows: r.higherLows, tightening: r.tightening,
+            vcpVerdict: r.vcpVerdict, vwap20: r.technicals?.vwap20, rr,
+            breakoutConfirmed: r.breakoutConfirmed, extended: r.extended, priceAction: {},
+            stop: r.stop, target1, target2: r.target2,
+          });
+          const decision = classifyDeepScanDecision({ entryPlan, aPlusScore: aplus.score });
+          return {
+            symbol: r.symbol, price: r.price, grade: institutionalLetterGrade(aplus.score), score: aplus.score,
+            passCount: r.passCount, stage: r.stage, pivot: r.pivot, entryPrice: entryPlan.entryPrice,
+            decision: decision.decision, decisionIcon: decision.icon, decisionColor: decision.color, decisionReason: decision.reason,
+          };
+        }).sort((a, b) => (b.score || 0) - (a.score || 0));
+        return { btcRegime, rotation };
+      });
+      return writeJson(res, 200, { ok: true, universe: HPC_MINER_UNIVERSE, ...data });
+    } catch (err) {
+      return writeJson(res, 502, { ok: false, error: err instanceof Error ? err.message : "BTC+HPC scan failed." });
+    }
+  }
+
+  // GET /api/market/btc-hpc-deep?symbol=X — the Deep Fundamental/Valuation/
+  // Technical/AI-qualitative-context panel for ONE symbol from the BTC+HPC
+  // rotation (explicit user request, 2026-08-20). Reuses fetchMarketFundamentals
+  // (FMP, extended this pass with real cash/debt/EBITDA-growth) and
+  // future-value-scoring.js's real computeFutureValueRead (analyst-target-
+  // based fair value bands — NOT an invented DCF) for Valuation, and the
+  // main trend-template + Entry Engine for Technical/Final Decision — zero
+  // new scoring systems. The BTC-mining-specific fields with no real API
+  // source (MW figures, contract value, customer quality, execution risk)
+  // are AI-extracted from real fetched news only (explicit user choice,
+  // 2026-08-20 AskUserQuestion) — the AI is instructed to state only facts
+  // actually present in the real headlines, never invent one, and say so
+  // plainly when recent coverage doesn't mention a given fact. Cached 15
+  // min per symbol (fundamentals + news + an AI call is real cost).
+  if (pathname === "/api/market/btc-hpc-deep" && req.method === "GET") {
+    const symbol = (searchParams.get("symbol") || "").trim().toUpperCase();
+    if (!symbol) return writeJson(res, 400, { ok: false, error: "symbol required" });
+    try {
+      const { computeEntryPlan } = require("../entry-engine");
+      const { classifyDeepScanDecision } = require("../btc-hpc-scan");
+      const { computeRegime, computeAPlusScore } = require("../trade-planner-scoring");
+      const { institutionalLetterGrade } = require("../institutional-scoring");
+      const { computeFutureValueRead } = require("../future-value-scoring");
+      const data = await cached(`btc-hpc-deep:${symbol}`, 900_000, async () => {
+        const providerKeys = resolveProviderKeys(new URLSearchParams());
+        const [tt, macroRows, fundamentals, newsRows, dailyBars] = await Promise.all([
+          buildTrendTemplate(symbol, {}),
+          fetchMarketQuotes(["SPY", "QQQ", "VIXY"], providerKeys),
+          fetchMarketFundamentals(symbol, providerKeys).catch(() => null),
+          fetchMarketNews([symbol], 12, providerKeys).catch(() => []),
+          // Real ATR for real zones (2026-08-20 fix) — buildTrendTemplate's
+          // own response doesn't expose raw bars, so this re-fetches them
+          // (same _fetchBarsCached TTL cache the trend-template call above
+          // already just warmed, so this is a cache hit, not a second real
+          // network round-trip in practice).
+          _fetchBarsCached(symbol).catch(() => null),
+        ]);
+        const regime = computeRegime(Array.isArray(macroRows) ? macroRows : []);
+        const row = { symbol: tt.symbol, price: tt.price, passCount: tt.passCount, stage: tt.stage, rsRating: tt.rsRating,
+          pivot: tt.setup.pivot, entry: tt.setup.entry, stop: tt.setup.stop, target2: tt.setup.target2,
+          abovePivotPct: tt.setup.abovePivotPct, breakoutConfirmed: tt.setup.breakoutConfirmed, extended: tt.setup.extended,
+          actionable: tt.setup.actionable, verdict: tt.setup.verdict, vcpScore: tt.setup.report?.score, vcpVerdict: tt.setup.report?.verdict };
+        const aplus = computeAPlusScore(row, regime);
+        // Same real one-liner MarketTerminalTab.jsx's dwDailyBias uses —
+        // kept in sync deliberately, not re-derived differently here.
+        const dailyBias = (String(tt.stage || "").includes("2") && Number(tt.passCount || 0) >= 6) ? "BULLISH"
+          : String(tt.stage || "").includes("4") ? "BEARISH" : "NEUTRAL";
+        const atr = Array.isArray(dailyBars) && dailyBars.length > 15 ? atrAt(dailyBars, 14, dailyBars.length - 1) : null;
+        const target1 = round2(tt.setup.entry + (tt.setup.entry - tt.setup.stop));
+        const rr = Number.isFinite(target1) && tt.setup.entry > tt.setup.stop ? round2((target1 - tt.setup.entry) / (tt.setup.entry - tt.setup.stop)) : null;
+        const entryPlan = computeEntryPlan({
+          price: tt.price, pivot: tt.setup.pivot, atr, contractionLow: tt.setup.contractionLow,
+          dailyBias, rsRating: tt.rsRating, higherLows: tt.setup.higherLows, tightening: tt.setup.tightening,
+          vcpVerdict: tt.setup.report?.verdict, vwap20: tt.technicals?.vwap20, rr,
+          breakoutConfirmed: tt.setup.breakoutConfirmed, extended: tt.setup.extended, priceAction: {},
+          stop: tt.setup.stop, target1, target2: tt.setup.target2,
+        });
+        const decision = classifyDeepScanDecision({ entryPlan, aPlusScore: aplus.score });
+        const valuation = fundamentals ? computeFutureValueRead(fundamentals, tt.price) : null;
+
+        // AI-extracted qualitative context (MW/contract/customer/execution
+        // risk) — real news only, no invented facts.
+        let qualitative = null;
+        const headlines = (Array.isArray(newsRows) ? newsRows : []).map((n) => `${n.title || ""}${n.summary ? " — " + n.summary : ""}`).filter(Boolean).slice(0, 12);
+        const key = (process.env.ANTHROPIC_API_KEY || "").trim();
+        if (key && headlines.length) {
+          const SYSTEM = `You extract real facts about a Bitcoin-mining/HPC-hosting company from real news headlines given to you. You NEVER invent a number, contract, or fact not explicitly present in the headlines. For each of these 5 topics, state the real fact if the headlines mention it, or say exactly "Not disclosed in recent coverage" if they don't: BTC MINING ECONOMICS (hash rate, cost per BTC), AI/HPC REVENUE (data center hosting/AI compute revenue), CONTRACTED/ENERGIZED/PIPELINE MW (power capacity deals), CONTRACT VALUE (deal dollar figures, counterparties), CUSTOMER QUALITY & EXECUTION RISK (who the customers are, delivery/build-out risk mentioned). Respond in exactly this format, one line per topic, under 120 words total:
+BTC ECONOMICS: ...
+AI/HPC REVENUE: ...
+MW (CONTRACTED/ENERGIZED/PIPELINE): ...
+CONTRACT VALUE: ...
+CUSTOMER QUALITY & EXECUTION RISK: ...`;
+          try {
+            const raw = await callAnthropicApi(`${symbol} — real recent headlines:\n${headlines.map((h) => `- ${h}`).join("\n")}\n\nExtract.`, key, { model: MODELS.haiku, maxTokens: 260, system: SYSTEM, cache: true });
+            qualitative = (raw || "").trim() || null;
+          } catch { qualitative = null; }
+        }
+
+        return {
+          symbol, grade: institutionalLetterGrade(aplus.score), score: aplus.score,
+          technical: { price: tt.price, stage: tt.stage, rsRating: tt.rsRating, passCount: tt.passCount,
+            vwap20: tt.technicals?.vwap20 ?? null, rsi: tt.rsi ?? null, volRatio: tt.volRatio ?? null,
+            support: tt.setup?.contractionLow ?? null, resistance: tt.setup?.pivot ?? null,
+            ma20: tt.ma?.ma50 ?? null, ma50: tt.ma?.ma50 ?? null },
+          entryPlan, decision,
+          fundamentals: fundamentals ? {
+            revenueGrowth: fundamentals.revenueGrowth, ebitdaGrowth: fundamentals.ebitdaGrowth ?? null,
+            freeCashFlow: fundamentals.freeCashFlow, freeCashFlowGrowth: fundamentals.freeCashFlowGrowth,
+            cash: fundamentals.cash ?? null, totalDebt: fundamentals.totalDebt ?? null,
+            netDebtToEbitda: fundamentals.netDebtToEbitda, sharesGrowth: fundamentals.sharesGrowth,
+          } : null,
+          valuation,
+          qualitative,
+          qualitativeAvailable: !!key,
+          newsCount: headlines.length,
+        };
+      });
+      return writeJson(res, 200, { ok: true, ...data });
+    } catch (err) {
+      return writeJson(res, 502, { ok: false, error: err instanceof Error ? err.message : "BTC+HPC deep scan failed." });
+    }
+  }
+
   // GET /api/market/mtf?symbol=X — real 4H SWING_SETUP + 1H
   // EARLY_DEVELOPMENT reads (MTF Decision System Phase 2, 2026-08-20).
   // 1D bias is deliberately NOT computed here — the Decision Workspace

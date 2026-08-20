@@ -102,6 +102,13 @@ export const SIDEBAR_ITEMS = [
   // sub-view of an existing tab.
   { id: "futurewallet", label: "Future Wallet", icon: "💰", tab: "futurewallet" },
 
+  // BTC + HPC Deep Scan — real BTC regime + a ranked scan of the real
+  // BTC-mining/HPC-hosting pivot universe (IREN/WULF/CORZ/CIFR/RIOT),
+  // explicit user request (2026-08-20). Given its own row, same reasoning
+  // as Light Box/Future Wallet above — a genuinely new standalone
+  // analytical surface, not a sub-view of an existing tab.
+  { id: "btc-hpc",   label: "BTC + HPC",   icon: "₿",  tab: "btc-hpc" },
+
   // Settings — not one of the 7 "question" surfaces (it doesn't answer a
   // daily trading question, it configures the app), kept as a permanent
   // utility row rather than folded into the palette so account/risk/coach
