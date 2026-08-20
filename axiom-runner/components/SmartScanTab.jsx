@@ -1468,6 +1468,18 @@ export default function SmartScanTab({
                                           fullAnalysisLabel="Options, Technicals, SMC, News, Analyst & Earnings"
                                           extra={<>
                                           <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginBottom: 6 }}>Setup: {vSetup} · Alignment {composite}/100</div>
+                                          {/* Disclosure (2026-08-20, same "conflicting messages"
+                                              audit that fixed the Decision Workspace's Entry Engine)
+                                              — this verdict is a genuinely distinct read (real Smart
+                                              Money Concepts BOS/CHoCH structure + trend/MACD, not the
+                                              same evidence the Decision Workspace's simplified 1D/4H/
+                                              1H/15M decision uses), so it can legitimately disagree
+                                              with what that page shows for the same symbol. Disclosed
+                                              rather than silently forced to match — merging them would
+                                              throw away the real SMC read this card exists for. */}
+                                          <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, marginBottom: 6, fontStyle: "italic" }}>
+                                            SMC/trend-based read — can differ from the Decision Workspace's own verdict for the same symbol.
+                                          </div>
                                           {/* Row 2: Action */}
                                           <div style={{ fontFamily: SANS, fontSize: 13, color: C.textSec, marginBottom: vWarnings.length ? 8 : 8, lineHeight: 1.5 }}>
                                             {vAction}
