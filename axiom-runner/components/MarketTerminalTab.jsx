@@ -1543,7 +1543,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
           {chart && sym
             ? <>
                 <iframe key={`chart-${sym}-${chartTf}-${tvTheme}`} title={`${sym} live chart`}
-                  src={`/client/tv-widget.html?w=advanced-chart&s=${encodeURIComponent(sym)}&t=${tvTheme}&h=720&iv=${TV_INTERVAL[chartTf] || "D"}&st=ma50,ma150,ma200,bb,volume`}
+                  src={`/client/tv-widget.html?w=advanced-chart&s=${encodeURIComponent(sym)}&t=${tvTheme}&h=720&iv=${TV_INTERVAL[chartTf] || "D"}&st=ema50,ema150,ema200,bb,volume`}
                   style={{ width: "100%", height: 720, border: `1px solid ${C.border}`, borderRadius: 12, display: "block" }} />
                 {/* Trend & Base Rating + trade levels overlay — real
                     rating + PIVOT/STOP/T1/T2/T3 numbers TradingView has no
