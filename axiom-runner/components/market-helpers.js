@@ -1206,6 +1206,66 @@ export function classifyEntryType(row, aplusScore) {
   return null;
 }
 
+// Setup Score 0-100 (MTF spec §9, data-integrity/decision-clarity audit,
+// 2026-08-20) — "is a tradeable structure forming?", a distinct question
+// from Quality Score ("is this a strong stock?"). Deliberately NOT a new
+// indicator: this composes row.vcpScore, the real, already-computed VCP
+// Report rubric (Trend/Contraction/Volatility/Volume/Breakout, server-
+// side vcpReport()) which already measures almost exactly what this spec
+// section asks for (tight consolidation, volume/volatility contraction,
+// breakout proximity) — plus small adjustments from higherLows/extended/
+// actionable, real fields already on the row that vcpReport's own rubric
+// doesn't otherwise fold in. When there's no qualifying VCP base at all
+// (vcpVerdict === "INVALID VCP"), the raw component sum can still be a
+// non-trivial number even though there's no real setup — this floors that
+// case to a low score instead, since "no setup" must never read like a
+// developing one. Honest null when there's no VCP data at all yet.
+// Decision Strength (MTF spec §37/50, 2026-08-20) — explicitly NOT a
+// probability (spec's own rule: never present a 0-100 score as a
+// statistically calibrated probability unless it's actually been
+// validated as one). A composite of how strong/confirmed the CURRENT
+// read is across evidence already computed elsewhere — quality, setup,
+// MTF alignment, and the A+ Gate's real pass ratio — a weighted average
+// of existing real numbers, not a new scoring engine. Honest null when
+// nothing is available yet to average.
+export function computeDecisionStrength({ qualityScore, setupScore, mtfScore, gatePassRatio } = {}) {
+  const parts = [];
+  if (Number.isFinite(qualityScore)) parts.push(qualityScore);
+  if (Number.isFinite(setupScore)) parts.push(setupScore);
+  if (Number.isFinite(mtfScore)) parts.push(mtfScore);
+  if (Number.isFinite(gatePassRatio)) parts.push(gatePassRatio * 100);
+  if (!parts.length) return null;
+  return Math.round(parts.reduce((a, b) => a + b, 0) / parts.length);
+}
+
+// Data Quality + MTF Coverage (MTF spec §22, 2026-08-20) — "never pretend
+// full MTF confirmation exists" when timeframes are genuinely unavailable
+// (15M/5M today, honestly null rather than fabricated — see the MTF panel
+// just above this). Coverage counts real (known) timeframe reads out of
+// the total the panel tracks; the 0-100 score blends that coverage with
+// whether the Decision Workspace's own core engines (quality/setup/entry)
+// actually loaded for this symbol — real inputs, not a new indicator.
+export function computeDataQuality(reads, { hasQuality, hasSetup, hasEntry } = {}) {
+  const total = Array.isArray(reads) && reads.length ? reads.length : 5;
+  const known = Array.isArray(reads) ? reads.filter((r) => r.known).length : 0;
+  const coverageRatio = total ? known / total : 0;
+  const engineRatio = [hasQuality, hasSetup, hasEntry].filter(Boolean).length / 3;
+  const score = Math.round(coverageRatio * 50 + engineRatio * 50);
+  return { coverage: `${known}/${total}`, coverageRatio, score };
+}
+
+export function computeSetupScore(row) {
+  if (!row) return null;
+  const vcpScore = Number(row.vcpScore);
+  if (!Number.isFinite(vcpScore)) return null;
+  if (row.vcpVerdict === "INVALID VCP") return Math.max(0, Math.min(20, Math.round(vcpScore * 0.3)));
+  let score = vcpScore;
+  if (row.higherLows) score += 5;
+  if (row.extended) score -= 15;
+  if (row.actionable === false) score -= 10;
+  return Math.max(0, Math.min(100, Math.round(score)));
+}
+
 // Technical Read (2026-08-20, explicit user request: "TELL ME BASED ON
 // TECHNICAL IS IT GOOD OR BAD TRADE OR NEUTRAL SPECIALLY V RECOVERY") —
 // the Terminal's TECHNICAL section (RS Rating, Volume, Momentum, ADX,

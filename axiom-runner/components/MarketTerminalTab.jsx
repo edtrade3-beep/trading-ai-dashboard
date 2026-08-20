@@ -226,7 +226,7 @@ import {
   computeAPlusScore, computeRegime, computePrediction, STOCK_TO_SECTOR, SECTOR_ETFS,
   computeInstitutionalGrade, institutionalLetterGrade, institutionalRecommendation, winProbFor, computeBullBearCase,
   deriveTopLevelScores, computeAiTradeScore, computeInstitutionScore, computeMarketBias, computeReversalDetector,
-  computeTechnicalRead, classifyEntryType,
+  computeTechnicalRead, classifyEntryType, computeSetupScore, computeDecisionStrength, computeDataQuality,
 } from "./market-helpers.js";
 import { computeSniperDecision } from "./sniper-decision.js";
 import { computeHeatRisk, computeCortexVerdict } from "./cortex-engine.js";
@@ -829,6 +829,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   const heatD = (symTrend && sniperD) ? computeHeatRisk(symTrend, sniperD) : null;
   const cortexV = (symTrend && sniperD && heatD && aPlusScore) ? computeCortexVerdict({ sniper: sniperD, heat: heatD, aplusScore: aPlusScore.score }) : null;
   const entryTypeDW = (symTrend && aPlusScore) ? classifyEntryType(symTrend, aPlusScore.score) : null;
+  const setupScoreDW = symTrend ? computeSetupScore(symTrend) : null;
   // Cortex's 5-verdict vocabulary, bridged into the new WATCH/EARLY/START/
   // ADD/HOLD/WARNING/REDUCE/EXIT ladder for THIS phase only — a real 8-
   // state machine with debounce/persistence/position-awareness is Phase 3,
@@ -874,6 +875,23 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
     "15M": null,
     "5M": null,
   }) : null;
+  // MTF panel reads — the SAME array (real 1D/4H/1H, honestly-unavailable
+  // 15M/5M) the MTF panel below renders, hoisted here so Data Quality's
+  // coverage count and the panel's own display never drift out of sync.
+  const mtfPanelReadsDW = dwMtf ? dwMtf.reads : [
+    { tf: "1D", label: dwDailyBias || "loading…", known: !!dwDailyBias },
+    { tf: "4H", label: "loading…", known: false },
+    { tf: "1H", label: "loading…", known: false },
+    { tf: "15M", label: "not available yet", known: false },
+    { tf: "5M", label: "not available yet", known: false },
+  ];
+  const gatePassRatioDW = symMtfState?.gate?.checks?.length
+    ? (symMtfState.gate.checks.length - symMtfState.gate.failed.length) / symMtfState.gate.checks.length
+    : null;
+  const decisionStrengthDW = computeDecisionStrength({
+    qualityScore: aPlusScore?.score, setupScore: setupScoreDW, mtfScore: dwMtf?.score, gatePassRatio: gatePassRatioDW,
+  });
+  const dataQualityDW = computeDataQuality(mtfPanelReadsDW, { hasQuality: !!aPlusScore, hasSetup: setupScoreDW != null, hasEntry: !!sniperD });
 
   // Exit Panel dimensions (Phase 5, 2026-08-20) — 6 real, already-computed
   // reads bucketed into good/bad/unknown, matching the spec's "Momentum/
@@ -1202,6 +1220,18 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
               <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: 0.6 }}>🎯 DECISION WORKSPACE</span>
               <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: dwState.color }}>{dwState.icon} {dwState.label}</span>
               <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>(Cortex: {cortexV.verdict})</span>
+              {/* Decision Strength + Data Quality (MTF spec §37/50/22,
+                  2026-08-20) — Decision Strength is a composite of already-
+                  computed scores, deliberately NOT labeled a probability;
+                  Data Quality/MTF Coverage is honest about how much real
+                  data backs this read (15M/5M count as unavailable, never
+                  fabricated). Both real, both new this pass. */}
+              {decisionStrengthDW != null && (
+                <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginLeft: "auto" }}>Decision Strength: <b style={{ color: C.text }}>{decisionStrengthDW}/100</b></span>
+              )}
+              {dataQualityDW && (
+                <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }} title={`MTF coverage: ${dataQualityDW.coverage} timeframes available`}>Data Quality: <b style={{ color: dataQualityDW.score >= 70 ? "#22d47e" : dataQualityDW.score >= 45 ? "#d6a312" : "#ef4444" }}>{dataQualityDW.score}/100</b> ({dataQualityDW.coverage} MTF)</span>
+              )}
             </div>
             {/* Real, honest disclosure — found live while shipping this:
                 the BUY/WAIT/AVOID line above (decisionInputs, driven by
@@ -1220,17 +1250,23 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
               </div>
             )}
 
-            {/* Separated scores — never blended into one number, per the spec */}
+            {/* Separated scores — never blended into one number, per the spec.
+                SETUP is a real 0-100 (computeSetupScore, MTF spec §9,
+                2026-08-20) — "is a tradeable structure forming?", distinct
+                from QUALITY ("is this a strong stock?"); entryTypeDW's real
+                classification (Ideal/Breakout/Early/Pullback Entry) still
+                shown as a subtitle underneath, not replaced. */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))", gap: 8, marginBottom: 14 }}>
               {[
-                ["QUALITY", aPlusScore ? `${aPlusScore.score}/100` : "—", aPlusScore ? (aPlusScore.score >= 70 ? "#22d47e" : aPlusScore.score >= 45 ? "#d6a312" : "#ef4444") : C.textDim],
-                ["SETUP", entryTypeDW ? entryTypeDW.type : "No qualifying setup", entryTypeDW ? entryTypeDW.color : C.textDim],
-                ["ENTRY", sniperD ? sniperD.meta.label : "—", sniperD ? sniperD.meta.color : C.textDim],
-                ["EXIT RISK", heatD ? heatD.label : "—", heatD ? heatD.color : C.textDim],
-              ].map(([label, val, col]) => (
+                ["QUALITY", aPlusScore ? `${aPlusScore.score}/100` : "—", aPlusScore ? (aPlusScore.score >= 70 ? "#22d47e" : aPlusScore.score >= 45 ? "#d6a312" : "#ef4444") : C.textDim, null],
+                ["SETUP", setupScoreDW != null ? `${setupScoreDW}/100` : "—", setupScoreDW != null ? (setupScoreDW >= 70 ? "#22d47e" : setupScoreDW >= 45 ? "#d6a312" : "#ef4444") : C.textDim, entryTypeDW ? entryTypeDW.type : "No qualifying setup"],
+                ["ENTRY", sniperD ? sniperD.meta.label : "—", sniperD ? sniperD.meta.color : C.textDim, null],
+                ["EXIT RISK", heatD ? heatD.label : "—", heatD ? heatD.color : C.textDim, null],
+              ].map(([label, val, col, sub]) => (
                 <div key={label} style={{ border: `1px solid ${C.border}`, borderRadius: 8, padding: "7px 10px", background: C.card }}>
                   <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim, letterSpacing: 0.5 }}>{label}</div>
                   <div style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 800, color: col }}>{val}</div>
+                  {sub && <div style={{ fontFamily: SANS, fontSize: 9.5, color: C.textDim, marginTop: 1 }}>{sub}</div>}
                 </div>
               ))}
             </div>
@@ -1239,13 +1275,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                 15M/5M honestly unavailable rather than fabricated (spec's
                 own "missing data" rule) — real future phases. */}
             <div style={{ display: "flex", gap: 6, marginBottom: 6, flexWrap: "wrap", alignItems: "center" }}>
-              {(dwMtf ? dwMtf.reads : [
-                { tf: "1D", label: dwDailyBias || "loading…", known: !!dwDailyBias },
-                { tf: "4H", label: "loading…", known: false },
-                { tf: "1H", label: "loading…", known: false },
-                { tf: "15M", label: "not available yet", known: false },
-                { tf: "5M", label: "not available yet", known: false },
-              ]).map((r) => {
+              {mtfPanelReadsDW.map((r) => {
                 const col = !r.known ? C.textDim : r.value > 0.15 ? "#22d47e" : r.value < -0.15 ? "#ef4444" : "#d6a312";
                 return (
                   <div key={r.tf} title={r.tf === "4H" && symMtf?.swing4h?.reasons?.length ? symMtf.swing4h.reasons.join(" ") : r.tf === "1H" && symMtf?.early1h?.reasons?.length ? symMtf.early1h.reasons.join(" ") : undefined}
