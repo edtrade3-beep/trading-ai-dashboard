@@ -121,6 +121,21 @@ function JournalNotesPanel({ sym, C, MONO, SANS, setActiveTab }) {
     </div>
   );
 }
+// Real "as of Xm ago" formatter for the Decision Workspace's Confirmed
+// State panel (Phase 3, 2026-08-20) — same real pattern LightBoxCard.jsx
+// already established for the identical "confirmed can lag live" honesty
+// requirement, just module-scope here since MarketTerminalTab is one big
+// component rather than a small card.
+function ageLabelMtf(updatedAt) {
+  if (!updatedAt) return null;
+  const ms = Date.now() - new Date(updatedAt).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return null;
+  const mins = Math.round(ms / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.round(mins / 60);
+  return `${hrs}h ago`;
+}
 // Standalone twin of the SectionHeader defined inside the main component
 // below (that one closes over local `C`/tone vars via component scope;
 // this module-level component takes C/SANS as props instead, since
@@ -477,6 +492,24 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
       .catch(() => {});
   }, [sym]);
 
+  // Real persisted, server-confirmed 8-state read (MTF Decision System
+  // Phase 3, 2026-08-20) — the debounced WATCH/EARLY/START/ADD/HOLD/
+  // EXIT_WARNING/REDUCE/EXIT state, computed once server-side on a 15-min
+  // background tick (src/mtf-state-store.js), same "one authoritative
+  // background job, every client just reads it" discipline Light Box
+  // already uses. Only covers watchlist symbols the tick has rotated
+  // through — an honest null (not fabricated) for anything else, same as
+  // "4H data unavailable" elsewhere in this panel.
+  const [symMtfState, setSymMtfState] = useState(null);
+  useEffect(() => {
+    if (!sym) return;
+    setSymMtfState(null);
+    fetch(`/api/market/mtf-state?symbol=${encodeURIComponent(sym)}`)
+      .then(r => r.json())
+      .then(j => setSymMtfState(j && j.ok ? j.entry : null))
+      .catch(() => {});
+  }, [sym]);
+
   // Technical Foundation & V-Recovery Engine (2026-08-19, explicit user
   // spec) — gated specifically on the TECHNICAL section being open (not
   // the broader `deepOpen`), since this is TECHNICAL-only content and the
@@ -737,6 +770,20 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
     "AVOID":        { label: "AVOID",  icon: "🔴", color: "#c8282a" },
   };
   const dwState = cortexV ? (DW_STATE_MAP[cortexV.verdict] || { label: cortexV.verdict, icon: "⚪", color: C.textDim }) : null;
+  // Real 8-state machine's own vocabulary (Phase 3) — distinct from
+  // DW_STATE_MAP above, which is a live, any-symbol, instant bridge from
+  // Cortex Verdict's 5 states. This is the actual, persisted, debounced,
+  // position-aware state (watchlist symbols only, confirmed server-side).
+  const MTF_STATE_META = {
+    WATCH: { icon: "⚪", color: "#8b93a7" },
+    EARLY: { icon: "🟡", color: "#5ab552" },
+    START: { icon: "🟢", color: "#0d9465" },
+    ADD: { icon: "🔵", color: "#2563eb" },
+    HOLD: { icon: "🔵", color: "#2563eb" },
+    EXIT_WARNING: { icon: "🟡", color: "#d6a312" },
+    REDUCE: { icon: "🟠", color: "#e08a1e" },
+    EXIT: { icon: "🔴", color: "#c8282a" },
+  };
   const dwDailyBias = symTrend ? (
     (String(symTrend.stage || "").includes("2") && Number(symTrend.passCount || 0) >= 6) ? "BULLISH"
     : String(symTrend.stage || "").includes("4") ? "BEARISH" : "NEUTRAL"
@@ -1126,6 +1173,45 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             {dwMtf?.conflictNote && (
               <div style={{ fontFamily: SANS, fontSize: 11, color: "#e08a1e", background: "#e08a1e12", border: "1px solid #e08a1e33", borderRadius: 6, padding: "6px 10px", marginBottom: 12 }}>
                 ⚠️ MTF CONFLICT — {dwMtf.conflictNote}
+              </div>
+            )}
+
+            {/* Confirmed State + A+ Quality Gate checklist (Phase 3,
+                2026-08-20) — the real persisted, debounced, server-
+                confirmed 8-state read. Distinct from dwState above (a
+                live, instant, any-symbol bridge from Cortex Verdict):
+                this only exists for watchlist symbols the background tick
+                has actually rotated through, updates on its own 15-min
+                cadence, and requires sustained multi-tick agreement
+                before flipping — same "confirmed can lag live" honesty
+                Light Box's "as of Xm ago" label already established. */}
+            {symMtfState ? (
+              <div style={{ border: `1px solid ${(MTF_STATE_META[symMtfState.confirmed] || {}).color || C.border}44`, borderRadius: 10, padding: "10px 14px", marginBottom: 14 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: symMtfState.gate ? 8 : 0, flexWrap: "wrap" }}>
+                  <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.5 }}>CONFIRMED STATE</span>
+                  <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: (MTF_STATE_META[symMtfState.confirmed] || {}).color || C.text }}>
+                    {(MTF_STATE_META[symMtfState.confirmed] || {}).icon || "⚪"} {symMtfState.confirmed}
+                  </span>
+                  {symMtfState.updatedAt && (
+                    <span style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim }}>as of {ageLabelMtf(symMtfState.updatedAt)}</span>
+                  )}
+                </div>
+                {symMtfState.gate && (
+                  <div>
+                    <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 5 }}>
+                      A+ QUALITY GATE — {symMtfState.gate.checks.length - symMtfState.gate.failed.length}/{symMtfState.gate.checks.length} CONDITIONS MET{symMtfState.gate.pass ? "" : " · NOT READY"}
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                      {symMtfState.gate.checks.map((c, i) => (
+                        <span key={i} style={{ fontFamily: MONO, fontSize: 10.5, color: c.pass ? "#22d47e" : "#ef4444" }}>{c.pass ? "☑" : "☐"} {c.label} ({c.detail})</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textFaint || C.textDim, marginBottom: 14 }}>
+                Confirmed state not available — {sym} isn't in the watchlist rotation yet (only watchlist symbols get the debounced, server-confirmed state).
               </div>
             )}
 

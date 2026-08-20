@@ -2637,6 +2637,30 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
     return writeJson(res, 200, { ok: true, symbol, swing4h, early1h });
   }
 
+  // GET /api/market/mtf-state[?symbol=X] — the persisted, server-confirmed
+  // 8-state read (MTF Decision System Phase 3, 2026-08-20). Same real
+  // "route just reads, a background job does the real work" split as
+  // /api/market/lightbox — the actual state machine only ever advances
+  // inside tickMtfStates (src/mtf-state-store.js), on the background
+  // job's own schedule, never per-request; concurrent tabs/devices all
+  // read the same one server-confirmed answer, not their own counters.
+  if (pathname === "/api/market/mtf-state" && req.method === "GET") {
+    const { getMtfState } = require("../mtf-state-store");
+    const state = getMtfState();
+    const symbol = (searchParams.get("symbol") || "").trim().toUpperCase();
+    if (symbol) {
+      const entry = state.bySymbol[symbol] || null;
+      return writeJson(res, 200, { ok: true, symbol, entry, updatedAt: state.updatedAt });
+    }
+    return writeJson(res, 200, { ok: true, bySymbol: state.bySymbol, transitions: state.transitions.slice(0, 100), confirmBars: state.config.confirmBars, updatedAt: state.updatedAt });
+  }
+  if (pathname === "/api/market/mtf-state" && req.method === "POST") {
+    const { setConfirmBars } = require("../mtf-state-store");
+    let body; try { body = JSON.parse((await readRequestBody(req)) || "{}"); } catch { body = {}; }
+    const confirmBars = setConfirmBars(body?.confirmBars);
+    return writeJson(res, 200, { ok: true, confirmBars });
+  }
+
   // A+ Score forward-tracking report — real bucketed forward returns from
   // the daily snapshot log (aplus-score-history.js). A pure forward log,
   // not a historical backtest: any horizon with no real snapshot that far

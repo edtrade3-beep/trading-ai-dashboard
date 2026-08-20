@@ -404,6 +404,19 @@ server.listen(PORT, HOST, () => {
   registerJob("Light Box Confirm", 5 * 60_000, () => require("./src/lightbox-state-store").tickLightBox());
   console.log("[Light Box] Confirmation tick active — every 5 min (top 50 watchlist symbols), 4 AM-8 PM ET weekdays");
 
+  // MTF Decision System, Phase 3 (2026-08-20) — the 8-state
+  // WATCH/EARLY/START/ADD/HOLD/EXIT_WARNING/REDUCE/EXIT machine's
+  // background confirmation tick. Real, measured cost per symbol here is
+  // 3x Light Box's (a trend-screen row + real 4H bars + real 1H bars,
+  // ~11.5s for 25 symbols in local testing) — a 15-min interval (matching
+  // most other jobs' convention) plus MAX_SCAN_SYMBOLS=25 in
+  // mtf-state-store.js keeps each tick's real request burst well clear of
+  // the same rate-limit class of incident Light Box's own header
+  // documents above, without needing a shorter interval this job's real
+  // per-tick cost doesn't support yet.
+  registerJob("MTF Decision Tick", 15 * 60_000, () => require("./src/mtf-state-store").tickMtfStates());
+  console.log("[MTF Decision] Confirmation tick active — every 15 min (25 watchlist symbols per tick, rotating)");
+
   // News Intelligence ingestion (2026-08-19, explicit user spec: "Finviz
   // News Intelligence layer") — real provider (Finnhub->Polygon->Yahoo/
   // Google, the same authorized chain /api/market/news already uses) ->
