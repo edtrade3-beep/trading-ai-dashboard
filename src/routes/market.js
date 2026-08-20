@@ -2728,6 +2728,32 @@ Explain this.`;
     return writeJson(res, 200, { ok: true, ...buildOutcomeReport() });
   }
 
+  // GET /api/market/backtest?symbols=A,B,C&years=5 — the MTF Decision
+  // System's real historical backtest (Task #112, 2026-08-20): a real
+  // walk-forward replay of the Minervini trend template + Sniper Decision's
+  // ENTER_LONG trigger over each symbol's real daily history, broken out by
+  // real SPY-based market regime (BULL/BEAR/SIDEWAYS). Deliberately scoped
+  // to the daily layer only — see backtest-engine.js's own header for why
+  // 4H/1H/the state machine aren't included. On-demand, run synchronously
+  // per request (not a background job); symbols capped so one request can't
+  // run away — same rate-limit-safety instinct as this session's background
+  // jobs' own per-tick caps, just applied to a single request here instead.
+  if (pathname === "/api/market/backtest" && req.method === "GET") {
+    const MAX_SYMBOLS = 15;
+    const requested = (searchParams.get("symbols") || "").split(",").map((s) => s.trim().toUpperCase()).filter(Boolean);
+    const symbols = requested.slice(0, MAX_SYMBOLS);
+    if (!symbols.length) return writeJson(res, 400, { ok: false, error: "symbols query param required, e.g. ?symbols=AAPL,MSFT" });
+    const years = Math.max(1, Math.min(5, Number(searchParams.get("years")) || 5));
+    try {
+      const { runBacktestUniverse } = require("../backtest-engine");
+      const result = await runBacktestUniverse(symbols, { years });
+      const truncated = requested.length > symbols.length ? { requestedCount: requested.length, ranCount: symbols.length, cap: MAX_SYMBOLS } : null;
+      return writeJson(res, 200, { ok: true, ...result, truncated });
+    } catch (e) {
+      return writeJson(res, 200, { ok: false, error: e instanceof Error ? e.message : "backtest failed" });
+    }
+  }
+
   // A+ Score forward-tracking report — real bucketed forward returns from
   // the daily snapshot log (aplus-score-history.js). A pure forward log,
   // not a historical backtest: any horizon with no real snapshot that far
@@ -5480,4 +5506,6 @@ module.exports.fetchGammaForSymbol = fetchGammaForSymbol; // exposed for the sam
 module.exports.screenWatchlistCached = screenWatchlistCached; // exposed for the 3 watchlist-*-alerts.js background jobs (CTO audit item #4) — shared cache, not for live/manual-refresh routes
 module.exports.fetchDayTradeScanRows = fetchDayTradeScanRows; // exposed for watchlist-daytrade-alerts.js's real Day Trade Mode GREEN-signal alert
 module.exports.atrAt = atrAt; // exposed for daytrade-console-engine.js's real 15-min ATR (same real Wilder true-range formula, just fed intraday bars instead of daily)
+module.exports.ttSmaAt = ttSmaAt; // exposed for backtest-engine.js's point-in-time trend-template replay (same real SMA formula, just walked bar-by-bar over history)
+module.exports.ttWeightedMomentum = ttWeightedMomentum; // exposed for the same — the real IBD-style weighted-momentum formula behind the standalone RS Rating approximation
 module.exports.fetchMarketNews = fetchMarketNews; // exposed for src/news/provider.js's NewsProvider implementation — same real Finnhub->Polygon->Yahoo/Google chain this route already uses, not a second news fetch path

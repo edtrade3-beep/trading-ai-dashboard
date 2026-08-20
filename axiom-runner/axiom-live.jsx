@@ -116,6 +116,7 @@ import PortfolioRiskCard from "./components/PortfolioRiskCard.jsx";
 import TradingLessonCard from "./components/TradingLessonCard.jsx";
 import AplusScoreTrackCard from "./components/AplusScoreTrackCard.jsx";
 import MtfOutcomeTrackCard from "./components/MtfOutcomeTrackCard.jsx";
+import BacktestCard from "./components/BacktestCard.jsx";
 import DashboardTab, { MarketPulseCard, PortfolioSnapshotCard, computeRegimeLabel, Card } from "./components/DashboardTab.jsx";
 import { PerformanceCard } from "./components/terminal-panels.jsx";
 import TopOpportunityCard from "./components/TopOpportunityCard.jsx";
@@ -6682,6 +6683,7 @@ export default function App() {
               <PortfolioRiskCard C={C} MONO={MONO} SANS={SANS} distData={distData} />
               <AplusScoreTrackCard C={C} MONO={MONO} SANS={SANS} />
               <MtfOutcomeTrackCard C={C} MONO={MONO} SANS={SANS} />
+              <BacktestCard C={C} MONO={MONO} SANS={SANS} defaultSymbols={watchlistSymbols} />
               {/* My Performance — moved off Market Terminal (2026-07-25, user
                   request), same reasoning as the two cards above: a real
                   performance snapshot belongs with the other performance/
