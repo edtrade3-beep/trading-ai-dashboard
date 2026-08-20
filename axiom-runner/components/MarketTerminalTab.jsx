@@ -669,6 +669,18 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
     fetch("/api/market/aplus-track").then(r => r.json()).then(d => { if (d?.ok) setAplusTrack(d); }).catch(() => {});
   }, []);
 
+  // Position Sizing (MTF spec §26, 2026-08-20) — "never recommend position
+  // size without calculating risk." Real account equity, fetched once
+  // (not per-symbol, same pattern as aplusTrack above) from the existing
+  // /api/alpaca/account endpoint already used by the Portfolio page — no
+  // new backend route. riskPct is a real, user-adjustable input (default
+  // 1%, a common real risk-management convention), not hardcoded.
+  const [acctEquity, setAcctEquity] = useState(null);
+  const [riskPct, setRiskPct] = useState(1);
+  useEffect(() => {
+    fetch("/api/alpaca/account").then(r => r.json()).then(d => { if (d?.ok && Number.isFinite(d.equity)) setAcctEquity(d.equity); }).catch(() => {});
+  }, []);
+
   // Section 7 (Catalysts, institutional redesign 2026-07-29) — real
   // per-symbol insider transactions + analyst ratings, same existing
   // endpoints InsiderTab/AnalystPeerPanel already use market-wide, scoped
@@ -1217,7 +1229,14 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
         {symTrend && cortexV && dwState && (
           <div style={{ border: `1px solid ${dwState.color}55`, background: `${dwState.color}0d`, borderRadius: 12, padding: "16px 18px", marginBottom: 14 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4, flexWrap: "wrap" }}>
-              <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: 0.6 }}>🎯 DECISION WORKSPACE</span>
+              {/* Entry vs Position Management (MTF spec §42, 2026-08-20) —
+                  "do not confuse ENTRY RISK with POSITION EXIT RISK": the
+                  same 8-state ladder is shown either way (WATCH..EXIT is
+                  one continuous system, not two), but the heading itself
+                  now names which question is actually live for this
+                  symbol — real, based on whether an open Alpaca position
+                  exists (symPosition), not a guess. */}
+              <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: 0.6 }}>🎯 {symPosition ? "POSITION STATUS" : "ENTRY STATUS"}</span>
               <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: dwState.color }}>{dwState.icon} {dwState.label}</span>
               <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>(Cortex: {cortexV.verdict})</span>
               {/* Decision Strength + Data Quality (MTF spec §37/50/22,
@@ -1451,6 +1470,39 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                       ✗ Failed breakout on the 4H chart — price broke out, then closed back below resistance.
                     </div>
                   )}
+                  {/* Position Sizing (MTF spec §26, 2026-08-20) — "never
+                      recommend position size without calculating risk."
+                      Real account equity (/api/alpaca/account) × a real,
+                      adjustable risk % ÷ real risk-per-share (entry-stop,
+                      the same structural stop shown above) = shares. Only
+                      rendered once real entry/stop math exists. */}
+                  {sniperD?.entry != null && sniperD?.stop != null && sniperD.entry > sniperD.stop && (
+                    <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${C.border}` }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                        <span style={{ fontFamily: MONO, fontSize: 8.5, fontWeight: 800, color: C.textDim, letterSpacing: 0.5 }}>POSITION SIZING</span>
+                        <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                          <input type="number" min={0.1} max={10} step={0.1} value={riskPct}
+                            onChange={(e) => setRiskPct(Math.max(0.1, Math.min(10, Number(e.target.value) || 1)))}
+                            style={{ width: 40, fontFamily: MONO, fontSize: 10, background: C.surface || C.card, border: `1px solid ${C.border}`, borderRadius: 4, padding: "1px 4px", color: C.text }} />
+                          <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>% risk</span>
+                        </span>
+                      </div>
+                      {acctEquity != null ? (() => {
+                        const riskPerShare = sniperD.entry - sniperD.stop;
+                        const accountRisk = acctEquity * (riskPct / 100);
+                        const shares = Math.floor(accountRisk / riskPerShare);
+                        return (
+                          <div style={{ fontFamily: MONO, fontSize: 11, lineHeight: 1.6 }}>
+                            <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: C.textDim }}>Account Risk</span><span style={{ fontWeight: 700, color: C.text }}>${accountRisk.toFixed(2)}</span></div>
+                            <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: C.textDim }}>Risk/Share</span><span style={{ fontWeight: 700, color: C.text }}>${riskPerShare.toFixed(2)}</span></div>
+                            <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: C.textDim }}>Suggested Size</span><span style={{ fontWeight: 800, color: shares > 0 ? "#22d47e" : "#ef4444" }}>{shares > 0 ? `${shares} sh` : "0 sh — risk too tight"}</span></div>
+                          </div>
+                        );
+                      })() : (
+                        <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, fontStyle: "italic" }}>Account equity unavailable — sizing needs a real connected account.</div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1565,6 +1617,25 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                     </span> — {symPosition.dayTradeReason}
                   </div>
                 )}
+                {/* Profit Management at ~2R (MTF spec §31, 2026-08-20) —
+                    "consider taking 25-50%, do not automatically close the
+                    entire position." Real R-multiple off the SAME real
+                    plannedEntry/plannedStop the numbers above already show
+                    (identical formula routes/alpaca.js's own day-trade
+                    overlay uses for rNow — recomputed here, not
+                    reinvented, since that value isn't itself returned to
+                    the client). This specifically targets "selling too
+                    early" — a suggestion to trim, never an auto-exit. */}
+                {Number.isFinite(symPosition.plannedEntry) && Number.isFinite(symPosition.plannedStop) && symPosition.plannedEntry > symPosition.plannedStop && Number.isFinite(symPosition.current) && (() => {
+                  const risk = symPosition.plannedEntry - symPosition.plannedStop;
+                  const rNow = (symPosition.current - symPosition.plannedEntry) / risk;
+                  if (rNow < 2) return null;
+                  return (
+                    <div style={{ marginTop: 8, fontFamily: SANS, fontSize: 10.5, padding: "6px 9px", borderRadius: 6, color: "#0d9465", background: "#0d946512" }}>
+                      🎯 At {rNow.toFixed(1)}R — consider taking 25-50% off the table. If the trend stays healthy, let the rest run rather than closing the full position.
+                    </div>
+                  );
+                })()}
               </div>
             )}
 
