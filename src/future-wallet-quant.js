@@ -29,16 +29,15 @@ function sma(closes, period) {
   return slice.reduce((s, v) => s + v, 0) / period;
 }
 
-// Average True Range (Wilder, simple mean form) over `period` days.
+// Delegates to market.js's atrAt — the one shared, already-exported ATR
+// implementation (byte-identical Wilder true-range formula this file used
+// to duplicate locally; consolidated 2026-08-20, MTF Decision System
+// Phase 4). Lazy require, same circular-avoidance pattern this file
+// already uses for fetchMarketQuotes below.
 function atr(bars, period = 14) {
   if (!Array.isArray(bars) || bars.length < period + 1) return null;
-  const trs = [];
-  for (let i = bars.length - period; i < bars.length; i++) {
-    const cur = bars[i], prev = bars[i - 1];
-    if (!prev) continue;
-    trs.push(Math.max(cur.high - cur.low, Math.abs(cur.high - prev.close), Math.abs(cur.low - prev.close)));
-  }
-  return trs.length ? trs.reduce((s, v) => s + v, 0) / trs.length : null;
+  const { atrAt } = require("./routes/market");
+  return atrAt(bars, period, bars.length - 1);
 }
 
 function week52HighLow(bars) {

@@ -25,6 +25,7 @@ const { computeRegime, computeAPlusScore } = require("./trade-planner-scoring");
 const { deriveCandidateState, stepMtfState, GATE_DEFAULTS } = require("./mtf-decision-engine");
 const { computeSwingSetup } = require("./mtf-swing-engine");
 const { computeEarlyDevelopment } = require("./mtf-early-engine");
+const { computeAtrRiskLevels, computeAntiChase } = require("./atr-risk-engine");
 
 const STORE_PATH = path.join(ROOT, "data", "mtf-state.json");
 const DEFAULTS = { confirmBars: 2, confirmBarsMin: 1, confirmBarsMax: 10, maxTransitions: 200 };
@@ -103,6 +104,12 @@ async function tickMtfStates() {
       const aplus = computeAPlusScore(row, regime || {});
       const dailyBias = (String(row.stage || "").includes("2") && Number(row.passCount || 0) >= 6) ? "BULLISH"
         : String(row.stage || "").includes("4") ? "BEARISH" : "NEUTRAL";
+      // Real ATR-based levels (Phase 4) off the same 4H bars already
+      // fetched above — zero extra request. Additional lens alongside
+      // Sniper's own structural stop, not a replacement for it.
+      const currentPrice4h = r4h?.bars?.length ? r4h.bars[r4h.bars.length - 1].close : null;
+      const atrLevels = r4h ? computeAtrRiskLevels(r4h.bars, currentPrice4h) : { dataInsufficient: true };
+      const antiChase = computeAntiChase(Number(row.abovePivotPct));
 
       const prev = state.bySymbol[symbol];
       const ev = {
@@ -112,7 +119,7 @@ async function tickMtfStates() {
       };
       const { state: candidate, gate } = deriveCandidateState(ev, GATE_DEFAULTS);
       const stepped = stepMtfState(prev, candidate, generatedAt, confirmBars);
-      nextBySymbol[symbol] = { ...stepped, ev, gate, sniperReason: sniper.reason, sniperWaitingFor: sniper.waitingFor, heatReason: heat.reason, updatedAt: generatedAt };
+      nextBySymbol[symbol] = { ...stepped, ev, gate, sniperReason: sniper.reason, sniperWaitingFor: sniper.waitingFor, heatReason: heat.reason, atrLevels, antiChase, updatedAt: generatedAt };
 
       if (prev && stepped.confirmed !== prev.confirmed) {
         newTransitions.push({ ts: generatedAt, symbol, from: prev.confirmed, to: stepped.confirmed, quality: aplus.score });

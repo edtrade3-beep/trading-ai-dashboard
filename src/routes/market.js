@@ -2628,13 +2628,27 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
     const { fetchYahooCandlesWithIndicators } = require("../providers/yahoo");
     const { computeSwingSetup } = require("../mtf-swing-engine");
     const { computeEarlyDevelopment } = require("../mtf-early-engine");
+    const { computeAtrRiskLevels, computeAntiChase } = require("../atr-risk-engine");
+    // Real Anti-Chase read (Phase 4) — abovePivotPct is optional, passed
+    // through from the client's own already-fetched trend-screen row
+    // (server-side here has no other reason to fetch that same daily row
+    // a second time). Honest null band when omitted.
+    const abovePivotPct = searchParams.get("abovePivotPct");
+    const antiChase = abovePivotPct !== null ? computeAntiChase(Number(abovePivotPct)) : { band: null, label: null };
     const [r4h, r1h] = await Promise.all([
       fetchYahooCandlesWithIndicators(symbol, "4H").catch(() => null),
       fetchYahooCandlesWithIndicators(symbol, "1H").catch(() => null),
     ]);
     const swing4h = r4h ? computeSwingSetup(r4h.bars) : { state: null, reasons: [], dataInsufficient: true, reason: "4H data unavailable." };
     const early1h = r1h ? computeEarlyDevelopment({ bars: r1h.bars, indicators: r1h.indicators }) : { score: null, reasons: [], dataInsufficient: true };
-    return writeJson(res, 200, { ok: true, symbol, swing4h, early1h });
+    // Real ATR-based stop/target/trailing-stop (Phase 4, 2026-08-20) — off
+    // the same 4H bars already fetched above for SWING_SETUP, zero extra
+    // request. A distinct, additional lens from Sniper Decision's own
+    // structural stop, not a replacement for it — both are shown,
+    // labeled, in the Decision Workspace's Entry Map.
+    const currentPrice = r4h?.bars?.length ? r4h.bars[r4h.bars.length - 1].close : null;
+    const atrLevels = r4h ? computeAtrRiskLevels(r4h.bars, currentPrice) : { atr: null, stop: null, target1: null, target2: null, trailingStop: null, dataInsufficient: true };
+    return writeJson(res, 200, { ok: true, symbol, swing4h, early1h, atrLevels, antiChase });
   }
 
   // GET /api/market/mtf-state[?symbol=X] — the persisted, server-confirmed

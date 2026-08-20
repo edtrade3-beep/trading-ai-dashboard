@@ -39,18 +39,16 @@ function clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
 // ~10-line formula is the SAME pattern already used independently by
 // risk-lab-calc.js, meanrev-paper.js, future-wallet-quant.js, and
 // routes/under10.js in this codebase, not a new anti-pattern.
+// Delegates to market.js's atrAt — the one shared, already-exported ATR
+// implementation (byte-identical Wilder true-range formula this file used
+// to duplicate locally; consolidated 2026-08-20, MTF Decision System
+// Phase 4). Lazy require (not top-level) — market.js lazily requires this
+// file's computeFoundationAnalysis inside its own route handler, same
+// circular-require avoidance lightbox-state-store.js's tick already uses
+// for the identical reason.
 function atr(bars, period, endIdx) {
-  if (endIdx - period < 0) return null;
-  let sum = 0;
-  for (let i = endIdx - period + 1; i <= endIdx; i += 1) {
-    const tr = Math.max(
-      bars[i].high - bars[i].low,
-      Math.abs(bars[i].high - bars[i - 1].close),
-      Math.abs(bars[i].low - bars[i - 1].close),
-    );
-    sum += tr;
-  }
-  return sum / period;
+  const { atrAt } = require("./routes/market");
+  return atrAt(bars, period, endIdx);
 }
 
 // ── 1. V-Recovery detection (spec §2) ───────────────────────────────────────

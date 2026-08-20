@@ -486,11 +486,16 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   useEffect(() => {
     if (!sym) return;
     setSymMtf(null);
-    fetch(`/api/market/mtf?symbol=${encodeURIComponent(sym)}`)
+    // abovePivotPct passed through once symTrend has loaded (Phase 4) so
+    // the server can compute a real Anti-Chase read — re-fires when it
+    // arrives rather than requiring symTrend to already be loaded first,
+    // since the two fetches otherwise race.
+    const apctParam = Number.isFinite(symTrend?.abovePivotPct) ? `&abovePivotPct=${symTrend.abovePivotPct}` : "";
+    fetch(`/api/market/mtf?symbol=${encodeURIComponent(sym)}${apctParam}`)
       .then(r => r.json())
       .then(j => setSymMtf(j && j.ok ? j : null))
       .catch(() => {});
-  }, [sym]);
+  }, [sym, symTrend?.abovePivotPct]);
 
   // Real persisted, server-confirmed 8-state read (MTF Decision System
   // Phase 3, 2026-08-20) — the debounced WATCH/EARLY/START/ADD/HOLD/
@@ -1236,6 +1241,56 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                     <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11.5, padding: "3px 0" }}>
                       <span style={{ color: C.textDim }}>R:R</span>
                       <span style={{ fontWeight: 700, color: sniperD.rr >= 2 ? "#22d47e" : C.text }}>{sniperD.rr.toFixed(2)}:1</span>
+                    </div>
+                  )}
+                  {/* ATR-based levels (Phase 4, 2026-08-20) — a distinct,
+                      additional lens off real 4H ATR, shown alongside
+                      (never replacing) Sniper's structural stop above.
+                      Both are real; they answer slightly different
+                      questions (structural low vs. volatility-scaled). */}
+                  {symMtf?.atrLevels && !symMtf.atrLevels.dataInsufficient && (
+                    <div style={{ marginTop: 10, paddingTop: 8, borderTop: `1px solid ${C.border}` }}>
+                      <div style={{ fontFamily: MONO, fontSize: 8.5, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 4 }}>ATR LEVELS (4H, 1.5x/2R/3R)</div>
+                      {[
+                        ["Stop", symMtf.atrLevels.stop],
+                        ["Target 1", symMtf.atrLevels.target1],
+                        ["Target 2", symMtf.atrLevels.target2],
+                        ["Trailing", symMtf.atrLevels.trailingStop],
+                      ].filter(([, v]) => v != null).map(([l, v]) => (
+                        <div key={l} style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11, padding: "2px 0" }}>
+                          <span style={{ color: C.textDim }}>{l}</span>
+                          <span style={{ fontWeight: 700, color: C.textSec }}>${v.toFixed(2)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {/* Anti-Chase (Phase 4) — real extension-from-breakout
+                      band off row.abovePivotPct, the same % Sniper
+                      Decision's own NO_CHASE reason already surfaces. */}
+                  {symMtf?.antiChase?.band && symMtf.antiChase.band !== "NOT_YET_BROKEN_OUT" && (
+                    <div style={{
+                      marginTop: 8, fontFamily: SANS, fontSize: 10.5, padding: "5px 8px", borderRadius: 6,
+                      color: symMtf.antiChase.band === "NORMAL" ? "#0d9465" : symMtf.antiChase.band === "DO_NOT_CHASE" ? "#c8282a" : "#e08a1e",
+                      background: symMtf.antiChase.band === "NORMAL" ? "#0d946512" : symMtf.antiChase.band === "DO_NOT_CHASE" ? "#c8282a12" : "#e08a1e12",
+                    }}>
+                      {symMtf.antiChase.band === "DO_NOT_CHASE" ? "⚠️ " : ""}{symMtf.antiChase.label}
+                      {symMtf.antiChase.waitingFor && <div style={{ marginTop: 2, opacity: 0.85 }}>{symMtf.antiChase.waitingFor}</div>}
+                    </div>
+                  )}
+                  {/* Breakout Retest (Phase 4) — real, already-computed by
+                      detectPriceAction (daytrade-console-engine.js, reused
+                      via mtf-swing-engine.js's 4H read) — retest/
+                      failedBreakout aren't new math, just surfaced here
+                      explicitly instead of only living in the 4H chip's
+                      hover tooltip. */}
+                  {symMtf?.swing4h?.priceAction?.retest === true && (
+                    <div style={{ marginTop: 8, fontFamily: SANS, fontSize: 10.5, padding: "5px 8px", borderRadius: 6, color: "#0d9465", background: "#0d946512" }}>
+                      ✓ Retest confirmed on the 4H chart — support held after breaking out.
+                    </div>
+                  )}
+                  {symMtf?.swing4h?.priceAction?.failedBreakout === true && (
+                    <div style={{ marginTop: 8, fontFamily: SANS, fontSize: 10.5, padding: "5px 8px", borderRadius: 6, color: "#c8282a", background: "#c8282a12" }}>
+                      ✗ Failed breakout on the 4H chart — price broke out, then closed back below resistance.
                     </div>
                   )}
                 </div>
