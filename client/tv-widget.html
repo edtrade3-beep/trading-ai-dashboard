@@ -48,6 +48,7 @@
           if (name === "ma200") return { id: "MASimple@tv-basicstudies", inputs: { length: 200 } };
           if (name === "ema150") return { id: "MAExp@tv-basicstudies", inputs: { length: 150 } };
           if (name === "ema200") return { id: "MAExp@tv-basicstudies", inputs: { length: 200 } };
+          if (name === "wma150") return { id: "MAWeighted@tv-basicstudies", inputs: { length: 150 } };
           if (name === "bb")    return { id: "BB@tv-basicstudies" };
           if (name === "vwap")  return { id: "VWAP@tv-basicstudies" };
           if (name === "volume") return { id: "Volume@tv-basicstudies" };
@@ -92,13 +93,28 @@
         // distinction by coloring this group.
         var accent = theme === "dark" ? "#5b9cf6" : "#2563eb";
         var studiesOverrides = {};
+        // SMA group's color changed from sharing `accent` to its own
+        // #7c5cff (2026-08-20) — now that MarketTerminalTab.jsx's 3-line
+        // chart deliberately mixes 3 different study TYPES (EMA 50 / WMA
+        // 150 / SMA 200, see below) specifically so each can carry its own
+        // real studies_overrides color (confirmed live: this widget only
+        // honors color overrides per study TYPE, never per instance — 3
+        // same-type lines are stuck sharing one color, verified today by
+        // re-testing per-instance `overrides` specifically for EMA and
+        // WMA, both silently ignored same as the original 2026-08-06 SMA
+        // finding). Sharing `accent` with EMA would recreate the exact
+        // "can't tell them apart" complaint this whole fix responds to.
         if (st.indexOf("ma50") !== -1 || st.indexOf("ma150") !== -1 || st.indexOf("ma200") !== -1) {
-          studiesOverrides["moving average.MA.color"] = accent;
+          studiesOverrides["moving average.MA.color"] = "#7c5cff";
           studiesOverrides["moving average.MA.linewidth"] = 2;
         }
         if (st.indexOf("ema50") !== -1 || st.indexOf("ema150") !== -1 || st.indexOf("ema200") !== -1) {
           studiesOverrides["moving average exponential.MA.color"] = accent;
           studiesOverrides["moving average exponential.MA.linewidth"] = 2;
+        }
+        if (st.indexOf("wma150") !== -1) {
+          studiesOverrides["moving average weighted.MA.color"] = "#e08a1e";
+          studiesOverrides["moving average weighted.MA.linewidth"] = 2;
         }
         if (st.indexOf("bb") !== -1) {
           studiesOverrides["bollinger bands.Basis.color"] = "#4ea86e";
