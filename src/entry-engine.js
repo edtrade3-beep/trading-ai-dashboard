@@ -112,10 +112,29 @@ function computeQualifyingConditions(ev = {}) {
 // a confirmed (and not overextended) BREAKOUT, or a held RETEST. EARLY/
 // CONFIRMATION use the real current price (a starter/scaling entry at
 // today's real, tradeable price), never a forward-looking number.
-function computeEntryStage({ price, pivot, atr, breakoutConfirmed, extended, priceAction, qualifying, zones, thresholds = {} }) {
+//
+// structureBroken is a HARD gate, checked before anything else — a real
+// reported bug (2026-08-20): the qualifying-conditions tally alone let a
+// stock accumulate enough OTHER passing conditions to reach EARLY even
+// with 4H structure BROKEN, since structure4h was just one input among
+// twelve. "Do not allow an early entry when the higher-timeframe
+// structure is broken" is now unconditional, not a matter of degree —
+// no combination of other real evidence can outweigh it. This blocks
+// EARLY/CONFIRMATION/BREAKOUT/RETEST alike; it is explicitly NOT a
+// permanent AVOID — the caller re-evaluates every real tick, so as soon
+// as the real 4H read moves BROKEN -> REPAIRING -> HEALTHY, normal staging
+// resumes automatically.
+function computeEntryStage({ price, pivot, atr, breakoutConfirmed, extended, priceAction, qualifying, zones, thresholds = {}, structureBroken }) {
   const gate = { ...GATE_DEFAULTS, ...thresholds };
   const sizing = { ...SIZING_DEFAULTS, ...thresholds };
   const pa = priceAction || {};
+
+  if (structureBroken === true) {
+    return {
+      stage: "STRUCTURE_BROKEN", entryPrice: null, sizingPct: 0,
+      recommendedAction: "4H structure broken — waiting for repair. No new entry (Early, Confirmation, Breakout, or Retest) until it heals back to Developing/Strong.",
+    };
+  }
 
   if (pa.failedBreakout === true) {
     return {
@@ -195,6 +214,7 @@ function computeEntryPlan(ev = {}, thresholds = {}) {
   const stageResult = computeEntryStage({
     price: ev.price, pivot: ev.pivot, atr: ev.atr, breakoutConfirmed: !!ev.breakoutConfirmed,
     extended: !!ev.extended, priceAction: ev.priceAction, qualifying, zones, thresholds,
+    structureBroken: ev.swing4hState === "BROKEN",
   });
 
   return {

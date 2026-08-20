@@ -62,10 +62,17 @@ export function computeQualifyingConditions(ev = {}) {
   return { count, total: checks.length, checks };
 }
 
-export function computeEntryStage({ price, pivot, atr, breakoutConfirmed, extended, priceAction, qualifying, zones, thresholds = {} }) {
+export function computeEntryStage({ price, pivot, atr, breakoutConfirmed, extended, priceAction, qualifying, zones, thresholds = {}, structureBroken }) {
   const gate = { ...GATE_DEFAULTS, ...thresholds };
   const sizing = { ...SIZING_DEFAULTS, ...thresholds };
   const pa = priceAction || {};
+
+  if (structureBroken === true) {
+    return {
+      stage: "STRUCTURE_BROKEN", entryPrice: null, sizingPct: 0,
+      recommendedAction: "4H structure broken — waiting for repair. No new entry (Early, Confirmation, Breakout, or Retest) until it heals back to Developing/Strong.",
+    };
+  }
 
   if (pa.failedBreakout === true) {
     return {
@@ -139,6 +146,7 @@ export function computeEntryPlan(ev = {}, thresholds = {}) {
   const stageResult = computeEntryStage({
     price: ev.price, pivot: ev.pivot, atr: ev.atr, breakoutConfirmed: !!ev.breakoutConfirmed,
     extended: !!ev.extended, priceAction: ev.priceAction, qualifying, zones, thresholds,
+    structureBroken: ev.swing4hState === "BROKEN",
   });
 
   return {

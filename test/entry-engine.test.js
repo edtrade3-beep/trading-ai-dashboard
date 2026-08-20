@@ -77,11 +77,22 @@ ok("1. Below pivot + improving structure -> EARLY, entryPrice = real current pri
   assert.ok(plan.sizingPct > 0 && plan.sizingPct <= 25, `expected a real starter-size allocation, got ${plan.sizingPct}`);
 });
 
-ok("2. Below pivot + weak structure -> NONE, no entry offered at all", () => {
-  const plan = computeEntryPlan(WEAK_EVIDENCE);
-  assert.strictEqual(plan.stage, "NONE", `expected NONE, got ${plan.stage}`);
+ok("2. Below pivot + weak structure -> STRUCTURE_BROKEN (4H broken is a hard gate), no entry offered at all", () => {
+  const plan = computeEntryPlan(WEAK_EVIDENCE); // WEAK_EVIDENCE has swing4hState: "BROKEN"
+  assert.strictEqual(plan.stage, "STRUCTURE_BROKEN", `expected STRUCTURE_BROKEN, got ${plan.stage}`);
   assert.strictEqual(plan.entryPrice, null);
   assert.strictEqual(plan.sizingPct, 0);
+});
+
+ok("REGRESSION (real reported bug, 2026-08-20): 4H BROKEN must block EARLY even when every OTHER condition passes", () => {
+  // Every other real condition strong enough to reach EARLY on its own —
+  // the exact bug pattern reported: an Early Entry Zone showing as
+  // available while 4H structure was broken, because structure4h was
+  // just one of twelve weighted conditions instead of a hard gate.
+  const almostAllStrongButBrokenStructure = { ...STRONG_EVIDENCE, swing4hState: "BROKEN" };
+  const plan = computeEntryPlan(almostAllStrongButBrokenStructure);
+  assert.strictEqual(plan.stage, "STRUCTURE_BROKEN", `4H BROKEN must hard-block the entry regardless of ${plan.qualifying.count}/${plan.qualifying.total} other conditions passing, got stage=${plan.stage}`);
+  assert.strictEqual(plan.entryPrice, null, "CRITICAL: no real executable entry may be offered while 4H is broken");
 });
 
 ok("3. Confirmed breakout -> BREAKOUT, entryPrice IS the pivot (the one case this is legitimate)", () => {
@@ -115,13 +126,15 @@ ok("7. Missing timeframe data -> honestly reflects a small denominator, never fa
   assert.notStrictEqual(plan.stage, "CONFIRMATION", "2/2 available conditions passing must not be confused with real multi-timeframe confirmation");
 });
 
-ok("8. Conflicting timeframes -> a real mixed tally, resolves to FOUNDATION (not a false EARLY)", () => {
+ok("8. Conflicting timeframes -> a real mixed tally (4H weak, not broken), resolves to FOUNDATION (not a false EARLY)", () => {
   const mixed = {
     // 3 real conditions pass (dailyTrend, momentum1h, volumeTrend), 7 real
     // conditions fail — a genuine higher-vs-lower-timeframe conflict
-    // (daily bullish, 4H broken), not a clean strong/weak split.
+    // (daily bullish, 4H weak). Deliberately WEAK not BROKEN here — the
+    // hard structural gate is covered by its own dedicated regression
+    // test above; this one exercises the separate weighted-tally path.
     price: 175, pivot: 227, atr: 5, contractionLow: 170,
-    dailyBias: "BULLISH", swing4hState: "BROKEN",
+    dailyBias: "BULLISH", swing4hState: "WEAK",
     rsiTrend1h: { direction: "up", accelerating: false },
     volTrend1h: { direction: "up" },
     rsRating: 40, higherLows: false, tightening: false, vcpVerdict: "INVALID VCP",

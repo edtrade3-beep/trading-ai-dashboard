@@ -237,6 +237,7 @@ import { computeMtfAlignment } from "./mtf-combiner.js";
 // entryPlanDW replaces sniperD.entry as the source of "what IS the real,
 // executable entry right now."
 import { computeEntryPlan } from "./entry-engine.js";
+import { computeSimpleDecision } from "./simple-decision.js";
 import AiScoreExplainer, {
   AplusBadge, TRADE_SETUP_DIMENSIONS, STOCK_QUALITY_DIMENSIONS, INSTITUTIONAL_GRADE_DIMENSIONS,
   TECHNICAL_DIMENSIONS, TIMING_DIMENSIONS, AI_TRADE_ENGINE_DIMENSIONS, FOUNDATION_DIMENSIONS, FOUNDATION_LABEL,
@@ -334,6 +335,13 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   // doesn't want it stays hidden across symbols/sessions, not just a
   // per-view collapse. Default on (matches existing behavior).
   const [showTrendRating, setShowTrendRating] = useState(() => { try { return localStorage.getItem("chart_trend_rating_visible") !== "off"; } catch { return true; } });
+  // Full detailed Entry/Decision analysis — collapsed by default
+  // (2026-08-20, "5-Second Rule" simplification). The simple decision
+  // card above answers the trade in 5 seconds; the full staged plan,
+  // score boxes, and MTF panel are still fully computed and available,
+  // just not the FIRST thing shown, per the explicit "the user should
+  // see the conclusion, not 20 different scores" directive.
+  const [showFullEntryAnalysis, setShowFullEntryAnalysis] = useState(false);
   const toggleTrendRating = () => {
     setShowTrendRating(v => { const nv = !v; try { localStorage.setItem("chart_trend_rating_visible", nv ? "on" : "off"); } catch {} return nv; });
   };
@@ -962,6 +970,19 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
     stop: sniperD.stop, target1: sniperD.target1, target2: sniperD.target2, trailingStop: symMtf?.atrLevels?.trailingStop,
   }) : null;
 
+  // "5-Second Rule" simplified decision (2026-08-20, explicit user
+  // directive — "the trader should open the Workspace and understand the
+  // trade in 5 seconds," "do NOT display dozens of competing signals").
+  // Zero new scoring: entryPlanDW above already has the hard 4H-broken
+  // gate and real zones; this just reduces everything already computed
+  // on this page to one decision/one reason/one action. See
+  // simple-decision.js for the full design.
+  const simpleDecisionDW = entryPlanDW ? computeSimpleDecision({
+    dailyBias: dwDailyBias, swing4hState: symMtf?.swing4h?.state, early1h: symMtf?.early1h,
+    entry15mStatus: symMtf?.entry15m?.status, rr: sniperD?.rr, entryPlan: entryPlanDW,
+    hasPosition: !!symPosition, dayTradeState: symPosition?.dayTradeState, dayTradeReason: symPosition?.dayTradeReason,
+  }) : null;
+
   // Exit Panel dimensions (Phase 5, 2026-08-20) — 6 real, already-computed
   // reads bucketed into good/bad/unknown, matching the spec's "Momentum/
   // RS/structure/Support/Trailing stop, each a colored dot" mockup. No new
@@ -1283,13 +1304,58 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             {oneLiner && <span style={{ color: C.textDim }}>· {oneLiner}</span>}
           </div>
         )}
+        {/* The "5-Second Rule" card (2026-08-20) — the real, single answer:
+            one decision, one reason, one next action, plus the 4 simple
+            timeframe reads. This is the FIRST thing shown, per the
+            explicit directive that a trader should understand the trade
+            without interpreting "20 different scores." Everything below
+            it (the full staged Entry Plan, 4 score boxes, MTF panel) is
+            still fully computed and available — just collapsed by
+            default now, not deleted. */}
+        {simpleDecisionDW && (
+          <div style={{ border: `2px solid ${simpleDecisionDW.color}`, background: `${simpleDecisionDW.color}0d`, borderRadius: 12, padding: "16px 18px", marginBottom: 14 }}>
+            <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.6, marginBottom: 6 }}>DECISION</div>
+            <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: simpleDecisionDW.color, marginBottom: 8 }}>{simpleDecisionDW.icon} {simpleDecisionDW.label}</div>
+            <div style={{ fontFamily: SANS, fontSize: 13, color: C.text, marginBottom: 10 }}><b>Why:</b> {simpleDecisionDW.why}</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(90px, 1fr))", gap: 8, marginBottom: 10 }}>
+              {[
+                ["TREND", simpleDecisionDW.trend],
+                ["STRUCTURE", simpleDecisionDW.structure],
+                ["SETUP", simpleDecisionDW.setup],
+                ["TIMING", simpleDecisionDW.timing],
+              ].map(([label, val]) => {
+                const good = val === "BULLISH" || val === "HEALTHY" || val === "READY";
+                const bad = val === "BEARISH" || val === "BROKEN" || val === "WEAK" || val === "NOT_READY";
+                const col = val == null ? C.textDim : good ? "#22d47e" : bad ? "#ef4444" : "#d6a312";
+                return (
+                  <div key={label} style={{ border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 9px", background: C.card }}>
+                    <div style={{ fontFamily: MONO, fontSize: 8.5, fontWeight: 700, color: C.textDim }}>{label}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: col }}>{val ? val.replace("_", " ") : "—"}</div>
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(90px, 1fr))", gap: 8, fontFamily: MONO, fontSize: 12, marginBottom: 10 }}>
+              <div><span style={{ color: C.textDim }}>Entry </span><b style={{ color: simpleDecisionDW.entryZone === "BLOCKED" ? "#ef4444" : C.text }}>{simpleDecisionDW.entryZone || "—"}</b></div>
+              <div><span style={{ color: C.textDim }}>Pivot </span><b style={{ color: C.text }}>{simpleDecisionDW.pivot != null ? `$${simpleDecisionDW.pivot.toFixed(2)}` : "—"}</b></div>
+              <div><span style={{ color: C.textDim }}>Stop </span><b style={{ color: C.text }}>{simpleDecisionDW.stop != null ? `$${simpleDecisionDW.stop.toFixed(2)}` : "—"}</b></div>
+              <div><span style={{ color: C.textDim }}>Target </span><b style={{ color: C.text }}>{simpleDecisionDW.target != null ? `$${simpleDecisionDW.target.toFixed(2)}` : "—"}</b></div>
+            </div>
+            <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.textSec }}><b>Next:</b> {simpleDecisionDW.next}</div>
+            <button onClick={() => setShowFullEntryAnalysis((v) => !v)}
+              style={{ marginTop: 10, fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, padding: "4px 10px", cursor: "pointer" }}>
+              {showFullEntryAnalysis ? "Hide full analysis ▴" : "Show full analysis ▾"}
+            </button>
+          </div>
+        )}
         {/* Decision Workspace (2026-08-20, Phase 1 — "I have 30 seconds,
-            tell me what to do"). Always-visible, above the collapsible
-            6-section hierarchy below — deliberately not itself an
-            AccordionSection, since the whole point is it shouldn't need
-            opening. Pure composition of symTrend/aPlusScore/sniperD/heatD/
-            cortexV computed above; no new fetch, no new scoring math. */}
-        {symTrend && cortexV && dwState && (
+            tell me what to do"). Full detailed analysis, collapsed by
+            default beneath the simple decision card above — every real
+            engine (Quality/Setup/Entry/Exit Risk scores, staged Entry
+            Plan, MTF panel) is still fully computed, just secondary now.
+            Pure composition of symTrend/aPlusScore/sniperD/heatD/cortexV
+            computed above; no new fetch, no new scoring math. */}
+        {showFullEntryAnalysis && symTrend && cortexV && dwState && (
           <div style={{ border: `1px solid ${dwState.color}55`, background: `${dwState.color}0d`, borderRadius: 12, padding: "16px 18px", marginBottom: 14 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4, flexWrap: "wrap" }}>
               {/* Entry vs Position Management (MTF spec §42, 2026-08-20) —
@@ -1783,7 +1849,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
 
         {/* ══════════════════════ DECISION (open by default) ══════════════════════ */}
         <AccordionSection id="decision" icon="🎯" label="Decision"
-          summary={decisionInputs ? `${decisionInputs.vLabel} · A+ ${aPlusScore ? aPlusScore.score : "—"} · Entry $${decisionInputs.su.entry} / Stop $${decisionInputs.su.stop} / Target $${decisionInputs.target1R}` : "Loading…"}
+          summary={decisionInputs ? `${decisionInputs.vLabel} · A+ ${aPlusScore ? aPlusScore.score : "—"} · ${entryPlanDW?.entryPrice != null ? `Entry $${entryPlanDW.entryPrice}` : "Entry blocked"} / Stop $${decisionInputs.su.stop} / Target $${decisionInputs.target1R}` : "Loading…"}
           C={C} MONO={MONO} SANS={SANS} openSection={openSection} setOpenSection={setOpenSection}>
         {/* ── Decision Card — minimal default view (2026-08-19, explicit
             user wireframe): verdict / A+ score / entry-stop-target /
@@ -1791,12 +1857,19 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             fetched for the primary view (chart.setup from trend-template,
             symTrend/aPlusScore from trend-screen, regime from macroData) —
             zero new fetches. */}
+        {/* Entry Engine fix (2026-08-20): DecisionCard below was the
+            second real occurrence of "conflicting messages" the user
+            reported — it kept showing "ENTRY $227.92" (the pivot) right
+            below the new simple Decision card even when that card
+            correctly said WAIT/BLOCKED. Now passed the real
+            entryPlanDW.entryPrice (honest "—" when there isn't one)
+            instead of always falling back to the pivot. */}
         {decisionInputs && (
           <DecisionCard C={C} MONO={MONO} SANS={SANS} NUM={NUM}
             symbol={sym}
             verdictIcon={decisionInputs.vIcon} verdictLabel={decisionInputs.vLabel} verdictColor={decisionInputs.vColor}
             aPlusScore={aPlusScore ? aPlusScore.score : null}
-            entry={decisionInputs.su.entry} stop={decisionInputs.su.stop} target={decisionInputs.target1R}
+            entry={entryPlanDW?.entryPrice} stop={decisionInputs.su.stop} target={decisionInputs.target1R}
             trendColor={decisionInputs.trendColor} volumeColor={decisionInputs.volColor} riskColor={decisionInputs.riskColor}
             hideToggle />
         )}
@@ -1882,7 +1955,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
 
         {/* ══════════════════════ SETUP ══════════════════════ */}
         <AccordionSection id="setup" icon="📐" label="Setup"
-          summary={decisionInputs ? `Entry $${decisionInputs.su.entry} · Stop $${decisionInputs.su.stop} · Target $${decisionInputs.target1R}` : "—"}
+          summary={decisionInputs ? `Pivot $${decisionInputs.su.entry} · Stop $${decisionInputs.su.stop} · Target $${decisionInputs.target1R}` : "—"}
           C={C} MONO={MONO} SANS={SANS} openSection={openSection} setOpenSection={setOpenSection}>
         {/* SECTION 2 — Execution Card (2026-08-04 decision-first redesign,
             explicit user spec) — real Entry/Stop/Targets (TrendSetupPanel,
