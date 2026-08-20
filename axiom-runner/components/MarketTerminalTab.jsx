@@ -305,6 +305,18 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   // doesn't re-fire them, but switching symbols while one is open still
   // gets fresh data.
   const fullAnalysisFetchedForRef = useRef(null);
+  // Data-identity guard (MTF Decision System, data-integrity audit,
+  // 2026-08-20) — the symbol most recently REQUESTED via loadSym. Every
+  // fetch that can write `chart` checks this before calling setChart, so a
+  // slow response for a symbol the user has already navigated away from
+  // (real network latency has no ordering guarantee — a fetch fired for
+  // symbol A can resolve AFTER a later fetch fired for symbol B) can never
+  // overwrite the currently-displayed symbol's price/company data with a
+  // different symbol's. This is the concrete root cause of a real reported
+  // bug (CLSK's header showing "NVIDIA Corporation") — the same race
+  // existed, unguarded, in every per-symbol fetch effect below; each now
+  // carries its own local `cancelled` guard (same fix, effect-scoped).
+  const chartRequestRef = useRef(null);
   const [chartTf, setChartTf] = useState("1d"); // chart candle granularity, 5m → 1wk
   // Trend & Base Rating overlay visibility (2026-08-06, explicit user
   // request "make trend base rating hidable") — persisted so a user who
@@ -394,9 +406,10 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
     if (symbol !== sym) fullAnalysisFetchedForRef.current = null;
     const useTf = tf || chartTf;
     setSym(symbol); setLoadingChart(true);
+    chartRequestRef.current = symbol; // this is now the one symbol allowed to write `chart`
     fetch(`/api/market/trend-template?symbol=${encodeURIComponent(symbol)}&interval=${encodeURIComponent(useTf)}`)
       .then(r => r.json())
-      .then(d => { if (!d.error) setChart(d); })
+      .then(d => { if (!d.error && chartRequestRef.current === symbol) setChart(d); })
       .catch(() => {})
       .finally(() => setLoadingChart(false));
   }, [chartTf, sym]);
@@ -414,9 +427,10 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   // chart zoom) so price + setup stay current during the session.
   useEffect(() => {
     if (!sym) return;
+    const symbol = sym;
     const t = setInterval(() => {
-      fetch(`/api/market/trend-template?symbol=${encodeURIComponent(sym)}&interval=${encodeURIComponent(chartTf)}`)
-        .then(r => r.json()).then(d => { if (d && !d.error) setChart(d); }).catch(() => {});
+      fetch(`/api/market/trend-template?symbol=${encodeURIComponent(symbol)}&interval=${encodeURIComponent(chartTf)}`)
+        .then(r => r.json()).then(d => { if (d && !d.error && chartRequestRef.current === symbol) setChart(d); }).catch(() => {});
     }, 45000);
     return () => clearInterval(t);
   }, [sym, chartTf]);
@@ -458,9 +472,11 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   const [fund, setFund] = useState(null);
   useEffect(() => {
     if (!sym || !deepOpen) return;
+    let cancelled = false;
     setFund(null);
     fetch("/api/market/fundamentals?symbol=" + encodeURIComponent(sym))
-      .then(r => r.json()).then(j => setFund(j && !j.error ? j : null)).catch(() => {});
+      .then(r => r.json()).then(j => { if (!cancelled) setFund(j && !j.error ? j : null); }).catch(() => {});
+    return () => { cancelled = true; };
   }, [sym, deepOpen]);
 
   // Own trend-screen row for the loaded symbol — the Movers/Watchlist
@@ -471,11 +487,13 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   const [symTrend, setSymTrend] = useState(null);
   useEffect(() => {
     if (!sym) return;
+    let cancelled = false;
     setSymTrend(null);
     fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(sym)}`)
       .then(r => r.json())
-      .then(j => { const row = (j.results || []).find(r => !r.error); setSymTrend(row || null); })
+      .then(j => { if (cancelled) return; const row = (j.results || []).find(r => !r.error); setSymTrend(row || null); })
       .catch(() => {});
+    return () => { cancelled = true; };
   }, [sym]);
 
   // Real 4H SWING_SETUP + 1H EARLY_DEVELOPMENT reads (MTF Decision System
@@ -485,6 +503,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   const [symMtf, setSymMtf] = useState(null);
   useEffect(() => {
     if (!sym) return;
+    let cancelled = false;
     setSymMtf(null);
     // abovePivotPct passed through once symTrend has loaded (Phase 4) so
     // the server can compute a real Anti-Chase read — re-fires when it
@@ -493,8 +512,9 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
     const apctParam = Number.isFinite(symTrend?.abovePivotPct) ? `&abovePivotPct=${symTrend.abovePivotPct}` : "";
     fetch(`/api/market/mtf?symbol=${encodeURIComponent(sym)}${apctParam}`)
       .then(r => r.json())
-      .then(j => setSymMtf(j && j.ok ? j : null))
+      .then(j => { if (!cancelled) setSymMtf(j && j.ok ? j : null); })
       .catch(() => {});
+    return () => { cancelled = true; };
   }, [sym, symTrend?.abovePivotPct]);
 
   // Real persisted, server-confirmed 8-state read (MTF Decision System
@@ -508,11 +528,13 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   const [symMtfState, setSymMtfState] = useState(null);
   useEffect(() => {
     if (!sym) return;
+    let cancelled = false;
     setSymMtfState(null);
     fetch(`/api/market/mtf-state?symbol=${encodeURIComponent(sym)}`)
       .then(r => r.json())
-      .then(j => setSymMtfState(j && j.ok ? j.entry : null))
+      .then(j => { if (!cancelled) setSymMtfState(j && j.ok ? j.entry : null); })
       .catch(() => {});
+    return () => { cancelled = true; };
   }, [sym]);
 
   // Decision History (Phase 5, 2026-08-20) — the real persisted state-
@@ -537,11 +559,13 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   const [symPosition, setSymPosition] = useState(null);
   useEffect(() => {
     if (!sym) return;
+    let cancelled = false;
     setSymPosition(null);
     fetch("/api/alpaca/positions")
       .then(r => r.json())
-      .then(j => { const pos = (j?.positions || []).find(p => p.symbol === sym); setSymPosition(pos || null); })
+      .then(j => { if (cancelled) return; const pos = (j?.positions || []).find(p => p.symbol === sym); setSymPosition(pos || null); })
       .catch(() => {});
+    return () => { cancelled = true; };
   }, [sym]);
 
   // AI Explanation Layer (Phase 6) — explicit opt-in button, same real
@@ -563,11 +587,13 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
     if (!sym || openSection !== "technical") return;
     if (foundationFetchedForRef.current === sym) return;
     foundationFetchedForRef.current = sym;
+    let cancelled = false;
     setSymFoundation(null);
     fetch(`/api/market/foundation?symbol=${encodeURIComponent(sym)}`)
       .then(r => r.json())
-      .then(j => setSymFoundation(j && j.ok ? j : null))
+      .then(j => { if (!cancelled) setSymFoundation(j && j.ok ? j : null); })
       .catch(() => {});
+    return () => { cancelled = true; };
   }, [sym, openSection]);
 
   // Real call/put notional summary for the loaded symbol — the one input
@@ -583,11 +609,13 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   const [symOptionsFlow, setSymOptionsFlow] = useState(null);
   useEffect(() => {
     if (!sym || !deepOpen) return;
+    let cancelled = false;
     setSymOptionsFlow(null);
     fetch(`/api/market/options-flow?symbols=${encodeURIComponent(sym)}&limit=1`)
       .then(r => r.json())
-      .then(j => setSymOptionsFlow(j && !j.error ? j.summary || null : null))
+      .then(j => { if (!cancelled) setSymOptionsFlow(j && !j.error ? j.summary || null : null); })
       .catch(() => {});
+    return () => { cancelled = true; };
   }, [sym, deepOpen]);
 
   // AI Trade Engine inputs (options platform redesign, Phase 3) — real
@@ -617,18 +645,21 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
     if (!sym || !deepOpen) return;
     if (fullAnalysisFetchedForRef.current === sym) return;
     fullAnalysisFetchedForRef.current = sym;
+    let cancelled = false;
     setSymDarkPool(null); setSymNewsSentiment(null); setSymGamma(null); setSymShortInterest(null);
-    fetch(`/api/market/darkpool?symbol=${encodeURIComponent(sym)}`).then(r => r.json()).then(j => setSymDarkPool(j?.ok ? j : null)).catch(() => {});
-    fetch(`/api/market/gamma?symbol=${encodeURIComponent(sym)}`).then(r => r.json()).then(j => setSymGamma(j?.ok ? j : null)).catch(() => {});
-    fetch(`/api/market/short-interest?tickers=${encodeURIComponent(sym)}`).then(r => r.json()).then(j => setSymShortInterest(j?.ok ? (j.results || [])[0] || null : null)).catch(() => {});
+    fetch(`/api/market/darkpool?symbol=${encodeURIComponent(sym)}`).then(r => r.json()).then(j => { if (!cancelled) setSymDarkPool(j?.ok ? j : null); }).catch(() => {});
+    fetch(`/api/market/gamma?symbol=${encodeURIComponent(sym)}`).then(r => r.json()).then(j => { if (!cancelled) setSymGamma(j?.ok ? j : null); }).catch(() => {});
+    fetch(`/api/market/short-interest?tickers=${encodeURIComponent(sym)}`).then(r => r.json()).then(j => { if (!cancelled) setSymShortInterest(j?.ok ? (j.results || [])[0] || null : null); }).catch(() => {});
     fetch(`/api/market/news?tickers=${encodeURIComponent(sym)}&limit=20`).then(r => r.json())
       .then(j => {
+        if (cancelled) return;
         // /api/market/news returns a bare array of {title, publisher, ...} — see fetchMarketNews, routes/market.js.
         const headlines = (Array.isArray(j) ? j : []).map(a => a.title || "").filter(Boolean);
         if (!headlines.length) return;
         return fetch("/api/agent/sentiment-by-symbol", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ headlines }) })
-          .then(r => r.json()).then(d => { if (d?.ok) setSymNewsSentiment(d); });
+          .then(r => r.json()).then(d => { if (!cancelled && d?.ok) setSymNewsSentiment(d); });
       }).catch(() => {});
+    return () => { cancelled = true; };
   }, [sym, deepOpen]);
 
   // Real forward-return win-probability log — market-wide, fetched once
@@ -651,9 +682,11 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   const [symAnalyst, setSymAnalyst] = useState(null);
   useEffect(() => {
     if (!sym || !deepOpen) return;
+    let cancelled = false;
     setSymInsider(null); setSymAnalyst(null);
-    fetch(`/api/market/insider?ticker=${encodeURIComponent(sym)}`).then(r => r.json()).then(j => setSymInsider(j?.ok ? j : null)).catch(() => {});
-    fetch(`/api/market/analyst?tickers=${encodeURIComponent(sym)}`).then(r => r.json()).then(j => setSymAnalyst(Array.isArray(j?.results) ? j.results[0] : (Array.isArray(j) ? j[0] : null))).catch(() => {});
+    fetch(`/api/market/insider?ticker=${encodeURIComponent(sym)}`).then(r => r.json()).then(j => { if (!cancelled) setSymInsider(j?.ok ? j : null); }).catch(() => {});
+    fetch(`/api/market/analyst?tickers=${encodeURIComponent(sym)}`).then(r => r.json()).then(j => { if (!cancelled) setSymAnalyst(Array.isArray(j?.results) ? j.results[0] : (Array.isArray(j) ? j[0] : null)); }).catch(() => {});
+    return () => { cancelled = true; };
   }, [sym, deepOpen]);
 
   const [wlMsg, setWlMsg] = useState("");
