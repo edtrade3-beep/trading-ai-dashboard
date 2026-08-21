@@ -1,15 +1,18 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import RhProScanner from "./RhProScanner.jsx";
 import SmartScanTab from "./SmartScanTab.jsx";
 import MarketTerminalTab from "./MarketTerminalTab.jsx";
 
 // ScanTerminalHub — Discover + Smart Scan + Workspace merged into one tab
 // (2026-08-20, explicit user request: "I want one tab combine all three
-// somehow"). Confirmed via AskUserQuestion: split-screen master/detail (a
-// scan table on one side, Workspace's single-symbol deep-dive on the
-// other, updating in place — no tab navigation), both real scan universes
-// (Discover's ~100-symbol full market, Smart Scan's curated watchlist)
-// available via a toggle, not merged into one new table.
+// somehow"). A full-width scan table on top (toggle between Discover's
+// ~100-symbol full market and Smart Scan's curated watchlist — both real
+// universes, not merged into one new table), Workspace's single-symbol
+// deep-dive in a collapsible panel below it, updating in place — no tab
+// navigation. Originally shipped as a side-by-side split with a draggable
+// divider; replaced with this collapsible bottom panel per explicit
+// follow-up feedback ("dont like it to be dragged i want it to be hidden
+// to bottom not side").
 //
 // Technical approach, chosen after reading MarketTerminalTab.jsx directly:
 // it has no controlled `sym` prop — it owns its symbol as internal state
@@ -60,38 +63,19 @@ export default function ScanTerminalHub({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scanMode]);
 
-  // Draggable split (2026-08-20, explicit user request) — left-pane width
-  // as a persisted percentage, dragged via a real mousedown/mousemove/
-  // mouseup sequence on the divider between the two panes (no drag
-  // library — plain DOM listeners, same "small, dependency-free" bar
-  // every other interactive bit in this app clears). Clamped to keep both
-  // panes usable; only applies in the side-by-side (non-mobile) layout.
-  const containerRef = useRef(null);
-  const [leftPct, setLeftPct] = useState(() => {
-    try { const v = Number(localStorage.getItem("scanhub_split")); return Number.isFinite(v) && v >= 25 && v <= 70 ? v : 44; } catch { return 44; }
-  });
-  const [dragging, setDragging] = useState(false);
-  const onDividerMouseDown = useCallback((e) => {
-    e.preventDefault();
-    setDragging(true);
-    const container = containerRef.current;
-    if (!container) return;
-    const onMove = (ev) => {
-      const rect = container.getBoundingClientRect();
-      const pct = Math.round(((ev.clientX - rect.left) / rect.width) * 100);
-      setLeftPct(Math.max(25, Math.min(70, pct)));
-    };
-    const onUp = () => {
-      setDragging(false);
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-      setLeftPct(v => { try { localStorage.setItem("scanhub_split", String(v)); } catch {} return v; });
-    };
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-  }, []);
+  // Bottom detail panel (2026-08-20, replaces the side-by-side draggable
+  // split per explicit user feedback: "dont like it to be dragged i want
+  // it to be hidden to bottom not side") — the scan table now runs full
+  // width, and Workspace's deep-dive lives in a collapsible panel below
+  // it instead of a resizable side pane. Collapsed by default (matches
+  // this app's own established "real content, just not the first thing
+  // shown" convention — same as RhProScanner's showManageUniverse etc);
+  // selecting a symbol auto-opens it, and it can be collapsed again
+  // without losing the selection.
+  const [detailOpen, setDetailOpen] = useState(false);
+  const detailRef = useRef(null);
 
-  // Right-pane symbol — lazy (nothing fetches until a real row click),
+  // Detail-panel symbol — lazy (nothing fetches until a real row click),
   // remembered across visits (separate key from mterminal_load_sym, which
   // is the one-shot mount-time signal consumed by MarketTerminalTab
   // itself; scanhub_last_symbol just remembers the choice for next time).
@@ -106,6 +90,8 @@ export default function ScanTerminalHub({
     if (!sym) return;
     try { localStorage.setItem("scanhub_last_symbol", sym); localStorage.setItem("mterminal_load_sym", sym); } catch {}
     setSelectedSymbolRaw(sym);
+    setDetailOpen(true);
+    setTimeout(() => detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
   };
 
   // "Open in Smart Scan" (Discover's row-expand button, RhProScanner.jsx)
@@ -141,14 +127,9 @@ export default function ScanTerminalHub({
     </button>
   );
 
-  const paneHeight = "calc(100vh - 210px)";
-  const stack = !!isMobile; // real mobile devices stack top/bottom instead of splitting side by side
-
   return (
-    <div ref={containerRef} style={{ display: "flex", flexDirection: stack ? "column" : "row", gap: stack ? 14 : 0, alignItems: "flex-start",
-      userSelect: dragging ? "none" : undefined }}>
-      <div style={{ flex: stack ? "1 1 auto" : `0 0 ${leftPct}%`, minWidth: 0, width: stack ? "100%" : undefined,
-        maxHeight: stack ? undefined : paneHeight, overflowY: stack ? "visible" : "auto", overflowX: "auto", paddingRight: stack ? 0 : 10 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div>
         <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
           {toggleBtn("discover", "🎯 Discover — Full Market")}
           {toggleBtn("smartscan", "🔍 Smart Scan — Watchlist")}
@@ -193,24 +174,30 @@ export default function ScanTerminalHub({
           />
         )}
       </div>
-      {!stack && (
-        <div onMouseDown={onDividerMouseDown} title="Drag to resize"
-          style={{ flex: "0 0 10px", width: 10, cursor: "col-resize", alignSelf: "stretch",
-            display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div style={{ width: 3, height: dragging ? "100%" : 36, borderRadius: 2,
-            background: dragging ? C.accent : C.border, transition: dragging ? "none" : "height 0.15s" }} />
-        </div>
-      )}
-      <div style={{ flex: stack ? "1 1 auto" : "1 1 auto", minWidth: 0, width: stack ? "100%" : undefined,
-        maxHeight: stack ? undefined : paneHeight, overflowY: stack ? "visible" : "auto",
-        border: `1px solid ${C.border}`, borderRadius: 10, padding: selectedSymbol ? 0 : "40px 20px" }}>
-        {selectedSymbol ? (
-          <MarketTerminalTab key={selectedSymbol} C={C} MONO={MONO} SANS={SANS} sectorData={sectorData} macroData={macroData}
-            distData={distData} onDeepDive={openDeepDiveFor} setActiveTab={setActiveTab}
-            preMktMovers={preMktMovers} marketSession={marketSession} isMobile={true} />
-        ) : (
-          <div style={{ textAlign: "center", fontFamily: SANS, fontSize: 14, color: C.textDim }}>
-            Click a symbol on the left to see its full analysis here — same real Decision / Setup / Technical / Market / Business / Intelligence read Workspace has always shown, just without leaving this tab.
+      {/* Bottom detail panel — collapsible, not a side pane (2026-08-20,
+          explicit user feedback). Header always visible so the panel is
+          discoverable even before a symbol's been picked; body only
+          renders (and MarketTerminalTab only mounts, so nothing fetches)
+          while open. */}
+      <div ref={detailRef} style={{ border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" }}>
+        <button onClick={() => setDetailOpen(v => !v)}
+          style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+            padding: "12px 16px", background: C.card, border: "none", cursor: "pointer",
+            fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text }}>
+          <span>📈 {selectedSymbol ? `${selectedSymbol} — Full Analysis` : "Full Analysis"}</span>
+          <span style={{ color: C.accent }}>{detailOpen ? "▴ Hide" : "▾ Show"}</span>
+        </button>
+        {detailOpen && (
+          <div style={{ padding: selectedSymbol ? 14 : "40px 20px", borderTop: `1px solid ${C.border}` }}>
+            {selectedSymbol ? (
+              <MarketTerminalTab key={selectedSymbol} C={C} MONO={MONO} SANS={SANS} sectorData={sectorData} macroData={macroData}
+                distData={distData} onDeepDive={openDeepDiveFor} setActiveTab={setActiveTab}
+                preMktMovers={preMktMovers} marketSession={marketSession} isMobile={isMobile} />
+            ) : (
+              <div style={{ textAlign: "center", fontFamily: SANS, fontSize: 14, color: C.textDim }}>
+                Click a symbol above to see its full analysis here — same real Decision / Setup / Technical / Market / Business / Intelligence read Workspace has always shown, just without leaving this tab.
+              </div>
+            )}
           </div>
         )}
       </div>
