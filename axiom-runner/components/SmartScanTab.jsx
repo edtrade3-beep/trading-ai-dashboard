@@ -5,6 +5,8 @@ import { FIVEX_REF } from "./fivex-data.js";
 import { computeAPlusScore, computeRegime, computePrediction } from "./market-helpers.js";
 import { computeSniperDecision } from "./sniper-decision.js";
 import { computeHeatRisk, computeCortexVerdict } from "./cortex-engine.js";
+import { computeEntryPlan } from "./entry-engine.js";
+import { classifyDeepScanDecision, DECISION_LABELS } from "./btc-hpc-scan.js";
 import { PanelErrorBoundary } from "./ui-atoms.jsx";
 import DecisionCard from "./DecisionCard.jsx";
 import { NUM } from "./theme.js";
@@ -1350,7 +1352,9 @@ export default function SmartScanTab({
                                       const hi52v = Number(row.quote?.yearHigh || 0);
                                       const lo52v = Number(row.quote?.yearLow  || 0);
 
-                                      // Trend score
+                                      // Trend score — kept as a lightweight visual dot only now
+                                      // (Trend/Volume/Risk indicator below), NOT the verdict
+                                      // driver anymore — see ONE ENGINE below.
                                       const ttChecks = [
                                         ma200v > 0 && px > ma200v, ma50v > 0 && ma200v > 0 && ma50v > ma200v,
                                         ma50v > 0 && px > ma50v, lo52v > 0 && px >= lo52v * 1.30,
@@ -1359,67 +1363,57 @@ export default function SmartScanTab({
                                       ].filter(Boolean).length;
                                       const trendScore = Math.round(ttChecks / 7 * 100);
 
-                                      // Build verdict using the engine
+                                      // ONE ENGINE (2026-08-20, explicit user architecture
+                                      // directive — "There must NOT be two decision engines...
+                                      // two different versions of the truth"). This used to
+                                      // compute its own independent composite/hard-rule verdict
+                                      // (techScore*0.30 + trendScore*0.35 + smcScore*0.20 +
+                                      // macdScore*0.15, its own A+ LONG/LONG/WATCH LONG/SHORT/
+                                      // NEUTRAL/AVOID/CONFLICT SETUP labels). Now calls the EXACT
+                                      // SAME entry-engine.js + classifyDeepScanDecision the BTC+
+                                      // HPC Deep Scan uses, off the SAME real trend-screen row
+                                      // computeAPlusScore/computeSniperDecision above already
+                                      // read — the same symbol shows the same decision everywhere.
+                                      //
+                                      // Real, disclosed scope change: long only. No canonical
+                                      // short-side risk engine exists anywhere in this app yet
+                                      // (Phase 1's own note — Workspace itself is long-only), so
+                                      // this file's previous independent SHORT/WATCH SHORT labels
+                                      // are retired rather than kept as a second, unreconciled
+                                      // system. A real bearish SMC/structure read still surfaces
+                                      // below as a disclosed note, just not as a competing verdict
+                                      // with its own stop/target math.
+                                      const dailyBiasSS = trendRow ? ((String(trendRow.stage || "").includes("2") && Number(trendRow.passCount || 0) >= 6) ? "BULLISH" : String(trendRow.stage || "").includes("4") ? "BEARISH" : "NEUTRAL") : null;
+                                      const target1SS = trendRow && trendRow.entry > trendRow.stop ? Math.round((trendRow.entry + (trendRow.entry - trendRow.stop)) * 100) / 100 : null;
+                                      const rrSS = Number.isFinite(target1SS) && trendRow && trendRow.entry > trendRow.stop ? Math.round(((target1SS - trendRow.entry) / (trendRow.entry - trendRow.stop)) * 100) / 100 : null;
+                                      const entryPlanSS = trendRow ? computeEntryPlan({
+                                        price: px || trendRow.price, pivot: trendRow.pivot, atr: null, contractionLow: trendRow.contractionLow,
+                                        dailyBias: dailyBiasSS, rsRating: trendRow.rsRating, higherLows: trendRow.higherLows, tightening: trendRow.tightening,
+                                        vcpVerdict: trendRow.vcpVerdict, vwap20: trendRow.technicals?.vwap20, rr: rrSS,
+                                        breakoutConfirmed: trendRow.breakoutConfirmed, extended: trendRow.extended, priceAction: {},
+                                        stop: trendRow.stop, target1: target1SS, target2: trendRow.target2,
+                                      }) : null;
+                                      const aplusSS = trendRow ? computeAPlusScore(trendRow, smartScanRegime) : null;
+                                      const deepDecision = entryPlanSS ? classifyDeepScanDecision({ entryPlan: entryPlanSS, aPlusScore: aplusSS?.score }) : null;
+
+                                      // Real SMC BOS/CHoCH — kept as real, disclosed
+                                      // supplementary evidence (not discarded), but no longer
+                                      // independently drives the final verdict.
                                       const bosType  = smc?.bos?.type || null;
                                       const chochType= smc?.choch?.type || null;
-                                      const smcScore = bosType === "BULL_BOS" ? 80 : bosType === "BEAR_BOS" ? 20 : chochType === "CHOCH_BEAR" ? 35 : 50;
-                                      const macdScore= row.macdBull === true ? 72 : row.macdBull === false ? 30 : 50;
-                                      const techScore= row.score || 50;
+                                      const smcNote = bosType === "BULL_BOS" ? "Smart Money: Bull BOS — bullish structure break"
+                                        : bosType === "BEAR_BOS" ? "Smart Money: Bear BOS — bearish structure break"
+                                        : chochType === "CHOCH_BEAR" ? "Smart Money: bearish Change of Character"
+                                        : chochType === "CHOCH_BULL" ? "Smart Money: bullish Change of Character"
+                                        : null;
 
-                                      const composite = Math.round(techScore * 0.30 + trendScore * 0.35 + smcScore * 0.20 + macdScore * 0.15);
-
-                                      // Hard rules
-                                      const bearBOS     = bosType === "BEAR_BOS";
-                                      const bullBOS     = bosType === "BULL_BOS";
-                                      const belowEMA21  = row.ema21v && px > 0 && px < row.ema21v;
-                                      const trendWeak   = trendScore < 45;
-                                      const techBull    = techScore >= 65;
-                                      const smcBear     = smcScore <= 35 || bearBOS;
-
-                                      let vLabel, vColor, vIcon, vAction, vSetup, vWarnings = [];
-
-                                      if (bearBOS && belowEMA21) {
-                                        vLabel = "AVOID / WAIT"; vColor = "#ff4444"; vIcon = "⛔";
-                                        vAction = "Bear BOS + below EMA21 — institutional sellers in control. Do not buy.";
-                                        vSetup = "Distribution / Topping";
-                                        vWarnings = ["Bear BOS: structure broke down", "Price below EMA21", "Wait for reversal signal"];
-                                      } else if (techBull && smcBear && trendWeak) {
-                                        vLabel = "CONFLICT SETUP"; vColor = "#ffaa00"; vIcon = "⚠️";
-                                        vAction = "Momentum bullish but trend/structure bearish. Reduce size or wait.";
-                                        vSetup = "Conflicting Signals";
-                                        vWarnings = ["SMC structure is bearish", "Trend is weak", "Not a quality long setup"];
-                                      } else if (techBull && smcBear) {
-                                        vLabel = "CONFLICT SETUP"; vColor = "#ffaa00"; vIcon = "⚠️";
-                                        vAction = "Technical score is high but smart money signals are bearish.";
-                                        vSetup = "Tech vs SMC Conflict";
-                                        vWarnings = ["Tech momentum: bullish", "SMC structure: bearish", "Wait for alignment"];
-                                      } else if (composite >= 82 && bullBOS && !trendWeak) {
-                                        vLabel = "A+ LONG"; vColor = "#00e676"; vIcon = "🚀";
-                                        vAction = "Full alignment. Enter now or on next pullback to MA50.";
-                                        vSetup = bullBOS ? "Breakout" : "Trend Continuation";
-                                      } else if (composite >= 68 && !trendWeak) {
-                                        vLabel = "LONG"; vColor = "#4caf50"; vIcon = "✅";
-                                        vAction = "Good setup — confirm with volume before entry.";
-                                        vSetup = "Trend Continuation";
-                                        if (trendWeak) vWarnings.push("Trend is weak — use smaller size");
-                                      } else if (composite >= 55) {
-                                        vLabel = "WATCH LONG"; vColor = "#26a69a"; vIcon = "👁";
-                                        vAction = "Setup forming — wait for clearer trigger.";
-                                        vSetup = "Developing Setup";
-                                        vWarnings = ["Not confirmed — wait for Bull BOS or volume spike"];
-                                      } else if (composite <= 32) {
-                                        vLabel = "SHORT"; vColor = "#ff2244"; vIcon = "🔴";
-                                        vAction = "Bearish confluence — reduce longs or short.";
-                                        vSetup = "Breakdown";
-                                      } else if (composite <= 44) {
-                                        vLabel = "WATCH SHORT"; vColor = "#ff9800"; vIcon = "👁";
-                                        vAction = "Weakness developing — monitor for breakdown.";
-                                        vSetup = "Distribution";
-                                      } else {
-                                        vLabel = "NEUTRAL"; vColor = "#607494"; vIcon = "—";
-                                        vAction = "No clear edge — stay flat.";
-                                        vSetup = "No Setup";
-                                      }
+                                      const vLabel = deepDecision ? (DECISION_LABELS[deepDecision.decision] || deepDecision.decision) : "—";
+                                      const vColor = deepDecision?.color ?? "#607494";
+                                      const vIcon  = deepDecision?.icon ?? "—";
+                                      const vAction = deepDecision?.reason ?? "Not enough real data yet.";
+                                      const vSetup = entryPlanSS ? entryPlanSS.stage.replace(/_/g, " ") : "No Setup";
+                                      const composite = aplusSS ? aplusSS.score : 0;
+                                      const vWarnings = smcNote ? [smcNote] : [];
 
                                       const vBg = `${vColor}0e`;
 
@@ -1435,8 +1429,20 @@ export default function SmartScanTab({
                                       // (TECHNICALS/TREND/STRUCTURE) are superseded by
                                       // DecisionCard's own Trend/Volume/Risk dots below, which add
                                       // a real Volume read (computeRvol) the old boxes didn't have.
+                                      // Long only (see ONE ENGINE note above) — isShort is
+                                      // always false now, kept only so the (currently dead)
+                                      // short-side branches below degrade harmlessly rather
+                                      // than being ripped out mid-refactor.
                                       const isShort = /SHORT|SELL/i.test(vLabel);
-                                      const isAvoid = !isShort && /AVOID|WAIT|NEUTRAL/i.test(vLabel);
+                                      // Derived directly from the real engine's own entryPrice
+                                      // (null exactly when there's no real, executable entry —
+                                      // FOUNDATION/NONE/STRUCTURE_BROKEN/FAILED_BREAKOUT/extended
+                                      // BREAKOUT all correctly land here), not a label regex —
+                                      // a label-text match missed the EXTENDED — DON'T CHASE case
+                                      // (no "AVOID"/"WAIT" substring), which would have let the
+                                      // position calculator below offer a real trade size for a
+                                      // setup the engine itself says not to chase.
+                                      const isAvoid = !isShort && (!entryPlanSS || entryPlanSS.entryPrice == null);
                                       const acct    = Number(riskAccount || 10000);
                                       const riskPctFrac = Number(riskPct || 1) / 100;
                                       const riskAmt = acct * riskPctFrac;
@@ -1505,18 +1511,11 @@ export default function SmartScanTab({
                                           fullAnalysisLabel="Options, Technicals, SMC, News, Analyst & Earnings"
                                           extra={<>
                                           <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginBottom: 6 }}>Setup: {vSetup} · Alignment {composite}/100</div>
-                                          {/* Disclosure (2026-08-20, same "conflicting messages"
-                                              audit that fixed the Decision Workspace's Entry Engine)
-                                              — this verdict is a genuinely distinct read (real Smart
-                                              Money Concepts BOS/CHoCH structure + trend/MACD, not the
-                                              same evidence the Decision Workspace's simplified 1D/4H/
-                                              1H/15M decision uses), so it can legitimately disagree
-                                              with what that page shows for the same symbol. Disclosed
-                                              rather than silently forced to match — merging them would
-                                              throw away the real SMC read this card exists for. */}
-                                          <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, marginBottom: 6, fontStyle: "italic" }}>
-                                            SMC/trend-based read — can differ from the Decision Workspace's own verdict for the same symbol.
-                                          </div>
+                                          {/* ONE ENGINE (2026-08-20) — this verdict now comes from
+                                              the SAME real entry-engine.js/classifyDeepScanDecision
+                                              the Decision Workspace uses (see the computation above),
+                                              so the prior "can differ from the Decision Workspace"
+                                              disclosure no longer applies — retired, not stale-left. */}
                                           {/* Row 2: Action */}
                                           <div style={{ fontFamily: SANS, fontSize: 13, color: C.textSec, marginBottom: vWarnings.length ? 8 : 8, lineHeight: 1.5 }}>
                                             {vAction}

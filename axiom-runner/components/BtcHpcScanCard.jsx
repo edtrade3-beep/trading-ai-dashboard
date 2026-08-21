@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { DECISION_LABELS } from "./btc-hpc-scan.js";
 
 // BTC + HPC Deep Scan (explicit user request, 2026-08-20). A dedicated
 // view for the real BTC-mining/HPC-hosting pivot universe (IREN/WULF/
@@ -10,11 +11,10 @@ import { useState, useEffect } from "react";
 // customer quality, execution risk) are AI-extracted from real fetched
 // news only (explicit user choice) — always shown with that disclosure,
 // never presented as a verified numeric field.
-
-const DECISION_LABELS = {
-  A_PLUS_EARLY_BUY: "A+ EARLY BUY", BUY: "BUY", PULLBACK_BUY: "PULLBACK BUY",
-  WAIT: "WAIT", EXTENDED: "EXTENDED — DON'T CHASE", AVOID: "AVOID",
-};
+//
+// DECISION_LABELS now lives in btc-hpc-scan.js (client twin) — reused by
+// SmartScanTab.jsx's deep-dive verdict too (2026-08-20, "ONE ENGINE"
+// unification), so both screens show the exact same words.
 
 function pct(v, digits = 1) { return Number.isFinite(v) ? `${v >= 0 ? "+" : ""}${(v * (Math.abs(v) < 3 ? 100 : 1)).toFixed(digits)}%` : "—"; }
 function dollars(v) { return Number.isFinite(v) ? `$${v >= 1e9 ? (v / 1e9).toFixed(2) + "B" : v >= 1e6 ? (v / 1e6).toFixed(1) + "M" : v.toLocaleString()}` : "—"; }
