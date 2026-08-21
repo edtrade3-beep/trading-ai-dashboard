@@ -1414,18 +1414,26 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
               </div>
             )}
 
-            {/* Separated scores — never blended into one number, per the spec.
-                SETUP is a real 0-100 (computeSetupScore, MTF spec §9,
-                2026-08-20) — "is a tradeable structure forming?", distinct
-                from QUALITY ("is this a strong stock?"); entryTypeDW's real
-                classification (Ideal/Breakout/Early/Pullback Entry) still
-                shown as a subtitle underneath, not replaced. */}
+            {/* Separated scores — never blended into one number, per the
+                spec (§4, "critical"): "Setup Score: is the stock
+                attractive?" vs "Entry Score: is now a good time?" must be
+                shown as a clearly labeled matched pair. Relabeled
+                2026-08-21 — this row previously showed SETUP SCORE's real
+                data (stockQualityBreakdown, "is this a strong stock?")
+                nowhere, and mislabeled ENTRY SCORE's real data (aPlusScore,
+                genuinely a timing/entry-readiness score) as "QUALITY".
+                computeSetupScore's real VCP structure read (previously
+                mislabeled "SETUP" here, which collided with the spec's own
+                "Setup Score" name for a different real number) isn't
+                deleted — it keeps its own honestly-named STRUCTURE tile
+                below so no real signal is lost. */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))", gap: 8, marginBottom: 14 }}>
               {[
-                ["QUALITY", aPlusScore ? `${aPlusScore.score}/100` : "—", aPlusScore ? (aPlusScore.score >= 70 ? "#22d47e" : aPlusScore.score >= 45 ? "#d6a312" : "#ef4444") : C.textDim, null],
-                ["SETUP", setupScoreDW != null ? `${setupScoreDW}/100` : "—", setupScoreDW != null ? (setupScoreDW >= 70 ? "#22d47e" : setupScoreDW >= 45 ? "#d6a312" : "#ef4444") : C.textDim, entryTypeDW ? entryTypeDW.type : "No qualifying setup"],
+                ["SETUP SCORE", stockQuality ? `${stockQuality.score}/100` : "—", stockQuality ? (stockQuality.score >= 70 ? "#22d47e" : stockQuality.score >= 45 ? "#d6a312" : "#ef4444") : C.textDim, "Is this a strong stock?"],
+                ["ENTRY SCORE", aPlusScore ? `${aPlusScore.score}/100` : "—", aPlusScore ? (aPlusScore.score >= 70 ? "#22d47e" : aPlusScore.score >= 45 ? "#d6a312" : "#ef4444") : C.textDim, "Is now a good time?"],
                 ["ENTRY", sniperD ? sniperD.meta.label : "—", sniperD ? sniperD.meta.color : C.textDim, null],
                 ["EXIT RISK", heatD ? heatD.label : "—", heatD ? heatD.color : C.textDim, null],
+                ["STRUCTURE", setupScoreDW != null ? `${setupScoreDW}/100` : "—", setupScoreDW != null ? (setupScoreDW >= 70 ? "#22d47e" : setupScoreDW >= 45 ? "#d6a312" : "#ef4444") : C.textDim, entryTypeDW ? entryTypeDW.type : "No qualifying setup"],
               ].map(([label, val, col, sub]) => (
                 <div key={label} style={{ border: `1px solid ${C.border}`, borderRadius: 8, padding: "7px 10px", background: C.card }}>
                   <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim, letterSpacing: 0.5 }}>{label}</div>
