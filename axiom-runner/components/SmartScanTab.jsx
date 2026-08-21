@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { computeGreenLight, computeRvol } from "./trading-utils.js";
 import { smartScanZoneOf, exportSmartScanZonePDF } from "./smartscan-shared.js";
 import { FIVEX_REF } from "./fivex-data.js";
@@ -10,6 +10,8 @@ import { classifyDeepScanDecision, DECISION_LABELS } from "./btc-hpc-scan.js";
 import { computeFutureValueRead } from "./future-value-scoring.js";
 import { PanelErrorBoundary } from "./ui-atoms.jsx";
 import DecisionCard from "./DecisionCard.jsx";
+import FoundationCard from "./FoundationCard.jsx";
+import AiScoreExplainer, { FOUNDATION_DIMENSIONS, FOUNDATION_LABEL } from "./AiScoreExplainer.jsx";
 import { NUM } from "./theme.js";
 // Category tabs (2026-08-14, explicit user request: "make smart scan just
 // like discover or better") — real category system ported from
@@ -158,6 +160,19 @@ export default function SmartScanTab({
           // time (scanExpanded); reset to false whenever a different row
           // opens so re-expanding always starts collapsed.
           const [scanShowFullAnalysis, setScanShowFullAnalysis] = useState(false);
+          // Technical Foundation & V-Recovery Engine (2026-08-20, ONE ENGINE
+          // phase 4 — confirmed completely absent from Smart Scan before
+          // this). Same real foundation-engine.js + FoundationCard the
+          // Decision Workspace (MarketTerminalTab.jsx) already uses, off
+          // the same real /api/market/foundation route — not a second
+          // engine. Fetched per-ticker only while Full Analysis is open
+          // (matches Workspace's own TECHNICAL-only gating — real 2y bars
+          // + SPY/sector fetch, not free enough to fire on every row
+          // expand). foundationFetchedRef dedupes so re-toggling Full
+          // Analysis for the same ticker doesn't refire the fetch.
+          const [smartScanFoundation, setSmartScanFoundation] = useState({});
+          const foundationFetchedRef = useRef({});
+          const [explain, setExplain] = useState(null); // { symbol, aplus, dimensions, label } | null
           // Category tabs (see SMARTSCAN_CATEGORIES above).
           const [smartScanCategory, setSmartScanCategory] = useState("all");
           // Cortex slide-over target symbol — null when closed.
@@ -205,6 +220,16 @@ export default function SmartScanTab({
               })
               .catch(() => {});
           }, [scanTickersKey]);
+
+          useEffect(() => {
+            if (!scanExpanded || !scanShowFullAnalysis) return;
+            if (foundationFetchedRef.current[scanExpanded]) return;
+            foundationFetchedRef.current[scanExpanded] = true;
+            fetch(`/api/market/foundation?symbol=${encodeURIComponent(scanExpanded)}`)
+              .then(r => r.json())
+              .then(j => setSmartScanFoundation(prev => ({ ...prev, [scanExpanded]: j && j.ok ? j : null })))
+              .catch(() => setSmartScanFoundation(prev => ({ ...prev, [scanExpanded]: null })));
+          }, [scanExpanded, scanShowFullAnalysis]);
 
           // ── Signal badge style helper ─────────────────────────────────────
           const SIG_STYLE = (sColor) => ({
@@ -2182,6 +2207,31 @@ export default function SmartScanTab({
                                         );
                                       })()}
 
+                                      {/* ── Col 4: FOUNDATION & V-RECOVERY (2026-08-20, ONE
+                                          ENGINE phase 4) — real foundation-engine.js +
+                                          FoundationCard, the SAME engine + component the
+                                          Decision Workspace uses (MarketTerminalTab.jsx). See
+                                          the smartScanFoundation fetch effect above — genuinely
+                                          new here, this dimension didn't exist in Smart Scan at
+                                          all before this. ── */}
+                                      <div style={{ display: "flex", flexDirection: "column", maxHeight: isTablet ? 620 : 540, overflowY: "auto", padding: 12, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8 }}>
+                                        <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 8, letterSpacing: "0.06em", paddingBottom: 5, borderBottom: `2px solid ${C.border}`, minHeight: 32, display: "flex", alignItems: "center", position: "sticky", top: 0, background: C.card, zIndex: 2 }}>
+                                          🏗️ FOUNDATION & V-RECOVERY
+                                        </div>
+                                        {smartScanFoundation[row.ticker] === undefined ? (
+                                          <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, padding: "8px 0" }}>Loading…</div>
+                                        ) : smartScanFoundation[row.ticker] == null ? (
+                                          <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, padding: "8px 0" }}>Foundation data unavailable.</div>
+                                        ) : (
+                                          <FoundationCard C={C} MONO={MONO} SANS={SANS} NUM={NUM} symbol={row.ticker} data={smartScanFoundation[row.ticker]}
+                                            onExplain={() => setExplain({
+                                              symbol: row.ticker,
+                                              aplus: { score: smartScanFoundation[row.ticker].foundationScore, breakdown: smartScanFoundation[row.ticker].breakdown, reasons: smartScanFoundation[row.ticker].reasons },
+                                              dimensions: FOUNDATION_DIMENSIONS, label: FOUNDATION_LABEL,
+                                            })} />
+                                        )}
+                                      </div>
+
                                       {/* ── Col 5: RECENT NEWS ── */}
                                       <div style={{ display: "flex", flexDirection: "column", maxHeight: isTablet ? 620 : 540, overflowY: "auto", padding: 12, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8 }}>
                                         <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 8, letterSpacing: "0.06em", paddingBottom: 5, borderBottom: `2px solid ${C.border}`, minHeight: 32, display: "flex", alignItems: "center", gap: 8, position: "sticky", top: 0, background: C.card, zIndex: 2 }}>
@@ -2818,6 +2868,8 @@ export default function SmartScanTab({
                 </div>
               </div>
             )}
+
+            {explain && <AiScoreExplainer C={C} MONO={MONO} SANS={SANS} symbol={explain.symbol} aplus={explain.aplus} dimensions={explain.dimensions} label={explain.label} onClose={() => setExplain(null)} />}
 
             </div>
           );
