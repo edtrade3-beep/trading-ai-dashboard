@@ -213,7 +213,6 @@ import {
   OptionsFlowPanel,
 } from "./terminal-panels.jsx";
 import { PanelErrorBoundary } from "./ui-atoms.jsx";
-import DecisionCard from "./DecisionCard.jsx";
 import FoundationCard from "./FoundationCard.jsx";
 // SCORE + real RVOL for the Movers/Watchlist mini-list — explicit user
 // request 2026-07-27 ("add score and rvol in list before i click on each
@@ -1862,38 +1861,15 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
         <AccordionSection id="decision" icon="🎯" label="Decision"
           summary={decisionInputs ? `${decisionInputs.vLabel} · A+ ${aPlusScore ? aPlusScore.score : "—"} · ${entryPlanDW?.entryPrice != null ? `Entry $${entryPlanDW.entryPrice}` : "Entry blocked"} / Stop $${decisionInputs.su.stop} / Target $${decisionInputs.target1R}` : "Loading…"}
           C={C} MONO={MONO} SANS={SANS} openSection={openSection} setOpenSection={setOpenSection}>
-        {/* ── Decision Card — minimal default view (2026-08-19, explicit
-            user wireframe): verdict / A+ score / entry-stop-target /
-            trend-volume-risk / market, built entirely from data already
-            fetched for the primary view (chart.setup from trend-template,
-            symTrend/aPlusScore from trend-screen, regime from macroData) —
-            zero new fetches. */}
-        {/* Entry Engine fix (2026-08-20): DecisionCard below was the
-            second real occurrence of "conflicting messages" the user
-            reported — it kept showing "ENTRY $227.92" (the pivot) right
-            below the new simple Decision card even when that card
-            correctly said WAIT/BLOCKED. Now passed the real
-            entryPlanDW.entryPrice (honest "—" when there isn't one)
-            instead of always falling back to the pivot.
-            Verdict reconciliation (2026-08-20, follow-up): this card's own
-            "BUY" badge (decisionInputs.vLabel, driven by chart.setup.verdict
-            — a real, but older and less complete daily-only read) could
-            still disagree with the simple decision card sitting right
-            above it (simpleDecisionDW, the stricter, MTF-aware, anti-chase-
-            gated read). Rather than run two independent verdicts on the
-            same page, this card now shows the SAME verdict simpleDecisionDW
-            already computed — one page, one real answer, never two. */}
-        {decisionInputs && (
-          <DecisionCard C={C} MONO={MONO} SANS={SANS} NUM={NUM}
-            symbol={sym}
-            verdictIcon={simpleDecisionDW?.icon ?? decisionInputs.vIcon}
-            verdictLabel={simpleDecisionDW?.label ?? decisionInputs.vLabel}
-            verdictColor={simpleDecisionDW?.color ?? decisionInputs.vColor}
-            aPlusScore={aPlusScore ? aPlusScore.score : null}
-            entry={entryPlanDW?.entryPrice} stop={decisionInputs.su.stop} target={decisionInputs.target1R}
-            trendColor={decisionInputs.trendColor} volumeColor={decisionInputs.volColor} riskColor={decisionInputs.riskColor}
-            hideToggle />
-        )}
+        {/* The embedded DecisionCard that used to render here was removed
+            2026-08-20 (real, user-caught duplicate) — it showed the exact
+            same simpleDecisionDW verdict/A+ score/entry-stop-target the
+            persistent banner above this accordion already shows, open by
+            default, so a viewer saw the identical card twice on the same
+            page before touching anything. That persistent banner already
+            IS this section's answer; what's left below (Overall Grade/AI
+            Conviction etc) is real, additive content, not the verdict
+            repeated a second time. */}
         {/* SECTION 1 — Ticker / Overall Grade / AI Conviction (institutional
             redesign, 2026-07-29, explicit user spec). Overall Grade is the
             real, additive Institutional Grade (computeInstitutionalGrade) —

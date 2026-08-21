@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import RhProScanner from "./RhProScanner.jsx";
 import SmartScanTab from "./SmartScanTab.jsx";
 import MarketTerminalTab from "./MarketTerminalTab.jsx";
@@ -60,6 +60,37 @@ export default function ScanTerminalHub({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scanMode]);
 
+  // Draggable split (2026-08-20, explicit user request) — left-pane width
+  // as a persisted percentage, dragged via a real mousedown/mousemove/
+  // mouseup sequence on the divider between the two panes (no drag
+  // library — plain DOM listeners, same "small, dependency-free" bar
+  // every other interactive bit in this app clears). Clamped to keep both
+  // panes usable; only applies in the side-by-side (non-mobile) layout.
+  const containerRef = useRef(null);
+  const [leftPct, setLeftPct] = useState(() => {
+    try { const v = Number(localStorage.getItem("scanhub_split")); return Number.isFinite(v) && v >= 25 && v <= 70 ? v : 44; } catch { return 44; }
+  });
+  const [dragging, setDragging] = useState(false);
+  const onDividerMouseDown = useCallback((e) => {
+    e.preventDefault();
+    setDragging(true);
+    const container = containerRef.current;
+    if (!container) return;
+    const onMove = (ev) => {
+      const rect = container.getBoundingClientRect();
+      const pct = Math.round(((ev.clientX - rect.left) / rect.width) * 100);
+      setLeftPct(Math.max(25, Math.min(70, pct)));
+    };
+    const onUp = () => {
+      setDragging(false);
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      setLeftPct(v => { try { localStorage.setItem("scanhub_split", String(v)); } catch {} return v; });
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  }, []);
+
   // Right-pane symbol — lazy (nothing fetches until a real row click),
   // remembered across visits (separate key from mterminal_load_sym, which
   // is the one-shot mount-time signal consumed by MarketTerminalTab
@@ -114,9 +145,10 @@ export default function ScanTerminalHub({
   const stack = !!isMobile; // real mobile devices stack top/bottom instead of splitting side by side
 
   return (
-    <div style={{ display: "flex", flexDirection: stack ? "column" : "row", gap: 14, alignItems: "flex-start" }}>
-      <div style={{ flex: stack ? "1 1 auto" : "0 1 44%", minWidth: 0, width: stack ? "100%" : undefined,
-        maxHeight: stack ? undefined : paneHeight, overflowY: stack ? "visible" : "auto", overflowX: "auto" }}>
+    <div ref={containerRef} style={{ display: "flex", flexDirection: stack ? "column" : "row", gap: stack ? 14 : 0, alignItems: "flex-start",
+      userSelect: dragging ? "none" : undefined }}>
+      <div style={{ flex: stack ? "1 1 auto" : `0 0 ${leftPct}%`, minWidth: 0, width: stack ? "100%" : undefined,
+        maxHeight: stack ? undefined : paneHeight, overflowY: stack ? "visible" : "auto", overflowX: "auto", paddingRight: stack ? 0 : 10 }}>
         <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
           {toggleBtn("discover", "🎯 Discover — Full Market")}
           {toggleBtn("smartscan", "🔍 Smart Scan — Watchlist")}
@@ -161,6 +193,14 @@ export default function ScanTerminalHub({
           />
         )}
       </div>
+      {!stack && (
+        <div onMouseDown={onDividerMouseDown} title="Drag to resize"
+          style={{ flex: "0 0 10px", width: 10, cursor: "col-resize", alignSelf: "stretch",
+            display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ width: 3, height: dragging ? "100%" : 36, borderRadius: 2,
+            background: dragging ? C.accent : C.border, transition: dragging ? "none" : "height 0.15s" }} />
+        </div>
+      )}
       <div style={{ flex: stack ? "1 1 auto" : "1 1 auto", minWidth: 0, width: stack ? "100%" : undefined,
         maxHeight: stack ? undefined : paneHeight, overflowY: stack ? "visible" : "auto",
         border: `1px solid ${C.border}`, borderRadius: 10, padding: selectedSymbol ? 0 : "40px 20px" }}>
