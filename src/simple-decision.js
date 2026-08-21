@@ -1,5 +1,7 @@
 "use strict";
 
+const { sortByPriority } = require("./decision-priority");
+
 // simple-decision.js — the "5-Second Rule" simplified decision layer
 // (2026-08-20, explicit user directive: "FIX AND SIMPLIFY THE AM TRADING
 // ENTRY/EXIT SYSTEM... too complicated and sometimes gives conflicting
@@ -118,8 +120,17 @@ function computeSimpleDecision(ev = {}) {
   const timingOk = timing === "READY";
   const trendOk = trend !== "BEARISH";
   const structureOk = structure === "HEALTHY" || structure === "REPAIRING";
+  // Market Regime (spec §13's #1 priority factor) — real when the caller
+  // has one (MarketTerminalTab.jsx's marketRegimeDW, the same real
+  // RISK_ON/RISK_OFF/NEUTRAL read entry-engine.js's own qualifying
+  // conditions already use); honestly ignored (never blocks) when absent,
+  // same graceful-degradation discipline as every other real-but-optional
+  // input here. Previously this decision never named regime at all — a
+  // RISK_OFF tape was silently just one of entry-engine's 12 anonymous
+  // qualifying conditions, never surfaced in this "why" text.
+  const regimeOk = ev.marketRegime == null ? true : ev.marketRegime !== "RISK_OFF";
 
-  if (entryPlan.entryPrice != null && trendOk && structureOk && setupOk && timingOk && rrOk !== false) {
+  if (entryPlan.entryPrice != null && regimeOk && trendOk && structureOk && setupOk && timingOk && rrOk !== false) {
     const zone = zoneString(
       entryPlan.stage === "EARLY" ? entryPlan.earlyEntryZone
         : entryPlan.stage === "CONFIRMATION" ? entryPlan.confirmationEntryZone
@@ -129,13 +140,20 @@ function computeSimpleDecision(ev = {}) {
     return base("START_SMALL", "Trend, structure, setup, and entry timing all confirm.", "START SMALL.", zone);
   }
 
-  // WAIT — always says exactly what's missing, never a bare "wait."
-  const missing = [];
-  if (!trendOk) missing.push("daily trend to turn constructive");
-  if (!structureOk) missing.push("4H structure to repair");
-  if (!setupOk) missing.push("1H setup to improve");
-  if (!timingOk) missing.push("15M confirmation");
-  if (rrOk === false) missing.push("a better risk/reward");
+  // WAIT — always says exactly what's missing, never a bare "wait." Real
+  // factors are tagged with their spec §13 priority key and sorted via
+  // decision-priority.js before being joined into text — the ONE
+  // canonical order, not an ad-hoc push order that can silently drift
+  // (this list used to name Trend before Market Structure; the spec's
+  // real priority is the reverse).
+  const missingFactors = [];
+  if (!regimeOk) missingFactors.push({ key: "MARKET_REGIME", label: "market regime to turn risk-on" });
+  if (rrOk === false) missingFactors.push({ key: "RISK_INVALIDATION", label: "a better risk/reward" });
+  if (!structureOk) missingFactors.push({ key: "MARKET_STRUCTURE", label: "4H structure to repair" });
+  if (!trendOk) missingFactors.push({ key: "TREND", label: "daily trend to turn constructive" });
+  if (!setupOk) missingFactors.push({ key: "ENTRY_QUALITY", label: "1H setup to improve" });
+  if (!timingOk) missingFactors.push({ key: "ENTRY_QUALITY", label: "15M confirmation" });
+  const missing = sortByPriority(missingFactors).map((f) => f.label);
   if (!missing.length) missing.push("more real evidence");
   const zone = zoneString(entryPlan.earlyEntryZone);
   return base("WAIT", `Need: ${missing.join(", ")}.`, `Wait for ${missing.join(" + ")}.`, zone || "BLOCKED");

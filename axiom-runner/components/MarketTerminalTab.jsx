@@ -989,6 +989,12 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
     dailyBias: dwDailyBias, swing4hState: symMtf?.swing4h?.state, early1h: symMtf?.early1h,
     entry15mStatus: symMtf?.entry15m?.status, rr: sniperD?.rr, entryPlan: entryPlanDW,
     hasPosition: !!symPosition, dayTradeState: symPosition?.dayTradeState, dayTradeReason: symPosition?.dayTradeReason,
+    // Market Regime (spec §13's #1 priority factor, Unified Trading
+    // System phase 7) — marketRegimeDW is already computed above for
+    // entryPlanDW's own call, zero new fetches. Previously this decision
+    // never named regime at all even when it was the real reason a WAIT
+    // held.
+    marketRegime: marketRegimeDW,
   }) : null;
 
   // Exit Panel dimensions (Phase 5, 2026-08-20) — 6 real, already-computed

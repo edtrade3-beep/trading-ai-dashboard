@@ -102,6 +102,51 @@ ok("a genuinely BROKEN 4H short-circuits to its own dedicated message, not the g
   assert.strictEqual(d.entryZone, "BLOCKED", "even with a real earlyEntryZone computed, it must not be surfaced as usable while 4H is broken");
 });
 
+console.log("Checking Market Regime as a real, named priority factor (Unified Trading System phase 7, spec §13)…");
+ok("a real RISK_OFF regime blocks START SMALL even when every other real condition aligns, and names it first in the WAIT reason", () => {
+  const d = computeSimpleDecision({
+    dailyBias: "BULLISH", swing4hState: "STRONG",
+    early1h: { score: 80, rsiTrend: { direction: "up", accelerating: true } },
+    entry15mStatus: "CONFIRMED", rr: 3, marketRegime: "RISK_OFF",
+    entryPlan: { entryPrice: 216.90, pivot: 227.90, stop: 209.69, target1: 246.15, earlyEntryZone: [215.03, 218.77], doNotChaseZone: { band: "NORMAL" }, stage: "EARLY" },
+  });
+  assert.strictEqual(d.decision, "WAIT", "a real risk-off tape must not be silently ignored just because every other condition aligns");
+  assert.match(d.why, /market regime/i);
+});
+ok("real RISK_ON/NEUTRAL regime, or no regime data at all, never blocks — same START SMALL as before this phase", () => {
+  const base = {
+    dailyBias: "BULLISH", swing4hState: "STRONG",
+    early1h: { score: 80, rsiTrend: { direction: "up", accelerating: true } },
+    entry15mStatus: "CONFIRMED", rr: 3,
+    entryPlan: { entryPrice: 216.90, pivot: 227.90, stop: 209.69, target1: 246.15, earlyEntryZone: [215.03, 218.77], doNotChaseZone: { band: "NORMAL" }, stage: "EARLY" },
+  };
+  assert.strictEqual(computeSimpleDecision({ ...base, marketRegime: "RISK_ON" }).decision, "START_SMALL");
+  assert.strictEqual(computeSimpleDecision({ ...base, marketRegime: "NEUTRAL" }).decision, "START_SMALL");
+  assert.strictEqual(computeSimpleDecision(base).decision, "START_SMALL", "no marketRegime supplied at all must be an honest no-op, not a fabricated block");
+});
+ok("the WAIT reason lists real missing factors in spec §13's actual priority order — Market Structure before Trend (previously reversed)", () => {
+  const d = computeSimpleDecision({
+    // No swing4hState at all -> structure stays null -> structureOk false
+    // WITHOUT tripping the dedicated "4H structure is broken" hard-gate
+    // short-circuit (that only fires on a real BROKEN read), so this
+    // genuinely exercises Market Structure's place in the soft-missing
+    // list alongside every other real missing factor.
+    dailyBias: "BEARISH",
+    early1h: { score: 20, rsiTrend: { direction: "down" } },
+    entry15mStatus: "NOT_READY", rr: 1.0, marketRegime: "RISK_OFF",
+    entryPlan: { entryPrice: null, pivot: 227, stop: 209, target1: 246, doNotChaseZone: { band: "NORMAL" }, stage: "FOUNDATION" },
+  });
+  const regimeIdx = d.why.indexOf("market regime");
+  const rrIdx = d.why.indexOf("risk/reward");
+  const structureIdx = d.why.indexOf("4H structure");
+  const trendIdx = d.why.indexOf("daily trend");
+  const setupIdx = d.why.indexOf("1H setup");
+  assert.ok(regimeIdx >= 0 && regimeIdx < rrIdx, "Market Regime must be named before Risk/Invalidation");
+  assert.ok(rrIdx >= 0 && rrIdx < structureIdx, "Risk/Invalidation must be named before Market Structure");
+  assert.ok(structureIdx >= 0 && structureIdx < trendIdx, "Market Structure must be named before Trend — the spec's real order, previously reversed in this list");
+  assert.ok(trendIdx >= 0 && trendIdx < setupIdx, "Trend must be named before Entry Quality (1H/15M)");
+});
+
 console.log("Checking post-entry states reuse position-decision-engine.js's real read, never recomputed…");
 ok("real EXIT state passes through as EXIT with the real reason", () => {
   const d = computeSimpleDecision({ hasPosition: true, dayTradeState: "EXIT", dayTradeReason: "Weighted evidence has turned against this position.", entryPlan: {} });

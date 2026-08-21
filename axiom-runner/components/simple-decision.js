@@ -6,6 +6,8 @@
 // full design rationale (the "5-Second Rule" simplification, why each
 // classification maps the way it does).
 
+import { sortByPriority } from "./decision-priority.js";
+
 const DECISION_META = {
   START_SMALL: { icon: "🟢", label: "START SMALL", color: "#0d9465" },
   ADD: { icon: "🟢", label: "ADD", color: "#0d9465" },
@@ -76,8 +78,9 @@ export function computeSimpleDecision(ev = {}) {
   const timingOk = timing === "READY";
   const trendOk = trend !== "BEARISH";
   const structureOk = structure === "HEALTHY" || structure === "REPAIRING";
+  const regimeOk = ev.marketRegime == null ? true : ev.marketRegime !== "RISK_OFF";
 
-  if (entryPlan.entryPrice != null && trendOk && structureOk && setupOk && timingOk && rrOk !== false) {
+  if (entryPlan.entryPrice != null && regimeOk && trendOk && structureOk && setupOk && timingOk && rrOk !== false) {
     const zone = zoneString(
       entryPlan.stage === "EARLY" ? entryPlan.earlyEntryZone
         : entryPlan.stage === "CONFIRMATION" ? entryPlan.confirmationEntryZone
@@ -87,12 +90,14 @@ export function computeSimpleDecision(ev = {}) {
     return base("START_SMALL", "Trend, structure, setup, and entry timing all confirm.", "START SMALL.", zone);
   }
 
-  const missing = [];
-  if (!trendOk) missing.push("daily trend to turn constructive");
-  if (!structureOk) missing.push("4H structure to repair");
-  if (!setupOk) missing.push("1H setup to improve");
-  if (!timingOk) missing.push("15M confirmation");
-  if (rrOk === false) missing.push("a better risk/reward");
+  const missingFactors = [];
+  if (!regimeOk) missingFactors.push({ key: "MARKET_REGIME", label: "market regime to turn risk-on" });
+  if (rrOk === false) missingFactors.push({ key: "RISK_INVALIDATION", label: "a better risk/reward" });
+  if (!structureOk) missingFactors.push({ key: "MARKET_STRUCTURE", label: "4H structure to repair" });
+  if (!trendOk) missingFactors.push({ key: "TREND", label: "daily trend to turn constructive" });
+  if (!setupOk) missingFactors.push({ key: "ENTRY_QUALITY", label: "1H setup to improve" });
+  if (!timingOk) missingFactors.push({ key: "ENTRY_QUALITY", label: "15M confirmation" });
+  const missing = sortByPriority(missingFactors).map((f) => f.label);
   if (!missing.length) missing.push("more real evidence");
   const zone = zoneString(entryPlan.earlyEntryZone);
   return base("WAIT", `Need: ${missing.join(", ")}.`, `Wait for ${missing.join(" + ")}.`, zone || "BLOCKED");
