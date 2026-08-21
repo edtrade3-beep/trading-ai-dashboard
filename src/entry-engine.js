@@ -138,7 +138,24 @@ function computeQualifyingConditions(ev = {}) {
 // permanent AVOID — the caller re-evaluates every real tick, so as soon
 // as the real 4H read moves BROKEN -> REPAIRING -> HEALTHY, normal staging
 // resumes automatically.
-function computeEntryStage({ price, pivot, atr, breakoutConfirmed, extended, priceAction, qualifying, zones, thresholds = {}, structureBroken }) {
+// Anti-Chase gate (2026-08-21, Unified Trading System phase 3 — real bug
+// found live: computeAntiChase's own real, graduated NORMAL/CAUTION/
+// EXTENDED/DO_NOT_CHASE band was already computed and passed all the way
+// through to this function's caller (as doNotChaseZone, ev.antiChase) but
+// never actually consulted here — the breakout gate below used only the
+// caller's crude flat boolean `extended` (backtest-trend-template.js's
+// `abovePivotPct > 10`), completely ignoring the more sophisticated real
+// read sitting right next to it. Real band takes priority when a caller
+// has supplied one (any consumer wiring in a real computeAntiChase read);
+// honest fallback to the flat flag only when no real band exists, so
+// older/simpler callers keep working exactly as before.
+function isAntiChaseBlocking(doNotChaseZone, extendedFallback) {
+  const band = doNotChaseZone?.band;
+  if (band == null) return !!extendedFallback;
+  return band === "EXTENDED" || band === "DO_NOT_CHASE";
+}
+
+function computeEntryStage({ price, pivot, atr, breakoutConfirmed, extended, doNotChaseZone, priceAction, qualifying, zones, thresholds = {}, structureBroken }) {
   const gate = { ...GATE_DEFAULTS, ...thresholds };
   const sizing = { ...SIZING_DEFAULTS, ...thresholds };
   const pa = priceAction || {};
@@ -158,7 +175,7 @@ function computeEntryStage({ price, pivot, atr, breakoutConfirmed, extended, pri
   }
 
   if (breakoutConfirmed) {
-    if (extended) {
+    if (isAntiChaseBlocking(doNotChaseZone, extended)) {
       return {
         stage: "BREAKOUT", entryPrice: null, sizingPct: 0,
         recommendedAction: "Breakout is confirmed but price is already extended — do not chase. Wait for a pullback, retest, or a fresh base.",
@@ -235,7 +252,7 @@ function computeEntryPlan(ev = {}, thresholds = {}) {
   const doNotChaseZone = ev.antiChase || { band: null, label: null };
   const stageResult = computeEntryStage({
     price: ev.price, pivot: ev.pivot, atr: ev.atr, breakoutConfirmed: !!ev.breakoutConfirmed,
-    extended: !!ev.extended, priceAction: ev.priceAction, qualifying, zones, thresholds,
+    extended: !!ev.extended, doNotChaseZone, priceAction: ev.priceAction, qualifying, zones, thresholds,
     structureBroken: ev.swing4hState === "BROKEN",
   });
 

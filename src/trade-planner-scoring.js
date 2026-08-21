@@ -4,6 +4,8 @@
 // whenever either changes — this exists so the Telegram bot's /plan command produces
 // the exact same score/verdict as the website's Trade Planner tab, not an approximation.
 
+const { computeAntiChase } = require("./atr-risk-engine");
+
 function computeRegime(macroData) {
   const find = s => (macroData || []).find(m => (m.symbol || "").toUpperCase() === s);
   const spy = find("SPY"), qqq = find("QQQ"), vix = find("VIX") || find("^VIX") || find("VIXY");
@@ -69,10 +71,7 @@ function computeAPlusScore(row, regime) {
   if (row?.earningsSoon) cautions.push(`⚠️ Earnings within ${row.earningsDte} day${row.earningsDte === 1 ? "" : "s"} — added gap risk (not scored, timing-only caution)`);
   const reasons = [
     `Market regime ${regime?.label || "?"} (${regimeScore}/100)${regimeScore >= 75 ? " — favorable for breakouts" : regimeScore >= 55 ? " — mixed, be selective" : " — unfavorable, high failure risk"}`,
-    idealDist == null ? "Pivot distance unavailable"
-      : abovePivotPct < 0 ? `${Math.abs(abovePivotPct).toFixed(1)}% below pivot — base not yet broken`
-      : abovePivotPct <= 5 ? `${abovePivotPct.toFixed(1)}% above pivot — fresh, unextended entry`
-      : `${abovePivotPct.toFixed(1)}% above pivot — extended, chasing risk`,
+    idealDist == null ? "Pivot distance unavailable" : computeAntiChase(abovePivotPct).label,
     isGo ? `At buy point with volume confirmation${breakoutConf ? ` (${breakoutConf}% breakout confidence)` : ""}` : row?.actionable ? "Near pivot, not yet confirmed" : "Not yet actionable",
     Number.isFinite(volRatio) ? `Volume ${volRatio.toFixed(1)}x the 50-day average` : "Volume data unavailable",
     Number.isFinite(riskPct) && riskPct > 0 ? `${riskPct.toFixed(1)}% risk to stop — ${riskPct <= 5 ? "tight, low-risk entry" : riskPct <= 8 ? "moderate risk" : "wide stop, higher risk"}` : "Risk distance unavailable",

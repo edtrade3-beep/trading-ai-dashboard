@@ -120,6 +120,32 @@ ok("6. Extended breakout -> stays BREAKOUT stage but entryPrice null (anti-chase
   assert.strictEqual(plan.entryPrice, null, "an extended breakout must never hand back an executable entry price");
 });
 
+ok("6b. REAL bug fixed 2026-08-21 (Unified Trading System phase 3): a real graduated antiChase band now GATES the breakout, not just the crude flat `extended` flag", () => {
+  // Real band says NORMAL (genuinely not extended) even though the crude
+  // flag says extended=true — the real band must win, entry unblocked.
+  const notActuallyExtended = computeEntryPlan({
+    ...STRONG_EVIDENCE, price: 230, breakoutConfirmed: true, extended: true,
+    antiChase: { band: "NORMAL", label: "Normal — 1.3% above the breakout" },
+  });
+  assert.strictEqual(notActuallyExtended.stage, "BREAKOUT");
+  assert.notStrictEqual(notActuallyExtended.entryPrice, null, "a real NORMAL band must override a stale/crude extended=true flag");
+
+  // Real band says DO_NOT_CHASE even though the crude flag says
+  // extended=false — the real band must still block it.
+  const reallyExtended = computeEntryPlan({
+    ...STRONG_EVIDENCE, price: 250, breakoutConfirmed: true, extended: false,
+    antiChase: { band: "DO_NOT_CHASE", label: "Do not chase — 12.0% above the breakout" },
+  });
+  assert.strictEqual(reallyExtended.stage, "BREAKOUT");
+  assert.strictEqual(reallyExtended.entryPrice, null, "a real DO_NOT_CHASE band must block even when the crude extended flag says false");
+
+  // No real band at all (honest fallback) -> the crude flag still governs,
+  // exactly as before this fix, for callers that haven't wired in a real
+  // computeAntiChase read yet.
+  const fallback = computeEntryPlan({ ...STRONG_EVIDENCE, price: 250, breakoutConfirmed: true, extended: true });
+  assert.strictEqual(fallback.entryPrice, null, "with no real band, the flat flag must still be honored as an honest fallback");
+});
+
 ok("7. Missing timeframe data -> honestly reflects a small denominator, never fabricates a pass/fail", () => {
   const plan = computeEntryPlan({ price: 175, pivot: 227, atr: 5, dailyBias: "BULLISH", rsRating: 80 });
   assert.strictEqual(plan.qualifying.total, 2, `expected only the 2 real available conditions counted, got ${plan.qualifying.total}`);

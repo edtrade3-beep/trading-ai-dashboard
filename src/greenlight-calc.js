@@ -15,6 +15,13 @@
 // so those unrelated real computations aren't ported.
 "use strict";
 
+// Real shared Anti-Chase band (2026-08-21, Unified Trading System phase 3)
+// — same real computeAntiChase primitive entry-engine.js's real gate uses,
+// replacing this file's own flat abovePivotPct>10 cutoff below. Must stay
+// in sync with axiom-runner/components/trading-utils.js's identical fix
+// (same parity-tested-twin discipline as the rest of this file).
+const { computeAntiChase } = require("./atr-risk-engine");
+
 // Real RVOL (today's volume ÷ 50-day average volume), same real fallback
 // chain as the client: q.avgVolume from a live quote batch, else
 // trend.volRatio (server-computed from real Yahoo bar history).
@@ -76,7 +83,8 @@ function computeGreenLight(q, spyChg, scanRow, regime = null, trend = null) {
 
   const marketSafeForAlt = spyChg > -0.5;
   const bosBullish = trend?.smc?.bos?.type === "BULL_BOS";
-  const rvolBreakout = rvol >= 2.5 && chg > 1 && !(abovePivotPct != null && abovePivotPct > 10);
+  const antiChaseBand = computeAntiChase(abovePivotPct).band;
+  const rvolBreakout = rvol >= 2.5 && chg > 1 && antiChaseBand !== "EXTENDED" && antiChaseBand !== "DO_NOT_CHASE";
   const higherLowsGoing = trend?.higherLows === true && (rsiKnown ? rsi >= 50 : chg > 0);
   const macdEmaCross = macdBull === true && ema9 > 0 && ema21 > 0 && ema9 > ema21;
   const altCandidates = [

@@ -8,6 +8,7 @@ import { computeHeatRisk, computeCortexVerdict } from "./cortex-engine.js";
 import { computeEntryPlan } from "./entry-engine.js";
 import { classifyDeepScanDecision, DECISION_LABELS } from "./btc-hpc-scan.js";
 import { computeRegimeLabel } from "./DashboardTab.jsx";
+import { computeAntiChase } from "./anti-chase.js";
 import { computeFutureValueRead } from "./future-value-scoring.js";
 import { PanelErrorBoundary } from "./ui-atoms.jsx";
 import FoundationCard from "./FoundationCard.jsx";
@@ -1461,11 +1462,18 @@ export default function SmartScanTab({
                                       const dailyBiasSS = trendRow ? ((String(trendRow.stage || "").includes("2") && Number(trendRow.passCount || 0) >= 6) ? "BULLISH" : String(trendRow.stage || "").includes("4") ? "BEARISH" : "NEUTRAL") : null;
                                       const target1SS = trendRow && trendRow.entry > trendRow.stop ? Math.round((trendRow.entry + (trendRow.entry - trendRow.stop)) * 100) / 100 : null;
                                       const rrSS = Number.isFinite(target1SS) && trendRow && trendRow.entry > trendRow.stop ? Math.round(((target1SS - trendRow.entry) / (trendRow.entry - trendRow.stop)) * 100) / 100 : null;
+                                      // Real Anti-Chase band (2026-08-21, Unified Trading System
+                                      // phase 3) — same real computeAntiChase primitive Workspace
+                                      // already passes into computeEntryPlan, off the same real
+                                      // abovePivotPct already on this trend-screen row. Without
+                                      // this, entry-engine.js's real breakout gate silently fell
+                                      // back to a cruder flat 10% cutoff for every Smart Scan row.
+                                      const antiChaseSS = trendRow ? computeAntiChase(trendRow.abovePivotPct) : null;
                                       const entryPlanSS = trendRow ? computeEntryPlan({
                                         price: px || trendRow.price, pivot: trendRow.pivot, atr: null, contractionLow: trendRow.contractionLow,
                                         dailyBias: dailyBiasSS, rsRating: trendRow.rsRating, higherLows: trendRow.higherLows, tightening: trendRow.tightening,
                                         vcpVerdict: trendRow.vcpVerdict, vwap20: trendRow.technicals?.vwap20, rr: rrSS,
-                                        breakoutConfirmed: trendRow.breakoutConfirmed, extended: trendRow.extended, priceAction: {},
+                                        breakoutConfirmed: trendRow.breakoutConfirmed, extended: trendRow.extended, priceAction: {}, antiChase: antiChaseSS,
                                         stop: trendRow.stop, target1: target1SS, target2: trendRow.target2, marketRegime: smartScanMarketRegime,
                                       }) : null;
                                       const aplusSS = trendRow ? computeAPlusScore(trendRow, smartScanRegime) : null;

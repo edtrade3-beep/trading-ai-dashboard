@@ -5,6 +5,13 @@
 // market-helpers.js (market-wide reference data/regime) since this is
 // specifically about scoring a symbol and simulating trades on it.
 
+// Real shared Anti-Chase band (2026-08-21, Unified Trading System phase 3)
+// — same real computeAntiChase primitive entry-engine.js's real gate uses,
+// replacing this file's own flat abovePivotPct>10 cutoff below. Must stay
+// in sync with src/greenlight-calc.js's identical fix (same parity-tested
+// server twin this whole file already keeps in sync with).
+import { computeAntiChase } from "./anti-chase.js";
+
 export function classifyTrend(q) {
   if (!q) return "—";
   const chg = q.changesPercentage || 0;
@@ -249,7 +256,8 @@ export function computeGreenLight(q, spyChg, scanRow, regime = null, trend = nul
   // is reported (checked in this priority order).
   const marketSafeForAlt = spyChg > -0.5;
   const bosBullish = trend?.smc?.bos?.type === "BULL_BOS";
-  const rvolBreakout = rvol >= 2.5 && chg > 1 && !(abovePivotPct != null && abovePivotPct > 10);
+  const antiChaseBand = computeAntiChase(abovePivotPct).band;
+  const rvolBreakout = rvol >= 2.5 && chg > 1 && antiChaseBand !== "EXTENDED" && antiChaseBand !== "DO_NOT_CHASE";
   const higherLowsGoing = trend?.higherLows === true && (rsiKnown ? rsi >= 50 : chg > 0);
   const macdEmaCross = macdBull === true && ema9 > 0 && ema21 > 0 && ema9 > ema21;
   const altCandidates = [

@@ -15,6 +15,7 @@ import { mapToAiAction, AI_ACTIONS } from "./ai-actions.js";
 import { computeEntryPlan } from "./entry-engine.js";
 import { classifyDeepScanDecision } from "./btc-hpc-scan.js";
 import { computeRegimeLabel } from "./DashboardTab.jsx";
+import { computeAntiChase } from "./anti-chase.js";
 import { computeGreenLight } from "./trading-utils.js";
 import { findWeakestPosition, evaluateRotation } from "./portfolio-rotation-engine.js";
 import GapScanner from "./GapScanner.jsx";
@@ -391,11 +392,18 @@ export default function RhProScanner({
       const dailyBias = (String(x.stage || "").includes("2") && Number(x.passCount || 0) >= 6) ? "BULLISH" : String(x.stage || "").includes("4") ? "BEARISH" : "NEUTRAL";
       const target1 = x.entry > x.stop ? Math.round((x.entry + (x.entry - x.stop)) * 100) / 100 : null;
       const rr = Number.isFinite(target1) && x.entry > x.stop ? Math.round(((target1 - x.entry) / (x.entry - x.stop)) * 100) / 100 : null;
+      // Real Anti-Chase band (2026-08-21, Unified Trading System phase 3)
+      // — same real computeAntiChase primitive Workspace already passes
+      // into computeEntryPlan, off the same real abovePivotPct already on
+      // this trend-screen row. Without this, entry-engine.js's real
+      // breakout gate silently fell back to a cruder flat 10% cutoff for
+      // every Discover row.
+      const antiChase = computeAntiChase(x.abovePivotPct);
       const entryPlan = computeEntryPlan({
         price: x.price, pivot: x.pivot, atr: null, contractionLow: x.contractionLow,
         dailyBias, rsRating: x.rsRating, higherLows: x.higherLows, tightening: x.tightening,
         vcpVerdict: x.vcpVerdict, vwap20: x.technicals?.vwap20, rr,
-        breakoutConfirmed: x.breakoutConfirmed, extended: x.extended, priceAction: {},
+        breakoutConfirmed: x.breakoutConfirmed, extended: x.extended, priceAction: {}, antiChase,
         stop: x.stop, target1, target2: x.target2, marketRegime: marketRegimeForEntry,
       });
       const deepDecision = classifyDeepScanDecision({ entryPlan, aPlusScore: aplus?.score });
