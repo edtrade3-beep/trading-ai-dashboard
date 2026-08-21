@@ -134,6 +134,22 @@ const CATEGORIES = [
   { id: "highoi", label: "High Open Interest (Watchlist)" },
 ];
 
+// Category groups (2026-08-20, explicit user request: "organize discover"
+// — the 26 categories above had grown into one flat, ungrouped wall of
+// buttons with no stated hierarchy). Purely a display grouping over the
+// same real CATEGORIES list — no id/label/filter logic changes, just
+// which row a button renders in and an optional group heading. Every id
+// in CATEGORIES appears in exactly one group (verified by hand against
+// the list above); a category added later without a group falls into the
+// catch-all "OTHER" bucket at render time rather than silently vanishing.
+const CATEGORY_GROUPS = [
+  { label: null, ids: ["all", "bestopp"] },
+  { label: "MOMENTUM & TECHNICAL", ids: ["breakout", "pullback", "rvol", "momentum", "reversal", "prepop", "extended", "higherlows", "relstrength", "gap", "avoid"] },
+  { label: "OPTIONS, IV & INSTITUTIONAL", ids: ["shortsqueeze", "optionssweep", "darkpool", "lowiv", "highiv", "insider"] },
+  { label: "EVENTS & ROTATION", ids: ["earnings", "sectorrotation", "daytrade"] },
+  { label: "WATCHLIST ONLY", ids: ["earlyentry", "gammasqueeze", "whaleactivity", "highoi"] },
+];
+
 // Categories that render an embedded standalone component instead of this
 // scanner's own ranked table — kept as one list so both the render-branch
 // and the "hide the table" exclusion below stay in sync automatically.
@@ -600,13 +616,46 @@ export default function RhProScanner({
         {headerStats.topSector && <span title="Real strongest sector ETF today" style={{ color: C.textSec }}>top sector <b style={{ color: C.text }}>{headerStats.topSector.symbol}</b></span>}
       </div>
 
-      {/* Category tabs — the "AI Ranking" categorized view */}
-      <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
-        {CATEGORIES.map(cat => (
-          <button key={cat.id} onClick={() => setCategory(cat.id)} style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, padding: "6px 12px", borderRadius: 7, cursor: "pointer", border: `1px solid ${category === cat.id ? C.accent : C.border}`, background: category === cat.id ? C.accent : C.surface, color: category === cat.id ? "#fff" : C.textSec }}>{cat.label}</button>
-        ))}
-        <button onClick={() => setActiveTab && setActiveTab("rhpro-heat")} style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, padding: "6px 12px", borderRadius: 7, cursor: "pointer", border: `1px solid ${C.border}`, background: C.surface, color: C.textSec }}>Sectors →</button>
-      </div>
+      {/* Category tabs — the "AI Ranking" categorized view, grouped
+          (2026-08-20, "organize discover") instead of one flat 26-button
+          wall. Each CATEGORY_GROUPS row renders its own line, with a
+          small uppercase heading for every group after the first
+          (Overview stays unlabeled — it's the default, not a category
+          "type"). Any category id CATEGORY_GROUPS doesn't account for
+          falls into a catch-all "OTHER" row rather than silently
+          disappearing if a future category is added without updating
+          the grouping. */}
+      {(() => {
+        const catById = Object.fromEntries(CATEGORIES.map(c => [c.id, c]));
+        const grouped = new Set(CATEGORY_GROUPS.flatMap(g => g.ids));
+        const ungrouped = CATEGORIES.filter(c => !grouped.has(c.id));
+        const groups = ungrouped.length ? [...CATEGORY_GROUPS, { label: "OTHER", ids: ungrouped.map(c => c.id) }] : CATEGORY_GROUPS;
+        const catBtn = (cat) => (
+          <button key={cat.id} onClick={() => setCategory(cat.id)}
+            style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, padding: "6px 12px", borderRadius: 7, cursor: "pointer",
+              border: `1px solid ${category === cat.id ? C.accent : C.border}`,
+              background: category === cat.id ? C.accent : C.surface, color: category === cat.id ? "#fff" : C.textSec }}>
+            {cat.label}
+          </button>
+        );
+        return groups.map((g, gi) => (
+          <div key={g.label || "overview"} style={{ marginBottom: 8 }}>
+            {g.label && (
+              <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: "0.08em", marginBottom: 4 }}>{g.label}</div>
+            )}
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {g.ids.map(id => catById[id]).filter(Boolean).map(catBtn)}
+              {gi === groups.length - 1 && (
+                <button onClick={() => setActiveTab && setActiveTab("rhpro-heat")}
+                  style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, padding: "6px 12px", borderRadius: 7, cursor: "pointer",
+                    border: `1px solid ${C.border}`, background: C.surface, color: C.textSec }}>
+                  Sectors →
+                </button>
+              )}
+            </div>
+          </div>
+        ));
+      })()}
       {categoryNote && <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginBottom: 10, lineHeight: 1.5 }}>{categoryNote}</div>}
 
       {category === "gap" && <GapScanner C={C} MONO={MONO} SANS={SANS} />}
