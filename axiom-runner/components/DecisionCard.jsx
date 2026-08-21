@@ -6,10 +6,17 @@ import { MarketPulseBar } from "./terminal-panels.jsx";
 // presentational component so both pages render the identical MARKET /
 // verdict / A+ SCORE / ENTRY-STOP-TARGET / TREND-VOLUME-RISK layout and
 // can never visually drift apart — each caller computes its own verdict
-// taxonomy/colors (Workspace: GO/WAIT/AVOID off the trend-template verdict;
-// Smart Scan: its own richer long/short verdict system) and passes the
-// result in as props; this component has no opinion on what a "BUY" means,
-// only how to render one.
+// taxonomy/colors and passes the result in as props; this component has no
+// opinion on what a "BUY" means, only how to render one. As of the
+// Discover/Smart Scan/Workspace unification (2026-08-20): Workspace's
+// verdict comes from simple-decision.js (position-aware, MTF-rich —
+// single-symbol context); Smart Scan's (and now Discover's optional
+// Decision View, RhProScanner.jsx) comes from classifyDeepScanDecision
+// (btc-hpc-scan.js, entry-timing-only — scan-appropriate, lighter data).
+// Both are real, both stay separate on purpose (see ai-actions.js's
+// deepScanDecisionToAiAction/simpleDecisionToAiAction for how they're kept
+// from contradicting each other where they're compared) — this component
+// still has no opinion on which one a caller uses.
 export default function DecisionCard({
   C, MONO, SANS, NUM,
   symbol,

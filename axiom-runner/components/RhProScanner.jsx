@@ -7,6 +7,13 @@ import {
 } from "./market-helpers.js";
 import AiScoreExplainer, { TRADE_SETUP_DIMENSIONS, STOCK_QUALITY_DIMENSIONS, INSTITUTIONAL_GRADE_DIMENSIONS } from "./AiScoreExplainer.jsx";
 import { mapToAiAction, AI_ACTIONS } from "./ai-actions.js";
+// Real staged entry plan + entry-timing verdict (2026-08-20, Discover/Smart
+// Scan/Workspace unification) — same client-twin functions Smart Scan's
+// own deep-dive already uses, so Discover's AI ACTION column is now backed
+// by the same real entry-engine read instead of an independent guess (see
+// actionFor() below).
+import { computeEntryPlan } from "./entry-engine.js";
+import { classifyDeepScanDecision } from "./btc-hpc-scan.js";
 import { computeGreenLight } from "./trading-utils.js";
 import { findWeakestPosition, evaluateRotation } from "./portfolio-rotation-engine.js";
 import GapScanner from "./GapScanner.jsx";
@@ -327,7 +334,25 @@ export default function RhProScanner({
       // separate live-quote fetch here, so today's %-change/day-range
       // component honestly defaults to neutral; the dominant Stage/RS/
       // volume-driven scoring still runs in full).
-      return { ...x, score: quality.score, quality, aplus, institutionalGrade, next: computeNextAction(x), prediction: computePrediction(x, x) };
+      //
+      // Real staged entry plan + entry-timing verdict (2026-08-20, Discover/
+      // Smart Scan/Workspace unification) — same computeEntryPlan/
+      // classifyDeepScanDecision call SmartScanTab.jsx's own deep-dive
+      // makes, off this same real trend-screen row, so a symbol's AI ACTION
+      // here is backed by the exact same real read Smart Scan's headline
+      // verdict would show for it, not an independent guess.
+      const dailyBias = (String(x.stage || "").includes("2") && Number(x.passCount || 0) >= 6) ? "BULLISH" : String(x.stage || "").includes("4") ? "BEARISH" : "NEUTRAL";
+      const target1 = x.entry > x.stop ? Math.round((x.entry + (x.entry - x.stop)) * 100) / 100 : null;
+      const rr = Number.isFinite(target1) && x.entry > x.stop ? Math.round(((target1 - x.entry) / (x.entry - x.stop)) * 100) / 100 : null;
+      const entryPlan = computeEntryPlan({
+        price: x.price, pivot: x.pivot, atr: null, contractionLow: x.contractionLow,
+        dailyBias, rsRating: x.rsRating, higherLows: x.higherLows, tightening: x.tightening,
+        vcpVerdict: x.vcpVerdict, vwap20: x.technicals?.vwap20, rr,
+        breakoutConfirmed: x.breakoutConfirmed, extended: x.extended, priceAction: {},
+        stop: x.stop, target1, target2: x.target2,
+      });
+      const deepDecision = classifyDeepScanDecision({ entryPlan, aPlusScore: aplus?.score });
+      return { ...x, score: quality.score, quality, aplus, institutionalGrade, next: computeNextAction(x), prediction: computePrediction(x, x), entryPlan, deepDecision };
     }).sort((a, b) => (b.score - a.score) || ((b.rsRating || 0) - (a.rsRating || 0)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rawRows, sectorPerfKey, regime?.score]);
@@ -461,7 +486,7 @@ export default function RhProScanner({
   // first redesign) so it can also run over the full `rows` universe for the
   // header summary strip, not just the currently-filtered/categorized `shown`.
   const actionFor = (r) => {
-    let action = mapToAiAction({ institutionalScore: r.institutionalGrade?.score, nextAction: r.next?.action });
+    let action = mapToAiAction({ institutionalScore: r.institutionalGrade?.score, nextAction: r.next?.action, verdict: r.deepDecision?.decision });
     let rotationInfo = null;
     if (action.tier >= AI_ACTIONS.ACCUMULATE.tier && !rotationState.heldSymbols.has(r.symbol) && rotationState.scoredOpen.length) {
       const candidateQuality = r.aplus?.score ?? r.institutionalGrade?.score ?? -1;

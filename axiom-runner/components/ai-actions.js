@@ -35,11 +35,54 @@ export const AI_ACTIONS = {
   AVOID:        { label: "Avoid",        color: "#c8282a", tier: 1 },
 };
 
+// Real, disclosed, one-directional maps from the app's two other real
+// "final verdict" vocabularies onto this one's tiers (2026-08-20, Discover/
+// Smart Scan/Workspace unification — audit found 3 vocabularies that could
+// independently disagree about the same real facts: this one, Smart Scan's
+// classifyDeepScanDecision, and Workspace's simple-decision.js). Neither
+// source vocabulary is replaced — each still exists because it fits a real,
+// different data-richness tier (a scan can't afford Workspace's live 4H/1H/
+// 15M fetches per row; Workspace's 6-state machine doesn't need a 9-tier
+// cross-symbol sort). This just makes sure that when both are computed for
+// the same symbol, one is derived from the other instead of being guessed
+// independently — so they can never contradict.
+//
+// classifyDeepScanDecision (btc-hpc-scan.js) is entry-only — no concept of
+// "you already own this," so it never maps to ROTATE/TAKE_PROFITS.
+export function deepScanDecisionToAiAction(decision) {
+  switch (decision) {
+    case "A_PLUS_EARLY_BUY": return AI_ACTIONS.STRONG_BUY;
+    case "BUY": return AI_ACTIONS.BUY;
+    case "PULLBACK_BUY": return AI_ACTIONS.ACCUMULATE;
+    case "EXTENDED": return AI_ACTIONS.WATCH;
+    case "WAIT": return AI_ACTIONS.WAIT;
+    case "AVOID": return AI_ACTIONS.AVOID;
+    default: return null;
+  }
+}
+// simple-decision.js's 6 states are position-aware (START_SMALL/ADD assume
+// you're not-yet-in or partially-in a real position) — REDUCE/EXIT map
+// straight across since both vocabularies already mean the same real thing
+// there.
+export function simpleDecisionToAiAction(decision) {
+  switch (decision) {
+    case "START_SMALL": return AI_ACTIONS.BUY;
+    case "ADD": return AI_ACTIONS.ACCUMULATE;
+    case "HOLD": return AI_ACTIONS.WATCH;
+    case "WAIT": return AI_ACTIONS.WAIT;
+    case "REDUCE": return AI_ACTIONS.REDUCE;
+    case "EXIT": return AI_ACTIONS.EXIT;
+    default: return null;
+  }
+}
+
 // Reduces the app's existing real outputs to one AI_ACTIONS entry —
 // zero new computation, this only relabels numbers/verdicts that already
 // exist elsewhere in the app (institutionalRecommendation's own score
 // bands, computeNextAction's verdict, TrendSetupPanel/su.verdict's
-// GO/WAIT/AVOID, or an existing-position management verdict).
+// GO/WAIT/AVOID, classifyDeepScanDecision/simple-decision.js's real
+// entry-engine-backed verdicts, or an existing-position management
+// verdict).
 //
 // `positionState` is for EXISTING holdings only (e.g. RealityCheckWidget's
 // EXIT/REDUCE/TIGHTEN STOP/WATCH CLOSELY/HOLD) — deliberately restricted to
@@ -54,6 +97,16 @@ export function mapToAiAction({ institutionalScore, verdict, nextAction, positio
     if (p.includes("TAKE PROFIT") || p.includes("TAKE_PROFIT")) return AI_ACTIONS.TAKE_PROFITS;
     if (p.includes("WATCH") || p.includes("HOLD")) return AI_ACTIONS.WATCH;
   }
+
+  // Real classifyDeepScanDecision/simple-decision.js verdicts, when a
+  // caller passes one — takes priority over the cruder nextAction/score-
+  // band ladder below since it's backed by the real entry-engine staged
+  // plan, not just a trend-screen snapshot. Falls through to that ladder
+  // for callers/symbols that don't have real entry-engine data yet (honest
+  // degrade, same discipline as every other real-data-or-null read in this
+  // app).
+  const fromDeepScan = deepScanDecisionToAiAction(verdict) || simpleDecisionToAiAction(verdict);
+  if (fromDeepScan) return fromDeepScan;
 
   const v = verdict ? String(verdict).toUpperCase() : null;
   const na = nextAction ? String(nextAction).toUpperCase() : null;

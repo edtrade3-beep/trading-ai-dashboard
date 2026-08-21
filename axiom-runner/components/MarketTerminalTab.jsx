@@ -243,7 +243,7 @@ import AiScoreExplainer, {
   TECHNICAL_DIMENSIONS, TIMING_DIMENSIONS, AI_TRADE_ENGINE_DIMENSIONS, FOUNDATION_DIMENSIONS, FOUNDATION_LABEL,
 } from "./AiScoreExplainer.jsx";
 import { stockQualityBreakdown } from "./rhpro-shared.jsx";
-import { mapToAiAction } from "./ai-actions.js";
+import { mapToAiAction, simpleDecisionToAiAction } from "./ai-actions.js";
 import AiTradeCard from "./AiTradeCard.jsx";
 import StrategySelectorCard from "./StrategySelectorCard.jsx";
 import ChecklistCard from "./ChecklistCard.jsx";
@@ -1005,7 +1005,18 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   const topScores = (symTrend && institutionalGrade && stockQuality && aPlusScore) ? deriveTopLevelScores({
     regime, sectorInfo: symSectorInfo, technicals: chart?.technicals, institutionalGrade, stockQuality, aPlusScore,
   }) : null;
-  const primaryAction = institutionalGrade ? mapToAiAction({ institutionalScore: institutionalGrade.score }) : null;
+  // Derived from simpleDecisionDW (the real headline DecisionCard verdict
+  // above, entry-engine/position-decision-engine/MTF-backed) via
+  // simpleDecisionToAiAction, not institutionalGrade.score independently
+  // (2026-08-20, Discover/Smart Scan/Workspace unification — this was a
+  // real, previously-undetected bug: this badge and SmartMoneyDecisionPanel's
+  // heroAction could disagree with the DecisionCard banner on the same
+  // page despite a comment claiming they "agree"). Falls back to the score
+  // band only when there's no real simpleDecisionDW yet (symbol not
+  // trend-screened, e.g. still loading).
+  const primaryAction = simpleDecisionDW
+    ? (simpleDecisionToAiAction(simpleDecisionDW.decision) || (institutionalGrade ? mapToAiAction({ institutionalScore: institutionalGrade.score }) : null))
+    : (institutionalGrade ? mapToAiAction({ institutionalScore: institutionalGrade.score }) : null);
 
   // AI Trade Engine (options platform redesign, Phase 3) — the 10-dimension
   // Trend/Momentum/Volume/RS/Options Flow/Dark Pool/News/Gamma/Liquidity/
@@ -1883,14 +1894,19 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             trendColor={decisionInputs.trendColor} volumeColor={decisionInputs.volColor} riskColor={decisionInputs.riskColor}
             hideToggle />
         )}
-        {/* SECTION 1 — Ticker / Overall Grade / AI Conviction / Primary
-            Action (institutional redesign, 2026-07-29, explicit user spec).
-            Overall Grade is the real, additive Institutional Grade
-            (computeInstitutionalGrade) — Stock Quality/Trade Setup below are
-            untouched. Recommendation/stars are a deterministic label on that
-            same real score. Primary Action is Phase 0's unified AI_ACTIONS
-            reducer applied to this same score. Confidence/Expected Move
-            reuse the real computePrediction engine (Quick Read card below).
+        {/* SECTION 1 — Ticker / Overall Grade / AI Conviction (institutional
+            redesign, 2026-07-29, explicit user spec). Overall Grade is the
+            real, additive Institutional Grade (computeInstitutionalGrade) —
+            Stock Quality/Trade Setup below are untouched. Recommendation/
+            stars are a deterministic label on that same real score. The
+            Primary Action badge that used to sit here was dropped
+            (2026-08-20, Discover/Smart Scan/Workspace unification) — it's
+            now guaranteed to say the same thing as the DecisionCard banner
+            above (primaryAction derives from simpleDecisionDW), so showing
+            it twice on one page was pure redundancy; it's still computed,
+            just to feed SmartMoneyDecisionPanel's heroAction below.
+            Confidence/Expected Move reuse the real computePrediction engine
+            (Quick Read card below).
             Probability of Success reuses the real aplus-track forward-return
             win-rate log, honestly gated below its real sample floor. No
             fabricated metrics (no DCF, no gamma exposure, no 13F, etc — see
@@ -1920,11 +1936,6 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                 <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: rec.color }}>
                   {"★".repeat(rec.stars)}{"☆".repeat(5 - rec.stars)} {rec.label}
                 </span>
-                {primaryAction && (
-                  <span title="Unified AI Action — reduces this same real institutional score to one shared label used app-wide" style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: primaryAction.color, border: `1px solid ${primaryAction.color}`, borderRadius: 6, padding: "3px 10px" }}>
-                    {primaryAction.label}
-                  </span>
-                )}
               </div>
               <div style={{ display: "flex", gap: 22, rowGap: 10, flexWrap: "wrap" }}>
                 {/* Renamed from bare "CONFIDENCE" (2026-07-29, real
