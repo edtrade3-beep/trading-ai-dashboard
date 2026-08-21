@@ -9,7 +9,6 @@ import { computeEntryPlan } from "./entry-engine.js";
 import { classifyDeepScanDecision, DECISION_LABELS } from "./btc-hpc-scan.js";
 import { computeFutureValueRead } from "./future-value-scoring.js";
 import { PanelErrorBoundary } from "./ui-atoms.jsx";
-import DecisionCard from "./DecisionCard.jsx";
 import FoundationCard from "./FoundationCard.jsx";
 import AiScoreExplainer, { FOUNDATION_DIMENSIONS, FOUNDATION_LABEL } from "./AiScoreExplainer.jsx";
 import { NUM } from "./theme.js";
@@ -1400,20 +1399,6 @@ export default function SmartScanTab({
                                       // this exact symbol on the Workspace page.
                                       const trendRow = smartScanTrendMap[row.ticker] || null;
                                       const ma50v = Number(row.quote?.priceAvg50  || 0);
-                                      const ma200v= Number(row.quote?.priceAvg200 || 0);
-                                      const hi52v = Number(row.quote?.yearHigh || 0);
-                                      const lo52v = Number(row.quote?.yearLow  || 0);
-
-                                      // Trend score — kept as a lightweight visual dot only now
-                                      // (Trend/Volume/Risk indicator below), NOT the verdict
-                                      // driver anymore — see ONE ENGINE below.
-                                      const ttChecks = [
-                                        ma200v > 0 && px > ma200v, ma50v > 0 && ma200v > 0 && ma50v > ma200v,
-                                        ma50v > 0 && px > ma50v, lo52v > 0 && px >= lo52v * 1.30,
-                                        hi52v > 0 && px >= hi52v * 0.75, (row.rsiVal || 50) >= 55,
-                                        !!(row.ema9v && row.ema21v && row.ema9v > row.ema21v),
-                                      ].filter(Boolean).length;
-                                      const trendScore = Math.round(ttChecks / 7 * 100);
 
                                       // ONE ENGINE (2026-08-20, explicit user architecture
                                       // directive — "There must NOT be two decision engines...
@@ -1460,28 +1445,16 @@ export default function SmartScanTab({
                                         : null;
 
                                       const vLabel = deepDecision ? (DECISION_LABELS[deepDecision.decision] || deepDecision.decision) : "—";
-                                      const vColor = deepDecision?.color ?? "#607494";
-                                      const vIcon  = deepDecision?.icon ?? "—";
                                       const vAction = deepDecision?.reason ?? "Not enough real data yet.";
                                       const vSetup = entryPlanSS ? entryPlanSS.stage.replace(/_/g, " ") : "No Setup";
                                       const composite = aplusSS ? aplusSS.score : 0;
                                       const vWarnings = smcNote ? [smcNote] : [];
 
-                                      const vBg = `${vColor}0e`;
-
-                                      // ── Decision Card unification (2026-08-19, explicit user
-                                      // request: "smart scan just like workspace") — position-
-                                      // sizing inputs hoisted here (used to live in a separate
-                                      // nested IIFE below) so the header's real Entry/Stop/Target
-                                      // boxes and the Position Sizing card use the exact same
-                                      // numbers, computed once. All of vLabel/vColor/vIcon/
-                                      // composite/vAction/vWarnings above are UNCHANGED — this only
-                                      // touches how they're rendered, not the real long/short
-                                      // signal logic itself. The old inline "3 signal boxes"
-                                      // (TECHNICALS/TREND/STRUCTURE) are superseded by
-                                      // DecisionCard's own Trend/Volume/Risk dots below, which add
-                                      // a real Volume read (computeRvol) the old boxes didn't have.
-                                      // Long only (see ONE ENGINE note above) — isShort is
+                                      // Position-sizing inputs hoisted here so the real Position
+                                      // Sizing card below and every other downstream action (Copy
+                                      // Trade Plan, Telegram, Quick Log, T1 alert) use the exact
+                                      // same numbers, computed once. Long only (see ONE ENGINE
+                                      // note above) — isShort is
                                       // always false now, kept only so the (currently dead)
                                       // short-side branches below degrade harmlessly rather
                                       // than being ripped out mid-refactor.
@@ -1540,28 +1513,16 @@ export default function SmartScanTab({
                                       // Trade Plan, Telegram, Quick Log, T1 alert) instead of each
                                       // one independently recomputing its own flat-% version.
                                       const rr = (t1 != null && stop5 != null && px) ? Math.round(((t1 - px) / Math.max(Math.abs(px - stop5), 0.01)) * 100) / 100 : null;
-                                      // Real signals already computed above — same [0d9465]/[d6a312]/
-                                      // [c8282a] convention DecisionCard's Trend/Volume/Risk dots use
-                                      // on the Workspace page, for visual + logical consistency.
-                                      const trendDotColor = trendScore >= 65 ? "#0d9465" : trendScore >= 45 ? "#d6a312" : "#c8282a";
-                                      const rvol = computeRvol(row.quote, smartScanTrendMap[row.ticker]);
-                                      const volDotColor = !rvol ? C.textDim : rvol >= 1.5 ? "#0d9465" : rvol >= 0.8 ? "#d6a312" : "#c8282a";
-                                      const riskDotColor = isAvoid || !stop5 ? C.textDim : Number(stopPct) <= 5 ? "#0d9465" : Number(stopPct) <= 7 ? "#d6a312" : "#c8282a";
 
                                       return (
-                                        <DecisionCard C={C} MONO={MONO} SANS={SANS} NUM={NUM}
-                                          symbol={row.ticker}
-                                          verdictIcon={vIcon} verdictLabel={vLabel} verdictColor={vColor}
-                                          aPlusScore={aplus.score}
-                                          entry={!isAvoid && px ? px.toFixed(2) : null}
-                                          stop={!isAvoid && stop5 ? stop5.toFixed(2) : null}
-                                          target={!isAvoid && t1 ? t1.toFixed(2) : null}
-                                          trendColor={trendDotColor} volumeColor={volDotColor} riskColor={riskDotColor}
-                                          showMarketRow={false}
-                                          showFullAnalysis={scanShowFullAnalysis}
-                                          onToggleFullAnalysis={() => setScanShowFullAnalysis(v => !v)}
-                                          fullAnalysisLabel="Options, Technicals, SMC, News, Analyst & Earnings"
-                                          extra={<>
+                                        <div style={{ marginBottom: 14, border: `1px solid ${C.border}`, borderRadius: 12, padding: "14px 16px", background: C.card }}>
+                                          {/* Verdict banner (icon/label/A+ score/entry-stop-target/
+                                              trend-volume-risk dots) removed 2026-08-20 — now
+                                              genuinely redundant with ScanTerminalHub.jsx's
+                                              persistent right-pane Workspace view, which already
+                                              shows this same real read for whichever row is
+                                              selected. Everything below (real Smart-Scan-specific
+                                              actions, not visual verdict duplication) is unchanged. */}
                                           <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginBottom: 6 }}>Setup: {vSetup} · Alignment {composite}/100</div>
                                           {/* ONE ENGINE (2026-08-20) — this verdict now comes from
                                               the SAME real entry-engine.js/classifyDeepScanDecision
@@ -1729,8 +1690,12 @@ export default function SmartScanTab({
                                               );
                                             })()}
                                           </div>
-                                          </>}
-                                        />
+                                          <button onClick={() => setScanShowFullAnalysis(v => !v)}
+                                            style={{ width: "100%", marginTop: 8, fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "8px 12px", borderRadius: 8, cursor: "pointer",
+                                              border: `1px solid ${C.accent}`, background: scanShowFullAnalysis ? `${C.accent}18` : "transparent", color: C.accent }}>
+                                            {scanShowFullAnalysis ? "▲ Hide Full Analysis" : "▼ Show Full Analysis (Options, Technicals, SMC, News, Analyst & Earnings)"}
+                                          </button>
+                                        </div>
                                       );
                                     })()}
 
