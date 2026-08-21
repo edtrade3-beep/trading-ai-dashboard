@@ -14,6 +14,7 @@ import { mapToAiAction, AI_ACTIONS } from "./ai-actions.js";
 // actionFor() below).
 import { computeEntryPlan } from "./entry-engine.js";
 import { classifyDeepScanDecision } from "./btc-hpc-scan.js";
+import { computeRegimeLabel } from "./DashboardTab.jsx";
 import { computeGreenLight } from "./trading-utils.js";
 import { findWeakestPosition, evaluateRotation } from "./portfolio-rotation-engine.js";
 import GapScanner from "./GapScanner.jsx";
@@ -182,6 +183,23 @@ export default function RhProScanner({
   onSelectSymbol,
 }) {
   const regime = computeRegime(macroData);
+  // Real market-regime gate for computeEntryPlan (2026-08-21, Unified
+  // Trading System phase 2) — fixes a genuine cross-screen contradiction:
+  // entry-engine.js's marketRegime qualifying condition was only ever
+  // populated on Workspace (MarketTerminalTab.jsx's marketRegimeDW), never
+  // here, so the exact same real stock could compute a different entry
+  // stage depending only on which screen loaded it — a direct violation
+  // of "never allow Smart Scan/Workspace to independently produce
+  // conflicting decisions." Same real computeRegimeLabel function, same
+  // real SPY/QQQ/VIX quotes (already in macroData), same RISK_ON/RISK_OFF/
+  // NEUTRAL mapping Workspace already uses — not a second regime read.
+  const spyQ_reg = (macroData || []).find(m => (m.symbol || "").toUpperCase() === "SPY");
+  const qqqQ_reg = (macroData || []).find(m => (m.symbol || "").toUpperCase() === "QQQ");
+  const vixQ_reg = (macroData || []).find(m => ["VIX", "^VIX", "VIXY"].includes((m.symbol || "").toUpperCase()));
+  const { regLabel: regLabel_reg } = computeRegimeLabel(C, {
+    spy: spyQ_reg, qqq: qqqQ_reg, vix: Number(vixQ_reg?.price || vixQ_reg?.regularMarketPrice || 0), loaded: !!spyQ_reg,
+  });
+  const marketRegimeForEntry = regLabel_reg === "RISK ON" ? "RISK_ON" : regLabel_reg === "RISK OFF" ? "RISK_OFF" : regLabel_reg === "LOADING…" ? null : "NEUTRAL";
   // "chart" and "plan" used to be two separate buttons/destinations —
   // "chart" opened Market Terminal, "plan" opened a standalone Trade
   // Planner that silently recomputed its OWN ATR-based entry/stop/targets,
@@ -378,13 +396,13 @@ export default function RhProScanner({
         dailyBias, rsRating: x.rsRating, higherLows: x.higherLows, tightening: x.tightening,
         vcpVerdict: x.vcpVerdict, vwap20: x.technicals?.vwap20, rr,
         breakoutConfirmed: x.breakoutConfirmed, extended: x.extended, priceAction: {},
-        stop: x.stop, target1, target2: x.target2,
+        stop: x.stop, target1, target2: x.target2, marketRegime: marketRegimeForEntry,
       });
       const deepDecision = classifyDeepScanDecision({ entryPlan, aPlusScore: aplus?.score });
       return { ...x, score: quality.score, quality, aplus, institutionalGrade, next: computeNextAction(x), prediction: computePrediction(x, x), entryPlan, deepDecision };
     }).sort((a, b) => (b.score - a.score) || ((b.rsRating || 0) - (a.rsRating || 0)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rawRows, sectorPerfKey, regime?.score]);
+  }, [rawRows, sectorPerfKey, regime?.score, marketRegimeForEntry]);
 
   useEffect(() => {
     if ((category !== "lowiv" && category !== "highiv") || ivRanksState !== "idle") return;

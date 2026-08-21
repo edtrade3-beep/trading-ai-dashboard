@@ -7,6 +7,7 @@ import { computeSniperDecision } from "./sniper-decision.js";
 import { computeHeatRisk, computeCortexVerdict } from "./cortex-engine.js";
 import { computeEntryPlan } from "./entry-engine.js";
 import { classifyDeepScanDecision, DECISION_LABELS } from "./btc-hpc-scan.js";
+import { computeRegimeLabel } from "./DashboardTab.jsx";
 import { computeFutureValueRead } from "./future-value-scoring.js";
 import { PanelErrorBoundary } from "./ui-atoms.jsx";
 import FoundationCard from "./FoundationCard.jsx";
@@ -201,6 +202,23 @@ export default function SmartScanTab({
           // fetched here for the Quick Read Green Light chip below — turned
           // out to be zero-cost, not the extra fetch originally flagged.
           const smartScanRegime = computeRegime(macroData);
+          // Real market-regime gate for computeEntryPlan (2026-08-21,
+          // Unified Trading System phase 2) — fixes a genuine cross-screen
+          // contradiction: entry-engine.js's marketRegime qualifying
+          // condition was only ever populated on Workspace
+          // (MarketTerminalTab.jsx's marketRegimeDW), never here, so the
+          // exact same real stock could compute a different entry stage
+          // depending only on which screen loaded it. Same real
+          // computeRegimeLabel function, same real SPY/QQQ/VIX quotes
+          // (already in macroData), same RISK_ON/RISK_OFF/NEUTRAL mapping
+          // Workspace already uses — not a second regime read.
+          const smartScanSpyQ = (macroData || []).find(m => (m.symbol || "").toUpperCase() === "SPY");
+          const smartScanQqqQ = (macroData || []).find(m => (m.symbol || "").toUpperCase() === "QQQ");
+          const smartScanVixQ = (macroData || []).find(m => ["VIX", "^VIX", "VIXY"].includes((m.symbol || "").toUpperCase()));
+          const { regLabel: smartScanRegLabel } = computeRegimeLabel(C, {
+            spy: smartScanSpyQ, qqq: smartScanQqqQ, vix: Number(smartScanVixQ?.price || smartScanVixQ?.regularMarketPrice || 0), loaded: !!smartScanSpyQ,
+          });
+          const smartScanMarketRegime = smartScanRegLabel === "RISK ON" ? "RISK_ON" : smartScanRegLabel === "RISK OFF" ? "RISK_OFF" : smartScanRegLabel === "LOADING…" ? null : "NEUTRAL";
           // "Why is this moving" — real web-searched /api/market/ai-why, same
           // on-demand pattern already used on the Opportunities tab. This
           // deep-dive expanded row is the SHARED destination MoversTab/
@@ -1448,7 +1466,7 @@ export default function SmartScanTab({
                                         dailyBias: dailyBiasSS, rsRating: trendRow.rsRating, higherLows: trendRow.higherLows, tightening: trendRow.tightening,
                                         vcpVerdict: trendRow.vcpVerdict, vwap20: trendRow.technicals?.vwap20, rr: rrSS,
                                         breakoutConfirmed: trendRow.breakoutConfirmed, extended: trendRow.extended, priceAction: {},
-                                        stop: trendRow.stop, target1: target1SS, target2: trendRow.target2,
+                                        stop: trendRow.stop, target1: target1SS, target2: trendRow.target2, marketRegime: smartScanMarketRegime,
                                       }) : null;
                                       const aplusSS = trendRow ? computeAPlusScore(trendRow, smartScanRegime) : null;
                                       const deepDecision = entryPlanSS ? classifyDeepScanDecision({ entryPlan: entryPlanSS, aPlusScore: aplusSS?.score }) : null;
