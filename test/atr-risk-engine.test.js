@@ -40,6 +40,17 @@ ok("computeAtrRiskLevels: target1 is exactly 2R and target2 is exactly 3R off th
   assert.ok(Math.abs(r1 - 2) < 0.01, `target1 should be 2R, got ${r1}R`);
   assert.ok(Math.abs(r2 - 3) < 0.01, `target2 should be 3R, got ${r2}R`);
 });
+ok("computeAtrRiskLevels: target3 is exactly 4R by default, honors a custom target3R, and is null on insufficient data (2026-08-21, unified trading system spec §10)", () => {
+  const bars = makeBars(30, 100, 4);
+  const price = bars[bars.length - 1].close;
+  const r = computeAtrRiskLevels(bars, price);
+  const r3 = (r.target3 - price) / r.riskPerShare;
+  assert.ok(Math.abs(r3 - 4) < 0.01, `target3 should be 4R by default, got ${r3}R`);
+  const custom = computeAtrRiskLevels(bars, price, { target3R: 5 });
+  const r3c = (custom.target3 - price) / custom.riskPerShare;
+  assert.ok(Math.abs(r3c - 5) < 0.01, `target3R:5 should give 5R, got ${r3c}R`);
+  assert.strictEqual(computeAtrRiskLevels(makeBars(5), 100).target3, null);
+});
 ok("computeAtrRiskLevels: custom multipliers are honored, not hardcoded", () => {
   const bars = makeBars(30, 100, 4);
   const price = bars[bars.length - 1].close;

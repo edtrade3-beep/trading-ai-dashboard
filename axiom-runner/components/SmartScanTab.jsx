@@ -178,6 +178,16 @@ export default function SmartScanTab({
           // Analysis for the same ticker doesn't refire the fetch.
           const [smartScanFoundation, setSmartScanFoundation] = useState({});
           const foundationFetchedRef = useRef({});
+          // Real ATR-based risk levels (2026-08-21, Unified Risk Engine
+          // phase 1) — the SAME /api/market/mtf route + computeAtrRiskLevels
+          // (src/atr-risk-engine.js) MarketTerminalTab.jsx's "ATR LEVELS"
+          // section already uses, not a second engine. Smart Scan never had
+          // this real, volatility-scaled lens at all before — only the flat-%
+          // stop5/t1/t2 fallback. Same lazy, Full-Analysis-gated fetch
+          // discipline as Foundation above (real 4H+1H bar fetches, not
+          // free enough for every row expand).
+          const [smartScanAtrLevels, setSmartScanAtrLevels] = useState({});
+          const atrLevelsFetchedRef = useRef({});
           const [explain, setExplain] = useState(null); // { symbol, aplus, dimensions, label } | null
           // Category tabs (see SMARTSCAN_CATEGORIES above).
           const [smartScanCategory, setSmartScanCategory] = useState("all");
@@ -235,6 +245,16 @@ export default function SmartScanTab({
               .then(r => r.json())
               .then(j => setSmartScanFoundation(prev => ({ ...prev, [scanExpanded]: j && j.ok ? j : null })))
               .catch(() => setSmartScanFoundation(prev => ({ ...prev, [scanExpanded]: null })));
+          }, [scanExpanded, scanShowFullAnalysis]);
+
+          useEffect(() => {
+            if (!scanExpanded || !scanShowFullAnalysis) return;
+            if (atrLevelsFetchedRef.current[scanExpanded]) return;
+            atrLevelsFetchedRef.current[scanExpanded] = true;
+            fetch(`/api/market/mtf?symbol=${encodeURIComponent(scanExpanded)}`)
+              .then(r => r.json())
+              .then(j => setSmartScanAtrLevels(prev => ({ ...prev, [scanExpanded]: (j && j.ok && j.atrLevels && !j.atrLevels.dataInsufficient) ? j.atrLevels : null })))
+              .catch(() => setSmartScanAtrLevels(prev => ({ ...prev, [scanExpanded]: null })));
           }, [scanExpanded, scanShowFullAnalysis]);
 
           // ── Signal badge style helper ─────────────────────────────────────
@@ -2220,6 +2240,48 @@ export default function SmartScanTab({
                                               aplus: { score: smartScanFoundation[row.ticker].foundationScore, breakdown: smartScanFoundation[row.ticker].breakdown, reasons: smartScanFoundation[row.ticker].reasons },
                                               dimensions: FOUNDATION_DIMENSIONS, label: FOUNDATION_LABEL,
                                             })} />
+                                        )}
+                                      </div>
+
+                                      {/* ── Col 4b: ATR RISK LEVELS (2026-08-21, Unified Risk
+                                          Engine phase 1) — real, volatility-scaled stop/target
+                                          levels off real 4H ATR (src/atr-risk-engine.js's
+                                          computeAtrRiskLevels via /api/market/mtf), the SAME
+                                          engine + same "ATR LEVELS" label MarketTerminalTab.jsx
+                                          already shows. Smart Scan never had this real lens at
+                                          all before — only the flat-% stop5/t1/t2 fallback used
+                                          elsewhere on this row (WHY summary, Copy Trade Plan,
+                                          Quick Log, Telegram). Shown alongside, not replacing,
+                                          that real trend-screen-based stop — same "both real,
+                                          answer different questions" disclosure Workspace's own
+                                          version already documents. ── */}
+                                      <div style={{ display: "flex", flexDirection: "column", maxHeight: isTablet ? 620 : 540, overflowY: "auto", padding: 12, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8 }}>
+                                        <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 8, letterSpacing: "0.06em", paddingBottom: 5, borderBottom: `2px solid ${C.border}`, minHeight: 32, display: "flex", alignItems: "center", position: "sticky", top: 0, background: C.card, zIndex: 2 }}>
+                                          📏 ATR RISK LEVELS
+                                        </div>
+                                        {smartScanAtrLevels[row.ticker] === undefined ? (
+                                          <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, padding: "8px 0" }}>Loading…</div>
+                                        ) : smartScanAtrLevels[row.ticker] == null ? (
+                                          <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, padding: "8px 0" }}>Not enough real 4H bar data yet for a real ATR read.</div>
+                                        ) : (
+                                          <>
+                                            <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginBottom: 8 }}>4H ATR, 1.5x stop / 2R / 3R / 4R targets — a real, volatility-scaled lens alongside the structural entry above, not a replacement for it.</div>
+                                            {[
+                                              ["ATR (4H)", smartScanAtrLevels[row.ticker].atr],
+                                              ["Stop", smartScanAtrLevels[row.ticker].stop],
+                                              ["Target 1", smartScanAtrLevels[row.ticker].target1],
+                                              ["Target 2", smartScanAtrLevels[row.ticker].target2],
+                                              ["Target 3", smartScanAtrLevels[row.ticker].target3],
+                                              ["Trailing Stop", smartScanAtrLevels[row.ticker].trailingStop],
+                                            ].filter(([, v]) => v != null).map(([k, v]) => (
+                                              <div key={k} style={{ display: "flex", justifyContent: "space-between",
+                                                fontFamily: MONO, fontSize: 13, padding: "6px 0",
+                                                borderBottom: `1px solid ${C.border}22` }}>
+                                                <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 12 }}>{k}</span>
+                                                <span style={{ color: C.text, fontWeight: 700 }}>${v.toFixed(2)}</span>
+                                              </div>
+                                            ))}
+                                          </>
                                         )}
                                       </div>
 

@@ -2815,7 +2815,7 @@ CUSTOMER QUALITY & EXECUTION RISK: ...`;
     // structural stop, not a replacement for it — both are shown,
     // labeled, in the Decision Workspace's Entry Map.
     const currentPrice = r4h?.bars?.length ? r4h.bars[r4h.bars.length - 1].close : null;
-    const atrLevels = r4h ? computeAtrRiskLevels(r4h.bars, currentPrice) : { atr: null, stop: null, target1: null, target2: null, trailingStop: null, dataInsufficient: true };
+    const atrLevels = r4h ? computeAtrRiskLevels(r4h.bars, currentPrice) : { atr: null, stop: null, target1: null, target2: null, target3: null, trailingStop: null, dataInsufficient: true };
     // 15M PRIMARY ENTRY TIMING (MTF spec §4/21, 2026-08-20) — reuses
     // fetchDayTradeScanRows (real 15-min ORB/VWAP/RVOL/price-action, the
     // exact same real pipeline Day Trade Mode/Light Box already use) +

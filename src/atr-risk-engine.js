@@ -27,6 +27,7 @@ const ATR_DEFAULTS = {
   stopMult: 1.5,
   target1R: 2,
   target2R: 3,
+  target3R: 4,   // real 3rd target (2026-08-21, unified trading system spec §10: "Target 3 when appropriate") — one more R-multiple past target2, same ATR-scaled math, not a separate formula
   trailingMult: 1.5,
   atrPeriod: 14,
 };
@@ -37,18 +38,19 @@ const ATR_DEFAULTS = {
 function computeAtrRiskLevels(bars, price, opts = {}) {
   const o = { ...ATR_DEFAULTS, ...opts };
   if (!Array.isArray(bars) || bars.length < o.atrPeriod + 1 || !Number.isFinite(price) || price <= 0) {
-    return { atr: null, stop: null, target1: null, target2: null, trailingStop: null, riskPerShare: null, dataInsufficient: true };
+    return { atr: null, stop: null, target1: null, target2: null, target3: null, trailingStop: null, riskPerShare: null, dataInsufficient: true };
   }
   const atrVal = atrAt(bars, o.atrPeriod, bars.length - 1);
   if (!Number.isFinite(atrVal) || atrVal <= 0) {
-    return { atr: null, stop: null, target1: null, target2: null, trailingStop: null, riskPerShare: null, dataInsufficient: true };
+    return { atr: null, stop: null, target1: null, target2: null, target3: null, trailingStop: null, riskPerShare: null, dataInsufficient: true };
   }
   const stop = round2(price - o.stopMult * atrVal);
   const riskPerShare = round2(price - stop);
   const target1 = round2(price + o.target1R * riskPerShare);
   const target2 = round2(price + o.target2R * riskPerShare);
+  const target3 = round2(price + o.target3R * riskPerShare);
   const trailingStop = round2(price - o.trailingMult * atrVal);
-  return { atr: round2(atrVal), stop, target1, target2, trailingStop, riskPerShare, dataInsufficient: false };
+  return { atr: round2(atrVal), stop, target1, target2, target3, trailingStop, riskPerShare, dataInsufficient: false };
 }
 
 // Anti-Chase — extension-from-breakout bands. Real input (extensionPct)

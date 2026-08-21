@@ -1570,11 +1570,12 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                       questions (structural low vs. volatility-scaled). */}
                   {symMtf?.atrLevels && !symMtf.atrLevels.dataInsufficient && (
                     <div style={{ marginTop: 10, paddingTop: 8, borderTop: `1px solid ${C.border}` }}>
-                      <div style={{ fontFamily: MONO, fontSize: 8.5, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 4 }}>ATR LEVELS (4H, 1.5x/2R/3R)</div>
+                      <div style={{ fontFamily: MONO, fontSize: 8.5, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 4 }}>ATR LEVELS (4H, 1.5x/2R/3R/4R)</div>
                       {[
                         ["Stop", symMtf.atrLevels.stop],
                         ["Target 1", symMtf.atrLevels.target1],
                         ["Target 2", symMtf.atrLevels.target2],
+                        ["Target 3", symMtf.atrLevels.target3],
                         ["Trailing", symMtf.atrLevels.trailingStop],
                       ].filter(([, v]) => v != null).map(([l, v]) => (
                         <div key={l} style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11, padding: "2px 0" }}>
