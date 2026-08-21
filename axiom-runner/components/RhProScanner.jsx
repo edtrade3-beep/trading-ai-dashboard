@@ -165,6 +165,12 @@ export default function RhProScanner({
   // never had a button wired to it. Adds the row if not already scanned,
   // expands it, and switches tabs — no separate handoff mechanism needed.
   openInSmartScan,
+  // Split-screen hub handoff (2026-08-20, Discover/Smart Scan/Workspace
+  // merge) — same optional prop SmartScanTab.jsx accepts; when RhProScanner
+  // is rendered inside ScanTerminalHub.jsx, a row click also updates the
+  // hub's shared detail pane, alongside this table's own existing
+  // row-expand/Decision View behavior.
+  onSelectSymbol,
 }) {
   const regime = computeRegime(macroData);
   // "chart" and "plan" used to be two separate buttons/destinations —
@@ -772,7 +778,7 @@ export default function RhProScanner({
               return (
               <React.Fragment key={r.symbol}>
               <tr style={{ background: i % 2 ? "transparent" : `${C.surface}55`, cursor: "pointer" }}
-                onClick={() => setExpandedSymbol(expanded ? null : r.symbol)}>
+                onClick={() => { setExpandedSymbol(expanded ? null : r.symbol); if (!expanded) onSelectSymbol && onSelectSymbol(r.symbol); }}>
                 <td style={{ ...cell, color: C.textDim }}>{i + 1}</td>
                 {/* maxWidth + truncated longName (2026-08-11) — real mobile
                     bug found in a platform audit: this cell is

@@ -121,6 +121,13 @@ export default function SmartScanTab({
   setActiveTab, setTerminalSymbol,
   addScanTicker, removeScanTicker, scoreTicker, toggleFavorite, fetchTradeSetup, loadDeepDive, loadDeepSocial,
   runSmartScan, FIVEX_TICKERS, themeMode,
+  // Split-screen hub handoff (2026-08-20, Discover/Smart Scan/Workspace
+  // merge) — when Smart Scan is rendered inside ScanTerminalHub.jsx, a row
+  // click also updates the hub's shared detail pane, alongside (not
+  // instead of) this table's own existing row-expand behavior below.
+  // Undefined when Smart Scan is used standalone (kept possible, just no
+  // longer reachable via the sidebar), so this stays optional.
+  onSelectSymbol,
 }) {
           // Real trend structure for the "Quick Read" Green Light chip below
           // — row.quote's priceAvg50/priceAvg200/yearHigh/yearLow are always
@@ -939,6 +946,7 @@ export default function SmartScanTab({
                                   loadDeepDive(row.ticker);
                                   loadDeepSocial(row.ticker);
                                   setTimeout(() => fetchTradeSetup(row.ticker, { ...row, cortexVerdict: cortexV?.verdict ?? null, cortexReason: cortexV?.reason ?? null, cortexScore: aplus.score ?? null }), 1200);
+                                  onSelectSymbol && onSelectSymbol(row.ticker);
                                 }
                               }}
                               style={{
@@ -1034,13 +1042,19 @@ export default function SmartScanTab({
                                     style={{ fontSize: 10, fontWeight: 800, border: "1px solid #d6a312", background: "#d6a31214", color: "#d6a312",
                                       borderRadius: 4, padding: "2px 6px", cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>🧠 Cortex</button>
                                   {/* Open in Workspace (2026-08-20, Discover/Smart Scan/Workspace
-                                      unification, phase 3) — same real mterminal_load_sym
-                                      localStorage handoff AlertsTab/AMCortexTab/ChartSearchWidget/
-                                      DarkPoolTab/DashboardTab already use; Smart Scan never had
-                                      this button despite being the one screen this session's
-                                      earlier ONE ENGINE work focused hardest on. */}
-                                  {setActiveTab && setTerminalSymbol && (
-                                    <button onClick={(e) => { e.stopPropagation(); setTerminalSymbol(row.ticker); try { localStorage.setItem("mterminal_load_sym", row.ticker); } catch {} setActiveTab("mterminal"); }}
+                                      unification, phase 3). Phase 4 (the merge into
+                                      ScanTerminalHub.jsx): when onSelectSymbol is passed (Smart
+                                      Scan is embedded in the hub), this just updates the hub's
+                                      own detail pane in place — no tab switch, since there's no
+                                      separate Workspace tab to switch to anymore. Falls back to
+                                      the real mterminal_load_sym handoff (same one every other
+                                      tab uses) when Smart Scan is used standalone. */}
+                                  {(onSelectSymbol || (setActiveTab && setTerminalSymbol)) && (
+                                    <button onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (onSelectSymbol) { onSelectSymbol(row.ticker); }
+                                        else { setTerminalSymbol(row.ticker); try { localStorage.setItem("mterminal_load_sym", row.ticker); } catch {} setActiveTab("mterminal"); }
+                                      }}
                                       title={`Open ${row.ticker} in Workspace — the full single-symbol read (MTF timing, Foundation/V-Recovery, Smart Money, Catalysts)`}
                                       style={{ fontSize: 10, fontWeight: 800, border: `1px solid ${C.accent}`, background: `${C.accent}14`, color: C.accent,
                                         borderRadius: 4, padding: "2px 6px", cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>📈 Workspace</button>

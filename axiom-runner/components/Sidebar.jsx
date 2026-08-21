@@ -46,26 +46,21 @@ export const SIDEBAR_ITEMS = [
   // existing palette alias, localStorage handoff, and Dashboard sub-tab
   // mount pointing at them keeps working unchanged). alsoActive is what
   // keeps this row highlighted while on any of the 3 sub-views.
-  { id: "discover",  label: "Discover",   icon: "🎯", tab: "rhpro-scan", alsoActive: ["rhpro-lists", "flow"] },
-
-  // Smart Scan — AI-scored momentum + SMC structure + trend quality scanner
-  // (SmartScanTab.jsx), promoted from keyboard-shortcut-only ("s") into a
-  // real sidebar row (2026-08-13, explicit user request after asking how
-  // to find candidates quickly). Distinct real component from Discover
-  // above (RhProScanner.jsx) — kept as its own row rather than merged in,
-  // same "don't force two different real tools to share one nav slot"
-  // reasoning Discover's own merge above didn't apply here. Its per-row
-  // verdict now reuses the real Cortex Verdict (2026-08-13 fix), so this
-  // and Cortex below are the two-step real workflow: scan here, confirm
-  // there.
-  { id: "smartscan", label: "Smart Scan", icon: "🔍", tab: "smartscan" },
-
-  // Workspace — Market Terminal, relabeled (was "Charts") to match what it
-  // actually is now: the one per-symbol page (chart + decision + trade
-  // plan + institutional summary + AI explanation + options + news +
-  // financials + journal notes). Same activeTab id ("mterminal") so every
-  // chart-link/localStorage handoff across the app keeps working.
-  { id: "charts",    label: "Workspace",  icon: "📈", tab: "mterminal" },
+  // Discover now IS the merged Discover + Smart Scan + Workspace
+  // experience (2026-08-20, explicit user request: "I want one tab
+  // combine all three somehow" — split-screen master/detail via
+  // ScanTerminalHub.jsx, mounted for the "rhpro-scan" SCAN sub-view).
+  // Smart Scan's and Workspace's own former sidebar rows are retired —
+  // both real components (SmartScanTab.jsx/MarketTerminalTab.jsx) are
+  // still directly reused *inside* this same tab (a toggle for the scan
+  // table, always-on for the detail pane), just no longer independently
+  // routed to from the sidebar. alsoActive covers rhpro-scan's existing
+  // 3 sub-views plus smartscan/mterminal — those activeTab values are
+  // still real (a few other real callers, e.g. MoversTab's
+  // openDeepDiveFor, can still land there directly) so the sidebar stays
+  // correctly highlighted on Discover rather than going dark if that ever
+  // happens.
+  { id: "discover",  label: "Discover",   icon: "🎯", tab: "rhpro-scan", alsoActive: ["rhpro-lists", "flow", "smartscan", "mterminal"] },
 
   // Portfolio — "how am I performing?" Unchanged from before.
   { id: "portfolio", label: "Portfolio",  icon: "💼", tab: "portfolio-tab" },

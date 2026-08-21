@@ -89,7 +89,7 @@ import VolatilityLabTab from "./components/VolatilityLabTab.jsx";
 import PositionManagerTab from "./components/PositionManagerTab.jsx";
 import Under10Tab from "./components/Under10Tab.jsx";
 import RhProDashboard from "./components/RhProDashboard.jsx";
-import RhProScanner from "./components/RhProScanner.jsx";
+import ScanTerminalHub from "./components/ScanTerminalHub.jsx";
 import RhProWatchlists from "./components/RhProWatchlists.jsx";
 import RhFutureValueTab from "./components/RhFutureValueTab.jsx";
 import AMCortexTab from "./components/AMCortexTab.jsx";
@@ -7300,16 +7300,37 @@ export default function App() {
             { id: "flow", label: "OPTIONS FLOW" },
             { id: "rhpro-future", label: "FUTURE/VALUE" },
           ]} />
-          <RhProScanner
-            C={C} MONO={MONO} SANS={SANS} macroData={macroData} sectorData={sectorData} watchlistData={watchlistData} setActiveTab={setActiveTab}
+          <ScanTerminalHub
+            C={C} MONO={MONO} SANS={SANS} isTablet={isTablet} isMobile={isMobile} macroData={macroData} sectorData={sectorData}
+            distData={distData} preMktMovers={preMktMovers} marketSession={marketSession}
+            watchlistData={watchlistData} setActiveTab={setActiveTab}
             setTerminalSymbol={setTerminalSymbol} watchlistSymbols={watchlistSymbols} setWatchlistSymbols={setWatchlistSymbols}
-            openInSmartScan={openDeepDiveFor}
+            openDeepDiveFor={openDeepDiveFor}
             optionsFlow={optionsFlow} flowBias={flowBias} flowCallNotional={flowCallNotional} flowPutNotional={flowPutNotional}
             flowFilters={flowFilters} setFlowFilters={setFlowFilters} setLoading={setLoading} fetchAll={fetchAll} apiKey={apiKey}
             flowBySymbol={flowBySymbol} flowRows={flowRows}
             dpSym={dpSym} setDpSym={setDpSym} dpLoad={dpLoad} setDpLoad={setDpLoad} dpData={dpData} setDpData={setDpData} dpErr={dpErr} setDpErr={setDpErr}
             earningsUpdatedAt={earningsUpdatedAt} setEarningsRefreshTick={setEarningsRefreshTick} earningsLoading={earningsLoading} earningsRows={earningsRows}
             setQuickLogModal={setQuickLogModal} rotationRank={rotationRank}
+            scanResults={scanResults} scanExpanded={scanExpanded} scanError={scanError} scanLoading={scanLoading}
+            scanProgress={scanProgress} scanLastRun={scanLastRun}
+            scanFavorites={scanFavorites} scanHistory={scanHistory} scanDeepData={scanDeepData} scanDeepLoad={scanDeepLoad}
+            scanTickerInput={scanTickerInput} customScanTickers={customScanTickers}
+            deepSocialData={deepSocialData} autoScanMins={autoScanMins} autoScanOn={autoScanOn}
+            autoScanCountdown={autoScanCountdown} autoExecStatus={autoExecStatus}
+            riskAccount={riskAccount} riskPct={riskPct} sfMaxPrice={sfMaxPrice} sfMinScore={sfMinScore}
+            sfSig={sfSig} sfZone={sfZone}
+            tradeSetups={tradeSetups} tradeSetupLoad={tradeSetupLoad} tradeSetupError={tradeSetupError}
+            setScanResults={setScanResults} setScanExpanded={setScanExpanded} setScanError={setScanError}
+            setScanLoading={setScanLoading} setScanTickerInput={setScanTickerInput} setScanLastRun={setScanLastRun}
+            setAutoScanMins={setAutoScanMins} setAutoScanOn={setAutoScanOn} setAutoExecStatus={setAutoExecStatus}
+            setRiskAccount={setRiskAccount} setRiskPct={setRiskPct}
+            setSfMaxPrice={setSfMaxPrice} setSfMinScore={setSfMinScore} setSfSig={setSfSig} setSfZone={setSfZone}
+            setTradeSetups={setTradeSetups}
+            addScanTicker={addScanTicker} removeScanTicker={removeScanTicker} scoreTicker={scoreTicker}
+            toggleFavorite={toggleFavorite} fetchTradeSetup={fetchTradeSetup}
+            loadDeepDive={loadDeepDive} loadDeepSocial={loadDeepSocial} runSmartScan={runSmartScan}
+            FIVEX_TICKERS={FIVEX_TICKERS} themeMode={themeMode}
           />
         </>
       )}
