@@ -7,7 +7,7 @@ import { computeSniperDecision } from "./sniper-decision.js";
 import { computeHeatRisk, computeCortexVerdict } from "./cortex-engine.js";
 import { computeEntryPlan } from "./entry-engine.js";
 import { classifyDeepScanDecision, DECISION_LABELS } from "./btc-hpc-scan.js";
-import { computeRegimeLabel } from "./DashboardTab.jsx";
+import { computeRegimeLabel, regimeLabelToEntryVocabulary } from "./DashboardTab.jsx";
 import { computeAntiChase } from "./anti-chase.js";
 import { computeFutureValueRead } from "./future-value-scoring.js";
 import { PanelErrorBoundary } from "./ui-atoms.jsx";
@@ -219,7 +219,7 @@ export default function SmartScanTab({
           const { regLabel: smartScanRegLabel } = computeRegimeLabel(C, {
             spy: smartScanSpyQ, qqq: smartScanQqqQ, vix: Number(smartScanVixQ?.price || smartScanVixQ?.regularMarketPrice || 0), loaded: !!smartScanSpyQ,
           });
-          const smartScanMarketRegime = smartScanRegLabel === "RISK ON" ? "RISK_ON" : smartScanRegLabel === "RISK OFF" ? "RISK_OFF" : smartScanRegLabel === "LOADING…" ? null : "NEUTRAL";
+          const smartScanMarketRegime = regimeLabelToEntryVocabulary(smartScanRegLabel);
           // "Why is this moving" — real web-searched /api/market/ai-why, same
           // on-demand pattern already used on the Opportunities tab. This
           // deep-dive expanded row is the SHARED destination MoversTab/

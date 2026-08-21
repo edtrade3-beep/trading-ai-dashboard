@@ -216,7 +216,10 @@ export default function AdvisorAiTab({ C, MONO, SANS }) {
       .finally(() => setLoading(false));
   };
 
-  const regimeCol = brief?.regime?.label === "GREEN" ? C.green : brief?.regime?.label === "YELLOW" ? C.amber : C.red;
+  // ORANGE (between YELLOW and RED, computeRegime's own real color for it)
+  // had no branch here before this fix — it silently rendered full RED,
+  // one tier more alarming than real (phase 8, 2026-08-21).
+  const regimeCol = brief?.regime?.label === "GREEN" ? C.green : brief?.regime?.label === "YELLOW" ? C.amber : brief?.regime?.label === "ORANGE" ? "#e07b1a" : C.red;
   // capitalFlow is the real sectors ranking widened with crypto/gold/
   // treasuries/credit — falls back to the older `sectors`-only field for
   // any cached brief generated before this widening shipped.

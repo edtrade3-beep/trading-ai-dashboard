@@ -14,7 +14,7 @@ import { mapToAiAction, AI_ACTIONS } from "./ai-actions.js";
 // actionFor() below).
 import { computeEntryPlan } from "./entry-engine.js";
 import { classifyDeepScanDecision } from "./btc-hpc-scan.js";
-import { computeRegimeLabel } from "./DashboardTab.jsx";
+import { computeRegimeLabel, regimeLabelToEntryVocabulary } from "./DashboardTab.jsx";
 import { computeAntiChase } from "./anti-chase.js";
 import { computeGreenLight } from "./trading-utils.js";
 import { findWeakestPosition, evaluateRotation } from "./portfolio-rotation-engine.js";
@@ -200,7 +200,7 @@ export default function RhProScanner({
   const { regLabel: regLabel_reg } = computeRegimeLabel(C, {
     spy: spyQ_reg, qqq: qqqQ_reg, vix: Number(vixQ_reg?.price || vixQ_reg?.regularMarketPrice || 0), loaded: !!spyQ_reg,
   });
-  const marketRegimeForEntry = regLabel_reg === "RISK ON" ? "RISK_ON" : regLabel_reg === "RISK OFF" ? "RISK_OFF" : regLabel_reg === "LOADING…" ? null : "NEUTRAL";
+  const marketRegimeForEntry = regimeLabelToEntryVocabulary(regLabel_reg);
   // "chart" and "plan" used to be two separate buttons/destinations —
   // "chart" opened Market Terminal, "plan" opened a standalone Trade
   // Planner that silently recomputed its OWN ATR-based entry/stop/targets,

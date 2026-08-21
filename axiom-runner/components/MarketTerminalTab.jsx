@@ -256,7 +256,7 @@ import MacroStatusStrip, { useRealMacroOverrides } from "./MacroStatusStrip.jsx"
 // truth MarketRegimeCard/MissionStatusCard already use (SPY/QQQ/VIX-based),
 // not a second regime formula. Collapsed from its 5 display labels to the
 // spec's 3-bucket RISK_ON/NEUTRAL/RISK_OFF vocabulary where it's consumed.
-import { computeRegimeLabel } from "./DashboardTab.jsx";
+import { computeRegimeLabel, regimeLabelToEntryVocabulary } from "./DashboardTab.jsx";
 // Headline-number display font — same token terminal-panels.jsx/
 // TrendSetupPanel.jsx already use for their stat-box values (P/E, targets,
 // Fear&Greed score, etc). This file's own price/stat pills previously used
@@ -947,7 +947,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   const spyQ = (macroData || []).find((m) => (m.symbol || "").toUpperCase() === "SPY");
   const qqqQ = (macroData || []).find((m) => (m.symbol || "").toUpperCase() === "QQQ");
   const { regLabel: regLabelDW, regColor: regColorDW } = computeRegimeLabel(C, { spy: spyQ, qqq: qqqQ, vix: distData?.vix || 0, loaded: !!spyQ });
-  const marketRegimeDW = regLabelDW === "RISK ON" ? "RISK_ON" : regLabelDW === "RISK OFF" ? "RISK_OFF" : regLabelDW === "LOADING…" ? null : "NEUTRAL";
+  const marketRegimeDW = regimeLabelToEntryVocabulary(regLabelDW);
 
   // Staged Swing-Entry Plan (2026-08-20) — the single source of truth for
   // "is there a real, executable entry price right now, and what is it,"

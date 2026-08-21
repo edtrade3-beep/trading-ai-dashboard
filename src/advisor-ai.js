@@ -148,6 +148,12 @@ function buildRegimeDetail(regime) {
   else if (regime.label === "GREEN") state = "Bull";
   else if (regime.label === "YELLOW" && (volRegime === "Elevated" || volRegime === "Panic")) state = "Choppy — Volatility Rising";
   else if (regime.label === "YELLOW") state = "Choppy / Transitional";
+  // ORANGE (score 40-54, between YELLOW and RED) had no branch at all here
+  // before this fix — it silently fell into the "VIX unavailable" catch-all
+  // below and returned the bare label "ORANGE" instead of a real
+  // descriptive state (phase 8, 2026-08-21).
+  else if (regime.label === "ORANGE" && (volRegime === "Elevated" || volRegime === "Panic")) state = "Weakening — Volatility Rising";
+  else if (regime.label === "ORANGE") state = "Weakening / Caution";
   else if (regime.label === "RED" && volRegime === "Panic") state = "Bear — Panic/Capitulation";
   else if (regime.label === "RED" && volRegime === "Elevated") state = "Bear — Elevated Volatility";
   else if (regime.label === "RED") state = "Bear — Orderly Decline";
@@ -854,4 +860,4 @@ function loadAdvisorBrief() {
   return log.advisor || null;
 }
 
-module.exports = { buildAdvisorBrief, loadAdvisorBrief, SCAN_UNIVERSE };
+module.exports = { buildAdvisorBrief, loadAdvisorBrief, SCAN_UNIVERSE, buildRegimeDetail };

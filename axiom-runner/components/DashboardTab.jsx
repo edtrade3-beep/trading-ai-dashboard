@@ -65,6 +65,21 @@ export function computeRegimeLabel(C, { spy, qqq, vix, loaded }) {
   return { regLabel: "DEFENSIVE", regColor: C.amber, playbook: "Smaller size, favor defensive sectors." };
 }
 
+// Maps computeRegimeLabel's real 5-value vocabulary (RISK ON/RISK OFF/
+// CHOP/CAUTIOUS BULL/DEFENSIVE, plus the LOADING… transient) down to
+// entry-engine.js's real RISK_ON/RISK_OFF/NEUTRAL vocabulary (Unified
+// Trading System phase 2). One calculation, per spec §14 — this exact
+// ternary used to be hand-duplicated verbatim in RhProScanner.jsx,
+// SmartScanTab.jsx, and MarketTerminalTab.jsx (phase 8, 2026-08-21);
+// consolidated here since all 3 already import computeRegimeLabel from
+// this same file.
+export function regimeLabelToEntryVocabulary(regLabel) {
+  if (regLabel === "RISK ON") return "RISK_ON";
+  if (regLabel === "RISK OFF") return "RISK_OFF";
+  if (regLabel === "LOADING…") return null;
+  return "NEUTRAL";
+}
+
 // ── Market Regime — merged with the former separate "AI Market Summary"
 // card. Both read computeRegime()'s gauge score (a VIX/SPY/QQQ formula)
 // and a rule-based factor-scoring bias (SPY/MA50/VIX/breadth/fear-greed/

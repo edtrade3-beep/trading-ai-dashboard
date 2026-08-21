@@ -251,7 +251,10 @@ export default function CommandCenterTab({ C, MONO, SANS }) {
       .finally(() => setLoading(false));
   };
 
-  const regimeCol = brief?.regime?.label === "GREEN" ? C.green : brief?.regime?.label === "YELLOW" ? C.amber : C.red;
+  // ORANGE (between YELLOW and RED, computeRegime's own real color for it)
+  // had no branch here before this fix — it silently rendered full RED,
+  // one tier more alarming than real (phase 8, 2026-08-21).
+  const regimeCol = brief?.regime?.label === "GREEN" ? C.green : brief?.regime?.label === "YELLOW" ? C.amber : brief?.regime?.label === "ORANGE" ? "#e07b1a" : C.red;
 
   return (
     <div style={{ padding: "16px 20px", maxWidth: 1180, margin: "0 auto", display: "flex", flexDirection: "column", gap: 16 }}>
