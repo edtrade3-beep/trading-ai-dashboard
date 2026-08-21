@@ -1033,6 +1033,18 @@ export default function SmartScanTab({
                                     title="Open the full AI Cortex analysis for this symbol — WHY / SETUP / LEVELS / RISK / VERDICT"
                                     style={{ fontSize: 10, fontWeight: 800, border: "1px solid #d6a312", background: "#d6a31214", color: "#d6a312",
                                       borderRadius: 4, padding: "2px 6px", cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>🧠 Cortex</button>
+                                  {/* Open in Workspace (2026-08-20, Discover/Smart Scan/Workspace
+                                      unification, phase 3) — same real mterminal_load_sym
+                                      localStorage handoff AlertsTab/AMCortexTab/ChartSearchWidget/
+                                      DarkPoolTab/DashboardTab already use; Smart Scan never had
+                                      this button despite being the one screen this session's
+                                      earlier ONE ENGINE work focused hardest on. */}
+                                  {setActiveTab && setTerminalSymbol && (
+                                    <button onClick={(e) => { e.stopPropagation(); setTerminalSymbol(row.ticker); try { localStorage.setItem("mterminal_load_sym", row.ticker); } catch {} setActiveTab("mterminal"); }}
+                                      title={`Open ${row.ticker} in Workspace — the full single-symbol read (MTF timing, Foundation/V-Recovery, Smart Money, Catalysts)`}
+                                      style={{ fontSize: 10, fontWeight: 800, border: `1px solid ${C.accent}`, background: `${C.accent}14`, color: C.accent,
+                                        borderRadius: 4, padding: "2px 6px", cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>📈 Workspace</button>
+                                  )}
                                 </div>
                                 {/* ── QUICK READ: key signals in one line ── */}
                                 {(() => {

@@ -158,6 +158,13 @@ export default function RhProScanner({
   dpSym, setDpSym, dpLoad, setDpLoad, dpData, setDpData, dpErr, setDpErr,
   earningsUpdatedAt, setEarningsRefreshTick, earningsLoading, earningsRows, setQuickLogModal,
   rotationRank,
+  // Discover -> Smart Scan handoff (2026-08-20, Discover/Smart Scan/
+  // Workspace unification, phase 3) — same real openDeepDiveFor axiom-
+  // live.jsx already hands to MoversTab/GreenLightTab/DipBuyTab/DayTradeTab
+  // for their own "open this symbol's deep-dive" actions; Discover just
+  // never had a button wired to it. Adds the row if not already scanned,
+  // expands it, and switches tabs — no separate handoff mechanism needed.
+  openInSmartScan,
 }) {
   const regime = computeRegime(macroData);
   // "chart" and "plan" used to be two separate buttons/destinations —
@@ -880,9 +887,17 @@ export default function RhProScanner({
                         aplus/quality) — no new fetches. */}
                     <button onClick={() => setDecisionViewSymbol(v => v === r.symbol ? null : r.symbol)}
                       style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent, background: decisionViewSymbol === r.symbol ? `${C.accent}18` : "transparent",
-                        border: `1px solid ${C.accent}`, borderRadius: 6, padding: "5px 12px", cursor: "pointer", marginBottom: 12 }}>
+                        border: `1px solid ${C.accent}`, borderRadius: 6, padding: "5px 12px", cursor: "pointer", marginBottom: 12, marginRight: 8 }}>
                       {decisionViewSymbol === r.symbol ? "▲ Hide Decision View" : "▼ Open Decision View"}
                     </button>
+                    {openInSmartScan && (
+                      <button onClick={() => openInSmartScan(r.symbol, { price: r.price, changePercent: r.dayChangePct || 0 })}
+                        title={`Open ${r.symbol} in Smart Scan's own deep-dive — same real entry-engine verdict, plus Options Recommendation/Technicals/SMC/News/Valuation/Foundation`}
+                        style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent, background: "transparent",
+                          border: `1px solid ${C.accent}`, borderRadius: 6, padding: "5px 12px", cursor: "pointer", marginBottom: 12 }}>
+                        🔍 Open in Smart Scan
+                      </button>
+                    )}
                     {decisionViewSymbol === r.symbol && (() => {
                       const dd = r.deepDecision;
                       const stopPct = (r.entry && r.entryPlan?.stop) ? Math.abs(r.entry - r.entryPlan.stop) / r.entry * 100 : null;

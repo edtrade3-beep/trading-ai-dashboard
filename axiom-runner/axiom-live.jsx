@@ -7303,6 +7303,7 @@ export default function App() {
           <RhProScanner
             C={C} MONO={MONO} SANS={SANS} macroData={macroData} sectorData={sectorData} watchlistData={watchlistData} setActiveTab={setActiveTab}
             setTerminalSymbol={setTerminalSymbol} watchlistSymbols={watchlistSymbols} setWatchlistSymbols={setWatchlistSymbols}
+            openInSmartScan={openDeepDiveFor}
             optionsFlow={optionsFlow} flowBias={flowBias} flowCallNotional={flowCallNotional} flowPutNotional={flowPutNotional}
             flowFilters={flowFilters} setFlowFilters={setFlowFilters} setLoading={setLoading} fetchAll={fetchAll} apiKey={apiKey}
             flowBySymbol={flowBySymbol} flowRows={flowRows}
