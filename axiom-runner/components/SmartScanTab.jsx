@@ -7,6 +7,7 @@ import { computeSniperDecision } from "./sniper-decision.js";
 import { computeHeatRisk, computeCortexVerdict } from "./cortex-engine.js";
 import { computeEntryPlan } from "./entry-engine.js";
 import { classifyDeepScanDecision, DECISION_LABELS } from "./btc-hpc-scan.js";
+import { computeFutureValueRead } from "./future-value-scoring.js";
 import { PanelErrorBoundary } from "./ui-atoms.jsx";
 import DecisionCard from "./DecisionCard.jsx";
 import { NUM } from "./theme.js";
@@ -1687,6 +1688,18 @@ export default function SmartScanTab({
                                         {(() => {
                                           const px      = Number(livePrice || row.quote?.price || 0);
                                           if (!px) return null;
+                                          // Real structural stop for the exit note below — this is
+                                          // a genuinely separate IIFE from the verdict banner above
+                                          // (its own local px/smc/fd2), so it can't see that
+                                          // block's stop5 (a real bug caught live, 2026-08-20: this
+                                          // block referenced the outer stop5 as if it were in
+                                          // scope, which crashed with "stop5 is not defined" the
+                                          // first time Full Analysis was actually opened and this
+                                          // code path ran). Same real trend-screen row + validity
+                                          // gate as Phase 1's fix, computed locally here instead.
+                                          const trendRowOpt = smartScanTrendMap[row.ticker] || null;
+                                          const optStop = (trendRowOpt && Number.isFinite(trendRowOpt.stop) && trendRowOpt.stop > 0 && trendRowOpt.stop < px)
+                                            ? trendRowOpt.stop : null;
                                           const rsi     = Number(row.rsiVal || 50);
                                           const macd    = row.macdBull;
                                           const ema9    = row.ema9v, ema21 = row.ema21v;
@@ -1757,7 +1770,7 @@ export default function SmartScanTab({
                                             sigs      = callSigs;
                                             strikeNote= `$${otmStrike1} strike (1 OTM) or $${itmStrike} (ATM)`;
                                             expNote   = "21-35 days out (not weekly — avoid theta decay)";
-                                            exitNote  = `Sell at +50-80% profit OR if price breaks below $${stop5 != null ? stop5.toFixed(2) : (px * 0.97).toFixed(2)}`;
+                                            exitNote  = `Sell at +50-80% profit OR if price breaks below $${optStop != null ? optStop.toFixed(2) : (px * 0.97).toFixed(2)}`;
                                           } else {
                                             direction = putScore >= 4 ? "🔴 BUY PUTS" : "🟡 CONSIDER PUTS";
                                             dirColor  = C.red;
@@ -2337,6 +2350,51 @@ export default function SmartScanTab({
                                                   <span style={{ color: col, fontWeight: 700 }}>{v}</span>
                                                 </div>
                                               ))}
+                                            </div>
+                                          );
+                                        })()}
+
+                                        {/* ── VALUATION (2026-08-20, ONE ENGINE phase 3) — real
+                                            analyst-target-based fair value bands
+                                            (computeFutureValueRead, future-value-scoring.js's
+                                            client twin), the SAME engine the BTC+HPC Deep Scan's
+                                            Valuation section uses. Off fd, the same real
+                                            fundamentals already fetched into deepData above —
+                                            zero new requests. Not a DCF, not invented: Fair Value
+                                            = the real analyst median target; Strong Buy / Buy
+                                            zones are an honest split of the real low-to-median
+                                            analyst range. Genuinely new here — this page
+                                            previously had no connection to computeFutureValueRead
+                                            at all, only the raw analyst target shown above. */}
+                                        {(() => {
+                                          const priceVal = Number(livePrice || row.quote?.price || 0);
+                                          const fv2 = fd ? computeFutureValueRead(fd, priceVal) : null;
+                                          const fvb = fv2?.fairValue;
+                                          if (!fvb) return null;
+                                          return (
+                                            <div style={{ marginBottom: 12 }}>
+                                              <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 700, color: C.textDim,
+                                                letterSpacing: "0.08em", marginBottom: 6 }}>💎 VALUATION</div>
+                                              {[
+                                                ["Current Price", `$${priceVal.toFixed(2)}`, C.text],
+                                                ["Fair Value Range", `$${fvb.conservative} – $${fvb.bull}`, C.text],
+                                                ["Strong Buy Zone", `≤ $${fvb.idealBuyZoneMax}`, C.green],
+                                                ["Buy Zone", `$${fvb.idealBuyZoneMax} – $${fvb.fairValue}`, C.text],
+                                                ["Margin of Safety", fvb.marginOfSafetyPct != null ? `${fvb.marginOfSafetyPct}%` : "—",
+                                                  fvb.marginOfSafetyPct == null ? C.textDim : fvb.marginOfSafetyPct >= 0 ? C.green : C.red],
+                                              ].map(([k, v, col]) => (
+                                                <div key={k} style={{ display: "flex", justifyContent: "space-between",
+                                                  fontFamily: MONO, fontSize: 13, padding: "5px 0",
+                                                  borderBottom: `1px solid ${C.border}22` }}>
+                                                  <span style={{ fontFamily: SANS, color: C.textDim, fontSize: 12 }}>{k}</span>
+                                                  <span style={{ color: col, fontWeight: 700 }}>{v}</span>
+                                                </div>
+                                              ))}
+                                              {fvb.zone && (
+                                                <div style={{ marginTop: 6, fontFamily: SANS, fontSize: 11, color: C.textDim, fontStyle: "italic" }}>
+                                                  {fvb.zone === "IDEAL_BUY_ZONE" ? "Currently in the strong buy zone." : fvb.zone === "ACCEPTABLE" ? "Currently in the acceptable buy zone." : "Currently above fair value — paying more than analysts, in aggregate, think it's worth."}
+                                                </div>
+                                              )}
                                             </div>
                                           );
                                         })()}
