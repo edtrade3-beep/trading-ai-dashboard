@@ -1544,10 +1544,37 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                   ].map(([stageKey, label, zone, defaultAction]) => {
                     const active = entryPlanDW.stage === stageKey;
                     const zoneText = Array.isArray(zone) ? (zone[0] === zone[1] ? `$${zone[0].toFixed(2)}` : `$${zone[0].toFixed(2)}–$${zone[1].toFixed(2)}`) : "—";
+                    // Every real zone is clickable, not just the currently
+                    // active stage (spec §5, "3 simultaneous entry levels
+                    // ... never require a 20-30% move before allowing
+                    // entry") — sizes a plan around ANY of the real,
+                    // ATR-derived levels the Entry Engine computed, not
+                    // only the one it currently thinks is live. Same real
+                    // handoff shape/localStorage key the "Size this trade"
+                    // button below already uses; stop/target stay this
+                    // symbol's one real ATR-based risk read (sniperD/ATR
+                    // risk levels) regardless of which zone was clicked —
+                    // a hypothetical entry doesn't get a hypothetical stop.
+                    const clickable = Array.isArray(zone);
+                    const loadZone = () => {
+                      if (!clickable) return;
+                      const entryPx = zone[0] === zone[1] ? zone[0] : Math.round(((zone[0] + zone[1]) / 2) * 100) / 100;
+                      try {
+                        localStorage.setItem("tradeplanner_load_plan", JSON.stringify({
+                          symbol: sym, entry: entryPx,
+                          stop: Number.isFinite(entryPlanDW.stop) ? entryPlanDW.stop : null,
+                          target: Number.isFinite(entryPlanDW.target2) ? entryPlanDW.target2 : (Number.isFinite(entryPlanDW.target1) ? entryPlanDW.target1 : null),
+                          aplus: null, next: null, source: `Entry Plan — ${label}`,
+                        }));
+                      } catch {}
+                      setActiveTab && setActiveTab("tradeplanner");
+                    };
                     return (
-                      <div key={stageKey} style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", fontFamily: MONO, fontSize: 11.5, padding: "3px 0", opacity: active ? 1 : 0.55 }}>
+                      <div key={stageKey} onClick={loadZone}
+                        title={clickable ? `Size a plan around this ${label} zone — opens Trade Planner` : undefined}
+                        style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", fontFamily: MONO, fontSize: 11.5, padding: "3px 0", opacity: active ? 1 : 0.55, cursor: clickable ? "pointer" : "default" }}>
                         <span style={{ color: active ? C.text : C.textDim, fontWeight: active ? 800 : 400 }}>{active ? "▶ " : ""}{label}</span>
-                        <span style={{ fontWeight: active ? 800 : 600, color: active ? dwState.color : C.text }}>{zoneText}</span>
+                        <span style={{ fontWeight: active ? 800 : 600, color: active ? dwState.color : C.text, textDecoration: clickable ? "underline" : "none", textDecorationStyle: "dotted", textDecorationColor: active ? dwState.color : C.textDim }}>{zoneText}</span>
                       </div>
                     );
                   })}
