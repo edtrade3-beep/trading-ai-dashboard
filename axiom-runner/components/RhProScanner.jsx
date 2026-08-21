@@ -13,7 +13,14 @@ import { mapToAiAction, AI_ACTIONS } from "./ai-actions.js";
 // by the same real entry-engine read instead of an independent guess (see
 // actionFor() below).
 import { computeEntryPlan } from "./entry-engine.js";
-import { classifyDeepScanDecision } from "./btc-hpc-scan.js";
+import { classifyDeepScanDecision, DECISION_LABELS } from "./btc-hpc-scan.js";
+// Workspace-style per-row Decision View (2026-08-20, Discover/Smart Scan/
+// Workspace unification, phase 2, explicit user request: "I like workspace
+// setup") — same shared DecisionCard component Workspace/Smart Scan render,
+// on demand, using data this scan already computes above (entryPlan,
+// deepDecision, aplus, quality). No new fetches.
+import DecisionCard from "./DecisionCard.jsx";
+import { NUM } from "./theme.js";
 import { computeGreenLight } from "./trading-utils.js";
 import { findWeakestPosition, evaluateRotation } from "./portfolio-rotation-engine.js";
 import GapScanner from "./GapScanner.jsx";
@@ -264,6 +271,10 @@ export default function RhProScanner({
   // metrics (Stock Quality/Trade Setup/Win%/Pred/Risk/RS/SMC) move here so
   // the main table stays to the spec's 7 primary columns.
   const [expandedSymbol, setExpandedSymbol] = useState(null);
+  // Decision View — per-row Workspace-style detail (see DecisionCard import
+  // above). Tracks a symbol, not a row, so it naturally closes when a
+  // different row's expand panel replaces this one.
+  const [decisionViewSymbol, setDecisionViewSymbol] = useState(null);
   const [showTableHelp, setShowTableHelp] = useState(false);
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState(null); // null = default score-ranked order
@@ -863,6 +874,33 @@ export default function RhProScanner({
                         {rr != null && <> Reward $1 : {rr} to the 2R target.</>}
                       </div>
                     )}
+                    {/* Decision View toggle (2026-08-20, phase 2) — real
+                        Workspace-style detail on demand, using data already
+                        computed for this row above (entryPlan/deepDecision/
+                        aplus/quality) — no new fetches. */}
+                    <button onClick={() => setDecisionViewSymbol(v => v === r.symbol ? null : r.symbol)}
+                      style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent, background: decisionViewSymbol === r.symbol ? `${C.accent}18` : "transparent",
+                        border: `1px solid ${C.accent}`, borderRadius: 6, padding: "5px 12px", cursor: "pointer", marginBottom: 12 }}>
+                      {decisionViewSymbol === r.symbol ? "▲ Hide Decision View" : "▼ Open Decision View"}
+                    </button>
+                    {decisionViewSymbol === r.symbol && (() => {
+                      const dd = r.deepDecision;
+                      const stopPct = (r.entry && r.entryPlan?.stop) ? Math.abs(r.entry - r.entryPlan.stop) / r.entry * 100 : null;
+                      const trendColor = (r.passCount ?? 0) >= 6 ? "#0d9465" : (r.passCount ?? 0) >= 4 ? "#d6a312" : "#c8282a";
+                      const volumeColor = !Number.isFinite(r.volRatio) ? C.textDim : r.volRatio >= 1.5 ? "#0d9465" : r.volRatio >= 0.8 ? "#d6a312" : "#c8282a";
+                      const riskColor = stopPct == null ? C.textDim : stopPct <= 5 ? "#0d9465" : stopPct <= 7 ? "#d6a312" : "#c8282a";
+                      return (
+                        <DecisionCard C={C} MONO={MONO} SANS={SANS} NUM={NUM}
+                          symbol={r.symbol}
+                          verdictIcon={dd?.icon || "⚪"} verdictLabel={dd ? (DECISION_LABELS[dd.decision] || dd.decision) : "—"} verdictColor={dd?.color || C.textDim}
+                          aPlusScore={r.aplus?.score}
+                          entry={r.entryPlan?.entryPrice != null ? r.entryPlan.entryPrice.toFixed(2) : null}
+                          stop={r.entryPlan?.stop != null ? r.entryPlan.stop.toFixed(2) : null}
+                          target={r.entryPlan?.target1 != null ? r.entryPlan.target1.toFixed(2) : null}
+                          trendColor={trendColor} volumeColor={volumeColor} riskColor={riskColor}
+                          showMarketRow={false} hideToggle />
+                      );
+                    })()}
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 14 }}>
                       <div>
                         <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 3 }}>STOCK QUALITY</div>
