@@ -967,6 +967,15 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
     rr: sniperD.rr, breakoutConfirmed: symTrend.breakoutConfirmed, extended: symTrend.extended,
     priceAction: symMtf?.swing4h?.priceAction, antiChase: symMtf?.antiChase,
     stop: sniperD.stop, target1: sniperD.target1, target2: sniperD.target2, trailingStop: symMtf?.atrLevels?.trailingStop,
+    // V-Structure/Foundation (spec §6, Unified Trading System phase 5) —
+    // symFoundation is already fetched for the Foundation card (lazy,
+    // TECHNICAL-tab-gated); reusing its real verdict here is zero new
+    // fetches. Absent until that tab has been opened for this symbol —
+    // an honest `undefined`, not a fabricated read; the gate itself
+    // (isFoundationStrong) treats a missing verdict as simply not
+    // qualifying, same as any other real-but-not-yet-fetched input on
+    // this page.
+    foundationVerdict: symFoundation?.verdict,
   }) : null;
 
   // "5-Second Rule" simplified decision (2026-08-20, explicit user

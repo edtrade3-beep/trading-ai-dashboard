@@ -155,7 +155,24 @@ function isAntiChaseBlocking(doNotChaseZone, extendedFallback) {
   return band === "EXTENDED" || band === "DO_NOT_CHASE";
 }
 
-function computeEntryStage({ price, pivot, atr, breakoutConfirmed, extended, doNotChaseZone, priceAction, qualifying, zones, thresholds = {}, structureBroken }) {
+// V-Structure/Foundation gate (2026-08-21, Unified Trading System phase 5,
+// spec §6: "a strong V-Structure can allow an early starter entry before
+// final pivot confirmation"). foundationVerdict is the caller's own
+// already-computed real read from foundation-engine.js's
+// deriveFoundationVerdict — its state only reaches STRONG_FOUNDATION or
+// STRONG_FOUNDATION_VALID_PIVOT after real, independent hard gates
+// (score >= 75, a real valid pivot check, RS >= 70, supply not extreme)
+// already passed there. That's real, separate evidence from this file's
+// own qualifying-conditions ratio, so it's checked as its own path, not
+// blended into the ratio math. Absent (no caller has fetched Foundation
+// data, or the symbol has no V-Recovery pattern at all) is the honest,
+// common case — falls straight through with zero effect.
+function isFoundationStrong(foundationVerdict) {
+  const state = foundationVerdict?.state;
+  return state === "STRONG_FOUNDATION_VALID_PIVOT" || state === "STRONG_FOUNDATION";
+}
+
+function computeEntryStage({ price, pivot, atr, breakoutConfirmed, extended, doNotChaseZone, priceAction, qualifying, zones, thresholds = {}, structureBroken, foundationVerdict }) {
   const gate = { ...GATE_DEFAULTS, ...thresholds };
   const sizing = { ...SIZING_DEFAULTS, ...thresholds };
   const pa = priceAction || {};
@@ -224,6 +241,12 @@ function computeEntryStage({ price, pivot, atr, breakoutConfirmed, extended, doN
         recommendedAction: `Start small — ${qualifying.count}/${qualifying.total} real qualifying conditions met, the setup is genuinely developing before the pivot.`,
       };
     }
+    if (isFoundationStrong(foundationVerdict)) {
+      return {
+        stage: "EARLY", entryPrice: price, sizingPct: sizing.earlyPct,
+        recommendedAction: `Start small — real V-Structure/Foundation confirms a valid recovery (${foundationVerdict.state === "STRONG_FOUNDATION_VALID_PIVOT" ? "pivot + RS confirmed" : "structure repaired"}), even though only ${qualifying.count}/${qualifying.total || 0} of the generic entry conditions are met so far.`,
+      };
+    }
     if (qualifying.total > 0 && qualifying.count >= foundationFloor) {
       return {
         stage: "FOUNDATION", entryPrice: null, sizingPct: 0,
@@ -253,7 +276,7 @@ function computeEntryPlan(ev = {}, thresholds = {}) {
   const stageResult = computeEntryStage({
     price: ev.price, pivot: ev.pivot, atr: ev.atr, breakoutConfirmed: !!ev.breakoutConfirmed,
     extended: !!ev.extended, doNotChaseZone, priceAction: ev.priceAction, qualifying, zones, thresholds,
-    structureBroken: ev.swing4hState === "BROKEN",
+    structureBroken: ev.swing4hState === "BROKEN", foundationVerdict: ev.foundationVerdict,
   });
 
   return {

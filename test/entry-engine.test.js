@@ -193,6 +193,38 @@ ok("8. Conflicting timeframes -> a real mixed tally (4H weak, not broken), resol
   assert.strictEqual(plan.entryPrice, null);
 });
 
+console.log("Checking the V-Structure/Foundation gate (Unified Trading System phase 5, spec §6)…");
+
+ok("9. Too few known conditions for EARLY on their own, but a real STRONG_FOUNDATION_VALID_PIVOT verdict unlocks an early starter entry", () => {
+  const thin = { price: 175, pivot: 227, atr: 5, dailyBias: "BULLISH", rsRating: 80 }; // same shape as test 7 -> FOUNDATION alone
+  const withoutFoundation = computeEntryPlan(thin);
+  assert.strictEqual(withoutFoundation.stage, "FOUNDATION", "sanity check: this evidence alone caps at FOUNDATION");
+
+  const plan = computeEntryPlan({ ...thin, foundationVerdict: { state: "STRONG_FOUNDATION_VALID_PIVOT", action: "BUY_CANDIDATE" } });
+  assert.strictEqual(plan.stage, "EARLY", `a real strong, pivot-confirmed V-Structure read should unlock EARLY, got ${plan.stage}`);
+  assert.strictEqual(plan.entryPrice, 175, "EARLY entry must be the real current price, not the pivot");
+});
+
+ok("10. STRONG_FOUNDATION (score strong but the pivot/RS/supply hard gate didn't clear) also unlocks EARLY, same as STRONG_FOUNDATION_VALID_PIVOT", () => {
+  const thin = { price: 175, pivot: 227, atr: 5, dailyBias: "BULLISH", rsRating: 80 };
+  const plan = computeEntryPlan({ ...thin, foundationVerdict: { state: "STRONG_FOUNDATION", action: "BUY_CANDIDATE_WATCH_FOR_ENTRY" } });
+  assert.strictEqual(plan.stage, "EARLY", `got ${plan.stage}`);
+});
+
+ok("11. A weak/building real Foundation verdict must NOT unlock EARLY — only the two real strong states do", () => {
+  const thin = { price: 175, pivot: 227, atr: 5, dailyBias: "BULLISH", rsRating: 80 };
+  const building = computeEntryPlan({ ...thin, foundationVerdict: { state: "V_RECOVERY_FOUNDATION_BUILDING", action: "WAIT" } });
+  assert.strictEqual(building.stage, "FOUNDATION", `a still-building V-Structure must not fake an early entry, got ${building.stage}`);
+  const weak = computeEntryPlan({ ...thin, foundationVerdict: { state: "WEAK_FOUNDATION", action: "AVOID_WAIT" } });
+  assert.strictEqual(weak.stage, "FOUNDATION", `got ${weak.stage}`);
+});
+
+ok("12. A real STRONG_FOUNDATION verdict never overrides the hard STRUCTURE_BROKEN gate — real risk gates still win", () => {
+  const plan = computeEntryPlan({ ...STRONG_EVIDENCE, swing4hState: "BROKEN", foundationVerdict: { state: "STRONG_FOUNDATION_VALID_PIVOT", action: "BUY_CANDIDATE" } });
+  assert.strictEqual(plan.stage, "STRUCTURE_BROKEN", `a strong Foundation read must never bypass a real broken 4H structure, got ${plan.stage}`);
+  assert.strictEqual(plan.entryPrice, null);
+});
+
 console.log("Checking pass-through fields (Risk Engine integration, not recomputed)…");
 ok("stop/target1/target2/trailingStop and doNotChaseZone are passed through, never recomputed here", () => {
   const plan = computeEntryPlan({ ...STRONG_EVIDENCE, stop: 165, target1: 190, target2: 210, trailingStop: 168, antiChase: { band: "NORMAL", label: "Normal" } });

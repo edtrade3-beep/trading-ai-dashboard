@@ -1475,6 +1475,11 @@ export default function SmartScanTab({
                                         vcpVerdict: trendRow.vcpVerdict, vwap20: trendRow.technicals?.vwap20, rr: rrSS,
                                         breakoutConfirmed: trendRow.breakoutConfirmed, extended: trendRow.extended, priceAction: {}, antiChase: antiChaseSS,
                                         stop: trendRow.stop, target1: target1SS, target2: trendRow.target2, marketRegime: smartScanMarketRegime,
+                                        // V-Structure/Foundation (spec §6, Unified Trading System
+                                        // phase 5) — smartScanFoundation is already fetched (lazy,
+                                        // row-expand-gated) for the Foundation & V-Recovery panel
+                                        // below; reusing its real verdict here is zero new fetches.
+                                        foundationVerdict: smartScanFoundation[row.ticker]?.verdict,
                                       }) : null;
                                       const aplusSS = trendRow ? computeAPlusScore(trendRow, smartScanRegime) : null;
                                       const deepDecision = entryPlanSS ? classifyDeepScanDecision({ entryPlan: entryPlanSS, aPlusScore: aplusSS?.score }) : null;
