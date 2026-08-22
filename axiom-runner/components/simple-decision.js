@@ -42,6 +42,12 @@ function zoneString(zone) {
   return zone[0] === zone[1] ? `$${zone[0].toFixed(2)}` : `$${zone[0].toFixed(2)}–$${zone[1].toFixed(2)}`;
 }
 
+const REGULAR_FLAG_PRIORITY = {
+  weakVolume: { key: "MOMENTUM_VOLUME", label: "1H volume to strengthen" },
+  fallingRS: { key: "RELATIVE_STRENGTH", label: "relative strength to improve" },
+  belowVwap: { key: "MOMENTUM_VOLUME", label: "price to reclaim VWAP" },
+};
+
 export function computeSimpleDecision(ev = {}) {
   const trend = ev.dailyBias || null;
   const structure = classifyStructure4h(ev.swing4hState);
@@ -53,8 +59,13 @@ export function computeSimpleDecision(ev = {}) {
   const target = entryPlan.target1 ?? null;
   const reads = { trend, structure, setup, timing };
 
+  const redFlags = Array.isArray(ev.redFlags) ? ev.redFlags : [];
+  const criticalRedFlags = redFlags.filter((f) => f.critical);
+  const regularRedFlags = redFlags.filter((f) => !f.critical);
+
   const base = (decision, why, next, entryZone) => ({
     decision, ...DECISION_META[decision], why, next, entryZone, pivot, stop, target, ...reads,
+    redFlagCount: redFlags.length, criticalFlagCount: criticalRedFlags.length, redFlags,
   });
 
   if (ev.hasPosition) {
@@ -71,6 +82,10 @@ export function computeSimpleDecision(ev = {}) {
   }
   if (entryPlan.doNotChaseZone?.band === "DO_NOT_CHASE") {
     return base("WAIT", "Price is extended — do not chase.", "Wait for a pullback or retest.", "BLOCKED");
+  }
+  if (criticalRedFlags.length) {
+    const names = criticalRedFlags.map((f) => f.label).join(", ");
+    return base("WAIT", `Critical red flag: ${names}.`, `Resolve: ${names}.`, "BLOCKED");
   }
 
   const rrOk = Number.isFinite(ev.rr) ? ev.rr >= 1.5 : null;
@@ -97,6 +112,10 @@ export function computeSimpleDecision(ev = {}) {
   if (!trendOk) missingFactors.push({ key: "TREND", label: "daily trend to turn constructive" });
   if (!setupOk) missingFactors.push({ key: "ENTRY_QUALITY", label: "1H setup to improve" });
   if (!timingOk) missingFactors.push({ key: "ENTRY_QUALITY", label: "15M confirmation" });
+  for (const f of regularRedFlags) {
+    const mapped = REGULAR_FLAG_PRIORITY[f.key];
+    if (mapped) missingFactors.push(mapped);
+  }
   const missing = sortByPriority(missingFactors).map((f) => f.label);
   if (!missing.length) missing.push("more real evidence");
   const zone = zoneString(entryPlan.earlyEntryZone);

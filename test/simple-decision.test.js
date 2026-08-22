@@ -147,6 +147,58 @@ ok("the WAIT reason lists real missing factors in spec §13's actual priority or
   assert.ok(trendIdx >= 0 && trendIdx < setupIdx, "Trend must be named before Entry Quality (1H/15M)");
 });
 
+console.log("Checking the Red Flag Engine's critical-flag gate (Master Build Spec §8-9, 2026-08-22)…");
+const CLEAN_ENTRY_PLAN = { entryPrice: 216.90, pivot: 227.90, stop: 209.69, target1: 246.15, earlyEntryZone: [215.03, 218.77], doNotChaseZone: { band: "NORMAL" }, stage: "EARLY" };
+const CLEAN_INPUTS = {
+  dailyBias: "BULLISH", swing4hState: "STRONG",
+  early1h: { score: 80, rsiTrend: { direction: "up", accelerating: true } },
+  entry15mStatus: "CONFIRMED", rr: 3, entryPlan: CLEAN_ENTRY_PLAN,
+};
+ok("a real critical red flag blocks START SMALL even when every other real condition aligns — spec's own worked example (score high, critical flag true -> the flag wins)", () => {
+  const d = computeSimpleDecision({
+    ...CLEAN_INPUTS,
+    redFlags: [{ key: "poorLiquidity", label: "Poor Liquidity", critical: true, reason: "Real dollar volume is $2.0M/day, below the $5M floor." }],
+  });
+  assert.strictEqual(d.decision, "WAIT", "a critical flag must override an otherwise-qualifying setup, never hidden by a good score");
+  assert.match(d.why, /Poor Liquidity/);
+  assert.strictEqual(d.entryZone, "BLOCKED");
+});
+ok("multiple real critical flags are all named in the reason, not just the first", () => {
+  const d = computeSimpleDecision({
+    ...CLEAN_INPUTS,
+    redFlags: [
+      { key: "unacceptableRR", label: "Risk/Reward Unacceptable", critical: true, reason: "Real R:R is 1.1:1." },
+      { key: "poorLiquidity", label: "Poor Liquidity", critical: true, reason: "Real dollar volume is $2.0M/day." },
+    ],
+  });
+  assert.match(d.why, /Risk\/Reward Unacceptable/);
+  assert.match(d.why, /Poor Liquidity/);
+});
+ok("regular (non-critical) flags do NOT block START SMALL, but appear in the WAIT reasoning when something else already blocks", () => {
+  const started = computeSimpleDecision({
+    ...CLEAN_INPUTS,
+    redFlags: [{ key: "belowVwap", label: "Below VWAP", critical: false, reason: "Price is below the 20-day VWAP." }],
+  });
+  assert.strictEqual(started.decision, "START_SMALL", "a regular flag alone must never block an otherwise-qualifying setup");
+
+  const waiting = computeSimpleDecision({
+    ...CLEAN_INPUTS, dailyBias: "BEARISH",
+    redFlags: [{ key: "fallingRS", label: "Falling Relative Strength", critical: false, reason: "RS Rating 45 is below the 60 leader threshold." }],
+  });
+  assert.strictEqual(waiting.decision, "WAIT");
+  assert.match(waiting.why, /relative strength to improve/, "regular flags must feed the real missing-factors list, mapped through decision-priority.js");
+});
+ok("no redFlags passed at all -> identical behavior to before this phase (honest no-op, not a fabricated pass or fail)", () => {
+  const d = computeSimpleDecision(CLEAN_INPUTS);
+  assert.strictEqual(d.decision, "START_SMALL");
+  assert.strictEqual(d.redFlagCount, 0);
+  assert.strictEqual(d.criticalFlagCount, 0);
+});
+ok("redFlagCount/criticalFlagCount/redFlags are always present on the returned object, even when zero", () => {
+  const d = computeSimpleDecision(CLEAN_INPUTS);
+  assert.deepStrictEqual(d.redFlags, []);
+});
+
 console.log("Checking post-entry states reuse position-decision-engine.js's real read, never recomputed…");
 ok("real EXIT state passes through as EXIT with the real reason", () => {
   const d = computeSimpleDecision({ hasPosition: true, dayTradeState: "EXIT", dayTradeReason: "Weighted evidence has turned against this position.", entryPlan: {} });

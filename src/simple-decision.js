@@ -66,6 +66,15 @@ function zoneString(zone) {
   return zone[0] === zone[1] ? `$${zone[0].toFixed(2)}` : `$${zone[0].toFixed(2)}–$${zone[1].toFixed(2)}`;
 }
 
+// Regular (non-critical) Red Flag Engine flags -> decision-priority.js key,
+// so they sort correctly alongside the existing missing-factor reasons
+// (Master Build Spec §8-9/§23, 2026-08-22). See red-flag-engine.js.
+const REGULAR_FLAG_PRIORITY = {
+  weakVolume: { key: "MOMENTUM_VOLUME", label: "1H volume to strengthen" },
+  fallingRS: { key: "RELATIVE_STRENGTH", label: "relative strength to improve" },
+  belowVwap: { key: "MOMENTUM_VOLUME", label: "price to reclaim VWAP" },
+};
+
 // ev fields — all real, all already computed elsewhere:
 //   dailyBias, swing4hState, early1h, entry15mStatus, rr — same inputs
 //   entry-engine.js's computeQualifyingConditions already reads.
@@ -86,8 +95,19 @@ function computeSimpleDecision(ev = {}) {
   const target = entryPlan.target1 ?? null;
   const reads = { trend, structure, setup, timing };
 
+  // Red Flag Engine (Master Build Spec §8-9, 2026-08-22) — ev.redFlags is
+  // the caller's own already-computed computeRedFlags(...).flags array
+  // (red-flag-engine.js), reused here, never recomputed. Entry-taxonomy
+  // only this phase — absent (e.g. the hasPosition/post-entry branch below,
+  // which doesn't pass it) is an honest "not evaluated," not a fabricated
+  // zero.
+  const redFlags = Array.isArray(ev.redFlags) ? ev.redFlags : [];
+  const criticalRedFlags = redFlags.filter((f) => f.critical);
+  const regularRedFlags = redFlags.filter((f) => !f.critical);
+
   const base = (decision, why, next, entryZone) => ({
     decision, ...DECISION_META[decision], why, next, entryZone, pivot, stop, target, ...reads,
+    redFlagCount: redFlags.length, criticalFlagCount: criticalRedFlags.length, redFlags,
   });
 
   if (ev.hasPosition) {
@@ -113,6 +133,18 @@ function computeSimpleDecision(ev = {}) {
   }
   if (entryPlan.doNotChaseZone?.band === "DO_NOT_CHASE") {
     return base("WAIT", "Price is extended — do not chase.", "Wait for a pullback or retest.", "BLOCKED");
+  }
+  // Critical Red Flags (spec §8-9/§23's core example: "Technical score=92,
+  // Critical failed-breakout=TRUE -> AVOID" — a critical flag overrides a
+  // high score, never hidden). Mirrors the exact same hard-gate pattern as
+  // the two checks above; structureBroken/extremeExtension are ALSO real
+  // red flags, but those two already return first when they fire, so this
+  // mainly catches failed breakout, daily trend breakdown, regime
+  // deterioration, unacceptable R:R, unacceptable stop distance, and poor
+  // liquidity — none of which had a hard gate here before this phase.
+  if (criticalRedFlags.length) {
+    const names = criticalRedFlags.map((f) => f.label).join(", ");
+    return base("WAIT", `Critical red flag: ${names}.`, `Resolve: ${names}.`, "BLOCKED");
   }
 
   const rrOk = Number.isFinite(ev.rr) ? ev.rr >= 1.5 : null;
@@ -153,6 +185,10 @@ function computeSimpleDecision(ev = {}) {
   if (!trendOk) missingFactors.push({ key: "TREND", label: "daily trend to turn constructive" });
   if (!setupOk) missingFactors.push({ key: "ENTRY_QUALITY", label: "1H setup to improve" });
   if (!timingOk) missingFactors.push({ key: "ENTRY_QUALITY", label: "15M confirmation" });
+  for (const f of regularRedFlags) {
+    const mapped = REGULAR_FLAG_PRIORITY[f.key];
+    if (mapped) missingFactors.push(mapped);
+  }
   const missing = sortByPriority(missingFactors).map((f) => f.label);
   if (!missing.length) missing.push("more real evidence");
   const zone = zoneString(entryPlan.earlyEntryZone);

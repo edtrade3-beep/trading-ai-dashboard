@@ -237,6 +237,7 @@ import { computeMtfAlignment } from "./mtf-combiner.js";
 // executable entry right now."
 import { computeEntryPlan } from "./entry-engine.js";
 import { computeSimpleDecision } from "./simple-decision.js";
+import { computeRedFlags } from "./red-flag-engine.js";
 import AiScoreExplainer, {
   AplusBadge, TRADE_SETUP_DIMENSIONS, STOCK_QUALITY_DIMENSIONS, INSTITUTIONAL_GRADE_DIMENSIONS,
   TECHNICAL_DIMENSIONS, TIMING_DIMENSIONS, AI_TRADE_ENGINE_DIMENSIONS, FOUNDATION_DIMENSIONS, FOUNDATION_LABEL,
@@ -978,6 +979,21 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
     foundationVerdict: symFoundation?.verdict,
   }) : null;
 
+  // Red Flag Engine (Master Build Spec §8-9, 2026-08-22) — reuses the
+  // exact same real fields already gathered for entryPlanDW above, zero
+  // new fetches. riskPct/dollarVolume are real, already-fetched fields on
+  // symTrend (server-side, routes/market.js) not previously part of
+  // entry-engine.js's own inputs. See red-flag-engine.js for the full
+  // design (which flags are critical, which are honestly omitted for
+  // missing data).
+  const redFlagsDW = symTrend ? computeRedFlags({
+    dailyBias: dwDailyBias, swing4hState: symMtf?.swing4h?.state, rsRating: symTrend.rsRating,
+    volTrend1h: symMtf?.early1h?.volTrend, vwap20: symTrend?.technicals?.vwap20,
+    price: Number(chart?.livePrice ?? chart?.price), marketRegime: marketRegimeDW, rr: sniperD?.rr,
+    priceAction: symMtf?.swing4h?.priceAction, antiChase: symMtf?.antiChase,
+    riskPct: symTrend.riskPct, dollarVolume: symTrend.dollarVolume,
+  }) : null;
+
   // "5-Second Rule" simplified decision (2026-08-20, explicit user
   // directive — "the trader should open the Workspace and understand the
   // trade in 5 seconds," "do NOT display dozens of competing signals").
@@ -995,6 +1011,10 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
     // never named regime at all even when it was the real reason a WAIT
     // held.
     marketRegime: marketRegimeDW,
+    // Red Flag Engine (Master Build Spec §8-9, phase 1) — only passed for
+    // pre-entry symbols; symPosition's post-entry branch doesn't use this
+    // yet (EXIT red-flag taxonomy is a disclosed, later phase).
+    redFlags: redFlagsDW?.flags,
   }) : null;
 
   // Exit Panel dimensions (Phase 5, 2026-08-20) — 6 real, already-computed
@@ -1366,7 +1386,28 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
               <div><span style={{ color: C.textDim }}>Stop </span><b style={{ color: C.text }}>{simpleDecisionDW.stop != null ? `$${simpleDecisionDW.stop.toFixed(2)}` : "—"}</b></div>
               <div><span style={{ color: C.textDim }}>Target </span><b style={{ color: C.text }}>{simpleDecisionDW.target != null ? `$${simpleDecisionDW.target.toFixed(2)}` : "—"}</b></div>
             </div>
-            <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.textSec }}><b>Next:</b> {simpleDecisionDW.next}</div>
+            <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.textSec, marginBottom: simpleDecisionDW.redFlagCount > 0 ? 8 : 0 }}><b>Next:</b> {simpleDecisionDW.next}</div>
+            {/* Red Flag Engine (Master Build Spec §8-9, 2026-08-22) — the
+                first real piece of spec §15's Trade Plan shape. Critical
+                flags already forced this decision to WAIT above (see
+                simple-decision.js); this just names them, plus any
+                regular (non-blocking) flags, matching the spec's explicit
+                "explain WHY" requirement. */}
+            {simpleDecisionDW.redFlagCount > 0 && (
+              <div style={{ borderTop: `1px solid ${simpleDecisionDW.color}33`, paddingTop: 8 }}>
+                <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: simpleDecisionDW.criticalFlagCount > 0 ? "#c8282a" : "#e08a1e", marginBottom: 4 }}>
+                  🚩 RED FLAGS: {simpleDecisionDW.redFlagCount} · CRITICAL: {simpleDecisionDW.criticalFlagCount}
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  {simpleDecisionDW.redFlags.map((f) => (
+                    <div key={f.key} style={{ fontFamily: SANS, fontSize: 11, color: C.textSec }}>
+                      <span style={{ color: f.critical ? "#c8282a" : "#e08a1e", fontWeight: 700 }}>{f.critical ? "● " : "○ "}{f.label}</span>
+                      {f.reason && <span style={{ color: C.textDim }}> — {f.reason}</span>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             <button onClick={() => setShowFullEntryAnalysis((v) => !v)}
               style={{ marginTop: 10, fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, padding: "4px 10px", cursor: "pointer" }}>
               {showFullEntryAnalysis ? "Hide full analysis ▴" : "Show full analysis ▾"}
