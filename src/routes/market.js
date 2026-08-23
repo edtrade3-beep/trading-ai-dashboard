@@ -3127,6 +3127,7 @@ Explain this.`;
         const { computeMacroRegime, REGIME_META } = require("../macro-engine");
         const { computeTreasuryScore, computeCreditScore, computeCreditMomentum } = require("../treasury-credit-engine");
         const { computeLiquidityScore, computeEmploymentScore } = require("../liquidity-employment-engine");
+        const { rankSectors, computeBreadthScore } = require("../sector-rotation-engine");
         const spyRow = (macroRows || []).find((m) => m.symbol === "SPY");
         const qqqRow = (macroRows || []).find((m) => m.symbol === "QQQ");
         const vixRow = (macroRows || []).find((m) => m.symbol === "VIXY" || m.symbol === "VIX");
@@ -3144,10 +3145,18 @@ Explain this.`;
         const creditMomentum = computeCreditMomentum({ fred: { hySpread } });
         const liquidity = computeLiquidityScore({ fred: { fedBalanceSheet, tgaBalance, reverseRepo } });
         const employment = computeEmploymentScore({ fred: { unemployment, joblessClaims, payrolls, wages } });
+        // Institutional Intelligence Phase 4 (2026-08-23) — real breadth/
+        // sector-rotation data, own separately-keyed 30-min cache (a real
+        // ~9s 1y-bar computation, independent of and longer than this
+        // outer 20-min cache so it isn't recomputed on every outer expiry).
+        const marketBreadth = await cached("breadth-sectors", 30 * 60_000, () => computeMarketBreadth());
+        const breadth = computeBreadthScore({ summary: marketBreadth.summary });
+        const sectorRotation = rankSectors(marketBreadth.sectors);
         return {
           ...result, icon: meta.icon || null, label: meta.label || result.regime, color: meta.color || null,
           treasury, credit: { ...credit, momentum: creditMomentum },
           liquidity, employment,
+          breadth, sectorRotation,
           asOf: new Date().toISOString(),
         };
       });
@@ -3957,10 +3966,21 @@ Explain this.`;
 
   // GET /api/market/breadth
   if (pathname === "/api/market/breadth" && req.method === "GET") {
+    const data = await computeMarketBreadth();
+    return writeJson(res, 200, { ok: true, fetchedAt: new Date().toISOString(), ...data });
+  }
+
+  // Real per-sector 1y-bar breadth computation — extracted here from
+  // /api/market/breadth's own former inline logic (Institutional
+  // Intelligence Phase 4, 2026-08-23) so the macro-regime route below can
+  // reuse the exact same real computation (via its own separately-keyed,
+  // longer cache) instead of a second, duplicate ~9s bar-fetch. Output
+  // shape unchanged from the original inline version.
+  async function computeMarketBreadth() {
     // Sourced from sector-theme-map.js (the one canonical table) instead of
-    // this route's own hand-rolled copy (previously a 3rd, slightly
-    // inconsistent duplicate of advisor-ai.js's and this file's own
-    // distribution-risk section's sector lists).
+    // a hand-rolled copy (previously a 3rd, slightly inconsistent duplicate
+    // of advisor-ai.js's and this file's own distribution-risk section's
+    // sector lists).
     const SECTORS = SECTOR_THEME_MAP.SECTOR_ETFS.map(({ sym, name }) => ({ sym, name }));
     const INDICES = [
       {sym:"SPY",name:"S&P 500"},{sym:"QQQ",name:"Nasdaq 100"},
@@ -4001,8 +4021,7 @@ Explain this.`;
     const ab200Usable=usable.filter(s=>s.above200!=null);
     const ab50=ab50Usable.filter(s=>s.above50).length;
     const ab200=ab200Usable.filter(s=>s.above200).length;
-    return writeJson(res,200,{
-      ok:true,fetchedAt:new Date().toISOString(),
+    return {
       summary:{
         advancingPct: usableTot ? round2((adv/usableTot)*100) : null,
         decliningPct: usableTot ? round2(((usableTot-adv)/usableTot)*100) : null,
@@ -4012,7 +4031,7 @@ Explain this.`;
         sectorsReporting: usableTot, sectorsTotal: tot,
       },
       sectors, indices,
-    });
+    };
   }
 
   // GET /api/market/seasonality?ticker=SPY

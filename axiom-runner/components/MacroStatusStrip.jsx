@@ -126,6 +126,27 @@ export default function MacroStatusStrip({ C, MONO, macroData, distData, fred })
           <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{macroRegime.employment.score}/100</span>
         </div>
       )}
+      {/* Real Breadth + Sector Rotation (Institutional Intelligence Phase
+          4, 2026-08-23) — same useMacroRegime() response, zero new
+          fetches. Reuses /api/market/breadth's own real 1y-bar computation
+          (via a separately-keyed 30-min server cache), just never
+          scored/ranked/surfaced here before this phase. */}
+      {macroRegime?.breadth && (
+        <div title={`${macroRegime.breadth.factors.above50Pct ?? "—"}% of sectors above 50D MA · A/D ratio ${macroRegime.breadth.factors.adRatio ?? "—"}`}
+          style={{ display: "flex", alignItems: "center", gap: 6, background: C.card, border: `1px solid ${C.border}`, borderRadius: 20, padding: "6px 12px" }}>
+          <span style={{ width: 8, height: 8, borderRadius: "50%", background: macroRegime.breadth.score >= 70 ? C.green : macroRegime.breadth.score >= 40 ? C.amber : C.red, flexShrink: 0 }} />
+          <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.text }}>Breadth</span>
+          <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{macroRegime.breadth.score}/100</span>
+        </div>
+      )}
+      {macroRegime?.sectorRotation?.topSector && (
+        <div title={`Rotation bias: ${macroRegime.sectorRotation.rotationBias || "—"} · Weakest: ${macroRegime.sectorRotation.weakestSector?.name || "—"}`}
+          style={{ display: "flex", alignItems: "center", gap: 6, background: C.card, border: `1px solid ${C.border}`, borderRadius: 20, padding: "6px 12px" }}>
+          <span style={{ width: 8, height: 8, borderRadius: "50%", background: macroRegime.sectorRotation.topSector.rotationScore >= 70 ? C.green : macroRegime.sectorRotation.topSector.rotationScore >= 40 ? C.amber : C.red, flexShrink: 0 }} />
+          <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.text }}>Sector: {macroRegime.sectorRotation.topSector.name}</span>
+          <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{macroRegime.sectorRotation.topSector.rotationScore}/100</span>
+        </div>
+      )}
       {MACRO_STATUS_INSTRUMENTS.map(({ symbol, label, vix, fredKey }) => {
         const q = (macroData || []).find(m => m.symbol === symbol);
         const override = fredKey ? fred?.[fredKey] : null;
