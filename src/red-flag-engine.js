@@ -104,6 +104,17 @@ function rawChecks(ev, t) {
       present: ev.thesisInvalidated != null ? ev.thesisInvalidated === true : null,
       reason: "The real weighted verdict for this position has flipped — thesis invalidated.",
     },
+    // Early Reversal Risk (Master Build Spec phase 6, 2026-08-23) — real,
+    // caller-supplied (never recomputed here, same pattern as
+    // thesisInvalidation): sniper-decision.js's computeReversalDetector,
+    // a real weighted read of near-52w-high proximity, RSI overbought,
+    // climax volume, and a parabolic run cooling off. EXIT-only — this is
+    // a post-entry "are you about to give back gains" question, not an
+    // entry-timing one.
+    reversalTopRisk: {
+      present: ev.reversalTopRisk != null ? ev.reversalTopRisk === true : null,
+      reason: ev.reversalReason || "Real early get-out signs — near-top reversal read (52w-high proximity, RSI, volume, or a parabolic run cooling off).",
+    },
   };
 }
 
@@ -157,6 +168,7 @@ const EXIT_DEFS = [
   ["regimeDeterioration", "regimeDeterioration", "Market Regime Deterioration", true],
   ["extremeExtension", "extremeExtension", "Extreme Extension", true],
   ["thesisInvalidation", "thesisInvalidation", "Thesis Invalidation", true],
+  ["reversalTopRisk", "reversalTopRisk", "Early Reversal Risk (Near-Top)", true],
   ["belowVwap", "lossOfVwap", "Loss of VWAP", false],
   ["weakVolume", "volumeReversal", "Volume Reversal", false],
 ];

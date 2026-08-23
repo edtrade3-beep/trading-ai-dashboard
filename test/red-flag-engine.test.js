@@ -123,6 +123,21 @@ ok("thesis invalidation -> critical, fed by the caller's own already-computed po
   const r = computeExitRedFlags({ ...CLEAN_EXIT, thesisInvalidated: true });
   assert.ok(r.criticalFlags.some((f) => f.key === "thesisInvalidation"));
 });
+ok("early reversal risk (near-top) -> critical, fed by the caller's own already-computed computeReversalDetector read, never recomputed here (Master Build Spec phase 6)", () => {
+  const r = computeExitRedFlags({ ...CLEAN_EXIT, reversalTopRisk: true });
+  const f = r.criticalFlags.find((f) => f.key === "reversalTopRisk");
+  assert.ok(f);
+  assert.match(f.reason, /reversal/i);
+});
+ok("a real reversalReason string overrides the generic fallback reason", () => {
+  const r = computeExitRedFlags({ ...CLEAN_EXIT, reversalTopRisk: true, reversalReason: "LIKELY TOP — early get-out zone" });
+  const f = r.criticalFlags.find((f) => f.key === "reversalTopRisk");
+  assert.strictEqual(f.reason, "LIKELY TOP — early get-out zone");
+});
+ok("reversalTopRisk never appears in the ENTRY taxonomy — exit-only signal", () => {
+  const r = computeRedFlags({ dailyBias: "BULLISH", reversalTopRisk: true });
+  assert.ok(!r.flags.some((f) => f.key === "reversalTopRisk"));
+});
 ok("loss of VWAP -> regular (relabeled from ENTRY's belowVwap)", () => {
   const r = computeExitRedFlags({ ...CLEAN_EXIT, price: 95, vwap20: 100 });
   const f = r.flags.find((f) => f.key === "lossOfVwap");

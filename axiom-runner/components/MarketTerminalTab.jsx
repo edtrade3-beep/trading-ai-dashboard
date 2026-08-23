@@ -1010,6 +1010,14 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
     vwap20: symTrend?.technicals?.vwap20, price: Number(chart?.livePrice ?? chart?.price),
     volTrend1h: symMtf?.early1h?.volTrend,
     thesisInvalidated: symPosition.dayTradeState === "EXIT" || symPosition.dayTradeState === "HARD_EXIT",
+    // Early Reversal Risk (Master Build Spec phase 6, 2026-08-23) —
+    // sniperD (computeSniperDecision, already computed above for this
+    // symbol) already includes this exact real signal in its own
+    // gates.reversalTopRisk (sniper-decision.js's computeReversalDetector)
+    // — zero new fetches, zero new computation, just wiring an
+    // already-computed real read into the Red Flag Engine for the first
+    // time.
+    reversalTopRisk: sniperD?.gates?.reversalTopRisk,
   }) : null;
 
   // "5-Second Rule" simplified decision (2026-08-20, explicit user

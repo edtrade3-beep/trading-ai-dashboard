@@ -1,10 +1,9 @@
 // position-reversal-alerts.js — real Telegram alert when a HELD position
-// shows the AI Sniper's early get-out signs (computeReversalDetector via
-// computeSniperDecision, src/sniper-decision.js) — near the 52-week high,
-// overbought RSI, climax volume, or a parabolic run cooling off. Explicit
-// user request (2026-08-11: "I DONT WANT TO THINK TOO MUCH I WANT PLATFORM
-// TO WORK ME" / "THE SYSTEM TELL ME EARLY OR ON TIME BUY SELL EARLY OR ON
-// TIME").
+// shows early get-out signs (computeReversalDetector, src/sniper-decision.js)
+// — near the 52-week high, overbought RSI, climax volume, or a parabolic
+// run cooling off. Explicit user request (2026-08-11: "I DONT WANT TO
+// THINK TOO MUCH I WANT PLATFORM TO WORK ME" / "THE SYSTEM TELL ME EARLY
+// OR ON TIME BUY SELL EARLY OR ON TIME").
 //
 // This is a REAL, structurally EARLIER exit signal than trailing-
 // stops.js's own invalidation check (sellSignals — price closing below the
@@ -13,6 +12,16 @@
 // real reversal risk well before its moving averages turn over. Alert
 // only, never places or modifies an order — same read-only discipline as
 // every other *-alerts.js job in this app.
+//
+// Calls computeReversalDetector directly (Master Build Spec phase 6,
+// 2026-08-23) — previously reached only through computeSniperDecision's
+// own gates.reversalTopRisk, the old pre-unification verdict engine, just
+// to get to this one real, separate, already-correct detector. Same real
+// field mapping computeSniperDecision itself used internally, same real
+// detector math, same real alert message — only the dependency on the old
+// overall verdict engine is removed. This same reversalTopRisk signal is
+// now also wired into MarketTerminalTab.jsx's own EXIT Red Flag Engine
+// (red-flag-engine.js) for the currently-loaded symbol in Workspace.
 "use strict";
 
 const path = require("node:path");
@@ -21,7 +30,7 @@ const { writeJsonAtomic, readJsonSafe } = require("./atomic-write");
 const { sendTelegramMessage, isConfigured: telegramConfigured } = require("./telegram");
 const { shouldSendAlert } = require("./telegram-bot");
 const { resolveAlpacaKeys, alpacaTradingRequest } = require("./providers/alpaca-client");
-const { computeSniperDecision } = require("./sniper-decision");
+const { computeReversalDetector } = require("./sniper-decision");
 
 const STORE_PATH = path.join(ROOT, "data", "position-reversal-state.json");
 const BASE = () => process.env.RENDER_EXTERNAL_URL || `http://127.0.0.1:${PORT}`;
@@ -34,6 +43,20 @@ function isMarketHoursET() {
   const day = et.getDay(); if (day < 1 || day > 5) return false;
   const mins = et.getHours() * 60 + et.getMinutes();
   return mins >= 9 * 60 + 35 && mins <= 15 * 60 + 55;
+}
+
+// Real, pure, per-row transition check — computeReversalDetector called
+// directly (Master Build Spec phase 6), same real field mapping
+// computeSniperDecision used internally. wasRisk == false/undefined (not
+// yet seen as risky) -> newly-risky triggers a warning; already-risky
+// never re-warns (no duplicate spam until it clears and re-triggers).
+function checkReversalRisk(row, wasRisk) {
+  const reversal = computeReversalDetector({
+    price: row.price, hi52: row.hi52, lo52: row.lo52, rsi: row.rsi,
+    rvol: row.volRatio, dayChangePct: row.dayChangePct, weekChangePct: row.weekChangePct, ma50: row.ma50,
+  });
+  const isRisk = !!(reversal && reversal.isTop);
+  return { reversal, isRisk, shouldWarn: isRisk && !wasRisk };
 }
 
 // Same shim contract as trailing-stops.js's apca() — never throws, this is
@@ -68,11 +91,9 @@ async function checkPositionReversals() {
   for (const row of rows) {
     if (row.error) continue;
     const symbol = row.symbol;
-    const d = computeSniperDecision(row);
-    const isRisk = !!(d.gates && d.gates.reversalTopRisk);
-    const wasRisk = !!prev[symbol];
+    const { reversal, isRisk, shouldWarn } = checkReversalRisk(row, !!prev[symbol]);
     next[symbol] = isRisk;
-    if (isRisk && !wasRisk) warnings.push({ symbol, d });
+    if (shouldWarn) warnings.push({ symbol, reversal });
   }
   saveState(next);
 
@@ -83,7 +104,7 @@ async function checkPositionReversals() {
       // (explicit user follow-up, 2026-08-13: "I still need to know when
       // the bottom and top prices" — this alert only ever said "Near 52w
       // high (-1.3%)" with no real price to act on).
-      const rev = w.d.reversal;
+      const rev = w.reversal;
       const text = [
         `⚠️ EARLY GET-OUT SIGNS — ${w.symbol} (you hold this)`,
         rev ? rev.verdict : "Reversal risk detected",
@@ -101,4 +122,4 @@ async function checkPositionReversals() {
   return { ok: true, checked: positions.length, warnings };
 }
 
-module.exports = { checkPositionReversals };
+module.exports = { checkPositionReversals, checkReversalRisk };

@@ -8,7 +8,7 @@
     "start": "node server.js",
     "build": "node build-client.js",
     "check": "node --check server.js",
-    "test": "node test/smoke.js && node test/risk-guardrails.test.js && node test/learning-engine.test.js && node test/mtf-engine.test.js && node test/mtf-state-machine.test.js && node test/atr-risk-engine.test.js && node test/mtf-outcome-tracker.test.js && node test/backtest-engine.test.js && node test/entry-engine.test.js && node test/decision-priority.test.js && node test/red-flag-engine.test.js && node test/position-decision-engine.test.js && node test/simple-decision.test.js && node test/advisor-ai-regime.test.js && node test/btc-hpc-scan.test.js && node test/watchlist-setup-alerts.test.js && node test/ai-actions.test.js"
+    "test": "node test/smoke.js && node test/risk-guardrails.test.js && node test/learning-engine.test.js && node test/mtf-engine.test.js && node test/mtf-state-machine.test.js && node test/atr-risk-engine.test.js && node test/mtf-outcome-tracker.test.js && node test/backtest-engine.test.js && node test/entry-engine.test.js && node test/decision-priority.test.js && node test/red-flag-engine.test.js && node test/position-decision-engine.test.js && node test/simple-decision.test.js && node test/advisor-ai-regime.test.js && node test/btc-hpc-scan.test.js && node test/watchlist-setup-alerts.test.js && node test/position-reversal-alerts.test.js && node test/ai-actions.test.js"
   },
   "engines": {
     "node": ">=20"
