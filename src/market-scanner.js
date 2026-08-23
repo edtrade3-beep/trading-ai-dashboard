@@ -6,7 +6,6 @@ const { computeEMA, computeRSI } = require("./indicators");
 const { sendTelegramMessage, isConfigured: telegramConfigured } = require("./telegram");
 const { nextRotatedSlice } = require("./scan-rotation");
 const { detectFVGs, detectOrderBlocks, detectBOSChoCh, computeVolumeProfile, detectLiquidityLevels } = require("./smc-engine");
-const { computeVerdict } = require("./verdict-engine");
 // Lazy-import bot helpers to avoid circular dep at load time
 function getBotHelpers() {
   try { return require("./telegram-bot"); } catch { return {}; }
@@ -752,23 +751,15 @@ async function runScan(options = {}) {
 
             if (bos?.type !== "BULL_BOS") continue; // Bull BOS required
 
-            // Use Verdict Engine to compute final verdict
-            const v = computeVerdict({
-              techScore:       a.composite,
-              trendScore:      (a.trend === "Uptrend" ? 80 : a.trend === "Weak Uptrend" ? 60 : a.trend === "Downtrend" ? 20 : 40),
-              smcScore:        80, // Bull BOS = 80
-              regimeScore:     50, // neutral default
-              rsiVal:          a.rsi,
-              macdBull:        a.emaAligned === "↑",
-              ema9aboveEma21:  a.emaAligned === "↑",
-              priceAboveEma21: a.price > (a.ema21 || a.price * 0.95),
-              bosType:         "BULL_BOS",
-              marketRegime:    "CAUTION",
-              price,
-            });
-
-            // Only send A+ LONG or LONG verdicts
-            if (v.label !== "A+ LONG" && v.label !== "LONG") continue;
+            // No separate verdict engine here — this alert is already gated on
+            // composite >= 82 + chgPct > 0 + rvol >= 1.3 + confirmed Bull BOS
+            // (all real, already-computed above), the same real composite/signal
+            // that gates regular scan alerts and Tradier auto-exec. One Engine
+            // Migration Phase 5 (2026-08-23) retired verdict-engine.js's separate
+            // 8-state verdict here — it added no real independent signal (its
+            // trendScore/smcScore/regimeScore inputs were partly hardcoded
+            // placeholders, not real per-symbol data) and produced a second,
+            // differently-labeled verdict for the same setup shown elsewhere.
 
             smcCooldown.set(smcKey, Date.now());
             saveScannerState();
@@ -787,11 +778,8 @@ async function runScan(options = {}) {
             const keyLevels = liquidity.slice(0,3).map(l => `$${l.price} (${l.label.split("—")[0].trim()})`).join(" · ");
 
             const msg = [
-              `${v.icon} ${v.label} — $${sym}`,
+              `🟢 BUY — $${sym}`,
               `━━━━━━━━━━━━━━━━━━━━`,
-              `Setup: ${v.setupType}`,
-              `Alignment: ${v.alignScore}/100`,
-              ``,
               `Entry  : $${entry}`,
               `Stop   : $${stop}`,
               `Target1: $${t1}  (+8%)`,
@@ -802,7 +790,6 @@ async function runScan(options = {}) {
               `Score ${a.composite}/100  RSI ${a.rsi?.toFixed(0)}  RVOL ${a.rvol?.toFixed(1)}x`,
               `BOS @ $${bos.level}  Trend: ${a.trend}  ${a.chgPct > 0 ? "+" : ""}${a.chgPct?.toFixed(2)}%`,
               keyLevels ? `Key Levels: ${keyLevels}` : "",
-              v.warnings?.length ? `⚠ ${v.warnings.join(" | ")}` : "",
               `━━━━━━━━━━━━━━━━━━━━`,
               `⏰ ${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} ET`,
             ].filter(Boolean).join("\n");
