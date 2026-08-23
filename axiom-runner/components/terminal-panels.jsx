@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { NUM } from "./theme.js";
-import { computeRegime, computeAPlusScore, STOCK_TO_SECTOR, SECTOR_ETFS, SCAN_UNIVERSE, computeFundamentalsRead, computeValuationVerdict } from "./market-helpers.js";
+import { computeRegime, computeAPlusScore, isUnifiedGo, STOCK_TO_SECTOR, SECTOR_ETFS, SCAN_UNIVERSE, computeFundamentalsRead, computeValuationVerdict } from "./market-helpers.js";
 import { computeTradeStats, MIN_TRADES_FOR_EDGE } from "./trading-utils.js";
 
 // Small self-contained panels that make up MarketTerminalTab's per-symbol
@@ -1022,7 +1022,6 @@ export function BestOpportunities({ C, MONO, SANS, onPick, macroData, setActiveT
     }).catch(() => setWhyState(s => ({ ...s, [r.symbol]: "err" })));
   };
   const seenGo = React.useRef(new Set());   // GO symbols already alerted (avoid repeats)
-  const isGo = (r) => r.verdict === "GO" || (r.atBuyPoint && r.volConfirmed);
   const regime = computeRegime(macroData);
   const marketGreen = regime.score >= 55;
   // scan() is called from a 5-min interval whose closure is only rebuilt when onlyStrong
@@ -1037,7 +1036,7 @@ export function BestOpportunities({ C, MONO, SANS, onPick, macroData, setActiveT
   };
   const scan = () => {
     setState(s => s === "ok" ? "ok" : "loading");  // silent refresh once we have data
-    fetch("/api/market/trend-screen?symbols=" + encodeURIComponent(BEST_OPP_UNIVERSE.join(",")))
+    fetch("/api/market/trend-screen?withDecision=1&symbols=" + encodeURIComponent(BEST_OPP_UNIVERSE.join(",")))
       .then(r => r.json())
       .then(j => {
         let res = (j.results || []).filter(r => !r.error && Number(r.entry) > Number(r.stop) && (r.passCount || 0) >= 6 && !r.extended);
@@ -1052,7 +1051,7 @@ export function BestOpportunities({ C, MONO, SANS, onPick, macroData, setActiveT
         // only. The actual browser notification is fired by BestOppNotifier,
         // mounted globally so it keeps working even when this tab isn't open
         // (2026-07-20) — firing it here too would double-notify when it is.
-        top.forEach(r => { if (isGo(r) && !seenGo.current.has(r.symbol)) { r._new = true; seenGo.current.add(r.symbol); } });
+        top.forEach(r => { if (isUnifiedGo(r) && !seenGo.current.has(r.symbol)) { r._new = true; seenGo.current.add(r.symbol); } });
         setRows(top); setState(top.length ? "ok" : "none"); setLastScan(Date.now());
         const syms = top.map(r => r.symbol).join(",");
         if (syms) {
@@ -1101,7 +1100,7 @@ export function BestOpportunities({ C, MONO, SANS, onPick, macroData, setActiveT
   }, [rows, autoWatchlist]);
 
   const vBadge = (r) => {
-    if (r.verdict === "GO" || (r.atBuyPoint && r.volConfirmed)) return ["🟢 GO — buy point", "#0d9465"];
+    if (isUnifiedGo(r)) return ["🟢 GO — buy point", "#0d9465"];
     if (r.actionable) return ["🟡 READY — near pivot", "#d6a312"];
     return ["🟡 WATCH", "#d6a312"];
   };

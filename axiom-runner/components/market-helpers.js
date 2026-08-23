@@ -1173,6 +1173,21 @@ export function computeNextAction(row) {
   return { action: "WAIT", color: "#94a3b8", reason: "Not yet actionable — no clean entry right now." };
 }
 
+// Reads the opt-in unifiedDecision/unifiedCriticalFlags fields
+// /api/market/trend-screen?...&withDecision=1 attaches server-side (Legacy
+// Verdict System migration, 2026-08-23) — the same real pipeline phases
+// 5/7/8 already proved (buildEvFromRow -> computeEntryPlan ->
+// computeRedFlags -> classifyDeepScanDecision), NOT computeNextAction above
+// (that one still reads the old row.verdict/atBuyPoint and has its own much
+// wider fan-out — deliberately untouched this phase). The literal decision
+// list mirrors watchlist-setup-alerts.js's server-side ACTIONABLE_DECISIONS
+// Set — no client-reachable export of that exists (CJS/ESM split, same as
+// this file's other cross-runtime constants).
+export function isUnifiedGo(row) {
+  return row?.unifiedCriticalFlags === 0 &&
+    ["BUY", "A_PLUS_EARLY_BUY", "PULLBACK_BUY"].includes(row?.unifiedDecision);
+}
+
 // Entry Engine — Green Light AI spec gap (2026-08-03): 5 named entry types
 // ("never chase — always prefer buying strength after confirmation or
 // quality pullbacks"). Presentation-layer only, zero new computation —

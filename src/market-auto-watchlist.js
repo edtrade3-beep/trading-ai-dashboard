@@ -12,10 +12,17 @@
 // don't share a module system; same precedent as advisor-ai.js's own
 // separate SCAN_UNIVERSE).
 //
-// GO / WATCH criteria reused verbatim from terminal-panels.jsx's existing
-// BestOpportunities `isGo` helper and its base actionable-candidate filter,
-// so "ready to pop" here means the exact same thing it means everywhere
-// else in this app — not a new, competing definition.
+// The real addition gate, isCandidate, never used GO/WATCH at all (entry >
+// stop, passCount >= 6, !extended, only) — untouched below. GO/WATCH is only
+// the Telegram announcement's own label for an already-added symbol.
+//
+// Migrated off row.verdict/row.atBuyPoint for that label (Legacy Verdict
+// System migration, 2026-08-23) — those were _buildTrendTemplate's own
+// pre-unification GO/WAIT/AVOID formula. Now reads the same real unified
+// pipeline (buildEvFromRow -> computeEntryPlan -> computeRedFlags ->
+// classifyDeepScanDecision) phases 5/7/8 already proved for this exact
+// screenTrendTemplate row shape, reusing watchlist-setup-alerts.js's
+// buildEvFromRow directly rather than a second copy.
 //
 // Additive-only and idempotent: only ever adds symbols not already on the
 // Watchlist, never removes or reorders. Read-only against the account, so
@@ -27,6 +34,11 @@ const { sendTelegramMessage, isConfigured: telegramConfigured } = require("./tel
 const { shouldSendAlert } = require("./telegram-bot");
 const { loadWatchlist, saveWatchlist } = require("./routes/watchlist");
 const { isMarketHoursET } = require("./risk-guardrails");
+const { computeRegime, regimeToEntryVocabulary, computeAPlusScore } = require("./trade-planner-scoring");
+const { computeEntryPlan } = require("./entry-engine");
+const { computeRedFlags } = require("./red-flag-engine");
+const { classifyDeepScanDecision } = require("./btc-hpc-scan");
+const { buildEvFromRow, ACTIONABLE_DECISIONS } = require("./watchlist-setup-alerts");
 
 const MARKET_UNIVERSE_SYMBOLS = [
   "AAPL","MSFT","NVDA","AMZN","META","GOOGL","TSLA","AVGO","BRK.B","JPM","V","UNH","XOM","LLY","MA","HD","PG","COST","JNJ","MRK",
@@ -39,8 +51,17 @@ const MARKET_UNIVERSE_SYMBOLS = [
   "HLT","ABNB","PYPL","SQ","COIN","HOOD","RIOT","MARA","SMCI","ARM","ASML","TSM","NVO","SAP","BABA","PDD","JD","MELI","SE",
 ];
 
-const isGo = (r) => r.verdict === "GO" || (r.atBuyPoint && r.volConfirmed);
 const isCandidate = (r) => !r.error && Number(r.entry) > Number(r.stop) && (r.passCount || 0) >= 6 && !r.extended;
+
+// Pure — the real unified-pipeline equivalent of the old row.verdict ===
+// "GO" check: actionable BUY-family decision AND zero critical red flags
+// (same "a critical flag overrides a high score, never hidden" rule
+// watchlist-setup-alerts.js's own shouldAlert already applies). Kept as a
+// standalone pure function (rather than inlined) so it's directly unit-
+// testable without mocking the whole entry-plan/red-flag pipeline.
+function isUnifiedGo(decision, criticalFlagCount) {
+  return criticalFlagCount === 0 && ACTIONABLE_DECISIONS.has(decision);
+}
 
 async function runMarketAutoWatchlist(opts = {}) {
   // ignoreMarketHours: manual/on-demand trigger only (POST
@@ -49,8 +70,11 @@ async function runMarketAutoWatchlist(opts = {}) {
   // as designed.
   if (!opts.ignoreMarketHours && !isMarketHoursET()) return { ok: true, skipped: "outside market hours" };
 
-  let screenTrendTemplate;
-  try { ({ screenTrendTemplate } = require("./routes/market")); } catch { return { ok: false, added: [] }; }
+  let screenTrendTemplate, fetchMarketQuotes, resolveProviderKeys;
+  try {
+    ({ screenTrendTemplate, fetchMarketQuotes } = require("./routes/market"));
+    ({ resolveProviderKeys } = require("./config"));
+  } catch { return { ok: false, added: [] }; }
 
   const { symbols: current } = loadWatchlist();
   const currentSet = new Set((current || []).map((s) => String(s).toUpperCase()));
@@ -58,11 +82,20 @@ async function runMarketAutoWatchlist(opts = {}) {
   let rows;
   try { rows = await screenTrendTemplate(MARKET_UNIVERSE_SYMBOLS); } catch { return { ok: false, added: [] }; }
 
+  const macroRows = await fetchMarketQuotes(["SPY", "QQQ", "VIXY"], resolveProviderKeys(new URLSearchParams())).catch(() => []);
+  const regime = computeRegime(Array.isArray(macroRows) ? macroRows : []);
+  const marketRegime = regimeToEntryVocabulary(regime.label);
+
   const goAdds = [];
   const watchAdds = [];
   for (const r of rows) {
     if (!isCandidate(r) || currentSet.has(r.symbol)) continue;
-    if (isGo(r)) goAdds.push(r.symbol);
+    const ev = buildEvFromRow(r, marketRegime);
+    const entryPlan = computeEntryPlan(ev);
+    const redFlagResult = computeRedFlags(ev);
+    const { score: aPlusScore } = computeAPlusScore(r, regime);
+    const deep = classifyDeepScanDecision({ entryPlan, aPlusScore });
+    if (isUnifiedGo(deep.decision, redFlagResult.criticalCount)) goAdds.push(r.symbol);
     else watchAdds.push(r.symbol);
   }
 
@@ -82,4 +115,4 @@ async function runMarketAutoWatchlist(opts = {}) {
   return { ok: true, checked: rows.length, added: newSymbols, goAdds, watchAdds };
 }
 
-module.exports = { runMarketAutoWatchlist, MARKET_UNIVERSE_SYMBOLS, isGo, isCandidate };
+module.exports = { runMarketAutoWatchlist, MARKET_UNIVERSE_SYMBOLS, isUnifiedGo, isCandidate };

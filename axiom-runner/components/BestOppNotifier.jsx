@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { computeRegime, computeAPlusScore } from "./market-helpers.js";
+import { computeRegime, computeAPlusScore, isUnifiedGo } from "./market-helpers.js";
 import { BEST_OPP_UNIVERSE } from "./terminal-panels.jsx";
 
 // Background watcher for "new GO setup" browser notifications — mounted
@@ -18,11 +18,10 @@ export default function BestOppNotifier({ macroData }) {
   useEffect(() => { regimeRef.current = computeRegime(macroData); }, [macroData]);
 
   useEffect(() => {
-    const isGo = (r) => r.verdict === "GO" || (r.atBuyPoint && r.volConfirmed);
     const check = () => {
       if (localStorage.getItem("bestopp_notify") !== "on") return;
       if (!("Notification" in window) || Notification.permission !== "granted") return;
-      fetch("/api/market/trend-screen?symbols=" + encodeURIComponent(BEST_OPP_UNIVERSE.join(",")))
+      fetch("/api/market/trend-screen?withDecision=1&symbols=" + encodeURIComponent(BEST_OPP_UNIVERSE.join(",")))
         .then(r => r.json())
         .then(j => {
           const res = (j.results || []).filter(r =>
@@ -30,7 +29,7 @@ export default function BestOppNotifier({ macroData }) {
           const top = res.map(r => ({ ...r, _aplus: computeAPlusScore(r, regimeRef.current) }))
             .sort((a, b) => b._aplus.score - a._aplus.score).slice(0, 5);
           const newGo = [];
-          top.forEach(r => { if (isGo(r) && !seenGo.current.has(r.symbol)) { seenGo.current.add(r.symbol); newGo.push(r.symbol); } });
+          top.forEach(r => { if (isUnifiedGo(r) && !seenGo.current.has(r.symbol)) { seenGo.current.add(r.symbol); newGo.push(r.symbol); } });
           if (newGo.length) {
             try { new Notification("🎯 New buy-point: " + newGo.join(", "), { body: "A new GO setup just appeared in Best Opportunities." }); } catch {}
           }

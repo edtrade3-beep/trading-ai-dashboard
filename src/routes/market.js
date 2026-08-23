@@ -2608,6 +2608,37 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
     };
     try {
       const results = await screenTrendTemplate(symbols, filters);
+      // Opt-in unified-decision enrichment (Legacy Verdict System migration,
+      // 2026-08-23) — _buildTrendTemplate's own verdict/atBuyPoint fields
+      // stay untouched above (still real, still used for display elsewhere);
+      // this attaches the SAME real pipeline phases 5/7/8 already proved
+      // (buildEvFromRow -> computeEntryPlan -> computeRedFlags ->
+      // classifyDeepScanDecision) as two new additive fields consumers can
+      // opt into instead. Gated behind withDecision=1 so the many OTHER
+      // callers of this route (SmartScanTab, TrendTemplateTab, Sniper
+      // Scanner, ...) pay zero extra fetch cost / see zero behavior change.
+      if (searchParams.get("withDecision") === "1" && results.length) {
+        try {
+          const { computeRegime, regimeToEntryVocabulary, computeAPlusScore } = require("../trade-planner-scoring");
+          const { computeEntryPlan } = require("../entry-engine");
+          const { computeRedFlags } = require("../red-flag-engine");
+          const { classifyDeepScanDecision } = require("../btc-hpc-scan");
+          const { buildEvFromRow } = require("../watchlist-setup-alerts");
+          const macroRows = await fetchMarketQuotes(["SPY", "QQQ", "VIXY"], resolveProviderKeys(searchParams)).catch(() => []);
+          const regime = computeRegime(Array.isArray(macroRows) ? macroRows : []);
+          const marketRegime = regimeToEntryVocabulary(regime.label);
+          for (const row of results) {
+            if (row.error) continue;
+            const ev = buildEvFromRow(row, marketRegime);
+            const entryPlan = computeEntryPlan(ev);
+            const redFlagResult = computeRedFlags(ev);
+            const { score: aPlusScore } = computeAPlusScore(row, regime);
+            const deep = classifyDeepScanDecision({ entryPlan, aPlusScore });
+            row.unifiedDecision = deep.decision;
+            row.unifiedCriticalFlags = redFlagResult.criticalCount;
+          }
+        } catch { /* enrichment is additive-only — a failure here must not break the base scan response */ }
+      }
       return writeJson(res, 200, { count: results.length, results });
     } catch (err) {
       return writeJson(res, 502, { error: err instanceof Error ? err.message : "Screen failed." });
