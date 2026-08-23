@@ -22,6 +22,21 @@ function isMarketHoursET() {
   return mins >= 9 * 60 + 35 && mins <= 15 * 60 + 55;   // 9:35–15:55 ET
 }
 
+// ET calendar date (YYYY-MM-DD) of the current week's Monday — the one
+// shared "new week" anchor both real order-placing engines
+// (server-autopilot.js/Alpaca, routes/autoexec.js/Tradier) compare their
+// own persisted weekAnchorDate against to know when to reset
+// weekStartEquity (Master Build Spec §16-17, 2026-08-23). Mirrors
+// routes/autoexec.js's existing todayET() ET-date convention so both
+// callers detect a new week identically instead of each reimplementing it.
+function weekAnchorET() {
+  const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+  const day = et.getDay(); // 0=Sun..6=Sat
+  const diffToMonday = day === 0 ? -6 : 1 - day;
+  et.setDate(et.getDate() + diffToMonday);
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(et);
+}
+
 // Never trade a blown, debit, restricted, or too-small account.
 function checkAccountHealth({ equity, cash, tradingBlocked, accountBlocked, minEquity = 500 }) {
   if (!(equity > 0)) return { ok: false, reason: "zero/negative equity" };
@@ -51,6 +66,27 @@ function openRiskPct({ positions, equity, assumedStopPct = 0.05 }) {
   return (risk / equity) * 100;
 }
 
+// Weekly drawdown breaker (Master Build Spec §16-17, 2026-08-23) — stops
+// opening new automated trades once the CURRENT trading week's loss
+// crosses maxLossPct, off a real persisted weekStartEquity snapshot
+// (taken at the first check of each new ET week — see weekAnchorET()
+// above). Same shape/discipline as dailyLossBreakerTripped: honest false
+// when no real snapshot exists yet, never a fabricated trip.
+function weeklyLossBreakerTripped({ equity, weekStartEquity, maxLossPct }) {
+  if (!(weekStartEquity > 0)) return false;
+  return ((equity - weekStartEquity) / weekStartEquity) * 100 <= -maxLossPct;
+}
+
+// Total (all-time) drawdown breaker — stops opening new automated trades
+// once real equity has fallen maxDrawdownPct below the account's real,
+// persisted all-time peak equity (a continuously-updated high-water mark,
+// never reset). Distinct from the daily/weekly breakers, which measure
+// loss from a periodic starting point, not from the real historical peak.
+function totalDrawdownBreakerTripped({ equity, peakEquity, maxDrawdownPct }) {
+  if (!(peakEquity > 0)) return false;
+  return ((equity - peakEquity) / peakEquity) * 100 <= -maxDrawdownPct;
+}
+
 function sectorCapExceeded({ positions, symbol, maxPerSector }) {
   const sec = sectorOf(symbol);
   const count = (positions || []).filter(p => sectorOf(p.symbol) === sec).length;
@@ -71,6 +107,7 @@ function sizePositionByRisk({ equity, riskPct, entry, stop, availCash, maxNamePc
 }
 
 module.exports = {
-  SECTORS, sectorOf, isMarketHoursET, checkAccountHealth,
-  dailyLossBreakerTripped, openRiskPct, sectorCapExceeded, sizePositionByRisk,
+  SECTORS, sectorOf, isMarketHoursET, weekAnchorET, checkAccountHealth,
+  dailyLossBreakerTripped, weeklyLossBreakerTripped, totalDrawdownBreakerTripped,
+  openRiskPct, sectorCapExceeded, sizePositionByRisk,
 };

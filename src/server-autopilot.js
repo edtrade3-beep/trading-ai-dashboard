@@ -3,16 +3,32 @@
 // stay browser-side for safety). Mirrors the client guards: market-hours only,
 // daily-loss breaker, max positions, total open-risk ceiling, no re-buying a
 // symbol already held. PAPER only — never live.
+const path = require("node:path");
 const { sendTelegramMessage, isConfigured } = require("./telegram");
-const { PORT } = require("./config");
+const { PORT, ROOT } = require("./config");
 const { appendJournal } = require("./autopilot-journal");
 const { getClosedTrades } = require("./routes/alpaca");
 const { computeLearningGates, isAllowed } = require("./learning-engine");
 const { isOn } = require("./utils");
+const { writeJsonAtomic, readJsonSafe } = require("./atomic-write");
 const {
-  isMarketHoursET, checkAccountHealth, dailyLossBreakerTripped,
+  isMarketHoursET, weekAnchorET, checkAccountHealth, dailyLossBreakerTripped,
+  weeklyLossBreakerTripped, totalDrawdownBreakerTripped,
   openRiskPct, sectorCapExceeded, sizePositionByRisk, sectorOf,
 } = require("./risk-guardrails");
+
+// Weekly + total drawdown breakers (Master Build Spec §16-17, 2026-08-23).
+// server-autopilot.js has no persisted state today (its daily breaker
+// uses Alpaca's own native last_equity field, no snapshot needed) — this
+// is a new, small, durable store using the same real atomic-write.js
+// primitives every other data/*.json store in this app already uses
+// (transparently Postgres-backed when DATABASE_URL is set — see
+// atomic-write.js's own header for why raw fs writes would silently lose
+// this on every Render restart).
+const RISK_STATE_PATH = path.join(ROOT, "data", "autopilot-risk-state.json");
+const DEFAULT_RISK_STATE = { weekAnchorDate: "", weekStartEquity: 0, peakEquity: 0 };
+function readRiskState() { return { ...DEFAULT_RISK_STATE, ...readJsonSafe(RISK_STATE_PATH, null) }; }
+function writeRiskState(state) { writeJsonAtomic(RISK_STATE_PATH, state); }
 
 // Curated liquid market leaders — the kind of names the Trend Template works best
 // on. Added to your watchlist so there are always candidates to find trades.
@@ -68,6 +84,20 @@ async function runServerAutopilot() {
 
   // Daily-loss circuit breaker: stop opening new trades after −2% on the day.
   if (dailyLossBreakerTripped({ equity, startOfDayEquity: lastEq, maxLossPct: 2 })) return;
+
+  // Weekly + total drawdown breakers (Master Build Spec §16-17, 2026-08-23)
+  // — real, persisted weekStartEquity/peakEquity (RISK_STATE_PATH above).
+  // weekStartEquity resets on the first real check of a new ET week;
+  // peakEquity is a continuously-updated all-time high-water mark, never
+  // reset. 5%/15% match the user's own chosen thresholds (roughly
+  // 2.5x/7.5x the daily breaker above).
+  const riskState = readRiskState();
+  const weekAnchor = weekAnchorET();
+  if (riskState.weekAnchorDate !== weekAnchor) { riskState.weekAnchorDate = weekAnchor; riskState.weekStartEquity = equity; }
+  if (equity > (riskState.peakEquity || 0)) riskState.peakEquity = equity;
+  writeRiskState(riskState);
+  if (weeklyLossBreakerTripped({ equity, weekStartEquity: riskState.weekStartEquity, maxLossPct: 5 })) return;
+  if (totalDrawdownBreakerTripped({ equity, peakEquity: riskState.peakEquity, maxDrawdownPct: 15 })) return;
 
   const posR = await apca("/v2/positions");
   const positions = (posR && posR.ok && Array.isArray(posR.data)) ? posR.data : [];

@@ -19,7 +19,8 @@ const { writeJsonAtomic, readJsonSafe } = require("../atomic-write");
 const { sendTelegramMessage, isConfigured: telegramConfigured } = require("../telegram");
 const broker = require("../tradier-broker");
 const {
-  isMarketHoursET, checkAccountHealth, dailyLossBreakerTripped, openRiskPct,
+  isMarketHoursET, weekAnchorET, checkAccountHealth, dailyLossBreakerTripped,
+  weeklyLossBreakerTripped, totalDrawdownBreakerTripped, openRiskPct,
   sectorCapExceeded, sizePositionByRisk,
 } = require("../risk-guardrails");
 
@@ -56,6 +57,10 @@ const DEFAULT_CONFIG = {
   tradedToday:    [],          // symbols auto-traded today (reset each day)
   lastResetDate:  "",          // YYYY-MM-DD of last daily reset
   startOfDayEquity: 0,         // equity snapshot at the first reset of the day (Tradier has no last_equity field)
+  // Weekly + total drawdown breakers (Master Build Spec §16-17, 2026-08-23).
+  weekAnchorDate:  "",         // ET Monday date of the week weekStartEquity was snapshotted for
+  weekStartEquity: 0,          // equity at the first real check of the current ET week
+  peakEquity:      0,          // all-time high-water mark, continuously updated, never reset
 };
 
 function readConfig() {
@@ -134,6 +139,28 @@ async function checkTradeGuardrails(cfg) {
   if (dailyLossBreakerTripped({ equity, startOfDayEquity: cfg.startOfDayEquity, maxLossAbs: cfg.maxDailyLoss })) {
     return { ok: false, reason: "daily loss limit reached", balances, equity };
   }
+
+  // Weekly + total drawdown breakers (Master Build Spec §16-17, 2026-08-23)
+  // — real, persisted weekStartEquity/peakEquity, updated here since this
+  // is the one place every trade-gating path (automated + manual override)
+  // already has a real equity read. weekStartEquity resets on the first
+  // real check of a new ET week; peakEquity is a continuously-updated
+  // all-time high-water mark, never reset. 5%/15% match the user's own
+  // chosen thresholds (roughly 2.5x/7.5x the existing 2%-equivalent daily
+  // breaker).
+  if (equity > 0) {
+    const anchor = weekAnchorET();
+    if (cfg.weekAnchorDate !== anchor) { cfg.weekAnchorDate = anchor; cfg.weekStartEquity = equity; }
+    if (equity > (cfg.peakEquity || 0)) cfg.peakEquity = equity;
+    writeConfig(cfg);
+  }
+  if (weeklyLossBreakerTripped({ equity, weekStartEquity: cfg.weekStartEquity, maxLossPct: 5 })) {
+    return { ok: false, reason: "weekly loss limit reached", balances, equity };
+  }
+  if (totalDrawdownBreakerTripped({ equity, peakEquity: cfg.peakEquity, maxDrawdownPct: 15 })) {
+    return { ok: false, reason: "total drawdown limit reached", balances, equity };
+  }
+
   return { ok: true, reason: null, balances, equity };
 }
 

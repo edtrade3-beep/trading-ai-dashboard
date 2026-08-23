@@ -7,8 +7,9 @@
 // runs this alongside smoke.js).
 const assert = require("node:assert");
 const {
-  checkAccountHealth, dailyLossBreakerTripped, openRiskPct,
-  sectorCapExceeded, sizePositionByRisk, isMarketHoursET,
+  checkAccountHealth, dailyLossBreakerTripped, weeklyLossBreakerTripped,
+  totalDrawdownBreakerTripped, openRiskPct, sectorCapExceeded,
+  sizePositionByRisk, isMarketHoursET, weekAnchorET,
 } = require("../src/risk-guardrails");
 
 let passed = 0;
@@ -91,6 +92,54 @@ ok("pct loss exactly at the cap trips", () => {
 });
 ok("a gain never trips the breaker", () => {
   assert.strictEqual(dailyLossBreakerTripped({ equity: 11000, startOfDayEquity: 10000, maxLossAbs: 200, maxLossPct: 3 }), false);
+});
+
+console.log("weeklyLossBreakerTripped (Master Build Spec §16-17, 2026-08-23)…");
+ok("no weekStartEquity → never trips (guard clause, matches dailyLossBreakerTripped's own discipline)", () => {
+  assert.strictEqual(weeklyLossBreakerTripped({ equity: 9000, weekStartEquity: 0, maxLossPct: 5 }), false);
+});
+ok("pct loss under the 5% cap does not trip", () => {
+  assert.strictEqual(weeklyLossBreakerTripped({ equity: 9600, weekStartEquity: 10000, maxLossPct: 5 }), false);
+});
+ok("pct loss exactly at the 5% cap trips", () => {
+  assert.strictEqual(weeklyLossBreakerTripped({ equity: 9500, weekStartEquity: 10000, maxLossPct: 5 }), true);
+});
+ok("pct loss over the cap trips", () => {
+  assert.strictEqual(weeklyLossBreakerTripped({ equity: 9000, weekStartEquity: 10000, maxLossPct: 5 }), true);
+});
+ok("a gain never trips the breaker", () => {
+  assert.strictEqual(weeklyLossBreakerTripped({ equity: 11000, weekStartEquity: 10000, maxLossPct: 5 }), false);
+});
+
+console.log("totalDrawdownBreakerTripped…");
+ok("no peakEquity → never trips (guard clause)", () => {
+  assert.strictEqual(totalDrawdownBreakerTripped({ equity: 9000, peakEquity: 0, maxDrawdownPct: 15 }), false);
+});
+ok("drawdown under the 15% cap does not trip", () => {
+  assert.strictEqual(totalDrawdownBreakerTripped({ equity: 8600, peakEquity: 10000, maxDrawdownPct: 15 }), false);
+});
+ok("drawdown exactly at the 15% cap trips", () => {
+  assert.strictEqual(totalDrawdownBreakerTripped({ equity: 8500, peakEquity: 10000, maxDrawdownPct: 15 }), true);
+});
+ok("drawdown over the cap trips", () => {
+  assert.strictEqual(totalDrawdownBreakerTripped({ equity: 8000, peakEquity: 10000, maxDrawdownPct: 15 }), true);
+});
+ok("equity at a new all-time high never trips (the caller is expected to raise peakEquity to match — this function alone never fabricates a drawdown)", () => {
+  assert.strictEqual(totalDrawdownBreakerTripped({ equity: 12000, peakEquity: 10000, maxDrawdownPct: 15 }), false);
+});
+
+console.log("weekAnchorET…");
+ok("a Wednesday resolves to that week's real Monday", () => {
+  assert.strictEqual(withFixedNow("2026-07-15T13:35:00.000Z", weekAnchorET), "2026-07-13"); // Wed -> Mon
+});
+ok("a Saturday resolves to the same week's Monday (not the following one)", () => {
+  assert.strictEqual(withFixedNow("2026-07-18T13:35:00.000Z", weekAnchorET), "2026-07-13"); // Sat -> same week's Mon
+});
+ok("a Sunday resolves to the PRECEDING Monday, not the upcoming one", () => {
+  assert.strictEqual(withFixedNow("2026-07-19T13:35:00.000Z", weekAnchorET), "2026-07-13"); // Sun -> preceding Mon
+});
+ok("a Monday resolves to itself", () => {
+  assert.strictEqual(withFixedNow("2026-07-20T13:35:00.000Z", weekAnchorET), "2026-07-20"); // Mon -> itself
 });
 
 console.log("openRiskPct…");
