@@ -87,6 +87,26 @@ export default function MacroStatusStrip({ C, MONO, macroData, distData, fred })
           <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{macroRegime.score}/100</span>
         </div>
       )}
+      {/* Real Treasury/Credit scores (Institutional Intelligence Phase 2,
+          2026-08-23) — same useMacroRegime() response, zero new fetches.
+          Score-banded color (no discrete regime label for these two, just
+          a real 0-100 readout) — >=70 healthy, 40-69 moderate, <40 stressed. */}
+      {macroRegime?.treasury && (
+        <div title={`Yield curve ${macroRegime.treasury.factors.yieldCurve ?? "—"} · Real 10Y yield ${macroRegime.treasury.factors.realYield10y ?? "—"}%`}
+          style={{ display: "flex", alignItems: "center", gap: 6, background: C.card, border: `1px solid ${C.border}`, borderRadius: 20, padding: "6px 12px" }}>
+          <span style={{ width: 8, height: 8, borderRadius: "50%", background: macroRegime.treasury.score >= 70 ? C.green : macroRegime.treasury.score >= 40 ? C.amber : C.red, flexShrink: 0 }} />
+          <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.text }}>Treasury</span>
+          <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{macroRegime.treasury.score}/100</span>
+        </div>
+      )}
+      {macroRegime?.credit && (
+        <div title={`HY OAS ${macroRegime.credit.factors.hySpread ?? "—"} · IG OAS ${macroRegime.credit.factors.igSpread ?? "—"} · ${macroRegime.credit.momentum?.status || "—"}`}
+          style={{ display: "flex", alignItems: "center", gap: 6, background: C.card, border: `1px solid ${C.border}`, borderRadius: 20, padding: "6px 12px" }}>
+          <span style={{ width: 8, height: 8, borderRadius: "50%", background: macroRegime.credit.score >= 70 ? C.green : macroRegime.credit.score >= 40 ? C.amber : C.red, flexShrink: 0 }} />
+          <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.text }}>Credit</span>
+          <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{macroRegime.credit.score}/100{macroRegime.credit.momentum?.status ? ` · ${macroRegime.credit.momentum.status}` : ""}</span>
+        </div>
+      )}
       {MACRO_STATUS_INSTRUMENTS.map(({ symbol, label, vix, fredKey }) => {
         const q = (macroData || []).find(m => m.symbol === symbol);
         const override = fredKey ? fred?.[fredKey] : null;

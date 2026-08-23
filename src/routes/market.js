@@ -3094,25 +3094,33 @@ Explain this.`;
   // jobless-claims/Fed-funds/yield-curve series) + real SPY/QQQ/VIX quotes
   // already fetched elsewhere in this app -> macro-engine.js's
   // computeMacroRegime, one real classification, no new scoring engine.
-  // Cached 20 min — a regime read, not a tick-level signal; FRED's own
-  // series update at most once/day and are separately cached 6h
-  // (fred.js), so this TTL is about limiting quote-fetch frequency, not
-  // real macro-data freshness.
+  // Extended Phase 2 (same day) with real Treasury/Credit scores
+  // (treasury-credit-engine.js) off the same fetch cycle — one real round
+  // trip, not a second route re-fetching yield curve/10Y. Cached 20 min —
+  // a regime read, not a tick-level signal; FRED's own series update at
+  // most once/day and are separately cached 6h (fred.js), so this TTL is
+  // about limiting quote-fetch frequency, not real macro-data freshness.
   if (pathname === "/api/market/macro-regime" && req.method === "GET") {
     try {
       const data = await cached("macro-regime", 20 * 60_000, async () => {
         const fredMod = require("../fred");
         const providerKeys = resolveProviderKeys(new URLSearchParams());
-        const [yieldCurve, fedFunds, unemployment, joblessClaims, cpi, corePce, macroRows] = await Promise.all([
+        const [yieldCurve, fedFunds, unemployment, joblessClaims, cpi, corePce, us10y, realYield10y, hySpread, igSpread, lendingStandards, macroRows] = await Promise.all([
           fredMod.fetchYieldCurve().catch(() => null),
           fredMod.fetchFedFunds().catch(() => null),
           fredMod.fetchUnemployment().catch(() => null),
           fredMod.fetchJoblessClaims().catch(() => null),
           fredMod.fetchCPI().catch(() => null),
           fredMod.fetchCorePCE().catch(() => null),
+          fredMod.fetchUS10Y().catch(() => null),
+          fredMod.fetchRealYield10Y().catch(() => null),
+          fredMod.fetchHySpread().catch(() => null),
+          fredMod.fetchIgSpread().catch(() => null),
+          fredMod.fetchLendingStandards().catch(() => null),
           fetchMarketQuotes(["SPY", "QQQ", "VIXY"], providerKeys).catch(() => []),
         ]);
         const { computeMacroRegime, REGIME_META } = require("../macro-engine");
+        const { computeTreasuryScore, computeCreditScore, computeCreditMomentum } = require("../treasury-credit-engine");
         const spyRow = (macroRows || []).find((m) => m.symbol === "SPY");
         const qqqRow = (macroRows || []).find((m) => m.symbol === "QQQ");
         const vixRow = (macroRows || []).find((m) => m.symbol === "VIXY" || m.symbol === "VIX");
@@ -3125,7 +3133,14 @@ Explain this.`;
         // Real display meta (icon/label/color) attached server-side so the
         // client never needs its own copy of REGIME_META to stay in sync.
         const meta = REGIME_META[result.regime] || {};
-        return { ...result, icon: meta.icon || null, label: meta.label || result.regime, color: meta.color || null, asOf: new Date().toISOString() };
+        const treasury = computeTreasuryScore({ fred: { yieldCurve, realYield10y, us10y } });
+        const credit = computeCreditScore({ fred: { hySpread, igSpread, lendingStandards } });
+        const creditMomentum = computeCreditMomentum({ fred: { hySpread } });
+        return {
+          ...result, icon: meta.icon || null, label: meta.label || result.regime, color: meta.color || null,
+          treasury, credit: { ...credit, momentum: creditMomentum },
+          asOf: new Date().toISOString(),
+        };
       });
       return writeJson(res, 200, { ok: true, ...data });
     } catch (err) {

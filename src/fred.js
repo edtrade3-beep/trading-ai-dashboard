@@ -34,6 +34,9 @@ const SERIES = {
   CORE_PCE: "PCEPILFE",
   UNEMPLOYMENT: "UNRATE",
   JOBLESS_CLAIMS: "ICSA",
+  HY_SPREAD: "BAMLH0A0HYM2",
+  IG_SPREAD: "BAMLC0A0CM",
+  LENDING_STANDARDS: "DRTSCILM",
 };
 
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // these update ~once/day; 6h is plenty fresh
@@ -130,9 +133,18 @@ const fetchPCE          = () => fetchFredSeries(SERIES.PCE, { startDays: 400, yo
 const fetchCorePCE      = () => fetchFredSeries(SERIES.CORE_PCE, { startDays: 400, yoy: true });
 const fetchUnemployment = () => fetchFredSeries(SERIES.UNEMPLOYMENT, { startDays: 400 });
 const fetchJoblessClaims = () => fetchFredSeries(SERIES.JOBLESS_CLAIMS, { startDays: 60 });
+// Institutional Intelligence Phase 2 (2026-08-23) — real credit series for
+// treasury-credit-engine.js. startDays: 35 (not the 30-day default) gives
+// a genuine ~30-day windowChangePct even across a weekend/holiday gap in
+// the underlying daily series, matching the real "30D Change" read the
+// user's own spec mocked up.
+const fetchHySpread         = () => fetchFredSeries(SERIES.HY_SPREAD, { startDays: 35 });
+const fetchIgSpread         = () => fetchFredSeries(SERIES.IG_SPREAD, { startDays: 35 });
+const fetchLendingStandards = () => fetchFredSeries(SERIES.LENDING_STANDARDS, { startDays: 400 });
 
 module.exports = {
   fetchFredSeries, fetchUS10Y, fetchUS2Y, fetchBrentOil,
   fetchUS30Y, fetchRealYield10Y, fetchYieldCurve, fetchFedFunds,
   fetchCPI, fetchCoreCPI, fetchPCE, fetchCorePCE, fetchUnemployment, fetchJoblessClaims,
+  fetchHySpread, fetchIgSpread, fetchLendingStandards,
 };
