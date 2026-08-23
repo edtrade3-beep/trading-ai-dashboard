@@ -415,15 +415,13 @@ export default function MyTradesTab({ C, MONO, SANS, watchlistData }) {
           </div>
           <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 3 }}>
             {autoPilot
-              // Was always describing the basic-threshold rule regardless
-              // of A+ Mode (2026-08-09, decision-clarity audit) — a real
-              // mismatch, not just a wording nit: AutoPilotEngine.jsx's own
-              // buy gate ignores autoThreshold entirely and checks
-              // qualifiesAPlus instead whenever A+ Mode is on (the
-              // default), so this banner was describing a rule that wasn't
-              // the one actually running. Branches on the same aPlusOn
-              // flag the engine reads.
-              ? `Buying ${aPlusOn ? "A+ Institutional setups only, sized by confidence" : `the best ${autoThreshold === 5 ? "5/5" : "4/5+"} setups`} (up to ${maxPos}), auto-exiting via ${exitMode === "trail" ? "trailing stop" : exitMode === "trend" ? "trend turn" : "price targets"}${broker === "alpaca" ? ", through Alpaca paper" : ""}. Runs in the background on every tab — hands-off.`
+              // Autopilot Legacy Migration (2026-08-23) — both A+ and
+              // BASIC now run through the real Core Engine verdict
+              // (AutoPilotEngine.jsx), never the old autoThreshold/
+              // classic-checklist rule this banner used to describe for
+              // BASIC mode. Branches on the same aPlusOn flag the engine
+              // reads.
+              ? `Buying ${aPlusOn ? "EARLY_BUY (A+) setups only" : "EARLY_BUY or BUY setups"}, sized by confidence (up to ${maxPos}), auto-exiting via ${exitMode === "trail" ? "trailing stop" : exitMode === "trend" ? "trend turn" : "price targets"}${broker === "alpaca" ? ", through Alpaca paper" : ""}. Runs in the background on every tab — hands-off.`
               : "Turn on to let the system auto-buy and auto-exit paper trades for you, 100% hands-free."}
           </div>
           {autoPilot && (() => {
@@ -498,13 +496,13 @@ export default function MyTradesTab({ C, MONO, SANS, watchlistData }) {
       <div style={{ marginBottom: 14, padding: "14px 18px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 12 }}>
         <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textSec, letterSpacing: "0.06em", marginBottom: 12 }}>⚙️ FINE-TUNE (optional)</div>
         <div style={{ display: "flex", gap: 22, rowGap: 16, flexWrap: "wrap" }}>
-          <Setting label="A+ MODE" hint="ON = only buys A+ Institutional setups (score ≥90, market green), sized by confidence (1% / 0.75% / 0.5%), max 5 trades/day." value={aPlusOn}
+          <Setting label="A+ MODE" hint="Both options run every real Core Engine hard gate (structure, critical red flags, Stage 4, entry-score floor) — never a separate legacy signal. ON = only EARLY_BUY verdicts (score ≥85). BASIC = EARLY_BUY or BUY (score ≥70). Sized by confidence (1% / 0.75% / 0.5%), max 5 trades/day." value={aPlusOn}
             onPick={on => { setAPlusOn(on); localStorage.setItem("axiom_autopilot_aplus", on ? "on" : "off"); }}
             options={[["A+ ✓", true], ["BASIC", false]]} />
           <Setting label="🤖 AI GATE" hint="ON = Claude reviews every trade before it's placed and can veto it (only proceeds on a BUY verdict). Adds ~1 cheap Haiku call per trade. Fails open if the API is down." value={aiGateOn}
             onPick={on => { setAiGateOn(on); localStorage.setItem("axiom_autopilot_aigate", on ? "on" : "off"); }}
             options={[["ON", true], ["OFF", false]]} />
-          <Setting label="WHEN TO BUY" hint="(Basic mode) How strict the entry is. 5/5 = fewer, perfect setups." value={autoThreshold}
+          <Setting label="SHORT STRICTNESS" hint="Long entries are always gated by the real Core Engine verdict (A+ MODE above). This only sets how strict a short entry must be when Auto Short is on. 5/5 = fewer, perfect setups." value={autoThreshold}
             onPick={n => { setAutoThreshold(n); localStorage.setItem("axiom_autopilot_min", n); }}
             options={[["4/5+", 4], ["5/5 only", 5]]} />
           <Setting label="MAX POSITIONS" hint="Holds only the best-ranked setups, up to this many at once." value={maxPos}

@@ -135,7 +135,7 @@ export default function AutoPilotEngine({ watchlistData, macroData, scanResults 
     return () => clearInterval(t);
   }, []);
 
-  // AUTO-BUY: every 15s, paper-buy any stock that hits the GREEN threshold (once/day each)
+  // AUTO-BUY: every 15s, paper-buy any stock the real Core Engine verdict qualifies (once/day each)
   useEffect(() => {
     const tick = () => {
       if (localStorage.getItem("axiom_autopilot") !== "on") return;
@@ -216,25 +216,25 @@ export default function AutoPilotEngine({ watchlistData, macroData, scanResults 
         // (src/learning-engine.js); with no real sample yet it stays open.
         const gate = learningGatesRef.current?.tierGates?.[gl.grade];
         const gradeAllowed = !gate || gate.allowed !== false;
-        // A+ mode's real qualifying gate (One Engine Migration Phase 7,
-        // 2026-08-23) — was gl.qualifiesAPlus (computeGreenLight's own
-        // aScore>=85&&marketPass&&atEntry, no structural/red-flag
-        // awareness). Now reads the same real am-core-engine.js verdict
-        // (coreVerdict/coreCriticalFlags, from trendMapRef's withDecision=1
-        // fetch above) driving every other real BUY signal in this app —
-        // EARLY_BUY and BUY both qualify here; which one determines full
-        // vs half size below via gl.confRisk, unchanged.
+        // The ONE real automated-BUY gate (One Engine Migration Phase 7,
+        // 2026-08-23; legacy branch retired in the Autopilot Legacy
+        // Migration, same day) — every automated long entry, A+ mode or
+        // BASIC mode, now requires a real am-core-engine.js verdict
+        // (coreVerdict/coreCriticalFlags, from trendMapRef's
+        // withDecision=1 fetch above), never computeGreenLight's own
+        // classic-checklist/Alt-Setup fields (gl.signal/gl.passed/
+        // gl.altSetup — those stayed real and still drive OTHER real
+        // surfaces like GreenLightTab.jsx's manual checklist, just no
+        // longer an independent automated-execution trigger, per the
+        // user's own explicit "AUTOPILOT MUST NOT INDEPENDENTLY CALCULATE
+        // ANOTHER FINAL SIGNAL" requirement). A+ MODE accepts EARLY_BUY
+        // only (score >=85); BASIC accepts EARLY_BUY or BUY (score >=70)
+        // — both are real acceptance thresholds on the SAME Master Engine
+        // verdict, not two different signals.
+        const acceptedVerdicts = aPlusMode ? ["EARLY_BUY"] : ["EARLY_BUY", "BUY"];
         const coreQualifies = trendRow && trendRow.coreCriticalFlags === 0 &&
-          ["EARLY_BUY", "BUY"].includes(trendRow.coreVerdict);
-        // Alt Setup (2026-08-03, explicit user request for more flexible
-        // qualifying logic) — computeGreenLight's own real second path
-        // (BOS/RVOL/Higher-Lows/MACD breakout, always gated on the same
-        // real market-safe check as the classic checklist), OR'd onto the
-        // existing classic-checklist gate rather than replacing it — the
-        // user's own configurable `threshold` still applies unchanged to
-        // the classic path. Only applies in non-A+ mode — A+ mode uses the
-        // real Core Engine verdict above and isn't loosened by this.
-        const bullish = gradeAllowed && (aPlusMode ? coreQualifies : ((gl.signal === "GREEN" && gl.passed >= threshold) || gl.altSetup != null));
+          acceptedVerdicts.includes(trendRow.coreVerdict);
+        const bullish = gradeAllowed && coreQualifies;
         const bearishPut = false;  // puts disabled — no bearish option buys
         const shortSetup = doShort && gl.shortSignal === "SHORT" && gl.shortPassed >= threshold;
         if (!bullish && !shortSetup) return;
