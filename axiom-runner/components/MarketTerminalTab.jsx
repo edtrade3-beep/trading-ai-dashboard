@@ -237,7 +237,7 @@ import { computeMtfAlignment } from "./mtf-combiner.js";
 // executable entry right now."
 import { computeEntryPlan } from "./entry-engine.js";
 import { computeSimpleDecision } from "./simple-decision.js";
-import { computeRedFlags } from "./red-flag-engine.js";
+import { computeRedFlags, computeExitRedFlags } from "./red-flag-engine.js";
 import AiScoreExplainer, {
   AplusBadge, TRADE_SETUP_DIMENSIONS, STOCK_QUALITY_DIMENSIONS, INSTITUTIONAL_GRADE_DIMENSIONS,
   TECHNICAL_DIMENSIONS, TIMING_DIMENSIONS, AI_TRADE_ENGINE_DIMENSIONS, FOUNDATION_DIMENSIONS, FOUNDATION_LABEL,
@@ -994,6 +994,24 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
     riskPct: symTrend.riskPct, dollarVolume: symTrend.dollarVolume,
   }) : null;
 
+  // Exit Red Flags (Master Build Spec §8-9, phase 3, 2026-08-22) — the
+  // EXIT taxonomy, only relevant for a real open position (symPosition).
+  // Same real fields as redFlagsDW above (zero new fetches) plus
+  // higherLows (symTrend.higherLows, already fetched) and
+  // thesisInvalidated — the caller's own already-computed
+  // position-decision-engine.js real state (via routes/alpaca.js),
+  // reused verbatim, never recomputed. Informational alongside that
+  // engine's own real decision (HOLD/WARNING/TRAIL/TAKE_PARTIAL/EXIT/
+  // HARD_EXIT), not a second, competing hard gate — see
+  // red-flag-engine.js's header for why.
+  const exitRedFlagsDW = (symTrend && symPosition) ? computeExitRedFlags({
+    swing4hState: symMtf?.swing4h?.state, higherLows: symTrend.higherLows,
+    marketRegime: marketRegimeDW, antiChase: symMtf?.antiChase, priceAction: symMtf?.swing4h?.priceAction,
+    vwap20: symTrend?.technicals?.vwap20, price: Number(chart?.livePrice ?? chart?.price),
+    volTrend1h: symMtf?.early1h?.volTrend,
+    thesisInvalidated: symPosition.dayTradeState === "EXIT" || symPosition.dayTradeState === "HARD_EXIT",
+  }) : null;
+
   // "5-Second Rule" simplified decision (2026-08-20, explicit user
   // directive — "the trader should open the Workspace and understand the
   // trade in 5 seconds," "do NOT display dozens of competing signals").
@@ -1011,10 +1029,16 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
     // never named regime at all even when it was the real reason a WAIT
     // held.
     marketRegime: marketRegimeDW,
-    // Red Flag Engine (Master Build Spec §8-9, phase 1) — only passed for
-    // pre-entry symbols; symPosition's post-entry branch doesn't use this
-    // yet (EXIT red-flag taxonomy is a disclosed, later phase).
-    redFlags: redFlagsDW?.flags,
+    // Red Flag Engine (Master Build Spec §8-9; phase 1 = ENTRY taxonomy,
+    // phase 3 = EXIT taxonomy, 2026-08-22) — the real, already-computed
+    // ENTRY flags for a pre-entry symbol, or the real EXIT flags for an
+    // open position. Purely informational display in the hasPosition
+    // branch (that branch already returns before reaching the
+    // pre-entry-only critical-flag hard gate further below in
+    // simple-decision.js, so this can never accidentally double-gate a
+    // held position — position-decision-engine.js's own real state stays
+    // the one decision authority there).
+    redFlags: symPosition ? exitRedFlagsDW?.flags : redFlagsDW?.flags,
   }) : null;
 
   // Exit Panel dimensions (Phase 5, 2026-08-20) — 6 real, already-computed
