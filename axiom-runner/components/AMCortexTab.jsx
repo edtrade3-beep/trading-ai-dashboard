@@ -78,6 +78,11 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
   const [deepTab, setDeepTab] = useState("technical");
   const [showWhy, setShowWhy] = useState(false);
   const [track, setTrack] = useState(null); // real global forward-return log, fetched once
+  // Cortex Follow-Up Memory (2026-08-23) — real conversation thread for
+  // the currently-analyzed symbol only; reset on every new analyzeSymbol
+  // call (a new symbol/analysis is a fresh conversation).
+  const [conversation, setConversation] = useState([]);
+  const [followUpLoading, setFollowUpLoading] = useState(false);
   const knownSymbols = useRef(new Set([...RH_UNIVERSE, ...(watchlistSymbols || [])]));
 
   useEffect(() => {
@@ -98,6 +103,7 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
 
   async function analyzeSymbol(symbol, openDeep) {
     setLoading(true); setError(null); setShowDeep(!!openDeep); setShowWhy(false);
+    setConversation([]); // a new analysis is a fresh conversation
     try {
       const [screenJ, fvJ, fundJ, analystJ, socialJ, darkPoolJ, optionsFlowJ, insiderJ, shortInterestJ] = await Promise.all([
         fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(symbol)}&withDecision=1`).then((r) => r.json()),
@@ -196,12 +202,52 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
     } finally { setLoading(false); }
   }
 
+  // Cortex Follow-Up Memory (2026-08-23) — real, grounded answer off the
+  // already-computed result for the current symbol, never a re-analysis.
+  // Only called when result?.type === "symbol" (checked by the caller).
+  async function askFollowUp(question) {
+    const userTurn = { role: "user", content: question };
+    setConversation((c) => [...c, userTurn]);
+    setFollowUpLoading(true);
+    try {
+      const data = {
+        symbol: result.symbol, price: result.row?.price,
+        coreVerdict: result.row?.coreVerdict, coreReason: result.row?.coreReason,
+        cortexVerdict: result.verdict?.verdict, cortexReason: result.verdict?.reason,
+        heatLabel: result.heat?.label, heatReason: result.heat?.reason,
+        aplusScore: result.aplus?.score, aplusReasons: result.aplus?.reasons,
+        technicalScore: result.technicalScore,
+        entryCurrent: result.priceToPay?.current, entryLow: result.priceToPay?.idealEntryLow,
+        entryHigh: result.priceToPay?.idealEntryHigh, entryBreakout: result.priceToPay?.breakoutEntry,
+        entryPullback: result.priceToPay?.pullbackLevel, entryInvalidation: result.priceToPay?.invalidation,
+        entryTarget: result.priceToPay?.target, entryRR: result.priceToPay?.rr,
+        trimLabel: result.trimSignal?.label, trimReason: result.trimSignal?.reason,
+        evidence: result.evidence,
+      };
+      const r = await fetch("/api/market/cortex-followup", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question, data, history: conversation }),
+      }).then((res) => res.json());
+      const reply = r.ok ? r.reply : `I couldn't get a real answer just now (${r.error || "unknown error"}) — try again in a moment.`;
+      setConversation((c) => [...c, { role: "assistant", content: reply }]);
+    } catch (e) {
+      setConversation((c) => [...c, { role: "assistant", content: `I couldn't get a real answer just now (${e.message}) — try again in a moment.` }]);
+    } finally { setFollowUpLoading(false); }
+  }
+
   const submit = (openDeep) => {
     const parsed = parseCortexQuery(query, knownSymbols.current);
     if (parsed.intent === "empty") { setError("Type a question or a symbol first."); return; }
     if (parsed.intent === "symbol" || parsed.intent === "price_to_pay") { analyzeSymbol(parsed.symbol, openDeep); return; }
     if (parsed.intent === "scan") { runScan(parsed.scanType, parsed.maxPrice); return; }
     if (parsed.intent === "compare") { setError("Stock comparison is coming in a later Cortex phase — try one symbol at a time for now."); return; }
+    // Cortex Follow-Up Memory (2026-08-23) — a genuine natural-language
+    // follow-up (no explicit ticker) about the symbol already on screen.
+    // Real, grounded answer via askFollowUp — never the old silent
+    // "Couldn't understand that" for a normal question, matching the
+    // doc's own explicit rule. Only the true no-context case (no symbol
+    // loaded at all) still asks for a clarification.
+    if (result?.type === "symbol") { const q = query; setQuery(""); askFollowUp(q); return; }
     setError('Couldn\'t understand that — try a symbol ("Why is NVDA moving?") or a scan ("Find undervalued stocks").');
   };
 
@@ -393,6 +439,31 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
                   {evidence.length ? evidence.map((e, i) => (
                     <div key={i} style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, padding: "3px 0" }}>{i + 1}. {e}</div>
                   )) : <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>DATA UNAVAILABLE</div>}
+                </div>
+              )}
+
+              {/* Cortex Follow-Up Memory (2026-08-23) — real conversation
+                  thread for this symbol only; a genuine natural-language
+                  follow-up with no ticker in it (routed via submit() ->
+                  askFollowUp) lands here instead of a "Couldn't
+                  understand that" error. */}
+              {(conversation.length > 0 || followUpLoading) && (
+                <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: 14, marginBottom: 14 }}>
+                  <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textDim, marginBottom: 10 }}>FOLLOW-UP</div>
+                  {conversation.map((m, i) => (
+                    <div key={i} style={{ marginBottom: 10, textAlign: m.role === "user" ? "right" : "left" }}>
+                      <div style={{ display: "inline-block", maxWidth: "85%", textAlign: "left", fontFamily: SANS, fontSize: 12.5,
+                        lineHeight: 1.5, padding: "8px 12px", borderRadius: 8, whiteSpace: "pre-line",
+                        color: m.role === "user" ? "#fff" : C.text,
+                        background: m.role === "user" ? C.accent : C.card,
+                        border: m.role === "user" ? "none" : `1px solid ${C.border}` }}>
+                        {m.content}
+                      </div>
+                    </div>
+                  ))}
+                  {followUpLoading && (
+                    <div style={{ fontFamily: MONO, fontSize: 11.5, color: C.textDim }}>Cortex is thinking…</div>
+                  )}
                 </div>
               )}
 

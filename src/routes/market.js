@@ -2357,6 +2357,62 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
     } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
   }
 
+  // POST /api/market/cortex-followup — Cortex Follow-Up Memory (2026-08-23,
+  // "AM Trading — Master Platform Architecture 2.0" doc). A real, narrow,
+  // separate AI route — NOT a reuse or modification of /api/market/
+  // ai-copilot (TradingCopilot stays exactly as it is). Fires only when
+  // AMCortexTab.jsx's own deterministic parseCortexQuery can't resolve a
+  // query to an explicit symbol/scan AND a real symbol is already loaded
+  // — i.e. only for genuine natural-language follow-ups ("what would make
+  // it a buy?", "where's the pivot?"), never a general-purpose chatbot.
+  // Grounded ONLY in the real, already-computed data block the client
+  // sends (no new fetches, no invented numbers) — explicitly told to say
+  // "I don't have that data" rather than guess. No tools (unlike
+  // ai-copilot's run_scan/web_search) — deliberately narrower, cheaper,
+  // faster; this only explains what's already been computed.
+  if (pathname === "/api/market/cortex-followup" && req.method === "POST") {
+    const key = (process.env.ANTHROPIC_API_KEY || "").trim();
+    if (!key) return writeJson(res, 200, { ok: false, error: "ANTHROPIC_API_KEY not set" });
+    let b; try { b = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { ok: false, error: "bad json" }); }
+    const d = b.data || {};
+    const question = String(b.question || "").trim().slice(0, 500);
+    if (!question) return writeJson(res, 400, { ok: false, error: "no question" });
+    const history = (Array.isArray(b.history) ? b.history : []).slice(-6)
+      .map(m => ({ role: m.role === "assistant" ? "assistant" : "user", content: String(m.content || "").slice(0, 1000) }))
+      .filter(m => m.content);
+
+    const evidenceList = (Array.isArray(d.evidence) ? d.evidence : []).slice(0, 8).map(e => `- ${e}`).join("\n") || "none";
+    const aplusReasons = (Array.isArray(d.aplusReasons) ? d.aplusReasons : []).slice(0, 8).map(e => `- ${e}`).join("\n") || "none";
+    const system = `You are AM Cortex, the conversational explainer layer inside AM Trading. You answer real follow-up questions about a stock the user already had analyzed — you do NOT re-analyze, you do NOT invent a number/fact that isn't in the REAL DATA block below, and you do NOT give investment advice framed as certainty. If the user asks about something not present in the data below, say plainly "I don't have that data" rather than guessing.
+
+Keep answers short and concrete. Default shape for a fresh question: ANSWER (one line) / WHY (one line) / WHAT MATTERS (one line) / NEXT ACTION (one line). For a short direct follow-up ("where's the pivot?"), just answer directly in 1-2 sentences — don't force the full 4-part shape on a one-fact question.
+
+Distinguish FACT (a real number/state from the data below) from INFERENCE (your own reasonable read) from SCENARIO (a possible future outcome) when relevant — don't present speculation as fact.
+
+REAL DATA for ${d.symbol || "this symbol"}:
+- Price: $${d.price ?? "?"}
+- MASTER VERDICT (Core Engine, the platform's one canonical verdict): ${d.coreVerdict || "unavailable"} — ${d.coreReason || "no reason recorded"}
+- CORTEX VERDICT (this screen's own specialized read, tracked separately): ${d.cortexVerdict || "unavailable"} — ${d.cortexReason || "no reason recorded"}
+- Heat/Risk: ${d.heatLabel || "unavailable"} — ${d.heatReason || "—"}
+- A+ Score: ${d.aplusScore ?? "?"}/100
+  Reasons:
+${aplusReasons}
+- Technical Score: ${d.technicalScore ?? "unavailable"}
+- Entry levels: current $${d.entryCurrent ?? "?"}, ideal entry $${d.entryLow ?? "?"}–$${d.entryHigh ?? "?"}, breakout entry $${d.entryBreakout ?? "?"}${d.entryPullback != null ? `, pullback entry $${d.entryPullback}` : ""}
+- Stop/invalidation: ${d.entryInvalidation ?? "unavailable"} · Target: ${d.entryTarget ?? "unavailable"} · R:R: ${d.entryRR ?? "unavailable"}
+- Trim signal: ${d.trimLabel || "none"} — ${d.trimReason || "—"}
+- Evidence:
+${evidenceList}`;
+
+    try {
+      const messages = [...history, { role: "user", content: question }];
+      const resp = await anthropicRequest({ model: MODELS.haiku, max_tokens: 400,
+        system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }], messages }, key, 30000, "cortex-followup");
+      const text = (resp.content || []).filter(c => c.type === "text").map(c => c.text).join("").trim();
+      return writeJson(res, 200, { ok: true, reply: text || "(no answer)" });
+    } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
+  }
+
   // /api/market/ai-bull-bear removed (2026-07-29, "use free data") — the
   // paid Claude version hit the account's API usage limit. Replaced with
   // computeBullBearCase (market-helpers.js), a free, deterministic split of

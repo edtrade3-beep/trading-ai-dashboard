@@ -44,9 +44,14 @@ const STOPWORDS = new Set([
 function extractSymbols(q, knownSymbols) {
   const tokens = (q.toUpperCase().match(/\b[A-Z]{1,5}\b/g) || []).filter((t) => !STOPWORDS.has(t));
   if (!knownSymbols) return tokens;
-  // Known real tickers first (avoids treating a random capitalized word as a symbol).
-  const known = tokens.filter((t) => knownSymbols.has(t));
-  return known.length ? known : tokens;
+  // Real, known tickers ONLY when a real knownSymbols set was supplied —
+  // never fall back to unvalidated raw tokens (Cortex Follow-Up Memory
+  // fix, 2026-08-23: this used to return every non-stopword all-caps
+  // token when none matched a real symbol, so a genuine follow-up like
+  // "what would MAKE it a buy?" silently misfired as intent:"symbol"
+  // with a bogus ticker "MAKE" instead of correctly falling through to
+  // "unknown" — the exact case Follow-Up Memory exists to handle).
+  return tokens.filter((t) => knownSymbols.has(t));
 }
 
 // Returns { intent: 'symbol'|'scan'|'compare'|'price_to_pay'|'empty'|'unknown', ... }
