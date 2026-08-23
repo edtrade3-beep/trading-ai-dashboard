@@ -1091,6 +1091,42 @@ console.log("Checking institutional-redesign presentation-layer modules (ESM, lo
     0.1
   );
 
+  // ── "Fix Light Box SHORT math" (2026-08-23, explicit user request) —
+  // real bug found while scoping Autopilot ASSIST execution: stop/target/
+  // bestEntry were always computed with long-only shape regardless of
+  // `direction`, so a confirmed BEARISH/breakdown setup got a stop BELOW
+  // price (doesn't protect against a rally) and a target ABOVE price (on
+  // a setup that's supposed to fall). This fixture is a real, hand-
+  // verified BEARISH-direction row (confirmed breakdown, below VWAP,
+  // bearish RSI/ROC/MACD, weak relative strength) — locks in that stop is
+  // now above price, target is below price, and rr/bestEntry/entryNote/
+  // atEntry all flip to their breakdown-side meaning. Also a free client/
+  // server drift check on the fix, same as every other case here.
+  ok("direction-aware SHORT math: BEARISH setup gets a real short-shaped stop/target", () => {
+    const row = {
+      symbol: "TEST", price: 95, vwap: 100, rvol: 1.1, aboveVwap: false, orBreakout: false, orHigh: 101, orLow: 96,
+      bull15: false, closeStrong: false, chgPct: -5, score: 20,
+      ema9: 94, ema21: 97, ema50: 99, rsi15m: 25, roc15m: -3, macdHistogram15m: -0.8,
+      priceAction: { higherHighs: false, higherLows: false, breakout: false, breakdown: true, retest: false, failedBreakout: null, failedBreakdown: false },
+    };
+    const extra = { qqqChg: 0.5, sectorChg: 0.3 };
+    const r = computeDayTradeSignalServer(row, -1.0, extra);
+    assert.strictEqual(r.direction, "BEARISH", "fixture must actually resolve to a real BEARISH setup");
+    assert.ok(r.stop > r.px, `stop ($${r.stop}) must be ABOVE price ($${r.px}) for a real short — it protects against a rally`);
+    assert.ok(r.target < r.px, `target ($${r.target}) must be BELOW price ($${r.px}) for a real short — that's the direction of profit`);
+    assert.strictEqual(r.rr, 1.5, "risk:reward must still be the real 1.5R the long-side formula uses");
+    assert.strictEqual(r.entryTriggerStatus, "CONFIRMED", "fixture must actually reach a real confirmed breakdown trigger");
+    assert.strictEqual(r.entryNote, "at breakdown ✅", "entryNote must use breakdown language for a real short, not breakout");
+  });
+  assertDayTradeParity(
+    "real BEARISH breakdown row (below VWAP, confirmed breakdown, weak RS)",
+    { symbol: "TEST", price: 95, vwap: 100, rvol: 1.1, aboveVwap: false, orBreakout: false, orHigh: 101, orLow: 96,
+      bull15: false, closeStrong: false, chgPct: -5, score: 20,
+      ema9: 94, ema21: 97, ema50: 99, rsi15m: 25, roc15m: -3, macdHistogram15m: -0.8,
+      priceAction: { higherHighs: false, higherLows: false, breakout: false, breakdown: true, retest: false, failedBreakout: null, failedBreakdown: false } },
+    -1.0, { qqqChg: 0.5, sectorChg: 0.3 }
+  );
+
   // ── "Fix Trading Signal Logic — A+ Score vs Entry Trigger" (2026-08-19) —
   // validation-table cases straight from the user's own spec: a high setup
   // score alone must never auto-BUY, a real confirmed trigger can BUY even

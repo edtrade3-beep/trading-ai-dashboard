@@ -151,16 +151,41 @@ function computeDayTradeSignal(row, spyChg, extra = {}) {
   const quality = direction === "BEARISH" ? Math.max(0, Math.min(100, 100 - rawQuality)) : rawQuality;
   const grade = quality >= 90 ? "ELITE" : quality >= 75 ? "A+" : quality >= 60 ? "GOOD" : quality >= 45 ? "WATCH" : "IGNORE";
 
-  const stop = +(Math.min(vwap, px) * 0.999).toFixed(2);
-  const riskDist = Math.max(0.01, px - stop);
-  const target = +(px + riskDist * 1.5).toFixed(2);
-  const rr = +((target - px) / riskDist).toFixed(1);
+  // Direction-aware stop/target/bestEntry (2026-08-23, "Fix Light Box
+  // SHORT math", explicit user request — real bug found while scoping
+  // ASSIST order execution: these were always computed with long-only
+  // shape (stop just below price, target above, bestEntry off orHigh)
+  // regardless of `direction`, so every real BEARISH/"SELL" setup carried
+  // backwards-shaped risk numbers — a stop that doesn't protect against a
+  // rally and a target above entry on a setup that's supposed to fall.
+  // Mirrors the exact same tolerance-band/1.5R shape, just flipped for
+  // BEARISH: stop = tightest real level ABOVE price (vwap or px,
+  // whichever is higher, +0.1%), target = 1.5x that risk distance BELOW
+  // price. BULLISH/MIXED keep the original formula unchanged.
+  const isBearish = direction === "BEARISH";
+  const stop = isBearish
+    ? +(Math.max(vwap, px) * 1.001).toFixed(2)
+    : +(Math.min(vwap, px) * 0.999).toFixed(2);
+  const riskDist = isBearish ? Math.max(0.01, stop - px) : Math.max(0.01, px - stop);
+  const target = isBearish
+    ? +(px - riskDist * 1.5).toFixed(2)
+    : +(px + riskDist * 1.5).toFixed(2);
+  const rr = isBearish
+    ? +((px - target) / riskDist).toFixed(1)
+    : +((target - px) / riskDist).toFixed(1);
   const rrPass = rr >= 1.2;
   const marketPass = spyChg > -0.5;
 
-  const bestEntry = orBreakout ? px : (Number(row?.orHigh) || px);
-  const entryNote = orBreakout ? "at breakout ✅" : "wait for OR breakout";
-  const atEntry = orBreakout;
+  // bestEntry mirrors the same BULLISH/orHigh <-> BEARISH/orLow symmetry —
+  // a real breakdown level, not the breakout level, for a bearish setup.
+  const orBreakdown = !!row?.priceAction?.breakdown;
+  const bestEntry = isBearish
+    ? (orBreakdown ? px : (Number(row?.orLow) || px))
+    : (orBreakout ? px : (Number(row?.orHigh) || px));
+  const entryNote = isBearish
+    ? (orBreakdown ? "at breakdown ✅" : "wait for OR breakdown")
+    : (orBreakout ? "at breakout ✅" : "wait for OR breakout");
+  const atEntry = isBearish ? orBreakdown : orBreakout;
 
   // Entry Trigger (spec §1-2) — real breakout/breakdown/retest/failed-
   // breakout state (row.priceAction, already computed by

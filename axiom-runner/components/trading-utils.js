@@ -687,17 +687,30 @@ export function computeDayTradeSignal(row, spyChg, extra = {}) {
   // +10% multi-day math. Stop = just below VWAP (the standard intraday
   // long-bias invalidation level); target = 1.5R off that stop, a modest
   // move genuinely achievable inside one session rather than a multi-day
-  // swing target. ──
-  const stop = +(Math.min(vwap, px) * 0.999).toFixed(2);
-  const riskDist = Math.max(0.01, px - stop);
-  const target = +(px + riskDist * 1.5).toFixed(2);
-  const rr = +((target - px) / riskDist).toFixed(1);
+  // swing target. Direction-aware fix — hand-ported twin, see
+  // src/day-trade-calc.js's matching comment for why. ──
+  const isBearish = direction === "BEARISH";
+  const stop = isBearish
+    ? +(Math.max(vwap, px) * 1.001).toFixed(2)
+    : +(Math.min(vwap, px) * 0.999).toFixed(2);
+  const riskDist = isBearish ? Math.max(0.01, stop - px) : Math.max(0.01, px - stop);
+  const target = isBearish
+    ? +(px - riskDist * 1.5).toFixed(2)
+    : +(px + riskDist * 1.5).toFixed(2);
+  const rr = isBearish
+    ? +((px - target) / riskDist).toFixed(1)
+    : +((target - px) / riskDist).toFixed(1);
   const rrPass = rr >= 1.2;
   const marketPass = spyChg > -0.5;
 
-  const bestEntry = orBreakout ? px : (Number(row?.orHigh) || px);
-  const entryNote = orBreakout ? "at breakout ✅" : "wait for OR breakout";
-  const atEntry = orBreakout;
+  const orBreakdown = !!row?.priceAction?.breakdown;
+  const bestEntry = isBearish
+    ? (orBreakdown ? px : (Number(row?.orLow) || px))
+    : (orBreakout ? px : (Number(row?.orHigh) || px));
+  const entryNote = isBearish
+    ? (orBreakdown ? "at breakdown ✅" : "wait for OR breakdown")
+    : (orBreakout ? "at breakout ✅" : "wait for OR breakout");
+  const atEntry = isBearish ? orBreakdown : orBreakout;
 
   // Entry Trigger — hand-ported twin, see src/day-trade-calc.js's comment.
   const entryTriggerStatus = dtClassifyEntryTrigger({ orBreakout, aboveVwap, rvol, priceAction: row?.priceAction, direction });
