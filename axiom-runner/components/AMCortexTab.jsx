@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { RH_UNIVERSE, rhScreenProgressive } from "./rhpro-shared.jsx";
 import { computeRegime, computeAPlusScore, computeInstitutionalGrade, computeInstitutionScore, computeFundamentalsRead, classifyEntryType, SECTOR_ETFS, STOCK_TO_SECTOR } from "./market-helpers.js";
 import { computeSniperDecision } from "./sniper-decision.js";
-import { CORE_VERDICT_META } from "./am-core-engine.js";
+import { computeCoreScore, CORE_VERDICT_META } from "./am-core-engine.js";
 import { FundamentalsPanel, OptionsFlowPanel, NewsPanel, InvestorsPanel } from "./terminal-panels.jsx";
 import {
   parseCortexQuery, computeHeatRisk, computeCortexVerdict, computePriceToPay, summarizeBuyPrice, whyEvidence,
@@ -101,56 +101,99 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
     return rank > 0 ? { name: info?.name || etf, rank, of: ranked.length, chg: info?.chg } : null;
   };
 
+  // Real, reusable per-symbol analysis (Cortex Stock Comparison, 2026-08-23)
+  // — extracted out of analyzeSymbol so single-symbol analysis and
+  // multi-symbol comparison share the exact same real computation, never
+  // two independently-maintained copies. Throws on no-real-data (each
+  // caller decides how to handle that — abort for a single lookup,
+  // honestly exclude for a comparison).
+  async function computeSymbolAnalysis(symbol) {
+    const [screenJ, fvJ, fundJ, analystJ, socialJ, darkPoolJ, optionsFlowJ, insiderJ, shortInterestJ] = await Promise.all([
+      fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(symbol)}&withDecision=1`).then((r) => r.json()),
+      fetch(`/api/scanner/future-value?symbol=${encodeURIComponent(symbol)}`).then((r) => r.json()).catch(() => null),
+      // Raw fundamentals (real bull/bear reasons — computeFundamentalsRead
+      // needs pe/pegRatio/revenueGrowth/earningsGrowth/profitMargin, not
+      // the future-value engine's already-blended scores).
+      fetch(`/api/market/fundamentals?symbol=${encodeURIComponent(symbol)}`).then((r) => r.json()).catch(() => null),
+      // Real analyst strongBuy/buy/hold/sell/strongSell consensus counts.
+      fetch(`/api/market/analyst?tickers=${encodeURIComponent(symbol)}`).then((r) => r.json()).catch(() => null),
+      // Real StockTwits bull/bear social sentiment.
+      fetch(`/api/market/social?ticker=${encodeURIComponent(symbol)}`).then((r) => r.json()).catch(() => null),
+      // Real accumulation/distribution phase inputs (computeInstitutionScore
+      // below) — same real dark pool/options-flow/insider/short-interest
+      // routes MarketTerminalTab.jsx already uses for this exact score.
+      fetch(`/api/market/darkpool?symbol=${encodeURIComponent(symbol)}`).then((r) => r.json()).catch(() => null),
+      fetch(`/api/market/options-flow?symbols=${encodeURIComponent(symbol)}&limit=1`).then((r) => r.json()).catch(() => null),
+      fetch(`/api/market/insider?ticker=${encodeURIComponent(symbol)}`).then((r) => r.json()).catch(() => null),
+      fetch(`/api/market/short-interest?tickers=${encodeURIComponent(symbol)}`).then((r) => r.json()).catch(() => null),
+    ]);
+    const row = (screenJ.results || [])[0];
+    if (!row || row.error) throw new Error(`No real market data available for ${symbol}.`);
+    const sniper = computeSniperDecision(row);
+    const aplus = computeAPlusScore(row, regime);
+    const grade = computeInstitutionalGrade(row, row.technicals, regime, sectorInfoFor(symbol), null);
+    const heat = computeHeatRisk(row, sniper);
+    const verdict = computeCortexVerdict({ sniper, heat, aplusScore: aplus.score });
+    const priceToPay = computePriceToPay(row, sniper);
+    const evidence = whyEvidence(sniper, aplus);
+    const entryType = classifyEntryType(row, aplus.score);
+    const futureValue = fvJ && fvJ.ok ? fvJ.row : null;
+    const technicalScore = computeTechnicalScore(row, sniper);
+    const trimSignal = computeTrimSignal(row, sniper, heat);
+    const premiumRead = computePremiumRead(futureValue);
+    const fundamentalsRead = fundJ && !fundJ.error ? computeFundamentalsRead(fundJ) : { bull: [], bear: [] };
+    const analyst = analystJ?.ok ? (analystJ.results || [])[0] : null;
+    const social = socialJ?.ok ? socialJ : null;
+    const darkPool = darkPoolJ?.ok ? darkPoolJ : null;
+    const optionsFlow = optionsFlowJ && !optionsFlowJ.error ? optionsFlowJ.summary || null : null;
+    const insiderData = insiderJ?.ok ? insiderJ : null;
+    const shortInterest = shortInterestJ?.ok ? (shortInterestJ.results || [])[0] || null : null;
+    const institutionScore = (darkPool || optionsFlow || insiderData || shortInterest)
+      ? computeInstitutionScore({ darkPool, optionsFlow, insiderData, shortInterest }) : null;
+    // Real Core Engine score breakdown (Cortex Stock Comparison, 2026-08-23)
+    // — the client twin, same real recipe SmartScanTab.jsx already
+    // established (Phase 6, One Engine Migration). adx/optionsFlow honestly
+    // null unless real dark-pool/options-flow data was actually fetched
+    // above, matching every other real Core Engine caller's degrade
+    // discipline — never fabricated.
+    const coreScore = computeCoreScore({
+      passCount: row.passCount, rsRating: row.rsRating, momentum: row.momentum,
+      stage: row.stage, volRatio: row.volRatio, regime, sectorInfo: sectorInfoFor(symbol),
+      adx: null, smc: row.smc, epsGrowth: row.epsGrowth, vcpScore: row.vcpScore,
+      riskPct: row.riskPct, pctFromHigh: row.pctFromHigh, antiChase: null,
+      optionsFlow: null, dollarVolume: row.dollarVolume,
+    });
+    return {
+      symbol, row, sniper, aplus, grade, heat, verdict, priceToPay, evidence, entryType, futureValue,
+      technicalScore, trimSignal, premiumRead, fundamentalsRead, analyst, social, institutionScore, coreScore,
+    };
+  }
+
   async function analyzeSymbol(symbol, openDeep) {
     setLoading(true); setError(null); setShowDeep(!!openDeep); setShowWhy(false);
     setConversation([]); // a new analysis is a fresh conversation
     try {
-      const [screenJ, fvJ, fundJ, analystJ, socialJ, darkPoolJ, optionsFlowJ, insiderJ, shortInterestJ] = await Promise.all([
-        fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(symbol)}&withDecision=1`).then((r) => r.json()),
-        fetch(`/api/scanner/future-value?symbol=${encodeURIComponent(symbol)}`).then((r) => r.json()).catch(() => null),
-        // Raw fundamentals (real bull/bear reasons — computeFundamentalsRead
-        // needs pe/pegRatio/revenueGrowth/earningsGrowth/profitMargin, not
-        // the future-value engine's already-blended scores).
-        fetch(`/api/market/fundamentals?symbol=${encodeURIComponent(symbol)}`).then((r) => r.json()).catch(() => null),
-        // Real analyst strongBuy/buy/hold/sell/strongSell consensus counts.
-        fetch(`/api/market/analyst?tickers=${encodeURIComponent(symbol)}`).then((r) => r.json()).catch(() => null),
-        // Real StockTwits bull/bear social sentiment.
-        fetch(`/api/market/social?ticker=${encodeURIComponent(symbol)}`).then((r) => r.json()).catch(() => null),
-        // Real accumulation/distribution phase inputs (computeInstitutionScore
-        // below) — same real dark pool/options-flow/insider/short-interest
-        // routes MarketTerminalTab.jsx already uses for this exact score.
-        fetch(`/api/market/darkpool?symbol=${encodeURIComponent(symbol)}`).then((r) => r.json()).catch(() => null),
-        fetch(`/api/market/options-flow?symbols=${encodeURIComponent(symbol)}&limit=1`).then((r) => r.json()).catch(() => null),
-        fetch(`/api/market/insider?ticker=${encodeURIComponent(symbol)}`).then((r) => r.json()).catch(() => null),
-        fetch(`/api/market/short-interest?tickers=${encodeURIComponent(symbol)}`).then((r) => r.json()).catch(() => null),
-      ]);
-      const row = (screenJ.results || [])[0];
-      if (!row || row.error) { setError(`No real market data available for ${symbol}.`); setResult(null); return; }
-      const sniper = computeSniperDecision(row);
-      const aplus = computeAPlusScore(row, regime);
-      const grade = computeInstitutionalGrade(row, row.technicals, regime, sectorInfoFor(symbol), null);
-      const heat = computeHeatRisk(row, sniper);
-      const verdict = computeCortexVerdict({ sniper, heat, aplusScore: aplus.score });
-      const priceToPay = computePriceToPay(row, sniper);
-      const evidence = whyEvidence(sniper, aplus);
-      const entryType = classifyEntryType(row, aplus.score);
-      const futureValue = fvJ && fvJ.ok ? fvJ.row : null;
-      const technicalScore = computeTechnicalScore(row, sniper);
-      const trimSignal = computeTrimSignal(row, sniper, heat);
-      const premiumRead = computePremiumRead(futureValue);
-      const fundamentalsRead = fundJ && !fundJ.error ? computeFundamentalsRead(fundJ) : { bull: [], bear: [] };
-      const analyst = analystJ?.ok ? (analystJ.results || [])[0] : null;
-      const social = socialJ?.ok ? socialJ : null;
-      const darkPool = darkPoolJ?.ok ? darkPoolJ : null;
-      const optionsFlow = optionsFlowJ && !optionsFlowJ.error ? optionsFlowJ.summary || null : null;
-      const insiderData = insiderJ?.ok ? insiderJ : null;
-      const shortInterest = shortInterestJ?.ok ? (shortInterestJ.results || [])[0] || null : null;
-      const institutionScore = (darkPool || optionsFlow || insiderData || shortInterest)
-        ? computeInstitutionScore({ darkPool, optionsFlow, insiderData, shortInterest }) : null;
-      setResult({
-        type: "symbol", symbol, row, sniper, aplus, grade, heat, verdict, priceToPay, evidence, entryType, futureValue,
-        technicalScore, trimSignal, premiumRead, fundamentalsRead, analyst, social, institutionScore,
-      });
+      const analysis = await computeSymbolAnalysis(symbol);
+      setResult({ type: "symbol", ...analysis });
+    } catch (e) {
+      setError(e.message); setResult(null);
+    } finally { setLoading(false); }
+  }
+
+  // Cortex Stock Comparison (2026-08-23) — real per-symbol analyses run in
+  // parallel via the same shared computeSymbolAnalysis helper single-
+  // symbol lookups use. A symbol that fails to resolve is honestly
+  // excluded (with a real reason shown), never silently dropped.
+  async function compareSymbols(symbols) {
+    setLoading(true); setError(null); setShowDeep(false); setResult(null); setConversation([]);
+    try {
+      const settled = await Promise.allSettled(symbols.map((s) => computeSymbolAnalysis(s)));
+      const analyses = settled.filter((r) => r.status === "fulfilled").map((r) => r.value);
+      const failed = settled
+        .map((r, i) => (r.status === "rejected" ? { symbol: symbols[i], reason: r.reason?.message || "unknown error" } : null))
+        .filter(Boolean);
+      if (!analyses.length) { setError(`No real data available for ${symbols.join(", ")}.`); return; }
+      setResult({ type: "compare", analyses, failed });
     } catch (e) {
       setError(e.message);
     } finally { setLoading(false); }
@@ -240,7 +283,7 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
     if (parsed.intent === "empty") { setError("Type a question or a symbol first."); return; }
     if (parsed.intent === "symbol" || parsed.intent === "price_to_pay") { analyzeSymbol(parsed.symbol, openDeep); return; }
     if (parsed.intent === "scan") { runScan(parsed.scanType, parsed.maxPrice); return; }
-    if (parsed.intent === "compare") { setError("Stock comparison is coming in a later Cortex phase — try one symbol at a time for now."); return; }
+    if (parsed.intent === "compare") { compareSymbols(parsed.symbols); return; }
     // Cortex Follow-Up Memory (2026-08-23) — a genuine natural-language
     // follow-up (no explicit ticker) about the symbol already on screen.
     // Real, grounded answer via askFollowUp — never the old silent
@@ -680,6 +723,104 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
                   )}
                 </div>
               )}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── COMPARE RESULT ── */}
+      {/* Cortex Stock Comparison (2026-08-23) — real per-symbol Core Engine
+          scores, side by side. Deterministic only (no AI narration, same
+          "deterministic core, AI only as a narrow explainer" boundary as
+          Follow-Up Memory). WINNER/WHY are real dimension comparisons, not
+          a second, competing verdict — the Master Verdict shown on each
+          symbol's own analysis (and here, per-row) stays the one real
+          decision; this is relative ranking only. */}
+      {result?.type === "compare" && (() => {
+        const { analyses, failed } = result;
+        const DIMS = [
+          { key: "setupQuality", label: "Setup Quality" },
+          { key: "entryQuality", label: "Entry Quality" },
+          { key: "relativeStrength", label: "Relative Strength" },
+          { key: "volume", label: "Volume" },
+        ];
+        const ranked = [...analyses].sort((a, b) => b.coreScore.score - a.coreScore.score);
+        const winner = ranked[0];
+        const runnerUp = ranked[1];
+        const whyParts = [];
+        if (runnerUp) {
+          DIMS.forEach((d) => {
+            const diff = winner.coreScore.breakdown[d.key] - runnerUp.coreScore.breakdown[d.key];
+            if (diff >= 1) whyParts.push(`+${diff.toFixed(1)} ${d.label.toLowerCase()}`);
+          });
+          const instDiff = (winner.institutionScore?.score ?? null) != null && (runnerUp.institutionScore?.score ?? null) != null
+            ? winner.institutionScore.score - runnerUp.institutionScore.score : null;
+          if (instDiff != null && instDiff >= 1) whyParts.push(`+${instDiff.toFixed(0)} institutional flow`);
+        }
+        return (
+          <div>
+            <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.text, marginBottom: 4 }}>⚖️ COMPARE — {analyses.map((a) => a.symbol).join(" vs ")}</div>
+            <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginBottom: 12 }}>
+              Relative ranking off real Core Engine scores — not a second, competing decision. Each symbol's own Master Verdict above (open it individually) remains the one real, canonical call.
+            </div>
+            {!!failed?.length && (
+              <div style={{ fontFamily: SANS, fontSize: 11.5, color: "#c8282a", marginBottom: 12 }}>
+                Excluded {failed.map((f) => f.symbol).join(", ")} — {failed.map((f) => f.reason).join("; ")}.
+              </div>
+            )}
+
+            {winner && (
+              <div style={{ background: `${C.accent}12`, border: `1px solid ${C.accent}55`, borderRadius: 10, padding: "12px 14px", marginBottom: 14 }}>
+                <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent, letterSpacing: "0.06em" }}>🏆 WINNER — {winner.symbol}</div>
+                <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.textSec, marginTop: 4 }}>
+                  Real Master Score {Math.round(winner.coreScore.score)}/100{runnerUp ? ` vs ${runnerUp.symbol}'s ${Math.round(runnerUp.coreScore.score)}/100` : ""}
+                  {whyParts.length ? ` — ahead on ${whyParts.join(", ")}.` : "."}
+                </div>
+              </div>
+            )}
+
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: MONO, fontSize: 11.5 }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: "left", padding: "6px 10px", color: C.textDim, borderBottom: `1px solid ${C.border}` }}>SYMBOL</th>
+                    <th style={{ textAlign: "right", padding: "6px 10px", color: C.textDim, borderBottom: `1px solid ${C.border}` }}>MASTER</th>
+                    <th style={{ textAlign: "right", padding: "6px 10px", color: C.textDim, borderBottom: `1px solid ${C.border}` }}>SETUP</th>
+                    <th style={{ textAlign: "right", padding: "6px 10px", color: C.textDim, borderBottom: `1px solid ${C.border}` }}>ENTRY</th>
+                    <th style={{ textAlign: "right", padding: "6px 10px", color: C.textDim, borderBottom: `1px solid ${C.border}` }}>RS</th>
+                    <th style={{ textAlign: "right", padding: "6px 10px", color: C.textDim, borderBottom: `1px solid ${C.border}` }}>VOL</th>
+                    <th style={{ textAlign: "right", padding: "6px 10px", color: C.textDim, borderBottom: `1px solid ${C.border}` }}>FLOW</th>
+                    <th style={{ textAlign: "right", padding: "6px 10px", color: C.textDim, borderBottom: `1px solid ${C.border}` }}>R:R</th>
+                    <th style={{ textAlign: "right", padding: "6px 10px", color: C.textDim, borderBottom: `1px solid ${C.border}` }}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ranked.map((a) => {
+                    const meta = CORE_VERDICT_META[a.row.coreVerdict] || null;
+                    const isWinner = a === winner;
+                    return (
+                      <tr key={a.symbol} style={{ background: isWinner ? `${C.accent}0a` : "transparent" }}>
+                        <td style={{ padding: "8px 10px", borderBottom: `1px solid ${C.border}`, fontWeight: 900, color: C.text }}>
+                          {isWinner ? "🏆 " : ""}{a.symbol}
+                          {meta && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 800, color: meta.color }}>{meta.icon} {meta.label}</span>}
+                        </td>
+                        <td style={{ padding: "8px 10px", borderBottom: `1px solid ${C.border}`, textAlign: "right", fontWeight: 900, color: C.text }}>{Math.round(a.coreScore.score)}</td>
+                        <td style={{ padding: "8px 10px", borderBottom: `1px solid ${C.border}`, textAlign: "right", color: C.textSec }}>{a.coreScore.breakdown.setupQuality.toFixed(1)}</td>
+                        <td style={{ padding: "8px 10px", borderBottom: `1px solid ${C.border}`, textAlign: "right", color: C.textSec }}>{a.coreScore.breakdown.entryQuality.toFixed(1)}</td>
+                        <td style={{ padding: "8px 10px", borderBottom: `1px solid ${C.border}`, textAlign: "right", color: C.textSec }}>{a.coreScore.breakdown.relativeStrength.toFixed(1)}</td>
+                        <td style={{ padding: "8px 10px", borderBottom: `1px solid ${C.border}`, textAlign: "right", color: C.textSec }}>{a.coreScore.breakdown.volume.toFixed(1)}</td>
+                        <td style={{ padding: "8px 10px", borderBottom: `1px solid ${C.border}`, textAlign: "right", color: C.textSec }}>{a.institutionScore?.score != null ? Math.round(a.institutionScore.score) : "—"}</td>
+                        <td style={{ padding: "8px 10px", borderBottom: `1px solid ${C.border}`, textAlign: "right", color: C.textSec }}>{a.priceToPay?.rr != null ? `${Number(a.priceToPay.rr).toFixed(1)}:1` : "—"}</td>
+                        <td style={{ padding: "8px 10px", borderBottom: `1px solid ${C.border}`, textAlign: "right" }}>
+                          <button onClick={() => analyzeFromList(a.symbol)} style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, padding: "4px 8px", borderRadius: 6, border: `1px solid ${C.accent}`, background: `${C.accent}14`, color: C.accent, cursor: "pointer" }}>
+                            🧠 OPEN
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
         );
