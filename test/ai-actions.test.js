@@ -12,7 +12,7 @@ let passed = 0;
 function ok(name, fn) { try { fn(); passed++; console.log(`  ✓ ${name}`); } catch (e) { console.error(`  ✗ ${name}\n    ${e.message}`); process.exitCode = 1; } }
 
 (async () => {
-  const { AI_ACTIONS, deepScanDecisionToAiAction, simpleDecisionToAiAction } = await import("../axiom-runner/components/ai-actions.js");
+  const { AI_ACTIONS, deepScanDecisionToAiAction, simpleDecisionToAiAction, coreVerdictToAiAction } = await import("../axiom-runner/components/ai-actions.js");
 
   console.log("Checking deepScanDecisionToAiAction never crosses polarity…");
   ok("A_PLUS_EARLY_BUY -> a bullish tier (Strong Buy)", () => {
@@ -88,6 +88,37 @@ function ok(name, fn) { try { fn(); passed++; console.log(`  ✓ ${name}`); } ca
   ok("unknown/null decision -> null, never a guessed tier", () => {
     assert.strictEqual(simpleDecisionToAiAction(undefined), null);
     assert.strictEqual(simpleDecisionToAiAction("NOT_A_STATE"), null);
+  });
+
+  console.log("Checking coreVerdictToAiAction (One Engine Migration Phase 2, am-core-engine.js's real 8-state verdict) never crosses polarity…");
+  ok("EARLY_BUY -> Strong Buy, BUY -> Buy", () => {
+    assert.strictEqual(coreVerdictToAiAction("EARLY_BUY"), AI_ACTIONS.STRONG_BUY);
+    assert.strictEqual(coreVerdictToAiAction("BUY"), AI_ACTIONS.BUY);
+  });
+  ok("WATCH -> Watch, WAIT -> Wait", () => {
+    assert.strictEqual(coreVerdictToAiAction("WATCH"), AI_ACTIONS.WATCH);
+    assert.strictEqual(coreVerdictToAiAction("WAIT"), AI_ACTIONS.WAIT);
+  });
+  ok("AVOID_LONG -> never a bullish tier (the hard case a mislabeled mapping would get wrong)", () => {
+    const a = coreVerdictToAiAction("AVOID_LONG");
+    assert.strictEqual(a, AI_ACTIONS.AVOID);
+    assert.notStrictEqual(a, AI_ACTIONS.BUY);
+    assert.notStrictEqual(a, AI_ACTIONS.STRONG_BUY);
+  });
+  ok("HOLD -> Watch (a held position, not a new-entry Buy)", () => {
+    const a = coreVerdictToAiAction("HOLD");
+    assert.strictEqual(a, AI_ACTIONS.WATCH);
+    assert.ok(a.tier < AI_ACTIONS.BUY.tier);
+  });
+  ok("TAKE_PROFIT -> Take Profits, EXIT -> Exit, never bullish", () => {
+    assert.strictEqual(coreVerdictToAiAction("TAKE_PROFIT"), AI_ACTIONS.TAKE_PROFITS);
+    const exitA = coreVerdictToAiAction("EXIT");
+    assert.strictEqual(exitA, AI_ACTIONS.EXIT);
+    assert.notStrictEqual(exitA, AI_ACTIONS.BUY);
+  });
+  ok("unknown/null verdict -> null, never a guessed tier", () => {
+    assert.strictEqual(coreVerdictToAiAction(undefined), null);
+    assert.strictEqual(coreVerdictToAiAction("NOT_A_STATE"), null);
   });
 
   console.log(`\n${passed} checks passed.`);

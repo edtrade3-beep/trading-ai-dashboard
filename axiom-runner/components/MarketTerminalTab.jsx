@@ -238,13 +238,13 @@ import { computeMtfAlignment } from "./mtf-combiner.js";
 import { computeEntryPlan } from "./entry-engine.js";
 import { computeSimpleDecision } from "./simple-decision.js";
 import { computeRedFlags, computeExitRedFlags } from "./red-flag-engine.js";
-import { classifyFinalTradeGate } from "./final-trade-gate.js";
+import { computeCoreScore, classifyCoreVerdict, CORE_VERDICT_META } from "./am-core-engine.js";
 import AiScoreExplainer, {
   AplusBadge, TRADE_SETUP_DIMENSIONS, STOCK_QUALITY_DIMENSIONS, INSTITUTIONAL_GRADE_DIMENSIONS,
   TECHNICAL_DIMENSIONS, TIMING_DIMENSIONS, AI_TRADE_ENGINE_DIMENSIONS, FOUNDATION_DIMENSIONS, FOUNDATION_LABEL,
 } from "./AiScoreExplainer.jsx";
 import { stockQualityBreakdown } from "./rhpro-shared.jsx";
-import { mapToAiAction, simpleDecisionToAiAction } from "./ai-actions.js";
+import { mapToAiAction, coreVerdictToAiAction } from "./ai-actions.js";
 import AiTradeCard from "./AiTradeCard.jsx";
 import StrategySelectorCard from "./StrategySelectorCard.jsx";
 import ChecklistCard from "./ChecklistCard.jsx";
@@ -1056,13 +1056,28 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
     stage: symTrend?.stage, entryScore: aPlusScore?.score,
   }) : null;
 
-  // Final Trade Validation Engine display overlay (2026-08-23) — a pure
-  // relabel of simpleDecisionDW's own already-correct decision onto the
-  // spec's 6-state display vocabulary (🟢 BUY/🟡 EARLY WATCH/🟠 WAIT FOR
-  // BREAKOUT/🔵 HOLD/🔴 AVOID/🟣 EXIT), never a second decision. Falls back
-  // to simpleDecisionDW's own icon/label/color for REDUCE (no honest
-  // equivalent in the 6 — disclosed exception, see final-trade-gate.js).
-  const finalGateDW = simpleDecisionDW ? classifyFinalTradeGate({ source: "simple", ...simpleDecisionDW }) : null;
+  // AM Core Engine (One Engine Migration Phase 2, 2026-08-23) — the real
+  // one score/one verdict, replacing final-trade-gate.js's remapping
+  // shim (retired this phase). Every input below is already real and
+  // already computed elsewhere on this page — zero new fetches.
+  // simpleDecisionDW stays computed above and still drives the TREND/
+  // STRUCTURE/SETUP/TIMING dots, Entry/Pivot/Stop/Target line, and red
+  // flags row (real, distinct, informational sub-displays) — only the
+  // persistent banner's primary icon/label/why switch to the real Core
+  // verdict below, so the banner never shows a verdict from one engine
+  // paired with reason text from a different one.
+  const coreScoreDW = symTrend ? computeCoreScore({
+    passCount: symTrend.passCount, rsRating: symTrend.rsRating, momentum: symTrend.momentum,
+    stage: symTrend.stage, volRatio: symTrend.volRatio, regime, sectorInfo: symSectorInfo,
+    adx: chart?.technicals?.adx, smc: symTrend.smc, epsGrowth: symTrend.epsGrowth,
+    vcpScore: symTrend.vcpScore, riskPct: symTrend.riskPct, pctFromHigh: symTrend.pctFromHigh,
+    antiChase: symMtf?.antiChase, optionsFlow: symOptionsFlow, dollarVolume: symTrend.dollarVolume,
+  }) : null;
+  const coreVerdictDW = coreScoreDW ? classifyCoreVerdict({
+    score: coreScoreDW.score, entryPlan: entryPlanDW, redFlagResult: symPosition ? exitRedFlagsDW : redFlagsDW,
+    stage: symTrend?.stage, dailyBias: dwDailyBias, entryScore: aPlusScore?.score,
+    hasPosition: !!symPosition, positionState: symPosition?.dayTradeState, positionReason: symPosition?.dayTradeReason,
+  }) : null;
 
   // Exit Panel dimensions (Phase 5, 2026-08-20) — 6 real, already-computed
   // reads bucketed into good/bad/unknown, matching the spec's "Momentum/
@@ -1086,17 +1101,17 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   const topScores = (symTrend && institutionalGrade && stockQuality && aPlusScore) ? deriveTopLevelScores({
     regime, sectorInfo: symSectorInfo, technicals: chart?.technicals, institutionalGrade, stockQuality, aPlusScore,
   }) : null;
-  // Derived from simpleDecisionDW (the real headline DecisionCard verdict
-  // above, entry-engine/position-decision-engine/MTF-backed) via
-  // simpleDecisionToAiAction, not institutionalGrade.score independently
-  // (2026-08-20, Discover/Smart Scan/Workspace unification — this was a
-  // real, previously-undetected bug: this badge and SmartMoneyDecisionPanel's
-  // heroAction could disagree with the DecisionCard banner on the same
-  // page despite a comment claiming they "agree"). Falls back to the score
-  // band only when there's no real simpleDecisionDW yet (symbol not
-  // trend-screened, e.g. still loading).
-  const primaryAction = simpleDecisionDW
-    ? (simpleDecisionToAiAction(simpleDecisionDW.decision) || (institutionalGrade ? mapToAiAction({ institutionalScore: institutionalGrade.score }) : null))
+  // Derived from coreVerdictDW (the real AM Core Engine verdict driving
+  // the persistent DECISION banner above, One Engine Migration Phase 2,
+  // 2026-08-23) via coreVerdictToAiAction, not institutionalGrade.score
+  // independently (2026-08-20, Discover/Smart Scan/Workspace unification
+  // — this was a real, previously-undetected bug: this badge and
+  // SmartMoneyDecisionPanel's heroAction could disagree with the
+  // DecisionCard banner on the same page despite a comment claiming they
+  // "agree"). Falls back to the score band only when there's no real
+  // coreVerdictDW yet (symbol not trend-screened, e.g. still loading).
+  const primaryAction = coreVerdictDW
+    ? (coreVerdictToAiAction(coreVerdictDW.verdict) || (institutionalGrade ? mapToAiAction({ institutionalScore: institutionalGrade.score }) : null))
     : (institutionalGrade ? mapToAiAction({ institutionalScore: institutionalGrade.score }) : null);
 
   // AI Trade Engine (options platform redesign, Phase 3) — the 10-dimension
@@ -1404,11 +1419,11 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             it (the full staged Entry Plan, 4 score boxes, MTF panel) is
             still fully computed and available — just collapsed by
             default now, not deleted. */}
-        {simpleDecisionDW && (
-          <div style={{ border: `2px solid ${finalGateDW?.color || simpleDecisionDW.color}`, background: `${finalGateDW?.color || simpleDecisionDW.color}0d`, borderRadius: 12, padding: "16px 18px", marginBottom: 14 }}>
+        {simpleDecisionDW && coreVerdictDW && (
+          <div style={{ border: `2px solid ${CORE_VERDICT_META[coreVerdictDW.verdict].color}`, background: `${CORE_VERDICT_META[coreVerdictDW.verdict].color}0d`, borderRadius: 12, padding: "16px 18px", marginBottom: 14 }}>
             <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.6, marginBottom: 6 }}>DECISION</div>
-            <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: finalGateDW?.color || simpleDecisionDW.color, marginBottom: 8 }}>{finalGateDW?.icon || simpleDecisionDW.icon} {finalGateDW?.label || simpleDecisionDW.label}</div>
-            <div style={{ fontFamily: SANS, fontSize: 13, color: C.text, marginBottom: 10 }}><b>Why:</b> {simpleDecisionDW.why}</div>
+            <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: CORE_VERDICT_META[coreVerdictDW.verdict].color, marginBottom: 8 }}>{CORE_VERDICT_META[coreVerdictDW.verdict].icon} {CORE_VERDICT_META[coreVerdictDW.verdict].label}</div>
+            <div style={{ fontFamily: SANS, fontSize: 13, color: C.text, marginBottom: 10 }}><b>Why:</b> {coreVerdictDW.reason}</div>
             {/* Setup Score / Entry Score — promoted into the persistent
                 banner (Workspace layout redesign, 2026-08-23, user-picked
                 "Option B" from a mockup) so spec §22's "above the fold"

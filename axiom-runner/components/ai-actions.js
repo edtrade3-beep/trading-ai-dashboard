@@ -79,6 +79,26 @@ export function simpleDecisionToAiAction(decision) {
   }
 }
 
+// am-core-engine.js's real 8-state verdict (One Engine Migration Phase
+// 2, 2026-08-23) — the vocabulary this app's own "AM TRADING — MASTER
+// SYSTEM ARCHITECTURE" spec asks for. TAKE_PROFIT is a real, distinct
+// partial-exit signal with no closer AI_ACTIONS tier than TAKE_PROFITS;
+// HOLD (a held position, structure intact) maps to WATCH rather than
+// ACCUMULATE/BUY since a held position isn't a new-entry call.
+export function coreVerdictToAiAction(verdict) {
+  switch (verdict) {
+    case "EARLY_BUY": return AI_ACTIONS.STRONG_BUY;
+    case "BUY": return AI_ACTIONS.BUY;
+    case "WATCH": return AI_ACTIONS.WATCH;
+    case "WAIT": return AI_ACTIONS.WAIT;
+    case "AVOID_LONG": return AI_ACTIONS.AVOID;
+    case "HOLD": return AI_ACTIONS.WATCH;
+    case "TAKE_PROFIT": return AI_ACTIONS.TAKE_PROFITS;
+    case "EXIT": return AI_ACTIONS.EXIT;
+    default: return null;
+  }
+}
+
 // Reduces the app's existing real outputs to one AI_ACTIONS entry —
 // zero new computation, this only relabels numbers/verdicts that already
 // exist elsewhere in the app (institutionalRecommendation's own score

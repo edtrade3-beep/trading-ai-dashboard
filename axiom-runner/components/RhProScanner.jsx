@@ -6,7 +6,7 @@ import {
   computeReversalDetector,
 } from "./market-helpers.js";
 import AiScoreExplainer, { TRADE_SETUP_DIMENSIONS, STOCK_QUALITY_DIMENSIONS, INSTITUTIONAL_GRADE_DIMENSIONS } from "./AiScoreExplainer.jsx";
-import { mapToAiAction, AI_ACTIONS } from "./ai-actions.js";
+import { mapToAiAction, coreVerdictToAiAction, AI_ACTIONS } from "./ai-actions.js";
 // Real staged entry plan + entry-timing verdict (2026-08-20, Discover/Smart
 // Scan/Workspace unification) — same client-twin functions Smart Scan's
 // own deep-dive already uses, so Discover's AI ACTION column is now backed
@@ -14,8 +14,7 @@ import { mapToAiAction, AI_ACTIONS } from "./ai-actions.js";
 // actionFor() below).
 import { computeEntryPlan } from "./entry-engine.js";
 import { computeRedFlags } from "./red-flag-engine.js";
-import { classifyFinalTradeGate } from "./final-trade-gate.js";
-import { classifyDeepScanDecision } from "./btc-hpc-scan.js";
+import { computeCoreScore, classifyCoreVerdict } from "./am-core-engine.js";
 import { computeRegimeLabel, regimeLabelToEntryVocabulary } from "./DashboardTab.jsx";
 import { computeAntiChase } from "./anti-chase.js";
 import { computeGreenLight } from "./trading-utils.js";
@@ -409,7 +408,6 @@ export default function RhProScanner({
         stop: x.stop, target1, target2: x.target2, marketRegime: marketRegimeForEntry,
       };
       const entryPlan = computeEntryPlan(entryEv);
-      const deepDecision = classifyDeepScanDecision({ entryPlan, aPlusScore: aplus?.score });
       // Red Flag Engine (Final Trade Validation Engine, 2026-08-23) — this
       // scan previously had zero red-flag awareness at all; reuses the
       // exact same entryEv already assembled for computeEntryPlan above
@@ -418,18 +416,22 @@ export default function RhProScanner({
       // discipline as everywhere else this engine is used), zero new
       // fetches.
       const redFlags = computeRedFlags({ ...entryEv, riskPct: x.riskPct, dollarVolume: x.dollarVolume });
-      // Real sector-relative strength — same sectorEtf%chg - SPY%chg
-      // formula stockQualityBreakdown already used for `quality` above,
-      // off the same already-fetched sectorPerf map.
-      const sectorEtf = STOCK_TO_SECTOR[String(x.symbol || "").toUpperCase()];
-      const sc = sectorEtf ? Number(sectorPerf[sectorEtf]) : NaN;
-      const spc = Number(sectorPerf.SPY);
-      const sectorRel = Number.isFinite(sc) && Number.isFinite(spc) ? sc - spc : null;
-      const finalGate = classifyFinalTradeGate({
-        source: "deepscan", decision: deepDecision.decision, stage: x.stage,
-        entryScore: aplus?.score, criticalFlagCount: redFlags.criticalCount, sectorRel,
+      // AM Core Engine (One Engine Migration Phase 2, 2026-08-23) —
+      // replaces classifyDeepScanDecision + the retired final-trade-gate.js
+      // overlay. adx/optionsFlow are honestly null here, same real gap
+      // institutionalGrade's own call above already has on this page
+      // (no ADX/options-flow data at this scan tier) — never fabricated.
+      const coreScore = computeCoreScore({
+        passCount: x.passCount, rsRating: x.rsRating, momentum: x.momentum, stage: x.stage,
+        volRatio: x.volRatio, regime, sectorInfo: sectorInfoFor(x.symbol), adx: null,
+        smc: x.smc, epsGrowth: x.epsGrowth, vcpScore: x.vcpScore, riskPct: x.riskPct,
+        pctFromHigh: x.pctFromHigh, antiChase, optionsFlow: null, dollarVolume: x.dollarVolume,
       });
-      return { ...x, score: quality.score, quality, aplus, institutionalGrade, next: computeNextAction(x), prediction: computePrediction(x, x), entryPlan, deepDecision, redFlags, finalGate };
+      const coreVerdict = classifyCoreVerdict({
+        score: coreScore.score, entryPlan, redFlagResult: redFlags, stage: x.stage,
+        dailyBias, entryScore: aplus?.score,
+      });
+      return { ...x, score: quality.score, quality, aplus, institutionalGrade, next: computeNextAction(x), prediction: computePrediction(x, x), entryPlan, redFlags, coreScore, coreVerdict };
     }).sort((a, b) => (b.score - a.score) || ((b.rsRating || 0) - (a.rsRating || 0)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rawRows, sectorPerfKey, regime?.score, marketRegimeForEntry]);
@@ -563,16 +565,23 @@ export default function RhProScanner({
   // first redesign) so it can also run over the full `rows` universe for the
   // header summary strip, not just the currently-filtered/categorized `shown`.
   const actionFor = (r) => {
-    let action = mapToAiAction({ institutionalScore: r.institutionalGrade?.score, nextAction: r.next?.action, verdict: r.deepDecision?.decision });
-    // Final Trade Validation Engine (2026-08-23) — a hard gate (Stage 4,
-    // Entry Score < 75, or a critical red flag) always wins over whatever
-    // mapToAiAction's institutional-score/nextAction ladder would
-    // otherwise say. This is the literal "don't display BUY beside a
-    // score unless the final trade gate has approved it" rule — a high
-    // Institutional Grade must never override a real structural block.
-    // Skips the ROTATE consideration below too, on purpose: a symbol
-    // that's hard-blocked shouldn't be suggested as a rotation target.
-    if (r.finalGate?.state === "AVOID") return { action: AI_ACTIONS.AVOID, rotationInfo: null };
+    // AM Core Engine (One Engine Migration Phase 2, 2026-08-23) — every
+    // row already has a real Core verdict (computed above, hard-gated on
+    // Stage 4/Entry Score/critical red flags the same way the whole app
+    // now does), so this is now the primary source instead of
+    // mapToAiAction's institutional-score/nextAction fallback ladder
+    // (that ladder still exists for OTHER callers without a real Core
+    // verdict — kept as a fallback here too, for a row that somehow
+    // failed to compute one, never silently dropped to AVOID by default).
+    let action = r.coreVerdict
+      ? (coreVerdictToAiAction(r.coreVerdict.verdict) || mapToAiAction({ institutionalScore: r.institutionalGrade?.score, nextAction: r.next?.action }))
+      : mapToAiAction({ institutionalScore: r.institutionalGrade?.score, nextAction: r.next?.action });
+    // A hard gate (Stage 4, Entry Score < 75, or a critical red flag)
+    // always wins — the literal "don't display BUY beside a score unless
+    // the final trade gate has approved it" rule. Skips the ROTATE
+    // consideration below too, on purpose: a symbol that's hard-blocked
+    // shouldn't be suggested as a rotation target.
+    if (r.coreVerdict?.verdict === "AVOID_LONG") return { action: AI_ACTIONS.AVOID, rotationInfo: null };
     let rotationInfo = null;
     if (action.tier >= AI_ACTIONS.ACCUMULATE.tier && !rotationState.heldSymbols.has(r.symbol) && rotationState.scoredOpen.length) {
       const candidateQuality = r.aplus?.score ?? r.institutionalGrade?.score ?? -1;
