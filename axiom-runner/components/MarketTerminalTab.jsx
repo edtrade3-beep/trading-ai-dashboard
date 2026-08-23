@@ -1394,6 +1394,26 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.6, marginBottom: 6 }}>DECISION</div>
             <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: simpleDecisionDW.color, marginBottom: 8 }}>{simpleDecisionDW.icon} {simpleDecisionDW.label}</div>
             <div style={{ fontFamily: SANS, fontSize: 13, color: C.text, marginBottom: 10 }}><b>Why:</b> {simpleDecisionDW.why}</div>
+            {/* Setup Score / Entry Score — promoted into the persistent
+                banner (Workspace layout redesign, 2026-08-23, user-picked
+                "Option B" from a mockup) so spec §22's "above the fold"
+                Quality/Stage fields are visible with zero taps, not one
+                tap behind "Show full analysis." Same real values
+                (stockQuality/aPlusScore, both already computed above,
+                zero new fetches) — just moved up, not duplicated; no
+                longer rendered in the 5-tile row further down. */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))", gap: 8, marginBottom: 10 }}>
+              {[
+                ["SETUP SCORE", stockQuality ? `${stockQuality.score}/100` : "—", stockQuality ? (stockQuality.score >= 70 ? "#22d47e" : stockQuality.score >= 45 ? "#d6a312" : "#ef4444") : C.textDim, "Is this a strong stock?"],
+                ["ENTRY SCORE", aPlusScore ? `${aPlusScore.score}/100` : "—", aPlusScore ? (aPlusScore.score >= 70 ? "#22d47e" : aPlusScore.score >= 45 ? "#d6a312" : "#ef4444") : C.textDim, "Is now a good time?"],
+              ].map(([label, val, col, sub]) => (
+                <div key={label} style={{ border: `1px solid ${C.border}`, borderRadius: 8, padding: "7px 10px", background: C.card }}>
+                  <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim, letterSpacing: 0.5 }}>{label}</div>
+                  <div style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 800, color: col }}>{val}</div>
+                  {sub && <div style={{ fontFamily: SANS, fontSize: 9.5, color: C.textDim, marginTop: 1 }}>{sub}</div>}
+                </div>
+              ))}
+            </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(90px, 1fr))", gap: 8, marginBottom: 10 }}>
               {[
                 ["TREND", simpleDecisionDW.trend],
@@ -1502,23 +1522,15 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
               </div>
             )}
 
-            {/* Separated scores — never blended into one number, per the
-                spec (§4, "critical"): "Setup Score: is the stock
-                attractive?" vs "Entry Score: is now a good time?" must be
-                shown as a clearly labeled matched pair. Relabeled
-                2026-08-21 — this row previously showed SETUP SCORE's real
-                data (stockQualityBreakdown, "is this a strong stock?")
-                nowhere, and mislabeled ENTRY SCORE's real data (aPlusScore,
-                genuinely a timing/entry-readiness score) as "QUALITY".
-                computeSetupScore's real VCP structure read (previously
-                mislabeled "SETUP" here, which collided with the spec's own
-                "Setup Score" name for a different real number) isn't
-                deleted — it keeps its own honestly-named STRUCTURE tile
-                below so no real signal is lost. */}
+            {/* ENTRY / EXIT RISK / STRUCTURE — Setup Score and Entry Score
+                (spec §4's matched pair) moved up into the persistent
+                Decision banner above (Workspace layout redesign,
+                2026-08-23) so they're visible with zero taps; these 3
+                remaining tiles stay here as secondary detail, not deleted
+                — same real values (sniperD/heatD/setupScoreDW), no real
+                signal lost. */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))", gap: 8, marginBottom: 14 }}>
               {[
-                ["SETUP SCORE", stockQuality ? `${stockQuality.score}/100` : "—", stockQuality ? (stockQuality.score >= 70 ? "#22d47e" : stockQuality.score >= 45 ? "#d6a312" : "#ef4444") : C.textDim, "Is this a strong stock?"],
-                ["ENTRY SCORE", aPlusScore ? `${aPlusScore.score}/100` : "—", aPlusScore ? (aPlusScore.score >= 70 ? "#22d47e" : aPlusScore.score >= 45 ? "#d6a312" : "#ef4444") : C.textDim, "Is now a good time?"],
                 ["ENTRY", sniperD ? sniperD.meta.label : "—", sniperD ? sniperD.meta.color : C.textDim, null],
                 ["EXIT RISK", heatD ? heatD.label : "—", heatD ? heatD.color : C.textDim, null],
                 ["STRUCTURE", setupScoreDW != null ? `${setupScoreDW}/100` : "—", setupScoreDW != null ? (setupScoreDW >= 70 ? "#22d47e" : setupScoreDW >= 45 ? "#d6a312" : "#ef4444") : C.textDim, entryTypeDW ? entryTypeDW.type : "No qualifying setup"],
