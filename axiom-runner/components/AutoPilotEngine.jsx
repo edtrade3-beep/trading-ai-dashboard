@@ -46,7 +46,7 @@ export default function AutoPilotEngine({ watchlistData, macroData, scanResults 
   useEffect(() => {
     const symbols = (watchlistData || []).map(q => q.symbol).filter(Boolean);
     if (!symbols.length) return;
-    fetch(`/api/market/trend-screen?symbols=${encodeURIComponent([...new Set(symbols)].sort().join(","))}`)
+    fetch(`/api/market/trend-screen?symbols=${encodeURIComponent([...new Set(symbols)].sort().join(","))}&withDecision=1`)
       .then(r => r.json())
       .then(j => {
         const map = {};
@@ -207,7 +207,8 @@ export default function AutoPilotEngine({ watchlistData, macroData, scanResults 
         // fetch) — threaded through so computeGreenLight's real Alt Setup
         // BOS/Higher-Lows paths can actually fire here too, not just the
         // RVOL/MACD ones that don't need a trend row.
-        const gl = computeGreenLight(q, spyChg, scanRow, regimeScore, trendMapRef.current[q.symbol]);
+        const trendRow = trendMapRef.current[q.symbol];
+        const gl = computeGreenLight(q, spyChg, scanRow, regimeScore, trendRow);
         if (!(gl.px > 0)) return;
         // Learning Engine gate — real per-grade win rate off actual closed
         // trades this app has tagged with gl.grade before. Cut-only: a grade
@@ -215,16 +216,25 @@ export default function AutoPilotEngine({ watchlistData, macroData, scanResults 
         // (src/learning-engine.js); with no real sample yet it stays open.
         const gate = learningGatesRef.current?.tierGates?.[gl.grade];
         const gradeAllowed = !gate || gate.allowed !== false;
+        // A+ mode's real qualifying gate (One Engine Migration Phase 7,
+        // 2026-08-23) — was gl.qualifiesAPlus (computeGreenLight's own
+        // aScore>=85&&marketPass&&atEntry, no structural/red-flag
+        // awareness). Now reads the same real am-core-engine.js verdict
+        // (coreVerdict/coreCriticalFlags, from trendMapRef's withDecision=1
+        // fetch above) driving every other real BUY signal in this app —
+        // EARLY_BUY and BUY both qualify here; which one determines full
+        // vs half size below via gl.confRisk, unchanged.
+        const coreQualifies = trendRow && trendRow.coreCriticalFlags === 0 &&
+          ["EARLY_BUY", "BUY"].includes(trendRow.coreVerdict);
         // Alt Setup (2026-08-03, explicit user request for more flexible
         // qualifying logic) — computeGreenLight's own real second path
         // (BOS/RVOL/Higher-Lows/MACD breakout, always gated on the same
         // real market-safe check as the classic checklist), OR'd onto the
         // existing classic-checklist gate rather than replacing it — the
         // user's own configurable `threshold` still applies unchanged to
-        // the classic path. Only applies in non-A+ mode — A+ mode already
-        // has its own separate real institutional-score gate
-        // (gl.qualifiesAPlus) and isn't loosened by this.
-        const bullish = gradeAllowed && (aPlusMode ? gl.qualifiesAPlus : ((gl.signal === "GREEN" && gl.passed >= threshold) || gl.altSetup != null));
+        // the classic path. Only applies in non-A+ mode — A+ mode uses the
+        // real Core Engine verdict above and isn't loosened by this.
+        const bullish = gradeAllowed && (aPlusMode ? coreQualifies : ((gl.signal === "GREEN" && gl.passed >= threshold) || gl.altSetup != null));
         const bearishPut = false;  // puts disabled — no bearish option buys
         const shortSetup = doShort && gl.shortSignal === "SHORT" && gl.shortPassed >= threshold;
         if (!bullish && !shortSetup) return;

@@ -126,14 +126,28 @@ async function runServerAutopilot() {
   try { syms = require("./routes/watchlist").loadWatchlist().symbols || []; } catch {}
   syms = [...new Set([...syms, ...LEADERS].filter(Boolean))].slice(0, 60);
   if (!syms.length) return;
-  const screen = await getJson(`/api/market/trend-screen?symbols=${encodeURIComponent(syms.join(","))}`);
+  // withDecision=1 (One Engine Migration Phase 6) attaches the real
+  // am-core-engine.js verdict per row — same real pipeline now driving
+  // every other real BUY signal in this app (Workspace banner, Scanner
+  // grade, all 5 alert files). Real automated order placement previously
+  // gated on _buildTrendTemplate's own pre-unification atBuyPoint/
+  // volConfirmed/passCount/actionable/extended fields directly — the last
+  // real consumer of that legacy shape (One Engine Migration Phase 7,
+  // 2026-08-23).
+  const screen = await getJson(`/api/market/trend-screen?symbols=${encodeURIComponent(syms.join(","))}&withDecision=1`);
   const eligible = ((screen && screen.results) || [])
     .filter(r => !r.error && !held.has(r.symbol) && Number(r.entry) > 0 && Number(r.stop) > 0 && Number(r.entry) > Number(r.stop))
-    // Tier A = strong buy-point with volume confirmation (full size).
-    // Tier B = A+ trend, actionable, not extended — a good setup (half size). More trades.
+    // Tier A = Core Engine EARLY_BUY (score >=85, real entry, clears the
+    // full hard-gate cascade) — full size, same role as the old
+    // atBuyPoint&&volConfirmed gate. Tier B = Core Engine BUY (score >=70)
+    // — half size, same role as the old passCount>=7&&actionable&&!extended
+    // gate. Both now share the exact real hard-gate cascade (structure
+    // broken, do-not-chase, critical red flags, Stage 4, bearish daily
+    // bias, entry-score floor) the old fields never checked at all.
     .map(r => {
-      const tierA = r.atBuyPoint && r.volConfirmed;
-      const tierB = (r.passCount >= 7 && r.actionable && !r.extended) || r.atBuyPoint;
+      const coreClean = r.coreCriticalFlags === 0;
+      const tierA = coreClean && r.coreVerdict === "EARLY_BUY";
+      const tierB = coreClean && r.coreVerdict === "BUY";
       return { ...r, tier: tierA ? "A" : (tierB ? "B" : null) };
     })
     .filter(r => r.tier)
