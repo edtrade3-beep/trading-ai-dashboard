@@ -867,17 +867,18 @@ export default function RhProScanner({
           <tbody>
             {displayRows.map((r, i) => {
               const { win, grade, rec, action, rotationInfo, entryType, moveToTarget, rr } = r;
-              // institutionalRecommendation's own "Buy/Hold/Sell" wording is
-              // correct in isolation (MarketTerminalTab's standalone AI Score
-              // Card) but reads as a direct contradiction sitting next to
-              // this row's own real ACTION verdict (real user report,
+              // institutionalRecommendation's own real quality words
+              // ("Excellent"/"Strong"/"Neutral"/"Weak"/"Poor") can't be
+              // misread as a second, conflicting trade command sitting next
+              // to this row's own real ACTION verdict (real user report,
               // 2026-08-03: "action one says buy other one watch") — the two
               // measure different things (business quality vs. real entry
               // timing) and can legitimately disagree, same as TrendChart's
-              // documented GO/WAIT-vs-AI-Score-Card divergence. Re-labeled to
-              // quality words that can't be misread as a second, conflicting
-              // trade command; the real score/stars are unchanged.
-              const QUALITY_WORD = { "Strong Buy": "Excellent", "Buy": "Strong", "Hold": "Neutral", "Sell": "Weak", "Strong Sell": "Poor" };
+              // documented GO/WAIT-vs-AI-Score-Card divergence. Was a local
+              // QUALITY_WORD relabeling map here; promoted into
+              // institutionalRecommendation's own source this phase (One
+              // Engine Migration Phase 3, 2026-08-23) so every consumer gets
+              // the safe wording automatically — real score/stars unchanged.
               const expanded = expandedSymbol === r.symbol;
               return (
               <React.Fragment key={r.symbol}>
@@ -916,7 +917,7 @@ export default function RhProScanner({
                 <td style={cell} onClick={e => e.stopPropagation()}>
                   {r.institutionalGrade && (
                     <button onClick={() => setExplain({ symbol: r.symbol, aplus: r.institutionalGrade, dimensions: INSTITUTIONAL_GRADE_DIMENSIONS, label: "INSTITUTIONAL GRADE", note: "Technical Confirmation and Options Flow use an honest neutral midpoint in this bulk scan view (not part of this scan's payload) — open the full Charts page for this symbol for the real read on those two." })}
-                      title={`Click to see why this grade, and what would raise it. ${rec ? `${QUALITY_WORD[rec.label] || rec.label} — Institutional Grade ${r.institutionalGrade.score}/100, business/setup quality, not a timing call. See AI ACTION for real entry timing.` : ""}`}
+                      title={`Click to see why this grade, and what would raise it. ${rec ? `${rec.label} — Institutional Grade ${r.institutionalGrade.score}/100, business/setup quality, not a timing call. See AI ACTION for real entry timing.` : ""}`}
                       style={{ font: "inherit", fontWeight: 900, color: "#fff", background: grade.startsWith("A") ? "#0d9465" : grade.startsWith("B") ? "#22a06b" : grade === "C" ? "#d6a312" : grade === "D" ? "#e07b1a" : "#c8282a", border: "none", borderRadius: 4, padding: "1px 8px", cursor: "pointer" }}>
                       {grade}{rec && <span style={{ marginLeft: 5, fontSize: 9, opacity: 0.9 }}>{"★".repeat(rec.stars)}{"☆".repeat(5 - rec.stars)}</span>}
                     </button>
@@ -985,7 +986,7 @@ export default function RhProScanner({
                         of requiring a reader to reassemble it from 5 cells. */}
                     {action && (
                       <div style={{ marginBottom: 12, paddingBottom: 12, borderBottom: `1px solid ${C.border}`, fontFamily: SANS, fontSize: 12.5, color: C.text, lineHeight: 1.6 }}>
-                        <b>{action.label}</b> — Institutional Grade {grade}{rec ? ` (${QUALITY_WORD[rec.label] || rec.label})` : ""}, risk {r.riskState || "—"}.
+                        <b>{action.label}</b> — Institutional Grade {grade}{rec ? ` (${rec.label})` : ""}, risk {r.riskState || "—"}.
                         {entryType && <> {String(entryType.reason || "").replace(/\.+$/, "")}.</>}
                         {r.prediction?.why?.length ? <> {r.prediction.why.join(" · ")}.</> : ""}
                         {rr != null && <> Reward $1 : {rr} to the 2R target.</>}

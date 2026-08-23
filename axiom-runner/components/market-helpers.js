@@ -855,12 +855,15 @@ export function computeBullBearCase(institutionalGrade, dimensions) {
 // (explicit user request, 2026-07-29, "AI Score Card" concept). Not a
 // separate AI call or a new number — the same score, just given the plain-
 // English recommendation label institutional research platforms use.
+// Labels retitled from Strong Buy/Buy/Hold/Sell/Strong Sell to quality-
+// only words (One Engine Migration Phase 3, 2026-08-23) — see
+// src/institutional-scoring.js for the full rationale.
 export function institutionalRecommendation(score) {
-  if (score >= 85) return { label: "Strong Buy", stars: 5, color: "#0d9465" };
-  if (score >= 70) return { label: "Buy", stars: 4, color: "#22a06b" };
-  if (score >= 45) return { label: "Hold", stars: 3, color: "#d6a312" };
-  if (score >= 25) return { label: "Sell", stars: 2, color: "#e07b1a" };
-  return { label: "Strong Sell", stars: 1, color: "#c8282a" };
+  if (score >= 85) return { label: "Excellent", stars: 5, color: "#0d9465" };
+  if (score >= 70) return { label: "Strong", stars: 4, color: "#22a06b" };
+  if (score >= 45) return { label: "Neutral", stars: 3, color: "#d6a312" };
+  if (score >= 25) return { label: "Weak", stars: 2, color: "#e07b1a" };
+  return { label: "Poor", stars: 1, color: "#c8282a" };
 }
 
 // Plain-English translation of real SMC/VWAP/liquidity/trend data — the

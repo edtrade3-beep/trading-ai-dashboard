@@ -68,12 +68,24 @@ function institutionalLetterGrade(score) {
   return "F";
 }
 
+// Labels retitled from Strong Buy/Buy/Hold/Sell/Strong Sell to quality-
+// only words (One Engine Migration Phase 3, 2026-08-23) — this function
+// reads computeInstitutionalGrade's 0-100 quality score with zero
+// awareness of Stage 4, red flags, or any other real gate, so verdict-
+// shaped language here could (and did — confirmed via a real Phase 2
+// screenshot: a "★★★★★ Strong Buy" card sitting directly under the real
+// Core Engine's 🔴 AVOID banner) read as a second, competing trading
+// verdict. Same real thresholds/stars/color — only the words change.
+// This exact wording was already shipped and user-facing at one real
+// call site (RhProScanner.jsx's own local QUALITY_WORD map) before this
+// phase; promoted here into the source function so every consumer gets
+// it automatically instead of needing its own relabeling patch.
 function institutionalRecommendation(score) {
-  if (score >= 85) return { label: "Strong Buy", stars: 5, color: "#0d9465" };
-  if (score >= 70) return { label: "Buy", stars: 4, color: "#22a06b" };
-  if (score >= 45) return { label: "Hold", stars: 3, color: "#d6a312" };
-  if (score >= 25) return { label: "Sell", stars: 2, color: "#e07b1a" };
-  return { label: "Strong Sell", stars: 1, color: "#c8282a" };
+  if (score >= 85) return { label: "Excellent", stars: 5, color: "#0d9465" };
+  if (score >= 70) return { label: "Strong", stars: 4, color: "#22a06b" };
+  if (score >= 45) return { label: "Neutral", stars: 3, color: "#d6a312" };
+  if (score >= 25) return { label: "Weak", stars: 2, color: "#e07b1a" };
+  return { label: "Poor", stars: 1, color: "#c8282a" };
 }
 
 const MIN_WIN_SAMPLE = 10;

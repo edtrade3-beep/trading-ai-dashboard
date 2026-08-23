@@ -2079,6 +2079,16 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                   {"★".repeat(rec.stars)}{"☆".repeat(5 - rec.stars)} {rec.label}
                 </span>
               </div>
+              {/* Disclosure (One Engine Migration Phase 3, 2026-08-23) —
+                  this card measures business/setup quality only, no Stage
+                  4/red-flag/entry-timing awareness at all, so it can
+                  legitimately disagree with the DECISION banner above (real
+                  case: this card can read "Excellent" while that banner
+                  reads AVOID). RhProScanner.jsx already had this same
+                  disclosure inline; this card never did until now. */}
+              <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, marginTop: -6, marginBottom: 10 }}>
+                Business/setup quality only, not a timing call — see the DECISION banner above for the real entry-timing verdict.
+              </div>
               <div style={{ display: "flex", gap: 22, rowGap: 10, flexWrap: "wrap" }}>
                 {/* Renamed from bare "CONFIDENCE" (2026-07-29, real
                     user-reported confusion) — read next to PROB. OF SUCCESS
