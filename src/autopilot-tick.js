@@ -28,6 +28,16 @@ function reasonFromChecks(raw) {
 }
 
 async function tickAutopilot() {
+  // Real end-of-day flatten (2026-08-23) — checked every tick regardless
+  // of the isMarketHoursET() gate just below, since its own real window
+  // (15:50-16:10 ET) extends slightly past that gate's 15:55 cutoff. See
+  // lightbox-autopilot-execute.js's header for why. Best-effort: a failure
+  // here must never block the rest of this tick's real detection logic.
+  try {
+    const { maybeFlattenEndOfDay } = require("./lightbox-autopilot-execute");
+    await maybeFlattenEndOfDay();
+  } catch { /* best-effort */ }
+
   if (!isMarketHoursET()) return { ok: true, skipped: "outside market hours" };
 
   let getLightBoxState;

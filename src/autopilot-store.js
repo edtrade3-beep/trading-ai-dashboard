@@ -30,6 +30,7 @@ function loadState() {
     activityLog: Array.isArray(s.activityLog) ? s.activityLog : [],
     dailyStats: s.dailyStats || null,
     processedTransitionKeys: Array.isArray(s.processedTransitionKeys) ? s.processedTransitionKeys : [],
+    lastFlattenDate: s.lastFlattenDate || null,
   };
 }
 function saveState(s) {
@@ -57,6 +58,25 @@ function getStatus() {
     ? state.dailyStats
     : { date: today, trades: 0, pl: 0, riskUsedPct: 0 };
   return { mode: state.mode, positions: state.positions, activityLog: state.activityLog.slice(0, 100), dailyStats };
+}
+
+// Real daily trade counter (2026-08-23) — was always 0 forever before
+// real ASSIST order execution existed (nothing ever incremented it).
+// Bumped once per real order lightbox-autopilot-execute.js places. `pl`
+// stays honestly 0 here — this app doesn't yet track real-time fills/
+// closes for these orders, so realized P/L isn't computed; showing a
+// nonzero trade count with $0 P/L on an still-open position is accurate,
+// not misleading.
+function incrementDailyTrades() {
+  const state = loadState();
+  const today = todayKey();
+  const dailyStats = state.dailyStats && state.dailyStats.date === today
+    ? state.dailyStats
+    : { date: today, trades: 0, pl: 0, riskUsedPct: 0 };
+  dailyStats.trades += 1;
+  state.dailyStats = dailyStats;
+  saveState(state);
+  return dailyStats;
 }
 
 function getPosition(symbol) {
@@ -88,7 +108,21 @@ function markTransitionProcessed(key) {
   saveState(state);
 }
 
+// Real ET-date guard so the end-of-day flatten (lightbox-autopilot-
+// execute.js's maybeFlattenEndOfDay) fires at most once per real trading
+// day even though it's checked every 90s tick across a ~20min window —
+// same "persisted date guard" pattern weekAnchorET's callers already use.
+function getLastFlattenDate() {
+  return loadState().lastFlattenDate;
+}
+function setLastFlattenDate(dateStr) {
+  const state = loadState();
+  state.lastFlattenDate = dateStr;
+  saveState(state);
+}
+
 module.exports = {
   VALID_MODES, getMode, setMode, getStatus, getPosition, upsertPosition, logActivity,
-  hasProcessedTransition, markTransitionProcessed,
+  hasProcessedTransition, markTransitionProcessed, getLastFlattenDate, setLastFlattenDate,
+  incrementDailyTrades,
 };

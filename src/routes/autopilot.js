@@ -6,6 +6,14 @@
 const { writeJson, readRequestBody } = require("../utils");
 const { VALID_MODES, getMode, setMode, getStatus } = require("../autopilot-store");
 
+async function readSymbol(req) {
+  const raw = await readRequestBody(req);
+  const body = JSON.parse(raw);
+  const symbol = String(body?.symbol || "").trim().toUpperCase();
+  if (!symbol) throw new Error("symbol is required");
+  return symbol;
+}
+
 async function handleAutopilot(req, res, requestUrl) {
   const { pathname } = requestUrl;
 
@@ -24,17 +32,41 @@ async function handleAutopilot(req, res, requestUrl) {
     if (!VALID_MODES.includes(body?.mode)) {
       return writeJson(res, 400, { ok: false, error: `mode must be one of ${VALID_MODES.join(", ")}` });
     }
-    // ASSIST/AUTOPILOT execution isn't built yet this phase — accepted as
-    // a real stored value (so the mode concept is real end-to-end), but
-    // autopilot-tick.js never places an order regardless of mode. The UI
-    // keeps these two visibly disabled so nothing implies more capability
-    // than actually exists yet.
+    // ASSIST now has real order execution (LONG only — see
+    // lightbox-autopilot-execute.js) via the /preview + /execute routes
+    // below, both gated on mode === "ASSIST". AUTOPILOT (fully automatic,
+    // no tap required) is still not built — accepted as a real stored
+    // value, but nothing auto-executes off it. The UI keeps AUTOPILOT
+    // visibly disabled so nothing implies more capability than exists yet.
     const mode = setMode(body.mode);
     return writeJson(res, 200, { ok: true, mode });
   }
 
   if (pathname === "/api/autopilot/status" && req.method === "GET") {
     return writeJson(res, 200, { ok: true, ...getStatus() });
+  }
+
+  // Real ASSIST order preview/execute (2026-08-23, explicit user request:
+  // "Build real order execution... ASSIST only... Alpaca paper"). Both
+  // routes run the exact same real validation/sizing in
+  // lightbox-autopilot-execute.js — preview places nothing, execute
+  // re-validates fresh (never trusts a stale preview) and places a real
+  // bracket order. LONG-only — see that file's header for why SHORT is
+  // deliberately out of scope for now.
+  if (pathname === "/api/autopilot/preview" && req.method === "POST") {
+    let symbol;
+    try { symbol = await readSymbol(req); } catch (e) { return writeJson(res, 400, { ok: false, error: e.message }); }
+    const { previewOrder } = require("../lightbox-autopilot-execute");
+    const result = await previewOrder(symbol);
+    return writeJson(res, result.ok ? 200 : 400, result);
+  }
+
+  if (pathname === "/api/autopilot/execute" && req.method === "POST") {
+    let symbol;
+    try { symbol = await readSymbol(req); } catch (e) { return writeJson(res, 400, { ok: false, error: e.message }); }
+    const { placeOrder } = require("../lightbox-autopilot-execute");
+    const result = await placeOrder(symbol);
+    return writeJson(res, result.ok ? 200 : 400, result);
   }
 
   return writeJson(res, 404, { ok: false, error: "Not found" });
