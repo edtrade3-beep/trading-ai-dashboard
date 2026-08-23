@@ -3105,7 +3105,7 @@ Explain this.`;
       const data = await cached("macro-regime", 20 * 60_000, async () => {
         const fredMod = require("../fred");
         const providerKeys = resolveProviderKeys(new URLSearchParams());
-        const [yieldCurve, fedFunds, unemployment, joblessClaims, cpi, corePce, us10y, realYield10y, hySpread, igSpread, lendingStandards, macroRows] = await Promise.all([
+        const [yieldCurve, fedFunds, unemployment, joblessClaims, cpi, corePce, us10y, realYield10y, hySpread, igSpread, lendingStandards, fedBalanceSheet, tgaBalance, reverseRepo, payrolls, wages, macroRows] = await Promise.all([
           fredMod.fetchYieldCurve().catch(() => null),
           fredMod.fetchFedFunds().catch(() => null),
           fredMod.fetchUnemployment().catch(() => null),
@@ -3117,10 +3117,16 @@ Explain this.`;
           fredMod.fetchHySpread().catch(() => null),
           fredMod.fetchIgSpread().catch(() => null),
           fredMod.fetchLendingStandards().catch(() => null),
+          fredMod.fetchFedBalanceSheet().catch(() => null),
+          fredMod.fetchTgaBalance().catch(() => null),
+          fredMod.fetchReverseRepo().catch(() => null),
+          fredMod.fetchPayrolls().catch(() => null),
+          fredMod.fetchWages().catch(() => null),
           fetchMarketQuotes(["SPY", "QQQ", "VIXY"], providerKeys).catch(() => []),
         ]);
         const { computeMacroRegime, REGIME_META } = require("../macro-engine");
         const { computeTreasuryScore, computeCreditScore, computeCreditMomentum } = require("../treasury-credit-engine");
+        const { computeLiquidityScore, computeEmploymentScore } = require("../liquidity-employment-engine");
         const spyRow = (macroRows || []).find((m) => m.symbol === "SPY");
         const qqqRow = (macroRows || []).find((m) => m.symbol === "QQQ");
         const vixRow = (macroRows || []).find((m) => m.symbol === "VIXY" || m.symbol === "VIX");
@@ -3136,9 +3142,12 @@ Explain this.`;
         const treasury = computeTreasuryScore({ fred: { yieldCurve, realYield10y, us10y } });
         const credit = computeCreditScore({ fred: { hySpread, igSpread, lendingStandards } });
         const creditMomentum = computeCreditMomentum({ fred: { hySpread } });
+        const liquidity = computeLiquidityScore({ fred: { fedBalanceSheet, tgaBalance, reverseRepo } });
+        const employment = computeEmploymentScore({ fred: { unemployment, joblessClaims, payrolls, wages } });
         return {
           ...result, icon: meta.icon || null, label: meta.label || result.regime, color: meta.color || null,
           treasury, credit: { ...credit, momentum: creditMomentum },
+          liquidity, employment,
           asOf: new Date().toISOString(),
         };
       });

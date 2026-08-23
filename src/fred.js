@@ -37,6 +37,11 @@ const SERIES = {
   HY_SPREAD: "BAMLH0A0HYM2",
   IG_SPREAD: "BAMLC0A0CM",
   LENDING_STANDARDS: "DRTSCILM",
+  FED_BALANCE_SHEET: "WALCL",
+  TGA_BALANCE: "WTREGEN",
+  REVERSE_REPO: "RRPONTSYD",
+  PAYROLLS: "PAYEMS",
+  WAGES: "CES0500000003",
 };
 
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // these update ~once/day; 6h is plenty fresh
@@ -112,6 +117,7 @@ async function fetchFredSeries(seriesId, opts = {}) {
     changePct,
     yoyChangePct,
     windowChangePct,
+    windowStartValue: first ? first.value : null,
     windowStartDate: first ? first.date : null,
     date: latest.date,
     fetchedAt: Date.now(),
@@ -141,10 +147,21 @@ const fetchJoblessClaims = () => fetchFredSeries(SERIES.JOBLESS_CLAIMS, { startD
 const fetchHySpread         = () => fetchFredSeries(SERIES.HY_SPREAD, { startDays: 35 });
 const fetchIgSpread         = () => fetchFredSeries(SERIES.IG_SPREAD, { startDays: 35 });
 const fetchLendingStandards = () => fetchFredSeries(SERIES.LENDING_STANDARDS, { startDays: 400 });
+// Institutional Intelligence Phase 3 (2026-08-23) — real liquidity +
+// employment series for liquidity-employment-engine.js. WALCL/WTREGEN are
+// weekly (45d window = several real observations for a genuine trend);
+// PAYEMS/CES0500000003 are monthly (100d/400d respectively, the latter
+// for a real YoY wage read).
+const fetchFedBalanceSheet = () => fetchFredSeries(SERIES.FED_BALANCE_SHEET, { startDays: 45 });
+const fetchTgaBalance      = () => fetchFredSeries(SERIES.TGA_BALANCE, { startDays: 45 });
+const fetchReverseRepo     = () => fetchFredSeries(SERIES.REVERSE_REPO, { startDays: 35 });
+const fetchPayrolls        = () => fetchFredSeries(SERIES.PAYROLLS, { startDays: 100 });
+const fetchWages           = () => fetchFredSeries(SERIES.WAGES, { startDays: 400, yoy: true });
 
 module.exports = {
   fetchFredSeries, fetchUS10Y, fetchUS2Y, fetchBrentOil,
   fetchUS30Y, fetchRealYield10Y, fetchYieldCurve, fetchFedFunds,
   fetchCPI, fetchCoreCPI, fetchPCE, fetchCorePCE, fetchUnemployment, fetchJoblessClaims,
   fetchHySpread, fetchIgSpread, fetchLendingStandards,
+  fetchFedBalanceSheet, fetchTgaBalance, fetchReverseRepo, fetchPayrolls, fetchWages,
 };

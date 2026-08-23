@@ -107,6 +107,25 @@ export default function MacroStatusStrip({ C, MONO, macroData, distData, fred })
           <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{macroRegime.credit.score}/100{macroRegime.credit.momentum?.status ? ` · ${macroRegime.credit.momentum.status}` : ""}</span>
         </div>
       )}
+      {/* Real Liquidity/Employment scores (Institutional Intelligence
+          Phase 3, 2026-08-23) — same useMacroRegime() response, zero new
+          fetches. Same score-banded pattern as Treasury/Credit above. */}
+      {macroRegime?.liquidity && (
+        <div title={`Net Liquidity $${macroRegime.liquidity.factors.netLiquidity != null ? Math.round(macroRegime.liquidity.factors.netLiquidity).toLocaleString() : "—"}M · ${macroRegime.liquidity.factors.netLiquidityChangePct ?? "—"}% over window`}
+          style={{ display: "flex", alignItems: "center", gap: 6, background: C.card, border: `1px solid ${C.border}`, borderRadius: 20, padding: "6px 12px" }}>
+          <span style={{ width: 8, height: 8, borderRadius: "50%", background: macroRegime.liquidity.score >= 70 ? C.green : macroRegime.liquidity.score >= 40 ? C.amber : C.red, flexShrink: 0 }} />
+          <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.text }}>Liquidity</span>
+          <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{macroRegime.liquidity.score}/100</span>
+        </div>
+      )}
+      {macroRegime?.employment && (
+        <div title={`Payrolls trend ${macroRegime.employment.factors.payrollsWindowChangePct ?? "—"}% · Wages YoY ${macroRegime.employment.factors.wagesYoy ?? "—"}%`}
+          style={{ display: "flex", alignItems: "center", gap: 6, background: C.card, border: `1px solid ${C.border}`, borderRadius: 20, padding: "6px 12px" }}>
+          <span style={{ width: 8, height: 8, borderRadius: "50%", background: macroRegime.employment.score >= 70 ? C.green : macroRegime.employment.score >= 40 ? C.amber : C.red, flexShrink: 0 }} />
+          <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.text }}>Employment</span>
+          <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{macroRegime.employment.score}/100</span>
+        </div>
+      )}
       {MACRO_STATUS_INSTRUMENTS.map(({ symbol, label, vix, fredKey }) => {
         const q = (macroData || []).find(m => m.symbol === symbol);
         const override = fredKey ? fred?.[fredKey] : null;
