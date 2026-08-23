@@ -118,6 +118,8 @@ import AplusScoreTrackCard from "./components/AplusScoreTrackCard.jsx";
 import MtfOutcomeTrackCard from "./components/MtfOutcomeTrackCard.jsx";
 import BacktestCard from "./components/BacktestCard.jsx";
 import DashboardTab, { MarketPulseCard, PortfolioSnapshotCard, computeRegimeLabel, Card } from "./components/DashboardTab.jsx";
+import MobileBottomNav, { MOBILE_BOTTOM_NAV_H } from "./components/MobileBottomNav.jsx";
+import MobileHomeGrid from "./components/MobileHomeGrid.jsx";
 import { PerformanceCard } from "./components/terminal-panels.jsx";
 import TopOpportunityCard from "./components/TopOpportunityCard.jsx";
 import CapitalAllocationCard from "./components/CapitalAllocationCard.jsx";
@@ -5822,6 +5824,15 @@ export default function App() {
     return () => ro.disconnect();
   }, [isMobile, isTablet]);
 
+  // Mobile nav redesign (2026-08-23) — the new persistent bottom tab bar
+  // sits below every FAB's existing statusBarH-based offset; bump that
+  // offset by the bar's own height (mobile only) so the FABs float just
+  // above it instead of being covered by it. Every FAB below already
+  // uses this exact `statusBarH` prop for its own bottom math — passing
+  // this derived value in instead is the one shared change needed, not
+  // 6 separate per-widget redesigns.
+  const mobileFabStatusBarH = statusBarH + (isMobile ? MOBILE_BOTTOM_NAV_H : 0);
+
   // The FAB cluster (Copilot/Reality Check/Checklist) sits fixed at
   // bottom-right, so on mobile it inevitably passes over whatever real
   // content happens to be scrolling underneath it — confirmed via real
@@ -5897,7 +5908,7 @@ export default function App() {
     <div style={{ background: C.bg, minHeight: "100vh", color: C.text, fontFamily: SANS, zoom: (isMobile ? 1 : isTablet ? UI_ZOOM_TABLET : UI_ZOOM) * pageZoom, lineHeight: 1.5, width: "100%", maxWidth: "100vw", overflowX: "hidden", filter: brightness < 100 ? `brightness(${brightness}%)` : "none", transition: "filter 0.2s" }}>
       <IstighfarWidget C={C} themeMode={themeMode} isMobile={isMobile} />
       <div style={{ height: ISTIGHFAR_BAR_H, flexShrink: 0 }} aria-hidden="true" />
-      <TradingCopilot C={C} MONO={MONO} SANS={SANS} macroData={macroData} watchlistSymbols={watchlistSymbols} statusBarH={statusBarH} fabFading={fabFading} isMobile={isMobile} />
+      <TradingCopilot C={C} MONO={MONO} SANS={SANS} macroData={macroData} watchlistSymbols={watchlistSymbols} statusBarH={mobileFabStatusBarH} fabFading={fabFading} isMobile={isMobile} />
       {/* QuickTradePanel/AiTradeSessionPanel's launcher buttons sit at
           left:18 on desktop/tablet — inside the sidebar's own horizontal
           footprint (0 to sidebarW), not to the right of it. On tall
@@ -5906,10 +5917,10 @@ export default function App() {
           viewports the two overlapped the sidebar's actual bottom nav rows.
           sidebarFabLeft pushes both launchers just past the sidebar's real
           edge instead, on both desktop and tablet, mobile untouched. */}
-      <QuickTradePanel C={C} MONO={MONO} SANS={SANS} terminalSymbol={terminalSymbol} setTerminalSymbol={setTerminalSymbol} macroData={macroData} scanResults={scanResults} statusBarH={statusBarH} fabFading={fabFading} isMobile={isMobile} isTablet={isTablet} sidebarFabLeft={sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : LAYOUT.sidebarWidth} />
-      <RealityCheckWidget statusBarH={statusBarH} fabFading={fabFading} isMobile={isMobile} />
-      <ChartSearchWidget setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} statusBarH={statusBarH} fabFading={fabFading} isMobile={isMobile} />
-      <AiTradeSessionPanel C={C} MONO={MONO} SANS={SANS} macroData={macroData} newsData={newsData} statusBarH={statusBarH} fabFading={fabFading} isMobile={isMobile} isTablet={isTablet} activeTab={activeTab} setActiveTab={setActiveTab} topOffset={ISTIGHFAR_BAR_H + topBarH} sidebarFabLeft={sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : LAYOUT.sidebarWidth} />
+      <QuickTradePanel C={C} MONO={MONO} SANS={SANS} terminalSymbol={terminalSymbol} setTerminalSymbol={setTerminalSymbol} macroData={macroData} scanResults={scanResults} statusBarH={mobileFabStatusBarH} fabFading={fabFading} isMobile={isMobile} isTablet={isTablet} sidebarFabLeft={sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : LAYOUT.sidebarWidth} />
+      <RealityCheckWidget statusBarH={mobileFabStatusBarH} fabFading={fabFading} isMobile={isMobile} />
+      <ChartSearchWidget setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} statusBarH={mobileFabStatusBarH} fabFading={fabFading} isMobile={isMobile} />
+      <AiTradeSessionPanel C={C} MONO={MONO} SANS={SANS} macroData={macroData} newsData={newsData} statusBarH={mobileFabStatusBarH} fabFading={fabFading} isMobile={isMobile} isTablet={isTablet} activeTab={activeTab} setActiveTab={setActiveTab} topOffset={ISTIGHFAR_BAR_H + topBarH} sidebarFabLeft={sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : LAYOUT.sidebarWidth} />
       {/* Google Fonts — Inter (UI) + JetBrains Mono (data/numbers) */}
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -6010,20 +6021,11 @@ export default function App() {
         boxShadow: themeMode === "dark" ? "0 1px 0 #1a2e4a, 0 2px 12px rgba(0,0,0,0.5)" : "0 1px 4px rgba(0,0,0,0.06)",
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 12, minWidth: 0, flex: "1 1 auto", overflow: "hidden" }}>
-          {/* ☰ Hamburger — mobile only, FAR LEFT before logo */}
-          {isMobile && (
-            <button
-              onClick={() => { setMobileMenuOpen(s => !s); setMobileSearchOpen(false); }}
-              style={{
-                background: mobileMenuOpen ? `${C.accent}18` : "transparent",
-                border: `1px solid ${mobileMenuOpen ? C.accent : C.border}`,
-                color: mobileMenuOpen ? C.accent : C.textSec,
-                borderRadius: 6, width: 40, height: 40,
-                fontSize: 18, cursor: "pointer", flexShrink: 0,
-                display: "flex", alignItems: "center", justifyContent: "center",
-              }}
-            >☰</button>
-          )}
+          {/* Mobile nav redesign (2026-08-23) — the ☰ hamburger + its
+              dropdown nav list are retired in favor of MobileBottomNav's
+              persistent bottom bar (mounted below, near the other
+              floating widgets) — its own "More" sheet now covers what
+              this dropdown used to. */}
           {/* Logo + brand */}
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
             <img
@@ -6298,13 +6300,20 @@ export default function App() {
           trading indicator. */}
       <StatusBar C={C} MONO={MONO} sidebarWidth={sidebarW} isMobile={isMobile} rootRef={statusBarRef} />
 
-      {/* Mobile menu drawer — opens from LEFT hamburger button */}
+      {/* "More" sheet — mobile nav redesign (2026-08-23): same real
+          content as before (search/nav-grid/actions/status), just
+          repositioned to a bottom sheet triggered by MobileBottomNav's
+          "More" button instead of dropping from the old top hamburger. */}
       {isMobile && mobileMenuOpen && (
-        <div style={{
-          borderBottom: `2px solid ${C.accent}33`,
-          borderLeft: `3px solid ${C.accent}`,
+        <div onClick={() => setMobileMenuOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 9998 }}>
+        <div onClick={(e) => e.stopPropagation()} style={{
+          position: "fixed", left: 0, right: 0, bottom: MOBILE_BOTTOM_NAV_H, zIndex: 9999,
+          borderTop: `1px solid ${C.border}`,
           background: C.surface,
-          boxShadow: "0 6px 24px rgba(0,0,0,0.15)",
+          borderRadius: "14px 14px 0 0",
+          boxShadow: "0 -6px 24px rgba(0,0,0,0.35)",
+          maxHeight: "75vh", overflowY: "auto",
+          paddingBottom: "env(safe-area-inset-bottom)",
         }}>
           {/* Search row — top of menu */}
           <div style={{ padding: "10px 12px 0", display: "flex", gap: 6 }}>
@@ -6398,6 +6407,15 @@ export default function App() {
             </div>
           </div>
         </div>
+        </div>
+      )}
+
+      {isMobile && (
+        <MobileBottomNav
+          C={C} MONO={MONO} SANS={SANS} activeTab={activeTab} setActiveTab={setActiveTab}
+          moreOpen={mobileMenuOpen} onToggleMore={() => setMobileMenuOpen((s) => !s)}
+          alertCount={Array.isArray(combinedAlerts) ? combinedAlerts.length : 0}
+        />
       )}
 
       <div style={{ marginLeft: !isMobile ? sidebarW : 0 }}>
@@ -6466,7 +6484,13 @@ export default function App() {
             sidebar tabs need the same real data Overview does. */}
         <TopOpportunityCard C={C} MONO={MONO} SANS={SANS} macroData={macroData} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} onScore={onScore} onFullScan={onFullScan} hidden />
 
-        {activeTab === "dashboard" && (
+        {/* Mobile nav redesign (2026-08-23) — mobile gets the new
+            card-grid Home instead of the dense desktop dashboard;
+            desktop/tablet render is completely unchanged below. */}
+        {activeTab === "dashboard" && isMobile && (
+          <MobileHomeGrid C={C} MONO={MONO} SANS={SANS} macroData={macroData} activeTab={activeTab} setActiveTab={setActiveTab} />
+        )}
+        {activeTab === "dashboard" && !isMobile && (
           <DashboardTab
             C={C} MONO={MONO} SANS={SANS}
             watchlistData={watchlistData} macroData={macroData} distData={distData} fearGreedData={fearGreedData}
@@ -7621,7 +7645,7 @@ export default function App() {
           content wrapper above, same as IstighfarWidget/TradingCopilot/
           RealityCheckWidget: these are viewport-relative fixed overlays,
           not page content, so they shouldn't inherit the sidebar offset. */}
-      <FloatingChecklistButton C={C} checklistItems={checklistItems} setActiveTab={setActiveTab} statusBarH={statusBarH} fabFading={fabFading} isMobile={isMobile} />
+      <FloatingChecklistButton C={C} checklistItems={checklistItems} setActiveTab={setActiveTab} statusBarH={mobileFabStatusBarH} fabFading={fabFading} isMobile={isMobile} />
 
       <TiltDetectorOverlay C={C} MONO={MONO} SANS={SANS} tiltLocked={tiltLocked} tiltUnlockAt={tiltUnlockAt} setActiveTab={setActiveTab} setTiltLocked={setTiltLocked} setTiltUnlockAt={setTiltUnlockAt} />
 
