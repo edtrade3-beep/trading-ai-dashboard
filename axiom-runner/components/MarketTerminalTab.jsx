@@ -238,6 +238,7 @@ import { computeMtfAlignment } from "./mtf-combiner.js";
 import { computeEntryPlan } from "./entry-engine.js";
 import { computeSimpleDecision } from "./simple-decision.js";
 import { computeRedFlags, computeExitRedFlags } from "./red-flag-engine.js";
+import { classifyFinalTradeGate } from "./final-trade-gate.js";
 import AiScoreExplainer, {
   AplusBadge, TRADE_SETUP_DIMENSIONS, STOCK_QUALITY_DIMENSIONS, INSTITUTIONAL_GRADE_DIMENSIONS,
   TECHNICAL_DIMENSIONS, TIMING_DIMENSIONS, AI_TRADE_ENGINE_DIMENSIONS, FOUNDATION_DIMENSIONS, FOUNDATION_LABEL,
@@ -1047,7 +1048,21 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
     // held position — position-decision-engine.js's own real state stays
     // the one decision authority there).
     redFlags: symPosition ? exitRedFlagsDW?.flags : redFlagsDW?.flags,
+    // Final Trade Validation Engine (2026-08-23) — stage/entryScore are
+    // both already computed above for this symbol (symTrend.stage, the
+    // real Minervini stage; aPlusScore.score, the Option B ENTRY SCORE
+    // tile) — zero new fetches, just wired into the pre-entry hard gates
+    // that previously had no idea about either.
+    stage: symTrend?.stage, entryScore: aPlusScore?.score,
   }) : null;
+
+  // Final Trade Validation Engine display overlay (2026-08-23) — a pure
+  // relabel of simpleDecisionDW's own already-correct decision onto the
+  // spec's 6-state display vocabulary (🟢 BUY/🟡 EARLY WATCH/🟠 WAIT FOR
+  // BREAKOUT/🔵 HOLD/🔴 AVOID/🟣 EXIT), never a second decision. Falls back
+  // to simpleDecisionDW's own icon/label/color for REDUCE (no honest
+  // equivalent in the 6 — disclosed exception, see final-trade-gate.js).
+  const finalGateDW = simpleDecisionDW ? classifyFinalTradeGate({ source: "simple", ...simpleDecisionDW }) : null;
 
   // Exit Panel dimensions (Phase 5, 2026-08-20) — 6 real, already-computed
   // reads bucketed into good/bad/unknown, matching the spec's "Momentum/
@@ -1390,9 +1405,9 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             still fully computed and available — just collapsed by
             default now, not deleted. */}
         {simpleDecisionDW && (
-          <div style={{ border: `2px solid ${simpleDecisionDW.color}`, background: `${simpleDecisionDW.color}0d`, borderRadius: 12, padding: "16px 18px", marginBottom: 14 }}>
+          <div style={{ border: `2px solid ${finalGateDW?.color || simpleDecisionDW.color}`, background: `${finalGateDW?.color || simpleDecisionDW.color}0d`, borderRadius: 12, padding: "16px 18px", marginBottom: 14 }}>
             <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.6, marginBottom: 6 }}>DECISION</div>
-            <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: simpleDecisionDW.color, marginBottom: 8 }}>{simpleDecisionDW.icon} {simpleDecisionDW.label}</div>
+            <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: finalGateDW?.color || simpleDecisionDW.color, marginBottom: 8 }}>{finalGateDW?.icon || simpleDecisionDW.icon} {finalGateDW?.label || simpleDecisionDW.label}</div>
             <div style={{ fontFamily: SANS, fontSize: 13, color: C.text, marginBottom: 10 }}><b>Why:</b> {simpleDecisionDW.why}</div>
             {/* Setup Score / Entry Score — promoted into the persistent
                 banner (Workspace layout redesign, 2026-08-23, user-picked

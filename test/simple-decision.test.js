@@ -36,14 +36,14 @@ ok("15M: only a real CONFIRMED reads as READY — APPROACHING/NOT_READY/INVALIDA
 
 console.log("Checking the spec's own two worked examples…");
 
-ok("EXAMPLE 1 (spec verbatim): 1D bullish, 4H BROKEN, 1H weak, 15M not ready -> WAIT, entry BLOCKED, never START SMALL", () => {
+ok("EXAMPLE 1 (spec verbatim, now AVOID not WAIT — Final Trade Validation Engine, 2026-08-23): 1D bullish, 4H BROKEN, 1H weak, 15M not ready -> AVOID, entry BLOCKED, never START SMALL", () => {
   const d = computeSimpleDecision({
     dailyBias: "BULLISH", swing4hState: "BROKEN",
     early1h: { score: 15, rsiTrend: { direction: "down" } },
     entry15mStatus: "NOT_READY", rr: 2,
     entryPlan: { entryPrice: 216.90, pivot: 227.90, stop: 209.69, target1: 246.15, earlyEntryZone: [215.03, 218.77], doNotChaseZone: { band: "NORMAL" }, stage: "EARLY" },
   });
-  assert.strictEqual(d.decision, "WAIT", "the spec's own explicit rule: never START SMALL just because price sits inside the calculated Early Entry Zone");
+  assert.strictEqual(d.decision, "AVOID", "a real structural block is a hard AVOID, not the same soft WAIT as a merely-not-yet-confirmed setup");
   assert.strictEqual(d.entryZone, "BLOCKED");
   assert.match(d.why, /4H/i);
   assert.strictEqual(d.structure, "BROKEN");
@@ -65,14 +65,14 @@ ok("EXAMPLE 2 (spec verbatim): 1D bullish, 4H healthy, 1H improving, 15M ready, 
 });
 
 console.log("Checking anti-chase and missing-conditions WAIT reasoning…");
-ok("extended/do-not-chase blocks START SMALL even with everything else aligned", () => {
+ok("extended/do-not-chase blocks START SMALL even with everything else aligned (now AVOID, not WAIT)", () => {
   const d = computeSimpleDecision({
     dailyBias: "BULLISH", swing4hState: "STRONG",
     early1h: { score: 80, rsiTrend: { direction: "up", accelerating: true } },
     entry15mStatus: "CONFIRMED", rr: 3,
     entryPlan: { entryPrice: 250, pivot: 227, stop: 209, target1: 280, doNotChaseZone: { band: "DO_NOT_CHASE" }, stage: "BREAKOUT" },
   });
-  assert.strictEqual(d.decision, "WAIT");
+  assert.strictEqual(d.decision, "AVOID");
   assert.strictEqual(d.entryZone, "BLOCKED");
   assert.match(d.why, /extend|chase/i);
 });
@@ -90,14 +90,14 @@ ok("WAIT names exactly what's missing, not a bare wait (4H = REPAIRING is accept
   assert.match(d.why, /15M confirmation/);
   assert.match(d.why, /risk\/reward/);
 });
-ok("a genuinely BROKEN 4H short-circuits to its own dedicated message, not the generic missing-conditions list", () => {
+ok("a genuinely BROKEN 4H short-circuits to its own dedicated message, not the generic missing-conditions list (now AVOID)", () => {
   const d = computeSimpleDecision({
     dailyBias: "BULLISH", swing4hState: "BROKEN",
     early1h: { score: 80, rsiTrend: { direction: "up", accelerating: true } },
     entry15mStatus: "CONFIRMED", rr: 3,
     entryPlan: { entryPrice: 175, pivot: 227, stop: 165, target1: 200, earlyEntryZone: [172, 178], doNotChaseZone: { band: "NORMAL" }, stage: "EARLY" },
   });
-  assert.strictEqual(d.decision, "WAIT");
+  assert.strictEqual(d.decision, "AVOID");
   assert.strictEqual(d.why, "4H structure is broken.");
   assert.strictEqual(d.entryZone, "BLOCKED", "even with a real earlyEntryZone computed, it must not be surfaced as usable while 4H is broken");
 });
@@ -124,27 +124,29 @@ ok("real RISK_ON/NEUTRAL regime, or no regime data at all, never blocks — same
   assert.strictEqual(computeSimpleDecision({ ...base, marketRegime: "NEUTRAL" }).decision, "START_SMALL");
   assert.strictEqual(computeSimpleDecision(base).decision, "START_SMALL", "no marketRegime supplied at all must be an honest no-op, not a fabricated block");
 });
-ok("the WAIT reason lists real missing factors in spec §13's actual priority order — Market Structure before Trend (previously reversed)", () => {
+ok("the WAIT reason lists real missing factors in spec §13's actual priority order — Market Structure before Entry Quality (previously reversed)", () => {
   const d = computeSimpleDecision({
     // No swing4hState at all -> structure stays null -> structureOk false
     // WITHOUT tripping the dedicated "4H structure is broken" hard-gate
     // short-circuit (that only fires on a real BROKEN read), so this
     // genuinely exercises Market Structure's place in the soft-missing
-    // list alongside every other real missing factor.
-    dailyBias: "BEARISH",
+    // list alongside every other real missing factor. dailyBias kept
+    // NEUTRAL (not BEARISH) — a genuinely bearish trend is now its own
+    // hard AVOID gate (Final Trade Validation Engine, 2026-08-23), no
+    // longer part of this soft missing-factors list at all.
+    dailyBias: "NEUTRAL",
     early1h: { score: 20, rsiTrend: { direction: "down" } },
     entry15mStatus: "NOT_READY", rr: 1.0, marketRegime: "RISK_OFF",
     entryPlan: { entryPrice: null, pivot: 227, stop: 209, target1: 246, doNotChaseZone: { band: "NORMAL" }, stage: "FOUNDATION" },
   });
+  assert.strictEqual(d.decision, "WAIT");
   const regimeIdx = d.why.indexOf("market regime");
   const rrIdx = d.why.indexOf("risk/reward");
   const structureIdx = d.why.indexOf("4H structure");
-  const trendIdx = d.why.indexOf("daily trend");
   const setupIdx = d.why.indexOf("1H setup");
   assert.ok(regimeIdx >= 0 && regimeIdx < rrIdx, "Market Regime must be named before Risk/Invalidation");
   assert.ok(rrIdx >= 0 && rrIdx < structureIdx, "Risk/Invalidation must be named before Market Structure");
-  assert.ok(structureIdx >= 0 && structureIdx < trendIdx, "Market Structure must be named before Trend — the spec's real order, previously reversed in this list");
-  assert.ok(trendIdx >= 0 && trendIdx < setupIdx, "Trend must be named before Entry Quality (1H/15M)");
+  assert.ok(structureIdx >= 0 && structureIdx < setupIdx, "Market Structure must be named before Entry Quality (1H/15M) — the spec's real order, previously reversed in this list");
 });
 
 console.log("Checking the Red Flag Engine's critical-flag gate (Master Build Spec §8-9, 2026-08-22)…");
@@ -154,12 +156,12 @@ const CLEAN_INPUTS = {
   early1h: { score: 80, rsiTrend: { direction: "up", accelerating: true } },
   entry15mStatus: "CONFIRMED", rr: 3, entryPlan: CLEAN_ENTRY_PLAN,
 };
-ok("a real critical red flag blocks START SMALL even when every other real condition aligns — spec's own worked example (score high, critical flag true -> the flag wins)", () => {
+ok("a real critical red flag blocks START SMALL even when every other real condition aligns — spec's own worked example (score high, critical flag true -> the flag wins), now AVOID not WAIT", () => {
   const d = computeSimpleDecision({
     ...CLEAN_INPUTS,
     redFlags: [{ key: "poorLiquidity", label: "Poor Liquidity", critical: true, reason: "Real dollar volume is $2.0M/day, below the $5M floor." }],
   });
-  assert.strictEqual(d.decision, "WAIT", "a critical flag must override an otherwise-qualifying setup, never hidden by a good score");
+  assert.strictEqual(d.decision, "AVOID", "a critical flag must override an otherwise-qualifying setup, never hidden by a good score, and must be a hard AVOID not a soft WAIT");
   assert.match(d.why, /Poor Liquidity/);
   assert.strictEqual(d.entryZone, "BLOCKED");
 });
@@ -181,8 +183,13 @@ ok("regular (non-critical) flags do NOT block START SMALL, but appear in the WAI
   });
   assert.strictEqual(started.decision, "START_SMALL", "a regular flag alone must never block an otherwise-qualifying setup");
 
+  // entry15mStatus NOT_READY (not dailyBias BEARISH) forces the non-
+  // START_SMALL branch here — a genuinely bearish trend is now its own
+  // hard AVOID gate and would short-circuit before reaching this regular-
+  // flag missing-factors reasoning at all (Final Trade Validation Engine,
+  // 2026-08-23).
   const waiting = computeSimpleDecision({
-    ...CLEAN_INPUTS, dailyBias: "BEARISH",
+    ...CLEAN_INPUTS, entry15mStatus: "NOT_READY",
     redFlags: [{ key: "fallingRS", label: "Falling Relative Strength", critical: false, reason: "RS Rating 45 is below the 60 leader threshold." }],
   });
   assert.strictEqual(waiting.decision, "WAIT");
@@ -197,6 +204,60 @@ ok("no redFlags passed at all -> identical behavior to before this phase (honest
 ok("redFlagCount/criticalFlagCount/redFlags are always present on the returned object, even when zero", () => {
   const d = computeSimpleDecision(CLEAN_INPUTS);
   assert.deepStrictEqual(d.redFlags, []);
+});
+
+console.log("Checking the Final Trade Validation Engine's new hard gates (2026-08-23) — real AVOID, not a soft WAIT…");
+ok("Stage 4 downtrend is a hard AVOID regardless of any other real condition", () => {
+  const d = computeSimpleDecision({ ...CLEAN_INPUTS, stage: "Stage 4 — Downtrend" });
+  assert.strictEqual(d.decision, "AVOID");
+  assert.match(d.why, /Stage 4/);
+});
+ok("no stage supplied at all -> honest no-op, never fabricates a Stage 4 block", () => {
+  const d = computeSimpleDecision(CLEAN_INPUTS);
+  assert.strictEqual(d.decision, "START_SMALL");
+});
+ok("a genuinely bearish daily trend alone is a hard AVOID — long bias invalid, not 'wait it out'", () => {
+  const d = computeSimpleDecision({ ...CLEAN_INPUTS, dailyBias: "BEARISH" });
+  assert.strictEqual(d.decision, "AVOID");
+  assert.match(d.why, /bearish/i);
+});
+ok("a real Entry Score below 75 is a hard AVOID even with a strong Setup Quality elsewhere (spec's own example: Setup=90, Entry=40 -> AVOID)", () => {
+  const d = computeSimpleDecision({ ...CLEAN_INPUTS, entryScore: 40 });
+  assert.strictEqual(d.decision, "AVOID");
+  assert.match(d.why, /Entry Score 40/);
+});
+ok("Entry Score exactly at the 75 floor still qualifies (>=, inclusive)", () => {
+  const d = computeSimpleDecision({ ...CLEAN_INPUTS, entryScore: 75 });
+  assert.strictEqual(d.decision, "START_SMALL");
+});
+ok("no entryScore supplied at all -> honest no-op, never fabricates a low-score block", () => {
+  const d = computeSimpleDecision(CLEAN_INPUTS);
+  assert.strictEqual(d.decision, "START_SMALL");
+});
+ok("real sector weakness is a soft factor (not a hard gate) — surfaces in WAIT reasoning, never blocks START SMALL alone", () => {
+  const started = computeSimpleDecision({ ...CLEAN_INPUTS, sectorRel: -3 });
+  assert.strictEqual(started.decision, "START_SMALL", "sector weakness alone must never hard-block — no existing precedent in this codebase treats it as a hard gate");
+  const waiting = computeSimpleDecision({ ...CLEAN_INPUTS, entry15mStatus: "NOT_READY", sectorRel: -3 });
+  assert.strictEqual(waiting.decision, "WAIT");
+  assert.match(waiting.why, /sector relative strength/);
+});
+ok("mild/positive sectorRel never appears in the WAIT reasoning", () => {
+  const d = computeSimpleDecision({ ...CLEAN_INPUTS, entry15mStatus: "NOT_READY", sectorRel: 0.5 });
+  assert.doesNotMatch(d.why, /sector relative strength/);
+});
+
+console.log("Checking the reported TSLA case (Final Trade Validation Engine, 2026-08-23) — real regression guard…");
+ok("Stage 4, Entry Score 35/100, bearish daily bias -> AVOID, never START_SMALL/ADD, regardless of a high overall score elsewhere", () => {
+  const d = computeSimpleDecision({
+    dailyBias: "BEARISH", swing4hState: "BROKEN", stage: "Stage 4 — Downtrend", entryScore: 35,
+    early1h: { score: 10, rsiTrend: { direction: "down" } },
+    entry15mStatus: "NOT_READY", rr: 0.9,
+    entryPlan: { entryPrice: 362.86, pivot: 452.85, stop: 398.22, target1: 467.48, doNotChaseZone: { band: "NORMAL" }, stage: "FOUNDATION" },
+  });
+  assert.strictEqual(d.decision, "AVOID");
+  assert.notStrictEqual(d.decision, "START_SMALL");
+  assert.notStrictEqual(d.decision, "ADD");
+  assert.notStrictEqual(d.decision, "WAIT", "a Stage 4 downtrend with a 35/100 Entry Score must never land on the same soft label as a merely-not-yet-confirmed setup");
 });
 
 console.log("Checking post-entry states reuse position-decision-engine.js's real read, never recomputed…");

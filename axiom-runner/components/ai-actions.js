@@ -72,6 +72,9 @@ export function simpleDecisionToAiAction(decision) {
     case "WAIT": return AI_ACTIONS.WAIT;
     case "REDUCE": return AI_ACTIONS.REDUCE;
     case "EXIT": return AI_ACTIONS.EXIT;
+    // AVOID added (Final Trade Validation Engine, 2026-08-23) — mirrors
+    // deepScanDecisionToAiAction's existing AVOID case exactly.
+    case "AVOID": return AI_ACTIONS.AVOID;
     default: return null;
   }
 }

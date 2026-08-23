@@ -8,6 +8,8 @@
 
 import { sortByPriority } from "./decision-priority.js";
 
+// AVOID added (Final Trade Validation Engine, 2026-08-23) — see
+// src/simple-decision.js's header comment for the full rationale.
 const DECISION_META = {
   START_SMALL: { icon: "🟢", label: "START SMALL", color: "#0d9465" },
   ADD: { icon: "🟢", label: "ADD", color: "#0d9465" },
@@ -15,6 +17,7 @@ const DECISION_META = {
   WAIT: { icon: "🟡", label: "WAIT", color: "#d6a312" },
   REDUCE: { icon: "🟠", label: "REDUCE", color: "#e08a1e" },
   EXIT: { icon: "🔴", label: "EXIT", color: "#c8282a" },
+  AVOID: { icon: "🔴", label: "AVOID", color: "#c8282a" },
 };
 
 export function classifyStructure4h(swing4hState) {
@@ -80,14 +83,26 @@ export function computeSimpleDecision(ev = {}) {
   }
 
   if (structure === "BROKEN") {
-    return base("WAIT", "4H structure is broken.", "Wait for 4H repair + 15M confirmation.", "BLOCKED");
+    return base("AVOID", "4H structure is broken.", "Avoid — wait for 4H repair + 15M confirmation.", "BLOCKED");
   }
   if (entryPlan.doNotChaseZone?.band === "DO_NOT_CHASE") {
-    return base("WAIT", "Price is extended — do not chase.", "Wait for a pullback or retest.", "BLOCKED");
+    return base("AVOID", "Price is extended — do not chase.", "Avoid — wait for a pullback or retest.", "BLOCKED");
   }
   if (criticalRedFlags.length) {
     const names = criticalRedFlags.map((f) => f.label).join(", ");
-    return base("WAIT", `Critical red flag: ${names}.`, `Resolve: ${names}.`, "BLOCKED");
+    return base("AVOID", `Critical red flag: ${names}.`, `Resolve: ${names}.`, "BLOCKED");
+  }
+  // Minervini Stage (real, caller-supplied; honestly ignored when absent).
+  if (ev.stage != null && String(ev.stage).startsWith("Stage 4")) {
+    return base("AVOID", "Stage 4 downtrend — not a valid long setup.", "Avoid — wait for a real stage change.", "BLOCKED");
+  }
+  // Genuinely bearish daily bias — "long bias invalid," not "wait it out."
+  if (trend === "BEARISH") {
+    return base("AVOID", "Daily trend is bearish — long bias invalid.", "Avoid — this is not a long setup right now.", "BLOCKED");
+  }
+  // Real Entry Score floor (caller-supplied, e.g. MarketTerminalTab.jsx's aPlusScore.score).
+  if (ev.entryScore != null && ev.entryScore < 75) {
+    return base("AVOID", `Entry Score ${ev.entryScore}/100 — below the 75 floor for a new long.`, "Avoid until entry quality improves.", "BLOCKED");
   }
 
   const rrOk = Number.isFinite(ev.rr) ? ev.rr >= 1.5 : null;
@@ -111,12 +126,18 @@ export function computeSimpleDecision(ev = {}) {
   if (!regimeOk) missingFactors.push({ key: "MARKET_REGIME", label: "market regime to turn risk-on" });
   if (rrOk === false) missingFactors.push({ key: "RISK_INVALIDATION", label: "a better risk/reward" });
   if (!structureOk) missingFactors.push({ key: "MARKET_STRUCTURE", label: "4H structure to repair" });
-  if (!trendOk) missingFactors.push({ key: "TREND", label: "daily trend to turn constructive" });
+  // Note: BEARISH trend is a hard AVOID gate above — trendOk is always
+  // true by this point (kept in the eligibility check above for clarity).
   if (!setupOk) missingFactors.push({ key: "ENTRY_QUALITY", label: "1H setup to improve" });
   if (!timingOk) missingFactors.push({ key: "ENTRY_QUALITY", label: "15M confirmation" });
   for (const f of regularRedFlags) {
     const mapped = REGULAR_FLAG_PRIORITY[f.key];
     if (mapped) missingFactors.push(mapped);
+  }
+  // Sector strength (real, caller-supplied — soft, not a hard gate; see
+  // src/simple-decision.js's header comment for the full rationale).
+  if (Number.isFinite(ev.sectorRel) && ev.sectorRel < -1.5) {
+    missingFactors.push({ key: "RELATIVE_STRENGTH", label: "sector relative strength to improve" });
   }
   const missing = sortByPriority(missingFactors).map((f) => f.label);
   if (!missing.length) missing.push("more real evidence");

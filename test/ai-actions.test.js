@@ -78,6 +78,13 @@ function ok(name, fn) { try { fn(); passed++; console.log(`  ✓ ${name}`); } ca
     assert.notStrictEqual(a, AI_ACTIONS.BUY);
     assert.notStrictEqual(a, AI_ACTIONS.STRONG_BUY);
   });
+  ok("AVOID -> never a bullish tier (Final Trade Validation Engine, 2026-08-23 addition)", () => {
+    const a = simpleDecisionToAiAction("AVOID");
+    assert.strictEqual(a, AI_ACTIONS.AVOID);
+    assert.ok(a.tier < AI_ACTIONS.WAIT.tier, "AVOID must rank below WAIT");
+    assert.notStrictEqual(a, AI_ACTIONS.BUY);
+    assert.notStrictEqual(a, AI_ACTIONS.STRONG_BUY);
+  });
   ok("unknown/null decision -> null, never a guessed tier", () => {
     assert.strictEqual(simpleDecisionToAiAction(undefined), null);
     assert.strictEqual(simpleDecisionToAiAction("NOT_A_STATE"), null);

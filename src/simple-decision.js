@@ -15,11 +15,23 @@ const { sortByPriority } = require("./decision-priority");
 // internal engines stay exactly as sophisticated as before — only the
 // user-facing OUTPUT is simplified.
 //
-// Vocabulary, fixed to 6 states per the spec: START_SMALL, ADD, HOLD,
-// WAIT, REDUCE, EXIT. "BREAKOUT CONFIRMED"/"RETEST"/anti-chase are real
-// internal reasons for landing on START_SMALL/ADD/WAIT, not separate
-// user-facing states — the trader sees the conclusion, not the mechanism.
-
+// Vocabulary, originally fixed to 6 states per the 2026-08-20 spec:
+// START_SMALL, ADD, HOLD, WAIT, REDUCE, EXIT. "BREAKOUT CONFIRMED"/
+// "RETEST"/anti-chase are real internal reasons for landing on
+// START_SMALL/ADD/WAIT, not separate user-facing states — the trader sees
+// the conclusion, not the mechanism.
+//
+// AVOID added (Final Trade Validation Engine, 2026-08-23 — explicit user
+// report: a Stage 4 downtrend with Entry Score 35/100 was showing "WAIT"
+// instead of a hard block). Real gap this closes: every pre-entry hard
+// gate below (4H structure broken, chase-protection, critical red flags)
+// previously returned WAIT — the same soft label as "just needs more
+// evidence" — because this function had no genuine hard-block state.
+// AVOID is that state: reserved for setups that are structurally
+// disqualified right now, not just not-yet-confirmed. Kept as an ADDITION
+// to the existing vocabulary rather than a rename (explicit user choice)
+// — the existing states are real, tested, and have exactly one consumer
+// (MarketTerminalTab.jsx), so this stays additive/non-breaking.
 const DECISION_META = {
   START_SMALL: { icon: "🟢", label: "START SMALL", color: "#0d9465" },
   ADD: { icon: "🟢", label: "ADD", color: "#0d9465" },
@@ -27,6 +39,7 @@ const DECISION_META = {
   WAIT: { icon: "🟡", label: "WAIT", color: "#d6a312" },
   REDUCE: { icon: "🟠", label: "REDUCE", color: "#e08a1e" },
   EXIT: { icon: "🔴", label: "EXIT", color: "#c8282a" },
+  AVOID: { icon: "🔴", label: "AVOID", color: "#c8282a" },
 };
 
 // 1D -> BULLISH/NEUTRAL/BEARISH is already exactly this vocabulary
@@ -135,11 +148,16 @@ function computeSimpleDecision(ev = {}) {
   // Pre-entry. Hard gates first — no combination of other real evidence
   // can override these (same discipline as entry-engine.js's own
   // STRUCTURE_BROKEN gate; this layer reuses that same real signal).
+  // AVOID, not WAIT (Final Trade Validation Engine, 2026-08-23) — a real
+  // structural disqualification is not the same thing as "just needs more
+  // evidence," and treating them the same was the actual bug behind the
+  // reported TSLA case (a critical block was showing the same soft yellow
+  // WAIT as a merely-not-yet-confirmed setup).
   if (structure === "BROKEN") {
-    return base("WAIT", "4H structure is broken.", "Wait for 4H repair + 15M confirmation.", "BLOCKED");
+    return base("AVOID", "4H structure is broken.", "Avoid — wait for 4H repair + 15M confirmation.", "BLOCKED");
   }
   if (entryPlan.doNotChaseZone?.band === "DO_NOT_CHASE") {
-    return base("WAIT", "Price is extended — do not chase.", "Wait for a pullback or retest.", "BLOCKED");
+    return base("AVOID", "Price is extended — do not chase.", "Avoid — wait for a pullback or retest.", "BLOCKED");
   }
   // Critical Red Flags (spec §8-9/§23's core example: "Technical score=92,
   // Critical failed-breakout=TRUE -> AVOID" — a critical flag overrides a
@@ -151,7 +169,31 @@ function computeSimpleDecision(ev = {}) {
   // liquidity — none of which had a hard gate here before this phase.
   if (criticalRedFlags.length) {
     const names = criticalRedFlags.map((f) => f.label).join(", ");
-    return base("WAIT", `Critical red flag: ${names}.`, `Resolve: ${names}.`, "BLOCKED");
+    return base("AVOID", `Critical red flag: ${names}.`, `Resolve: ${names}.`, "BLOCKED");
+  }
+  // Minervini Stage (real, caller-supplied — e.g. MarketTerminalTab.jsx's
+  // own already-computed stage string; honestly ignored when absent, same
+  // graceful-degradation discipline as every other optional input here).
+  // Stage 4 is never a valid new long regardless of any other real score
+  // (Final Trade Validation Engine, 2026-08-23 — the exact TSLA case: a
+  // Stage 4 downtrend with a real 35/100 Entry Score was still landing on
+  // a soft WAIT before this gate existed).
+  if (ev.stage != null && String(ev.stage).startsWith("Stage 4")) {
+    return base("AVOID", "Stage 4 downtrend — not a valid long setup.", "Avoid — wait for a real stage change.", "BLOCKED");
+  }
+  // Genuinely bearish daily bias for a brand-new long entry is "long bias
+  // invalid," not "wait it out" — promoted from a soft missing-factor
+  // (the old trendOk push below is now unreachable for BEARISH and has
+  // been removed) to a hard gate for the same reason as Stage 4 above.
+  if (trend === "BEARISH") {
+    return base("AVOID", "Daily trend is bearish — long bias invalid.", "Avoid — this is not a long setup right now.", "BLOCKED");
+  }
+  // Real Entry Score floor (caller-supplied, e.g. MarketTerminalTab.jsx's
+  // own aPlusScore.score — the Option B ENTRY SCORE tile). A low entry
+  // score is a hard block never overridden by a high score elsewhere
+  // (spec's own example: "Setup Quality=90, Entry Quality=40 -> AVOID").
+  if (ev.entryScore != null && ev.entryScore < 75) {
+    return base("AVOID", `Entry Score ${ev.entryScore}/100 — below the 75 floor for a new long.`, "Avoid until entry quality improves.", "BLOCKED");
   }
 
   const rrOk = Number.isFinite(ev.rr) ? ev.rr >= 1.5 : null;
@@ -189,12 +231,23 @@ function computeSimpleDecision(ev = {}) {
   if (!regimeOk) missingFactors.push({ key: "MARKET_REGIME", label: "market regime to turn risk-on" });
   if (rrOk === false) missingFactors.push({ key: "RISK_INVALIDATION", label: "a better risk/reward" });
   if (!structureOk) missingFactors.push({ key: "MARKET_STRUCTURE", label: "4H structure to repair" });
-  if (!trendOk) missingFactors.push({ key: "TREND", label: "daily trend to turn constructive" });
+  // Note: genuinely BEARISH trend is a hard AVOID gate above, not a
+  // missing-factor here — trendOk is therefore always true by this point
+  // (kept in the eligibility check above for clarity, not dead code there).
   if (!setupOk) missingFactors.push({ key: "ENTRY_QUALITY", label: "1H setup to improve" });
   if (!timingOk) missingFactors.push({ key: "ENTRY_QUALITY", label: "15M confirmation" });
   for (const f of regularRedFlags) {
     const mapped = REGULAR_FLAG_PRIORITY[f.key];
     if (mapped) missingFactors.push(mapped);
+  }
+  // Sector strength (real, caller-supplied — sectorEtf%chg - SPY%chg, same
+  // formula rhpro-shared.jsx's stockQualityBreakdown already uses). Soft,
+  // not a hard gate — no existing precedent anywhere in this codebase
+  // treats sector strength as a hard block, and it's a weaker/more
+  // subjective signal than the real hard gates above (disclosed judgment
+  // call, Final Trade Validation Engine phase 1, not a silent omission).
+  if (Number.isFinite(ev.sectorRel) && ev.sectorRel < -1.5) {
+    missingFactors.push({ key: "RELATIVE_STRENGTH", label: "sector relative strength to improve" });
   }
   const missing = sortByPriority(missingFactors).map((f) => f.label);
   if (!missing.length) missing.push("more real evidence");

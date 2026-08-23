@@ -13,6 +13,8 @@ import { mapToAiAction, AI_ACTIONS } from "./ai-actions.js";
 // by the same real entry-engine read instead of an independent guess (see
 // actionFor() below).
 import { computeEntryPlan } from "./entry-engine.js";
+import { computeRedFlags } from "./red-flag-engine.js";
+import { classifyFinalTradeGate } from "./final-trade-gate.js";
 import { classifyDeepScanDecision } from "./btc-hpc-scan.js";
 import { computeRegimeLabel, regimeLabelToEntryVocabulary } from "./DashboardTab.jsx";
 import { computeAntiChase } from "./anti-chase.js";
@@ -399,15 +401,35 @@ export default function RhProScanner({
       // breakout gate silently fell back to a cruder flat 10% cutoff for
       // every Discover row.
       const antiChase = computeAntiChase(x.abovePivotPct);
-      const entryPlan = computeEntryPlan({
+      const entryEv = {
         price: x.price, pivot: x.pivot, atr: null, contractionLow: x.contractionLow,
         dailyBias, rsRating: x.rsRating, higherLows: x.higherLows, tightening: x.tightening,
         vcpVerdict: x.vcpVerdict, vwap20: x.technicals?.vwap20, rr,
         breakoutConfirmed: x.breakoutConfirmed, extended: x.extended, priceAction: {}, antiChase,
         stop: x.stop, target1, target2: x.target2, marketRegime: marketRegimeForEntry,
-      });
+      };
+      const entryPlan = computeEntryPlan(entryEv);
       const deepDecision = classifyDeepScanDecision({ entryPlan, aPlusScore: aplus?.score });
-      return { ...x, score: quality.score, quality, aplus, institutionalGrade, next: computeNextAction(x), prediction: computePrediction(x, x), entryPlan, deepDecision };
+      // Red Flag Engine (Final Trade Validation Engine, 2026-08-23) — this
+      // scan previously had zero red-flag awareness at all; reuses the
+      // exact same entryEv already assembled for computeEntryPlan above
+      // (riskPct/dollarVolume added since red-flag-engine.js's own checks
+      // read them — both honestly degrade to "unknown" when absent, same
+      // discipline as everywhere else this engine is used), zero new
+      // fetches.
+      const redFlags = computeRedFlags({ ...entryEv, riskPct: x.riskPct, dollarVolume: x.dollarVolume });
+      // Real sector-relative strength — same sectorEtf%chg - SPY%chg
+      // formula stockQualityBreakdown already used for `quality` above,
+      // off the same already-fetched sectorPerf map.
+      const sectorEtf = STOCK_TO_SECTOR[String(x.symbol || "").toUpperCase()];
+      const sc = sectorEtf ? Number(sectorPerf[sectorEtf]) : NaN;
+      const spc = Number(sectorPerf.SPY);
+      const sectorRel = Number.isFinite(sc) && Number.isFinite(spc) ? sc - spc : null;
+      const finalGate = classifyFinalTradeGate({
+        source: "deepscan", decision: deepDecision.decision, stage: x.stage,
+        entryScore: aplus?.score, criticalFlagCount: redFlags.criticalCount, sectorRel,
+      });
+      return { ...x, score: quality.score, quality, aplus, institutionalGrade, next: computeNextAction(x), prediction: computePrediction(x, x), entryPlan, deepDecision, redFlags, finalGate };
     }).sort((a, b) => (b.score - a.score) || ((b.rsRating || 0) - (a.rsRating || 0)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rawRows, sectorPerfKey, regime?.score, marketRegimeForEntry]);
@@ -542,6 +564,15 @@ export default function RhProScanner({
   // header summary strip, not just the currently-filtered/categorized `shown`.
   const actionFor = (r) => {
     let action = mapToAiAction({ institutionalScore: r.institutionalGrade?.score, nextAction: r.next?.action, verdict: r.deepDecision?.decision });
+    // Final Trade Validation Engine (2026-08-23) — a hard gate (Stage 4,
+    // Entry Score < 75, or a critical red flag) always wins over whatever
+    // mapToAiAction's institutional-score/nextAction ladder would
+    // otherwise say. This is the literal "don't display BUY beside a
+    // score unless the final trade gate has approved it" rule — a high
+    // Institutional Grade must never override a real structural block.
+    // Skips the ROTATE consideration below too, on purpose: a symbol
+    // that's hard-blocked shouldn't be suggested as a rotation target.
+    if (r.finalGate?.state === "AVOID") return { action: AI_ACTIONS.AVOID, rotationInfo: null };
     let rotationInfo = null;
     if (action.tier >= AI_ACTIONS.ACCUMULATE.tier && !rotationState.heldSymbols.has(r.symbol) && rotationState.scoredOpen.length) {
       const candidateQuality = r.aplus?.score ?? r.institutionalGrade?.score ?? -1;
