@@ -32,10 +32,13 @@ export default function ChartSearchWidget({ setActiveTab, setTerminalSymbol, sta
     setOpen(false);
   };
 
+  // Mobile FAB stack — vertical column, right:10, staggered bottom, hidden
+  // by default via fabFading (2026-08-23 revision, see
+  // TradingCopilot.jsx's header comment). Topmost slot in the column.
   return (
     <div style={{
       position: "fixed", zIndex: 300, fontFamily: SANS,
-      bottom: (isMobile ? 10 : 82) + statusBarH, right: isMobile ? 160 : 86,
+      bottom: (isMobile ? 218 : 82) + statusBarH, right: isMobile ? 10 : 86,
     }}>
       {open && (
         <div

@@ -1354,6 +1354,16 @@ export default function App() {
   const [isTablet, setIsTablet] = useState(() => typeof window !== "undefined" && window.innerWidth >= 768 && window.innerWidth <= 1100);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  // Mobile FAB collapse (2026-08-23 — real user report: the 4 floating
+  // widgets (Copilot/Reality Check/Checklist/Chart Search), even after
+  // being tightened into a single row, still permanently covered real
+  // table content — a scanner row's Score/AI Action columns, the RUN SCAN
+  // button — on an actual phone. Collapsed to hidden-by-default on
+  // mobile; a single small "⚡" toggle (mounted below, near the other FAB
+  // widgets) reveals them, stacked vertically, only when explicitly
+  // asked for. Auto-collapses on tab change so it never stays open and
+  // blocks the next screen.
+  const [mobileFabsExpanded, setMobileFabsExpanded] = useState(false);
   useEffect(() => {
     const fn = () => { setIsMobile(window.innerWidth < 768); setIsTablet(window.innerWidth >= 768 && window.innerWidth <= 1100); };
     window.addEventListener("resize", fn);
@@ -1607,6 +1617,10 @@ export default function App() {
     }
     return "lightbox";  // default landing (2026-08-17, explicit user request — was "ceo-ai")
   });
+  // Auto-collapse the mobile FAB stack on every tab change — otherwise an
+  // expanded stack from the previous screen would stay open and cover the
+  // new one too (2026-08-23, mobile FAB collapse fix).
+  useEffect(() => { setMobileFabsExpanded(false); }, [activeTab]);
   // Day Trade Console: opened from a Light Box card click (or the console's
   // own symbol search). Stable callback so it never invalidates
   // LightBoxCard's React.memo comparator (which intentionally doesn't
@@ -5888,7 +5902,14 @@ export default function App() {
     if (!isMobile || !FAB_TOP_COLLISION_TABS.includes(activeTab)) return;
     setWsScrollNearTop((document.body.scrollTop || 0) < 220);
   }, [isMobile, activeTab, terminalSymbol]);
-  const fabFading = isMobile && (fabScrolling || (FAB_TOP_COLLISION_TABS.includes(activeTab) && wsScrollNearTop));
+  // Mobile FAB collapse (2026-08-23) — replaces the old scroll-based fading
+  // heuristic (fabScrolling/wsScrollNearTop, still tracked above but no
+  // longer read here) with an explicit, real user-controlled toggle: the 4
+  // mobile FABs are hidden by default and only appear when
+  // mobileFabsExpanded is true (the new "⚡" button below). Desktop/tablet
+  // are unaffected — fabFading was always `isMobile &&`-gated, so it was
+  // never true there either way.
+  const fabFading = isMobile && !mobileFabsExpanded;
 
   if (!appUnlocked) {
     return (
@@ -5908,6 +5929,24 @@ export default function App() {
     <div style={{ background: C.bg, minHeight: "100vh", color: C.text, fontFamily: SANS, zoom: (isMobile ? 1 : isTablet ? UI_ZOOM_TABLET : UI_ZOOM) * pageZoom, lineHeight: 1.5, width: "100%", maxWidth: "100vw", overflowX: "hidden", filter: brightness < 100 ? `brightness(${brightness}%)` : "none", transition: "filter 0.2s" }}>
       <IstighfarWidget C={C} themeMode={themeMode} isMobile={isMobile} />
       <div style={{ height: ISTIGHFAR_BAR_H, flexShrink: 0 }} aria-hidden="true" />
+      {/* Mobile FAB expand toggle (2026-08-23 — real user report of the 4
+          FABs permanently covering table content on an actual phone).
+          Always visible on mobile (never subject to fabFading itself —
+          it's the control that reveals the other 4, stacked above it at
+          bottom:62/114/166/218). Auto-collapses on tab change (effect
+          near activeTab's declaration). */}
+      {isMobile && (
+        <button
+          onClick={() => setMobileFabsExpanded((v) => !v)}
+          title={mobileFabsExpanded ? "Hide quick actions" : "Quick actions"}
+          style={{
+            position: "fixed", bottom: 10 + mobileFabStatusBarH, right: 10, zIndex: 9999,
+            width: 32, height: 32, borderRadius: "50%", cursor: "pointer", border: "none",
+            background: mobileFabsExpanded ? C.textDim : C.accent, color: "#fff", fontSize: 14,
+            boxShadow: "0 6px 20px rgba(0,0,0,0.3)",
+          }}
+        >{mobileFabsExpanded ? "✕" : "⚡"}</button>
+      )}
       <TradingCopilot C={C} MONO={MONO} SANS={SANS} macroData={macroData} watchlistSymbols={watchlistSymbols} statusBarH={mobileFabStatusBarH} fabFading={fabFading} isMobile={isMobile} />
       {/* QuickTradePanel/AiTradeSessionPanel's launcher buttons sit at
           left:18 on desktop/tablet — inside the sidebar's own horizontal

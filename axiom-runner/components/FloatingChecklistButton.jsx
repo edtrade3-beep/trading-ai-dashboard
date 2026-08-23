@@ -19,13 +19,18 @@ export default function FloatingChecklistButton({ C, checklistItems, setActiveTa
   // on the Sniper Scanner table — the "plan" buttons for rows 4-6 measured
   // inside the FAB stack's bounding box). Collapsing to a single row next to
   // RealityCheckWidget freed the entire upper row back to real content.
-  // Further tightened: all 4 mobile FABs shrunk 54/52px -> 42px and pulled
-  // in from bottom/right:18 to bottom/right:10, with matching tighter gaps
-  // between them (Copilot right:10-52, RealityCheck right:60-102, this
-  // button right:110-152) — shrinks the row's total footprint (both height
-  // and width) so less of whatever's underneath gets covered.
+  // Further tightened, then finally collapsed (2026-08-23 — real user
+  // report on an actual phone: even the tightened single-row layout still
+  // spanned wide enough to obscure a full table row's Score/AI Action
+  // columns and the RUN SCAN button). All 4 mobile FABs are now hidden by
+  // default (via fabFading, gated on axiom-live.jsx's new mobileFabsExpanded
+  // toggle, not the old scroll-heuristic) and only appear — stacked
+  // VERTICALLY at right:10, not spread horizontally — when the user
+  // explicitly taps the new "⚡" expand button. This button's slot in that
+  // column: bottom:114 (third from the bottom; Copilot:10, RealityCheck:62,
+  // this:114, ChartSearch:166).
   return (
-    <div style={{ position: "fixed", bottom: (isMobile ? 10 : 82) + statusBarH, right: isMobile ? 110 : 18, zIndex: 8000 }}>
+    <div style={{ position: "fixed", bottom: (isMobile ? 166 : 82) + statusBarH, right: isMobile ? 10 : 18, zIndex: 8000 }}>
       <button
         className={`fab-checklist-btn${!isMobile ? " fab-peek" : ""}`}
         onClick={() => setActiveTab("tools")}

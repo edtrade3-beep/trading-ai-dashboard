@@ -166,8 +166,11 @@ export default function RealityCheckWidget({ statusBarH = 40, fabFading = false,
     return bits.join(" ");
   })();
 
+  // Mobile FAB stack — vertical column, right:10, staggered bottom
+  // (2026-08-23 revision, see TradingCopilot.jsx's header comment).
+  // Desktop's right:86 offset is unchanged.
   return (
-    <div style={{ position: "fixed", bottom: (isMobile ? 10 : 18) + statusBarH, right: isMobile ? 60 : 86, zIndex: 300, fontFamily: SANS }}>
+    <div style={{ position: "fixed", bottom: (isMobile ? 114 : 18) + statusBarH, right: isMobile ? 10 : 86, zIndex: 300, fontFamily: SANS }}>
       {open && (
         <div
           role="dialog"

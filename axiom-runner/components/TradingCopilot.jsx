@@ -106,11 +106,24 @@ export default function TradingCopilot({ C, MONO, SANS, macroData, watchlistSymb
           so this never sits on top of the fixed status bar at the very
           bottom of the viewport, same real-measurement fix applied to
           RealityCheckWidget/FloatingChecklistButton below it. */}
-      {/* Mobile: shrunk from 54px + 18px offset to 42px + 10px offset — part
-          of tightening the mobile FAB stack's footprint over table content
-          (see FloatingChecklistButton.jsx for the row layout this anchors). */}
+      {/* Mobile FAB stack (2026-08-23 revision — real user report: the old
+          horizontal row of 4 buttons at the same bottom height spanned wide
+          enough to permanently obscure real table rows/action buttons on
+          an actual phone, confirmed via real screenshots — a narrower
+          arrangement alone wasn't enough since content sits at that same
+          right edge too). Two real changes: (1) stacked vertically at
+          right:10 instead of spread horizontally (this button is
+          bottom-most, closest to the tab bar); (2) hidden by default —
+          fabFading is now driven by axiom-live.jsx's mobileFabsExpanded
+          toggle (a new small "⚡" FAB) rather than the old scroll
+          heuristic, so none of the 4 cover anything until the user
+          explicitly asks for them. See RealityCheckWidget.jsx/
+          FloatingChecklistButton.jsx/ChartSearchWidget.jsx for the rest
+          of the column (114/166/218 above this one) — bottom:10 itself is
+          reserved for the always-visible "⚡" expand toggle, not this
+          button. */}
       <button className={`fab-copilot-btn${!isMobile && !open ? " fab-peek" : ""}`} onClick={() => setOpen(o => !o)} title="Trading Copilot"
-        style={{ position: "fixed", bottom: (isMobile ? 10 : 18) + statusBarH, right: isMobile ? 10 : 18, zIndex: 9999,
+        style={{ position: "fixed", bottom: (isMobile ? 62 : 18) + statusBarH, right: isMobile ? 10 : 18, zIndex: 9999,
           width: isMobile ? 32 : 40, height: isMobile ? 32 : 40, borderRadius: "50%", cursor: "pointer",
           border: "none", background: C.accent, color: "#fff", fontSize: isMobile ? 14 : 16, boxShadow: "0 6px 20px rgba(0,0,0,0.3)",
           opacity: fabFading && !open ? 0 : (isMobile || open ? 1 : undefined), pointerEvents: fabFading && !open ? "none" : "auto", transition: "opacity 0.2s" }}>{open ? "✕" : "💬"}</button>
