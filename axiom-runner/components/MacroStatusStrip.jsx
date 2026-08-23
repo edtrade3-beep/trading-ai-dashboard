@@ -30,6 +30,24 @@ export function useRealMacroOverrides() {
   return { fred, btcDom };
 }
 
+// Real Macro Regime read (Institutional Intelligence Phase 1, 2026-08-23)
+// — /api/market/macro-regime, server-computed (macro-engine.js's real
+// FRED + SPY/QQQ/VIX classification, cached 20 min server-side). Same
+// polling cadence as useRealMacroOverrides above; a real regime read
+// doesn't need to be fresher than that.
+export function useMacroRegime() {
+  const [regime, setRegime] = useState(null);
+  useEffect(() => {
+    const load = () => {
+      fetch("/api/market/macro-regime").then(r => r.json()).then(d => { if (d?.ok) setRegime(d); }).catch(() => {});
+    };
+    load();
+    const t = setInterval(load, 30 * 60 * 1000);
+    return () => clearInterval(t);
+  }, []);
+  return regime;
+}
+
 // The exact 10-instrument list from the options platform redesign spec
 // ("SPY, QQQ, IWM, DIA, VIX, DXY, 10Y Treasury, Gold, Oil, BTC — show
 // Green/Yellow/Red instead of dozens of numbers"), Phase 1. `vix: true`
@@ -58,8 +76,17 @@ const STATUS_DOT_COLOR = (C, status) =>
 // classifyMacroStatus, replacing "dozens of numbers" with one status dot
 // per instrument.
 export default function MacroStatusStrip({ C, MONO, macroData, distData, fred }) {
+  const macroRegime = useMacroRegime();
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
+      {macroRegime && (
+        <div title={(macroRegime.reasons || []).join(" · ")}
+          style={{ display: "flex", alignItems: "center", gap: 6, background: `${macroRegime.color}18`, border: `1px solid ${macroRegime.color}`, borderRadius: 20, padding: "6px 12px" }}>
+          <span style={{ fontSize: 11 }}>{macroRegime.icon}</span>
+          <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: macroRegime.color }}>MACRO: {macroRegime.label}</span>
+          <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{macroRegime.score}/100</span>
+        </div>
+      )}
       {MACRO_STATUS_INSTRUMENTS.map(({ symbol, label, vix, fredKey }) => {
         const q = (macroData || []).find(m => m.symbol === symbol);
         const override = fredKey ? fred?.[fredKey] : null;

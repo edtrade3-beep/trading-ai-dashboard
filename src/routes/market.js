@@ -3088,6 +3088,51 @@ Explain this.`;
     }
   }
 
+  // GET /api/market/macro-regime — real Macro Regime Engine (Institutional
+  // Intelligence Phase 1, 2026-08-23, user's own "AM Trading" spec). Real
+  // FRED macro series (fred.js's newly-added CPI/Core PCE/unemployment/
+  // jobless-claims/Fed-funds/yield-curve series) + real SPY/QQQ/VIX quotes
+  // already fetched elsewhere in this app -> macro-engine.js's
+  // computeMacroRegime, one real classification, no new scoring engine.
+  // Cached 20 min — a regime read, not a tick-level signal; FRED's own
+  // series update at most once/day and are separately cached 6h
+  // (fred.js), so this TTL is about limiting quote-fetch frequency, not
+  // real macro-data freshness.
+  if (pathname === "/api/market/macro-regime" && req.method === "GET") {
+    try {
+      const data = await cached("macro-regime", 20 * 60_000, async () => {
+        const fredMod = require("../fred");
+        const providerKeys = resolveProviderKeys(new URLSearchParams());
+        const [yieldCurve, fedFunds, unemployment, joblessClaims, cpi, corePce, macroRows] = await Promise.all([
+          fredMod.fetchYieldCurve().catch(() => null),
+          fredMod.fetchFedFunds().catch(() => null),
+          fredMod.fetchUnemployment().catch(() => null),
+          fredMod.fetchJoblessClaims().catch(() => null),
+          fredMod.fetchCPI().catch(() => null),
+          fredMod.fetchCorePCE().catch(() => null),
+          fetchMarketQuotes(["SPY", "QQQ", "VIXY"], providerKeys).catch(() => []),
+        ]);
+        const { computeMacroRegime, REGIME_META } = require("../macro-engine");
+        const spyRow = (macroRows || []).find((m) => m.symbol === "SPY");
+        const qqqRow = (macroRows || []).find((m) => m.symbol === "QQQ");
+        const vixRow = (macroRows || []).find((m) => m.symbol === "VIXY" || m.symbol === "VIX");
+        const result = computeMacroRegime({
+          fred: { yieldCurve, fedFunds, unemployment, joblessClaims, cpi, corePce },
+          vixLevel: Number(vixRow?.price || vixRow?.regularMarketPrice || 0) || null,
+          spyChg: Number(spyRow?.changesPercentage),
+          qqqChg: Number(qqqRow?.changesPercentage),
+        });
+        // Real display meta (icon/label/color) attached server-side so the
+        // client never needs its own copy of REGIME_META to stay in sync.
+        const meta = REGIME_META[result.regime] || {};
+        return { ...result, icon: meta.icon || null, label: meta.label || result.regime, color: meta.color || null, asOf: new Date().toISOString() };
+      });
+      return writeJson(res, 200, { ok: true, ...data });
+    } catch (err) {
+      return writeJson(res, 502, { ok: false, error: err instanceof Error ? err.message : "Macro regime computation failed." });
+    }
+  }
+
   // Real market-wide BTC dominance — CoinGecko (coingecko.js), free, no
   // key. Replaces the app's own BTC/(BTC+ETH+SOL) 3-coin proxy, which only
   // reflects the coins this app happens to track, not the real market.

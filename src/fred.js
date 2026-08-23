@@ -2,24 +2,43 @@
 /**
  * fred.js
  * Real macro series from FRED's public CSV endpoint — no API key, no paid
- * tier, no rate limit concerns for a handful of daily-updated series
- * polled a few times per hour at most.
+ * tier, no rate limit concerns for a handful of daily/weekly/monthly-
+ * updated series polled a few times per hour at most.
  *
  * FRED updates most of these once per business day; some dates come back
  * blank (holidays/pending revision) — the fetcher walks backward from the
  * end of the CSV to find the last two real (non-blank) observations
  * rather than trusting the final row.
+ *
+ * Extended (Institutional Intelligence Phase 1, 2026-08-23) for the real
+ * Macro Regime Engine (macro-engine.js): monthly series (CPI/PCE/
+ * unemployment) need real year-over-year context, not just the prior
+ * reading, so the 30-day CSV window this file started with isn't enough
+ * history for them — startDays/yoy are now per-call options rather than a
+ * hardcoded 30. Existing callers (fetchUS10Y/fetchUS2Y/fetchBrentOil) are
+ * unchanged — same 30-day window, same return shape, zero risk to
+ * MacroStatusStrip.jsx's existing real consumption of them.
  */
 
 const SERIES = {
   US10Y:    "DGS10",
   US2Y:     "DGS2",
   BRENT_OIL: "DCOILBRENTEU",
+  US30Y:    "DGS30",
+  REAL_YIELD_10Y: "DFII10",
+  YIELD_CURVE: "T10Y2Y",
+  FED_FUNDS: "DFF",
+  CPI: "CPIAUCSL",
+  CORE_CPI: "CPILFESL",
+  PCE: "PCEPI",
+  CORE_PCE: "PCEPILFE",
+  UNEMPLOYMENT: "UNRATE",
+  JOBLESS_CLAIMS: "ICSA",
 };
 
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // these update ~once/day; 6h is plenty fresh
 
-const caches = {}; // seriesId -> { value, prevValue, changePct, date, fetchedAt }
+const caches = {}; // cacheKey (seriesId+opts) -> { value, prevValue, changePct, yoyChangePct, date, fetchedAt }
 
 function startDate(daysBack) {
   const d = new Date();
@@ -39,33 +58,81 @@ function parseCsv(csv, seriesId) {
   if (real.length === 0) throw new Error(`No real ${seriesId} observations in CSV`);
   const latest = real[real.length - 1];
   const prev = real.length > 1 ? real[real.length - 2] : null;
-  return { latest, prev };
+  return { real, latest, prev };
 }
 
-async function fetchFredSeries(seriesId) {
-  const cached = caches[seriesId];
+// Real observation closest to 365 days before `latest.date`, off the same
+// already-fetched CSV rows — no second request. Honest null (never a
+// fabricated estimate) when there isn't yet a full year of real history.
+function findYoyObservation(real, latestDate) {
+  const target = new Date(latestDate);
+  target.setDate(target.getDate() - 365);
+  let best = null, bestDiff = Infinity;
+  for (const r of real) {
+    const diff = Math.abs(new Date(r.date).getTime() - target.getTime());
+    if (diff < bestDiff) { bestDiff = diff; best = r; }
+  }
+  // Require the match to be within ~45 days of the real 365-day mark —
+  // otherwise it's not a genuine YoY comparison, just the oldest row we have.
+  return best && bestDiff <= 45 * 86_400_000 ? best : null;
+}
+
+async function fetchFredSeries(seriesId, opts = {}) {
+  const startDays = opts.startDays || 30;
+  const yoy = !!opts.yoy;
+  const cacheKey = `${seriesId}:${startDays}:${yoy}`;
+  const cached = caches[cacheKey];
   if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) return cached;
 
-  const url = `https://fred.stlouisfed.org/graph/fredgraph.csv?id=${seriesId}&cosd=${startDate(30)}`;
+  const url = `https://fred.stlouisfed.org/graph/fredgraph.csv?id=${seriesId}&cosd=${startDate(startDays)}`;
   const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
   if (!res.ok) throw new Error(`FRED HTTP ${res.status} for ${seriesId}`);
   const csv = await res.text();
-  const { latest, prev } = parseCsv(csv, seriesId);
+  const { real, latest, prev } = parseCsv(csv, seriesId);
 
   const changePct = prev ? Number((((latest.value - prev.value) / prev.value) * 100).toFixed(2)) : null;
+  const yoyObs = yoy ? findYoyObservation(real, latest.date) : null;
+  const yoyChangePct = yoyObs ? Number((((latest.value - yoyObs.value) / yoyObs.value) * 100).toFixed(2)) : null;
+  // Real trend over the FULL fetched window (oldest real observation vs
+  // latest) — distinct from changePct's single-step day-over-day diff.
+  // Matters for staircase series like Fed funds (DFF): the rate barely
+  // moves day-to-day except right at an FOMC decision, so changePct is
+  // "flat" almost always even during an active hiking/cutting cycle;
+  // windowChangePct (e.g. over a real 90-day fetch window) actually
+  // reflects the real recent policy direction.
+  const first = real[0];
+  const windowChangePct = (first && first !== latest && first.value)
+    ? Number((((latest.value - first.value) / first.value) * 100).toFixed(2)) : null;
   const result = {
     value: latest.value,
     prevValue: prev ? prev.value : null,
     changePct,
+    yoyChangePct,
+    windowChangePct,
+    windowStartDate: first ? first.date : null,
     date: latest.date,
     fetchedAt: Date.now(),
   };
-  caches[seriesId] = result;
+  caches[cacheKey] = result;
   return result;
 }
 
 const fetchUS10Y    = () => fetchFredSeries(SERIES.US10Y);
 const fetchUS2Y     = () => fetchFredSeries(SERIES.US2Y);
 const fetchBrentOil = () => fetchFredSeries(SERIES.BRENT_OIL);
+const fetchUS30Y        = () => fetchFredSeries(SERIES.US30Y);
+const fetchRealYield10Y = () => fetchFredSeries(SERIES.REAL_YIELD_10Y);
+const fetchYieldCurve   = () => fetchFredSeries(SERIES.YIELD_CURVE);
+const fetchFedFunds     = () => fetchFredSeries(SERIES.FED_FUNDS, { startDays: 90 });
+const fetchCPI          = () => fetchFredSeries(SERIES.CPI, { startDays: 400, yoy: true });
+const fetchCoreCPI      = () => fetchFredSeries(SERIES.CORE_CPI, { startDays: 400, yoy: true });
+const fetchPCE          = () => fetchFredSeries(SERIES.PCE, { startDays: 400, yoy: true });
+const fetchCorePCE      = () => fetchFredSeries(SERIES.CORE_PCE, { startDays: 400, yoy: true });
+const fetchUnemployment = () => fetchFredSeries(SERIES.UNEMPLOYMENT, { startDays: 400 });
+const fetchJoblessClaims = () => fetchFredSeries(SERIES.JOBLESS_CLAIMS, { startDays: 60 });
 
-module.exports = { fetchFredSeries, fetchUS10Y, fetchUS2Y, fetchBrentOil };
+module.exports = {
+  fetchFredSeries, fetchUS10Y, fetchUS2Y, fetchBrentOil,
+  fetchUS30Y, fetchRealYield10Y, fetchYieldCurve, fetchFedFunds,
+  fetchCPI, fetchCoreCPI, fetchPCE, fetchCorePCE, fetchUnemployment, fetchJoblessClaims,
+};
