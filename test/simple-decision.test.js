@@ -213,6 +213,16 @@ ok("real TRAIL folds into HOLD", () => {
   const d = computeSimpleDecision({ hasPosition: true, dayTradeState: "TRAIL", dayTradeReason: "+5% and trend remains strong.", entryPlan: {} });
   assert.strictEqual(d.decision, "HOLD");
 });
+ok("real HARD_EXIT folds into EXIT with its own distinct real reason (Master Build Spec §18, 2026-08-22) — never silently falls through to the generic fallback", () => {
+  const d = computeSimpleDecision({ hasPosition: true, dayTradeState: "HARD_EXIT", dayTradeReason: "Real stop price ($98.00) has been breached — the planned risk limit, not a thesis change.", entryPlan: {} });
+  assert.strictEqual(d.decision, "EXIT");
+  assert.match(d.why, /stop price/i, "the real stop-breach reason must be preserved, not replaced by a generic EXIT message");
+});
+ok("real WARNING folds into HOLD with its own distinct real reason — never silently falls through to the generic fallback", () => {
+  const d = computeSimpleDecision({ hasPosition: true, dayTradeState: "WARNING", dayTradeReason: "Structure intact, but evidence has turned mixed — momentum or structure may be deteriorating. Watch closely.", entryPlan: {} });
+  assert.strictEqual(d.decision, "HOLD");
+  assert.match(d.why, /mixed/i);
+});
 ok("no real day-trade data for the position -> honest structural fallback, 4H broken -> EXIT", () => {
   const d = computeSimpleDecision({ hasPosition: true, dayTradeState: null, swing4hState: "BROKEN", entryPlan: {} });
   assert.strictEqual(d.decision, "EXIT");

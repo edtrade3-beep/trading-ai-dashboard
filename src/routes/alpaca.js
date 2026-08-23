@@ -274,7 +274,10 @@ async function handleAlpaca(req, res, requestUrl) {
           const rNow = risk ? (Number(pos.current || 0) - pos.plannedEntry) / risk : null;
           const rTarget = (risk && pos.plannedTarget > 0) ? (pos.plannedTarget - pos.plannedEntry) / risk : null;
 
-          const decision = computePositionState({ side: pos.side, gainPct: pos.unrealizedPLpc, mixedVerdict: mixed.verdict, mixedReason: mixed.reason, rNow, rTarget });
+          // currentPrice/stopPrice (Master Build Spec §18, 2026-08-22) —
+          // both already real, already computed above for rNow/rTarget —
+          // zero new fetches. Powers the HARD_EXIT real stop-breach check.
+          const decision = computePositionState({ side: pos.side, gainPct: pos.unrealizedPLpc, mixedVerdict: mixed.verdict, mixedReason: mixed.reason, rNow, rTarget, currentPrice: pos.current, stopPrice: pos.plannedStop });
           pos.dayTradeState = decision.state;
           pos.dayTradeReason = decision.reason;
           pos.dayTradeScore = master.score;

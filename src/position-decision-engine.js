@@ -32,7 +32,28 @@ const EXTENDED_R_MULTIPLE = 2;
 // rNow / rTarget: real R-multiples from the position's own real planned
 //   entry/stop/target (same math ActivePositionsCard.jsx already
 //   computes) — null when no real plan is on file for this position.
-function computePositionState({ side, gainPct, mixedVerdict, mixedReason, rNow = null, rTarget = null }) {
+// currentPrice / stopPrice: real, already-resolved values the caller
+//   (routes/alpaca.js) already has in scope (pos.current from Alpaca's
+//   own current_price, pos.plannedStop from the matched real trade plan)
+//   — null when no real plan is on file, same graceful-degradation
+//   discipline as rNow/rTarget above.
+function computePositionState({ side, gainPct, mixedVerdict, mixedReason, rNow = null, rTarget = null, currentPrice = null, stopPrice = null }) {
+  // HARD EXIT (Master Build Spec §18, 2026-08-22) — a real, objective,
+  // mechanical stop breach: the planned risk limit already agreed to when
+  // the position was opened, not a soft thesis change. Checked FIRST,
+  // even before a fresh mixedVerdict is available — a stop breach doesn't
+  // need a weighted read to justify exiting, and must never be masked by
+  // "no real day-trade data" (the null-verdict early return below).
+  // Distinct from a plain EXIT (thesis invalidated via mixedVerdict
+  // flipping) so the reason a position needs to close is never conflated:
+  // "the story changed" vs. "the risk plan says get out now."
+  if (Number.isFinite(currentPrice) && Number.isFinite(stopPrice)) {
+    const stopBreached = side === "short" ? currentPrice >= stopPrice : currentPrice <= stopPrice;
+    if (stopBreached) {
+      return { state: "HARD_EXIT", reason: `Real stop price ($${stopPrice.toFixed(2)}) has been breached — the planned risk limit, not a thesis change.` };
+    }
+  }
+
   if (mixedVerdict == null) return { state: null, reason: null };
 
   const thesisAligned = side === "short" ? mixedVerdict !== "BULLISH" : mixedVerdict !== "BEARISH";
@@ -61,13 +82,20 @@ function computePositionState({ side, gainPct, mixedVerdict, mixedReason, rNow =
     return { state: "TRAIL", reason: `+${gainPct.toFixed(1)}% and trend remains strong — raise the stop to protect gains.` };
   }
 
-  // HOLD — the default: thesis intact (spec §13's "does not need to
-  // remain perfect for a short-term position" — MIXED still holds, only
-  // a real flip to the opposing side triggers EXIT).
-  return {
-    state: "HOLD",
-    reason: thesisStronglyAligned ? "Structure intact, thesis still confirmed." : "Structure intact — evidence mixed, but not invalidated.",
-  };
+  // WARNING (Master Build Spec §18, 2026-08-22) — real, distinct tier:
+  // the thesis hasn't invalidated (still HOLD-eligible per spec §13), but
+  // the fresh evidence is genuinely mixed/uncertain, not cleanly
+  // confirming. This exact real condition already existed here (the
+  // softer "evidence mixed, but not invalidated" reason text below) —
+  // previously silently labeled HOLD; now gets its own badge so
+  // deteriorating-but-not-yet-exit is never indistinguishable from a
+  // clean, confirmed hold.
+  if (!thesisStronglyAligned) {
+    return { state: "WARNING", reason: "Structure intact, but evidence has turned mixed — momentum or structure may be deteriorating. Watch closely." };
+  }
+
+  // HOLD — the default: thesis intact and strongly confirmed.
+  return { state: "HOLD", reason: "Structure intact, thesis still confirmed." };
 }
 
 module.exports = { computePositionState, TRAIL_ACTIVATE_PCT, EXTENDED_R_MULTIPLE };

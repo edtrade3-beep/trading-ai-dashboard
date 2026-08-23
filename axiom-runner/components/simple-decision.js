@@ -70,7 +70,9 @@ export function computeSimpleDecision(ev = {}) {
 
   if (ev.hasPosition) {
     if (ev.dayTradeState === "EXIT") return base("EXIT", ev.dayTradeReason || "Thesis invalidated.", "Exit the position.", null);
+    if (ev.dayTradeState === "HARD_EXIT") return base("EXIT", ev.dayTradeReason || "Stop breached — risk limit reached.", "Exit immediately — the planned stop was hit.", null);
     if (ev.dayTradeState === "TAKE_PARTIAL") return base("REDUCE", ev.dayTradeReason || "Target reached or momentum fading.", "Take partial profit.", null);
+    if (ev.dayTradeState === "WARNING") return base("HOLD", ev.dayTradeReason || "Evidence has turned mixed — watch closely.", "Hold, but watch closely.", null);
     if (ev.dayTradeState === "TRAIL" || ev.dayTradeState === "HOLD") return base("HOLD", ev.dayTradeReason || "Structure intact, thesis still confirmed.", "Hold.", null);
     if (structure === "BROKEN") return base("EXIT", "4H structure broken.", "Exit — thesis invalidated.", null);
     if (entryPlan.doNotChaseZone?.band === "DO_NOT_CHASE") return base("REDUCE", "Price extended.", "Take partial profit, protect gains.", null);

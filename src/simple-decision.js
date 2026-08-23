@@ -114,8 +114,15 @@ function computeSimpleDecision(ev = {}) {
     // Reuse the existing position-decision-engine.js state, never
     // recomputed — this simplification layer only relabels it into the
     // 6-state vocabulary (TRAIL folds into HOLD, TAKE_PARTIAL into REDUCE).
+    // HARD_EXIT/WARNING (Master Build Spec §18, 2026-08-22) are two new
+    // real states position-decision-engine.js can now return — mapped
+    // explicitly here (HARD_EXIT->EXIT, WARNING->HOLD) rather than left to
+    // fall through to the generic no-real-data fallback below, which would
+    // have silently shown a real stop breach as a bare "HOLD."
     if (ev.dayTradeState === "EXIT") return base("EXIT", ev.dayTradeReason || "Thesis invalidated.", "Exit the position.", null);
+    if (ev.dayTradeState === "HARD_EXIT") return base("EXIT", ev.dayTradeReason || "Stop breached — risk limit reached.", "Exit immediately — the planned stop was hit.", null);
     if (ev.dayTradeState === "TAKE_PARTIAL") return base("REDUCE", ev.dayTradeReason || "Target reached or momentum fading.", "Take partial profit.", null);
+    if (ev.dayTradeState === "WARNING") return base("HOLD", ev.dayTradeReason || "Evidence has turned mixed — watch closely.", "Hold, but watch closely.", null);
     if (ev.dayTradeState === "TRAIL" || ev.dayTradeState === "HOLD") return base("HOLD", ev.dayTradeReason || "Structure intact, thesis still confirmed.", "Hold.", null);
     // No real day-trade data for this position (illiquid symbol, etc.) —
     // fall back to the spec's own simple structural rules rather than
