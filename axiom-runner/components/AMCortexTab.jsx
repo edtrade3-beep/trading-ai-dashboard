@@ -69,7 +69,7 @@ function ScoreBar({ C, MONO, label, pts, max }) {
   );
 }
 
-export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watchlistSymbols, setActiveTab, setTerminalSymbol, alpacaPositions }) {
+export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watchlistSymbols, setActiveTab, setTerminalSymbol, alpacaPositions, isMobile }) {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -77,6 +77,15 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
   const [showDeep, setShowDeep] = useState(false);
   const [deepTab, setDeepTab] = useState("technical");
   const [showWhy, setShowWhy] = useState(false);
+  // Mobile Progressive Disclosure (2026-08-23) — the WHY/BUY PRICE/SETUP/
+  // LEVELS/TRIM/RISK block is collapsed by default on mobile (nothing
+  // else about the layout changes — no reordering, desktop unaffected)
+  // so a phone screen reaches the real verdict cards without a long
+  // scroll first. detailVisible stays permanently true whenever isMobile
+  // is false, matching MobileHomeGrid.jsx's "mobile gets a different
+  // view, desktop unchanged" precedent, just applied at section level.
+  const [showDetail, setShowDetail] = useState(false);
+  const detailVisible = !isMobile || showDetail;
   const [track, setTrack] = useState(null); // real global forward-return log, fetched once
   // Cortex Follow-Up Memory (2026-08-23) — real conversation thread for
   // the currently-analyzed symbol only; reset on every new analyzeSymbol
@@ -446,6 +455,13 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
             </div>
 
             <div style={{ padding: 18 }}>
+              {isMobile && (
+                <button onClick={() => setShowDetail((v) => !v)} style={{ width: "100%", fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent, background: `${C.accent}12`, border: `1px solid ${C.accent}55`, borderRadius: 8, cursor: "pointer", padding: "9px 0", marginBottom: 14 }}>
+                  {showDetail ? "▴ HIDE DETAIL" : "▾ SHOW DETAIL (why, entry levels, risk & more)"}
+                </button>
+              )}
+              {detailVisible && (
+              <>
               {/* WHY */}
               <div style={{ marginBottom: 14 }}>
                 <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textDim, marginBottom: 4 }}>WHY</div>
@@ -513,6 +529,8 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
                 <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: heat.color }}>{heat.icon} {heat.label}</div>
                 <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.textSec, marginTop: 3 }}>{heat.reason}</div>
               </div>
+              </>
+              )}
 
               {/* MASTER VERDICT — the real am-core-engine.js verdict, same
                   engine driving the Workspace banner, Scanner grade,

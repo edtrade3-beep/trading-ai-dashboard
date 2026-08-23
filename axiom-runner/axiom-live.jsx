@@ -7422,7 +7422,7 @@ export default function App() {
       {activeTab === "cortex" && (
         <AMCortexTab C={C} MONO={MONO} SANS={SANS} macroData={macroData} sectorData={sectorData}
           watchlistSymbols={watchlistSymbols} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol}
-          alpacaPositions={alpacaPositions} />
+          alpacaPositions={alpacaPositions} isMobile={isMobile} />
       )}
       {activeTab === "rhpro-heat" && <RhProHeatMap C={C} MONO={MONO} SANS={SANS} sectorData={sectorData} macroData={macroData} />}
       {activeTab === "rhpro-journal" && <RhProJournal C={C} MONO={MONO} SANS={SANS} />}
