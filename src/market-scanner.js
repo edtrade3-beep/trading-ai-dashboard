@@ -477,6 +477,63 @@ function determineSignal(a, cfg) {
   return null;
 }
 
+// ── Real Core Engine gate for automated execution (Tradier Autoexec
+// Migration, 2026-08-23) ─────────────────────────────────────────────────
+//
+// determineSignal() above is a real, independent technical classifier off
+// this file's own hand-built composite (custom EMA/RSI/RVOL, not the
+// Minervini trend-template pipeline am-core-engine.js's computeCoreScore
+// relies on) — exactly the kind of "old BUY condition, independent of the
+// Master Engine" the user's own architecture spec forbids for automated
+// execution. maybeAutoExecute() (routes/autoexec.js) trusts whatever
+// signal it's given and only applies real risk guardrails (mode gate,
+// score/RVOL thresholds, daily-loss breaker, position/sector caps) — it
+// never re-validates the signal itself, so this is the one place that
+// needs a real check. Reuses the exact real pipeline already proven in
+// watchlist-setup-alerts.js/market-auto-watchlist.js (Phase 6 of the One
+// Engine Migration) rather than inventing a new recipe. Long-only —
+// SELL/short stays on determineSignal's existing logic (Core Engine has
+// no short-side implementation this session, and routes/autoexec.js's
+// own allowShorts already defaults false, so that path is inactive
+// unless a user has explicitly opted in — a disclosed, separate boundary,
+// same as the Alpaca Autopilot migration's).
+async function checkCoreEngineBuy(sym) {
+  try {
+    const { screenTrendTemplate, fetchMarketQuotes } = require("./routes/market");
+    const { resolveProviderKeys } = require("./config");
+    const { buildEvFromRow } = require("./watchlist-setup-alerts");
+    const { computeEntryPlan } = require("./entry-engine");
+    const { computeRedFlags } = require("./red-flag-engine");
+    const { computeRegime, regimeToEntryVocabulary, computeAPlusScore } = require("./trade-planner-scoring");
+    const { computeCoreScore, classifyCoreVerdict } = require("./am-core-engine");
+
+    const macroRows = await fetchMarketQuotes(["SPY", "QQQ", "VIXY"], resolveProviderKeys(new URLSearchParams())).catch(() => []);
+    const regime = computeRegime(Array.isArray(macroRows) ? macroRows : []);
+    const rows = await screenTrendTemplate([sym]).catch(() => []);
+    const row = rows[0];
+    if (!row || row.error) return false;
+
+    const ev = buildEvFromRow(row, regimeToEntryVocabulary(regime.label));
+    const entryPlan = computeEntryPlan(ev);
+    const redFlagResult = computeRedFlags(ev);
+    const { score: entryScore } = computeAPlusScore(row, regime);
+    const coreScore = computeCoreScore({
+      passCount: row.passCount, rsRating: row.rsRating, momentum: row.momentum,
+      stage: row.stage, volRatio: row.volRatio, regime, sectorInfo: null,
+      adx: null, smc: row.smc, epsGrowth: row.epsGrowth, vcpScore: row.vcpScore,
+      riskPct: row.riskPct, pctFromHigh: row.pctFromHigh, antiChase: ev.antiChase,
+      optionsFlow: null, dollarVolume: row.dollarVolume,
+    });
+    const deep = classifyCoreVerdict({
+      score: coreScore.score, entryPlan, redFlagResult,
+      stage: row.stage, dailyBias: ev.dailyBias, entryScore, hasPosition: false,
+    });
+    return redFlagResult.criticalCount === 0 && ["EARLY_BUY", "BUY"].includes(deep.verdict);
+  } catch {
+    return false; // fail closed — never auto-execute on a real error, same discipline as every other real gate in this app
+  }
+}
+
 // ── Duplicate guard ───────────────────────────────────────────────────────────
 
 function isDuplicate(symbol, signal, cooldownHours) {
@@ -674,6 +731,17 @@ async function runScan(options = {}) {
       const signal = determineSignal(a, cfg);
       if (!signal) continue;
       if (isDuplicate(sym, signal, cfg.cooldownHours)) continue;
+
+      // Real Core Engine gate (Tradier Autoexec Migration, 2026-08-23) —
+      // a long-side signal from this file's own independent classifier
+      // can never fire a real alert/auto-execute without also clearing
+      // the same real verdict engine (am-core-engine.js) driving every
+      // other real BUY signal in this app. Gated before recordSignal/
+      // enqueueScanAlert/Telegram too, not just before maybeAutoExecute —
+      // a signal Core Engine rejects shouldn't fire a "real" BUY alert
+      // either. SELL/short is unaffected (see checkCoreEngineBuy's own
+      // header comment for why).
+      if (signal === "BUY" && !(await checkCoreEngineBuy(sym))) continue;
 
       recordSignal(sym, signal);
       const hit = {
