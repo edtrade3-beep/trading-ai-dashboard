@@ -17,6 +17,7 @@
  *   /scanner interval 5
  *   /scanner symbols
  *   /deals [query]     — top deals from the deals finder
+ *   /athan             — real prayer schedule + countdown to next (alias: /prayer)
  */
 
 const { TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID } = require("./config");
@@ -28,6 +29,7 @@ const { fetchYahooBars, fetchYahooChartMeta, fetchYahooQuoteBatch } = require(".
 const { fetchTrending: stTrending, fetchSentiment: stSentiment }    = require("./providers/stocktwits");
 const { fetchFinanceNews, fetchTechNews, fetchAllNews, fetchSubreddit: fetchRedditSub, FINANCE_SUBS, TECH_SUBS } = require("./providers/reddit-news");
 const { withTimeout, round2 }                    = require("./utils");
+const { formatScheduleMessage: formatPrayerSchedule } = require("./prayer-times");
 
 const API = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`;
 
@@ -272,6 +274,9 @@ async function cmdHelp() {
     "\n🛒 DEALS\n" +
     "/deals                top deals from Reddit + SlickDeals\n" +
     "/deals laptop         search specific product\n" +
+    "\n🕌 PRAYER TIMES\n" +
+    "/athan                today's real prayer schedule + countdown to next  (alias: /prayer)\n" +
+    "(auto-alert at each of the 5 daily prayer times, no command needed)\n" +
     "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
     "/help — show this page"
   );
@@ -1258,6 +1263,11 @@ const COMMANDS = {
   accumulation:() => cmdFind(["institutional"]),
   news:      (a) => cmdNews(a),
   wsb:       ()  => cmdNews(["wallstreetbets"]),
+
+  // /athan — real, on-demand prayer schedule (2026-08-23, explicit user
+  // request), same real Aladhan data the auto-alert background job uses.
+  athan:     async () => reply(await formatPrayerSchedule()),
+  prayer:    async () => reply(await formatPrayerSchedule()),
 
   // ── New Pro Commands ──────────────────────────────────────────────────────
   score: async (args) => {

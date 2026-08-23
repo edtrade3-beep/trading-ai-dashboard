@@ -471,6 +471,13 @@ server.listen(PORT, HOST, () => {
   registerJob("Day-Trade Autopilot", 90_000, () => require("./src/autopilot-tick").tickAutopilot());
   console.log("[Autopilot] Day-trade tick active — every 90s (ALERT mode only, no order execution), market hours only");
 
+  // Prayer Notification (2026-08-23, explicit user request: "wire the
+  // Athan feature to Telegram") — real Telegram alert at each of the 5
+  // daily prayer times, off the same real Aladhan API the browser-based
+  // Athan feature already uses, so it fires regardless of whether the app
+  // is open. No market-hours gate — prayer times run every day.
+  registerJob("Prayer Notification", 60_000, () => require("./src/prayer-times").tickPrayerNotify());
+
   // Morning digest — once-daily consolidated Telegram summary of the 9
   // "opportunity" detection jobs above (explicit user request, 2026-08-14:
   // "consolidate the alerts into one morning digest" for a professional
