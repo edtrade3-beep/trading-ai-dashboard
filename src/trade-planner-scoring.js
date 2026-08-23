@@ -30,6 +30,24 @@ function computeRegime(macroData) {
   return { score, label, color, factors, vixVal, sixBand };
 }
 
+// Maps computeRegime's real GREEN/YELLOW/ORANGE/RED vocabulary down to
+// entry-engine.js's real RISK_ON/RISK_OFF/NEUTRAL vocabulary (Master
+// Build Spec phase 5, 2026-08-23). NOT the same mapping as
+// DashboardTab.jsx's regimeLabelToEntryVocabulary (Unified Trading
+// System phase 8) — that one maps FROM computeRegimeLabel's different
+// real vocabulary (RISK ON/RISK OFF/CHOP/CAUTIOUS BULL/DEFENSIVE), a
+// genuinely different formula with different inputs/thresholds (see the
+// phase 8 audit — these two regime formulas are deliberately kept
+// separate, not consolidated). This one exists because server-side alert
+// files (e.g. watchlist-setup-alerts.js) only ever call computeRegime
+// (this file), never computeRegimeLabel (client-only, DashboardTab.jsx) —
+// no prior mapping bridged this specific vocabulary pair server-side.
+function regimeToEntryVocabulary(label) {
+  if (label === "RED") return "RISK_OFF";
+  if (label === "GREEN") return "RISK_ON";
+  return "NEUTRAL"; // YELLOW or ORANGE
+}
+
 function computeAPlusScore(row, regime) {
   const passCount = Number(row?.passCount || 0);
   const regimeScore = Number(regime?.score ?? 0);
@@ -91,4 +109,4 @@ function computeNextAction(row) {
   return { action: "WAIT", color: "#94a3b8", reason: "Not yet actionable — no clean entry right now." };
 }
 
-module.exports = { computeRegime, computeAPlusScore, computeNextAction };
+module.exports = { computeRegime, regimeToEntryVocabulary, computeAPlusScore, computeNextAction };
