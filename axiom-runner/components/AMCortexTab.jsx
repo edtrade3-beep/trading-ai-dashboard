@@ -342,6 +342,42 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
   const analyzeFromList = (symbol) => { setQuery(symbol); analyzeSymbol(symbol, false); };
   const openChart = (symbol) => { try { localStorage.setItem("mterminal_load_sym", symbol); } catch {} setTerminalSymbol && setTerminalSymbol(symbol); setActiveTab && setActiveTab("mterminal"); };
 
+  // Trade Plan handoff (2026-08-23) — reuses TradePlannerTab.jsx's own
+  // real, already-working localStorage contract (7 other components
+  // already write it: GreenLightTab, MarketTerminalTab,
+  // SmartMoneyDecisionPanel, terminal-panels, SmartScanTab,
+  // TopOpportunityCard, BearishSetups — Cortex was the one notable
+  // absence). Only ever writes a real plan when entry/stop are the same
+  // real, valid numbers TradePlannerTab's own hasRealPlan gate (entry >
+  // stop) would accept — never a plan its own gate would reject. When
+  // there's no real valid setup yet (e.g. AVOID), falls back to the
+  // honest symbol-only handoff, same as BearishSetups.jsx's existing
+  // precedent, so the planner still gets a real symbol and runs its own
+  // real ATR-based levels instead of a fabricated "loaded from Cortex" claim.
+  const openTradePlan = (symbol, priceToPay, aplusScore) => {
+    const entry = Number(priceToPay?.breakoutEntry);
+    const stop = Number(priceToPay?.invalidation);
+    const target = Number(priceToPay?.target);
+    try {
+      if (Number.isFinite(entry) && Number.isFinite(stop) && entry > stop) {
+        localStorage.setItem("tradeplanner_load_plan", JSON.stringify({
+          symbol, entry, stop, target: Number.isFinite(target) ? target : null,
+          aplus: aplusScore || null, next: null, source: "Cortex",
+        }));
+      } else {
+        localStorage.setItem("tradeplanner_load_sym", symbol);
+      }
+    } catch {}
+    setActiveTab && setActiveTab("tradeplanner");
+  };
+
+  // Options handoff (2026-08-23) — reuses the exact same real
+  // `terminalSymbol` mechanism OptionsChainTab/GammaLabTab/
+  // VolatilityLabTab already resolve their `defaultSymbol` prop from at
+  // mount time (no dedicated options handoff key exists anywhere in the
+  // codebase to reuse instead — confirmed by research).
+  const openOptions = (symbol) => { setTerminalSymbol && setTerminalSymbol(symbol); setActiveTab && setActiveTab("options"); };
+
   // External "open this symbol" trigger (2026-08-12, consolidation —
   // "make Cortex the one decision layer, fold the rest into its Deep Scan
   // as evidence"). Same real localStorage handoff convention this app
@@ -600,12 +636,18 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
                 <ScoreBar C={C} MONO={MONO} label="VCP Setup Score" pts={aplus.breakdown.vcpPts} max={15} />
               </div>
 
-              <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-                <button onClick={() => setShowDeep((v) => !v)} style={{ flex: 1, fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "10px 0", borderRadius: 8, border: `1px solid #d6a312`, color: "#d6a312", background: "#d6a31214", cursor: "pointer" }}>
+              <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+                <button onClick={() => setShowDeep((v) => !v)} style={{ flex: 1, minWidth: 120, fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "10px 0", borderRadius: 8, border: `1px solid #d6a312`, color: "#d6a312", background: "#d6a31214", cursor: "pointer" }}>
                   🔬 {showDeep ? "HIDE DEEP SCAN" : "DEEP SCAN"}
                 </button>
-                <button onClick={() => openChart(symbol)} style={{ flex: 1, fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "10px 0", borderRadius: 8, border: "none", color: "#fff", background: C.accent, cursor: "pointer" }}>
+                <button onClick={() => openChart(symbol)} style={{ flex: 1, minWidth: 120, fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "10px 0", borderRadius: 8, border: "none", color: "#fff", background: C.accent, cursor: "pointer" }}>
                   📈 CHART
+                </button>
+                <button onClick={() => openTradePlan(symbol, priceToPay, aplus)} style={{ flex: 1, minWidth: 120, fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "10px 0", borderRadius: 8, border: `1px solid ${C.border}`, color: C.textSec, background: "transparent", cursor: "pointer" }}>
+                  📋 TRADE PLAN
+                </button>
+                <button onClick={() => openOptions(symbol)} style={{ flex: 1, minWidth: 120, fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "10px 0", borderRadius: 8, border: `1px solid ${C.border}`, color: C.textSec, background: "transparent", cursor: "pointer" }}>
+                  📉 OPTIONS
                 </button>
               </div>
 
