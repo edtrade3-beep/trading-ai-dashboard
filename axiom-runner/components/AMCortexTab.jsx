@@ -519,6 +519,39 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
                 })()}
               </div>
 
+              {/* SNIPER TIMING (2026-08-23) — Sniper's own real, narrow
+                  entry-timing verdict (ENTER_LONG/WAIT/NO_CHASE/AVOID,
+                  sniper-decision.js), first-class and visible for the
+                  first time in this app rather than only feeding Cortex
+                  Verdict/Master Verdict as an invisible input. Same
+                  "additive, clearly labeled, never blended" discipline as
+                  Master Verdict vs. Cortex Verdict above — one tier below
+                  Cortex Verdict's own border weight since this is the
+                  narrowest, most tactical of the three real reads. No
+                  entry/stop/target numbers here — those already live in
+                  LEVELS below (priceToPay, itself derived from this same
+                  sniper object) and a second set would just confuse, not
+                  add. */}
+              <div style={{ background: `${sniper.meta.color}0d`, border: `1px solid ${sniper.meta.color}55`, borderRadius: 12, padding: 16, textAlign: "center", marginBottom: 10 }}>
+                <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textDim, marginBottom: 4 }}>SNIPER TIMING</div>
+                <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, marginBottom: 6 }}>Real-time entry-trigger read — should you press the button right now, not a business-quality verdict</div>
+                <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: sniper.meta.color }}>{sniper.meta.icon} {sniper.meta.label}</div>
+                <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.textSec, marginTop: 6, lineHeight: 1.5 }}>{sniper.reason}</div>
+                {sniper.waitingFor && (
+                  <div style={{ fontFamily: SANS, fontSize: 12, fontStyle: "italic", color: C.textDim, marginTop: 6 }}>→ Waiting for: {sniper.waitingFor}</div>
+                )}
+                {!!sniper.reasons?.length && (
+                  <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px dashed ${sniper.meta.color}33`, textAlign: "left" }}>
+                    {sniper.reasons.map((r, i) => (
+                      <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 7, fontFamily: SANS, fontSize: 11.5, padding: "2px 0" }}>
+                        <span style={{ color: r.ok ? "#0d9465" : "#c8282a", fontWeight: 900, flexShrink: 0 }}>{r.ok ? "✓" : "✗"}</span>
+                        <span style={{ color: C.textSec }}>{r.text}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <button onClick={() => setShowWhy((v) => !v)} style={{ width: "100%", fontFamily: MONO, fontSize: 10.5, fontWeight: 800, color: C.textSec, background: "transparent", border: "none", cursor: "pointer", padding: "4px 0", marginBottom: 8 }}>
                 WHY? {showWhy ? "▴" : "▾"}
               </button>
