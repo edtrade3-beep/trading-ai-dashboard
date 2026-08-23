@@ -47,6 +47,9 @@ const STORE_PATH = path.join(ROOT, "data", "watchlist-setup-state.json");
 // The real "actionable BUY-family" decisions classifyDeepScanDecision can
 // return — excludes AVOID/EXTENDED/WAIT. Matches this function's own
 // naming (every alert-worthy state literally has "BUY" in its name).
+// Exported and reused directly by watchlist-sniper-alerts.js (Master
+// Build Spec phase 7) — one real list, not two independently-maintained
+// copies.
 const ACTIONABLE_DECISIONS = new Set(["BUY", "A_PLUS_EARLY_BUY", "PULLBACK_BUY"]);
 
 function loadState() {
@@ -161,4 +164,4 @@ async function checkWatchlistSetupAlerts() {
   return { ok: true, checked: symbols.length, alerts };
 }
 
-module.exports = { checkWatchlistSetupAlerts, buildEvFromRow, shouldAlert };
+module.exports = { checkWatchlistSetupAlerts, buildEvFromRow, shouldAlert, ACTIONABLE_DECISIONS };

@@ -1,47 +1,88 @@
-// watchlist-sniper-alerts.js — real Telegram alert when a tracked symbol's
-// AI Sniper verdict (ENTER LONG / WAIT / NO CHASE / AVOID, see
-// src/sniper-decision.js) changes state. Explicit user request (2026-08-10,
-// 2026-08-11): "wire AI Sniper Scanner Pro in Telegram... when to get out
-// before stock goes down and get in before stock goes up" — then widened
-// further the same day ("I DONT WANT TO THINK TOO MUCH I WANT PLATFORM TO
-// WORK ME" / "THE SYSTEM TELL ME EARLY OR ON TIME BUY SELL EARLY OR ON
-// TIME"): a curated Watchlist alone could miss a real ENTER_LONG on a
-// symbol the user simply hadn't added yet. Scope is now the union of the
-// user's real Watchlist and the full ~100-symbol scan universe
-// (SCAN_UNIVERSE) — same real "watchlist + SCAN_UNIVERSE" union pattern
-// src/adol22-scanner.js already established for the identical reason,
-// reused here rather than inventing a second one. Market hours only.
+// watchlist-sniper-alerts.js — real Telegram alerts when a tracked symbol
+// (Watchlist ∪ SCAN_UNIVERSE) reaches a real, unified BUY-family decision,
+// or when a symbol that had reached one now shows GET-OUT risk. Explicit
+// user request (2026-08-10, 2026-08-11): "wire AI Sniper Scanner Pro in
+// Telegram... when to get out before stock goes down and get in before
+// stock goes up" — then widened further the same day ("I DONT WANT TO
+// THINK TOO MUCH I WANT PLATFORM TO WORK ME" / "THE SYSTEM TELL ME EARLY
+// OR ON TIME BUY SELL EARLY OR ON TIME"): a curated Watchlist alone could
+// miss a real entry on a symbol the user simply hadn't added yet. Scope is
+// the union of the user's real Watchlist and the full ~100-symbol scan
+// universe (SCAN_UNIVERSE) — same real "watchlist + SCAN_UNIVERSE" union
+// pattern src/adol22-scanner.js already established, reused here rather
+// than inventing a second one. Market hours only.
+//
+// Migrated off computeSniperDecision (Master Build Spec phase 7,
+// 2026-08-23) — the old pre-unification verdict engine (ENTER_LONG/WAIT/
+// NO_CHASE/AVOID). A prior audit assumed this migration would need real
+// 4H/1H MTF data fetched for ~100-150 symbols (a real cost/latency
+// tradeoff) — that assumption was wrong: Phase 5 already proved a real,
+// honest daily-only pipeline works here (classifyDeepScanDecision, src/
+// btc-hpc-scan.js, reads purely off computeEntryPlan's stage/entryPrice +
+// a quality score, zero MTF dependency). Reuses Phase 5's exact
+// already-built, already-tested ev-construction (buildEvFromRow),
+// actionable-decision set, and transition check (shouldAlert), all
+// imported from watchlist-setup-alerts.js rather than duplicated — one
+// real calculation, not two independently-maintained copies (spec §14).
 //
 // Two real transitions fire an alert:
-//   BUY      — verdict newly becomes ENTER_LONG (get in before it goes up).
-//   GET OUT  — verdict moves from ENTER_LONG to NO_CHASE or AVOID (a live
-//              opportunity is now flashing exhaustion/breakdown risk — get
-//              out before it goes down). A plain WAIT/AVOID transition that
-//              never passed through ENTER_LONG isn't a "get out" — nothing
-//              was ever a live entry to exit.
-// First-ever check for a symbol seeds its baseline silently (no alert),
-// same convention watchlist-turn-alerts.js uses — otherwise every symbol
-// would "turn" on the very first run after a deploy.
+//   BUY      — decision newly reaches an actionable BUY-family state
+//              (BUY/A_PLUS_EARLY_BUY/PULLBACK_BUY) with zero critical red
+//              flags (spec §8-9's "never hidden by a good decision").
+//   GET OUT  — decision moves from an actionable state to AVOID (real
+//              structural break/failed breakout) or EXTENDED (confirmed
+//              breakout but too far extended to chase) — the new
+//              pipeline's real equivalents of the old NO_CHASE/AVOID
+//              pair. A transition that never passed through an actionable
+//              state isn't a "get out" — nothing was ever a live entry.
+// First-ever check for a symbol seeds its baseline silently, same
+// convention watchlist-turn-alerts.js/watchlist-setup-alerts.js use.
+//
+// Known, pre-existing, disclosed overlap (not introduced by this
+// migration): a watchlist symbol can trigger a similarly-worded BUY alert
+// from both this file and watchlist-setup-alerts.js — the same real
+// overlap existed before either file's migration, just via two different
+// old formulas. Not deduplicated here — this file's own real, unique
+// value (the wider SCAN_UNIVERSE, and the GET OUT transition) stays
+// intact regardless.
 "use strict";
 
 const path = require("node:path");
-const { ROOT } = require("./config");
+const { ROOT, PORT, resolveProviderKeys } = require("./config");
 const { writeJsonAtomic, readJsonSafe } = require("./atomic-write");
 const { isConfigured: telegramConfigured } = require("./telegram");
 const { pushDigestLines } = require("./alert-buffer");
 const { loadWatchlist } = require("./routes/watchlist");
 const { isMarketHoursET } = require("./risk-guardrails");
-const { computeSniperDecision } = require("./sniper-decision");
-const { PORT } = require("./config");
+const { computeEntryPlan } = require("./entry-engine");
+const { computeRedFlags } = require("./red-flag-engine");
+const { classifyDeepScanDecision } = require("./btc-hpc-scan");
+const { buildEvFromRow, shouldAlert, ACTIONABLE_DECISIONS } = require("./watchlist-setup-alerts");
 
 const STORE_PATH = path.join(ROOT, "data", "watchlist-sniper-actions.json");
 const BASE = () => process.env.RENDER_EXTERNAL_URL || `http://127.0.0.1:${PORT}`;
+
+// Real GET-OUT decisions — a symbol that was actionable and is now one of
+// these has real, structural reasons to reconsider (structure broken/
+// failed breakout -> AVOID; confirmed breakout but too extended to chase
+// -> EXTENDED). The new pipeline's equivalents of the old NO_CHASE/AVOID
+// pair.
+const GET_OUT_DECISIONS = new Set(["AVOID", "EXTENDED"]);
 
 function loadActions() {
   return readJsonSafe(STORE_PATH, {});
 }
 function saveActions(v) {
   writeJsonAtomic(STORE_PATH, v);
+}
+
+// Real, pure, per-symbol transition check. lastDecision == null seeds
+// silently (no prior baseline). Returns "buy", "exit", or null.
+function classifyTransition(lastDecision, decision, criticalFlagCount) {
+  if (lastDecision == null) return null;
+  if (shouldAlert(lastDecision, decision, criticalFlagCount)) return "buy";
+  if (ACTIONABLE_DECISIONS.has(lastDecision) && GET_OUT_DECISIONS.has(decision)) return "exit";
+  return null;
 }
 
 async function checkWatchlistSniperTurns() {
@@ -52,8 +93,15 @@ async function checkWatchlistSniperTurns() {
   const symbols = [...new Set([...(watchlistSymbols || []), ...SCAN_UNIVERSE])];
   if (!symbols.length) return { ok: true, checked: 0, turns: [] };
 
-  let screenWatchlistCached;
-  try { ({ screenWatchlistCached } = require("./routes/market")); } catch { return { ok: false, checked: 0, turns: [] }; }
+  let screenWatchlistCached, fetchMarketQuotes, computeRegime, regimeToEntryVocabulary, computeAPlusScore;
+  try {
+    ({ screenWatchlistCached, fetchMarketQuotes } = require("./routes/market"));
+    ({ computeRegime, regimeToEntryVocabulary, computeAPlusScore } = require("./trade-planner-scoring"));
+  } catch { return { ok: false, checked: 0, turns: [] }; }
+
+  const macroRows = await fetchMarketQuotes(["SPY", "QQQ", "VIXY"], resolveProviderKeys(new URLSearchParams())).catch(() => []);
+  const regime = computeRegime(Array.isArray(macroRows) ? macroRows : []);
+  const marketRegime = regimeToEntryVocabulary(regime.label);
 
   const prev = loadActions();
   const next = { ...prev };
@@ -63,29 +111,32 @@ async function checkWatchlistSniperTurns() {
   for (const row of rows) {
     if (row.error) continue;
     const symbol = row.symbol;
-    const d = computeSniperDecision(row);
-    const action = d.action;
-    if (!action) continue;
+    const ev = buildEvFromRow(row, marketRegime);
+    const entryPlan = computeEntryPlan(ev);
+    const redFlagResult = computeRedFlags(ev);
+    const { score: aPlusScore } = computeAPlusScore(row, regime);
+    const deep = classifyDeepScanDecision({ entryPlan, aPlusScore });
     const last = prev[symbol];
-    next[symbol] = action;
-    if (!last || last === action) continue; // no prior baseline (seed silently) or unchanged
 
-    if (action === "ENTER_LONG") {
-      turns.push({ symbol, direction: "buy", from: last, to: action, d });
-    } else if (last === "ENTER_LONG" && (action === "NO_CHASE" || action === "AVOID")) {
-      turns.push({ symbol, direction: "exit", from: last, to: action, d });
+    const transition = classifyTransition(last, deep.decision, redFlagResult.criticalCount);
+    next[symbol] = deep.decision;
+    if (transition === "buy") {
+      turns.push({ symbol, direction: "buy", from: last, to: deep.decision, entryPlan, reason: deep.reason });
+    } else if (transition === "exit") {
+      turns.push({ symbol, direction: "exit", from: last, to: deep.decision, reason: deep.reason });
     }
   }
 
   saveActions(next);
 
   if (turns.length) {
+    const fmt = (v) => Number.isFinite(v) ? `$${Number(v).toFixed(2)}` : "—";
     const lines = turns.map((t) => {
       const url = `${BASE()}/?symbol=${encodeURIComponent(t.symbol)}&open=sniper`;
       if (t.direction === "buy") {
-        return `🟢 ${t.symbol} — ENTER LONG (was ${t.from === "ENTER_LONG" ? "—" : t.from}): ${t.d.reason}${t.d.entry != null ? ` · Entry $${t.d.entry.toFixed(2)} · Stop $${t.d.stop.toFixed(2)} · Target $${t.d.target2?.toFixed(2) ?? "—"}${t.d.rr != null ? ` · R:R ${t.d.rr.toFixed(1)}:1` : ""}` : ""} · ${url}`;
+        return `🟢 ${t.symbol} — ${t.to.replace(/_/g, " ")} (was ${t.from}): ${t.reason} · Entry ${fmt(t.entryPlan.entryPrice)} · Stop ${fmt(t.entryPlan.stop)} · Target ${fmt(t.entryPlan.target1)} · ${url}`;
       }
-      return `🟠 ${t.symbol} — GET OUT WARNING (${t.to === "AVOID" ? "AVOID" : "NO CHASE"}, was ENTER LONG): ${t.d.reason} · ${url}`;
+      return `🟠 ${t.symbol} — GET OUT WARNING (${t.to}, was ${t.from}): ${t.reason} · ${url}`;
     });
     pushDigestLines("watchlist-sniper", "🎯 AI SNIPER", lines);
   }
@@ -93,4 +144,4 @@ async function checkWatchlistSniperTurns() {
   return { ok: true, checked: symbols.length, turns };
 }
 
-module.exports = { checkWatchlistSniperTurns };
+module.exports = { checkWatchlistSniperTurns, classifyTransition };
