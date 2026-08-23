@@ -69,7 +69,7 @@ function ScoreBar({ C, MONO, label, pts, max }) {
   );
 }
 
-export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watchlistSymbols, setActiveTab, setTerminalSymbol }) {
+export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watchlistSymbols, setActiveTab, setTerminalSymbol, alpacaPositions }) {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -100,6 +100,28 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
     const info = ranked.find((se) => se.symbol === etf);
     return rank > 0 ? { name: info?.name || etf, rank, of: ranked.length, chg: info?.chg } : null;
   };
+
+  // Real, compact portfolio summary (Cortex Screen-Context Awareness,
+  // 2026-08-23) — off the same real, already-polled `alpacaPositions`
+  // (axiom-live.jsx's top-level 60s Alpaca positions poll, threaded in as
+  // a prop, zero new fetch here). Summarized rather than sent raw so the
+  // follow-up prompt stays small. `count: 0` on a genuinely empty real
+  // portfolio, never omitted/null — that would read as "no data" to the
+  // model instead of the true "zero open positions."
+  function summarizePortfolio(positions, symbol) {
+    const list = Array.isArray(positions) ? positions : [];
+    const totalUnrealizedPL = list.reduce((s, p) => s + (Number(p.unrealizedPL) || 0), 0);
+    const mine = list.find((p) => p.symbol === symbol) || null;
+    return {
+      count: list.length,
+      totalUnrealizedPL: +totalUnrealizedPL.toFixed(2),
+      heldSymbols: list.map((p) => p.symbol),
+      holdsAnalyzedSymbol: !!mine,
+      analyzedSymbolPosition: mine
+        ? { qty: mine.qty, avgEntry: mine.avgEntry, current: mine.current, unrealizedPL: mine.unrealizedPL, unrealizedPLpc: mine.unrealizedPLpc, side: mine.side }
+        : null,
+    };
+  }
 
   // Real, reusable per-symbol analysis (Cortex Stock Comparison, 2026-08-23)
   // — extracted out of analyzeSymbol so single-symbol analysis and
@@ -248,11 +270,25 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
   // Cortex Follow-Up Memory (2026-08-23) — real, grounded answer off the
   // already-computed result for the current symbol, never a re-analysis.
   // Only called when result?.type === "symbol" (checked by the caller).
+  //
+  // Screen-Context Awareness (2026-08-23) — always includes real market
+  // regime + portfolio (both free, already in scope — no new fetch) and
+  // always live-fetches real day-trade Autopilot status + ticker news
+  // (cheap, local, parallel) so a follow-up can honestly answer "how's my
+  // portfolio," "what has autopilot done," "any recent news" — same
+  // "always send the full real block, let the model use what's relevant"
+  // pattern the existing single-symbol fields already use. Best-effort:
+  // either fetch failing degrades that one section to null, never blocks
+  // the rest of the answer.
   async function askFollowUp(question) {
     const userTurn = { role: "user", content: question };
     setConversation((c) => [...c, userTurn]);
     setFollowUpLoading(true);
     try {
+      const [autopilotJ, newsJ] = await Promise.all([
+        fetch("/api/autopilot/status").then((r) => r.json()).catch(() => null),
+        fetch(`/api/news/ticker/${encodeURIComponent(result.symbol)}`).then((r) => r.json()).catch(() => null),
+      ]);
       const data = {
         symbol: result.symbol, price: result.row?.price,
         coreVerdict: result.row?.coreVerdict, coreReason: result.row?.coreReason,
@@ -266,6 +302,15 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
         entryTarget: result.priceToPay?.target, entryRR: result.priceToPay?.rr,
         trimLabel: result.trimSignal?.label, trimReason: result.trimSignal?.reason,
         evidence: result.evidence,
+        regime: regime ? { label: regime.label, score: regime.score } : null,
+        portfolio: summarizePortfolio(alpacaPositions, result.symbol),
+        autopilot: autopilotJ?.ok ? {
+          mode: autopilotJ.mode, dailyTrades: autopilotJ.dailyStats?.trades, dailyPl: autopilotJ.dailyStats?.pl,
+          readyCount: Object.values(autopilotJ.positions || {}).filter((p) => p.state === "ENTRY_READY").length,
+          recentActivity: (autopilotJ.activityLog || []).slice(0, 3).map((a) => a.note).filter(Boolean),
+        } : null,
+        news: newsJ?.ok ? { articleCount: newsJ.articleCount, trend: newsJ.trend, latestHeadline: newsJ.latestHeadline }
+          : (newsJ?.status === "DEGRADED" ? { degraded: true } : null),
       };
       const r = await fetch("/api/market/cortex-followup", {
         method: "POST", headers: { "Content-Type": "application/json" },

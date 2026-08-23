@@ -1960,6 +1960,69 @@ const AI_COPILOT_TOOLS = [
   },
 ];
 
+// Pure system-prompt builder for /api/market/cortex-followup — factored
+// out of the route handler (2026-08-23, Cortex Screen-Context Awareness)
+// so it's directly unit-testable without a real ANTHROPIC_API_KEY (the
+// route itself short-circuits before this ever runs when the key is
+// missing, which made the broader-context logic otherwise untestable
+// end-to-end). `d` is the client-sent real data block — see
+// AMCortexTab.jsx's askFollowUp for exactly what it contains.
+function buildCortexFollowupSystemPrompt(d) {
+  const evidenceList = (Array.isArray(d.evidence) ? d.evidence : []).slice(0, 8).map(e => `- ${e}`).join("\n") || "none";
+  const aplusReasons = (Array.isArray(d.aplusReasons) ? d.aplusReasons : []).slice(0, 8).map(e => `- ${e}`).join("\n") || "none";
+
+  // Broader Screen Context (Cortex Screen-Context Awareness, 2026-08-23)
+  // — real cross-tab data (market regime, real Alpaca portfolio, real
+  // day-trade Autopilot status, real ticker news) the client always
+  // sends alongside the single-symbol REAL DATA block above. Each line
+  // only appears when its real source actually resolved — an
+  // unresolved fetch (autopilot/news) means that field is simply
+  // `null` and its line is omitted, so the "say I don't have that
+  // data" instruction above still applies honestly if asked about it.
+  const contextLines = [];
+  if (d.regime) contextLines.push(`- Market regime: ${d.regime.label} (${d.regime.score}/100)`);
+  if (d.portfolio) {
+    const p = d.portfolio;
+    contextLines.push(`- Real portfolio (Alpaca): ${p.count} open position${p.count === 1 ? "" : "s"}, total unrealized P/L $${p.totalUnrealizedPL}${p.count ? ` — held: ${p.heldSymbols.join(", ")}` : ""}`);
+    if (p.holdsAnalyzedSymbol && p.analyzedSymbolPosition) {
+      const ap = p.analyzedSymbolPosition;
+      contextLines.push(`  You hold ${d.symbol}: ${ap.qty} sh @ avg $${ap.avgEntry}, current $${ap.current}, unrealized P/L $${ap.unrealizedPL} (${ap.unrealizedPLpc?.toFixed?.(1) ?? ap.unrealizedPLpc}%), ${ap.side}`);
+    } else {
+      contextLines.push(`  You do not currently hold ${d.symbol}.`);
+    }
+  }
+  if (d.autopilot) {
+    const a = d.autopilot;
+    contextLines.push(`- Real day-trade Autopilot: mode ${a.mode}, ${a.dailyTrades ?? 0} real trade(s) today, P/L $${a.dailyPl ?? 0}, ${a.readyCount ?? 0} signal(s) currently ENTRY_READY${a.recentActivity?.length ? `. Recent: ${a.recentActivity.join(" | ")}` : ""}`);
+  }
+  if (d.news) {
+    if (d.news.degraded) contextLines.push(`- Real news feed: unavailable right now (degraded).`);
+    else contextLines.push(`- Real recent news on ${d.symbol}: ${d.news.articleCount} article(s), trend ${d.news.trend}${d.news.latestHeadline ? `, latest: "${d.news.latestHeadline}"` : ""}`);
+  }
+  const contextBlock = contextLines.length ? `\n\nBROADER SCREEN CONTEXT (also real — use when relevant to the question):\n${contextLines.join("\n")}` : "";
+
+  return `You are AM Cortex, the conversational explainer layer inside AM Trading. You answer real follow-up questions about a stock the user already had analyzed — you do NOT re-analyze, you do NOT invent a number/fact that isn't in the REAL DATA block below, and you do NOT give investment advice framed as certainty. If the user asks about something not present in the data below, say plainly "I don't have that data" rather than guessing.
+
+Keep answers short and concrete. Default shape for a fresh question: ANSWER (one line) / WHY (one line) / WHAT MATTERS (one line) / NEXT ACTION (one line). For a short direct follow-up ("where's the pivot?"), just answer directly in 1-2 sentences — don't force the full 4-part shape on a one-fact question.
+
+Distinguish FACT (a real number/state from the data below) from INFERENCE (your own reasonable read) from SCENARIO (a possible future outcome) when relevant — don't present speculation as fact.
+
+REAL DATA for ${d.symbol || "this symbol"}:
+- Price: $${d.price ?? "?"}
+- MASTER VERDICT (Core Engine, the platform's one canonical verdict): ${d.coreVerdict || "unavailable"} — ${d.coreReason || "no reason recorded"}
+- CORTEX VERDICT (this screen's own specialized read, tracked separately): ${d.cortexVerdict || "unavailable"} — ${d.cortexReason || "no reason recorded"}
+- Heat/Risk: ${d.heatLabel || "unavailable"} — ${d.heatReason || "—"}
+- A+ Score: ${d.aplusScore ?? "?"}/100
+  Reasons:
+${aplusReasons}
+- Technical Score: ${d.technicalScore ?? "unavailable"}
+- Entry levels: current $${d.entryCurrent ?? "?"}, ideal entry $${d.entryLow ?? "?"}–$${d.entryHigh ?? "?"}, breakout entry $${d.entryBreakout ?? "?"}${d.entryPullback != null ? `, pullback entry $${d.entryPullback}` : ""}
+- Stop/invalidation: ${d.entryInvalidation ?? "unavailable"} · Target: ${d.entryTarget ?? "unavailable"} · R:R: ${d.entryRR ?? "unavailable"}
+- Trim signal: ${d.trimLabel || "none"} — ${d.trimReason || "—"}
+- Evidence:
+${evidenceList}${contextBlock}`;
+}
+
 async function handleMarket(req, res, requestUrl) {
   const { pathname, searchParams } = requestUrl;
 
@@ -2381,28 +2444,7 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
       .map(m => ({ role: m.role === "assistant" ? "assistant" : "user", content: String(m.content || "").slice(0, 1000) }))
       .filter(m => m.content);
 
-    const evidenceList = (Array.isArray(d.evidence) ? d.evidence : []).slice(0, 8).map(e => `- ${e}`).join("\n") || "none";
-    const aplusReasons = (Array.isArray(d.aplusReasons) ? d.aplusReasons : []).slice(0, 8).map(e => `- ${e}`).join("\n") || "none";
-    const system = `You are AM Cortex, the conversational explainer layer inside AM Trading. You answer real follow-up questions about a stock the user already had analyzed — you do NOT re-analyze, you do NOT invent a number/fact that isn't in the REAL DATA block below, and you do NOT give investment advice framed as certainty. If the user asks about something not present in the data below, say plainly "I don't have that data" rather than guessing.
-
-Keep answers short and concrete. Default shape for a fresh question: ANSWER (one line) / WHY (one line) / WHAT MATTERS (one line) / NEXT ACTION (one line). For a short direct follow-up ("where's the pivot?"), just answer directly in 1-2 sentences — don't force the full 4-part shape on a one-fact question.
-
-Distinguish FACT (a real number/state from the data below) from INFERENCE (your own reasonable read) from SCENARIO (a possible future outcome) when relevant — don't present speculation as fact.
-
-REAL DATA for ${d.symbol || "this symbol"}:
-- Price: $${d.price ?? "?"}
-- MASTER VERDICT (Core Engine, the platform's one canonical verdict): ${d.coreVerdict || "unavailable"} — ${d.coreReason || "no reason recorded"}
-- CORTEX VERDICT (this screen's own specialized read, tracked separately): ${d.cortexVerdict || "unavailable"} — ${d.cortexReason || "no reason recorded"}
-- Heat/Risk: ${d.heatLabel || "unavailable"} — ${d.heatReason || "—"}
-- A+ Score: ${d.aplusScore ?? "?"}/100
-  Reasons:
-${aplusReasons}
-- Technical Score: ${d.technicalScore ?? "unavailable"}
-- Entry levels: current $${d.entryCurrent ?? "?"}, ideal entry $${d.entryLow ?? "?"}–$${d.entryHigh ?? "?"}, breakout entry $${d.entryBreakout ?? "?"}${d.entryPullback != null ? `, pullback entry $${d.entryPullback}` : ""}
-- Stop/invalidation: ${d.entryInvalidation ?? "unavailable"} · Target: ${d.entryTarget ?? "unavailable"} · R:R: ${d.entryRR ?? "unavailable"}
-- Trim signal: ${d.trimLabel || "none"} — ${d.trimReason || "—"}
-- Evidence:
-${evidenceList}`;
+    const system = buildCortexFollowupSystemPrompt(d);
 
     try {
       const messages = [...history, { role: "user", content: question }];
@@ -5913,3 +5955,4 @@ module.exports.atrAt = atrAt; // exposed for daytrade-console-engine.js's real 1
 module.exports.ttSmaAt = ttSmaAt; // exposed for backtest-engine.js's point-in-time trend-template replay (same real SMA formula, just walked bar-by-bar over history)
 module.exports.ttWeightedMomentum = ttWeightedMomentum; // exposed for the same — the real IBD-style weighted-momentum formula behind the standalone RS Rating approximation
 module.exports.fetchMarketNews = fetchMarketNews; // exposed for src/news/provider.js's NewsProvider implementation — same real Finnhub->Polygon->Yahoo/Google chain this route already uses, not a second news fetch path
+module.exports.buildCortexFollowupSystemPrompt = buildCortexFollowupSystemPrompt; // exposed for direct unit testing — the route itself short-circuits before this runs when ANTHROPIC_API_KEY is missing
