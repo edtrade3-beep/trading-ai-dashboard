@@ -56,18 +56,20 @@ const { loadWatchlist } = require("./routes/watchlist");
 const { isMarketHoursET } = require("./risk-guardrails");
 const { computeEntryPlan } = require("./entry-engine");
 const { computeRedFlags } = require("./red-flag-engine");
-const { classifyDeepScanDecision } = require("./btc-hpc-scan");
+const { computeCoreScore, classifyCoreVerdict } = require("./am-core-engine");
 const { buildEvFromRow, shouldAlert, ACTIONABLE_DECISIONS } = require("./watchlist-setup-alerts");
 
 const STORE_PATH = path.join(ROOT, "data", "watchlist-sniper-actions.json");
 const BASE = () => process.env.RENDER_EXTERNAL_URL || `http://127.0.0.1:${PORT}`;
 
-// Real GET-OUT decisions — a symbol that was actionable and is now one of
-// these has real, structural reasons to reconsider (structure broken/
-// failed breakout -> AVOID; confirmed breakout but too extended to chase
-// -> EXTENDED). The new pipeline's equivalents of the old NO_CHASE/AVOID
-// pair.
-const GET_OUT_DECISIONS = new Set(["AVOID", "EXTENDED"]);
+// Real GET-OUT verdict — a symbol that was actionable and is now here has
+// a real, structural reason to reconsider. One Engine Migration Phase 6
+// (2026-08-23): was new Set(["AVOID", "EXTENDED"]) off the retired
+// classifyDeepScanDecision. classifyCoreVerdict's hard-gate cascade
+// collapses both structure-broken AND do-not-chase/extended into the
+// single AVOID_LONG verdict (different reason text, same verdict) — so
+// there's now one real GET-OUT state, not two.
+const GET_OUT_DECISIONS = new Set(["AVOID_LONG"]);
 
 function loadActions() {
   return readJsonSafe(STORE_PATH, {});
@@ -115,15 +117,26 @@ async function checkWatchlistSniperTurns() {
     const entryPlan = computeEntryPlan(ev);
     const redFlagResult = computeRedFlags(ev);
     const { score: aPlusScore } = computeAPlusScore(row, regime);
-    const deep = classifyDeepScanDecision({ entryPlan, aPlusScore });
+    const coreScore = computeCoreScore({
+      passCount: row.passCount, rsRating: row.rsRating, momentum: row.momentum,
+      stage: row.stage, volRatio: row.volRatio, regime, sectorInfo: null,
+      adx: null, smc: row.smc, epsGrowth: row.epsGrowth, vcpScore: row.vcpScore,
+      riskPct: row.riskPct, pctFromHigh: row.pctFromHigh, antiChase: ev.antiChase,
+      optionsFlow: null, dollarVolume: row.dollarVolume,
+    });
+    const deep = classifyCoreVerdict({
+      score: coreScore.score, entryPlan, redFlagResult,
+      stage: row.stage, dailyBias: ev.dailyBias, entryScore: aPlusScore,
+      hasPosition: false,
+    });
     const last = prev[symbol];
 
-    const transition = classifyTransition(last, deep.decision, redFlagResult.criticalCount);
-    next[symbol] = deep.decision;
+    const transition = classifyTransition(last, deep.verdict, redFlagResult.criticalCount);
+    next[symbol] = deep.verdict;
     if (transition === "buy") {
-      turns.push({ symbol, direction: "buy", from: last, to: deep.decision, entryPlan, reason: deep.reason });
+      turns.push({ symbol, direction: "buy", from: last, to: deep.verdict, entryPlan, reason: deep.reason });
     } else if (transition === "exit") {
-      turns.push({ symbol, direction: "exit", from: last, to: deep.decision, reason: deep.reason });
+      turns.push({ symbol, direction: "exit", from: last, to: deep.verdict, reason: deep.reason });
     }
   }
 

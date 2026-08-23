@@ -42,7 +42,7 @@ const { loadWatchlist } = require("./routes/watchlist");
 const { isMarketHoursET } = require("./risk-guardrails");
 const { computeEntryPlan } = require("./entry-engine");
 const { computeRedFlags } = require("./red-flag-engine");
-const { classifyDeepScanDecision } = require("./btc-hpc-scan");
+const { computeCoreScore, classifyCoreVerdict } = require("./am-core-engine");
 const { buildEvFromRow, shouldAlert, ACTIONABLE_DECISIONS } = require("./watchlist-setup-alerts");
 
 const STORE_PATH = path.join(ROOT, "data", "watchlist-verdicts.json");
@@ -107,12 +107,23 @@ async function checkWatchlistTurns() {
     const entryPlan = computeEntryPlan(ev);
     const redFlagResult = computeRedFlags(ev);
     const { score: aPlusScore } = computeAPlusScore(row, regime);
-    const deep = classifyDeepScanDecision({ entryPlan, aPlusScore });
+    const coreScore = computeCoreScore({
+      passCount: row.passCount, rsRating: row.rsRating, momentum: row.momentum,
+      stage: row.stage, volRatio: row.volRatio, regime, sectorInfo: null,
+      adx: null, smc: row.smc, epsGrowth: row.epsGrowth, vcpScore: row.vcpScore,
+      riskPct: row.riskPct, pctFromHigh: row.pctFromHigh, antiChase: ev.antiChase,
+      optionsFlow: null, dollarVolume: row.dollarVolume,
+    });
+    const deep = classifyCoreVerdict({
+      score: coreScore.score, entryPlan, redFlagResult,
+      stage: row.stage, dailyBias: ev.dailyBias, entryScore: aPlusScore,
+      hasPosition: false,
+    });
     const last = prev[symbol];
 
-    const turn = classifyTurn(last, deep.decision, redFlagResult.criticalCount);
-    next[symbol] = deep.decision;
-    if (turn) turns.push({ symbol, direction: turn, from: last, to: deep.decision });
+    const turn = classifyTurn(last, deep.verdict, redFlagResult.criticalCount);
+    next[symbol] = deep.verdict;
+    if (turn) turns.push({ symbol, direction: turn, from: last, to: deep.verdict });
   }
 
   saveVerdicts(next);

@@ -2608,21 +2608,24 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
     };
     try {
       const results = await screenTrendTemplate(symbols, filters);
-      // Opt-in unified-decision enrichment (Legacy Verdict System migration,
+      // Opt-in Core Engine verdict enrichment (One Engine Migration Phase 6,
       // 2026-08-23) — _buildTrendTemplate's own verdict/atBuyPoint fields
       // stay untouched above (still real, still used for display elsewhere);
-      // this attaches the SAME real pipeline phases 5/7/8 already proved
-      // (buildEvFromRow -> computeEntryPlan -> computeRedFlags ->
-      // classifyDeepScanDecision) as two new additive fields consumers can
-      // opt into instead. Gated behind withDecision=1 so the many OTHER
-      // callers of this route (SmartScanTab, TrendTemplateTab, Sniper
-      // Scanner, ...) pay zero extra fetch cost / see zero behavior change.
+      // this attaches the SAME real am-core-engine.js verdict now driving
+      // the Workspace Decision banner and Scanner grade (buildEvFromRow ->
+      // computeEntryPlan -> computeRedFlags -> computeCoreScore ->
+      // classifyCoreVerdict) as two new additive fields consumers can opt
+      // into instead. Was classifyDeepScanDecision (retired this phase —
+      // it disagreed with the on-screen verdict for the same symbol).
+      // Gated behind withDecision=1 so the many OTHER callers of this route
+      // (SmartScanTab, TrendTemplateTab, Sniper Scanner, ...) pay zero
+      // extra fetch cost / see zero behavior change.
       if (searchParams.get("withDecision") === "1" && results.length) {
         try {
           const { computeRegime, regimeToEntryVocabulary, computeAPlusScore } = require("../trade-planner-scoring");
           const { computeEntryPlan } = require("../entry-engine");
           const { computeRedFlags } = require("../red-flag-engine");
-          const { classifyDeepScanDecision } = require("../btc-hpc-scan");
+          const { computeCoreScore, classifyCoreVerdict } = require("../am-core-engine");
           const { buildEvFromRow } = require("../watchlist-setup-alerts");
           const macroRows = await fetchMarketQuotes(["SPY", "QQQ", "VIXY"], resolveProviderKeys(searchParams)).catch(() => []);
           const regime = computeRegime(Array.isArray(macroRows) ? macroRows : []);
@@ -2633,9 +2636,20 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
             const entryPlan = computeEntryPlan(ev);
             const redFlagResult = computeRedFlags(ev);
             const { score: aPlusScore } = computeAPlusScore(row, regime);
-            const deep = classifyDeepScanDecision({ entryPlan, aPlusScore });
-            row.unifiedDecision = deep.decision;
-            row.unifiedCriticalFlags = redFlagResult.criticalCount;
+            const coreScore = computeCoreScore({
+              passCount: row.passCount, rsRating: row.rsRating, momentum: row.momentum,
+              stage: row.stage, volRatio: row.volRatio, regime, sectorInfo: null,
+              adx: null, smc: row.smc, epsGrowth: row.epsGrowth, vcpScore: row.vcpScore,
+              riskPct: row.riskPct, pctFromHigh: row.pctFromHigh, antiChase: ev.antiChase,
+              optionsFlow: null, dollarVolume: row.dollarVolume,
+            });
+            const deep = classifyCoreVerdict({
+              score: coreScore.score, entryPlan, redFlagResult,
+              stage: row.stage, dailyBias: ev.dailyBias, entryScore: aPlusScore,
+              hasPosition: false,
+            });
+            row.coreVerdict = deep.verdict;
+            row.coreCriticalFlags = redFlagResult.criticalCount;
           }
         } catch { /* enrichment is additive-only — a failure here must not break the base scan response */ }
       }
@@ -2658,8 +2672,9 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
   // per-request bespoke query.
   if (pathname === "/api/market/btc-hpc-scan" && req.method === "GET") {
     try {
-      const { HPC_MINER_UNIVERSE, computeBtcRegime, classifyDeepScanDecision } = require("../btc-hpc-scan");
+      const { HPC_MINER_UNIVERSE, computeBtcRegime } = require("../btc-hpc-scan");
       const { computeEntryPlan } = require("../entry-engine");
+      const { computeCoreScore, classifyCoreVerdict, CORE_VERDICT_META } = require("../am-core-engine");
       const { computeRegime, computeAPlusScore } = require("../trade-planner-scoring");
       const { institutionalLetterGrade } = require("../institutional-scoring");
       const data = await cached("btc-hpc-scan", 600_000, async () => {
@@ -2695,7 +2710,19 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
             breakoutConfirmed: r.breakoutConfirmed, extended: r.extended, priceAction: {},
             stop: r.stop, target1, target2: r.target2,
           });
-          const decision = classifyDeepScanDecision({ entryPlan, aPlusScore: aplus.score });
+          const coreScore = computeCoreScore({
+            passCount: r.passCount, rsRating: r.rsRating, momentum: r.momentum,
+            stage: r.stage, volRatio: r.volRatio, regime, sectorInfo: null,
+            adx: null, smc: r.smc, epsGrowth: r.epsGrowth, vcpScore: r.vcpScore,
+            riskPct: r.riskPct, pctFromHigh: r.pctFromHigh, antiChase: null,
+            optionsFlow: null, dollarVolume: r.dollarVolume,
+          });
+          const deep = classifyCoreVerdict({
+            score: coreScore.score, entryPlan, stage: r.stage, dailyBias,
+            entryScore: aplus.score, hasPosition: false,
+          });
+          const meta = CORE_VERDICT_META[deep.verdict] || {};
+          const decision = { decision: deep.verdict, reason: deep.reason, icon: meta.icon, color: meta.color };
           return {
             symbol: r.symbol, price: r.price, grade: institutionalLetterGrade(aplus.score), score: aplus.score,
             passCount: r.passCount, stage: r.stage, pivot: r.pivot, entryPrice: entryPlan.entryPrice,
@@ -2729,7 +2756,7 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
     if (!symbol) return writeJson(res, 400, { ok: false, error: "symbol required" });
     try {
       const { computeEntryPlan } = require("../entry-engine");
-      const { classifyDeepScanDecision } = require("../btc-hpc-scan");
+      const { computeCoreScore, classifyCoreVerdict, CORE_VERDICT_META } = require("../am-core-engine");
       const { computeRegime, computeAPlusScore } = require("../trade-planner-scoring");
       const { institutionalLetterGrade } = require("../institutional-scoring");
       const { computeFutureValueRead } = require("../future-value-scoring");
@@ -2767,7 +2794,19 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
           breakoutConfirmed: tt.setup.breakoutConfirmed, extended: tt.setup.extended, priceAction: {},
           stop: tt.setup.stop, target1, target2: tt.setup.target2,
         });
-        const decision = classifyDeepScanDecision({ entryPlan, aPlusScore: aplus.score });
+        const coreScore = computeCoreScore({
+          passCount: tt.passCount, rsRating: tt.rsRating, momentum: tt.momentum,
+          stage: tt.stage, volRatio: tt.volRatio, regime, sectorInfo: null,
+          adx: null, smc: tt.smc, epsGrowth: null, vcpScore: tt.setup.report?.score,
+          riskPct: tt.setup.riskPct, pctFromHigh: tt.pctFromHigh, antiChase: null,
+          optionsFlow: null, dollarVolume: null,
+        });
+        const deepVerdict = classifyCoreVerdict({
+          score: coreScore.score, entryPlan, stage: tt.stage, dailyBias,
+          entryScore: aplus.score, hasPosition: false,
+        });
+        const deepMeta = CORE_VERDICT_META[deepVerdict.verdict] || {};
+        const decision = { decision: deepVerdict.verdict, reason: deepVerdict.reason, icon: deepMeta.icon, color: deepMeta.color };
         const valuation = fundamentals ? computeFutureValueRead(fundamentals, tt.price) : null;
 
         // AI-extracted qualitative context (MW/contract/customer/execution

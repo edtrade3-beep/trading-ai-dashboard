@@ -4,11 +4,14 @@
 // entry-engine.js's own client twin. KEEP IN SYNC: any formula change
 // goes in both files.
 //
-// classifyDeepScanDecision started as the BTC+HPC Deep Scan's Final
-// Decision label (2026-08-20) and is now also reused by SmartScanTab.jsx's
-// deep-dive verdict (2026-08-20, "ONE ENGINE" unification) — the same
-// real labeling function over entry-engine.js's staged plan, not a
-// second one per screen.
+// classifyDeepScanDecision (One Engine Migration Phase 6, 2026-08-23):
+// retired here too — was the BTC+HPC Deep Scan's Final Decision label,
+// also reused by SmartScanTab.jsx's deep-dive verdict, and by the server
+// twin's own real consumers (all migrated this same phase). Both now
+// import computeCoreScore/classifyCoreVerdict/CORE_VERDICT_META from
+// ./am-core-engine.js directly — the same real verdict engine driving the
+// Workspace Decision banner and Scanner grade, so this screen can no
+// longer disagree with those.
 
 function round2(n) { return Number.isFinite(n) ? Math.round(n * 100) / 100 : null; }
 
@@ -41,28 +44,13 @@ export function computeBtcRegime(bars) {
   };
 }
 
-export function classifyDeepScanDecision({ entryPlan, aPlusScore }) {
-  if (!entryPlan) return { decision: "WAIT", icon: "🟡", color: "#d6a312", reason: "Not enough real data yet." };
-  const stage = entryPlan.stage;
-  const strongQuality = Number.isFinite(aPlusScore) && aPlusScore >= 70;
-
-  if (stage === "STRUCTURE_BROKEN") return { decision: "AVOID", icon: "🔴", color: "#c8282a", reason: "4H structure broken." };
-  if (stage === "FAILED_BREAKOUT") return { decision: "AVOID", icon: "🔴", color: "#c8282a", reason: "Breakout failed." };
-  if (stage === "BREAKOUT" && entryPlan.entryPrice == null) return { decision: "EXTENDED", icon: "🟠", color: "#e08a1e", reason: "Breakout confirmed but extended — do not chase." };
-  if (stage === "BREAKOUT" && entryPlan.entryPrice != null) return { decision: "BUY", icon: "🟢", color: "#0d9465", reason: "Breakout confirmed on volume." };
-  if (stage === "RETEST" && entryPlan.entryPrice != null) return { decision: "PULLBACK_BUY", icon: "🟡", color: "#d6a312", reason: "Retest holding — former resistance now support." };
-  if (stage === "CONFIRMATION" && entryPlan.entryPrice != null) return { decision: "BUY", icon: "🟢", color: "#0d9465", reason: "Structure confirming as price approaches the pivot." };
-  if (stage === "EARLY" && entryPlan.entryPrice != null && strongQuality) return { decision: "A_PLUS_EARLY_BUY", icon: "🟢", color: "#0d9465", reason: "Real qualifying evidence + strong quality, before the pivot." };
-  if (stage === "EARLY" && entryPlan.entryPrice != null) return { decision: "PULLBACK_BUY", icon: "🟡", color: "#d6a312", reason: "Developing, not yet fully confirmed." };
-  return { decision: "WAIT", icon: "🟡", color: "#d6a312", reason: entryPlan.recommendedAction || "Not enough real evidence yet." };
-}
-
-// Real, human-readable labels for classifyDeepScanDecision's decision key
-// — centralized so every consumer (BtcHpcScanCard.jsx, SmartScanTab.jsx)
-// shows the EXACT SAME words for the exact same decision (the whole point
-// of "ONE ENGINE" — Smart Scan's own prior wording, e.g. "A+ LONG"/
-// "NEUTRAL", is retired in favor of this one real vocabulary).
+// Real, human-readable labels for classifyCoreVerdict's verdict key —
+// centralized so every consumer (BtcHpcScanCard.jsx, SmartScanTab.jsx)
+// shows the EXACT SAME words for the exact same verdict. One Engine
+// Migration Phase 6: mirrors am-core-engine.js's CORE_VERDICT_META.label
+// (kept as a separate flat map here since existing callers index by
+// plain string, not the {icon,label,color} object).
 export const DECISION_LABELS = {
-  A_PLUS_EARLY_BUY: "A+ EARLY BUY", BUY: "BUY", PULLBACK_BUY: "PULLBACK BUY",
-  WAIT: "WAIT", EXTENDED: "EXTENDED — DON'T CHASE", AVOID: "AVOID",
+  EARLY_BUY: "EARLY BUY", BUY: "BUY", WATCH: "WATCH", WAIT: "WAIT",
+  AVOID_LONG: "AVOID", HOLD: "HOLD", TAKE_PROFIT: "TAKE PROFIT", EXIT: "EXIT",
 };

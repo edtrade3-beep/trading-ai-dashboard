@@ -3,7 +3,7 @@
 // zero-network, same discipline as test/entry-engine.test.js. Run:
 // node test/btc-hpc-scan.test.js (or npm test).
 const assert = require("node:assert");
-const { computeBtcRegime, classifyDeepScanDecision, HPC_MINER_UNIVERSE } = require("../src/btc-hpc-scan");
+const { computeBtcRegime, HPC_MINER_UNIVERSE } = require("../src/btc-hpc-scan");
 
 let passed = 0;
 function ok(name, fn) { try { fn(); passed++; console.log(`  ✓ ${name}`); } catch (e) { console.error(`  ✗ ${name}\n    ${e.message}`); process.exitCode = 1; } }
@@ -41,36 +41,12 @@ ok("a genuinely flat series (no real trend) classifies NEUTRAL, not fabricated a
   assert.strictEqual(r.momentum, 0);
 });
 
-console.log("Checking classifyDeepScanDecision…");
-ok("STRUCTURE_BROKEN stage -> AVOID (never a soft WAIT for a hard structural break)", () => {
-  const d = classifyDeepScanDecision({ entryPlan: { stage: "STRUCTURE_BROKEN", entryPrice: null }, aPlusScore: 80 });
-  assert.strictEqual(d.decision, "AVOID");
-});
-ok("BREAKOUT confirmed + not extended -> BUY", () => {
-  const d = classifyDeepScanDecision({ entryPlan: { stage: "BREAKOUT", entryPrice: 50 }, aPlusScore: 60 });
-  assert.strictEqual(d.decision, "BUY");
-});
-ok("BREAKOUT confirmed but extended (entryPrice null) -> EXTENDED, never BUY just because quality is high", () => {
-  const d = classifyDeepScanDecision({ entryPlan: { stage: "BREAKOUT", entryPrice: null }, aPlusScore: 90 });
-  assert.strictEqual(d.decision, "EXTENDED");
-});
-ok("RETEST holding -> PULLBACK_BUY", () => {
-  const d = classifyDeepScanDecision({ entryPlan: { stage: "RETEST", entryPrice: 48 }, aPlusScore: 60 });
-  assert.strictEqual(d.decision, "PULLBACK_BUY");
-});
-ok("EARLY + strong quality (A+/A-grade territory) -> A_PLUS_EARLY_BUY", () => {
-  const d = classifyDeepScanDecision({ entryPlan: { stage: "EARLY", entryPrice: 45 }, aPlusScore: 75 });
-  assert.strictEqual(d.decision, "A_PLUS_EARLY_BUY");
-});
-ok("EARLY + weaker quality -> PULLBACK_BUY, not the A+ label", () => {
-  const d = classifyDeepScanDecision({ entryPlan: { stage: "EARLY", entryPrice: 45 }, aPlusScore: 50 });
-  assert.strictEqual(d.decision, "PULLBACK_BUY");
-});
-ok("FOUNDATION/NONE with no real entry -> WAIT with the real recommendedAction as the reason", () => {
-  const d = classifyDeepScanDecision({ entryPlan: { stage: "FOUNDATION", entryPrice: null, recommendedAction: "Wait — a base is forming." }, aPlusScore: 40 });
-  assert.strictEqual(d.decision, "WAIT");
-  assert.strictEqual(d.reason, "Wait — a base is forming.");
-});
+// classifyDeepScanDecision's own tests were retired here (One Engine
+// Migration Phase 6, 2026-08-23) along with the function itself — its
+// real hard-gate-cascade coverage (structure broken -> AVOID, extended
+// breakout -> no chase, strong-quality early entry, etc.) lives in
+// test/am-core-engine.test.js's classifyCoreVerdict checks now, the one
+// real verdict engine this file's own former consumers all migrated to.
 
 console.log(`\n${passed} checks passed.`);
 if (process.exitCode) console.error("BTC-HPC-SCAN TEST FAILED"); else console.log("BTC-HPC-SCAN TEST OK");

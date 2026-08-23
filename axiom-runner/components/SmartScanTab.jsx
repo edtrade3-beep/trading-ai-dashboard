@@ -6,7 +6,8 @@ import { computeAPlusScore, computeRegime, computePrediction } from "./market-he
 import { computeSniperDecision } from "./sniper-decision.js";
 import { computeHeatRisk, computeCortexVerdict } from "./cortex-engine.js";
 import { computeEntryPlan } from "./entry-engine.js";
-import { classifyDeepScanDecision, DECISION_LABELS } from "./btc-hpc-scan.js";
+import { DECISION_LABELS } from "./btc-hpc-scan.js";
+import { computeCoreScore, classifyCoreVerdict } from "./am-core-engine.js";
 import { computeRegimeLabel, regimeLabelToEntryVocabulary } from "./DashboardTab.jsx";
 import { computeAntiChase } from "./anti-chase.js";
 import { computeFutureValueRead } from "./future-value-scoring.js";
@@ -1482,7 +1483,24 @@ export default function SmartScanTab({
                                         foundationVerdict: smartScanFoundation[row.ticker]?.verdict,
                                       }) : null;
                                       const aplusSS = trendRow ? computeAPlusScore(trendRow, smartScanRegime) : null;
-                                      const deepDecision = entryPlanSS ? classifyDeepScanDecision({ entryPlan: entryPlanSS, aPlusScore: aplusSS?.score }) : null;
+                                      // One Engine Migration Phase 6 (2026-08-23): was
+                                      // classifyDeepScanDecision (retired) — now the SAME real
+                                      // am-core-engine.js verdict the Workspace banner and
+                                      // Scanner grade use, off the same real trendRow already
+                                      // fetched here. adx/optionsFlow/sectorInfo/dollarVolume
+                                      // honestly null (not fetched at this scan tier), same
+                                      // precedent as RhProScanner.jsx's own Core Engine wiring.
+                                      const coreScoreSS = trendRow ? computeCoreScore({
+                                        passCount: trendRow.passCount, rsRating: trendRow.rsRating, momentum: trendRow.momentum,
+                                        stage: trendRow.stage, volRatio: trendRow.volRatio, regime: smartScanRegime, sectorInfo: null,
+                                        adx: null, smc: trendRow.smc, epsGrowth: trendRow.epsGrowth, vcpScore: trendRow.vcpScore,
+                                        riskPct: trendRow.riskPct, pctFromHigh: trendRow.pctFromHigh, antiChase: antiChaseSS,
+                                        optionsFlow: null, dollarVolume: trendRow.dollarVolume,
+                                      }) : null;
+                                      const deepDecision = entryPlanSS ? classifyCoreVerdict({
+                                        score: coreScoreSS?.score, entryPlan: entryPlanSS, stage: trendRow?.stage,
+                                        dailyBias: dailyBiasSS, entryScore: aplusSS?.score, hasPosition: false,
+                                      }) : null;
 
                                       // Real SMC BOS/CHoCH — kept as real, disclosed
                                       // supplementary evidence (not discarded), but no longer
@@ -1495,7 +1513,7 @@ export default function SmartScanTab({
                                         : chochType === "CHOCH_BULL" ? "Smart Money: bullish Change of Character"
                                         : null;
 
-                                      const vLabel = deepDecision ? (DECISION_LABELS[deepDecision.decision] || deepDecision.decision) : "—";
+                                      const vLabel = deepDecision ? (DECISION_LABELS[deepDecision.verdict] || deepDecision.verdict) : "—";
                                       const vAction = deepDecision?.reason ?? "Not enough real data yet.";
                                       const vSetup = entryPlanSS ? entryPlanSS.stage.replace(/_/g, " ") : "No Setup";
                                       const composite = aplusSS ? aplusSS.score : 0;
@@ -1575,11 +1593,12 @@ export default function SmartScanTab({
                                               selected. Everything below (real Smart-Scan-specific
                                               actions, not visual verdict duplication) is unchanged. */}
                                           <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginBottom: 6 }}>Setup: {vSetup} · Alignment {composite}/100</div>
-                                          {/* ONE ENGINE (2026-08-20) — this verdict now comes from
-                                              the SAME real entry-engine.js/classifyDeepScanDecision
-                                              the Decision Workspace uses (see the computation above),
-                                              so the prior "can differ from the Decision Workspace"
-                                              disclosure no longer applies — retired, not stale-left. */}
+                                          {/* ONE ENGINE (2026-08-20, then One Engine Migration Phase
+                                              6, 2026-08-23) — this verdict now comes from the SAME
+                                              real am-core-engine.js classifyCoreVerdict the Decision
+                                              Workspace uses (see the computation above), so the prior
+                                              "can differ from the Decision Workspace" disclosure
+                                              still doesn't apply — retired, not stale-left. */}
                                           {/* Row 2: Action */}
                                           <div style={{ fontFamily: SANS, fontSize: 13, color: C.textSec, marginBottom: vWarnings.length ? 8 : 8, lineHeight: 1.5 }}>
                                             {vAction}

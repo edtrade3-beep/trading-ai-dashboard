@@ -56,25 +56,10 @@ function computeBtcRegime(bars) {
   };
 }
 
-// Final Decision (6-state, per spec) — a real LABELING function over
-// already-computed evidence (entry-engine.js's stage + qualifying count,
-// the real A+/aPlusScore), not a new scoring engine. Mirrors entry-
-// engine's own real gates (structureBroken, extended/anti-chase) rather
-// than re-deriving them.
-function classifyDeepScanDecision({ entryPlan, aPlusScore }) {
-  if (!entryPlan) return { decision: "WAIT", icon: "🟡", color: "#d6a312", reason: "Not enough real data yet." };
-  const stage = entryPlan.stage;
-  const strongQuality = Number.isFinite(aPlusScore) && aPlusScore >= 70;
-
-  if (stage === "STRUCTURE_BROKEN") return { decision: "AVOID", icon: "🔴", color: "#c8282a", reason: "4H structure broken." };
-  if (stage === "FAILED_BREAKOUT") return { decision: "AVOID", icon: "🔴", color: "#c8282a", reason: "Breakout failed." };
-  if (stage === "BREAKOUT" && entryPlan.entryPrice == null) return { decision: "EXTENDED", icon: "🟠", color: "#e08a1e", reason: "Breakout confirmed but extended — do not chase." };
-  if (stage === "BREAKOUT" && entryPlan.entryPrice != null) return { decision: "BUY", icon: "🟢", color: "#0d9465", reason: "Breakout confirmed on volume." };
-  if (stage === "RETEST" && entryPlan.entryPrice != null) return { decision: "PULLBACK_BUY", icon: "🟡", color: "#d6a312", reason: "Retest holding — former resistance now support." };
-  if (stage === "CONFIRMATION" && entryPlan.entryPrice != null) return { decision: "BUY", icon: "🟢", color: "#0d9465", reason: "Structure confirming as price approaches the pivot." };
-  if (stage === "EARLY" && entryPlan.entryPrice != null && strongQuality) return { decision: "A_PLUS_EARLY_BUY", icon: "🟢", color: "#0d9465", reason: "Real qualifying evidence + strong quality, before the pivot." };
-  if (stage === "EARLY" && entryPlan.entryPrice != null) return { decision: "PULLBACK_BUY", icon: "🟡", color: "#d6a312", reason: "Developing, not yet fully confirmed." };
-  return { decision: "WAIT", icon: "🟡", color: "#d6a312", reason: entryPlan.recommendedAction || "Not enough real evidence yet." };
-}
-
-module.exports = { HPC_MINER_UNIVERSE, computeBtcRegime, classifyDeepScanDecision };
+// classifyDeepScanDecision (the Final Decision label this file used to
+// export) was retired One Engine Migration Phase 6 (2026-08-23) — its
+// real consumers (routes/market.js's btc-hpc-scan/btc-hpc-deep routes,
+// the withDecision=1 trend-screen enrichment, and 5 alert files) all now
+// call am-core-engine.js's classifyCoreVerdict directly instead, the same
+// verdict engine driving the Workspace Decision banner and Scanner grade.
+module.exports = { HPC_MINER_UNIVERSE, computeBtcRegime };

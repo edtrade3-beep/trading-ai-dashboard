@@ -1,15 +1,16 @@
-// Real tests for watchlist-setup-alerts.js (2026-08-23, Master Build Spec
-// phase 5) — migrated off the pre-unification computeAPlusScore threshold
-// + raw atBuyPoint flag onto the real unified pipeline (computeEntryPlan +
-// classifyDeepScanDecision + computeRedFlags). Pure-function,
-// synthetic-input, zero-network — same discipline as
+// Real tests for watchlist-setup-alerts.js — migrated off the pre-
+// unification computeAPlusScore threshold + raw atBuyPoint flag onto the
+// real unified pipeline (computeEntryPlan + computeRedFlags +
+// am-core-engine.js's computeCoreScore/classifyCoreVerdict, One Engine
+// Migration Phase 6, 2026-08-23 — classifyDeepScanDecision retired).
+// Pure-function, synthetic-input, zero-network — same discipline as
 // test/entry-engine.test.js. Run: node test/watchlist-setup-alerts.test.js
 // (or npm test).
 const assert = require("node:assert");
 const { buildEvFromRow, shouldAlert } = require("../src/watchlist-setup-alerts");
 const { computeEntryPlan } = require("../src/entry-engine");
 const { computeRedFlags } = require("../src/red-flag-engine");
-const { classifyDeepScanDecision } = require("../src/btc-hpc-scan");
+const { computeCoreScore, classifyCoreVerdict } = require("../src/am-core-engine");
 const { regimeToEntryVocabulary } = require("../src/trade-planner-scoring");
 
 let passed = 0;
@@ -51,12 +52,21 @@ ok("swing4hState/volTrend1h are honestly absent (undefined) — no MTF data at t
 });
 
 console.log("Checking the real end-to-end pipeline on a clean, qualifying setup…");
-ok("a genuinely strong setup reaches an actionable BUY-family decision with zero critical red flags", () => {
+ok("a genuinely strong setup reaches an actionable BUY-family verdict with zero critical red flags", () => {
   const ev = buildEvFromRow(CLEAN_ROW, "RISK_ON");
   const entryPlan = computeEntryPlan(ev);
   const redFlags = computeRedFlags(ev);
-  const deep = classifyDeepScanDecision({ entryPlan, aPlusScore: 80 });
-  assert.ok(["BUY", "A_PLUS_EARLY_BUY", "PULLBACK_BUY"].includes(deep.decision), `expected an actionable decision, got ${deep.decision}`);
+  const regime = { score: 90, label: "GREEN" };
+  const coreScore = computeCoreScore({
+    passCount: CLEAN_ROW.passCount, rsRating: CLEAN_ROW.rsRating, stage: CLEAN_ROW.stage,
+    regime, riskPct: CLEAN_ROW.riskPct, dollarVolume: CLEAN_ROW.dollarVolume, antiChase: ev.antiChase,
+    momentum: 0.15, volRatio: 1.8, vcpScore: 80, smc: { bos: { type: "BULL_BOS" } },
+  });
+  const deep = classifyCoreVerdict({
+    score: coreScore.score, entryPlan, redFlagResult: redFlags,
+    stage: CLEAN_ROW.stage, dailyBias: ev.dailyBias, entryScore: 80, hasPosition: false,
+  });
+  assert.ok(["BUY", "EARLY_BUY"].includes(deep.verdict), `expected an actionable verdict, got ${deep.verdict} (${deep.reason})`);
   assert.strictEqual(redFlags.criticalCount, 0);
 });
 ok("a real critical red flag (e.g. poor R:R) survives into the pipeline even when the stage looks actionable", () => {
@@ -70,21 +80,21 @@ console.log("Checking shouldAlert — the real alert-transition gate…");
 ok("first-seen-per-symbol (no last state) never alerts — seeds silently", () => {
   assert.strictEqual(shouldAlert(null, "BUY", 0), false);
 });
-ok("transitioning from a non-actionable to an actionable decision, zero critical flags -> alerts", () => {
+ok("transitioning from a non-actionable to an actionable verdict, zero critical flags -> alerts", () => {
   assert.strictEqual(shouldAlert("WAIT", "BUY", 0), true);
-  assert.strictEqual(shouldAlert("EXTENDED", "A_PLUS_EARLY_BUY", 0), true);
-  assert.strictEqual(shouldAlert("AVOID", "PULLBACK_BUY", 0), true);
+  assert.strictEqual(shouldAlert("AVOID_LONG", "EARLY_BUY", 0), true);
+  assert.strictEqual(shouldAlert("WATCH", "BUY", 0), true);
 });
 ok("already in an actionable state -> does not re-alert (no duplicate spam)", () => {
   assert.strictEqual(shouldAlert("BUY", "BUY", 0), false);
-  assert.strictEqual(shouldAlert("PULLBACK_BUY", "A_PLUS_EARLY_BUY", 0), false);
+  assert.strictEqual(shouldAlert("EARLY_BUY", "BUY", 0), false);
 });
 ok("a real critical red flag suppresses the alert even on a genuine actionable transition — spec §8-9's own core rule, never hidden by a good decision", () => {
   assert.strictEqual(shouldAlert("WAIT", "BUY", 1), false);
 });
 ok("staying non-actionable never alerts", () => {
-  assert.strictEqual(shouldAlert("WAIT", "AVOID", 0), false);
-  assert.strictEqual(shouldAlert("EXTENDED", "WAIT", 0), false);
+  assert.strictEqual(shouldAlert("WAIT", "AVOID_LONG", 0), false);
+  assert.strictEqual(shouldAlert("WATCH", "WAIT", 0), false);
 });
 
 console.log("Checking regimeToEntryVocabulary (trade-planner-scoring.js, Master Build Spec phase 5)…");

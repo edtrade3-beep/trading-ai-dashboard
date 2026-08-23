@@ -17,12 +17,13 @@
 // the Telegram announcement's own label for an already-added symbol.
 //
 // Migrated off row.verdict/row.atBuyPoint for that label (Legacy Verdict
-// System migration, 2026-08-23) — those were _buildTrendTemplate's own
-// pre-unification GO/WAIT/AVOID formula. Now reads the same real unified
+// System migration, 2026-08-23), then onto am-core-engine.js's
+// classifyCoreVerdict (One Engine Migration Phase 6, same day) once
+// classifyDeepScanDecision itself was found to still disagree with the
+// verdict shown on-screen elsewhere in the app. Reads the same real
 // pipeline (buildEvFromRow -> computeEntryPlan -> computeRedFlags ->
-// classifyDeepScanDecision) phases 5/7/8 already proved for this exact
-// screenTrendTemplate row shape, reusing watchlist-setup-alerts.js's
-// buildEvFromRow directly rather than a second copy.
+// classifyCoreVerdict), reusing watchlist-setup-alerts.js's buildEvFromRow
+// directly rather than a second copy.
 //
 // Additive-only and idempotent: only ever adds symbols not already on the
 // Watchlist, never removes or reorders. Read-only against the account, so
@@ -37,7 +38,7 @@ const { isMarketHoursET } = require("./risk-guardrails");
 const { computeRegime, regimeToEntryVocabulary, computeAPlusScore } = require("./trade-planner-scoring");
 const { computeEntryPlan } = require("./entry-engine");
 const { computeRedFlags } = require("./red-flag-engine");
-const { classifyDeepScanDecision } = require("./btc-hpc-scan");
+const { computeCoreScore, classifyCoreVerdict } = require("./am-core-engine");
 const { buildEvFromRow, ACTIONABLE_DECISIONS } = require("./watchlist-setup-alerts");
 
 const MARKET_UNIVERSE_SYMBOLS = [
@@ -94,8 +95,19 @@ async function runMarketAutoWatchlist(opts = {}) {
     const entryPlan = computeEntryPlan(ev);
     const redFlagResult = computeRedFlags(ev);
     const { score: aPlusScore } = computeAPlusScore(r, regime);
-    const deep = classifyDeepScanDecision({ entryPlan, aPlusScore });
-    if (isUnifiedGo(deep.decision, redFlagResult.criticalCount)) goAdds.push(r.symbol);
+    const coreScore = computeCoreScore({
+      passCount: r.passCount, rsRating: r.rsRating, momentum: r.momentum,
+      stage: r.stage, volRatio: r.volRatio, regime, sectorInfo: null,
+      adx: null, smc: r.smc, epsGrowth: r.epsGrowth, vcpScore: r.vcpScore,
+      riskPct: r.riskPct, pctFromHigh: r.pctFromHigh, antiChase: ev.antiChase,
+      optionsFlow: null, dollarVolume: r.dollarVolume,
+    });
+    const deep = classifyCoreVerdict({
+      score: coreScore.score, entryPlan, redFlagResult,
+      stage: r.stage, dailyBias: ev.dailyBias, entryScore: aPlusScore,
+      hasPosition: false,
+    });
+    if (isUnifiedGo(deep.verdict, redFlagResult.criticalCount)) goAdds.push(r.symbol);
     else watchAdds.push(r.symbol);
   }
 

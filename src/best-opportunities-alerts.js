@@ -39,7 +39,7 @@ const { isMarketHoursET } = require("./risk-guardrails");
 const { SCAN_UNIVERSE } = require("./advisor-ai");
 const { computeEntryPlan } = require("./entry-engine");
 const { computeRedFlags } = require("./red-flag-engine");
-const { classifyDeepScanDecision } = require("./btc-hpc-scan");
+const { computeCoreScore, classifyCoreVerdict } = require("./am-core-engine");
 const { buildEvFromRow, shouldAlert } = require("./watchlist-setup-alerts");
 
 const STORE_PATH = path.join(ROOT, "data", "best-opportunities-alert-state.json");
@@ -87,13 +87,24 @@ async function checkBestOpportunitiesAlerts() {
     const entryPlan = computeEntryPlan(ev);
     const redFlagResult = computeRedFlags(ev);
     const { score: aPlusScore } = computeAPlusScore(r, regime);
-    const deep = classifyDeepScanDecision({ entryPlan, aPlusScore });
+    const coreScore = computeCoreScore({
+      passCount: r.passCount, rsRating: r.rsRating, momentum: r.momentum,
+      stage: r.stage, volRatio: r.volRatio, regime, sectorInfo: null,
+      adx: null, smc: r.smc, epsGrowth: r.epsGrowth, vcpScore: r.vcpScore,
+      riskPct: r.riskPct, pctFromHigh: r.pctFromHigh, antiChase: ev.antiChase,
+      optionsFlow: null, dollarVolume: r.dollarVolume,
+    });
+    const deep = classifyCoreVerdict({
+      score: coreScore.score, entryPlan, redFlagResult,
+      stage: r.stage, dailyBias: ev.dailyBias, entryScore: aPlusScore,
+      hasPosition: false,
+    });
 
     // Preserved as a deliberate, disclosed additional bar on top of the
-    // unified decision, not replaced by it: forcing a non-qualifying row
+    // unified verdict, not replaced by it: forcing a non-qualifying row
     // to an honest "WAIT" reading lets shouldAlert's already-tested
     // transition/red-flag/first-seed logic handle the rest unchanged.
-    const decision = qualifiesAsLeader(r) ? deep.decision : "WAIT";
+    const decision = qualifiesAsLeader(r) ? deep.verdict : "WAIT";
     const last = prev[r.symbol];
 
     if (shouldAlert(last, decision, redFlagResult.criticalCount)) {
