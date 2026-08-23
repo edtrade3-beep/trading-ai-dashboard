@@ -7,7 +7,7 @@ import { computeSniperDecision } from "./sniper-decision.js";
 import { computeHeatRisk, computeCortexVerdict } from "./cortex-engine.js";
 import { computeEntryPlan } from "./entry-engine.js";
 import { DECISION_LABELS } from "./btc-hpc-scan.js";
-import { computeCoreScore, classifyCoreVerdict } from "./am-core-engine.js";
+import { computeCoreScore, classifyCoreVerdict, CORE_VERDICT_META } from "./am-core-engine.js";
 import { computeRegimeLabel, regimeLabelToEntryVocabulary } from "./DashboardTab.jsx";
 import { computeAntiChase } from "./anti-chase.js";
 import { computeFutureValueRead } from "./future-value-scoring.js";
@@ -247,7 +247,7 @@ export default function SmartScanTab({
           const scanTickersKey = [...new Set((scanResults || []).map(r => r.ticker).filter(Boolean))].sort().join(",");
           useEffect(() => {
             if (!scanTickersKey) return;
-            fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(scanTickersKey)}`)
+            fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(scanTickersKey)}&withDecision=1`)
               .then(r => r.json())
               .then(j => {
                 const map = {};
@@ -917,8 +917,20 @@ export default function SmartScanTab({
                         const sniperD = trendRow ? computeSniperDecision(trendRow) : null;
                         const heatD = trendRow && sniperD ? computeHeatRisk(trendRow, sniperD) : null;
                         const cortexV = trendRow && sniperD && heatD ? computeCortexVerdict({ sniper: sniperD, heat: heatD, aplusScore: aplus.score }) : null;
-                        const verdictColor = cortexV ? cortexV.color : C.textDim;
-                        const verdictLabel = cortexV ? cortexV.verdict : "LOADING…";
+                        // Discover/Cortex Additive Verdict (2026-08-23) — the
+                        // row badge (bar color + primary label) is now driven
+                        // by the real am-core-engine.js verdict (same engine
+                        // as the Workspace banner/Autopilot/alerts), off the
+                        // same trendRow's withDecision=1 fields, zero new
+                        // fetch. cortexV stays real and unchanged — its own
+                        // historical win-rate track record is still shown
+                        // elsewhere on this page — just no longer the
+                        // primary badge; falls back to it only while
+                        // coreVerdict hasn't loaded yet, never reverting once
+                        // real Core Engine data is present.
+                        const coreMeta = trendRow?.coreVerdict ? CORE_VERDICT_META[trendRow.coreVerdict] : null;
+                        const verdictColor = coreMeta ? coreMeta.color : (cortexV ? cortexV.color : C.textDim);
+                        const verdictLabel = coreMeta ? coreMeta.label : (cortexV ? cortexV.verdict : "LOADING…");
                         const composite = aplus.score;
                         // The real field on the smart-scan quote shape is changesPercentage
                         // (see fetchYahooQuotes in src/providers/yahoo.js) — changePercent
@@ -1045,6 +1057,16 @@ export default function SmartScanTab({
                               <td style={{ padding: "12px 10px", borderBottom: `1px solid ${C.border}22` }}>
                                 <div>
                                   <span style={{ ...SIG_STYLE(verdictColor), background: `${verdictColor}22`, borderColor: `${verdictColor}55`, fontSize: 12 }}>{verdictLabel}</span>
+                                  {/* Cortex's own specialized read (real historical win-rate
+                                      track record lives in AM Cortex's own tab) — secondary
+                                      to the primary Core Engine badge above, never competing
+                                      for primary billing (Discover/Cortex Additive Verdict,
+                                      2026-08-23). */}
+                                  {cortexV && (
+                                    <span title={`Cortex Verdict — Sniper + Heat Risk + A+ Score, tracked separately with its own real historical win rate`}
+                                      style={{ marginLeft: 5, fontFamily: MONO, fontSize: 10, fontWeight: 700, color: cortexV.color, cursor: "help",
+                                        background: `${cortexV.color}18`, border: `1px solid ${cortexV.color}55`, borderRadius: 4, padding: "2px 5px" }}>Cortex: {cortexV.verdict}</span>
+                                  )}
                                   {/* A+ — separate real 9-dimension score, additive not replacing */}
                                   <span title={aplus.reasons.join(" · ")} style={{ marginLeft: 5, fontFamily: MONO, fontSize: 10, fontWeight: 900, color: "#fff", cursor: "help",
                                     background: aplus.score >= 80 ? "#0d9465" : aplus.score >= 60 ? "#d6a312" : "#c8282a", borderRadius: 4, padding: "2px 5px" }}>A+{aplus.score}</span>

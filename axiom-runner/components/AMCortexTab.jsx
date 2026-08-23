@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { RH_UNIVERSE, rhScreenProgressive } from "./rhpro-shared.jsx";
 import { computeRegime, computeAPlusScore, computeInstitutionalGrade, computeInstitutionScore, computeFundamentalsRead, classifyEntryType, SECTOR_ETFS, STOCK_TO_SECTOR } from "./market-helpers.js";
 import { computeSniperDecision } from "./sniper-decision.js";
+import { CORE_VERDICT_META } from "./am-core-engine.js";
 import { FundamentalsPanel, OptionsFlowPanel, NewsPanel, InvestorsPanel } from "./terminal-panels.jsx";
 import {
   parseCortexQuery, computeHeatRisk, computeCortexVerdict, computePriceToPay, summarizeBuyPrice, whyEvidence,
@@ -99,7 +100,7 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
     setLoading(true); setError(null); setShowDeep(!!openDeep); setShowWhy(false);
     try {
       const [screenJ, fvJ, fundJ, analystJ, socialJ, darkPoolJ, optionsFlowJ, insiderJ, shortInterestJ] = await Promise.all([
-        fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(symbol)}`).then((r) => r.json()),
+        fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(symbol)}&withDecision=1`).then((r) => r.json()),
         fetch(`/api/scanner/future-value?symbol=${encodeURIComponent(symbol)}`).then((r) => r.json()).catch(() => null),
         // Raw fundamentals (real bull/bear reasons — computeFundamentalsRead
         // needs pe/pegRatio/revenueGrowth/earningsGrowth/profitMargin, not
@@ -328,7 +329,30 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
                 <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.textSec, marginTop: 3 }}>{heat.reason}</div>
               </div>
 
-              {/* VERDICT */}
+              {/* MASTER VERDICT — the real am-core-engine.js verdict, same
+                  engine driving the Workspace banner, Scanner grade,
+                  Autopilot, and every alert in this app (Discover/Cortex
+                  Additive Verdict, 2026-08-23). Shown above Cortex's own
+                  verdict card below, which stays completely real and
+                  unchanged — including its own historical win-rate track
+                  record — as the specialized, tracked supplementary read,
+                  per the user's own "additive only" decision (never touch
+                  Cortex's tracked verdict strings, that historical data
+                  matters). */}
+              {row.coreVerdict && (() => {
+                const cm = CORE_VERDICT_META[row.coreVerdict] || {};
+                return (
+                  <div style={{ background: `${cm.color}18`, border: `2px solid ${cm.color || C.border}`, borderRadius: 12, padding: 18, textAlign: "center", marginBottom: 10 }}>
+                    <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textDim, marginBottom: 4 }}>MASTER VERDICT</div>
+                    <div style={{ fontFamily: MONO, fontSize: 28, fontWeight: 900, color: cm.color }}>{cm.icon} {cm.label || row.coreVerdict}</div>
+                    <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.textSec, marginTop: 6, lineHeight: 1.5 }}>{row.coreReason}</div>
+                  </div>
+                );
+              })()}
+
+              {/* CORTEX VERDICT — Cortex's own specialized read (Sniper +
+                  Heat Risk + A+ Score), real and unchanged, including its
+                  own real historical win-rate track record below. */}
               <div style={{ background: `${verdict.color}14`, border: `1px solid ${verdict.color}66`, borderRadius: 12, padding: 18, textAlign: "center", marginBottom: 10 }}>
                 <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textDim, marginBottom: 4 }}>CORTEX VERDICT</div>
                 <div style={{ fontFamily: MONO, fontSize: 28, fontWeight: 900, color: verdict.color }}>{verdict.icon} {verdict.verdict}</div>

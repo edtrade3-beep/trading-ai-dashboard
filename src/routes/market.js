@@ -2650,6 +2650,7 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
             });
             row.coreVerdict = deep.verdict;
             row.coreCriticalFlags = redFlagResult.criticalCount;
+            row.coreReason = deep.reason;
           }
         } catch { /* enrichment is additive-only — a failure here must not break the base scan response */ }
       }
