@@ -150,6 +150,21 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
     } finally { setLoading(false); }
   }
 
+  // Discover -> Cortex Context Handoff (2026-08-23) — the doc's own
+  // explicitly "mandatory" requirement: the user should not need to
+  // re-type a symbol Cortex already knows about. Mirrors this component's
+  // own openChart() pattern (localStorage handoff) in reverse. This
+  // component only mounts when activeTab === "cortex", so this fires on
+  // every real navigation into Cortex, not just the first ever mount.
+  useEffect(() => {
+    const pending = localStorage.getItem("cortex_pending_symbol");
+    if (pending) {
+      localStorage.removeItem("cortex_pending_symbol");
+      setQuery(pending);
+      analyzeSymbol(pending);
+    }
+  }, []);
+
   async function runScan(scanType, maxPrice) {
     setLoading(true); setError(null); setShowDeep(false); setResult(null);
     try {

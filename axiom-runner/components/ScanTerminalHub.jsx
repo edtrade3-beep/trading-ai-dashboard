@@ -180,13 +180,34 @@ export default function ScanTerminalHub({
           renders (and MarketTerminalTab only mounts, so nothing fetches)
           while open. */}
       <div ref={detailRef} style={{ border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" }}>
-        <button onClick={() => setDetailOpen(v => !v)}
-          style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
-            padding: "12px 16px", background: C.card, border: "none", cursor: "pointer",
-            fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text }}>
-          <span>📈 {selectedSymbol ? `${selectedSymbol} — Full Analysis` : "Full Analysis"}</span>
-          <span style={{ color: C.accent }}>{detailOpen ? "▴ Hide" : "▾ Show"}</span>
-        </button>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "12px 16px", background: C.card,
+          fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text }}>
+          <button onClick={() => setDetailOpen(v => !v)}
+            style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "space-between",
+              background: "transparent", border: "none", cursor: "pointer", padding: 0,
+              fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text, textAlign: "left" }}>
+            <span>📈 {selectedSymbol ? `${selectedSymbol} — Full Analysis` : "Full Analysis"}</span>
+          </button>
+          <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {/* Discover -> Cortex Context Handoff (2026-08-23) — the doc's
+                own explicitly "mandatory" requirement: clicking a Discover
+                symbol should load it into Cortex with zero re-typing.
+                Mirrors the exact real handoff pattern AMCortexTab.jsx's
+                own openChart() already uses in the reverse direction
+                (Cortex -> Workspace, via mterminal_load_sym). */}
+            {selectedSymbol && (
+              <button onClick={() => { localStorage.setItem("cortex_pending_symbol", selectedSymbol); setActiveTab("cortex"); }}
+                title={`Ask Cortex about ${selectedSymbol}`}
+                style={{ fontFamily: MONO, fontSize: 11.5, fontWeight: 800, color: C.accent,
+                  background: `${C.accent}14`, border: `1px solid ${C.accent}55`, borderRadius: 6,
+                  padding: "5px 10px", cursor: "pointer" }}>
+                🧠 Ask Cortex
+              </button>
+            )}
+            <span style={{ color: C.accent, cursor: "pointer" }} onClick={() => setDetailOpen(v => !v)}>{detailOpen ? "▴ Hide" : "▾ Show"}</span>
+          </span>
+        </div>
         {detailOpen && (
           <div style={{ padding: selectedSymbol ? 14 : "40px 20px", borderTop: `1px solid ${C.border}` }}>
             {selectedSymbol ? (
