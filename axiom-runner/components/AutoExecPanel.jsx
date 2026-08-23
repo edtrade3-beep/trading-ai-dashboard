@@ -200,6 +200,19 @@ export default function AutoExecPanel({ C, MONO, SANS }) {
               <label htmlFor="allowShorts" style={{ fontFamily: MONO, fontSize: 12, color: C.text, cursor: "pointer" }}>
                 Allow short sells on SELL signals (requires margin account)
               </label>
+              {/* Honest disclosure (2026-08-23) — BUY signals from this
+                  scanner are now gated on the real am-core-engine.js
+                  verdict before they can fire/auto-execute; SELL/short
+                  signals are not — Core Engine has no short-side
+                  implementation this session, so this toggle still runs
+                  on determineSignal's own independent technical formula,
+                  same as before. Real, working, opt-in — just not the
+                  same real validation BUY now gets. */}
+              {cfg.allowShorts && (
+                <span style={{ fontFamily: SANS, fontSize: 11, color: C.amber, marginLeft: 6 }}>
+                  ⚠ SELL/short signals aren't validated by the Master Engine (Core Engine is long-only) — this runs on the scanner's own independent technical formula.
+                </span>
+              )}
             </div>
           </div>
 
@@ -208,6 +221,7 @@ export default function AutoExecPanel({ C, MONO, SANS }) {
               ⚠️ <b>Safety rules:</b> Only 1 trade per symbol per day. Max {cfg.maxPositions} simultaneous auto positions.
               Auto-exec only fires on score ≥ {cfg.scoreThreshold} with RVOL ≥ {cfg.rvolThreshold}×.
               Every trade is confirmed via Telegram. {cfg.live ? "LIVE mode — real money." : "Paper mode — no real money at risk."}
+              {" "}BUY signals also require a real am-core-engine.js Master Verdict (EARLY_BUY/BUY, zero critical flags) before firing — SELL/short signals do not (Core Engine is long-only).
             </div>
           </div>
 
