@@ -6,14 +6,17 @@
 // autopilot-store.js's own header comments already establish, rather than
 // sharing state with server-autopilot.js's swing positions.
 //
-// SCOPE: LONG entries only. Investigation before this file was written
-// found Light Box's "SELL" state is actually "SELL / EXIT" (see
-// LightBoxCard.jsx) — an exit/avoid signal, not a real short-entry signal
-// — and day-trade-calc.js's stop/target/bestEntry formulas are long-only
-// math regardless of direction. Building real order placement on top of
-// that would place backwards-shaped short brackets. Explicit user choice:
-// ship LONG-only now; SHORT stays alert-only until that's fixed as its
-// own task.
+// LONG + SHORT. Shipped LONG-only first (explicit user choice) while
+// day-trade-calc.js's stop/target/bestEntry math was still long-only
+// regardless of direction — building real order placement on backwards-
+// shaped short brackets would have been genuinely unsafe. That's now
+// fixed ("Fix Light Box SHORT math", 2026-08-23: stop/target correctly
+// flip sides for a real BEARISH/breakdown setup), so this file now
+// places real short-sell bracket orders too, mirroring every LONG check
+// below. Note Light Box's "SELL" display state is still "SELL / EXIT" in
+// the UI (see LightBoxCard.jsx) — a real bearish/breakdown setup, which
+// is exactly what a short entry needs; nothing here changes what that
+// state means, only that its real numbers can now be traded on safely.
 //
 // SAFETY: every real order requires the user's own tap (ASSIST mode +
 // this module is only ever called from a real API request, never from
@@ -21,8 +24,9 @@
 // Fails closed on every real check below: wrong mode, market closed,
 // missing/invalid signal state, already-executed, unhealthy account,
 // daily/weekly/drawdown breaker tripped, already holding the symbol,
-// too many open Light-Box positions, open risk ceiling, or a sizing
-// formula that can't produce at least 1 real share.
+// too many open Light-Box positions, open risk ceiling, not real-
+// shortable (SHORT only), or a sizing formula that can't produce at
+// least 1 real share.
 "use strict";
 
 const path = require("node:path");
@@ -83,7 +87,8 @@ async function validateAndSize(symbol) {
 
   const position = getPosition(symbol);
   if (!position) return { ok: false, error: "No real Light Box signal on file for this symbol." };
-  if (position.direction !== "LONG") return { ok: false, error: "Only LONG entries support real order execution right now — SHORT stays alert-only (see this file's header)." };
+  const direction = position.direction;
+  if (direction !== "LONG" && direction !== "SHORT") return { ok: false, error: `Unrecognized direction "${direction}" — refusing to size blind.` };
   if (position.state !== "ENTRY_READY") return { ok: false, error: `Signal is ${position.state}, not ENTRY_READY — nothing to execute.` };
   if (position.orderId && position.orderPlacedForTs === position.detectedAt) {
     return { ok: false, error: `An order was already placed for this signal (order ${position.orderId}).` };
@@ -138,6 +143,18 @@ async function validateAndSize(symbol) {
     return { ok: false, error: `Open-risk ceiling reached (≥${maxRiskPct}% of equity across all real open positions).` };
   }
 
+  // Real shortability check (SHORT only) — Alpaca will reject an
+  // unshortable/hard-to-borrow symbol at order time anyway, but checking
+  // its own real asset flags first gives an honest, specific reason
+  // instead of a raw broker rejection.
+  if (direction === "SHORT") {
+    const assetR = await apca(`/v2/assets/${encodeURIComponent(symbol)}`);
+    const asset = assetR && assetR.ok ? assetR.data : null;
+    if (!asset || !asset.shortable || !asset.easy_to_borrow) {
+      return { ok: false, error: `${symbol} isn't real-shortable on this account right now (hard to borrow or shorting disabled).` };
+    }
+  }
+
   // Real, current price (Alpaca's own latest trade, the same broker about
   // to fill the order) — not the stale bestEntry captured at detection
   // time, which may be several ticks old.
@@ -147,15 +164,18 @@ async function validateAndSize(symbol) {
 
   const stop = Number(position.stop);
   const target = Number(position.target);
-  if (!(stop > 0) || !(currentPrice > stop)) return { ok: false, error: "Real stop isn't valid for a LONG entry at the current price — refusing to size blind." };
+  const stopValid = direction === "SHORT" ? (stop > 0 && stop > currentPrice) : (stop > 0 && currentPrice > stop);
+  if (!stopValid) {
+    return { ok: false, error: `Real stop isn't valid for a ${direction} entry at the current price — refusing to size blind.` };
+  }
 
   const riskPct = Number(process.env.LIGHTBOX_AUTOPILOT_RISK) || 0.5; // % of equity per day-trade entry — deliberately smaller than the swing system's 1%
-  const qty = sizePositionByRisk({ equity, riskPct, entry: currentPrice, stop, availCash: cash, maxNamePct: 10 });
+  const qty = sizePositionByRisk({ equity, riskPct, entry: currentPrice, stop, availCash: cash, maxNamePct: 10, direction });
   if (qty < 1) return { ok: false, error: "Real sizing came out to 0 shares (equity/risk too small for this stop distance) — refusing to place a 0-share order." };
 
   return {
-    ok: true, symbol, position, qty, entry: currentPrice, stop, target,
-    riskPct, riskDollars: +(qty * (currentPrice - stop)).toFixed(2),
+    ok: true, symbol, position, direction, qty, entry: currentPrice, stop, target,
+    riskPct, riskDollars: +(qty * Math.abs(currentPrice - stop)).toFixed(2),
     estCost: +(qty * currentPrice).toFixed(2),
   };
 }
@@ -175,11 +195,11 @@ async function previewOrder(symbol) {
 async function placeOrder(symbol) {
   const v = await validateAndSize(symbol);
   if (!v.ok) return v;
-  const { position, qty, entry, stop, target, riskPct } = v;
+  const { position, direction, qty, entry, stop, target, riskPct } = v;
 
   const clientOrderId = `${CLIENT_ORDER_PREFIX}${symbol}-${Date.now()}`;
   const order = {
-    symbol, qty: String(qty), side: "buy", type: "market", time_in_force: "day",
+    symbol, qty: String(qty), side: direction === "SHORT" ? "sell" : "buy", type: "market", time_in_force: "day",
     order_class: "bracket",
     take_profit: { limit_price: String(target) },
     stop_loss: { stop_price: String(+stop.toFixed(2)) },
@@ -195,15 +215,16 @@ async function placeOrder(symbol) {
     orderPlacedForTs: position.detectedAt,
     orderQty: qty, orderEntry: entry,
   });
-  logActivity({ symbol, state: "ORDER_PLACED", direction: "LONG", quality: position.quality, note: `Real ASSIST order — ${qty} sh @ ~$${entry} (paper · bracket, stop $${stop.toFixed(2)}, target $${target.toFixed(2)})` });
-  appendJournal({ ts: Date.now(), symbol, tier: "DAYTRADE", side: "long", qty, entry, stop, target, source: "lightbox-assist" });
+  const verb = direction === "SHORT" ? "SHORT SELL" : "BUY";
+  logActivity({ symbol, state: "ORDER_PLACED", direction, quality: position.quality, note: `Real ASSIST order — ${verb} ${qty} sh @ ~$${entry} (paper · bracket, stop $${stop.toFixed(2)}, target $${target.toFixed(2)})` });
+  appendJournal({ ts: Date.now(), symbol, tier: "DAYTRADE", side: direction === "SHORT" ? "short" : "long", qty, entry, stop, target, source: "lightbox-assist" });
   incrementDailyTrades();
   if (isConfigured()) {
     sendTelegramMessage(
-      `✅ LIGHT BOX AUTOPILOT — ORDER PLACED (${symbol})\n${qty} sh @ ~$${entry.toFixed(2)} (paper · bracket)\nStop $${stop.toFixed(2)} · Target $${target.toFixed(2)}\n(${riskPct}% risk · you confirmed this in-app)`
+      `✅ LIGHT BOX AUTOPILOT — ${verb} ORDER PLACED (${symbol})\n${qty} sh @ ~$${entry.toFixed(2)} (paper · bracket)\nStop $${stop.toFixed(2)} · Target $${target.toFixed(2)}\n(${riskPct}% risk · you confirmed this in-app)`
     ).catch(() => {});
   }
-  return { ok: true, symbol, qty, entry, stop, target, orderId: res.data?.id || clientOrderId };
+  return { ok: true, symbol, direction, qty, entry, stop, target, orderId: res.data?.id || clientOrderId };
 }
 
 // Real end-of-day flatten — closes any still-open position this module
@@ -241,7 +262,7 @@ async function maybeFlattenEndOfDay() {
     const res = await apca(`/v2/positions/${encodeURIComponent(p.symbol)}`, "DELETE");
     if (res && res.ok) {
       flattened++;
-      logActivity({ symbol: p.symbol, state: "FLATTENED", direction: "LONG", note: "Real end-of-day flatten (Light Box day trade, held to close)." });
+      logActivity({ symbol: p.symbol, state: "FLATTENED", direction: p.side === "short" ? "SHORT" : "LONG", note: "Real end-of-day flatten (Light Box day trade, held to close)." });
     }
   }
   setLastFlattenDate(today);

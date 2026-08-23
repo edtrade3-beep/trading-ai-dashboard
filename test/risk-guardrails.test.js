@@ -201,6 +201,24 @@ ok("never returns negative", () => {
   assert.ok(sizePositionByRisk({ equity: 10000, riskPct: 1, entry: 50, stop: 47, availCash: -100 }) >= 0);
 });
 
+// direction: "SHORT" (2026-08-23, real Light Box SHORT ASSIST execution) —
+// same real risk-per-share math, just measured on the other side of entry
+// (stop above entry, not below). Default direction stays "LONG" so every
+// existing LONG-only caller above is untouched by this addition.
+ok("direction: SHORT sizes off (stop - entry), not (entry - stop)", () => {
+  // Entry 50, stop 53 (above entry, the real short invalidation level) →
+  // $3/share risk, same as the LONG case above → same 33 shares.
+  const qty = sizePositionByRisk({ equity: 10000, riskPct: 1, entry: 50, stop: 53, availCash: 100000, maxNamePct: 100, direction: "SHORT" });
+  assert.strictEqual(qty, 33);
+});
+ok("direction: SHORT with a stop below entry (invalid for a short) returns 0", () => {
+  assert.strictEqual(sizePositionByRisk({ equity: 10000, riskPct: 1, entry: 50, stop: 47, availCash: 10000, direction: "SHORT" }), 0);
+});
+ok("direction: LONG (explicit) behaves identically to the default", () => {
+  const qty = sizePositionByRisk({ equity: 10000, riskPct: 1, entry: 50, stop: 47, availCash: 100000, maxNamePct: 100, direction: "LONG" });
+  assert.strictEqual(qty, 33);
+});
+
 console.log("isMarketHoursET…");
 ok("9:35 AM ET open boundary is inside market hours (>=, inclusive)", () => {
   assert.strictEqual(withFixedNow("2026-07-15T13:35:00.000Z", isMarketHoursET), true); // Wed

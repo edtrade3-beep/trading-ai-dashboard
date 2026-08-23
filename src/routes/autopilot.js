@@ -32,7 +32,7 @@ async function handleAutopilot(req, res, requestUrl) {
     if (!VALID_MODES.includes(body?.mode)) {
       return writeJson(res, 400, { ok: false, error: `mode must be one of ${VALID_MODES.join(", ")}` });
     }
-    // ASSIST now has real order execution (LONG only — see
+    // ASSIST now has real order execution, both directions (see
     // lightbox-autopilot-execute.js) via the /preview + /execute routes
     // below, both gated on mode === "ASSIST". AUTOPILOT (fully automatic,
     // no tap required) is still not built — accepted as a real stored
@@ -47,12 +47,13 @@ async function handleAutopilot(req, res, requestUrl) {
   }
 
   // Real ASSIST order preview/execute (2026-08-23, explicit user request:
-  // "Build real order execution... ASSIST only... Alpaca paper"). Both
-  // routes run the exact same real validation/sizing in
-  // lightbox-autopilot-execute.js — preview places nothing, execute
-  // re-validates fresh (never trusts a stale preview) and places a real
-  // bracket order. LONG-only — see that file's header for why SHORT is
-  // deliberately out of scope for now.
+  // "Build real order execution... ASSIST only... Alpaca paper"; SHORT
+  // support added same day once day-trade-calc.js's direction-aware
+  // stop/target math shipped). Both routes run the exact same real
+  // validation/sizing in lightbox-autopilot-execute.js — preview places
+  // nothing, execute re-validates fresh (never trusts a stale preview)
+  // and places a real bracket order, buy-side for LONG or sell-side
+  // (real short) for SHORT.
   if (pathname === "/api/autopilot/preview" && req.method === "POST") {
     let symbol;
     try { symbol = await readSymbol(req); } catch (e) { return writeJson(res, 400, { ok: false, error: e.message }); }

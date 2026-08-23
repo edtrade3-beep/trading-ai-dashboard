@@ -93,13 +93,23 @@ function sectorCapExceeded({ positions, symbol, maxPerSector }) {
   return count >= maxPerSector;
 }
 
-// Risk-based share count: risk riskPct of equity on (entry − stop) per share,
-// capped by available cash (no margin) and by maxNamePct of equity in one name.
-// Returns 0 if the setup can't be sized safely (invalid stop, no cash, etc.) —
-// callers should skip the trade rather than fall back to flat/blind sizing.
-function sizePositionByRisk({ equity, riskPct, entry, stop, availCash, maxNamePct = 20 }) {
-  if (!(equity > 0) || !(entry > 0) || !(stop > 0) || !(entry > stop)) return 0;
-  const riskPerShare = entry - stop;
+// Risk-based share count: risk riskPct of equity on the real per-share risk
+// distance, capped by available cash (no margin) and by maxNamePct of equity
+// in one name. Returns 0 if the setup can't be sized safely (invalid stop, no
+// cash, etc.) — callers should skip the trade rather than fall back to flat/
+// blind sizing.
+//
+// direction defaults to "LONG" (entry − stop, stop below entry) — every
+// existing caller (server-autopilot.js, routes/autoexec.js) is long-only and
+// omits it, so this default preserves their exact prior behavior unchanged.
+// direction: "SHORT" (2026-08-23, real Light Box SHORT ASSIST execution)
+// flips the risk distance to stop − entry (stop above entry, the real short
+// invalidation level) — the same formula, just measuring risk on the other
+// side of entry.
+function sizePositionByRisk({ equity, riskPct, entry, stop, availCash, maxNamePct = 20, direction = "LONG" }) {
+  if (!(equity > 0) || !(entry > 0) || !(stop > 0)) return 0;
+  const riskPerShare = direction === "SHORT" ? stop - entry : entry - stop;
+  if (!(riskPerShare > 0)) return 0;
   let qty = Math.floor((equity * (riskPct / 100)) / riskPerShare);
   qty = Math.min(qty, Math.floor((availCash || 0) / entry));
   qty = Math.min(qty, Math.floor((equity * (maxNamePct / 100)) / entry));

@@ -8,12 +8,14 @@ import { useEffect, useState } from "react";
 // with LightBoxCard.jsx, per the "do not redesign the light boxes"
 // constraint.
 //
-// ASSIST real order execution (2026-08-23, explicit user request) — LONG
-// entries only (see src/lightbox-autopilot-execute.js's header for why
-// SHORT stays alert-only). Real two-tap confirm: PREVIEW fetches real
-// qty/entry/stop/target/risk$ off the live account (never guessed
-// client-side), CONFIRM re-validates fresh server-side and places a real
-// Alpaca paper bracket order. AUTOPILOT (fully automatic, no tap) is still
+// ASSIST real order execution (2026-08-23, explicit user request) — both
+// LONG and SHORT (SHORT added same day once day-trade-calc.js's
+// direction-aware stop/target math shipped — see
+// src/lightbox-autopilot-execute.js's header). Real two-tap confirm:
+// PREVIEW fetches real qty/entry/stop/target/risk$ off the live account
+// (never guessed client-side), CONFIRM re-validates fresh server-side and
+// places a real Alpaca paper bracket order (buy-side for LONG, real
+// short-sell for SHORT). AUTOPILOT (fully automatic, no tap) is still
 // not built — stays visibly disabled so nothing implies more capability
 // than exists yet.
 const POLL_MS = 20000;
@@ -127,20 +129,23 @@ export default function AutopilotPanel({ C, MONO, SANS }) {
         <span>Open: <b style={{ color: C.text, fontFamily: MONO }}>{openCount}</b></span>
       </div>
 
-      {/* Real ASSIST ready-to-execute LONG positions — only meaningful in
-          ASSIST mode; hidden otherwise so OFF/ALERT users never see order
-          UI for a mode that can't place orders. */}
+      {/* Real ASSIST ready-to-execute LONG + SHORT positions — only
+          meaningful in ASSIST mode; hidden otherwise so OFF/ALERT users
+          never see order UI for a mode that can't place orders. */}
       {status.mode === "ASSIST" && (() => {
-        const ready = positions.filter((p) => p.state === "ENTRY_READY" && p.direction === "LONG" && !(p.orderId && p.orderPlacedForTs === p.detectedAt));
+        const ready = positions.filter((p) => p.state === "ENTRY_READY" && (p.direction === "LONG" || p.direction === "SHORT") && !(p.orderId && p.orderPlacedForTs === p.detectedAt));
         if (!ready.length && !preview && !orderResult) return null;
         return (
           <div style={{ marginTop: 10, paddingTop: 8, borderTop: `1px solid ${C.border}` }}>
             <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 6 }}>
-              REAL ENTRY_READY (LONG) — TAP TO PREVIEW, THEN CONFIRM
+              REAL ENTRY_READY (LONG + SHORT) — TAP TO PREVIEW, THEN CONFIRM
             </div>
             {ready.map((p) => (
               <div key={p.symbol} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "5px 0", fontFamily: MONO, fontSize: 11 }}>
-                <span style={{ color: C.text, fontWeight: 800 }}>{p.symbol}</span>
+                <span style={{ color: p.direction === "SHORT" ? C.red : C.text, fontWeight: 800 }}>{p.symbol}</span>
+                <span style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 800, color: p.direction === "SHORT" ? C.red : C.green, border: `1px solid ${p.direction === "SHORT" ? C.red : C.green}55`, borderRadius: 4, padding: "1px 5px" }}>
+                  {p.direction === "SHORT" ? "SHORT" : "LONG"}
+                </span>
                 <span style={{ color: C.textDim, fontFamily: SANS, fontSize: 10.5, flex: 1 }}>{p.why}</span>
                 <button onClick={() => previewOrder(p.symbol)} disabled={orderBusy}
                   style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 800, padding: "4px 10px", borderRadius: 6, border: `1px solid ${C.green}`, background: `${C.green}18`, color: C.green, cursor: orderBusy ? "not-allowed" : "pointer" }}>
@@ -153,26 +158,30 @@ export default function AutopilotPanel({ C, MONO, SANS }) {
               <div style={{ fontFamily: SANS, fontSize: 11, color: C.red, marginTop: 6 }}>{previewError}</div>
             )}
 
-            {preview && (
-              <div style={{ marginTop: 8, padding: "10px 12px", borderRadius: 8, border: `1px solid ${C.green}55`, background: `${C.green}0d` }}>
-                <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.text, marginBottom: 4 }}>
-                  {preview.symbol} — {preview.qty} sh @ ~${Number(preview.entry).toFixed(2)} (paper)
+            {preview && (() => {
+              const isShort = preview.direction === "SHORT";
+              const verb = isShort ? "SHORT SELL" : "BUY";
+              return (
+                <div style={{ marginTop: 8, padding: "10px 12px", borderRadius: 8, border: `1px solid ${isShort ? C.red : C.green}55`, background: `${isShort ? C.red : C.green}0d` }}>
+                  <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.text, marginBottom: 4 }}>
+                    {verb} {preview.symbol} — {preview.qty} sh @ ~${Number(preview.entry).toFixed(2)} (paper)
+                  </div>
+                  <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, marginBottom: 8 }}>
+                    Stop ${Number(preview.stop).toFixed(2)} · Target ${Number(preview.target).toFixed(2)} · Risking ${preview.riskDollars} ({preview.riskPct}% of equity) · Est. {isShort ? "exposure" : "cost"} ${preview.estCost}
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button onClick={confirmOrder} disabled={orderBusy}
+                      style={{ flex: 1, fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "8px 0", borderRadius: 6, border: "none", color: "#fff", background: orderBusy ? C.textDim : (isShort ? C.red : C.green), cursor: orderBusy ? "not-allowed" : "pointer" }}>
+                      {orderBusy ? "PLACING…" : `✅ CONFIRM — ${verb}`}
+                    </button>
+                    <button onClick={() => { setPreview(null); setPreviewError(null); }} disabled={orderBusy}
+                      style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "8px 14px", borderRadius: 6, border: `1px solid ${C.border}`, background: "transparent", color: C.textSec, cursor: orderBusy ? "not-allowed" : "pointer" }}>
+                      CANCEL
+                    </button>
+                  </div>
                 </div>
-                <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, marginBottom: 8 }}>
-                  Stop ${Number(preview.stop).toFixed(2)} · Target ${Number(preview.target).toFixed(2)} · Risking ${preview.riskDollars} ({preview.riskPct}% of equity) · Est. cost ${preview.estCost}
-                </div>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button onClick={confirmOrder} disabled={orderBusy}
-                    style={{ flex: 1, fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "8px 0", borderRadius: 6, border: "none", color: "#fff", background: orderBusy ? C.textDim : C.green, cursor: orderBusy ? "not-allowed" : "pointer" }}>
-                    {orderBusy ? "PLACING…" : "✅ CONFIRM — PLACE REAL ORDER"}
-                  </button>
-                  <button onClick={() => { setPreview(null); setPreviewError(null); }} disabled={orderBusy}
-                    style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "8px 14px", borderRadius: 6, border: `1px solid ${C.border}`, background: "transparent", color: C.textSec, cursor: orderBusy ? "not-allowed" : "pointer" }}>
-                    CANCEL
-                  </button>
-                </div>
-              </div>
-            )}
+              );
+            })()}
 
             {orderResult && (
               <div style={{ fontFamily: SANS, fontSize: 11, color: orderResult.ok ? C.green : C.red, marginTop: 6 }}>
