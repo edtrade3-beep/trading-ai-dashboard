@@ -1527,7 +1527,11 @@ const COMMANDS = {
       const ts   = r.timestamp || [];
       const q    = r.indicators?.quote?.[0] || {};
       const bars = ts.map((t, i) => ({ c: q.close?.[i] || 0, h: q.high?.[i] || 0, l: q.low?.[i] || 0 })).filter(b => b.c > 0);
-      if (bars.length < 14) return reply(`Not enough data for ${sym}`);
+      // 15, not 14 — computeAtrRiskLevels (One Engine Migration Phase 4)
+      // needs atrPeriod+1 real bars to compute a real ATR value; the old
+      // 14-bar floor matched only the RSI/EMA math here, not the real
+      // stop/target engine's own requirement.
+      if (bars.length < 15) return reply(`Not enough data for ${sym}`);
 
       const price  = meta.regularMarketPrice || bars.at(-1).c;
       // /api/market/chart proxies v8/finance/chart directly — confirmed its
@@ -1543,19 +1547,26 @@ const COMMANDS = {
       const ema = (n, arr) => { const k = 2/(n+1); let e = arr.slice(0,n).reduce((s,v)=>s+v,0)/n; for (let i=n;i<arr.length;i++) e = arr[i]*k+e*(1-k); return round2(e); };
       const ema9 = ema(9, closes), ema21 = ema(21, closes), ema50 = ema(Math.min(50, closes.length), closes);
 
-      let atrSum = 0;
-      for (let i = bars.length - 14; i < bars.length; i++) { const p = bars[i-1]?.c || bars[i].c; atrSum += Math.max(bars[i].h - bars[i].l, Math.abs(bars[i].h - p), Math.abs(bars[i].l - p)); }
-      const atr = round2(atrSum / 14);
-
       let gains = 0, losses = 0;
       for (let i = bars.length - 14; i < bars.length; i++) { const d = bars[i].c - (bars[i-1]?.c || 0); d > 0 ? gains += d : losses += Math.abs(d); }
       const rsi = round2(losses === 0 ? 100 : 100 - 100/(1 + gains/14/(losses/14)));
 
       const trend = price > ema50 && ema50 > ema21 ? "STRONG BULL" : price > ema21 ? "BULL" : price < ema21 ? "BEAR" : "NEUTRAL";
 
-      const stopLoss = round2(Math.max(price - atr*1.5, price*0.97, ema21 < price ? ema21*0.99 : price*0.97));
-      const riskPerShare = round2(price - stopLoss);
-      const t1 = round2(price + riskPerShare*1.5), t2 = round2(price + riskPerShare*2.5), t3 = round2(price + riskPerShare*4);
+      // Real ATR-based stop/target/trailing-stop (One Engine Migration
+      // Phase 4, 2026-08-23) — replaces this command's own inline ATR/
+      // stop/target math with atr-risk-engine.js's real, already-tested
+      // computeAtrRiskLevels, the same real function TradePlannerTab.jsx
+      // now calls too (off its own real daily bars) — so /plan and the
+      // website's Trade Planner keep agreeing on numbers for the same
+      // symbol, per this command's own original design intent.
+      const { computeAtrRiskLevels } = require("./atr-risk-engine");
+      const atrBars = bars.map(b => ({ high: b.h, low: b.l, close: b.c }));
+      const atrLevels = computeAtrRiskLevels(atrBars, price);
+      const atr = atrLevels.atr;
+      const stopLoss = atrLevels.stop;
+      const riskPerShare = atrLevels.riskPerShare;
+      const t1 = atrLevels.target1, t2 = atrLevels.target2, t3 = atrLevels.target3;
 
       // Same endpoint AND same VIX proxy (VIXY, not raw ^VIX) the website's own
       // regime engine uses (axiom-live.jsx MACRO_SYMBOLS + fetchQuotes →
@@ -1594,8 +1605,8 @@ const COMMANDS = {
         `💰 LEVELS`,
         `Entry:  $${price.toFixed(2)}  (current)`,
         `Stop:   $${stopLoss}  (${fmtPct(pct(stopLoss, price))} · ATR-based)`,
-        `T1:     $${t1}  (${fmtPct(pct(t1, price))} · 1.5R · take 50%)`,
-        `T2:     $${t2}  (${fmtPct(pct(t2, price))} · 2.5R · take 25%)`,
+        `T1:     $${t1}  (${fmtPct(pct(t1, price))} · 2R · take 50%)`,
+        `T2:     $${t2}  (${fmtPct(pct(t2, price))} · 3R · take 25%)`,
         `T3:     $${t3}  (${fmtPct(pct(t3, price))} · 4R · let run)`,
         ``,
         `💵 POSITION SIZING — $${account.toLocaleString()} acct · ${riskPct}% risk`,

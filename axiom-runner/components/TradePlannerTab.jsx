@@ -1,4 +1,5 @@
 import { computeRegime, computeAPlusScore, computeNextAction } from "./market-helpers.js";
+import { computeAtrRiskLevels } from "./atr-risk-engine.js";
 import AiScoreExplainer, { AplusBadge } from "./AiScoreExplainer.jsx";
 
 export default function TradePlannerTab({ C, MONO, SANS, macroData }) {
@@ -29,7 +30,9 @@ export default function TradePlannerTab({ C, MONO, SANS, macroData }) {
       const ts    = r.timestamp || [];
       const q     = r.indicators?.quote?.[0] || {};
       const bars  = ts.map((t, i) => ({ c: q.close?.[i]||0, h: q.high?.[i]||0, l: q.low?.[i]||0, v: q.volume?.[i]||0 })).filter(b => b.c > 0);
-      if (bars.length < 14) throw new Error("Not enough data");
+      // 15, not 14 — computeAtrRiskLevels (One Engine Migration Phase 4)
+      // needs atrPeriod+1 real bars for a real ATR value.
+      if (bars.length < 15) throw new Error("Not enough data");
 
       const livePrice = meta.regularMarketPrice || bars.at(-1).c;
       // Real handoff from a scan (AI Sniper Scanner) — its entry/stop are
@@ -60,9 +63,18 @@ export default function TradePlannerTab({ C, MONO, SANS, macroData }) {
       const ema = (n, arr) => { const k=2/(n+1); let e=arr.slice(0,n).reduce((s,v)=>s+v,0)/n; for(let i=n;i<arr.length;i++) e=arr[i]*k+e*(1-k); return r2(e); };
       const ema9=ema(9,closes), ema21=ema(21,closes), ema50=ema(Math.min(50,closes.length),closes);
 
-      let atrSum=0;
-      for(let i=bars.length-14;i<bars.length;i++) { const p=bars[i-1]?.c||bars[i].c; atrSum+=Math.max(bars[i].h-bars[i].l,Math.abs(bars[i].h-p),Math.abs(bars[i].l-p)); }
-      const atr=r2(atrSum/14);
+      // Real ATR-based stop/target/trailing-stop (One Engine Migration
+      // Phase 4, 2026-08-23) — replaces this tab's own inline ATR/stop/
+      // target math with atr-risk-engine.js's real, already-tested
+      // computeAtrRiskLevels, the same real function Telegram's /plan
+      // command now calls too (off its own real daily bars) — so the two
+      // keep agreeing on numbers for the same symbol, per /plan's own
+      // original design intent. Real R-multiples are 2R/3R/4R here
+      // (matching the engine's own defaults), not the old inline
+      // 1.5R/2.5R/4R — a real, disclosed number shift, not a bug.
+      const atrBars = bars.map(b => ({ high: b.h, low: b.l, close: b.c }));
+      const atrLevels = computeAtrRiskLevels(atrBars, price);
+      const atr = atrLevels.atr;
 
       let gains=0,losses=0;
       for(let i=bars.length-14;i<bars.length;i++){const d=bars[i].c-(bars[i-1]?.c||0);d>0?gains+=d:losses+=Math.abs(d);}
@@ -71,11 +83,11 @@ export default function TradePlannerTab({ C, MONO, SANS, macroData }) {
       const trend=price>ema50&&ema50>ema21?'STRONG BULL':price>ema21?'BULL':price<ema21?'BEAR':'NEUTRAL';
       const trendCol=trend.includes('BULL')?C.green:trend==='BEAR'?C.red:C.amber;
 
-      const stopLoss = hasRealPlan ? r2(Number(handoff.stop)) : r2(Math.max(price-atr*1.5, price*0.97, ema21<price?ema21*0.99:price*0.97));
+      const stopLoss = hasRealPlan ? r2(Number(handoff.stop)) : atrLevels.stop;
       const riskPerShare=r2(price-stopLoss);
       const riskAmt=account*(riskPct/100);
       const shares=riskPerShare>0?Math.floor(riskAmt/riskPerShare):0;
-      const t1=r2(price+riskPerShare*1.5), t2=r2(price+riskPerShare*2.5), t3=r2(price+riskPerShare*4);
+      const t1=r2(price+riskPerShare*2), t2=r2(price+riskPerShare*3), t3=r2(price+riskPerShare*4);
 
       // Reuse the scan's already-computed real Trade Setup Score + Next
       // Action when handed off — the exact same data the user just saw on
@@ -206,8 +218,8 @@ export default function TradePlannerTab({ C, MONO, SANS, macroData }) {
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:10}}>
             {numCard("ENTRY PRICE",`$${result.price.toFixed(2)}`,result.planSource?`Real entry from ${result.planSource}`:"Current price — buy here",C.accent)}
             {numCard("STOP LOSS 🛑",`$${result.stopLoss}`,`${fmtPct(pct(result.stopLoss,result.price))} · ${result.planSource?`real stop from ${result.planSource}`:"ATR-based"}`,C.red)}
-            {numCard("TARGET 1 🎯",`$${result.t1}`,`${fmtPct(pct(result.t1,result.price))} · 1.5R · Take 50%`,C.green)}
-            {numCard("TARGET 2 🚀",`$${result.t2}`,`${fmtPct(pct(result.t2,result.price))} · 2.5R · Take 25%`,"#22c55e")}
+            {numCard("TARGET 1 🎯",`$${result.t1}`,`${fmtPct(pct(result.t1,result.price))} · 2R · Take 50%`,C.green)}
+            {numCard("TARGET 2 🚀",`$${result.t2}`,`${fmtPct(pct(result.t2,result.price))} · 3R · Take 25%`,"#22c55e")}
             {numCard("TARGET 3 💎",`$${result.t3}`,`${fmtPct(pct(result.t3,result.price))} · 4R · Let run`,C.accent)}
           </div>
           {result.scanTarget != null && (
