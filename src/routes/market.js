@@ -1000,6 +1000,14 @@ function vcpBreakoutEngine(symbol, bars, vcp, price) {
     volume: { dryUpScore: 0, breakoutRatio: 0, grade: "weak" },
     signal: "NONE",
     confidence: 0,
+    // breakoutIdx/breakoutDate (2026-08-24, VCP Visual Analysis Layer) —
+    // real bar index/date of the breakout candle. Was already computed
+    // below (the same scan the state machine uses) but discarded before
+    // this object was returned — a real gap found while scoping the chart
+    // overlay, which needs an exact coordinate to mark the breakout
+    // candle. -1/null when no real breakout has occurred yet.
+    breakoutIdx: -1,
+    breakoutDate: null,
   };
   if (!vcp || !vcp.contractions || !vcp.contractions.length) return out;
 
@@ -1029,6 +1037,8 @@ function vcpBreakoutEngine(symbol, bars, vcp, price) {
   for (let i = Math.max(baseStart + 1, 1); i <= last; i += 1) {
     if (closes[i] > pivot && closes[i - 1] <= pivot) breakoutIdx = i;
   }
+  out.breakoutIdx = breakoutIdx;
+  out.breakoutDate = breakoutIdx >= 0 ? bars[breakoutIdx].time : null;
   const breakoutVolume = vols[breakoutIdx >= 0 ? breakoutIdx : last];
   const breakoutRatio = round2(breakoutVolume / baseVolumeAvg);
   out.volume.breakoutRatio = breakoutRatio;

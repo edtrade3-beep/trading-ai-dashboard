@@ -4,7 +4,18 @@
 // base quality. Shared by DayTradeTab, MarketTerminalTab, and
 // TrendTemplateTab — all three render swing-context charts off the same
 // /api/market/trend-template payload shape.
-export default function TrendChart({ data, C, MONO, SANS, height }) {
+// vcpOverlayOn (2026-08-24, VCP Visual Analysis Layer, explicit user
+// request: "VCP must be displayed directly on the technical chart... not
+// just a text panel") — gates the whole VCP-specific overlay bundle
+// (contraction zigzag/C1-C4 markers, VCP's own pivot/base-range lines,
+// entry zone, volume dry-up bar tint, breakout marker) behind one real
+// toggle, same real data (data.setup.vcp/data.setup.breakout) this file
+// was already partially drawing from. Defaults falsy so every existing
+// mount point (DashboardTab/CryptoTab/TrendTemplateTab) is unaffected
+// unless a caller explicitly opts in. VCP stays evidence only — no new
+// score/verdict is computed anywhere in this file; every VCP field drawn
+// here already exists on the real, already-fetched `data` prop.
+export default function TrendChart({ data, C, MONO, SANS, height, vcpOverlayOn }) {
   const elRef = React.useRef(null);
   const chartRef = React.useRef(null);
   const seriesRef = React.useRef(null);
@@ -148,6 +159,12 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
     chart.priceScale("vol").applyOptions({ scaleMargins: { top: 0.84, bottom: 0 } });
     const mk = (color, w) => chart.addLineSeries({ color, lineWidth: w, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
     const ma200 = mk("#c94440", 1), ma150 = mk("#d6a312", 1), ma50 = mk(C.accent, 2);
+    // MA20 (2026-08-24, VCP Visual Analysis Layer) — the user's explicit
+    // "20/50/200 moving averages" spec; this file's existing MAs are
+    // 50/150/200 (Minervini's own convention), so 20 is a genuinely new
+    // series, not a relabel. Always drawn (not VCP-gated) — a standard MA,
+    // not a VCP-specific artifact.
+    const ma20 = mk("#94a3b8", 1);
     // Bollinger Bands (20, 2σ) — the green volatility envelope in the reference chart.
     const bbU = mk("#4ea86e", 1), bbL = mk("#4ea86e", 1);
     // VWAP/9EMA/21EMA overlays (2026-08-04 decision-first redesign, Phase 4)
@@ -168,7 +185,7 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
     // mean 1R/2R/3R profit targets on this same chart.
     const vcpZigzag = mk("#9c5cff", 2);
     chartRef.current = chart;
-    seriesRef.current = { candle, vol, ma50, ma150, ma200, bbU, bbL, ema9, ema21, vwap20, vcpZigzag, priceLines: [] };
+    seriesRef.current = { candle, vol, ma20, ma50, ma150, ma200, bbU, bbL, ema9, ema21, vwap20, vcpZigzag, priceLines: [] };
     symRef.current = null; // force a fitContent on next data fill
     const onResize = () => {
       chart.applyOptions({ width: el.clientWidth || 800 });
@@ -263,9 +280,30 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
     chart.applyOptions({ timeScale: { timeVisible: !!isIntraday, secondsVisible: false } });
     const bars = data.bars, n = bars.length;
     s.candle.setData(bars.map(b => ({ time: toTime(b.time), open: b.open, high: b.high, low: b.low, close: b.close })));
-    s.vol.setData(bars.map(b => ({ time: toTime(b.time), value: b.volume, color: (b.close >= b.open ? C.green : C.red) + "55" })));
+    // Volume dry-up (2026-08-24, VCP Visual Analysis Layer) — bars inside
+    // the real detected base (from vcp.points[0].i, the same real base-
+    // start index the price-line/marker logic below already uses) get a
+    // distinct muted tint instead of plain green/red, so the real
+    // declining volume into the base (vcp.volTrend) is visible as an
+    // obviously-shorter, differently-colored cluster of bars — not just a
+    // number in a panel.
+    const baseStartIdxForVol = vcpOverlayOn && data.setup && data.setup.vcp && Array.isArray(data.setup.vcp.points) && data.setup.vcp.points.length
+      ? data.setup.vcp.points[0].i : -1;
+    s.vol.setData(bars.map((b, i) => ({
+      time: toTime(b.time), value: b.volume,
+      color: (baseStartIdxForVol >= 0 && i >= baseStartIdxForVol) ? "#9c5cff66" : (b.close >= b.open ? C.green : C.red) + "55",
+    })));
     const setMA = (series, arr) => series.setData(bars.map((b, i) => arr[i] == null ? null : ({ time: toTime(b.time), value: arr[i] })).filter(Boolean));
     setMA(s.ma200, data.series.ma200); setMA(s.ma150, data.series.ma150); setMA(s.ma50, data.series.ma50);
+    // MA20 — real rolling SMA computed client-side (the server's `series`
+    // only carries 50/150/200); same simple-average math as every other
+    // MA, just a shorter window.
+    const sma20 = bars.map((b, i) => {
+      if (i < 19) return null;
+      let sum = 0; for (let j = i - 19; j <= i; j += 1) sum += bars[j].close;
+      return sum / 20;
+    });
+    setMA(s.ma20, sma20);
 
     // Bollinger Bands (20-period, 2σ) computed from closes.
     const P = 20, K = 2, closes = bars.map(b => b.close), bbUp = [], bbLo = [];
@@ -318,7 +356,7 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
     // array uses, so no re-detection here, just plotting what
     // vcpBreakoutEngine already found. Sparse (null everywhere else,
     // matching setMA's existing null-gap convention).
-    const vcpPoints = data.setup && data.setup.vcp && Array.isArray(data.setup.vcp.points) ? data.setup.vcp.points : [];
+    const vcpPoints = vcpOverlayOn && data.setup && data.setup.vcp && Array.isArray(data.setup.vcp.points) ? data.setup.vcp.points : [];
     if (vcpPoints.length >= 2) {
       const zz = new Array(n).fill(null);
       vcpPoints.forEach(p => { if (p.i >= 0 && p.i < n) zz[p.i] = p.price; });
@@ -380,6 +418,26 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
         : su.target2;
       if (aiTgt) pl(aiTgt, "#f59e0b", "🎯 AI TARGET", LS.Dashed ?? 2);
     }
+    // VCP-specific levels (2026-08-24, VCP Visual Analysis Layer) — the
+    // VCP engine's OWN pivot/base range, distinct from the Minervini-
+    // template PIVOT/BASE LOW just above (su.entry/su.contractionLow are
+    // a different, separately-computed real swing-high pivot and a
+    // narrower 15-bar low — see src/routes/market.js's own comment on why
+    // these two real values can legitimately differ). The existing pl()
+    // dedup (± ~3.5% of the visible range) naturally collapses these into
+    // one label when they're close, and shows both when they're not.
+    if (vcpOverlayOn && data.setup) {
+      const vcpB = data.setup.breakout, vcp = data.setup.vcp;
+      if (vcpB && vcpB.pivot && vcpB.pivot.price > 0) {
+        pl(vcpB.pivot.price, "#9c5cff", "VCP PIVOT", LS.Dashed ?? 2);
+        // Entry zone — Minervini's own standard "up to 5% past pivot before
+        // it's extended" guideline, not a detected value. Labeled with the
+        // rule spelled out so it never reads as a second detected level.
+        pl(Math.round(vcpB.pivot.price * 1.05 * 100) / 100, "#9c5cff", "ENTRY ZONE HIGH (+5%)", LS.Dotted ?? 1);
+      }
+      if (vcp && vcp.baseHigh) pl(vcp.baseHigh, "#9c5cff", "VCP BASE HIGH", LS.Dotted ?? 1);
+      if (vcp && vcp.baseLow) pl(vcp.baseLow, "#9c5cff", "VCP BASE LOW", LS.Dotted ?? 1);
+    }
     // Support/Resistance (2026-08-04 decision-first redesign, Phase 4) —
     // real swing-high/swing-low detection, same W=3 local-extremum algorithm
     // buildTrendTemplate uses server-side for real pivot/VCP detection (not
@@ -419,11 +477,21 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
     // VCP contraction labels — C1/C2/C3/C4 (not T1/T2/T3, which already mean
     // 1R/2R/3R profit targets on this chart), one per real contraction leg,
     // placed at each leg's real low with its real depth %.
-    const vcpContractions = data.setup && data.setup.vcp && Array.isArray(data.setup.vcp.contractions) ? data.setup.vcp.contractions : [];
+    const vcpContractions = vcpOverlayOn && data.setup && data.setup.vcp && Array.isArray(data.setup.vcp.contractions) ? data.setup.vcp.contractions : [];
     vcpContractions.forEach((c, i) => {
       if (c.lowIdx == null || c.lowIdx < 0 || c.lowIdx >= n) return;
       markers.push({ time: toTime(bars[c.lowIdx].time), position: "belowBar", color: "#9c5cff", shape: "circle", text: `C${i + 1} -${c.depth}%` });
     });
+    // Real breakout candle (2026-08-24) — the exact bar vcpBreakoutEngine
+    // detected price crossing above its own VCP pivot, now returned as
+    // breakoutIdx (previously computed there but discarded — see
+    // src/routes/market.js). Distinct marker/color from the generic
+    // MA50-reclaim "BUY" arrow above — a different real signal (VCP
+    // pivot breakout, not a moving-average reclaim).
+    const vcpBreakout = data.setup && data.setup.breakout;
+    if (vcpOverlayOn && vcpBreakout && Number.isFinite(vcpBreakout.breakoutIdx) && vcpBreakout.breakoutIdx >= 0 && vcpBreakout.breakoutIdx < n) {
+      markers.push({ time: toTime(bars[vcpBreakout.breakoutIdx].time), position: "belowBar", color: "#0d9465", shape: "arrowUp", text: "🚀 VCP BREAKOUT" });
+    }
     markers.sort((a, b) => {
       const ta = isIntraday ? a.time : new Date(a.time.year, a.time.month - 1, a.time.day).getTime();
       const tb = isIntraday ? b.time : new Date(b.time.year, b.time.month - 1, b.time.day).getTime();
@@ -435,7 +503,7 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
     // symbol leaves a stale zoom range from the old granularity otherwise).
     const viewKey = `${data.symbol}:${data.intervalUsed || "1d"}`;
     if (symRef.current !== viewKey) { chart.timeScale().fitContent(); symRef.current = viewKey; }
-  }, [data, C]);
+  }, [data, C, vcpOverlayOn]);
 
   if (typeof window !== "undefined" && !window.LightweightCharts) {
     return <div style={{ height: H, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: SANS, fontSize: 12, color: C.textDim }}>Loading interactive chart…</div>;
@@ -477,6 +545,11 @@ export default function TrendChart({ data, C, MONO, SANS, height }) {
     ["🟡 20D VWAP", "Real 20-day rolling volume-weighted average price — not intraday VWAP (this chart's bars are daily), same real definition the Trade Checklist uses."],
     ["🟣 SUPPORT / RESISTANCE", "Nearest real swing high/low on each side of price — broader than PIVOT/BASE LOW, which only bracket the current base."],
     ["🟪 VCP ZIGZAG / C1 C2 C3…", "Real swing high→low sequence forming the base (vcpBreakoutEngine's own detection) — each circle marks one real contraction leg with its real % depth. Progressively smaller (e.g. C1 -18% → C2 -11% → C3 -6%) is the real tightening pattern this setup needs."],
+    ["🔵 20 MA", "20-day simple moving average — the shortest of this chart's 3 MAs (20/50/200)."],
+    ["🟪 VCP PIVOT / BASE HIGH / BASE LOW", "The VCP engine's own real pivot and whole-base range — a separate real computation from PIVOT/BASE LOW above, which come from the Minervini trend-template's own swing detection. The two usually sit close together; shown separately when they genuinely differ. Only visible when VCP overlay is ON."],
+    ["🟪 ENTRY ZONE HIGH (+5%)", "Minervini's own standard rule of thumb — up to 5% past the VCP pivot is still a reasonable entry before it's considered extended/chasing. A named rule applied on top of the real pivot, not a separately detected level."],
+    ["🟪 Purple volume bars", "Real volume inside the detected VCP base — watch these bars shrink toward the pivot; that shrinking is the real \"volume dry-up\" signal. Only tinted when VCP overlay is ON."],
+    ["🚀 VCP BREAKOUT", "The real candle where price first closed above the VCP engine's own pivot on this chart's data — a different real signal from the green MA50-reclaim BUY arrow above."],
   ];
   return (
     <div style={{ position: "relative", width: "100%", height: H }}>

@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import SmartMoneyDecisionPanel from "./SmartMoneyDecisionPanel.jsx";
+import TrendChart from "./TrendChart.jsx";
+import VcpStatusPanel from "./VcpStatusPanel.jsx";
 
 // Trend & Base Rating overlay — collapsed to a small pill by default
 // (2026-08-05, real user report with a screenshot: the full card was
@@ -279,6 +281,13 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   const [sym, setSym] = useState("NVDA");
   const [chart, setChart] = useState(null);
   const [loadingChart, setLoadingChart] = useState(false);
+  // VCP Visual Analysis Layer (2026-08-24, explicit user request) — real
+  // toggle swapping this chart between the TradingView embed (no drawing
+  // API, confirmed via research) and a self-rendered TrendChart.jsx with
+  // the full VCP overlay, off the exact same `chart` data already fetched
+  // above. Defaults off — preserves today's default experience.
+  const [vcpOn, setVcpOn] = useState(false);
+  const [vcpDetailsOpen, setVcpDetailsOpen] = useState(false);
   const [query, setQuery] = useState("");
   // Deep-link sub-tab (2026-08-19 reorg) — Smart Scan/Options Flow/
   // Valuation/Analysts/Investors/Earnings/Company/Social/News, each a real
@@ -2541,13 +2550,37 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
               {lbl}
             </button>
           ))}
-          <button onClick={toggleTrendRating} title={showTrendRating ? "Hide the Trend & Base Rating overlay on the chart" : "Show the Trend & Base Rating overlay on the chart"}
+          {/* VCP Visual Analysis Layer (2026-08-24) — [VCP ON/OFF] swaps
+              the chart below between the TradingView embed and a real
+              self-rendered chart with the full VCP overlay (contractions,
+              pivot, base range, volume dry-up, breakout candle);
+              [VCP DETAILS] opens the real 7-row status panel. Both off
+              the same real `chart` data already fetched for this symbol —
+              zero new fetch. */}
+          <button onClick={() => setVcpOn(v => !v)} title={vcpOn ? "Switch back to the TradingView chart" : "Switch to the self-rendered chart with real VCP contraction/pivot/volume overlays drawn on it"}
             style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "5px 12px", borderRadius: 7, cursor: "pointer",
+              border: `1px solid ${vcpOn ? "#9c5cff" : C.border}`, background: vcpOn ? "#9c5cff18" : "transparent",
+              color: vcpOn ? "#9c5cff" : C.textDim }}>
+            {vcpOn ? "🟪 VCP: On" : "🟪 VCP: Off"}
+          </button>
+          <button onClick={() => setVcpDetailsOpen(v => !v)} title="Real VCP score/contractions/volume dry-up/pivot/RS/breakout status"
+            style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "5px 12px", borderRadius: 7, cursor: "pointer",
+              border: `1px solid ${vcpDetailsOpen ? "#9c5cff" : C.border}`, background: vcpDetailsOpen ? "#9c5cff18" : "transparent",
+              color: vcpDetailsOpen ? "#9c5cff" : C.textDim }}>
+            {vcpDetailsOpen ? "▴ VCP Details" : "▾ VCP Details"}
+          </button>
+          <button onClick={toggleTrendRating} title={showTrendRating ? "Hide the Trend & Base Rating overlay on the chart" : "Show the Trend & Base Rating overlay on the chart"}
+            style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "5px 12px", borderRadius: 7, cursor: "pointer",
               border: `1px solid ${showTrendRating ? C.accent : C.border}`, background: showTrendRating ? `${C.accent}18` : "transparent",
               color: showTrendRating ? C.accent : C.textDim }}>
             {showTrendRating ? "📊 Rating: On" : "📊 Rating: Off"}
           </button>
         </div>
+        {vcpDetailsOpen && chart && (
+          <div style={{ marginBottom: 10 }}>
+            <VcpStatusPanel data={chart} C={C} MONO={MONO} SANS={SANS} />
+          </div>
+        )}
         {/* SECTION 5 — large interactive chart. Right padding reserves
             clearance for the fixed bottom-right FAB cluster (Copilot/
             QuickTrade/RealityCheck, right:18, ~54-70px wide each) — the
@@ -2562,17 +2595,33 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             own dTab. */}
         <div style={{ paddingRight: 90, position: "relative" }}>
           {chart && sym
-            ? <>
-                <iframe key={`chart-${sym}-${chartTf}-${tvTheme}`} title={`${sym} live chart`}
-                  src={`/client/tv-widget.html?w=advanced-chart&s=${encodeURIComponent(sym)}&t=${tvTheme}&h=720&iv=${TV_INTERVAL[chartTf] || "D"}&st=ema50,wma150,ma200,bb,volume`}
-                  style={{ width: "100%", height: 720, border: `1px solid ${C.border}`, borderRadius: 12, display: "block" }} />
-                {/* Trend & Base Rating + trade levels overlay — real
-                    rating + PIVOT/STOP/T1/T2/T3 numbers TradingView has no
-                    way to know, using the exact same formula TrendChart.jsx
-                    used. Collapsed to a small pill by default — tap to
-                    expand. Untouched by the 2026-08-19 reorg. */}
-                {showTrendRating && <TrendRatingOverlay chart={chart} C={C} MONO={MONO} SANS={SANS} isMobile={isMobile} />}
-              </>
+            ? (vcpOn
+              ? (
+                // VCP Visual Analysis Layer (2026-08-24) — the real,
+                // self-rendered chart (TrendChart.jsx, lightweight-charts,
+                // already used elsewhere in this app) with the full VCP
+                // overlay drawn on real coordinates, swapped in for the
+                // TradingView embed because that embed exposes no drawing
+                // API (confirmed via research) — coordinate-accurate
+                // annotation isn't possible on it. Same real `chart` data
+                // this file already fetches. TrendRatingOverlay's PIVOT/
+                // STOP/T1/T2/T3 text-pill workaround is redundant here —
+                // this chart already draws those same real levels as
+                // native, labeled price lines.
+                <TrendChart data={chart} C={C} MONO={MONO} SANS={SANS} height={720} vcpOverlayOn={true} />
+              )
+              : <>
+                  <iframe key={`chart-${sym}-${chartTf}-${tvTheme}`} title={`${sym} live chart`}
+                    src={`/client/tv-widget.html?w=advanced-chart&s=${encodeURIComponent(sym)}&t=${tvTheme}&h=720&iv=${TV_INTERVAL[chartTf] || "D"}&st=ema50,wma150,ma200,bb,volume`}
+                    style={{ width: "100%", height: 720, border: `1px solid ${C.border}`, borderRadius: 12, display: "block" }} />
+                  {/* Trend & Base Rating + trade levels overlay — real
+                      rating + PIVOT/STOP/T1/T2/T3 numbers TradingView has no
+                      way to know, using the exact same formula TrendChart.jsx
+                      used. Collapsed to a small pill by default — tap to
+                      expand. Untouched by the 2026-08-19 reorg. */}
+                  {showTrendRating && <TrendRatingOverlay chart={chart} C={C} MONO={MONO} SANS={SANS} isMobile={isMobile} />}
+                </>
+              )
             : <div style={{ height: 720, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: 13, color: C.textDim, border: `1px solid ${C.border}`, borderRadius: 12 }}>Select a mover to load the chart…</div>}
         </div>
         </AccordionSection>
