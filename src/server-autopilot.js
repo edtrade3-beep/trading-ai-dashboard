@@ -40,24 +40,19 @@ const LEADERS = [
 ];
 
 const BASE = () => process.env.RENDER_EXTERNAL_URL || `http://127.0.0.1:${PORT}`;
-const APCA = "https://paper-api.alpaca.markets";
-function keys() {
-  return {
-    id: process.env.ALPACA_KEY_ID || process.env.ALPACA_API_KEY_ID || "",
-    secret: process.env.ALPACA_SECRET_KEY || process.env.ALPACA_API_SECRET_KEY || "",
-  };
-}
+const { resolveAlpacaKeys, alpacaTradingRequest } = require("./providers/alpaca-client");
+const keys = resolveAlpacaKeys;
+// Local shim preserving this file's original real contract (returns null
+// on no-key or any fetch error — this is a background tick, it must never
+// throw and break the interval on a transient network blip) while
+// delegating the actual request to the real shared client — same pattern
+// trailing-stops.js already established (Execution Bot Architecture Audit
+// Phase 3, 2026-08-24: this file was one of 2 remaining real duplicates).
 async function apca(path, method = "GET", body = null) {
-  const { id, secret } = keys();
-  if (!id || !secret) return null;
   try {
-    const r = await fetch(`${APCA}${path}`, {
-      method,
-      headers: { "APCA-API-KEY-ID": id, "APCA-API-SECRET-KEY": secret, "Content-Type": "application/json" },
-      body: body ? JSON.stringify(body) : undefined,
-    });
-    const j = await r.json().catch(() => null);
-    return { ok: r.ok, status: r.status, data: j };
+    const res = await alpacaTradingRequest(path, method, body);
+    if (res._noKey) return null;
+    return { ok: res.ok, status: res.status, data: res.data };
   } catch { return null; }
 }
 async function getJson(path) { try { const r = await fetch(`${BASE()}${path}`); return await r.json(); } catch { return null; }

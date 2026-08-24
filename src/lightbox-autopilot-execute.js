@@ -46,25 +46,19 @@ const {
 } = require("./autopilot-store");
 
 const CLIENT_ORDER_PREFIX = "lba-"; // "Light Box Autopilot" — real idempotency + real ownership marker on every order this file places
-const APCA = "https://paper-api.alpaca.markets";
 
-function keys() {
-  return {
-    id: process.env.ALPACA_KEY_ID || process.env.ALPACA_API_KEY_ID || "",
-    secret: process.env.ALPACA_SECRET_KEY || process.env.ALPACA_API_SECRET_KEY || "",
-  };
-}
+const { resolveAlpacaKeys, alpacaTradingRequest } = require("./providers/alpaca-client");
+const keys = resolveAlpacaKeys;
+// Local shim preserving this file's original real contract (returns null
+// on no-key or any fetch error) while delegating the actual request to the
+// real shared client — same pattern trailing-stops.js already established
+// (Execution Bot Architecture Audit Phase 3, 2026-08-24: this file was one
+// of 2 remaining real duplicates).
 async function apca(reqPath, method = "GET", body = null) {
-  const { id, secret } = keys();
-  if (!id || !secret) return null;
   try {
-    const r = await fetch(`${APCA}${reqPath}`, {
-      method,
-      headers: { "APCA-API-KEY-ID": id, "APCA-API-SECRET-KEY": secret, "Content-Type": "application/json" },
-      body: body ? JSON.stringify(body) : undefined,
-    });
-    const j = await r.json().catch(() => null);
-    return { ok: r.ok, status: r.status, data: j };
+    const res = await alpacaTradingRequest(reqPath, method, body);
+    if (res._noKey) return null;
+    return { ok: res.ok, status: res.status, data: res.data };
   } catch { return null; }
 }
 
