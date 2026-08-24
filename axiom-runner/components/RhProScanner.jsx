@@ -659,7 +659,14 @@ export default function RhProScanner({
     <>
     <div style={{ padding: "8px 4px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 10 }}>
-        <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.text }}>AI SNIPER SCANNER PRO</div>
+        {/* Renamed from "AI SNIPER SCANNER PRO" (2026-08-23, Sniper AI —
+            a real, separate tab from Discover) — this component is what
+            the sidebar labels "Discover" and shows a different, broader
+            9-tier quality vocabulary (ai-actions.js), not Sniper's real
+            hard-gated entry-timing verdict. Keeping the old "Sniper"
+            header here would now be actively misleading next to the new,
+            real Sniper AI tab. */}
+        <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.text }}>DISCOVER — FULL MARKET SCANNER</div>
         <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>{RH_UNIVERSE.length} stocks · ranked 0–100 · full chart on every row · auto-refreshes every 10 min · {ranAt ? `scanned ${ranAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}</div>
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Find symbol…"
           style={{ fontFamily: MONO, fontSize: 12, padding: "7px 10px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.surface, color: C.text, width: 140, marginLeft: "auto" }} />

@@ -2758,6 +2758,32 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
     }
   }
 
+  // GET /api/market/sniper-scan — Sniper AI (2026-08-23, explicit user
+  // request: "separate sniper ai from discover tab"). Real hard-gated
+  // entry-timing verdict (ENTER_LONG/WAIT/NO_CHASE/AVOID) over the same
+  // real ~100-stock SCAN_UNIVERSE the Telegram /sniper command already
+  // scans — same real screenTrendTemplate + rankSniperScan (sniper-
+  // decision.js) both callers now share, so the app's Sniper AI tab and
+  // Telegram's /sniper can never quietly disagree. Full ranked list, not
+  // truncated to 25 — that cap was Telegram's text-length constraint, a
+  // real UI table can show more.
+  if (pathname === "/api/market/sniper-scan" && req.method === "GET") {
+    try {
+      const { SCAN_UNIVERSE } = require("../advisor-ai");
+      const { rankSniperScan } = require("../sniper-decision");
+      const rows = await screenTrendTemplate(SCAN_UNIVERSE);
+      const { ranked, counts } = rankSniperScan(rows);
+      const results = ranked.map(({ row, d }) => ({
+        symbol: row.symbol, price: row.price ?? null, chgPct: row.dayChangePct ?? row.chgPct ?? null,
+        action: d.action, meta: d.meta, reason: d.reason, waitingFor: d.waitingFor,
+        passCount: row.passCount ?? null, confidence: row.confidence ?? null,
+      }));
+      return writeJson(res, 200, { ok: true, counts, results });
+    } catch (err) {
+      return writeJson(res, 502, { ok: false, error: err instanceof Error ? err.message : "Sniper scan failed." });
+    }
+  }
+
   // GET /api/market/btc-hpc-scan — BTC + HPC Deep Scan, Top Rotation
   // (explicit user request, 2026-08-20). Real BTC regime (btc-hpc-scan.js's
   // computeBtcRegime, off real BTC-USD bars) + a ranked scan of the real

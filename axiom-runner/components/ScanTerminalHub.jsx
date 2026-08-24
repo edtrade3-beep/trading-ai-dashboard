@@ -72,7 +72,19 @@ export default function ScanTerminalHub({
   // shown" convention — same as RhProScanner's showManageUniverse etc);
   // selecting a symbol auto-opens it, and it can be collapsed again
   // without losing the selection.
-  const [detailOpen, setDetailOpen] = useState(false);
+  // Sniper AI -> Discover handoff (2026-08-23) — a one-shot flag
+  // (SniperAITab.jsx's "Open in Discover" button) that forces the detail
+  // panel open on arrival instead of requiring an extra tap, same real
+  // "land with zero extra taps" polish as every other cross-tab handoff
+  // shipped this session. A plain revisit (no incoming symbol) still
+  // defaults closed, unchanged.
+  const [detailOpen, setDetailOpen] = useState(() => {
+    try {
+      const force = localStorage.getItem("scanhub_force_open");
+      if (force) { localStorage.removeItem("scanhub_force_open"); return true; }
+    } catch {}
+    return false;
+  });
   const detailRef = useRef(null);
 
   // Detail-panel symbol — lazy (nothing fetches until a real row click),

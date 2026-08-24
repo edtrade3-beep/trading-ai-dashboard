@@ -93,6 +93,7 @@ import ScanTerminalHub from "./components/ScanTerminalHub.jsx";
 import RhProWatchlists from "./components/RhProWatchlists.jsx";
 import RhFutureValueTab from "./components/RhFutureValueTab.jsx";
 import AMCortexTab from "./components/AMCortexTab.jsx";
+import SniperAITab from "./components/SniperAITab.jsx";
 import SeasonalCycleChart from "./components/SeasonalCycleChart.jsx";
 import RhProHeatMap from "./components/RhProHeatMap.jsx";
 import RhProCoach from "./components/RhProCoach.jsx";
@@ -4087,16 +4088,19 @@ export default function App() {
       FEDWATCH: "calendar",
       HOLDINGS: "holdings",
       AICOACH: "rhpro-coach",
-      // rhpro-apex/rhpro-scan had real labeled entries ("TRADE PRO AI",
-      // "SNIPER SCANNER") in the old SubNavBar-based nav, but SubNavBar
-      // isn't rendered anywhere anymore (replaced by Sidebar.jsx) and
-      // these two never got a palette keyword when it was — same
-      // unreachable-by-oversight pattern already found/fixed for
-      // darkpool/daytrade. (rhpro-journal has no palette alias of its own —
-      // it's the real sidebar "Journal" destination now, reachable there
-      // directly; JOURNAL below is a different, unrelated feature.)
+      // rhpro-apex had a real labeled entry ("TRADE PRO AI") in the old
+      // SubNavBar-based nav, but SubNavBar isn't rendered anywhere anymore
+      // (replaced by Sidebar.jsx) and it never got a palette keyword when
+      // it was — same unreachable-by-oversight pattern already found/fixed
+      // for darkpool/daytrade. (rhpro-journal has no palette alias of its
+      // own — it's the real sidebar "Journal" destination now, reachable
+      // there directly; JOURNAL below is a different, unrelated feature.)
       APEX: "rhpro-apex",
-      SNIPER: "rhpro-scan",
+      // SNIPER used to alias to rhpro-scan (Discover) — the only place
+      // "Sniper" could go before it had a real destination of its own.
+      // Now that Sniper AI is a real, separate sidebar tab (2026-08-23),
+      // this points there instead.
+      SNIPER: "sniper-ai",
       // Added with the SMART MONEY trim — SMARTMONEY (13F Lookup) already
       // had an alias below.
       DPHEAT: "dp-heatmap",
@@ -7423,6 +7427,9 @@ export default function App() {
         <AMCortexTab C={C} MONO={MONO} SANS={SANS} macroData={macroData} sectorData={sectorData}
           watchlistSymbols={watchlistSymbols} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol}
           alpacaPositions={alpacaPositions} isMobile={isMobile} />
+      )}
+      {activeTab === "sniper-ai" && (
+        <SniperAITab C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} />
       )}
       {activeTab === "rhpro-heat" && <RhProHeatMap C={C} MONO={MONO} SANS={SANS} sectorData={sectorData} macroData={macroData} />}
       {activeTab === "rhpro-journal" && <RhProJournal C={C} MONO={MONO} SANS={SANS} />}

@@ -141,4 +141,25 @@ function computeSniperDecision(row) {
   };
 }
 
-module.exports = { computeSniperDecision, computeReversalDetector, SNIPER_TIMING };
+// Real ranked scan (2026-08-23, Sniper AI — a real, separate tab from
+// Discover) — extracted verbatim from telegram-bot.js's cmdSniper, which
+// used to inline this exact same ranking. Now the one real implementation
+// both the Telegram /sniper command and the new /api/market/sniper-scan
+// route call, so they can never quietly drift apart. Same real tier order
+// the app's own AI_ACTIONS vocabulary uses (ai-actions.js) — ENTER_LONG
+// highest, AVOID lowest — then real Minervini passCount, then real
+// breakout confidence.
+const SNIPER_TIER = { ENTER_LONG: 4, WAIT: 3, NO_CHASE: 2, AVOID: 1 };
+function rankSniperScan(rows) {
+  const decided = (rows || []).filter((r) => !r.error).map((r) => ({ row: r, d: computeSniperDecision(r) }));
+  const counts = { ENTER_LONG: 0, WAIT: 0, NO_CHASE: 0, AVOID: 0 };
+  decided.forEach((x) => { counts[x.d.action] = (counts[x.d.action] || 0) + 1; });
+  const ranked = [...decided].sort((a, b) =>
+    (SNIPER_TIER[b.d.action] - SNIPER_TIER[a.d.action]) ||
+    ((b.row.passCount || 0) - (a.row.passCount || 0)) ||
+    ((b.row.confidence || 0) - (a.row.confidence || 0))
+  );
+  return { ranked, counts };
+}
+
+module.exports = { computeSniperDecision, computeReversalDetector, SNIPER_TIMING, rankSniperScan };

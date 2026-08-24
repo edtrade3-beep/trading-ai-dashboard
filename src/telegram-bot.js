@@ -885,29 +885,21 @@ async function cmdSniper(args) {
   try {
     const { SCAN_UNIVERSE } = require("./advisor-ai");
     const { screenTrendTemplate } = require("./routes/market");
+    const { rankSniperScan } = require("./sniper-decision");
     const rows = await withTimeout(screenTrendTemplate(SCAN_UNIVERSE), 45_000, []);
-    const decided = (rows || []).filter((r) => !r.error).map((r) => ({ row: r, d: computeSniperDecision(r) }));
-    if (!decided.length) return reply("Scan returned no real data — try again in a moment.");
-    const counts = { ENTER_LONG: 0, WAIT: 0, NO_CHASE: 0, AVOID: 0 };
-    decided.forEach((x) => { counts[x.d.action] = (counts[x.d.action] || 0) + 1; });
-
-    // Full ranked list (explicit user follow-up, 2026-08-11: "when i type
-    // /sniper... ai scanner pro comes") — not just an enter-long filter,
-    // which reads as near-empty on a quiet/cautious day (real example:
-    // 0 enter long, 52 avoid). Same tier order the app's own AI_ACTIONS
-    // vocabulary uses (ai-actions.js) — ENTER_LONG highest, AVOID lowest —
-    // then real Minervini passCount, then real breakout confidence, so
-    // "top of the list" means the same thing here as it does in the app.
-    const TIER = { ENTER_LONG: 4, WAIT: 3, NO_CHASE: 2, AVOID: 1 };
-    const ranked = [...decided].sort((a, b) =>
-      (TIER[b.d.action] - TIER[a.d.action]) ||
-      ((b.row.passCount || 0) - (a.row.passCount || 0)) ||
-      ((b.row.confidence || 0) - (a.row.confidence || 0))
-    );
+    // Real ranked scan (2026-08-23) — same real rankSniperScan the new
+    // /api/market/sniper-scan route (Sniper AI tab) now also calls, so
+    // this Telegram command and the in-app tab can never quietly drift
+    // apart. Not just an enter-long filter (explicit user follow-up,
+    // 2026-08-11: "when i type /sniper... ai scanner pro comes") — that
+    // reads as near-empty on a quiet/cautious day (real example: 0 enter
+    // long, 52 avoid). Full ranked list instead.
+    const { ranked, counts } = rankSniperScan(rows);
+    if (!ranked.length) return reply("Scan returned no real data — try again in a moment.");
     const ICON = { ENTER_LONG: "🟢", WAIT: "🟡", NO_CHASE: "🟠", AVOID: "🔴" };
 
     const lines = [
-      `🎯 AI SNIPER SCANNER PRO — ${decided.length} stocks scanned`,
+      `🎯 AI SNIPER SCANNER PRO — ${ranked.length} stocks scanned`,
       `🟢 ${counts.ENTER_LONG || 0} enter long · 🟡 ${counts.WAIT || 0} wait · 🟠 ${counts.NO_CHASE || 0} no chase · 🔴 ${counts.AVOID || 0} avoid`,
       "",
       "TOP RANKED (real tier → Minervini → confidence):",
@@ -915,7 +907,7 @@ async function cmdSniper(args) {
     ranked.slice(0, 25).forEach((x, i) => {
       lines.push(`${i + 1}. ${x.row.symbol} ${ICON[x.d.action]} ${x.d.meta.label.toUpperCase()} — ${x.row.passCount ?? "?"}/8`);
     });
-    lines.push("", `...and ${Math.max(0, decided.length - 25)} more.`, "Reply /sniper SYMBOL to check one stock in full detail.");
+    lines.push("", `...and ${Math.max(0, ranked.length - 25)} more.`, "Reply /sniper SYMBOL to check one stock in full detail.");
     return reply(lines.join("\n"));
   } catch (err) {
     return reply("Sniper scan error: " + err.message);
