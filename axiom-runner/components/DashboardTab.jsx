@@ -4,7 +4,7 @@ import FedInterpreter from "./FedInterpreter.jsx";
 import FedWatchWidget from "./FedWatchWidget.jsx";
 import MacroEventsWidget from "./MacroEventsWidget.jsx";
 import FedWatchTab from "./FedWatchTab.jsx";
-import RhProScanner from "./RhProScanner.jsx";
+import SniperAITab from "./SniperAITab.jsx";
 import GreenLightTab from "./GreenLightTab.jsx";
 import MyTradesTab from "./MyTradesTab.jsx";
 import FlowTab from "./FlowTab.jsx";
@@ -1028,12 +1028,17 @@ export default function DashboardTab({
         </>
       )}
 
-      {/* ── AI SNIPER ── real Sniper Scanner, moved off the main Sidebar
-          into its own Dashboard sub-tab (2026-07-28, "no distraction...
-          easy to use" declutter) — same real component, exactly one
-          mount point now (no duplicate copy on Opportunities anymore). */}
+      {/* ── AI SNIPER ── originally the real Sniper Scanner (RhProScanner),
+          moved off the main Sidebar into its own Dashboard sub-tab
+          (2026-07-28). That component is now what the Sidebar's real
+          "Discover" tab shows (2026-08-20 merge into ScanTerminalHub) —
+          a different, broader 9-tier vocabulary, not Sniper's real
+          hard-gated verdict. Repointed (2026-08-24, "organize Discover/
+          Sniper AI" follow-up) at the real, separate Sniper AI tab
+          shipped this session, so this sub-tab's own "AI SNIPER" label
+          finally matches what it shows again. */}
       {dashTab === "sniper" && (
-        <RhProScanner C={C} MONO={MONO} SANS={SANS} macroData={macroData} sectorData={sectorData} watchlistData={watchlistData} setActiveTab={setActiveTab} />
+        <SniperAITab C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} />
       )}
 
       {/* ── GREEN LIGHT ── real GreenLightTab, same component/props the
