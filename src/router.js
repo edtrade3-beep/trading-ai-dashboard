@@ -23,6 +23,7 @@ const handleWatchlist = require("./routes/watchlist");
 const { handleFutureWallet } = require("./routes/future-wallet");
 const { handleAiUsage } = require("./routes/ai-usage");
 const { handleAutopilot } = require("./routes/autopilot");
+const { handleEmergencyStop } = require("./routes/emergency-stop");
 const handleFinviz = require("./routes/finviz");
 const handleNewsIntel = require("./routes/news-intel");
 const handleScanner = require("./routes/scanner");
@@ -279,6 +280,10 @@ async function handleRequest(req, res) {
 
     if (pathname.startsWith("/api/autopilot/")) {
       return await handleAutopilot(req, res, requestUrl);
+    }
+
+    if (pathname.startsWith("/api/emergency-stop/")) {
+      return await handleEmergencyStop(req, res, requestUrl);
     }
 
     // POST /api/notify — sends a freeform Telegram message from the platform UI.

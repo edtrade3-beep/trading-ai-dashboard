@@ -68,6 +68,22 @@ export default function AutoPilotEngine({ watchlistData, macroData, scanResults 
     const iv = setInterval(check, 5 * 60_000);
     return () => clearInterval(iv);
   }, []);
+  // Emergency Stop (2026-08-24) — the one real, global kill switch shared
+  // across all 4 automated-execution systems. Polled on its own real
+  // endpoint (this file runs in the browser, not Node, so it can't import
+  // src/emergency-stop.js directly) at the same real cadence tick() itself
+  // runs, so a fresh read is never more than one tick stale. Fails open to
+  // "not active" only on a genuine fetch failure (matches serverAutoRef's
+  // own established fail-open convention above) — never silently blocks
+  // trading over a transient network hiccup, but a real activation is
+  // caught within one tick either way.
+  const emergencyStopRef = useRef(false);
+  useEffect(() => {
+    const check = () => fetch("/api/emergency-stop/status").then(r => r.json()).then(d => { emergencyStopRef.current = !!d?.active; }).catch(() => {});
+    check();
+    const iv = setInterval(check, 15000);
+    return () => clearInterval(iv);
+  }, []);
   const apStatsRef = useRef({ dayPnl: 0, lossStreak: 0, equity: 0 }); // Alpaca risk stats for the circuit breaker
   // Learning Engine — real per-grade win rate off actual closed trades,
   // shared with server-autopilot.js via the same /api/alpaca/learning-gates
@@ -139,6 +155,7 @@ export default function AutoPilotEngine({ watchlistData, macroData, scanResults 
   useEffect(() => {
     const tick = () => {
       if (localStorage.getItem("axiom_autopilot") !== "on") return;
+      if (emergencyStopRef.current) return;   // Emergency Stop engaged — no new automated entries
       if (serverAutoRef.current) return;   // server autopilot is trading — don't double up from the browser
       localStorage.setItem("axiom_autopilot_lastcheck", String(Date.now()));
       window.dispatchEvent(new Event("autopilot-tick"));

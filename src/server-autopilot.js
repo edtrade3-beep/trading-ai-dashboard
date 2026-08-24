@@ -65,6 +65,9 @@ async function getJson(path) { try { const r = await fetch(`${BASE()}${path}`); 
 
 async function runServerAutopilot() {
   if (!isOn(process.env.SERVER_AUTOPILOT)) return;
+  // Emergency Stop (2026-08-24) — the one real, global kill switch shared
+  // across all 4 automated-execution systems, checked first.
+  if (require("./emergency-stop").isEmergencyStopActive()) return;
   const { id, secret } = keys();
   if (!id || !secret) return;
   if (!isMarketHoursET()) return;

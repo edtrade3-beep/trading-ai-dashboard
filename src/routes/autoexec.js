@@ -131,6 +131,12 @@ function normalizePositions(positions) {
 // does, so tradingBlocked/accountBlocked are always false here — the real
 // protection is the equity/cash/daily-loss checks, which Tradier does give us.
 async function checkTradeGuardrails(cfg) {
+  // Emergency Stop (2026-08-24) — the one real, global kill switch shared
+  // across all 4 automated-execution systems. Checked first, before any
+  // real broker call — if engaged, no real order gets anywhere near
+  // submission regardless of what else passes.
+  const { isEmergencyStopActive } = require("../emergency-stop");
+  if (isEmergencyStopActive()) return { ok: false, reason: "emergency stop active" };
   const balances = await broker.getBalances().catch(() => null);
   const equity = Number(balances && balances.totalEquity) || 0;
   const cash = balances ? Number(balances.totalCash) || 0 : null;

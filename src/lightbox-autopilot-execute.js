@@ -81,6 +81,13 @@ function todayET() {
 // user confirms against is computed by the exact same real code path that
 // then places the order, never a separately-hand-rolled estimate.
 async function validateAndSize(symbol) {
+  // Emergency Stop (2026-08-24) — the one real, global kill switch shared
+  // across all 4 automated-execution systems, checked first — even ASSIST
+  // (which already requires a human tap) refuses to even preview an order
+  // while engaged.
+  if (require("./emergency-stop").isEmergencyStopActive()) {
+    return { ok: false, error: "Emergency Stop is active — automated execution is halted until manually re-armed." };
+  }
   const mode = getMode();
   if (mode !== "ASSIST") return { ok: false, error: `Autopilot must be in ASSIST mode (currently ${mode}).` };
   if (!isMarketHoursET()) return { ok: false, error: "Market is closed (9:35 AM–3:55 PM ET only)." };

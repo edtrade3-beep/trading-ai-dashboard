@@ -18,6 +18,8 @@
  *   /scanner symbols
  *   /deals [query]     — top deals from the deals finder
  *   /athan             — real prayer schedule + countdown to next (alias: /prayer)
+ *   /estop             — EMERGENCY STOP: cancel all real pending orders, halt automated execution
+ *   /rearm             — re-arm after an Emergency Stop
  */
 
 const { TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID } = require("./config");
@@ -277,6 +279,9 @@ async function cmdHelp() {
     "\n🕌 PRAYER TIMES\n" +
     "/athan                today's real prayer schedule + countdown to next  (alias: /prayer)\n" +
     "(auto-alert at each of the 5 daily prayer times, no command needed)\n" +
+    "\n🛑 EMERGENCY STOP\n" +
+    "/estop                cancel all real pending orders + halt all 4 automated systems\n" +
+    "/rearm                re-arm after an Emergency Stop (required — nothing auto-resumes)\n" +
     "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
     "/help — show this page"
   );
@@ -1260,6 +1265,22 @@ const COMMANDS = {
   // request), same real Aladhan data the auto-alert background job uses.
   athan:     async () => reply(await formatPrayerSchedule()),
   prayer:    async () => reply(await formatPrayerSchedule()),
+
+  // /estop, /rearm — the real, global Emergency Stop (2026-08-24,
+  // Execution Bot Architecture Audit Phase 1). Reachable from Telegram
+  // deliberately — the whole point of a kill switch is that it works even
+  // if the app UI isn't open. Same real src/emergency-stop.js every
+  // automated-execution system checks first.
+  estop: async () => {
+    const { activateEmergencyStop } = require("./emergency-stop");
+    const r = await activateEmergencyStop({ reason: "Telegram /estop", activatedBy: "telegram" });
+    return reply(`🛑 Emergency Stop activated.\nAlpaca: ${r.cancelResults.alpaca?.ok ? "orders cancelled" : r.cancelResults.alpaca?.reason || r.cancelResults.alpaca?.error || "n/a"}\nTradier: ${r.cancelResults.tradier?.ok ? `${r.cancelResults.tradier.cancelled} order(s) cancelled` : r.cancelResults.tradier?.reason || r.cancelResults.tradier?.error || "n/a"}\n\nOpen positions were NOT closed. Reply /rearm to resume automated entries.`);
+  },
+  rearm: async () => {
+    const { deactivateEmergencyStop } = require("./emergency-stop");
+    const r = deactivateEmergencyStop({ rearmedBy: "telegram" });
+    return reply(r.alreadyInactive ? "Emergency Stop wasn't active." : "✅ Emergency Stop re-armed. Automated systems may resume new entries.");
+  },
 
   // ── New Pro Commands ──────────────────────────────────────────────────────
   score: async (args) => {
