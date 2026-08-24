@@ -9,7 +9,7 @@ const assert = require("node:assert");
 const {
   checkAccountHealth, dailyLossBreakerTripped, weeklyLossBreakerTripped,
   totalDrawdownBreakerTripped, openRiskPct, sectorCapExceeded,
-  sizePositionByRisk, isMarketHoursET, weekAnchorET,
+  sizePositionByRisk, isMarketHoursET, weekAnchorET, updateWeeklyDrawdownState,
 } = require("../src/risk-guardrails");
 
 let passed = 0;
@@ -217,6 +217,43 @@ ok("direction: SHORT with a stop below entry (invalid for a short) returns 0", (
 ok("direction: LONG (explicit) behaves identically to the default", () => {
   const qty = sizePositionByRisk({ equity: 10000, riskPct: 1, entry: 50, stop: 47, availCash: 100000, maxNamePct: 100, direction: "LONG" });
   assert.strictEqual(qty, 33);
+});
+
+console.log("updateWeeklyDrawdownState…");
+// 2026-08-24, Execution Bot Architecture Audit Phase 2 — real logic
+// extracted from 3 independently-maintained copies of this exact block
+// (server-autopilot.js, routes/autoexec.js, lightbox-autopilot-execute.js).
+// Same real withFixedNow helper the weekAnchorET tests above already use.
+ok("first real check ever (fresh state) seeds weekStartEquity to current equity", () => {
+  const riskState = { weekAnchorDate: "", weekStartEquity: 0, peakEquity: 0 };
+  withFixedNow("2026-07-15T13:35:00.000Z", () => updateWeeklyDrawdownState(riskState, 10000));
+  assert.strictEqual(riskState.weekAnchorDate, "2026-07-13");
+  assert.strictEqual(riskState.weekStartEquity, 10000);
+  assert.strictEqual(riskState.peakEquity, 10000);
+});
+ok("same real week — weekStartEquity untouched, peakEquity ratchets up but never down", () => {
+  const riskState = { weekAnchorDate: "2026-07-13", weekStartEquity: 10000, peakEquity: 10500 };
+  withFixedNow("2026-07-16T13:35:00.000Z", () => updateWeeklyDrawdownState(riskState, 10200));
+  assert.strictEqual(riskState.weekAnchorDate, "2026-07-13", "still the same real week — anchor must not move");
+  assert.strictEqual(riskState.weekStartEquity, 10000, "must not reset mid-week");
+  assert.strictEqual(riskState.peakEquity, 10500, "a real drawdown from the peak must never lower peakEquity");
+});
+ok("a genuine new real week rolls weekStartEquity forward to today's equity", () => {
+  const riskState = { weekAnchorDate: "2026-07-13", weekStartEquity: 10000, peakEquity: 10500 };
+  withFixedNow("2026-07-20T13:35:00.000Z", () => updateWeeklyDrawdownState(riskState, 9800));
+  assert.strictEqual(riskState.weekAnchorDate, "2026-07-20", "a real new week must roll the anchor forward");
+  assert.strictEqual(riskState.weekStartEquity, 9800, "the new week starts from today's real equity, not carried over");
+  assert.strictEqual(riskState.peakEquity, 10500, "peakEquity is all-time, a new week alone must not reset it");
+});
+ok("a real new all-time high raises peakEquity even mid-week", () => {
+  const riskState = { weekAnchorDate: "2026-07-13", weekStartEquity: 10000, peakEquity: 10500 };
+  withFixedNow("2026-07-16T13:35:00.000Z", () => updateWeeklyDrawdownState(riskState, 11000));
+  assert.strictEqual(riskState.peakEquity, 11000);
+});
+ok("mutates and returns the same real riskState object (callers persist it themselves)", () => {
+  const riskState = { weekAnchorDate: "2026-07-13", weekStartEquity: 10000, peakEquity: 10500 };
+  const returned = withFixedNow("2026-07-16T13:35:00.000Z", () => updateWeeklyDrawdownState(riskState, 10200));
+  assert.strictEqual(returned, riskState, "must mutate+return the caller's own object, not a detached copy — each real system still owns persisting it");
 });
 
 console.log("isMarketHoursET…");

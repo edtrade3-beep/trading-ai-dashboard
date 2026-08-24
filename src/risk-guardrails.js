@@ -87,6 +87,29 @@ function totalDrawdownBreakerTripped({ equity, peakEquity, maxDrawdownPct }) {
   return ((equity - peakEquity) / peakEquity) * 100 <= -maxDrawdownPct;
 }
 
+// Weekly/drawdown breaker bookkeeping (2026-08-24, Execution Bot
+// Architecture Audit Phase 2) — extracted from 3 real, independently-
+// maintained copies of this exact same block (server-autopilot.js,
+// routes/autoexec.js, lightbox-autopilot-execute.js — all three literally
+// carry the identical "Master Build Spec §16-17, 2026-08-23" comment,
+// confirming they were copy-pasted from one another rather than each
+// independently derived). Real new-week rollover of weekStartEquity, real
+// continuously-updated all-time peakEquity high-water mark.
+//
+// Deliberately does NOT touch persistence — each of the 3 systems keeps
+// its own separate risk-state file/config (a real, earlier, deliberate
+// design choice — see autopilot-store.js's own header comment on why the
+// systems stay separate) and is still the one that reads/writes it; this
+// only removes the duplicated in-memory bookkeeping sequence sitting in
+// between that read and that write. Mutates and returns the same
+// `riskState` object passed in.
+function updateWeeklyDrawdownState(riskState, equity) {
+  const anchor = weekAnchorET();
+  if (riskState.weekAnchorDate !== anchor) { riskState.weekAnchorDate = anchor; riskState.weekStartEquity = equity; }
+  if (equity > (riskState.peakEquity || 0)) riskState.peakEquity = equity;
+  return riskState;
+}
+
 function sectorCapExceeded({ positions, symbol, maxPerSector }) {
   const sec = sectorOf(symbol);
   const count = (positions || []).filter(p => sectorOf(p.symbol) === sec).length;
@@ -119,5 +142,5 @@ function sizePositionByRisk({ equity, riskPct, entry, stop, availCash, maxNamePc
 module.exports = {
   SECTORS, sectorOf, isMarketHoursET, weekAnchorET, checkAccountHealth,
   dailyLossBreakerTripped, weeklyLossBreakerTripped, totalDrawdownBreakerTripped,
-  openRiskPct, sectorCapExceeded, sizePositionByRisk,
+  openRiskPct, sectorCapExceeded, sizePositionByRisk, updateWeeklyDrawdownState,
 };

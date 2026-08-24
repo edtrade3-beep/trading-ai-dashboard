@@ -12,8 +12,8 @@ const { computeLearningGates, isAllowed } = require("./learning-engine");
 const { isOn } = require("./utils");
 const { writeJsonAtomic, readJsonSafe } = require("./atomic-write");
 const {
-  isMarketHoursET, weekAnchorET, checkAccountHealth, dailyLossBreakerTripped,
-  weeklyLossBreakerTripped, totalDrawdownBreakerTripped,
+  isMarketHoursET, checkAccountHealth, dailyLossBreakerTripped,
+  weeklyLossBreakerTripped, totalDrawdownBreakerTripped, updateWeeklyDrawdownState,
   openRiskPct, sectorCapExceeded, sizePositionByRisk, sectorOf,
 } = require("./risk-guardrails");
 
@@ -95,9 +95,7 @@ async function runServerAutopilot() {
   // reset. 5%/15% match the user's own chosen thresholds (roughly
   // 2.5x/7.5x the daily breaker above).
   const riskState = readRiskState();
-  const weekAnchor = weekAnchorET();
-  if (riskState.weekAnchorDate !== weekAnchor) { riskState.weekAnchorDate = weekAnchor; riskState.weekStartEquity = equity; }
-  if (equity > (riskState.peakEquity || 0)) riskState.peakEquity = equity;
+  updateWeeklyDrawdownState(riskState, equity);
   writeRiskState(riskState);
   if (weeklyLossBreakerTripped({ equity, weekStartEquity: riskState.weekStartEquity, maxLossPct: 5 })) return;
   if (totalDrawdownBreakerTripped({ equity, peakEquity: riskState.peakEquity, maxDrawdownPct: 15 })) return;

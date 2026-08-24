@@ -36,8 +36,9 @@ const { sendTelegramMessage, isConfigured } = require("./telegram");
 const { appendJournal } = require("./autopilot-journal");
 const { fetchAlpacaQuotes } = require("./providers/alpaca-data");
 const {
-  isMarketHoursET, weekAnchorET, checkAccountHealth, dailyLossBreakerTripped,
-  weeklyLossBreakerTripped, totalDrawdownBreakerTripped, openRiskPct, sizePositionByRisk,
+  isMarketHoursET, checkAccountHealth, dailyLossBreakerTripped,
+  weeklyLossBreakerTripped, totalDrawdownBreakerTripped, updateWeeklyDrawdownState,
+  openRiskPct, sizePositionByRisk,
 } = require("./risk-guardrails");
 const {
   getMode, getPosition, upsertPosition, logActivity,
@@ -119,9 +120,7 @@ async function validateAndSize(symbol) {
   }
 
   const riskState = readRiskState();
-  const weekAnchor = weekAnchorET();
-  if (riskState.weekAnchorDate !== weekAnchor) { riskState.weekAnchorDate = weekAnchor; riskState.weekStartEquity = equity; }
-  if (equity > (riskState.peakEquity || 0)) riskState.peakEquity = equity;
+  updateWeeklyDrawdownState(riskState, equity);
   writeRiskState(riskState);
   const weeklyMaxLossPct = Number(process.env.LIGHTBOX_AUTOPILOT_WEEKLY_MAXLOSS) || 5;
   const maxDrawdownPct = Number(process.env.LIGHTBOX_AUTOPILOT_MAX_DRAWDOWN) || 15;

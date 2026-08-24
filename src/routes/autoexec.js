@@ -19,9 +19,9 @@ const { writeJsonAtomic, readJsonSafe } = require("../atomic-write");
 const { sendTelegramMessage, isConfigured: telegramConfigured } = require("../telegram");
 const broker = require("../tradier-broker");
 const {
-  isMarketHoursET, weekAnchorET, checkAccountHealth, dailyLossBreakerTripped,
-  weeklyLossBreakerTripped, totalDrawdownBreakerTripped, openRiskPct,
-  sectorCapExceeded, sizePositionByRisk,
+  isMarketHoursET, checkAccountHealth, dailyLossBreakerTripped,
+  weeklyLossBreakerTripped, totalDrawdownBreakerTripped, updateWeeklyDrawdownState,
+  openRiskPct, sectorCapExceeded, sizePositionByRisk,
 } = require("../risk-guardrails");
 
 // ET calendar date (YYYY-MM-DD), not UTC — see the comment on maybeResetDaily
@@ -155,9 +155,7 @@ async function checkTradeGuardrails(cfg) {
   // chosen thresholds (roughly 2.5x/7.5x the existing 2%-equivalent daily
   // breaker).
   if (equity > 0) {
-    const anchor = weekAnchorET();
-    if (cfg.weekAnchorDate !== anchor) { cfg.weekAnchorDate = anchor; cfg.weekStartEquity = equity; }
-    if (equity > (cfg.peakEquity || 0)) cfg.peakEquity = equity;
+    updateWeeklyDrawdownState(cfg, equity);
     writeConfig(cfg);
   }
   if (weeklyLossBreakerTripped({ equity, weekStartEquity: cfg.weekStartEquity, maxLossPct: 5 })) {
