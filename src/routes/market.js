@@ -3039,7 +3039,13 @@ CUSTOMER QUALITY & EXECUTION RISK: ...`;
       if (row) {
         const { classifyEntryTrigger } = require("../day-trade-calc");
         const status = classifyEntryTrigger({ orBreakout: row.orBreakout, aboveVwap: row.aboveVwap, rvol: row.rvol, priceAction: row.priceAction, direction });
-        entry15m = { status, orBreakout: row.orBreakout, aboveVwap: row.aboveVwap, rvol: row.rvol };
+        // vsVwap/priceAction: real, already computed by fetchDayTradeScanRows
+        // (row.vsVwap, row.priceAction — real 15-min swing highs/lows via
+        // detectPriceAction), previously dropped before this response.
+        // Added for the Decision Workspace's Momentum Strip (2026-08-24,
+        // explicit user request) so VWAP distance and a real HH/HL note can
+        // be shown honestly instead of a bare boolean.
+        entry15m = { status, orBreakout: row.orBreakout, aboveVwap: row.aboveVwap, rvol: row.rvol, vsVwap: row.vsVwap ?? null, priceAction: row.priceAction || null };
       }
     } catch { /* honest null on any real fetch failure — never fabricated */ }
     return writeJson(res, 200, { ok: true, symbol, swing4h, early1h, atrLevels, antiChase, entry15m });

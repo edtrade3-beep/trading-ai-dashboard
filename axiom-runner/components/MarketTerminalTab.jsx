@@ -937,6 +937,63 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
     { tf: "15M", label: "not available yet", known: false },
     { tf: "5M", label: "not available yet", known: false },
   ];
+  // Momentum Strip (2026-08-24, explicit user request: "VWAP RVOL DAILY
+  // 1HOUR 15MIN" strip on the Decision Workspace). Real data only —
+  // reuses entry15m's real intraday VWAP distance/RVOL/priceAction
+  // (day-trade-calc.js's pipeline, zero new fetch, see market.js's
+  // entry15m block) and the SAME 1H/15M reads + >0.15/<-0.15 direction
+  // thresholds the pills row below already uses, so this strip never
+  // disagrees with the pills it summarizes. The swing tag only ever
+  // asserts "Higher Low(s)" when the real detector says true — false/null
+  // means "not detected," never inverted into a fabricated "Lower" claim
+  // the engine never actually made.
+  const entry15mDW = symMtf?.entry15m || null;
+  const oneHourReadDW = mtfPanelReadsDW.find((r) => r.tf === "1H") || null;
+  const fifteenMinReadDW = mtfPanelReadsDW.find((r) => r.tf === "15M") || null;
+  const dirFromValueDW = (v) => v == null ? null : v > 0.15 ? "BULLISH" : v < -0.15 ? "BEARISH" : "NEUTRAL";
+  const momentumStripDW = [
+    {
+      key: "VWAP",
+      known: entry15mDW?.aboveVwap != null,
+      label: entry15mDW?.aboveVwap == null ? "—" : entry15mDW.aboveVwap ? "BULLISH" : "BEARISH",
+      sub: Number.isFinite(entry15mDW?.vsVwap)
+        ? `${entry15mDW.vsVwap > 0 ? "+" : ""}${entry15mDW.vsVwap}% vs VWAP`
+        : (entry15mDW?.aboveVwap == null ? null : entry15mDW.aboveVwap ? "above intraday VWAP" : "below intraday VWAP"),
+    },
+    {
+      key: "RVOL",
+      known: Number.isFinite(entry15mDW?.rvol),
+      label: Number.isFinite(entry15mDW?.rvol) ? `${entry15mDW.rvol.toFixed(1)}×` : "—",
+      sub: Number.isFinite(entry15mDW?.rvol) ? (entry15mDW.rvol >= 1.5 ? "STRONG" : entry15mDW.rvol >= 0.8 ? "NORMAL" : "WEAK") : null,
+    },
+    {
+      key: "DAILY",
+      known: !!dwDailyBias,
+      label: dwDailyBias || "—",
+      sub: [
+        Number.isFinite(chart?.dayChangePct) ? `${chart.dayChangePct > 0 ? "+" : ""}${chart.dayChangePct}%` : null,
+        symTrend?.higherLows ? "Higher Lows" : null,
+      ].filter(Boolean).join(" · ") || null,
+    },
+    {
+      key: "1 HOUR",
+      known: !!oneHourReadDW?.known,
+      label: dirFromValueDW(oneHourReadDW?.value) || "—",
+      sub: oneHourReadDW?.known ? oneHourReadDW.label : null,
+    },
+    {
+      key: "15 MIN",
+      known: !!fifteenMinReadDW?.known,
+      label: dirFromValueDW(fifteenMinReadDW?.value) || "—",
+      sub: [
+        fifteenMinReadDW?.known ? fifteenMinReadDW.label : null,
+        entry15mDW?.priceAction?.higherHighs && entry15mDW?.priceAction?.higherLows ? "Higher High → Higher Low"
+          : entry15mDW?.priceAction?.higherLows ? "Higher Low" : null,
+      ].filter(Boolean).join(" · ") || null,
+    },
+  ];
+  const momentumDirColorDW = (label, C) => label === "BULLISH" ? "#22d47e" : label === "BEARISH" ? "#ef4444" : label === "NEUTRAL" ? "#d6a312" : C.textDim;
+
   const gatePassRatioDW = symMtfState?.gate?.checks?.length
     ? (symMtfState.gate.checks.length - symMtfState.gate.failed.length) / symMtfState.gate.checks.length
     : null;
@@ -1580,6 +1637,30 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                   {sub && <div style={{ fontFamily: SANS, fontSize: 9.5, color: C.textDim, marginTop: 1 }}>{sub}</div>}
                 </div>
               ))}
+            </div>
+
+            {/* Momentum Strip — VWAP/RVOL/DAILY/1 HOUR/15 MIN (2026-08-24,
+                explicit user request). Same 5-tile visual language as the
+                ENTRY/EXIT RISK/STRUCTURE row above. Real data only — see
+                momentumStripDW's own comment for exactly which real field
+                backs each cell; a cell reads "—" rather than a fabricated
+                value when its real input isn't known yet. */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(96px, 1fr))", gap: 8, marginBottom: 14 }}>
+              {momentumStripDW.map((cell) => {
+                const dotCol = cell.key === "RVOL"
+                  ? (cell.sub === "STRONG" ? "#f59e0b" : cell.sub === "WEAK" ? C.textDim : "#d6a312")
+                  : momentumDirColorDW(cell.label, C);
+                return (
+                  <div key={cell.key} style={{ border: `1px solid ${C.border}`, borderRadius: 8, padding: "7px 10px", background: C.card }}>
+                    <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim, letterSpacing: 0.5 }}>{cell.key}</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                      {cell.known && <span style={{ fontSize: 8 }}>{dotCol === "#22d47e" ? "🟢" : dotCol === "#ef4444" ? "🔴" : dotCol === "#f59e0b" ? "🟠" : "🟡"}</span>}
+                      <span style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 800, color: cell.known ? dotCol : C.textDim }}>{cell.label}</span>
+                    </div>
+                    {cell.sub && <div style={{ fontFamily: SANS, fontSize: 9.5, color: C.textDim, marginTop: 1 }}>{cell.sub}</div>}
+                  </div>
+                );
+              })}
             </div>
 
             {/* MTF panel — 1D + 4H + 1H are real (Phase 2, 2026-08-20);
