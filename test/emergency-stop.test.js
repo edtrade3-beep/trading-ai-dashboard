@@ -8,6 +8,25 @@
 // still exercises the real activate/rearm state machine end to end.
 // Run: node test/emergency-stop.test.js (or npm test).
 "use strict";
+
+// Force every broker/alert integration this file exercises into its real,
+// deterministic "not configured" path, regardless of what's actually set
+// in the ambient environment. Without this, real ALPACA_KEY_ID/
+// TELEGRAM_BOT_TOKEN/TRADIER_API_KEY present in the environment — e.g.
+// Render's build step, which shares env vars with the running service —
+// make activateEmergencyStop() below fire REAL side effects instead of
+// exercising the fail-closed path this test is meant to verify. Root-
+// caused 2026-08-24: every deploy since this test shipped had been
+// silently cancelling all real open Alpaca paper orders and sending real
+// Telegram alerts on every single build, and failing an assertion that
+// assumed "not configured" — which is why builds were failing outright.
+// MUST run before any other require in this file: src/telegram.js reads
+// TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID once at module-load time (via
+// src/config.js), not per-call, so clearing them any later has no effect.
+for (const k of ["ALPACA_KEY_ID", "ALPACA_API_KEY_ID", "ALPACA_SECRET_KEY", "ALPACA_API_SECRET_KEY", "TRADIER_API_KEY", "TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"]) {
+  delete process.env[k];
+}
+
 const assert = require("node:assert");
 const fs = require("node:fs");
 const path = require("node:path");
