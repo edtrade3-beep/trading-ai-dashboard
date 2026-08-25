@@ -1617,7 +1617,12 @@ export default function App() {
       localStorage.setItem("axiom_seen_start", "1");
       return "start";
     }
-    return "lightbox";  // default landing (2026-08-17, explicit user request — was "ceo-ai")
+    // Default landing (2026-08-25, explicit user request: "make my desk
+    // trade as start page") — was "lightbox" (2026-08-17), before that
+    // "ceo-ai". Light Box itself moved into Trade Desk's own bottom dock
+    // the same request, so this isn't a loss of the old default's real
+    // content, just a new front door around it.
+    return "trade-desk";
   });
   // Auto-collapse the mobile FAB stack on every tab change — otherwise an
   // expanded stack from the previous screen would stay open and cover the
@@ -6720,6 +6725,7 @@ export default function App() {
             alpacaPositions={alpacaPositions} terminalSymbol={terminalSymbol} setTerminalSymbol={setTerminalSymbol}
             setActiveTab={setActiveTab} isMobile={isMobile} isTablet={isTablet}
             watchlistSymbols={watchlistSymbols} setWatchlistSymbols={setWatchlistSymbols}
+            lightboxSettings={lightboxSettings} setLightboxSettings={setLightboxSettings} openDaytradeConsole={openDaytradeConsole}
             discoverProps={{
               distData, preMktMovers, marketSession, watchlistData, openDeepDiveFor,
               optionsFlow, flowBias, flowCallNotional, flowPutNotional, flowFilters, setFlowFilters,

@@ -12,6 +12,7 @@ import ScannerTab from "./ScannerTab.jsx";
 import VcpStatusPanel from "./VcpStatusPanel.jsx";
 import AutopilotPanel from "./AutopilotPanel.jsx";
 import ScanTerminalHub from "./ScanTerminalHub.jsx";
+import LightBoxTab from "./LightBoxTab.jsx";
 
 // TradeDeskTab — one unified trading screen (2026-08-25, explicit user
 // request/mockup: top status strip, Discover-search | Chart | Cortex
@@ -32,9 +33,13 @@ import ScanTerminalHub from "./ScanTerminalHub.jsx";
 // file's name/id are deliberately unrelated so it can't happen again).
 //
 // Reuse strategy for the bottom dock: PortfolioSnapshotCard/
-// RhProWatchlists/OptionsChainTab/VcpStatusPanel/AutopilotPanel are
-// genuinely self-contained (their own real fetches, few/no lifted-state
-// props) and are mounted directly. AlertsTab/NewsTab/ScannerTab/
+// RhProWatchlists/OptionsChainTab/VcpStatusPanel/AutopilotPanel/
+// LightBoxTab are genuinely self-contained (their own real fetches,
+// few/no lifted-state props — LightBoxTab only needs the same
+// lightboxSettings/setLightboxSettings/openDaytradeConsole its standalone
+// activeTab "lightbox" already threads through, 2026-08-25: "link light
+// box to trade desk as a branch") and are mounted directly. AlertsTab/
+// NewsTab/ScannerTab/
 // ScanTerminalHub (the real, full Discover) are NOT — each needs a large
 // set of state/handlers already lifted in axiom-live.jsx (the same real
 // state its own existing alerts/news/scanner/rhpro-scan tabs already use)
@@ -47,6 +52,7 @@ import ScanTerminalHub from "./ScanTerminalHub.jsx";
 // navigate away from Trade Desk entirely, defeating the point.
 const DOCK_MODULES = [
   { key: "discover", label: "DISCOVER" },
+  { key: "lightbox", label: "LIGHT BOX" },
   { key: "portfolio", label: "PORTFOLIO" },
   { key: "watchlist", label: "WATCHLIST" },
   { key: "alerts", label: "ALERTS" },
@@ -61,6 +67,7 @@ export default function TradeDeskTab({
   C, MONO, SANS, macroData, sectorData, alpacaPositions, terminalSymbol, setTerminalSymbol,
   setActiveTab, isMobile, isTablet, watchlistSymbols, setWatchlistSymbols,
   alertsProps, newsProps, scannerProps, discoverProps,
+  lightboxSettings, setLightboxSettings, openDaytradeConsole,
 }) {
   const [symbol, setSymbol] = useState(() => {
     try {
@@ -186,6 +193,7 @@ export default function TradeDeskTab({
   const dockBody = (
     <>
       {dockModule === "discover" && <ScanTerminalHub {...(discoverProps || {})} C={C} MONO={MONO} SANS={SANS} isTablet={isTablet} isMobile={isMobile} macroData={macroData} sectorData={sectorData} setActiveTab={setActiveTab} setTerminalSymbol={selectSymbol} watchlistSymbols={watchlistSymbols} setWatchlistSymbols={setWatchlistSymbols} />}
+      {dockModule === "lightbox" && <LightBoxTab C={C} MONO={MONO} SANS={SANS} lightboxSettings={lightboxSettings} setLightboxSettings={setLightboxSettings} onOpenSymbol={openDaytradeConsole} />}
       {dockModule === "portfolio" && <PortfolioSnapshotCard C={C} MONO={MONO} SANS={SANS} />}
       {dockModule === "watchlist" && (
         <RhProWatchlists C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} macroData={macroData} sectorData={sectorData} watchlistSymbols={watchlistSymbols} setTerminalSymbol={selectSymbol} />
@@ -235,7 +243,7 @@ export default function TradeDeskTab({
         </div>
       )}
 
-      {/* Bottom dock — 9 modules, one shared panel, only the selected one mounts */}
+      {/* Bottom dock — 10 modules, one shared panel, only the selected one mounts */}
       <div style={{ borderTop: `1px solid ${C.border}` }}>
         <div style={{ display: "flex", overflowX: "auto" }}>
           {DOCK_MODULES.map((m) => (

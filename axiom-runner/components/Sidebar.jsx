@@ -86,13 +86,13 @@ export const SIDEBAR_ITEMS = [
   // untouched; see axiom-live.jsx's palette-alias section for the full
   // removal note.
 
-  // Light Box — "is it BUY, WAIT, or SELL, right now?" (2026-08-16,
-  // explicit user request: a full-card color-coded signal grid meant to be
-  // read in one second). Given its own permanent row rather than staying
-  // palette-only, same reasoning Cortex/Smart Scan were promoted for —
-  // explicit standalone request, meant as a primary trading surface, not a
-  // sub-view of an existing tab.
-  { id: "lightbox",  label: "Light Box",  icon: "🚦", tab: "lightbox" },
+  // Light Box dropped from the rail (2026-08-25, explicit user request:
+  // "link light box to as a branch to trade desk as well as discover as
+  // branch not as a tab") — same real LightBoxTab.jsx now reached through
+  // Trade Desk's "LIGHT BOX" dock button. Not deleted — still fully real
+  // and reachable via the existing LIGHTBOX/LIGHTS command-palette
+  // aliases, same "hide, don't delete" treatment as Discover/Sniper AI/
+  // Journal above.
 
   // Future Wallet — the real Future Wallet 100 market-regime + candidate-
   // research report (2026-08-16 build, 2026-08-17 explicit request to
