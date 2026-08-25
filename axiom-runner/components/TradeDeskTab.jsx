@@ -286,6 +286,7 @@ export default function TradeDeskTab({
           key={symbol} C={C} MONO={MONO} SANS={SANS} sectorData={sectorData} macroData={macroData}
           distData={discoverProps?.distData} onDeepDive={discoverProps?.openDeepDiveFor} setActiveTab={setActiveTab}
           preMktMovers={discoverProps?.preMktMovers} marketSession={discoverProps?.marketSession} isMobile={isMobile}
+          hideChart
         />
       )}
       {dockModule === "scanlist" && (

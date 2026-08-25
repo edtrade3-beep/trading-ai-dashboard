@@ -270,7 +270,17 @@ import { NUM } from "./theme.js";
 
 // Combined Market-Terminal page: movers leaderboard on the left, pro chart with
 // AI overlays on the right. Click a mover → it loads in the chart.
-export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData, distData, onDeepDive, setActiveTab, preMktMovers, marketSession, isMobile }) {
+// hideChart (2026-08-25, explicit user request: "remove chart from
+// TECHNICAL since already in trade desk main page") — opt-in, defaults
+// false so the other two real standalone mounts of this component
+// (axiom-live.jsx's own "mterminal" tab, ScanTerminalHub.jsx) keep their
+// full embedded chart exactly as before; only TradeDeskTab.jsx's DISCOVER
+// dock module passes true, since Trade Desk's own persistent core-zone
+// ChartPane already shows a live chart for the same symbol regardless of
+// which dock module is open — the TECHNICAL section's own 720px chart
+// (TradingView embed or self-rendered TrendChart w/ VCP overlay) plus its
+// timeframe/VCP/Rating toggle row were pure duplication there.
+export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData, distData, onDeepDive, setActiveTab, preMktMovers, marketSession, isMobile, hideChart }) {
   const [lb, setLb] = useState(null);
   // Real pre-market session auto-default (2026-08-04, "also add pre market
   // movers") — marketSession is axiom-live.jsx's own already-computed
@@ -2617,6 +2627,8 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             </div>
           </button>
         )}
+        {!hideChart && (
+        <>
         {/* Candle timeframe — 5 min through weekly. Real Alpaca intraday
             bars under a day, real Yahoo weekly bars for 1W; the daily
             Minervini rating/pivot/stop/target never change with this —
@@ -2705,6 +2717,8 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
               )
             : <div style={{ height: 720, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: 13, color: C.textDim, border: `1px solid ${C.border}`, borderRadius: 12 }}>Select a mover to load the chart…</div>}
         </div>
+        </>
+        )}
         </AccordionSection>
 
         {/* ══════════════════════ MARKET & CONTEXT ══════════════════════ */}
