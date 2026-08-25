@@ -4,6 +4,7 @@ import TrendChart from "./TrendChart.jsx";
 import CommandSearchPanel from "./CommandSearchPanel.jsx";
 import CortexMiniPanel from "./CortexMiniPanel.jsx";
 import { PortfolioSnapshotCard } from "./DashboardTab.jsx";
+import ActivePositionsCard from "./ActivePositionsCard.jsx";
 import RhProWatchlists from "./RhProWatchlists.jsx";
 import AlertsTab from "./AlertsTab.jsx";
 import OptionsChainTab from "./OptionsChainTab.jsx";
@@ -309,7 +310,23 @@ export default function TradeDeskTab({
         />
       )}
       {dockModule === "lightbox" && <LightBoxTab C={C} MONO={MONO} SANS={SANS} lightboxSettings={lightboxSettings} setLightboxSettings={setLightboxSettings} onOpenSymbol={openDaytradeConsole} />}
-      {dockModule === "portfolio" && <PortfolioSnapshotCard C={C} MONO={MONO} SANS={SANS} />}
+      {dockModule === "portfolio" && (
+        // Active Trades (Phase 2, 2026-08-26) — was PortfolioSnapshotCard
+        // alone (equity/day-change/open-position-COUNT, no per-position
+        // detail). Added the real ActivePositionsCard below it, same real
+        // stacking pattern DashboardTab.jsx's own "portfolio" section
+        // already uses — real per-position HOLD/WARNING/TRAIL/TAKE_PARTIAL/
+        // EXIT/HARD_EXIT state (position-decision-engine.js, already
+        // server-attached to /api/alpaca/positions' dayTradeState), not
+        // just a summary count. watchlistData omitted (optional real
+        // enrichment only — Trade Desk doesn't hold that state; the card
+        // degrades to macroData-only for its SPY comparison, same honest
+        // fallback the component already has).
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <PortfolioSnapshotCard C={C} MONO={MONO} SANS={SANS} />
+          <ActivePositionsCard C={C} MONO={MONO} SANS={SANS} setTerminalSymbol={selectSymbol} setActiveTab={setActiveTab} macroData={macroData} />
+        </div>
+      )}
       {dockModule === "watchlist" && (
         <RhProWatchlists C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} macroData={macroData} sectorData={sectorData} watchlistSymbols={watchlistSymbols} setTerminalSymbol={selectSymbol} />
       )}
