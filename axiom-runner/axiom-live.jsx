@@ -1732,8 +1732,7 @@ export default function App() {
   const [dailyGamePlan, setDailyGamePlan] = useState(() => { try { return localStorage.getItem("ax_game_plan") || ""; } catch { return ""; } });
   const [tvSource, setTvSource] = useState("bloomberg");
   const [backtestSymbol, setBacktestSymbol] = useState(WATCHLIST_SYMBOLS[0]);
-  const [backtestTf, setBacktestTf] = useState("1D");
-  const [backtestLookback, setBacktestLookback] = useState("20");
+  const [backtestYears, setBacktestYears] = useState("5");
   const [backtestResult, setBacktestResult] = useState(null);
   const [backtestLoading, setBacktestLoading] = useState(false);
   const [clockNow, setClockNow] = useState(Date.now());
@@ -4867,92 +4866,37 @@ export default function App() {
     const t = setInterval(fetchWeather, 20 * 60 * 1000);
     return () => clearInterval(t);
   }, [fetchWeather]);
+  // Real walk-forward backtest (2026-08-26, Market Opportunity Engine
+  // Phase 2, plan item #9: "unify the two disconnected backtesters").
+  // Was a completely separate, simpler naive breakout-over-N-bars
+  // strategy defined inline here — real bars, but not the app's real
+  // entry logic at all (fixed 4% stop, 2R target, never called
+  // computeTrendTemplateAt/computeSniperDecision). The sidebar-reachable
+  // Backtest tab and the mission-status page's BacktestCard.jsx (which
+  // already called the real src/backtest-engine.js via this same route)
+  // could silently disagree about the same symbol's real historical
+  // performance. Now both call the identical real
+  // GET /api/market/backtest route — one real engine, one real answer.
   const runBacktest = useCallback(async () => {
     const symbol = backtestSymbol.trim().toUpperCase();
     if (!symbol) return;
     setBacktestLoading(true);
     try {
-      const data = await fetchCandles(symbol, backtestTf);
-      const bars = Array.isArray(data?.bars) ? data.bars : [];
-      const lookback = Math.max(5, Math.min(80, Number(backtestLookback || 20)));
-      if (bars.length < lookback + 15) {
-        setBacktestResult({ error: "Not enough candle history for this timeframe." });
+      const years = Math.max(1, Math.min(5, Number(backtestYears) || 5));
+      const r = await fetch(`/api/market/backtest?symbols=${encodeURIComponent(symbol)}&years=${years}`).then((res) => res.json());
+      if (!r.ok) { setBacktestResult({ error: r.error || "Backtest failed." }); return; }
+      const perSymbol = (r.perSymbol || [])[0] || null;
+      if (perSymbol?.dataInsufficient) {
+        setBacktestResult({ error: r.skipped?.[0]?.reason || `Not enough real daily history for ${symbol}.` });
         return;
       }
-      const trades = [];
-      let equity = 1;
-      let peak = 1;
-      let maxDrawdown = 0;
-      const maxHoldBars = 12;
-      for (let i = lookback; i < bars.length - 2; i += 1) {
-        const b = bars[i];
-        const prevHigh = Math.max(...bars.slice(i - lookback, i).map((x) => Number(x.high || 0)));
-        const entry = Number(b.close || 0);
-        if (entry <= 0 || entry <= prevHigh) continue;
-        const stop = entry * 0.96;
-        const target = entry + (entry - stop) * 2;
-        let exit = entry;
-        let outcome = "open";
-        for (let j = i + 1; j < Math.min(bars.length, i + 1 + maxHoldBars); j += 1) {
-          const n = bars[j];
-          const hitStop = Number(n.low || 0) <= stop;
-          const hitTarget = Number(n.high || 0) >= target;
-          if (hitStop && hitTarget) {
-            exit = stop;
-            outcome = "stop";
-            break;
-          }
-          if (hitStop) {
-            exit = stop;
-            outcome = "stop";
-            break;
-          }
-          if (hitTarget) {
-            exit = target;
-            outcome = "target";
-            break;
-          }
-          exit = Number(n.close || exit);
-          outcome = "time";
-        }
-        const retPct = ((exit - entry) / entry) * 100;
-        trades.push({
-          date: b.time || b.date || "",
-          entry,
-          stop,
-          target,
-          exit,
-          retPct,
-          outcome,
-        });
-        equity *= (1 + retPct / 100);
-        peak = Math.max(peak, equity);
-        const dd = peak > 0 ? ((peak - equity) / peak) * 100 : 0;
-        maxDrawdown = Math.max(maxDrawdown, dd);
-      }
-      const wins = trades.filter((t) => t.retPct > 0).length;
-      const losses = trades.filter((t) => t.retPct <= 0).length;
-      const avgRet = trades.length ? trades.reduce((s, t) => s + t.retPct, 0) / trades.length : 0;
-      setBacktestResult({
-        symbol,
-        timeframe: backtestTf,
-        lookback,
-        totalTrades: trades.length,
-        wins,
-        losses,
-        winRate: trades.length ? (wins / trades.length) * 100 : 0,
-        avgRet,
-        expectancy: avgRet,
-        netRet: (equity - 1) * 100,
-        maxDrawdown,
-        trades: trades.slice(-12).reverse(),
-      });
+      setBacktestResult({ symbol, years: r.years, range: r.range, eventCount: perSymbol?.eventCount || 0, report: r.report, scopeNote: r.scopeNote });
     } catch (e) {
       setBacktestResult({ error: e?.message || "Backtest failed." });
     } finally {
       setBacktestLoading(false);
     }
-  }, [backtestSymbol, backtestTf, backtestLookback]);
+  }, [backtestSymbol, backtestYears]);
   const updateWorkflowCheck = useCallback((section, id, done) => {
     setWorkflowState((prev) => ({
       ...prev,
@@ -7127,8 +7071,7 @@ export default function App() {
         {activeTab === "backtest" && (
           <BacktestTab
             C={C} MONO={MONO} backtestSymbol={backtestSymbol} setBacktestSymbol={setBacktestSymbol}
-            backtestTf={backtestTf} setBacktestTf={setBacktestTf}
-            backtestLookback={backtestLookback} setBacktestLookback={setBacktestLookback}
+            backtestYears={backtestYears} setBacktestYears={setBacktestYears}
             runBacktest={runBacktest} backtestLoading={backtestLoading} backtestResult={backtestResult}
           />
         )}
