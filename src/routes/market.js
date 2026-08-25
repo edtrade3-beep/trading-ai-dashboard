@@ -2722,43 +2722,69 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
       // this attaches the SAME real am-core-engine.js verdict now driving
       // the Workspace Decision banner and Scanner grade (buildEvFromRow ->
       // computeEntryPlan -> computeRedFlags -> computeCoreScore ->
-      // classifyCoreVerdict) as two new additive fields consumers can opt
-      // into instead. Was classifyDeepScanDecision (retired this phase —
-      // it disagreed with the on-screen verdict for the same symbol).
-      // Gated behind withDecision=1 so the many OTHER callers of this route
+      // classifyCoreVerdict) as additive fields consumers can opt into
+      // instead. Was classifyDeepScanDecision (retired this phase — it
+      // disagreed with the on-screen verdict for the same symbol). Gated
+      // behind withDecision=1 so the many OTHER callers of this route
       // (SmartScanTab, TrendTemplateTab, Sniper Scanner, ...) pay zero
       // extra fetch cost / see zero behavior change.
+      //
+      // Market Opportunity Engine Phase 1 (2026-08-25): this loop now
+      // calls opportunity-engine.js's computeOpportunity — the same real
+      // pipeline, just centralized in one file instead of duplicated here
+      // — which also attaches tier/probability/expectedValue/options as
+      // new additive fields (row.opportunity). trackReport is fetched
+      // once (cached 10 min app-wide, cheap even for this route's larger
+      // multi-symbol callers like BestOppNotifier/AutoPilotEngine) so
+      // every withDecision=1 caller gets a real probability/EV for free.
+      // sectorInfo/optionsFlow stay null here (honest, same as before this
+      // phase) — computing those per-symbol for a route that can be called
+      // with 100+ symbols (BestOppNotifier's full universe) would be too
+      // slow; CortexMiniPanel's real single-symbol lookup is exactly the
+      // deep-dive case those real per-symbol enrichments belong in.
       if (searchParams.get("withDecision") === "1" && results.length) {
         try {
-          const { computeRegime, regimeToEntryVocabulary, computeAPlusScore } = require("../trade-planner-scoring");
-          const { computeEntryPlan } = require("../entry-engine");
-          const { computeRedFlags } = require("../red-flag-engine");
-          const { computeCoreScore, classifyCoreVerdict } = require("../am-core-engine");
-          const { buildEvFromRow } = require("../watchlist-setup-alerts");
-          const macroRows = await fetchMarketQuotes(["SPY", "QQQ", "VIXY"], resolveProviderKeys(searchParams)).catch(() => []);
+          const { computeRegime, regimeToEntryVocabulary } = require("../trade-planner-scoring");
+          const { computeOpportunity } = require("../opportunity-engine");
+          const [macroRows, trackReport] = await Promise.all([
+            fetchMarketQuotes(["SPY", "QQQ", "VIXY"], resolveProviderKeys(searchParams)).catch(() => []),
+            _getTrackReportCached(),
+          ]);
           const regime = computeRegime(Array.isArray(macroRows) ? macroRows : []);
           const marketRegime = regimeToEntryVocabulary(regime.label);
+
+          // Real per-symbol options-flow cross-check — opt-in (&withOptions=1)
+          // and capped to <=5 symbols (a real, disclosed safety cap): this
+          // route's OTHER real callers (BestOppNotifier/AutoPilotEngine) can
+          // pass 100+ symbols, and a live per-symbol options fetch for that
+          // many would be too slow to run on their polling cadence.
+          // CortexMiniPanel's real single-symbol deep-dive is the one caller
+          // that opts in. callNotional/putNotional are derived from each
+          // symbol's real top-6-by-notional contracts (fetchOptionsFlow's
+          // own real cap) — a genuine, if partial, real read, never
+          // fabricated.
+          let optionsFlowBySymbol = null;
+          if (searchParams.get("withOptions") === "1" && results.length <= 5) {
+            try {
+              const symbols = results.filter((r) => !r.error).map((r) => r.symbol);
+              const flow = await fetchOptionsFlow(symbols, { limit: 30, keys: resolveProviderKeys(searchParams) });
+              optionsFlowBySymbol = new Map((flow.bySymbol || []).map((entry) => {
+                const callNotional = (entry.topContracts || []).filter((c) => c.side === "CALL").reduce((s, c) => s + (Number(c.notional) || 0), 0);
+                const putNotional = (entry.topContracts || []).filter((c) => c.side === "PUT").reduce((s, c) => s + (Number(c.notional) || 0), 0);
+                return [entry.symbol, { callNotional, putNotional }];
+              }));
+            } catch { /* real options-flow fetch is best-effort — optionsFlowBySymbol stays null, computeOpportunity honestly degrades */ }
+          }
+
           for (const row of results) {
             if (row.error) continue;
-            const ev = buildEvFromRow(row, marketRegime);
-            const entryPlan = computeEntryPlan(ev);
-            const redFlagResult = computeRedFlags(ev);
-            const { score: aPlusScore } = computeAPlusScore(row, regime);
-            const coreScore = computeCoreScore({
-              passCount: row.passCount, rsRating: row.rsRating, momentum: row.momentum,
-              stage: row.stage, volRatio: row.volRatio, regime, sectorInfo: null,
-              adx: null, smc: row.smc, epsGrowth: row.epsGrowth, vcpScore: row.vcpScore,
-              riskPct: row.riskPct, pctFromHigh: row.pctFromHigh, antiChase: ev.antiChase,
-              optionsFlow: null, dollarVolume: row.dollarVolume,
-            });
-            const deep = classifyCoreVerdict({
-              score: coreScore.score, entryPlan, redFlagResult,
-              stage: row.stage, dailyBias: ev.dailyBias, entryScore: aPlusScore,
-              hasPosition: false,
-            });
-            row.coreVerdict = deep.verdict;
-            row.coreCriticalFlags = redFlagResult.criticalCount;
-            row.coreReason = deep.reason;
+            const optionsFlow = optionsFlowBySymbol?.get(row.symbol) || null;
+            const opp = computeOpportunity({ symbol: row.symbol, row, regime, marketRegime, trackReport, optionsFlow });
+            if (!opp) continue;
+            row.coreVerdict = opp.verdict;
+            row.coreCriticalFlags = opp.criticalFlags;
+            row.coreReason = opp.verdictReason;
+            row.opportunity = opp;
           }
         } catch { /* enrichment is additive-only — a failure here must not break the base scan response */ }
       }
@@ -2791,6 +2817,83 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
       return writeJson(res, 200, { ok: true, counts, results });
     } catch (err) {
       return writeJson(res, 502, { ok: false, error: err instanceof Error ? err.message : "Sniper scan failed." });
+    }
+  }
+
+  // GET /api/market/opportunities — Market Opportunity Engine Phase 1
+  // (user's 36-section spec, 2026-08-25: "find and deliver opportunities
+  // automatically" — 5-tier ACTIONABLE/DEVELOPING/WAIT/EXTENDED/
+  // INVALIDATED inbox, §21). Runs the SAME real SCAN_UNIVERSE +
+  // screenTrendTemplate the Sniper Scan route above already uses — no
+  // second scan universe/fetch pipeline — through the new
+  // opportunity-engine.js wrapper (which itself reuses am-core-engine.js/
+  // entry-engine.js/red-flag-engine.js, zero new signal math beyond real
+  // EV/tier/options-cross-check). Real regime (same MACRO_SYMS quote
+  // batch the Smart Money route uses) and real per-symbol sector rank
+  // (same SECTOR_THEME_MAP batch-ETF-quote pattern) are computed once and
+  // shared across the whole universe. optionsFlow is honestly left null
+  // here — matching this exact file's own existing convention at the
+  // withDecision=1 enrichment blocks above, which already skip live
+  // per-symbol options flow in bulk scans for cost/latency reasons; a
+  // real per-symbol options cross-check is a single-symbol deep-dive
+  // concern (Sniper Mode upgrade, a later phase of this same build), not
+  // a ~100-symbol-per-request fetch.
+  if (pathname === "/api/market/opportunities" && req.method === "GET") {
+    try {
+      const { SCAN_UNIVERSE } = require("../advisor-ai");
+      const { computeRegime, regimeToEntryVocabulary } = require("../trade-planner-scoring");
+      const { computeOpportunity } = require("../opportunity-engine");
+
+      const MACRO_SYMS = ["SPY", "QQQ", "IWM", "DIA", "^VIX", "UUP", "VIXY", "TLT", "HYG"];
+      const [rows, macroQuotes, sectorQuotes, trackReport] = await Promise.all([
+        screenTrendTemplate(SCAN_UNIVERSE),
+        fetchYahooQuoteBatch(MACRO_SYMS).catch(() => []),
+        fetchYahooQuoteBatch(SECTOR_THEME_MAP.SECTOR_ETFS.map((s) => s.sym)).catch(() => []),
+        _getTrackReportCached(),
+      ]);
+
+      const macroData = macroQuotes.map((q) => ({
+        symbol: q.symbol, price: q.regularMarketPrice, changesPercentage: q.regularMarketChangePercent,
+      }));
+      const regime = computeRegime(macroData);
+      const marketRegime = regimeToEntryVocabulary(regime.label);
+
+      // Real per-symbol sector rank — identical logic to the Smart Money
+      // route above (SECTOR_THEME_MAP.sectorOf/etfOf + a rank of the 11
+      // real sector ETFs by today's %change), just computed once per
+      // sector ETF here and looked up per symbol below instead of
+      // recomputed per single-symbol request.
+      const sectorRanked = SECTOR_THEME_MAP.SECTOR_ETFS
+        .map((s) => ({ sym: s.sym, chgPct: Number(sectorQuotes.find((q) => q.symbol === s.sym)?.regularMarketChangePercent) || 0 }))
+        .sort((a, b) => b.chgPct - a.chgPct);
+      const sectorInfoFor = (symbol) => {
+        const etf = SECTOR_THEME_MAP.etfOf(symbol);
+        if (!etf) return null;
+        const idx = sectorRanked.findIndex((r) => r.sym === etf);
+        return idx >= 0 ? { rank: idx + 1, of: sectorRanked.length } : null;
+      };
+
+      const tiers = { actionable: [], developing: [], wait: [], extended: [], invalidated: [] };
+      for (const row of rows) {
+        if (row.error) continue;
+        const opp = computeOpportunity({
+          symbol: row.symbol, row, regime, marketRegime,
+          sectorInfo: sectorInfoFor(row.symbol), adx: row.technicals?.adx || null,
+          optionsFlow: null, trackReport,
+        });
+        if (!opp) continue;
+        const bucket = tiers[opp.tier.toLowerCase()];
+        if (bucket) bucket.push(opp);
+      }
+      for (const key of Object.keys(tiers)) tiers[key].sort((a, b) => (b.score || 0) - (a.score || 0));
+
+      return writeJson(res, 200, {
+        ok: true, generatedAt: new Date().toISOString(),
+        counts: Object.fromEntries(Object.entries(tiers).map(([k, v]) => [k, v.length])),
+        tiers,
+      });
+    } catch (err) {
+      return writeJson(res, 502, { ok: false, error: err instanceof Error ? err.message : "Opportunity scan failed." });
     }
   }
 
@@ -5998,3 +6101,4 @@ module.exports.ttSmaAt = ttSmaAt; // exposed for backtest-engine.js's point-in-t
 module.exports.ttWeightedMomentum = ttWeightedMomentum; // exposed for the same — the real IBD-style weighted-momentum formula behind the standalone RS Rating approximation
 module.exports.fetchMarketNews = fetchMarketNews; // exposed for src/news/provider.js's NewsProvider implementation — same real Finnhub->Polygon->Yahoo/Google chain this route already uses, not a second news fetch path
 module.exports.buildCortexFollowupSystemPrompt = buildCortexFollowupSystemPrompt; // exposed for direct unit testing — the route itself short-circuits before this runs when ANTHROPIC_API_KEY is missing
+module.exports.getTrackReportCached = _getTrackReportCached; // exposed for opportunity-engine.js's real winProbFor lookup (Market Opportunity Engine Phase 1)

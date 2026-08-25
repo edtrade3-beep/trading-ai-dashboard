@@ -163,6 +163,12 @@ async function checkWatchlistSetupAlerts() {
       alerts.push({
         symbol, decision: deep.verdict, reason: deep.reason,
         entry: entryPlan.entryPrice, stop: entryPlan.stop, target: entryPlan.target1,
+        // Real ✓/✗ WHY checklist (Market Opportunity Engine Phase 1,
+        // 2026-08-25, spec §20: alert messages should show the real
+        // evidence behind a verdict, not just the one-line summary) —
+        // entry-engine.js's own real computeQualifyingConditions output,
+        // already computed above for entryPlan, zero extra fetch.
+        checks: entryPlan.qualifying.checks,
       });
     }
 
@@ -173,9 +179,10 @@ async function checkWatchlistSetupAlerts() {
 
   if (alerts.length) {
     const fmt = (v) => Number.isFinite(v) ? `$${Number(v).toFixed(2)}` : "—";
-    const lines = alerts.map((a) =>
-      `🎯 ${a.symbol}: ${a.decision.replace(/_/g, " ")} — Entry ${fmt(a.entry)} / Stop ${fmt(a.stop)} / Target ${fmt(a.target)}\n${a.reason}`
-    );
+    const lines = alerts.map((a) => {
+      const checklist = (a.checks || []).map((c) => `${c.pass ? "✓" : "✗"} ${c.label}`).join("\n");
+      return `🎯 ${a.symbol}: ${a.decision.replace(/_/g, " ")} — Entry ${fmt(a.entry)} / Stop ${fmt(a.stop)} / Target ${fmt(a.target)}\n${a.reason}` + (checklist ? `\n${checklist}` : "");
+    });
     pushDigestLines("watchlist-setup-alert", "⚡ WATCHLIST SETUP", lines);
   }
 

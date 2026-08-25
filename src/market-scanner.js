@@ -880,6 +880,36 @@ async function runScan(options = {}) {
             // KEY LEVELS from liquidity
             const keyLevels = liquidity.slice(0,3).map(l => `$${l.price} (${l.label.split("—")[0].trim()})`).join(" · ");
 
+            // Real ✓/✗ WHY checklist (Market Opportunity Engine Phase 1,
+            // 2026-08-25, spec §20 + the user's own earlier feedback on
+            // this exact alert type: "Notification i get shows 100 score
+            // its too late to trade that" — a bare score with no WHY made
+            // a bad setup look clean). entry-engine.js's real
+            // computeQualifyingConditions already produces a genuine
+            // boolean {label, pass} checklist (dailyBias/RS/VWAP/R:R/etc)
+            // — this alert path (determineSignal's own hand-built
+            // composite/BOS gate) never called that pipeline before, so
+            // this is one extra real screenTrendTemplate fetch for just
+            // this one symbol (MAX_PER_SCAN=1 caps it to at most one per
+            // scan cycle). Additive-only — a failure here must not block
+            // the real alert from sending.
+            let checklistLines = [];
+            try {
+              const { screenTrendTemplate: _screen, fetchMarketQuotes: _fetchQuotes } = require("./routes/market");
+              const { resolveProviderKeys: _resolveKeys } = require("./config");
+              const { buildEvFromRow: _buildEv } = require("./watchlist-setup-alerts");
+              const { computeEntryPlan: _computeEntryPlan } = require("./entry-engine");
+              const { computeRegime: _computeRegime, regimeToEntryVocabulary: _toVocab } = require("./trade-planner-scoring");
+              const macroRows = await _fetchQuotes(["SPY", "QQQ", "VIXY"], _resolveKeys(new URLSearchParams())).catch(() => []);
+              const regime = _computeRegime(Array.isArray(macroRows) ? macroRows : []);
+              const [checkRow] = await _screen([sym]).catch(() => []);
+              if (checkRow && !checkRow.error) {
+                const checkEv = _buildEv(checkRow, _toVocab(regime.label));
+                const checkPlan = _computeEntryPlan(checkEv);
+                checklistLines = checkPlan.qualifying.checks.map((c) => `${c.pass ? "✓" : "✗"} ${c.label}`);
+              }
+            } catch { /* checklist is additive-only — never blocks the real alert */ }
+
             const msg = [
               `🟢 BUY — $${sym}`,
               `━━━━━━━━━━━━━━━━━━━━`,
@@ -893,6 +923,9 @@ async function runScan(options = {}) {
               `Score ${a.composite}/100  RSI ${a.rsi?.toFixed(0)}  RVOL ${a.rvol?.toFixed(1)}x`,
               `BOS @ $${bos.level}  Trend: ${a.trend}  ${a.chgPct > 0 ? "+" : ""}${a.chgPct?.toFixed(2)}%`,
               keyLevels ? `Key Levels: ${keyLevels}` : "",
+              checklistLines.length ? `━━━━━━━━━━━━━━━━━━━━` : "",
+              checklistLines.length ? `WHY:` : "",
+              ...checklistLines,
               `━━━━━━━━━━━━━━━━━━━━`,
               `⏰ ${new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York" })} ET`,
             ].filter(Boolean).join("\n");

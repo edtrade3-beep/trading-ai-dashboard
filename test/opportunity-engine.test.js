@@ -1,0 +1,145 @@
+// Real tests for opportunity-engine.js (Market Opportunity Engine Phase 1,
+// 2026-08-25) — synthetic-input, zero-network, same discipline as
+// test/am-core-engine.test.js / test/entry-engine.test.js. Run:
+// node test/opportunity-engine.test.js (or npm test).
+const assert = require("node:assert");
+const { computeOpportunity, computeExpectedValue, classifyOpportunityTier, checkOptionsConfirmsStructure } = require("../src/opportunity-engine");
+
+let passed = 0;
+function ok(name, fn) { try { fn(); passed++; console.log(`  ✓ ${name}`); } catch (e) { console.error(`  ✗ ${name}\n    ${e.message}`); process.exitCode = 1; } }
+
+const REGIME = { score: 85, label: "GREEN" };
+
+function baseRow(overrides = {}) {
+  return {
+    symbol: "TEST", price: 102, pivot: 100, entry: 100, stop: 92, target2: 124,
+    stage: "Stage 2 - Advancing", passCount: 7, rsRating: 92, momentum: 0.3, volRatio: 1.8,
+    abovePivotPct: 2, contractionLow: 88, higherLows: true, tightening: true,
+    vcpVerdict: "VALID VCP", vcpScore: 88, technicals: { vwap20: 95 },
+    breakoutConfirmed: true, extended: false, riskPct: 5, dollarVolume: 400_000_000,
+    epsGrowth: 20, pctFromHigh: -3, smc: { bos: { type: "BULL_BOS" } },
+    ...overrides,
+  };
+}
+
+console.log("Checking computeExpectedValue — real P x EV - costs formula, honest null on insufficient sample…");
+ok("null winRate -> null EV, never a fabricated 50/50 guess", () => {
+  assert.strictEqual(computeExpectedValue({ winRate: null, entry: 100, stop: 92, target: 116 }), null);
+});
+ok("a real positive-edge setup produces a positive EV net of disclosed costs", () => {
+  const ev = computeExpectedValue({ winRate: 65, entry: 100, stop: 92, target: 116 });
+  assert.ok(ev > 0, `expected a positive EV, got ${ev}`);
+});
+ok("EV subtracts the real spread when supplied, on top of the flat disclosed slippage assumption", () => {
+  const noSpread = computeExpectedValue({ winRate: 65, entry: 100, stop: 92, target: 116 });
+  const withSpread = computeExpectedValue({ winRate: 65, entry: 100, stop: 92, target: 116, spreadPct: 2 });
+  assert.ok(withSpread < noSpread, "a real spread cost must lower EV, never be silently ignored");
+});
+ok("missing entry/stop/target -> honest null, not a partial/garbage number", () => {
+  assert.strictEqual(computeExpectedValue({ winRate: 65, entry: null, stop: 92, target: 116 }), null);
+});
+
+console.log("\nChecking classifyOpportunityTier — the spec's 5-tier vocabulary, mapped from real existing states…");
+ok("BUY/EARLY_BUY + a real confirmed-entry stage -> ACTIONABLE", () => {
+  assert.strictEqual(classifyOpportunityTier({ verdict: "BUY", entryStage: "BREAKOUT", antiChaseBand: "NORMAL" }), "ACTIONABLE");
+  assert.strictEqual(classifyOpportunityTier({ verdict: "EARLY_BUY", entryStage: "RETEST", antiChaseBand: "NORMAL" }), "ACTIONABLE");
+});
+ok("WATCH -> DEVELOPING", () => {
+  assert.strictEqual(classifyOpportunityTier({ verdict: "WATCH", entryStage: "EARLY", antiChaseBand: "NORMAL" }), "DEVELOPING");
+});
+ok("WAIT -> WAIT", () => {
+  assert.strictEqual(classifyOpportunityTier({ verdict: "WAIT", entryStage: "FOUNDATION", antiChaseBand: "NORMAL" }), "WAIT");
+});
+ok("a chase-blocked band (EXTENDED/DO_NOT_CHASE) always reads EXTENDED, even when the verdict itself lands on WATCH (not AVOID_LONG)", () => {
+  assert.strictEqual(classifyOpportunityTier({ verdict: "WATCH", entryStage: "BREAKOUT", antiChaseBand: "EXTENDED" }), "EXTENDED");
+  assert.strictEqual(classifyOpportunityTier({ verdict: "AVOID_LONG", entryStage: "BREAKOUT", antiChaseBand: "DO_NOT_CHASE", structurallyInvalid: true }), "EXTENDED");
+});
+ok("AVOID_LONG with a real structural cause (broken structure/critical flag/bearish trend) -> INVALIDATED", () => {
+  assert.strictEqual(classifyOpportunityTier({ verdict: "AVOID_LONG", entryStage: "STRUCTURE_BROKEN", antiChaseBand: "NORMAL", structurallyInvalid: true }), "INVALIDATED");
+});
+ok("AVOID_LONG purely from the entry-score floor (structure otherwise intact) -> WAIT, not INVALIDATED — a real gap found against live data (93% of the scan universe was mislabeled dead before this split)", () => {
+  assert.strictEqual(classifyOpportunityTier({ verdict: "AVOID_LONG", entryStage: "NONE", antiChaseBand: "NORMAL", structurallyInvalid: false }), "WAIT");
+});
+
+console.log("\nChecking checkOptionsConfirmsStructure — the spec's explicit non-negotiable, options never auto-read bullish…");
+ok("no real options data -> honest NO_DATA, not a guessed direction", () => {
+  const r = checkOptionsConfirmsStructure({ optionsFlow: null, verdict: "BUY" });
+  assert.strictEqual(r.status, "NO_DATA");
+});
+ok("bullish options flow + a real bullish verdict -> CONFIRMS", () => {
+  const r = checkOptionsConfirmsStructure({ optionsFlow: { callNotional: 800_000, putNotional: 200_000 }, verdict: "BUY" });
+  assert.strictEqual(r.status, "CONFIRMS");
+});
+ok("bullish options flow + a real AVOID_LONG verdict -> CONTRADICTS, not a blind bullish tag", () => {
+  const r = checkOptionsConfirmsStructure({ optionsFlow: { callNotional: 900_000, putNotional: 100_000 }, verdict: "AVOID_LONG" });
+  assert.strictEqual(r.status, "CONTRADICTS");
+  assert.match(r.note, /AVOID_LONG/);
+});
+ok("bearish options flow + a real bullish verdict -> CONTRADICTS", () => {
+  const r = checkOptionsConfirmsStructure({ optionsFlow: { callNotional: 100_000, putNotional: 900_000 }, verdict: "WATCH" });
+  assert.strictEqual(r.status, "CONTRADICTS");
+});
+ok("near-balanced flow -> NEUTRAL, not forced either direction", () => {
+  const r = checkOptionsConfirmsStructure({ optionsFlow: { callNotional: 510_000, putNotional: 490_000 }, verdict: "BUY" });
+  assert.strictEqual(r.status, "NEUTRAL");
+});
+
+console.log("\nChecking computeOpportunity — the one standardized Opportunity Object, wraps the real pipeline end-to-end…");
+ok("a genuinely strong, confirmed-breakout row produces an ACTIONABLE tier with a real BUY-family verdict", () => {
+  const o = computeOpportunity({ symbol: "TEST", row: baseRow(), regime: REGIME, marketRegime: "RISK_ON" });
+  assert.ok(o, "expected a real Opportunity Object, got null");
+  assert.ok(["EARLY_BUY", "BUY"].includes(o.verdict), `expected a BUY-family verdict, got ${o.verdict}`);
+  assert.strictEqual(o.tier, "ACTIONABLE");
+  assert.ok(o.score > 0);
+  assert.ok(Array.isArray(o.reasons) && o.reasons.length > 0, "real reasons[] must be surfaced, not dropped");
+});
+ok("no trackReport supplied -> honest null probability and null EV, never a fabricated number", () => {
+  const o = computeOpportunity({ symbol: "TEST", row: baseRow(), regime: REGIME, marketRegime: "RISK_ON" });
+  assert.strictEqual(o.probability, null);
+  assert.strictEqual(o.expectedValue, null);
+});
+ok("a real critical red flag (e.g. bearish daily trend via Stage 4) forces AVOID_LONG -> INVALIDATED tier, regardless of a high raw score", () => {
+  const row = baseRow({ stage: "Stage 4 - Declining", passCount: 2, breakoutConfirmed: false, higherLows: false });
+  const o = computeOpportunity({ symbol: "TEST", row, regime: REGIME, marketRegime: "RISK_ON" });
+  assert.strictEqual(o.verdict, "AVOID_LONG");
+  assert.strictEqual(o.tier, "INVALIDATED");
+});
+ok("an extended (chase-blocked) but otherwise real setup lands in the EXTENDED tier, not silently merged into INVALIDATED", () => {
+  const row = baseRow({ abovePivotPct: 6 }); // > cautionMax(5), <= extendedMax(8) -> EXTENDED band
+  const o = computeOpportunity({ symbol: "TEST", row, regime: REGIME, marketRegime: "RISK_ON" });
+  assert.strictEqual(o.tier, "EXTENDED");
+});
+ok("optionsFlow contradicting a real bullish verdict is surfaced as CONTRADICTS on the Opportunity Object, not silently dropped", () => {
+  const o = computeOpportunity({
+    symbol: "TEST", row: baseRow(), regime: REGIME, marketRegime: "RISK_ON",
+    optionsFlow: { callNotional: 50_000, putNotional: 950_000 },
+  });
+  assert.strictEqual(o.options.status, "CONTRADICTS");
+});
+ok("regression (live prod bug, 2026-08-25, AMD): EV uses row.entry (the pivot-relative reference stop/target1 are actually computed from), never entryPlan.entryPrice's EARLY-stage current-price value — stop must never land above entry", () => {
+  // Real shape confirmed live: price well below the pivot (pre-breakout,
+  // EARLY stage), row.entry = the pivot (561.47), row.stop below it
+  // (516.55) — entry-engine.js's EARLY branch sets entryPlan.entryPrice =
+  // the CURRENT price (ev.price, ~475), which is BELOW row.stop. Using
+  // that as the EV entry basis previously put "stop" above "entry" and
+  // produced a nonsensical positive EV even at a 33% win rate.
+  const row = baseRow({
+    price: 475.7, entry: 561.47, pivot: 561.47, stop: 516.55, target2: 651.31,
+    abovePivotPct: -14.9, breakoutConfirmed: false, extended: false, passCount: 6,
+  });
+  const trackReport = { horizons: { d20: { buckets: { "60-79": { winRate: 33, count: 27 } } } } };
+  const o = computeOpportunity({ symbol: "AMD", row, regime: REGIME, marketRegime: "RISK_ON", trackReport });
+  assert.ok(o, "expected a real Opportunity Object");
+  assert.strictEqual(o.entry, 561.47, "entry must be the real pivot-relative reference (row.entry), not the current price");
+  assert.ok(o.stop < o.entry, `stop must be below entry for a long setup, got stop=${o.stop} entry=${o.entry}`);
+  assert.ok(o.expectedValue < 0, `a 33% win rate against a ~1R:1R symmetric target must be a NEGATIVE EV, got ${o.expectedValue}`);
+});
+ok("a row with a scan error returns null, never a partial/garbage Opportunity Object", () => {
+  assert.strictEqual(computeOpportunity({ symbol: "TEST", row: { error: "fetch failed" }, regime: REGIME, marketRegime: "RISK_ON" }), null);
+});
+ok("a missing row returns null", () => {
+  assert.strictEqual(computeOpportunity({ symbol: "TEST", row: null, regime: REGIME, marketRegime: "RISK_ON" }), null);
+});
+
+console.log(`\n${passed} checks passed.`);
+if (process.exitCode) console.error("OPPORTUNITY-ENGINE TEST FAILED"); else console.log("OPPORTUNITY-ENGINE TEST OK");

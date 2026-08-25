@@ -40,7 +40,7 @@ export default function CortexMiniPanel({ symbol, onSelectSymbol, setActiveTab, 
     (async () => {
       try {
         const [screenJ, fundJ, newsJ] = await Promise.all([
-          fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(symbol)}&withDecision=1`).then((r) => r.json()),
+          fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(symbol)}&withDecision=1&withOptions=1`).then((r) => r.json()),
           fetch(`/api/market/fundamentals?symbol=${encodeURIComponent(symbol)}`).then((r) => r.json()).catch(() => null),
           fetch(`/api/news/ticker/${encodeURIComponent(symbol)}`).then((r) => r.json()).catch(() => null),
         ]);
@@ -72,6 +72,7 @@ export default function CortexMiniPanel({ symbol, onSelectSymbol, setActiveTab, 
   };
 
   const verdictMeta = analysis?.row?.coreVerdict ? CORE_VERDICT_META[analysis.row.coreVerdict] : null;
+  const opp = analysis?.row?.opportunity || null;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
@@ -102,6 +103,20 @@ export default function CortexMiniPanel({ symbol, onSelectSymbol, setActiveTab, 
             <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.6 }}>AI VERDICT — {analysis.symbol}</div>
             <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: verdictMeta.color, margin: "4px 0" }}>{verdictMeta.icon} {verdictMeta.label}</div>
             {analysis.row.coreReason && <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, marginTop: 4 }}>{analysis.row.coreReason}</div>}
+            {opp && (
+              // Real probability x EV read (Market Opportunity Engine Phase
+              // 1, §17: "separate probability from confidence" — an honest
+              // "—" when the real historical sample is too thin, never a
+              // fabricated number. Tier is the spec's 5-bucket vocabulary,
+              // a real, distinct read from the verdict above it (a WATCH
+              // verdict extended past the anti-chase band still reads
+              // EXTENDED here, for example).
+              <div style={{ display: "flex", justifyContent: "center", gap: 12, marginTop: 8, paddingTop: 8, borderTop: `1px solid ${verdictMeta.color}33`, fontFamily: MONO, fontSize: 10.5 }}>
+                <span style={{ color: C.textDim }}>TIER <b style={{ color: C.text }}>{opp.tier}</b></span>
+                <span style={{ color: C.textDim }}>WIN <b style={{ color: C.text }}>{opp.probability != null ? `${opp.probability}%` : "—"}</b></span>
+                <span style={{ color: C.textDim }}>EV <b style={{ color: opp.expectedValue > 0 ? "#0d9465" : opp.expectedValue < 0 ? "#c8282a" : C.text }}>{opp.expectedValue != null ? `${opp.expectedValue > 0 ? "+" : ""}${opp.expectedValue}%` : "—"}</b></span>
+              </div>
+            )}
           </div>
         )}
         {analysis && !verdictMeta && (
@@ -116,6 +131,7 @@ export default function CortexMiniPanel({ symbol, onSelectSymbol, setActiveTab, 
             sniperReasons={analysis.sniper?.reasons}
             fundamentals={analysis.fundamentals}
             news={analysis.news}
+            options={opp?.options}
             C={C} MONO={MONO} SANS={SANS}
           />
         )}
