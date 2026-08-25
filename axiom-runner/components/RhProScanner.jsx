@@ -153,6 +153,15 @@ const CATEGORY_GROUPS = [
   { label: "WATCHLIST ONLY", ids: ["earlyentry", "gammasqueeze", "whaleactivity", "highoi"] },
 ];
 
+// Quick-access categories (2026-08-25, "organize discover, its first page
+// messy") — the 5 shown by default alongside the always-visible Overview
+// row (All/Ranked, Best Opportunities) once the rest of CATEGORY_GROUPS
+// collapses behind "More filters." Picked as the most commonly reached-for
+// real signals across the 4 groups (one from Momentum & Technical's core
+// breakout/volume/trend trio, one event-driven, one risk-flag) rather than
+// literally the first N in list order.
+const QUICK_CATEGORY_IDS = ["breakout", "rvol", "momentum", "earnings", "avoid"];
+
 // Categories that render an embedded standalone component instead of this
 // scanner's own ranked table — kept as one list so both the render-branch
 // and the "hide the table" exclusion below stay in sync automatically.
@@ -295,6 +304,17 @@ export default function RhProScanner({
     } catch {}
     return "all";
   });
+  // Category filter collapse (2026-08-25, "organize discover, its first
+  // page messy" — the 2026-08-20 grouping pass gave the 31-button wall
+  // headings, but every group still rendered expanded at once). All 5
+  // groups now collapse behind a "More filters" toggle, showing only a
+  // handful of the most-used categories by default. showCategoriesRaw is
+  // the real toggle state; showCategoriesEffective (used for rendering
+  // below) also force-expands if the CURRENT category is one of the
+  // hidden ones — covers the real rhpro_scan_category cross-tab handoff
+  // above landing a user directly on e.g. "darkpool", which must never
+  // become an invisible/orphaned selection just because it's collapsed.
+  const [showCategoriesRaw, setShowCategoriesRaw] = useState(false);
   const [track, setTrack] = useState(null); // real win-probability forward-return log
   const [explain, setExplain] = useState(null); // { symbol, aplus, dimensions, label } | null
   // AI Sniper Decision button — retired its own modal (2026-08-12
@@ -689,20 +709,24 @@ export default function RhProScanner({
         {headerStats.topSector && <span title="Real strongest sector ETF today" style={{ color: C.textSec }}>top sector <b style={{ color: C.text }}>{headerStats.topSector.symbol}</b></span>}
       </div>
 
-      {/* Category tabs — the "AI Ranking" categorized view, grouped
-          (2026-08-20, "organize discover") instead of one flat 26-button
-          wall. Each CATEGORY_GROUPS row renders its own line, with a
-          small uppercase heading for every group after the first
-          (Overview stays unlabeled — it's the default, not a category
-          "type"). Any category id CATEGORY_GROUPS doesn't account for
-          falls into a catch-all "OTHER" row rather than silently
-          disappearing if a future category is added without updating
-          the grouping. */}
+      {/* Category tabs — the "AI Ranking" categorized view. Grouped with
+          headings (2026-08-20, "organize discover") then collapsed
+          (2026-08-25, "organize discover, its first page messy"): the
+          Overview row (All/Ranked, Best Opportunities) and a 5-item Quick
+          Filters row stay always visible; every other group (11+6+3+4+
+          any future OTHER catch-all) collapses behind "More filters"
+          unless the current category is one of the hidden ones (a real
+          rhpro_scan_category cross-tab handoff, or a prior selection) —
+          then it force-expands so an active filter never becomes
+          invisible. */}
       {(() => {
         const catById = Object.fromEntries(CATEGORIES.map(c => [c.id, c]));
         const grouped = new Set(CATEGORY_GROUPS.flatMap(g => g.ids));
         const ungrouped = CATEGORIES.filter(c => !grouped.has(c.id));
-        const groups = ungrouped.length ? [...CATEGORY_GROUPS, { label: "OTHER", ids: ungrouped.map(c => c.id) }] : CATEGORY_GROUPS;
+        const allGroups = ungrouped.length ? [...CATEGORY_GROUPS, { label: "OTHER", ids: ungrouped.map(c => c.id) }] : CATEGORY_GROUPS;
+        const [overviewGroup, ...restGroups] = allGroups;
+        const visibleIds = new Set([...overviewGroup.ids, ...QUICK_CATEGORY_IDS]);
+        const showCategoriesEffective = showCategoriesRaw || !visibleIds.has(category);
         const catBtn = (cat) => (
           <button key={cat.id} onClick={() => setCategory(cat.id)}
             style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, padding: "6px 12px", borderRadius: 7, cursor: "pointer",
@@ -711,23 +735,39 @@ export default function RhProScanner({
             {cat.label}
           </button>
         );
-        return groups.map((g, gi) => (
-          <div key={g.label || "overview"} style={{ marginBottom: 8 }}>
-            {g.label && (
-              <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: "0.08em", marginBottom: 4 }}>{g.label}</div>
-            )}
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              {g.ids.map(id => catById[id]).filter(Boolean).map(catBtn)}
-              {gi === groups.length - 1 && (
+        return (
+          <>
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {overviewGroup.ids.map(id => catById[id]).filter(Boolean).map(catBtn)}
+              </div>
+            </div>
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: "0.08em", marginBottom: 4 }}>QUICK FILTERS</div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {QUICK_CATEGORY_IDS.map(id => catById[id]).filter(Boolean).map(catBtn)}
                 <button onClick={() => setActiveTab && setActiveTab("rhpro-heat")}
                   style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, padding: "6px 12px", borderRadius: 7, cursor: "pointer",
                     border: `1px solid ${C.border}`, background: C.surface, color: C.textSec }}>
                   Sectors →
                 </button>
-              )}
+                <button onClick={() => setShowCategoriesRaw(v => !v)}
+                  style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, padding: "6px 12px", borderRadius: 7, cursor: "pointer",
+                    border: `1px solid ${C.border}`, background: "transparent", color: C.accent }}>
+                  {showCategoriesEffective ? "▲ Fewer filters" : "▾ More filters"}
+                </button>
+              </div>
             </div>
-          </div>
-        ));
+            {showCategoriesEffective && restGroups.map((g) => (
+              <div key={g.label} style={{ marginBottom: 8 }}>
+                <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: "0.08em", marginBottom: 4 }}>{g.label}</div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {g.ids.filter(id => !QUICK_CATEGORY_IDS.includes(id)).map(id => catById[id]).filter(Boolean).map(catBtn)}
+                </div>
+              </div>
+            ))}
+          </>
+        );
       })()}
       {categoryNote && <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginBottom: 10, lineHeight: 1.5 }}>{categoryNote}</div>}
 
