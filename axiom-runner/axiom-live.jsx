@@ -71,6 +71,7 @@ import BestOppNotifier from "./components/BestOppNotifier.jsx";
 import SmartMoneyBrief from "./components/SmartMoneyBrief.jsx";
 import AdvisorAiTab from "./components/AdvisorAiTab.jsx";
 import CommandCenterTab from "./components/CommandCenterTab.jsx";
+import TradeDeskTab from "./components/TradeDeskTab.jsx";
 import MarketHealthTab from "./components/MarketHealthTab.jsx";
 import CeoAiCard from "./components/CeoAiCard.jsx";
 import CashGoldSilverAdvisor from "./components/CashGoldSilverAdvisor.jsx";
@@ -6689,6 +6690,45 @@ export default function App() {
             trade-idea track record, both genuinely new. */}
         {activeTab === "command-center" && <CommandCenterTab C={C} MONO={MONO} SANS={SANS} />}
         {activeTab === "market-health" && <MarketHealthTab C={C} MONO={MONO} SANS={SANS} />}
+
+        {/* Trade Desk — one unified screen (2026-08-25, explicit user
+            request). New, additive tab; see TradeDeskTab.jsx's own header
+            comment for the full design and why it's named "Trade Desk" and
+            not "Command Center" (that name is already the real AI Market
+            Command Center above). alertsProps/newsProps/scannerProps
+            mirror the exact same real props AlertsTab/NewsTab/ScannerTab
+            already receive at their own activeTab blocks below — same
+            lifted state, just bagged so TradeDeskTab.jsx doesn't need to
+            redeclare two dozen individual props. */}
+        {activeTab === "trade-desk" && (
+          <TradeDeskTab
+            C={C} MONO={MONO} SANS={SANS} macroData={macroData} sectorData={sectorData}
+            alpacaPositions={alpacaPositions} terminalSymbol={terminalSymbol} setTerminalSymbol={setTerminalSymbol}
+            setActiveTab={setActiveTab} isMobile={isMobile} watchlistSymbols={watchlistSymbols}
+            alertsProps={{
+              tvWebhookRows, combinedAlerts, telegramOk,
+              customAlertSymbol, setCustomAlertSymbol, customAlertMin, setCustomAlertMin, setCustomAlerts,
+              setTerminalSymbol, setQuickLogModal,
+              priceAlerts, paSymbol, setPaSymbol, paDirection, setPaDirection, paTarget, setPaTarget,
+              paNote, setPaNote, loadPriceAlertList, watchlistData,
+              tvWebhookFilter, setTvWebhookFilter, alertSoundEnabled, setAlertSoundEnabled, setTvWebhookRows,
+              tvWebhookSecured, tvWebhookLoggedRows, setTvWebhookLoggedRows,
+            }}
+            newsProps={{
+              newsSymFilter, setNewsSymFilter, newsSentFilter, setNewsSentFilter,
+              refreshNews, newsLoading, newsData, scoreNewsSentiment, newsSentLoading,
+              watchlistSymbols, newsSentiments, setTerminalSymbol, setQuickLogModal, setWatchlistSymbols,
+            }}
+            scannerProps={{
+              scannerRows, lastUpdate, dataFreshSec, scannerFilters, setScannerFilters,
+              setLoading, fetchAll, apiKey, runServerScreen, serverScreenLoading,
+              marketUniverseData, marketUniverseLoading, loadMarketUniverse, flowBySymbol,
+              setTerminalSymbol, openTradingView, setScanResults, setScanExpanded,
+              loadDeepDive, loadDeepSocial, setWatchlistSymbols, setQuickLogModal,
+              serverScreenResults, setServerScreenResults,
+            }}
+          />
+        )}
 
         {/* Best Opportunities as its own destination retired (2026-07-29,
             product/UX redesign audit item #5) — folded into Sniper Scanner

@@ -27,6 +27,14 @@
 export const SIDEBAR_ITEMS = [
   { id: "dashboard", label: "Home",       icon: "🏠", tab: "dashboard" },
 
+  // Trade Desk — one unified screen (2026-08-25, explicit user request:
+  // top status strip + Discover-search|Chart|Cortex 3-pane + a bottom
+  // module dock, all without leaving the page). New, additive tab —
+  // TradeDeskTab.jsx. Named "Trade Desk," not "Command Center," to avoid
+  // colliding with the real, separate, already-shipped AI Market Command
+  // Center (CommandCenterTab.jsx, activeTab "command-center").
+  { id: "trade-desk", label: "Trade Desk", icon: "🎛️", tab: "trade-desk" },
+
   // Cortex — "ask anything" intelligence layer (2026-08-11, explicit user
   // request: "AM CORTEX — AI TRADING INTELLIGENCE ENGINE"). A genuinely new
   // front door, not a Discover sub-view — it answers free-text questions
