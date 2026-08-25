@@ -14,6 +14,7 @@ import AutopilotPanel from "./AutopilotPanel.jsx";
 import RhProScanner from "./RhProScanner.jsx";
 import MarketTerminalTab from "./MarketTerminalTab.jsx";
 import LightBoxTab from "./LightBoxTab.jsx";
+import MacroStatusStrip, { useRealMacroOverrides } from "./MacroStatusStrip.jsx";
 
 // TradeDeskTab — one unified trading screen (2026-08-25, explicit user
 // request/mockup: top status strip, Discover-search | Chart | Cortex
@@ -217,6 +218,17 @@ export default function TradeDeskTab({
     return () => { cancelled = true; clearInterval(iv); };
   }, []);
 
+  // Market Context panel (Phase 2, 2026-08-26) — the real, already-built
+  // MacroStatusStrip.jsx (SPY/QQQ/IWM/DIA/VIX/DXY-proxy/10Y/Gold/Oil/BTC +
+  // real regime/treasury/credit/liquidity/employment/breadth/sector-
+  // rotation scores), same component MacroTab.jsx already mounts — reused
+  // as-is, not rebuilt. `fred` (real 10Y/Brent) comes from its own hook,
+  // same real pattern MacroTab.jsx uses. distData reuses the real
+  // vixQuote already fetched above for the top strip's own VIX pill —
+  // zero new fetch, no new prop threaded from axiom-live.jsx.
+  const { fred } = useRealMacroOverrides();
+  const macroDistData = useMemo(() => ({ vix: vixQuote?.price ?? null }), [vixQuote]);
+
   const [account, setAccount] = useState(null);
   useEffect(() => {
     let cancelled = false;
@@ -352,8 +364,23 @@ export default function TradeDeskTab({
               <CommandSearchPanel symbol={symbol} onSelectSymbol={selectSymbol} C={C} MONO={MONO} SANS={SANS} />
             </div>
             <ChartPane symbol={symbol} chart={chart} loadingChart={loadingChart} vcpOn={vcpOn} setVcpOn={setVcpOn} C={C} MONO={MONO} SANS={SANS} />
-            <div style={{ borderLeft: `1px solid ${C.border}`, minHeight: 0, overflow: "hidden" }}>
-              <CortexMiniPanel symbol={symbol} onSelectSymbol={selectSymbol} setActiveTab={setActiveTab} C={C} MONO={MONO} SANS={SANS} />
+            {/* Right column split (Phase 2, 2026-08-26, user-confirmed
+                layout): Market Context on top (its own capped/scrollable
+                box — MacroStatusStrip's real chip count varies with how
+                much of the real regime breakdown is available and can run
+                to 15+ chips, which must never grow the core zone's own
+                fixed, ref-measured height — see this file's own history
+                of a real runaway-growth bug from exactly that class of
+                mistake), Sniper (CortexMiniPanel) below taking the rest
+                via flex:1/minHeight:0, unchanged from before. */}
+            <div style={{ borderLeft: `1px solid ${C.border}`, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+              <div style={{ maxHeight: "40%", overflowY: "auto", padding: "10px 10px 6px", borderBottom: `1px solid ${C.border}`, flex: "0 0 auto" }}>
+                <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: 0.6, marginBottom: 6 }}>🌍 MARKET CONTEXT</div>
+                <MacroStatusStrip C={C} MONO={MONO} macroData={macroData} distData={macroDistData} fred={fred} />
+              </div>
+              <div style={{ flex: 1, minHeight: 0 }}>
+                <CortexMiniPanel symbol={symbol} onSelectSymbol={selectSymbol} setActiveTab={setActiveTab} C={C} MONO={MONO} SANS={SANS} />
+              </div>
             </div>
           </div>
         )}
