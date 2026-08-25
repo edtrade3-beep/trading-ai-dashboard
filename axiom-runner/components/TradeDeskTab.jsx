@@ -11,7 +11,8 @@ import NewsTab from "./NewsTab.jsx";
 import ScannerTab from "./ScannerTab.jsx";
 import VcpStatusPanel from "./VcpStatusPanel.jsx";
 import AutopilotPanel from "./AutopilotPanel.jsx";
-import ScanTerminalHub from "./ScanTerminalHub.jsx";
+import RhProScanner from "./RhProScanner.jsx";
+import MarketTerminalTab from "./MarketTerminalTab.jsx";
 import LightBoxTab from "./LightBoxTab.jsx";
 
 // TradeDeskTab — one unified trading screen (2026-08-25, explicit user
@@ -39,19 +40,36 @@ import LightBoxTab from "./LightBoxTab.jsx";
 // lightboxSettings/setLightboxSettings/openDaytradeConsole its standalone
 // activeTab "lightbox" already threads through, 2026-08-25: "link light
 // box to trade desk as a branch") and are mounted directly. AlertsTab/
-// NewsTab/ScannerTab/
-// ScanTerminalHub (the real, full Discover) are NOT — each needs a large
-// set of state/handlers already lifted in axiom-live.jsx (the same real
-// state its own existing alerts/news/scanner/rhpro-scan tabs already use)
-// — those four arrive here as pre-built prop bags (`alertsProps`/
-// `newsProps`/`scannerProps`/`discoverProps`) spread onto the real
-// components unchanged, rather than re-declaring dozens of props on this
-// file's own signature. Discover is mounted WITHOUT its own page's
-// PageSubNav wrapper (SCAN/WATCHLISTS/OPTIONS FLOW/FUTURE-VALUE) — that
-// subnav's own tab buttons call the app-wide setActiveTab and would
-// navigate away from Trade Desk entirely, defeating the point.
+// NewsTab/ScannerTab/RhProScanner (Discover's full ranked table) are NOT —
+// each needs a large set of state/handlers already lifted in
+// axiom-live.jsx (the same real state its own existing alerts/news/
+// scanner/rhpro-scan tabs already use) — those arrive here as pre-built
+// prop bags (`alertsProps`/`newsProps`/`scannerProps`/`discoverProps`)
+// spread onto the real components unchanged, rather than re-declaring
+// dozens of props on this file's own signature.
+//
+// DISCOVER vs FULL SCAN split (2026-08-25, explicit user correction: "when
+// i click on discover gives me this page with lots of tickers i want this
+// page with tickers in different tab, i want discover opens specifically
+// for the ticker i search"). The original DISCOVER dock module mounted
+// ScanTerminalHub.jsx whole — its own ranked table PLUS a collapsible
+// detail panel underneath, so opening it always showed the giant 100-
+// stock table first, the searched ticker's analysis only after scrolling
+// past it. Split into two real, separate destinations instead of one
+// combined page:
+// - DISCOVER now mounts MarketTerminalTab.jsx directly — the exact same
+//   real component ScanTerminalHub's own detail panel already embeds
+//   (confirmed via its own JSX: `<MarketTerminalTab key={selectedSymbol}
+//   .../>`), just for the CURRENT searched symbol, with none of
+//   RhProScanner's ranked-table chrome around it. key={symbol} forces a
+//   clean remount (same real pattern ScanTerminalHub itself already uses)
+//   whenever the searched symbol changes.
+// - FULL SCAN mounts RhProScanner.jsx directly — the real 100-stock
+//   ranked table/category-filter view, genuinely separate now, still the
+//   same real component/data as the standalone Discover page.
 const DOCK_MODULES = [
   { key: "discover", label: "DISCOVER" },
+  { key: "scanlist", label: "FULL SCAN" },
   { key: "lightbox", label: "LIGHT BOX" },
   { key: "portfolio", label: "PORTFOLIO" },
   { key: "watchlist", label: "WATCHLIST" },
@@ -119,6 +137,15 @@ export default function TradeDeskTab({
   const selectSymbol = (s) => {
     const sym = String(s || "").trim().toUpperCase();
     if (!sym) return;
+    // If the DISCOVER dock module is already open, keep it pointed at
+    // whatever's currently searched — written synchronously here (not in
+    // an effect) so it's in localStorage before MarketTerminalTab's own
+    // key={symbol} remount (in dockBody below) reads it on mount. Same
+    // real mterminal_load_sym handoff every other cross-tab symbol jump
+    // in this app already uses.
+    if (dockModule === "discover") {
+      try { localStorage.setItem("mterminal_load_sym", sym); } catch {}
+    }
     setSymbol(sym);
     setTerminalSymbol && setTerminalSymbol(sym);
   };
@@ -189,28 +216,16 @@ export default function TradeDeskTab({
   }, [alpacaPositions]);
 
   const [dockModule, setDockModule] = useState(null);
-  // Search -> Discover handoff (2026-08-25, explicit user request: "when
-  // you search for stock it is link to discover for that specific stock
-  // not for main page"). ScanTerminalHub.jsx (mounted below for
-  // dockModule === "discover") already reads scanhub_last_symbol/
-  // scanhub_force_open once on mount — the exact real one-shot handoff
-  // SniperAITab.jsx's own "Open in Discover" button already uses. Since
-  // this dock's ScanTerminalHub only mounts (fresh, re-running that
-  // mount-time read) when the DISCOVER button is actually clicked, writing
-  // those same two keys right before opening it reuses that real
-  // mechanism instead of inventing a second one — Discover opens straight
-  // to the currently-searched symbol's deep-dive panel, not its generic
-  // ranked-list landing page. Known, consistent-with-the-rest-of-the-app
-  // limitation: this fires on OPEN only (same one-shot-on-arrival contract
-  // every other real handoff in this app already has) — searching a
-  // different symbol while Discover is already open doesn't re-target an
-  // already-mounted instance; close and reopen the dock module for that.
+  // Search -> Discover handoff (2026-08-25, revised same day per explicit
+  // user correction: "i want discover opens specifically for the ticker i
+  // search"). DISCOVER now mounts MarketTerminalTab.jsx directly (see
+  // dockBody below), which reads mterminal_load_sym once on mount — the
+  // same real one-shot handoff every other cross-tab symbol jump in this
+  // app already uses. Writing it right before opening the dock module
+  // reuses that real mechanism rather than inventing a second one.
   const openDockModule = (key) => {
     if (key === "discover" && symbol) {
-      try {
-        localStorage.setItem("scanhub_last_symbol", symbol);
-        localStorage.setItem("scanhub_force_open", "1");
-      } catch {}
+      try { localStorage.setItem("mterminal_load_sym", symbol); } catch {}
     }
     setDockModule((prev) => (prev === key ? null : key));
   };
@@ -227,7 +242,20 @@ export default function TradeDeskTab({
 
   const dockBody = (
     <>
-      {dockModule === "discover" && <ScanTerminalHub {...(discoverProps || {})} C={C} MONO={MONO} SANS={SANS} isTablet={isTablet} isMobile={isMobile} macroData={macroData} sectorData={sectorData} setActiveTab={setActiveTab} setTerminalSymbol={selectSymbol} watchlistSymbols={watchlistSymbols} setWatchlistSymbols={setWatchlistSymbols} />}
+      {dockModule === "discover" && (
+        <MarketTerminalTab
+          key={symbol} C={C} MONO={MONO} SANS={SANS} sectorData={sectorData} macroData={macroData}
+          distData={discoverProps?.distData} onDeepDive={discoverProps?.openDeepDiveFor} setActiveTab={setActiveTab}
+          preMktMovers={discoverProps?.preMktMovers} marketSession={discoverProps?.marketSession} isMobile={isMobile}
+        />
+      )}
+      {dockModule === "scanlist" && (
+        <RhProScanner
+          {...(discoverProps || {})} C={C} MONO={MONO} SANS={SANS} macroData={macroData} sectorData={sectorData}
+          setActiveTab={setActiveTab} setTerminalSymbol={selectSymbol} watchlistSymbols={watchlistSymbols}
+          setWatchlistSymbols={setWatchlistSymbols} onSelectSymbol={selectSymbol}
+        />
+      )}
       {dockModule === "lightbox" && <LightBoxTab C={C} MONO={MONO} SANS={SANS} lightboxSettings={lightboxSettings} setLightboxSettings={setLightboxSettings} onOpenSymbol={openDaytradeConsole} />}
       {dockModule === "portfolio" && <PortfolioSnapshotCard C={C} MONO={MONO} SANS={SANS} />}
       {dockModule === "watchlist" && (
