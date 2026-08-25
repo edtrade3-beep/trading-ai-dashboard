@@ -202,6 +202,31 @@ async function handleAiHub(req, res, requestUrl) {
     }
   }
 
+  // GET /api/ai-hub/symbol-correlation?symbol=X — real correlation of ONE
+  // candidate symbol against the account's actual held positions (Market
+  // Opportunity Engine Phase 2, 2026-08-26, spec's "Portfolio Awareness":
+  // "is this a genuinely new opportunity or simply another version of a
+  // position I already own?"). A real, different question from the route
+  // above (which only compares held positions against each other) — reuses
+  // computeSymbolVsPositionsCorrelation's own real pearson()/bars-fetch
+  // math, same "expensive real historical-bars fetch, so button-gated, not
+  // auto-polled on every symbol search" discipline as the route above.
+  if (pathname === "/api/ai-hub/symbol-correlation" && req.method === "GET") {
+    const symbol = (requestUrl.searchParams.get("symbol") || "").trim().toUpperCase();
+    if (!symbol) return writeJson(res, 400, { ok: false, error: "symbol required" });
+    const posResp = await getJson("/api/alpaca/positions");
+    if (!posResp || !posResp.ok) return writeJson(res, 200, { ok: false, reason: "no-alpaca-key" });
+    const positions = posResp.positions || [];
+    if (!positions.length) return writeJson(res, 200, { ok: true, candidateSymbol: symbol, correlations: [], insufficientData: [] });
+    try {
+      const { computeSymbolVsPositionsCorrelation } = require("../portfolio-correlation-calc");
+      const result = await computeSymbolVsPositionsCorrelation(symbol, positions, getJson);
+      return writeJson(res, 200, { ok: true, ...result, computedAt: new Date().toISOString() });
+    } catch (e) {
+      return writeJson(res, 200, { ok: false, error: e.message });
+    }
+  }
+
   if (pathname === "/api/ai-hub/coach-log" && req.method === "GET") {
     return writeJson(res, 200, { ok: true, log: loadCoachLog() });
   }

@@ -111,4 +111,54 @@ async function computePortfolioCorrelation(positions, getJson) {
   return { syms: corrSyms, matrix, sectors, clusters, factorExposure, insufficientData };
 }
 
-module.exports = { pearson, computePortfolioCorrelation, FACTOR_PROXIES, MIN_BARS, CLUSTER_THRESHOLD };
+// Real correlation of ONE candidate symbol against each currently-held
+// position (Phase 2, 2026-08-26, spec's "Portfolio Awareness": "is this
+// a genuinely new opportunity or simply another version of a position I
+// already own?"). Deliberately a SEPARATE function from
+// computePortfolioCorrelation above, not a repurposing of it — that one
+// answers "how correlated are my existing holdings with each other" (an
+// NxN matrix over the held set); this answers a genuinely different real
+// question ("how correlated is this NEW candidate to what I already
+// hold"), which needs the candidate's own real bars pulled in alongside
+// each position's, not just the held set's own matrix. Reuses the exact
+// same real pearson()/returnsFromBars()/MIN_BARS discipline — never a
+// second correlation formula.
+//
+// Same "expensive real historical-bars fetch, so button-gated, never
+// auto-polled" discipline the route comment for computePortfolioCorrelation
+// already documents — this function itself doesn't enforce that (routes
+// decide when to call it), but callers should not wire it to fire on
+// every symbol search.
+async function computeSymbolVsPositionsCorrelation(candidateSymbol, positions, getJson) {
+  const heldSyms = [...new Set(positions.map((p) => p.symbol))].filter((s) => s !== candidateSymbol);
+  if (!heldSyms.length) return { candidateSymbol, correlations: [], insufficientData: [] };
+
+  const allFetchSyms = [candidateSymbol, ...heldSyms];
+  const returnPairs = await mapConcurrent(allFetchSyms, async (sym) => {
+    try {
+      const d = await getJson(`/api/market/candles?ticker=${encodeURIComponent(sym)}&timeframe=1D`);
+      return [sym, returnsFromBars(d?.bars)];
+    } catch { return [sym, null]; }
+  });
+  const returnsBySym = Object.fromEntries(returnPairs.filter(([, r]) => r));
+
+  if (!returnsBySym[candidateSymbol]) {
+    return { candidateSymbol, correlations: [], insufficientData: heldSyms, candidateInsufficientData: true };
+  }
+
+  const valueBySym = {};
+  for (const p of positions) valueBySym[p.symbol] = Number(p.marketValue) || 0;
+
+  const correlations = [];
+  const insufficientData = [];
+  for (const sym of heldSyms) {
+    if (!returnsBySym[sym]) { insufficientData.push(sym); continue; }
+    const minLen = Math.min(returnsBySym[candidateSymbol].length, returnsBySym[sym].length);
+    const correlation = Number(pearson(returnsBySym[candidateSymbol].slice(-minLen), returnsBySym[sym].slice(-minLen)).toFixed(2));
+    correlations.push({ symbol: sym, correlation, marketValue: valueBySym[sym] || null });
+  }
+  correlations.sort((a, b) => Math.abs(b.correlation) - Math.abs(a.correlation));
+  return { candidateSymbol, correlations, insufficientData };
+}
+
+module.exports = { pearson, computePortfolioCorrelation, computeSymbolVsPositionsCorrelation, FACTOR_PROXIES, MIN_BARS, CLUSTER_THRESHOLD };

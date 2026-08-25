@@ -32,6 +32,30 @@ export default function CortexMiniPanel({ symbol, onSelectSymbol, setActiveTab, 
   const [notice, setNotice] = useState(null);
   const reqRef = useRef(null);
 
+  // Portfolio correlation annotation (Phase 2, 2026-08-26, spec's
+  // "Portfolio Awareness": "is this a genuinely new opportunity or simply
+  // another version of a position I already own?"). Deliberately
+  // button-gated, NOT auto-fired on every symbol change — the real route
+  // (src/portfolio-correlation-calc.js's computeSymbolVsPositionsCorrelation)
+  // does a real historical-bars fetch per held position, the same
+  // "expensive, so button-gated" discipline this exact codebase already
+  // established for the sibling /api/ai-hub/portfolio-correlation route.
+  // A visible ANNOTATION only — this never feeds back into tier/score/EV,
+  // keeping the EV formula's own real math untouched by this real but
+  // separate signal.
+  const [correlation, setCorrelation] = useState(null);
+  const [correlationLoading, setCorrelationLoading] = useState(false);
+  useEffect(() => { setCorrelation(null); }, [symbol]);
+  const checkCorrelation = () => {
+    if (!symbol || correlationLoading) return;
+    setCorrelationLoading(true);
+    fetch(`/api/ai-hub/symbol-correlation?symbol=${encodeURIComponent(symbol)}`)
+      .then((r) => r.json())
+      .then((d) => setCorrelation(d))
+      .catch(() => setCorrelation({ ok: false, error: "Request failed." }))
+      .finally(() => setCorrelationLoading(false));
+  };
+
   useEffect(() => {
     if (!symbol) return;
     let cancelled = false;
@@ -122,6 +146,44 @@ export default function CortexMiniPanel({ symbol, onSelectSymbol, setActiveTab, 
         {analysis && !verdictMeta && (
           <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, textAlign: "center", marginBottom: 12 }}>
             No real verdict available for {analysis.symbol} right now.
+          </div>
+        )}
+
+        {analysis && (
+          <div style={{ marginBottom: 12 }}>
+            {!correlation && (
+              <button onClick={checkCorrelation} disabled={correlationLoading}
+                style={{ width: "100%", fontFamily: MONO, fontSize: 10.5, fontWeight: 800, padding: "7px 10px", borderRadius: 7,
+                  border: `1px solid ${C.border}`, background: "transparent", color: C.textDim, cursor: correlationLoading ? "default" : "pointer" }}>
+                {correlationLoading ? "Checking your real positions…" : `📊 Check vs My Portfolio`}
+              </button>
+            )}
+            {correlation && correlation.ok === false && correlation.reason === "no-alpaca-key" && (
+              <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, textAlign: "center", padding: "6px 0" }}>No brokerage connected — nothing to compare against.</div>
+            )}
+            {correlation && correlation.ok === false && correlation.reason !== "no-alpaca-key" && (
+              <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, textAlign: "center", padding: "6px 0" }}>Couldn't check portfolio correlation right now.</div>
+            )}
+            {correlation && correlation.ok && correlation.correlations && (
+              correlation.correlations.length === 0 ? (
+                <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, textAlign: "center", padding: "6px 0" }}>
+                  {correlation.candidateInsufficientData ? `Not enough real price history for ${symbol} yet to compare.` : "No real overlap with your current holdings — a genuinely new opportunity."}
+                </div>
+              ) : (
+                <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 10px", background: C.card }}>
+                  <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 4 }}>REAL CORRELATION TO YOUR HOLDINGS</div>
+                  {correlation.correlations.slice(0, 3).map((c) => (
+                    <div key={c.symbol} style={{ fontFamily: MONO, fontSize: 11, display: "flex", justifyContent: "space-between", padding: "2px 0" }}>
+                      <span style={{ color: C.text, fontWeight: 700 }}>{c.symbol}</span>
+                      <span style={{ color: Math.abs(c.correlation) >= 0.7 ? "#c8282a" : Math.abs(c.correlation) >= 0.4 ? "#d6a312" : C.textDim, fontWeight: 700 }}>r = {c.correlation > 0 ? "+" : ""}{c.correlation}</span>
+                    </div>
+                  ))}
+                  {correlation.correlations[0] && Math.abs(correlation.correlations[0].correlation) >= 0.7 && (
+                    <div style={{ fontFamily: SANS, fontSize: 10, color: "#c8282a", marginTop: 4 }}>⚠ Highly correlated with your existing {correlation.correlations[0].symbol} position — this may not be a genuinely new, diversifying opportunity.</div>
+                  )}
+                </div>
+              )
+            )}
           </div>
         )}
 
