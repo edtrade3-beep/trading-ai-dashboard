@@ -6477,6 +6477,27 @@ export default function App() {
       )}
 
       {/* Content */}
+      {/* Two nested boxes, not one — a single box can't both clear the fixed
+          Sidebar AND center a maxWidth-capped child, because CSS auto-margins
+          resolve against their own containing block. On one box, a fixed
+          marginLeft:sidebarW paired with marginRight:"auto" pins the box flush
+          against the Sidebar and dumps 100% of any leftover width (whenever
+          the real available space exceeds LAYOUT.pageMaxWidth — the exact
+          case at 100%/125%/150% page zoom on a wide monitor, since each zoom
+          step changes how much effective CSS-pixel width is "available" here)
+          onto the right edge only — never centered, same "make sure centered"
+          bug reported live at every zoom level. Fix: outer box explicitly
+          clears the Sidebar (unchanged width/marginLeft math, still the
+          bleed-under-Sidebar fix described below for the ~31 tabs' own
+          maxWidth+margin:auto), inner box then centers itself with real
+          margin:auto WITHIN that already-correctly-sized outer box, so the
+          leftover space (if any) splits evenly left/right of the capped
+          content at any zoom level or viewport width. */}
+      <div style={{
+        marginLeft: !isMobile ? sidebarW : 0,
+        width: !isMobile ? `calc(100% - ${sidebarW}px)` : "100%",
+        boxSizing: "border-box",
+      }}>
       {/* width is explicit (not left to auto-margin resolution) and overflowX
           is clipped as a safety net: ~31 existing tab components each set
           their OWN `maxWidth: N, margin: "0 auto"` on their root div, sized
@@ -6492,8 +6513,8 @@ export default function App() {
         // !important CSS rule below (this inline value gets overridden by
         // it on mobile) — kept in sync there, see the comment on that rule.
         paddingBottom: 24 + statusBarH,
-        maxWidth: LAYOUT.pageMaxWidth, marginTop: 0, marginBottom: 0, marginRight: "auto", marginLeft: !isMobile ? sidebarW : "auto",
-        width: !isMobile ? `calc(100% - ${sidebarW}px)` : "100%", overflowX: "hidden", boxSizing: "border-box",
+        maxWidth: LAYOUT.pageMaxWidth, marginTop: 0, marginBottom: 0, marginLeft: "auto", marginRight: "auto",
+        width: "100%", overflowX: "hidden", boxSizing: "border-box",
       }}>
         <RegimeStrategyBanner C={C} MONO={MONO} activeTab={activeTab} regime={regime} />
 
@@ -7687,6 +7708,7 @@ export default function App() {
         />
       )}
 
+      </div>
       </div>
       {/* Floating overlays — deliberately OUTSIDE the width-constrained
           content wrapper above, same as IstighfarWidget/TradingCopilot/
