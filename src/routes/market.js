@@ -2887,6 +2887,15 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
       }
       for (const key of Object.keys(tiers)) tiers[key].sort((a, b) => (b.score || 0) - (a.score || 0));
 
+      // Same-session Edge Timeline (Phase 2, 2026-08-26) — real, throttled
+      // intraday snapshot of every real Opportunity Object this scan just
+      // computed. Additive-only: a failure here must never break the real
+      // opportunities response that already succeeded.
+      try {
+        const { recordOpportunitySnapshots } = require("../opportunity-timeline-store");
+        recordOpportunitySnapshots(Object.values(tiers).flat());
+      } catch {}
+
       return writeJson(res, 200, {
         ok: true, generatedAt: new Date().toISOString(),
         counts: Object.fromEntries(Object.entries(tiers).map(([k, v]) => [k, v.length])),
@@ -2894,6 +2903,21 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
       });
     } catch (err) {
       return writeJson(res, 502, { ok: false, error: err instanceof Error ? err.message : "Opportunity scan failed." });
+    }
+  }
+
+  // GET /api/market/opportunity-timeline?symbol=X — real, same-session
+  // read of today's real Opportunity Object samples for one symbol
+  // (opportunity-timeline-store.js). Honest empty array when nothing has
+  // been recorded yet today — never a fabricated point.
+  if (pathname === "/api/market/opportunity-timeline" && req.method === "GET") {
+    const symbol = (searchParams.get("symbol") || "").trim().toUpperCase();
+    if (!symbol) return writeJson(res, 400, { ok: false, error: "symbol required" });
+    try {
+      const { getTodayTimeline } = require("../opportunity-timeline-store");
+      return writeJson(res, 200, { ok: true, symbol, samples: getTodayTimeline(symbol) });
+    } catch (err) {
+      return writeJson(res, 502, { ok: false, error: err instanceof Error ? err.message : "Timeline unavailable." });
     }
   }
 

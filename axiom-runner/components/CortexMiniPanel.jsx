@@ -3,6 +3,7 @@ import { computeSniperDecision } from "./sniper-decision.js";
 import { CORE_VERDICT_META } from "./am-core-engine.js";
 import { parseCortexQuery } from "./cortex-engine.js";
 import WhyBreakdownPanel from "./WhyBreakdownPanel.jsx";
+import EdgeTimelineSparkline from "./EdgeTimelineSparkline.jsx";
 
 // CortexMiniPanel — Command Center's right column (2026-08-25, explicit
 // user request: unified one-screen layout, "ask anything" + "AI VERDICT"
@@ -141,6 +142,7 @@ export default function CortexMiniPanel({ symbol, onSelectSymbol, setActiveTab, 
                 <span style={{ color: C.textDim }}>EV <b style={{ color: opp.expectedValue > 0 ? "#0d9465" : opp.expectedValue < 0 ? "#c8282a" : C.text }}>{opp.expectedValue != null ? `${opp.expectedValue > 0 ? "+" : ""}${opp.expectedValue}%` : "—"}</b></span>
               </div>
             )}
+            {opp && <EdgeTimelineSparkline symbol={analysis.symbol} C={C} MONO={MONO} SANS={SANS} />}
           </div>
         )}
         {analysis && !verdictMeta && (
