@@ -145,6 +145,39 @@ export default function CortexMiniPanel({ symbol, onSelectSymbol, setActiveTab, 
             {opp && <EdgeTimelineSparkline symbol={analysis.symbol} C={C} MONO={MONO} SANS={SANS} />}
           </div>
         )}
+
+        {opp && Number.isFinite(opp.executableEntry ?? opp.entry) && Number.isFinite(opp.stop) && Number.isFinite(opp.target) && (
+          // Trade Plan -> Review -> Confirm -> Order (Phase 2, 2026-08-26).
+          // Reuses the SAME real "open-quick-trade" event + shares formula
+          // MarketTerminalTab.jsx's own "Execute via Quick Trade" button
+          // and TradePlannerTab.jsx's execute button already use — real
+          // user-configured risk% (localStorage "axiom_risk_pct", the
+          // SAME real per-user setting those two use, never a hardcoded
+          // universal %), same real position-sizing formula. This does
+          // NOT place an order itself — it hands off to QuickTradePanel's
+          // own already-real confirm-gate + POST /api/quick-trade/order,
+          // the one real execution surface in this app. No new order path.
+          <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 12px", marginBottom: 12 }}>
+            <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.6, marginBottom: 6 }}>TRADE PLAN</div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11, marginBottom: 8 }}>
+              <span><span style={{ color: C.textDim }}>Entry</span> <b style={{ color: C.text }}>${(opp.executableEntry ?? opp.entry).toFixed(2)}</b></span>
+              <span><span style={{ color: C.textDim }}>Stop</span> <b style={{ color: "#c8282a" }}>${opp.stop.toFixed(2)}</b></span>
+              <span><span style={{ color: C.textDim }}>Target</span> <b style={{ color: "#0d9465" }}>${opp.target.toFixed(2)}</b></span>
+            </div>
+            <button
+              onClick={() => {
+                const entry = opp.executableEntry ?? opp.entry;
+                const riskPerShare = Math.max(0.01, entry - opp.stop);
+                const acct = Number(localStorage.getItem("axiom_acct_size")) || 10000;
+                const riskPct = Number(localStorage.getItem("axiom_risk_pct")) || 1;
+                const shares = riskPerShare > 0 ? Math.floor((acct * riskPct / 100) / riskPerShare) : 0;
+                window.dispatchEvent(new CustomEvent("open-quick-trade", { detail: { symbol: analysis.symbol, shares, stopLoss: opp.stop, takeProfit: opp.target } }));
+              }}
+              style={{ width: "100%", fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "8px 10px", borderRadius: 7, border: "none", background: C.accent, color: "#fff", cursor: "pointer" }}>
+              ⚡ Review Trade Plan
+            </button>
+          </div>
+        )}
         {analysis && !verdictMeta && (
           <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, textAlign: "center", marginBottom: 12 }}>
             No real verdict available for {analysis.symbol} right now.
