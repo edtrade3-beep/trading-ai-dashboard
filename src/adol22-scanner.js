@@ -419,9 +419,21 @@ async function runAdol22(watchlistSymbols) {
                      bear: bear ? { sym: bear.sym, pattern: bear.pattern.name, confidence: Math.round(bear.total), price: bear.price } : null,
                      spyChg: Math.round(spyChg * 100) / 100, vix: Math.round(vixPrice * 10) / 10 };
 
+  // Re-validate against am-core-engine.js before alerting — same real gate
+  // market-scanner.js already applies to its own BUY signal (2026-08-24
+  // Execution Bot Architecture Audit: ADOL22 was found fully standalone,
+  // able to alert BULL on a symbol Core Engine calls AVOID_LONG). BEAR is
+  // intentionally NOT re-gated — same disclosed boundary as
+  // checkCoreEngineBuy's own header comment (Core Engine has no
+  // short-side implementation this session).
   if (bull) {
-    await sendAdol22Alert(bull, "BULL");
-    saveHistory({ type: "BULL", sym: bull.sym, pattern: bull.pattern.name, price: bull.price, confidence: Math.round(bull.total), reasons: bull.scoring.reasons });
+    const { checkCoreEngineBuy } = require("./market-scanner");
+    if (await checkCoreEngineBuy(bull.sym)) {
+      await sendAdol22Alert(bull, "BULL");
+      saveHistory({ type: "BULL", sym: bull.sym, pattern: bull.pattern.name, price: bull.price, confidence: Math.round(bull.total), reasons: bull.scoring.reasons });
+    } else {
+      console.log(`[ADOL22] BULL setup on ${bull.sym} suppressed — disagrees with am-core-engine.js's verdict`);
+    }
   }
   if (bear) {
     await sendAdol22Alert(bear, "BEAR");

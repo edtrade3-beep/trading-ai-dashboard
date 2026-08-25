@@ -58,6 +58,16 @@ async function getPositions() {
 // rather than faked here).
 async function preTradeCheck({ symbol, requireMarketHours = true } = {}) {
   if (!isAlpacaConfigured()) return { ok: false, reason: "no-alpaca-key" };
+  // Emergency Stop (2026-08-24) — the one real, global kill switch shared
+  // across all automated-execution systems, checked first here too. Quick
+  // Trade's own closePosition/closeAll/flatten/cancelOrders/modifyStop/
+  // modifyTarget deliberately bypass preTradeCheck entirely (see their own
+  // definitions below) and so remain available during a stop — same real
+  // distinction as the other systems' checks: refuse new/added exposure,
+  // never block exiting or cancelling an existing position/order.
+  if (require("./emergency-stop").isEmergencyStopActive()) {
+    return { ok: false, reason: "Emergency Stop is active — automated execution is halted until manually re-armed." };
+  }
   const account = await getAccount();
   if (!account) return { ok: false, reason: "could not load real account data" };
   const positions = await getPositions();

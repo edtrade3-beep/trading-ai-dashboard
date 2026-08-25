@@ -20,15 +20,24 @@ const { sendTelegramMessage, isConfigured } = require("./telegram");
 const LOCATION = { lat: 39.3266, lng: -84.5479, label: "Fairfield, OH 45014" };
 const METHOD = 4; // Umm Al-Qura University, Makkah — same default AthanTab.jsx uses
 
-// Sunrise deliberately excluded — it's a real Aladhan field but not a real
-// prayer, matching AthanTab.jsx's own "next prayer" logic (which filters
-// `p.key !== "Sunrise"`).
+// Sunrise (Shuruq) included per explicit user request (2026-08-24, annotated
+// screenshot) even though it's not a prayer — sent as a real Athan-style
+// alert like Fajr/Maghrib/Isha, distinct from AthanTab.jsx's own "next
+// prayer" logic (which still filters it out for that unrelated feature).
+//
+// type: "athan" | "beep" — per the same annotated screenshot: Fajr, Shuruq,
+// Maghrib, Isha get the full Athan-style alert; Dhuhr and Asr get a short
+// Beep-style alert instead. Telegram's Bot API can't set a custom
+// notification sound per message, so the real, controllable distinction
+// implemented here is message length/format — Athan gets the full
+// emoji+Arabic+location card, Beep gets a single short line.
 const PRAYERS = [
-  { key: "Fajr", label: "Fajr", ar: "الفجر", emoji: "🌅" },
-  { key: "Dhuhr", label: "Dhuhr", ar: "الظهر", emoji: "☀️" },
-  { key: "Asr", label: "Asr", ar: "العصر", emoji: "🌇" },
-  { key: "Maghrib", label: "Maghrib", ar: "المغرب", emoji: "🌆" },
-  { key: "Isha", label: "Isha", ar: "العشاء", emoji: "🌙" },
+  { key: "Fajr", label: "Fajr", ar: "الفجر", emoji: "🌅", type: "athan" },
+  { key: "Sunrise", label: "Shuruq", ar: "الشروق", emoji: "🌄", type: "athan" },
+  { key: "Dhuhr", label: "Dhuhr", ar: "الظهر", emoji: "☀️", type: "beep" },
+  { key: "Asr", label: "Asr", ar: "العصر", emoji: "🌇", type: "beep" },
+  { key: "Maghrib", label: "Maghrib", ar: "المغرب", emoji: "🌆", type: "athan" },
+  { key: "Isha", label: "Isha", ar: "العشاء", emoji: "🌙", type: "athan" },
 ];
 
 const STATE_PATH = path.join(ROOT, "data", "prayer-times-state.json");
@@ -99,7 +108,10 @@ async function tickPrayerNotify() {
     state.alerted.push(p.key);
     alertedNow++;
     if (isConfigured()) {
-      await sendTelegramMessage(`${p.emoji} ${p.label.toUpperCase()} (${p.ar}) — ${state.times[p.key]}\n📍 ${LOCATION.label}`).catch(() => {});
+      const msg = p.type === "beep"
+        ? `🔔 ${p.label} — ${state.times[p.key]}`
+        : `🕌 ATHAN — ${p.emoji} ${p.label.toUpperCase()} (${p.ar}) — ${state.times[p.key]}\n📍 ${LOCATION.label}`;
+      await sendTelegramMessage(msg).catch(() => {});
     }
   }
   if (alertedNow) saveState(state);
@@ -122,7 +134,7 @@ async function formatScheduleMessage() {
     const diff = toMinutes(state.times[next.key]) - nowMin;
     lines.push(`⏳ ${Math.floor(diff / 60)}h ${diff % 60}m until ${next.label}`);
   } else {
-    lines.push("⏳ All 5 prayers complete for today.");
+    lines.push(`⏳ All ${PRAYERS.length} complete for today.`);
   }
   return lines.join("\n");
 }

@@ -324,6 +324,16 @@ async function handleAlpaca(req, res, requestUrl) {
       : Math.max(0, Math.floor(Number(b.qty) || 0));
     const side = b.side === "sell" ? "sell" : "buy";
     if (!symbol || qty <= 0) return writeJson(res, 400, { ok: false, error: "symbol and qty required" });
+    // Emergency Stop (2026-08-24) — the one real, global kill switch shared
+    // across all 4 automated-execution systems, checked first. Only gates
+    // the BUY side: this endpoint's sell side is always a close/trim of an
+    // existing long (see long-only guard below), never a new entry, and
+    // Emergency Stop's own design deliberately preserves the ability to
+    // manage/exit open positions rather than trapping them — same real
+    // distinction as cancelAllOpenOrders() not closing positions.
+    if (side === "buy" && require("../emergency-stop").isEmergencyStopActive()) {
+      return writeJson(res, 200, { ok: false, error: "Emergency Stop is active — automated execution is halted until manually re-armed." });
+    }
     // LONGS ONLY — a sell may only close/trim shares/coins you actually hold.
     // A sell with no long position (or one larger than the position) would
     // open/increase a SHORT, so it is rejected here. This blocks shorting at

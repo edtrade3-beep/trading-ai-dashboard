@@ -75,6 +75,15 @@ function isMarketHoursET() {
 
 async function runTrailingStops() {
   if (!isOn(process.env.SERVER_AUTOPILOT)) return;   // tied to server autopilot
+  // Emergency Stop (2026-08-24) — the one real, global kill switch shared
+  // across automated-execution systems, checked first here too. This job
+  // never opens new risk (it only ratchets an existing stop up or extends
+  // a target), but freezing ALL automated order mutation during an active
+  // incident — not just new entries — is the safer default until a human
+  // has re-armed after review. Any real protective stop already on Alpaca
+  // keeps working independently at its last-set price; this only pauses
+  // this job from moving it further while the stop is engaged.
+  if (require("./emergency-stop").isEmergencyStopActive()) return;
   const { id, secret } = keys();
   if (!id || !secret || !isMarketHoursET()) return;
 
