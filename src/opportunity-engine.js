@@ -124,6 +124,92 @@ function checkOptionsConfirmsStructure({ optionsFlow, verdict }) {
   return { status: "NEUTRAL", note: "Options flow is not directionally decisive either way." };
 }
 
+// Market Fingerprint (Phase 2, 2026-08-26) — packages fields
+// computeOpportunity ALREADY computes into one named object for a
+// cleaner Sniper Mode display. Zero new computation — pure bundling of
+// real values already sitting in scope (regime/sectorInfo/entryStage/row
+// fields), matching the spec's REGIME/SECTOR/STRUCTURE/RELATIVE
+// STRENGTH/VOLUME/LIQUIDITY/VWAP/VOLATILITY/OPTIONS/CATALYST/ENTRY
+// QUALITY list. Every field honestly null when its real input is absent.
+function buildMarketFingerprint({ regime, sectorInfo, entryStage, row, vwap20, riskPct, optionsStatus, entryScore }) {
+  return {
+    regime: regime?.label || null,
+    sector: sectorInfo ? { rank: sectorInfo.rank, of: sectorInfo.of } : null,
+    structure: entryStage || null,
+    relativeStrength: Number.isFinite(row.rsRating) ? row.rsRating : null,
+    volume: Number.isFinite(row.volRatio) ? row.volRatio : null,
+    liquidity: Number.isFinite(row.dollarVolume) ? row.dollarVolume : null,
+    vwap: Number.isFinite(vwap20)
+      ? { level: vwap20, above: Number.isFinite(row.price) ? row.price >= vwap20 : null }
+      : null,
+    volatility: Number.isFinite(riskPct) ? riskPct : null,
+    options: optionsStatus || null,
+    catalyst: Number.isFinite(row.epsGrowth) ? { epsGrowthPct: row.epsGrowth } : null,
+    entryQuality: Number.isFinite(entryScore) ? entryScore : null,
+  };
+}
+
+// Counterfactual EV (Phase 2, 2026-08-26, spec's "Wait Engine" /
+// "Counterfactual Engine": "what would need to change?"). For WAIT/
+// EXTENDED tiers only — re-runs the SAME real computeExpectedValue
+// formula at two real price points: the real pivot (entry-engine.js's
+// already-computed breakout-level reference, entryPlan.pivot — a
+// disciplined re-entry) versus the real current live quote (livePrice —
+// what chasing right now would actually cost). Same real
+// stop/target/probability both times; only the entry price changes.
+//
+// This comparison, not "vs. the existing expectedValue field," is the
+// real, non-redundant one: expectedValue itself is ALREADY computed at
+// row.entry (the pivot, per the AMD EV-basis fix above) for every tier,
+// so a counterfactual also anchored to the pivot would silently equal
+// expectedValue in the common case where row.entry === entryPlan.pivot —
+// confirmed live against production data (2026-08-26, ABNB: both read
+// -1.49%, a no-op comparison). Comparing against the real live price
+// instead answers the spec's actual question ("what needs to change")
+// with two genuinely different, real numbers: the cost of chasing now
+// vs. the real payoff of waiting for the disciplined level.
+//
+// Uses entryPlan.pivot rather than entryPlan.retestZone deliberately:
+// buildEvFromRow (watchlist-setup-alerts.js) hardcodes atr: null for
+// every caller (no real intraday ATR exists at this daily-scan-row
+// level), and computeEntryZones' own real ATR-band formula returns null
+// zones whenever atr is null — so retestZone is structurally ALWAYS null
+// throughout this entire pipeline today, confirmed by reading both
+// files. A counterfactual keyed to it would silently never fire.
+//
+// Honestly null when there's no real pivot, no real live price, or the
+// real probability itself is null (insufficient sample) — never
+// fabricates a number to fill the gap.
+function computeCounterfactualEv({ tier, probability, entryPlan, spreadPct, livePrice }) {
+  if (tier !== "WAIT" && tier !== "EXTENDED") return null;
+  const hypotheticalEntry = entryPlan?.pivot;
+  if (!Number.isFinite(hypotheticalEntry) || !Number.isFinite(livePrice)) return null;
+  const expectedValue = computeExpectedValue({ winRate: probability, entry: hypotheticalEntry, stop: entryPlan.stop, target: entryPlan.target1, spreadPct });
+  if (expectedValue == null) return null;
+  // Real bug found against live production data (2026-08-26, AMD): a
+  // WAIT-tier symbol's live price often sits BELOW the real stop (price
+  // hasn't reached the pivot yet — the stop is benchmarked to the pivot,
+  // not today's price), the exact same "entry below stop" structural
+  // invalidity as the earlier AMD EV-basis bug. Computing a "chase EV"
+  // there produced a nonsensical, large fake-looking positive number.
+  // Only compute the chase comparison when livePrice is a structurally
+  // valid long entry (above the real stop) — otherwise chasing "now"
+  // isn't a real, evaluable trade at all, so this honestly stays null
+  // rather than showing a number that looks real but describes an
+  // invalid setup.
+  const chaseIsValidEntry = Number.isFinite(entryPlan.stop) && livePrice > entryPlan.stop;
+  const chaseExpectedValue = chaseIsValidEntry
+    ? computeExpectedValue({ winRate: probability, entry: livePrice, stop: entryPlan.stop, target: entryPlan.target1, spreadPct })
+    : null;
+  return {
+    hypotheticalEntry, expectedValue, chaseExpectedValue,
+    note: `Waiting for a real pullback to the $${hypotheticalEntry} pivot: EV ${expectedValue > 0 ? "+" : ""}${expectedValue}%.` +
+      (chaseExpectedValue != null
+        ? ` Chasing now at $${livePrice}: EV ${chaseExpectedValue > 0 ? "+" : ""}${chaseExpectedValue}%.`
+        : ` Chasing now at $${livePrice} isn't a valid entry — it's already below this setup's real stop level.`),
+  };
+}
+
 // The one standardized Opportunity Object (spec section 32). `row` is a
 // real screenTrendTemplate/screenWatchlistCached row, `regime` is
 // computeRegime's real output, `marketRegime` is
@@ -188,6 +274,12 @@ function computeOpportunity({ symbol, row, regime, marketRegime, sectorInfo = nu
   const tier = classifyOpportunityTier({ verdict: deep.verdict, entryStage: entryPlan.stage, antiChaseBand: ev.antiChase?.band, structurallyInvalid });
   const options = checkOptionsConfirmsStructure({ optionsFlow, verdict: deep.verdict });
 
+  const fingerprint = buildMarketFingerprint({
+    regime, sectorInfo, entryStage: entryPlan.stage, row, vwap20: ev.vwap20, riskPct: row.riskPct,
+    optionsStatus: options.status, entryScore: aPlusScore,
+  });
+  const counterfactual = computeCounterfactualEv({ tier, probability, entryPlan, spreadPct, livePrice: row.price });
+
   return {
     symbol,
     price: row.price,
@@ -216,9 +308,14 @@ function computeOpportunity({ symbol, row, regime, marketRegime, sectorInfo = nu
     target: entryPlan.target1,
     invalidation: entryPlan.invalidation,
     options,
+    fingerprint,
+    counterfactual,
     criticalFlags: redFlagResult.criticalCount,
     redFlags: redFlagResult.flags,
   };
 }
 
-module.exports = { computeOpportunity, computeExpectedValue, classifyOpportunityTier, checkOptionsConfirmsStructure };
+module.exports = {
+  computeOpportunity, computeExpectedValue, classifyOpportunityTier, checkOptionsConfirmsStructure,
+  buildMarketFingerprint, computeCounterfactualEv,
+};

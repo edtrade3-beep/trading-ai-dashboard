@@ -3,7 +3,7 @@
 // test/am-core-engine.test.js / test/entry-engine.test.js. Run:
 // node test/opportunity-engine.test.js (or npm test).
 const assert = require("node:assert");
-const { computeOpportunity, computeExpectedValue, classifyOpportunityTier, checkOptionsConfirmsStructure } = require("../src/opportunity-engine");
+const { computeOpportunity, computeExpectedValue, classifyOpportunityTier, checkOptionsConfirmsStructure, buildMarketFingerprint, computeCounterfactualEv } = require("../src/opportunity-engine");
 
 let passed = 0;
 function ok(name, fn) { try { fn(); passed++; console.log(`  ✓ ${name}`); } catch (e) { console.error(`  ✗ ${name}\n    ${e.message}`); process.exitCode = 1; } }
@@ -134,6 +134,98 @@ ok("regression (live prod bug, 2026-08-25, AMD): EV uses row.entry (the pivot-re
   assert.ok(o.stop < o.entry, `stop must be below entry for a long setup, got stop=${o.stop} entry=${o.entry}`);
   assert.ok(o.expectedValue < 0, `a 33% win rate against a ~1R:1R symmetric target must be a NEGATIVE EV, got ${o.expectedValue}`);
 });
+console.log("\nChecking buildMarketFingerprint — pure bundling of already-real fields, honest null when absent…");
+ok("real inputs produce a real, populated fingerprint across all 10 dimensions", () => {
+  const fp = buildMarketFingerprint({
+    regime: { label: "GREEN" }, sectorInfo: { rank: 1, of: 11 }, entryStage: "BREAKOUT",
+    row: { rsRating: 92, volRatio: 1.8, dollarVolume: 400_000_000, price: 102, epsGrowth: 20 },
+    vwap20: 95, riskPct: 5, optionsStatus: "CONFIRMS", entryScore: 80,
+  });
+  assert.strictEqual(fp.regime, "GREEN");
+  assert.deepStrictEqual(fp.sector, { rank: 1, of: 11 });
+  assert.strictEqual(fp.structure, "BREAKOUT");
+  assert.strictEqual(fp.relativeStrength, 92);
+  assert.strictEqual(fp.volume, 1.8);
+  assert.strictEqual(fp.liquidity, 400_000_000);
+  assert.deepStrictEqual(fp.vwap, { level: 95, above: true });
+  assert.strictEqual(fp.volatility, 5);
+  assert.strictEqual(fp.options, "CONFIRMS");
+  assert.deepStrictEqual(fp.catalyst, { epsGrowthPct: 20 });
+  assert.strictEqual(fp.entryQuality, 80);
+});
+ok("missing real inputs (no sector, no vwap) degrade to honest null, never fabricated", () => {
+  const fp = buildMarketFingerprint({ regime: null, sectorInfo: null, entryStage: null, row: { rsRating: null, volRatio: null, dollarVolume: null, price: 102, epsGrowth: null }, vwap20: null, riskPct: null, optionsStatus: null, entryScore: null });
+  assert.strictEqual(fp.regime, null);
+  assert.strictEqual(fp.sector, null);
+  assert.strictEqual(fp.vwap, null);
+  assert.strictEqual(fp.catalyst, null);
+});
+
+console.log("\nChecking computeCounterfactualEv — real pivot EV vs real chase-at-live-price EV, WAIT/EXTENDED only…");
+ok("ACTIONABLE/DEVELOPING tiers never get a counterfactual — the setup is already real and current", () => {
+  assert.strictEqual(computeCounterfactualEv({ tier: "ACTIONABLE", probability: 60, entryPlan: { pivot: 100, stop: 92, target1: 116 }, livePrice: 97 }), null);
+  assert.strictEqual(computeCounterfactualEv({ tier: "DEVELOPING", probability: 60, entryPlan: { pivot: 100, stop: 92, target1: 116 }, livePrice: 97 }), null);
+});
+ok("no real pivot -> honest null, never a fabricated hypothetical price", () => {
+  assert.strictEqual(computeCounterfactualEv({ tier: "WAIT", probability: 60, entryPlan: { pivot: null, stop: 92, target1: 116 }, livePrice: 97 }), null);
+});
+ok("no real live price -> honest null too", () => {
+  assert.strictEqual(computeCounterfactualEv({ tier: "WAIT", probability: 60, entryPlan: { pivot: 100, stop: 92, target1: 116 }, livePrice: null }), null);
+});
+ok("null probability (insufficient sample) -> honest null counterfactual too, never a guessed EV", () => {
+  assert.strictEqual(computeCounterfactualEv({ tier: "WAIT", probability: null, entryPlan: { pivot: 100, stop: 92, target1: 116 }, livePrice: 97 }), null);
+});
+ok("regression (live prod bug, 2026-08-26, AMD): a live price BELOW the real stop is not a valid entry to chase — chaseExpectedValue stays honestly null instead of a fabricated-looking large positive number", () => {
+  // Real shape confirmed live: WAIT-tier AMD, pivot $561.47, stop $516.55,
+  // live price $479.18 — below the stop entirely (price hasn't reached
+  // the pivot yet). Computing a "chase EV" at that price previously
+  // produced a nonsensical +15.44%, since a below-stop entry mechanically
+  // inflates gainPct/deflates lossPct in the formula despite describing
+  // an invalid trade.
+  const cf = computeCounterfactualEv({ tier: "WAIT", probability: 33, entryPlan: { pivot: 561.47, stop: 516.55, target1: 606.39 }, livePrice: 479.18 });
+  assert.ok(cf, "expected a real counterfactual object (the pivot-EV half is still valid)");
+  assert.ok(Number.isFinite(cf.expectedValue));
+  assert.strictEqual(cf.chaseExpectedValue, null, "chasing below the real stop must never produce a number");
+  assert.match(cf.note, /isn't a valid entry/);
+});
+ok("a real WAIT setup with a live price ABOVE the real stop gets a real pivot-EV vs a real chase-EV — two genuinely distinct numbers, not a redundant repeat of the same basis", () => {
+  const cf = computeCounterfactualEv({ tier: "WAIT", probability: 65, entryPlan: { pivot: 100, stop: 92, target1: 116 }, livePrice: 97 });
+  assert.ok(cf, "expected a real counterfactual object");
+  assert.strictEqual(cf.hypotheticalEntry, 100);
+  assert.ok(Number.isFinite(cf.expectedValue));
+  assert.ok(Number.isFinite(cf.chaseExpectedValue));
+  assert.notStrictEqual(cf.expectedValue, cf.chaseExpectedValue, "pivot EV and live-price chase EV must be computed at genuinely different real prices");
+  assert.match(cf.note, /\$100/);
+  assert.match(cf.note, /\$97/);
+});
+
+console.log("\nChecking computeOpportunity carries the real fingerprint + counterfactual fields end-to-end…");
+ok("a real WAIT-tier opportunity (the AMD regression case) gets both a real fingerprint and a real counterfactual EV", () => {
+  const row = baseRow({
+    price: 475.7, entry: 561.47, pivot: 561.47, stop: 516.55, target2: 651.31,
+    abovePivotPct: -14.9, breakoutConfirmed: false, extended: false, passCount: 6,
+  });
+  // Adding sectorInfo shifts the real coreScore into the 80-100 bucket
+  // (82, confirmed) rather than the 60-79 bucket the plain AMD regression
+  // case above lands in — the trackReport fixture must match whichever
+  // bucket THIS row's real score actually falls into, or winProbFor
+  // honestly (correctly) returns null for a bucket with no real sample.
+  const trackReport = { horizons: { d20: { buckets: { "80-100": { winRate: 33, count: 27 } } } } };
+  const o = computeOpportunity({ symbol: "AMD", row, regime: REGIME, marketRegime: "RISK_ON", trackReport, sectorInfo: { rank: 2, of: 11 } });
+  assert.strictEqual(o.tier, "WAIT");
+  assert.ok(o.fingerprint, "expected a real fingerprint object");
+  assert.strictEqual(o.fingerprint.regime, "GREEN");
+  assert.deepStrictEqual(o.fingerprint.sector, { rank: 2, of: 11 });
+  assert.ok(o.counterfactual, "expected a real counterfactual object for a WAIT-tier opportunity");
+  assert.strictEqual(o.counterfactual.hypotheticalEntry, 561.47);
+});
+ok("an ACTIONABLE-tier opportunity carries a real fingerprint but null counterfactual (already real/current)", () => {
+  const o = computeOpportunity({ symbol: "TEST", row: baseRow(), regime: REGIME, marketRegime: "RISK_ON" });
+  assert.strictEqual(o.tier, "ACTIONABLE");
+  assert.ok(o.fingerprint);
+  assert.strictEqual(o.counterfactual, null);
+});
+
 ok("a row with a scan error returns null, never a partial/garbage Opportunity Object", () => {
   assert.strictEqual(computeOpportunity({ symbol: "TEST", row: { error: "fetch failed" }, regime: REGIME, marketRegime: "RISK_ON" }), null);
 });
