@@ -91,11 +91,11 @@ export const SIDEBAR_ITEMS = [
   // News — "what changed?" Unchanged from before.
   { id: "news",      label: "News",       icon: "📰", tab: "news" },
 
-  // Journal — "what can I improve?" The real manual trade log
-  // (RhProJournal). Unchanged from before; see axiom-live.jsx's JOURNAL
-  // palette alias (2026-08-08) for why this and the palette/hotkey now
-  // agree on what "journal" means everywhere in the app.
-  { id: "journal",   label: "Journal",    icon: "📓", tab: "rhpro-journal" },
+  // Journal removed completely (2026-08-25, explicit user request: "remove
+  // journal completely") — no sidebar row, no palette alias, no hotkey.
+  // RhProJournal.jsx and any real historical trade-journal data are
+  // untouched; see axiom-live.jsx's palette-alias section for the full
+  // removal note.
 
   // Light Box — "is it BUY, WAIT, or SELL, right now?" (2026-08-16,
   // explicit user request: a full-card color-coded signal grid meant to be

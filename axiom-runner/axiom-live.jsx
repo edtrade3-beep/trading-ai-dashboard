@@ -4163,14 +4163,15 @@ export default function App() {
       // advance/decline + 50/200MA detail, genuinely more than Market
       // Health's summary number.
       BREADTH: "breadth",
-      // JOURNAL repointed (2026-08-08, explicit user request) to the real
-      // manual trade log (rhpro-journal) — the same thing the sidebar's
-      // "Journal" link opens. It used to mean the separate AI-coaching
-      // journal below at TRADECOACH; that's still real and still reachable,
-      // just under its own name now instead of squatting on the word every
-      // other nav surface in this app already uses for the trade log.
-      TRADEJOURNAL: "rhpro-journal",
-      MYJOURNAL: "rhpro-journal",
+      // Journal (rhpro-journal, RhProJournal.jsx) removed completely from
+      // navigation (2026-08-25, explicit user request: "remove journal
+      // completely") — no sidebar row, no palette alias (TRADEJOURNAL/
+      // MYJOURNAL/JOURNAL all retired), no "j" hotkey. Component/route/any
+      // real historical trade-journal data are untouched — same "hide,
+      // don't delete" convention as DEALFINDER/FLIGHTFINDER/LEADRESPONDER
+      // above, just with every access path removed rather than one, since
+      // "completely" was explicit here. The separate AI-coaching journal
+      // (TRADECOACH) is unrelated and still fully reachable.
       // Sniper Scanner already has a real "Breakout" category
       // (RhProScanner.jsx CATEGORIES) driven by the same rhpro_scan_category
       // localStorage hint BESTOPPORTUNITIES/EARLY below already use — this
@@ -4265,7 +4266,11 @@ export default function App() {
       OUTLOOK: "outlook",
       GLBACKTEST: "gl-backtest",
       PREDICTIONS: "predictions",
-      JOURNAL: "rhpro-journal",
+      // JOURNAL used to alias to rhpro-journal (RhProJournal.jsx, the
+      // manual trade log) — removed 2026-08-25 along with every other
+      // access path to that page (explicit user request, "remove journal
+      // completely"). See the TRADEJOURNAL/MYJOURNAL removal note above
+      // for the full rationale.
       // The AI-coaching journal (Morning Game Plan / Trade Coach / Weekly
       // Review) JOURNAL used to mean — kept reachable under its own name,
       // "hide don't delete" per this map's usual convention.
@@ -4435,7 +4440,8 @@ export default function App() {
         else if (k === "c") setActiveTab("mterminal");
         else if (k === "n") setActiveTab("news");
         else if (k === "p") setActiveTab("portfolio");
-        else if (k === "j") setActiveTab("rhpro-journal"); // repointed with JOURNAL (2026-08-08) — same reasoning, same destination
+        // "j" hotkey to rhpro-journal removed 2026-08-25 with the rest of
+        // Journal's navigation access (explicit user request).
         else if (k === "a") setActiveTab("earn-cal");
         else if (k === "e") setActiveTab("econ-cal");
       }
@@ -6708,7 +6714,26 @@ export default function App() {
           <TradeDeskTab
             C={C} MONO={MONO} SANS={SANS} macroData={macroData} sectorData={sectorData}
             alpacaPositions={alpacaPositions} terminalSymbol={terminalSymbol} setTerminalSymbol={setTerminalSymbol}
-            setActiveTab={setActiveTab} isMobile={isMobile} watchlistSymbols={watchlistSymbols}
+            setActiveTab={setActiveTab} isMobile={isMobile} isTablet={isTablet}
+            watchlistSymbols={watchlistSymbols} setWatchlistSymbols={setWatchlistSymbols}
+            discoverProps={{
+              distData, preMktMovers, marketSession, watchlistData, openDeepDiveFor,
+              optionsFlow, flowBias, flowCallNotional, flowPutNotional, flowFilters, setFlowFilters,
+              setLoading, fetchAll, apiKey, flowBySymbol, flowRows,
+              dpSym, setDpSym, dpLoad, setDpLoad, dpData, setDpData, dpErr, setDpErr,
+              earningsUpdatedAt, setEarningsRefreshTick, earningsLoading, earningsRows,
+              setQuickLogModal, rotationRank,
+              scanResults, scanExpanded, scanError, scanLoading, scanProgress, scanLastRun,
+              scanFavorites, scanHistory, scanDeepData, scanDeepLoad, scanTickerInput, customScanTickers,
+              deepSocialData, autoScanMins, autoScanOn, autoScanCountdown, autoExecStatus,
+              riskAccount, riskPct, sfMaxPrice, sfMinScore, sfSig, sfZone,
+              tradeSetups, tradeSetupLoad, tradeSetupError,
+              setScanResults, setScanExpanded, setScanError, setScanLoading, setScanTickerInput, setScanLastRun,
+              setAutoScanMins, setAutoScanOn, setAutoExecStatus, setRiskAccount, setRiskPct,
+              setSfMaxPrice, setSfMinScore, setSfSig, setSfZone, setTradeSetups,
+              addScanTicker, removeScanTicker, scoreTicker, toggleFavorite, fetchTradeSetup,
+              loadDeepDive, loadDeepSocial, runSmartScan, FIVEX_TICKERS, themeMode,
+            }}
             alertsProps={{
               tvWebhookRows, combinedAlerts, telegramOk,
               customAlertSymbol, setCustomAlertSymbol, customAlertMin, setCustomAlertMin, setCustomAlerts,

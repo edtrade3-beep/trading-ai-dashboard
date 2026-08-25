@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { computeRegime } from "./market-helpers.js";
 import TrendChart from "./TrendChart.jsx";
 import CommandSearchPanel from "./CommandSearchPanel.jsx";
@@ -11,6 +11,7 @@ import NewsTab from "./NewsTab.jsx";
 import ScannerTab from "./ScannerTab.jsx";
 import VcpStatusPanel from "./VcpStatusPanel.jsx";
 import AutopilotPanel from "./AutopilotPanel.jsx";
+import ScanTerminalHub from "./ScanTerminalHub.jsx";
 
 // TradeDeskTab — one unified trading screen (2026-08-25, explicit user
 // request/mockup: top status strip, Discover-search | Chart | Cortex
@@ -33,14 +34,19 @@ import AutopilotPanel from "./AutopilotPanel.jsx";
 // Reuse strategy for the bottom dock: PortfolioSnapshotCard/
 // RhProWatchlists/OptionsChainTab/VcpStatusPanel/AutopilotPanel are
 // genuinely self-contained (their own real fetches, few/no lifted-state
-// props) and are mounted directly. AlertsTab/NewsTab/ScannerTab are NOT —
-// each needs ~15-25 pieces of state/handlers already lifted in
-// axiom-live.jsx (the same real state its own existing alerts/news/
-// scanner tabs already use) — those three arrive here as pre-built prop
-// bags (`alertsProps`/`newsProps`/`scannerProps`) spread onto the real
-// components unchanged, rather than re-declaring two dozen props on this
-// file's own signature.
+// props) and are mounted directly. AlertsTab/NewsTab/ScannerTab/
+// ScanTerminalHub (the real, full Discover) are NOT — each needs a large
+// set of state/handlers already lifted in axiom-live.jsx (the same real
+// state its own existing alerts/news/scanner/rhpro-scan tabs already use)
+// — those four arrive here as pre-built prop bags (`alertsProps`/
+// `newsProps`/`scannerProps`/`discoverProps`) spread onto the real
+// components unchanged, rather than re-declaring dozens of props on this
+// file's own signature. Discover is mounted WITHOUT its own page's
+// PageSubNav wrapper (SCAN/WATCHLISTS/OPTIONS FLOW/FUTURE-VALUE) — that
+// subnav's own tab buttons call the app-wide setActiveTab and would
+// navigate away from Trade Desk entirely, defeating the point.
 const DOCK_MODULES = [
+  { key: "discover", label: "DISCOVER" },
   { key: "portfolio", label: "PORTFOLIO" },
   { key: "watchlist", label: "WATCHLIST" },
   { key: "alerts", label: "ALERTS" },
@@ -53,7 +59,8 @@ const DOCK_MODULES = [
 
 export default function TradeDeskTab({
   C, MONO, SANS, macroData, sectorData, alpacaPositions, terminalSymbol, setTerminalSymbol,
-  setActiveTab, isMobile, watchlistSymbols, alertsProps, newsProps, scannerProps,
+  setActiveTab, isMobile, isTablet, watchlistSymbols, setWatchlistSymbols,
+  alertsProps, newsProps, scannerProps, discoverProps,
 }) {
   const [symbol, setSymbol] = useState(() => {
     try {
@@ -62,6 +69,36 @@ export default function TradeDeskTab({
     } catch {}
     return terminalSymbol || "NVDA";
   });
+
+  // Real root-level height fix (2026-08-25, "fix chart in trade desk make
+  // it fit designated section"). This app has no fixed-viewport app shell
+  // ANYWHERE — every other tab is a normal scrolling page, and
+  // TrendChart.jsx's own height="fill" mode exists specifically because it
+  // can't rely on any ancestor giving it a real CSS height either (see that
+  // file's own comment: it measures window.innerHeight directly). A plain
+  // height:"100%" on this root resolves to nothing (no ancestor has an
+  // explicit height), so the whole 3-pane view + dock silently became one
+  // long scrolling page instead of a fixed layout with internally-
+  // scrolling panels — the actual root cause of the chart "not fitting."
+  // Fixed the same way TrendChart fixes its own version of this problem:
+  // measure the real rendered top of this root and size it to reach the
+  // real viewport bottom, minus the app's fixed bottom StatusBar (40px).
+  const rootRef = useRef(null);
+  const [rootHeight, setRootHeight] = useState(null);
+  useEffect(() => {
+    const measure = () => {
+      const el = rootRef.current;
+      if (!el) return;
+      const top = Math.max(0, el.getBoundingClientRect().top);
+      const h = Math.max(420, Math.floor(window.innerHeight - top - 48));
+      setRootHeight((prev) => (prev == null || Math.abs(prev - h) > 4 ? h : prev));
+    };
+    measure();
+    let t;
+    const onResize = () => { clearTimeout(t); t = setTimeout(measure, 200); };
+    window.addEventListener("resize", onResize);
+    return () => { window.removeEventListener("resize", onResize); clearTimeout(t); };
+  }, []);
   const selectSymbol = (s) => {
     const sym = String(s || "").trim().toUpperCase();
     if (!sym) return;
@@ -135,11 +172,20 @@ export default function TradeDeskTab({
   }, [alpacaPositions]);
 
   const [dockModule, setDockModule] = useState(null);
+  // VCP overlay toggle (2026-08-25, explicit user request: "vcp make it on
+  // and off") — Trade Desk's center panel always uses the self-rendered
+  // TrendChart (unlike MarketTerminalTab.jsx, which SWAPS between a
+  // TradingView iframe and TrendChart on this same toggle), so here it's
+  // simply flipping the real vcpOverlayOn prop, on by default so the
+  // desk's contraction/pivot/volume-dry-up evidence is visible with zero
+  // taps.
+  const [vcpOn, setVcpOn] = useState(true);
 
   const pill = { fontFamily: MONO, fontSize: 11, display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap" };
 
   const dockBody = (
     <>
+      {dockModule === "discover" && <ScanTerminalHub {...(discoverProps || {})} C={C} MONO={MONO} SANS={SANS} isTablet={isTablet} isMobile={isMobile} macroData={macroData} sectorData={sectorData} setActiveTab={setActiveTab} setTerminalSymbol={selectSymbol} watchlistSymbols={watchlistSymbols} setWatchlistSymbols={setWatchlistSymbols} />}
       {dockModule === "portfolio" && <PortfolioSnapshotCard C={C} MONO={MONO} SANS={SANS} />}
       {dockModule === "watchlist" && (
         <RhProWatchlists C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} macroData={macroData} sectorData={sectorData} watchlistSymbols={watchlistSymbols} setTerminalSymbol={selectSymbol} />
@@ -156,7 +202,7 @@ export default function TradeDeskTab({
   );
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
+    <div ref={rootRef} style={{ display: "flex", flexDirection: "column", height: rootHeight ? `${rootHeight}px` : "80vh", minHeight: 0 }}>
       {/* Top status strip — real regime/SPY/QQQ/VIX/cash/risk/autopilot */}
       <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "8px 12px", borderBottom: `1px solid ${C.border}`, flexWrap: "wrap", background: C.card }}>
         <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: C.text }}>AM TRADING</span>
@@ -176,28 +222,20 @@ export default function TradeDeskTab({
           force the fixed-column grid on a narrow screen (ScanTerminalHub's
           own history is the reason this is a deliberate, up-front choice). */}
       {isMobile ? (
-        <MobileTradeDeskBody symbol={symbol} selectSymbol={selectSymbol} chart={chart} loadingChart={loadingChart} setActiveTab={setActiveTab} C={C} MONO={MONO} SANS={SANS} />
+        <MobileTradeDeskBody symbol={symbol} selectSymbol={selectSymbol} chart={chart} loadingChart={loadingChart} vcpOn={vcpOn} setVcpOn={setVcpOn} setActiveTab={setActiveTab} C={C} MONO={MONO} SANS={SANS} />
       ) : (
         <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "220px 1fr 280px" }}>
           <div style={{ borderRight: `1px solid ${C.border}`, minHeight: 0, overflow: "hidden" }}>
             <CommandSearchPanel symbol={symbol} onSelectSymbol={selectSymbol} C={C} MONO={MONO} SANS={SANS} />
           </div>
-          <div style={{ minHeight: 0, overflowY: "auto", padding: 10 }}>
-            {chart && symbol ? (
-              <TrendChart data={chart} C={C} MONO={MONO} SANS={SANS} height={520} vcpOverlayOn={true} />
-            ) : (
-              <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, textAlign: "center", padding: "60px 0" }}>
-                {loadingChart ? "Loading chart…" : "Select a symbol"}
-              </div>
-            )}
-          </div>
+          <ChartPane symbol={symbol} chart={chart} loadingChart={loadingChart} vcpOn={vcpOn} setVcpOn={setVcpOn} dockModule={dockModule} C={C} MONO={MONO} SANS={SANS} />
           <div style={{ borderLeft: `1px solid ${C.border}`, minHeight: 0, overflow: "hidden" }}>
             <CortexMiniPanel symbol={symbol} onSelectSymbol={selectSymbol} setActiveTab={setActiveTab} C={C} MONO={MONO} SANS={SANS} />
           </div>
         </div>
       )}
 
-      {/* Bottom dock — 8 modules, one shared panel, only the selected one mounts */}
+      {/* Bottom dock — 9 modules, one shared panel, only the selected one mounts */}
       <div style={{ borderTop: `1px solid ${C.border}` }}>
         <div style={{ display: "flex", overflowX: "auto" }}>
           {DOCK_MODULES.map((m) => (
@@ -226,7 +264,66 @@ export default function TradeDeskTab({
   );
 }
 
-function MobileTradeDeskBody({ symbol, selectSymbol, chart, loadingChart, setActiveTab, C, MONO, SANS }) {
+// ChartPane — desktop center panel (2026-08-25, explicit user request: "fix
+// chart in trade desk make it fit designated section"). The old version
+// passed TrendChart a hardcoded height={520}, which didn't match this
+// panel's real available space (varies with the bottom dock open/closed,
+// window height, sidebar state) — sometimes leaving dead space below the
+// chart, sometimes overflowing. Fixed by measuring this panel's own real
+// rendered height (via ref) instead of TrendChart's own height="fill" mode
+// (that mode measures to the VIEWPORT bottom, which doesn't know about
+// Trade Desk's bottom dock sitting below it — would overflow under the
+// dock). Re-measures on mount, on dockModule open/close (a real, discrete
+// layout change), and on a DEBOUNCED window resize — never on every resize
+// tick, which is the exact "chart torn down/recreated on every pixel of a
+// drag-resize" bug TrendChart.jsx's own header comment already documents
+// avoiding for its own "fill" mode.
+function ChartPane({ symbol, chart, loadingChart, vcpOn, setVcpOn, dockModule, C, MONO, SANS }) {
+  const wrapRef = useRef(null);
+  const [chartHeight, setChartHeight] = useState(480);
+  useEffect(() => {
+    const measure = () => {
+      const el = wrapRef.current;
+      if (!el) return;
+      const h = Math.max(320, Math.floor(el.clientHeight) - 16);
+      setChartHeight((prev) => (Math.abs(prev - h) > 4 ? h : prev));
+    };
+    measure();
+    let t;
+    const onResize = () => { clearTimeout(t); t = setTimeout(measure, 200); };
+    window.addEventListener("resize", onResize);
+    return () => { window.removeEventListener("resize", onResize); clearTimeout(t); };
+  }, [dockModule]);
+
+  return (
+    <div style={{ minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+      <div style={{ padding: "8px 10px 0", display: "flex", justifyContent: "flex-end" }}>
+        <button
+          onClick={() => setVcpOn((v) => !v)}
+          title="Toggle the real VCP contraction/pivot/volume-dry-up overlay"
+          style={{
+            fontFamily: MONO, fontSize: 10.5, fontWeight: 800, padding: "4px 9px", borderRadius: 6, cursor: "pointer",
+            border: `1px solid ${vcpOn ? "#9c5cff" : C.border}`, background: vcpOn ? "#9c5cff18" : "transparent",
+            color: vcpOn ? "#9c5cff" : C.textDim,
+          }}
+        >
+          {vcpOn ? "🟪 VCP: On" : "🟪 VCP: Off"}
+        </button>
+      </div>
+      <div ref={wrapRef} style={{ flex: 1, minHeight: 0, padding: "6px 10px 10px", overflowY: "auto" }}>
+        {chart && symbol ? (
+          <TrendChart data={chart} C={C} MONO={MONO} SANS={SANS} height={chartHeight} vcpOverlayOn={vcpOn} />
+        ) : (
+          <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, textAlign: "center", padding: "60px 0" }}>
+            {loadingChart ? "Loading chart…" : "Select a symbol"}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function MobileTradeDeskBody({ symbol, selectSymbol, chart, loadingChart, vcpOn, setVcpOn, setActiveTab, C, MONO, SANS }) {
   const [view, setView] = useState("chart");
   return (
     <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
@@ -243,9 +340,21 @@ function MobileTradeDeskBody({ symbol, selectSymbol, chart, loadingChart, setAct
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
         {view === "search" && <CommandSearchPanel symbol={symbol} onSelectSymbol={(s) => { selectSymbol(s); setView("chart"); }} C={C} MONO={MONO} SANS={SANS} />}
         {view === "chart" && (
-          <div style={{ padding: 10 }}>
+          <div style={{ padding: "8px 10px 10px" }}>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 6 }}>
+              <button
+                onClick={() => setVcpOn((v) => !v)}
+                style={{
+                  fontFamily: MONO, fontSize: 10.5, fontWeight: 800, padding: "4px 9px", borderRadius: 6, cursor: "pointer",
+                  border: `1px solid ${vcpOn ? "#9c5cff" : C.border}`, background: vcpOn ? "#9c5cff18" : "transparent",
+                  color: vcpOn ? "#9c5cff" : C.textDim,
+                }}
+              >
+                {vcpOn ? "🟪 VCP: On" : "🟪 VCP: Off"}
+              </button>
+            </div>
             {chart && symbol ? (
-              <TrendChart data={chart} C={C} MONO={MONO} SANS={SANS} height={380} vcpOverlayOn={true} />
+              <TrendChart data={chart} C={C} MONO={MONO} SANS={SANS} height={380} vcpOverlayOn={vcpOn} />
             ) : (
               <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, textAlign: "center", padding: "40px 0" }}>{loadingChart ? "Loading chart…" : "Select a symbol"}</div>
             )}
