@@ -16,6 +16,7 @@ import RhProScanner from "./RhProScanner.jsx";
 import MarketTerminalTab from "./MarketTerminalTab.jsx";
 import LightBoxTab from "./LightBoxTab.jsx";
 import MacroStatusStrip, { useRealMacroOverrides } from "./MacroStatusStrip.jsx";
+import OptionsIntelligencePanel from "./OptionsIntelligencePanel.jsx";
 
 // TradeDeskTab — one unified trading screen (2026-08-25, explicit user
 // request/mockup: top status strip, Discover-search | Chart | Cortex
@@ -331,7 +332,17 @@ export default function TradeDeskTab({
         <RhProWatchlists C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} macroData={macroData} sectorData={sectorData} watchlistSymbols={watchlistSymbols} setTerminalSymbol={selectSymbol} />
       )}
       {dockModule === "alerts" && <AlertsTab {...(alertsProps || {})} C={C} MONO={MONO} setActiveTab={setActiveTab} />}
-      {dockModule === "options" && <OptionsChainTab C={C} MONO={MONO} SANS={SANS} defaultSymbol={symbol} onOpenTerminal={selectSymbol} />}
+      {dockModule === "options" && (
+        <div>
+          {/* Options Intelligence (Phase 2, 2026-08-26) — real IV Rank/
+              HV/skew/gamma/flow consolidated from previously-scattered
+              real routes, keyed to Trade Desk's own selected symbol.
+              OptionsChainTab below is unchanged — this is additive, not
+              a replacement for the raw chain. */}
+          <OptionsIntelligencePanel symbol={symbol} C={C} MONO={MONO} SANS={SANS} />
+          <OptionsChainTab C={C} MONO={MONO} SANS={SANS} defaultSymbol={symbol} onOpenTerminal={selectSymbol} />
+        </div>
+      )}
       {dockModule === "news" && <NewsTab {...(newsProps || {})} C={C} MONO={MONO} setActiveTab={setActiveTab} />}
       {dockModule === "scanner" && <ScannerTab {...(scannerProps || {})} C={C} MONO={MONO} setActiveTab={setActiveTab} />}
       {dockModule === "vcp" && (chart
