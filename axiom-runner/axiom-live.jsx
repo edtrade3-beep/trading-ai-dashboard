@@ -6506,13 +6506,27 @@ export default function App() {
           the overflow symmetrically — bleeding half of it left, underneath
           the fixed Sidebar. Root cause is in those 31 tabs' own styling, but
           fixing it once here is far lower-risk than touching all of them. */}
+      {/* marginLeft (2026-08-25, "make sure all pages centered"): was a
+          FIXED `sidebarW`, which combined with marginRight:"auto" always
+          left-aligned this box flush against the sidebar rather than
+          centering it — invisible before today because LAYOUT.pageMaxWidth
+          was a no-op ("100%", same reference frame as width's own calc, so
+          it never actually constrained anything and the box always filled
+          100% of the available space regardless). Now that pageMaxWidth is
+          a real cap, marginLeft needs to actually center the capped box
+          within the after-sidebar region: sidebarW plus half of whatever
+          space is left over once the cap engages (max(0px, ...) so this
+          collapses back to exactly sidebarW — today's unchanged behavior —
+          on any screen where the cap doesn't engage). marginRight stays
+          "auto" and correctly absorbs the other half automatically. */}
       <div className={isMobile ? "mobile-content" : ""} style={{
         paddingTop: isMobile ? 10 : 14, paddingLeft: isMobile ? 10 : 18, paddingRight: isMobile ? 10 : 18,
         // Mobile's real bottom clearance comes from the .mobile-content
         // !important CSS rule below (this inline value gets overridden by
         // it on mobile) — kept in sync there, see the comment on that rule.
         paddingBottom: 24 + statusBarH,
-        maxWidth: LAYOUT.pageMaxWidth, marginTop: 0, marginBottom: 0, marginRight: "auto", marginLeft: !isMobile ? sidebarW : "auto",
+        maxWidth: LAYOUT.pageMaxWidth, marginTop: 0, marginBottom: 0, marginRight: "auto",
+        marginLeft: !isMobile ? `calc(${sidebarW}px + max(0px, (100vw - ${sidebarW}px - ${LAYOUT.pageMaxWidth}px)) / 2)` : "auto",
         width: !isMobile ? `calc(100% - ${sidebarW}px)` : "100%", overflowX: "hidden", boxSizing: "border-box",
       }}>
         <RegimeStrategyBanner C={C} MONO={MONO} activeTab={activeTab} regime={regime} />

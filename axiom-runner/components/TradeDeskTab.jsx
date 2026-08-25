@@ -92,8 +92,35 @@ export default function TradeDeskTab({
       const pending = localStorage.getItem("mterminal_load_sym");
       if (pending) { localStorage.removeItem("mterminal_load_sym"); return pending; }
     } catch {}
-    return terminalSymbol || "NVDA";
+    return null;
   });
+  // Default to the real best trade of the day, not a hardcoded symbol
+  // (2026-08-25, explicit user request: "default open on desk trade on
+  // best trade for the day"). Only fires on a genuine fresh load — a real
+  // cross-tab handoff (mterminal_load_sym) always wins and is never
+  // overridden. Deliberately does NOT treat the terminalSymbol PROP as
+  // "already explicit": axiom-live.jsx initializes that top-level state to
+  // WATCHLIST_SYMBOLS[0] unconditionally on every load (not a real user
+  // choice — confirmed live, this originally made the fetch below always
+  // skip since terminalSymbol is truthy from the very first render). "Best"
+  // = the #1 row of the same real hard-gated Sniper AI ranking
+  // (/api/market/sniper-scan, ENTER_LONG > WAIT > NO_CHASE > AVOID, then
+  // Minervini passCount/confidence) the left search panel already shows —
+  // no second ranking invented for this. Honest fallback to terminalSymbol
+  // (or NVDA) only if that real fetch genuinely fails or returns nothing.
+  const hadExplicitSymbolRef = useRef(!!symbol);
+  useEffect(() => {
+    if (hadExplicitSymbolRef.current) return;
+    let cancelled = false;
+    fetch("/api/market/sniper-scan").then((r) => r.json())
+      .then((j) => {
+        if (cancelled) return;
+        const top = j?.ok && Array.isArray(j.results) ? j.results.find((r) => r.symbol) : null;
+        setSymbol((s) => s || top?.symbol || terminalSymbol || "NVDA");
+      })
+      .catch(() => { if (!cancelled) setSymbol((s) => s || terminalSymbol || "NVDA"); });
+    return () => { cancelled = true; };
+  }, []);
 
   // Real root-level height fix (2026-08-25, "fix chart in trade desk make
   // it fit designated section"; revised same day, 2nd pass, after a live

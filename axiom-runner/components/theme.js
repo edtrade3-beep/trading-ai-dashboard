@@ -96,7 +96,23 @@ export const SANS = `'Inter', system-ui, -apple-system, 'Segoe UI', 'Helvetica N
 export const MONO = `'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Roboto Mono', 'Courier New', monospace`;
 export const NUM = `'Oswald', 'Inter', system-ui, sans-serif`;   // bold condensed display font for headline numbers
 export const LAYOUT = {
-  pageMaxWidth: "100%",
+  // Real cap (2026-08-25, explicit user request: "make sure all pages
+  // centered"). Was the string "100%" — a no-op maxWidth, since the main
+  // content wrapper's own `width` in axiom-live.jsx is ALSO a
+  // calc(100% - sidebar) expression in the same reference frame, so
+  // maxWidth never actually constrained anything: every page stretched
+  // edge-to-edge with zero cap, confirmed live on a 2200px-wide viewport
+  // (candles/cards stretched thin, no centering, because there was
+  // nothing to center — the box always filled 100% of the available
+  // width). 1800 only ever engages on genuinely wide monitors (a
+  // standard 1920px display has ~1700px available after the 220px
+  // sidebar — below this cap, so unaffected); on wider setups the page
+  // now centers within the leftover space instead of stretching into it.
+  // The one call site (axiom-live.jsx's shared content wrapper) also
+  // switched from a fixed marginLeft to a calc() that actually centers
+  // the capped box within the after-sidebar region, not just left-aligns
+  // it flush against the sidebar.
+  pageMaxWidth: 1800,
   contentPadding: "14px 18px 24px",
   gridGap: 12,
   sidebarWidth: 220,   // persistent left nav (Sidebar.jsx), desktop/tablet only
