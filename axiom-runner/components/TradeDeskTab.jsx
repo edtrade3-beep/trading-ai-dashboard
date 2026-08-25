@@ -67,18 +67,29 @@ import LightBoxTab from "./LightBoxTab.jsx";
 // - FULL SCAN mounts RhProScanner.jsx directly — the real 100-stock
 //   ranked table/category-filter view, genuinely separate now, still the
 //   same real component/data as the standalone Discover page.
+// Each module gets its own fixed, distinct color (explicit user request,
+// 2026-08-25: "I WANT THESE COLORED" — the row previously rendered every
+// label in the same muted C.textSec regardless of state, so with no dock
+// module open the whole row read as flat/identical, per the user's own
+// screenshot). Deliberately NOT drawn from the app's real green/red/amber
+// status system (theme.js's documented 4-color BULLISH/BEARISH/CAUTION/
+// NEUTRAL palette) — these are navigation identity colors, not a signal
+// read, and reusing a real status color here risks a user misreading
+// "ALERTS is red" as a bearish signal. Fixed hex (not theme-swapped) since
+// mid-saturation hues at this lightness hold up against both the light
+// and dark surface colors.
 const DOCK_MODULES = [
-  { key: "discover", label: "DISCOVER" },
-  { key: "scanlist", label: "FULL SCAN" },
-  { key: "lightbox", label: "LIGHT BOX" },
-  { key: "portfolio", label: "PORTFOLIO" },
-  { key: "watchlist", label: "WATCHLIST" },
-  { key: "alerts", label: "ALERTS" },
-  { key: "options", label: "OPTIONS" },
-  { key: "news", label: "NEWS" },
-  { key: "scanner", label: "SCANNER" },
-  { key: "vcp", label: "VCP" },
-  { key: "autopilot", label: "AUTOPILOT" },
+  { key: "discover", label: "DISCOVER", color: "#6366f1" },
+  { key: "scanlist", label: "FULL SCAN", color: "#2563eb" },
+  { key: "lightbox", label: "LIGHT BOX", color: "#f59e0b" },
+  { key: "portfolio", label: "PORTFOLIO", color: "#0891b2" },
+  { key: "watchlist", label: "WATCHLIST", color: "#7c3aed" },
+  { key: "alerts", label: "ALERTS", color: "#db2777" },
+  { key: "options", label: "OPTIONS", color: "#ea580c" },
+  { key: "news", label: "NEWS", color: "#0d9488" },
+  { key: "scanner", label: "SCANNER", color: "#4f46e5" },
+  { key: "vcp", label: "VCP", color: "#9333ea" },
+  { key: "autopilot", label: "AUTOPILOT", color: "#0284c7" },
 ];
 
 export default function TradeDeskTab({
@@ -359,9 +370,9 @@ export default function TradeDeskTab({
               onClick={() => openDockModule(m.key)}
               style={{
                 flex: isMobile ? "0 0 auto" : 1, padding: "8px 10px", border: "none",
-                borderBottom: dockModule === m.key ? `2px solid ${C.accent}` : "2px solid transparent",
-                background: dockModule === m.key ? C.card : "transparent",
-                color: dockModule === m.key ? C.accent : C.textSec,
+                borderBottom: dockModule === m.key ? `2px solid ${m.color}` : "2px solid transparent",
+                background: dockModule === m.key ? `${m.color}1a` : "transparent",
+                color: m.color, opacity: dockModule === m.key ? 1 : 0.8,
                 fontFamily: MONO, fontSize: 10.5, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap",
               }}
             >
