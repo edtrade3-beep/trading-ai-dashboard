@@ -32,6 +32,29 @@ const ROW_CAP = 25;
 const fmtPrice = (v) => Number.isFinite(v) ? `$${Number(v).toFixed(2)}` : "—";
 const fmtPct = (v) => Number.isFinite(v) ? `${v > 0 ? "+" : ""}${v}%` : "—";
 
+// One-click trade straight from an inbox row (2026-08-25, follow-up to
+// "make Trade Desk even easier to trade with" — previously required
+// clicking into a symbol, waiting for Sniper Mode to load, then finding
+// the Trade Plan card's "Review Trade Plan" button). Only rendered when
+// the real Opportunity Object actually carries an executable entry/stop/
+// target — same honest gate CortexMiniPanel's Trade Plan card already
+// uses, never fabricated for a WAIT/EXTENDED/INVALIDATED row with no
+// real entry. Reuses the exact same real shares formula + "open-quick-
+// trade" handoff CortexMiniPanel's own button uses, so both paths land
+// in the identical confirm-gated Quick Trade flow — no new execution
+// path, no auto-fill of a symbol the user didn't pick.
+function isTradable(o) {
+  return Number.isFinite(o.executableEntry ?? o.entry) && Number.isFinite(o.stop) && Number.isFinite(o.target);
+}
+function fireQuickTrade(o) {
+  const entry = o.executableEntry ?? o.entry;
+  const riskPerShare = Math.max(0.01, entry - o.stop);
+  const acct = Number(localStorage.getItem("axiom_acct_size")) || 10000;
+  const riskPct = Number(localStorage.getItem("axiom_risk_pct")) || 1;
+  const shares = riskPerShare > 0 ? Math.floor((acct * riskPct / 100) / riskPerShare) : 0;
+  window.dispatchEvent(new CustomEvent("open-quick-trade", { detail: { symbol: o.symbol, shares, stopLoss: o.stop, takeProfit: o.target } }));
+}
+
 export default function CommandSearchPanel({ symbol, onSelectSymbol, C, MONO, SANS }) {
   const [query, setQuery] = useState("");
   const [data, setData] = useState(null);
@@ -113,11 +136,15 @@ export default function CommandSearchPanel({ symbol, onSelectSymbol, C, MONO, SA
                   <div style={{ display: "flex", flexDirection: "column", gap: 4, padding: "4px 0" }}>
                     {rows.slice(0, ROW_CAP).map((o) => {
                       const active = o.symbol === symbol;
+                      const tradable = isTradable(o);
                       return (
-                        <button
+                        <div
                           key={o.symbol}
                           onClick={() => onSelectSymbol(o.symbol)}
                           title={o.verdictReason || ""}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(e) => { if (e.key === "Enter") onSelectSymbol(o.symbol); }}
                           style={{
                             textAlign: "left", cursor: "pointer", display: "flex", flexDirection: "column", gap: 2,
                             background: active ? `${C.accent}14` : C.card,
@@ -130,6 +157,17 @@ export default function CommandSearchPanel({ symbol, onSelectSymbol, C, MONO, SA
                           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                             <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: C.text }}>{o.symbol}</span>
                             <span style={{ fontFamily: MONO, fontSize: 10.5, color: C.textDim, marginLeft: "auto" }}>{fmtPrice(o.price)}</span>
+                            {tradable && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); fireQuickTrade(o); }}
+                                title={`Trade ${o.symbol} — entry $${(o.executableEntry ?? o.entry).toFixed(2)} / stop $${o.stop.toFixed(2)} / target $${o.target.toFixed(2)}`}
+                                style={{
+                                  border: "none", background: C.accent, color: "#fff", borderRadius: 5,
+                                  width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center",
+                                  fontSize: 11, cursor: "pointer", flexShrink: 0,
+                                }}
+                              >⚡</button>
+                            )}
                           </div>
                           <div style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: MONO, fontSize: 9.5, color: C.textDim }}>
                             <span>SCORE {o.score ?? "—"}</span>
@@ -137,7 +175,7 @@ export default function CommandSearchPanel({ symbol, onSelectSymbol, C, MONO, SA
                             <span>EV {fmtPct(o.expectedValue)}</span>
                             {o.options?.status === "CONTRADICTS" && <span title={o.options.note} style={{ color: "#c8282a" }}>⚠ OPT</span>}
                           </div>
-                        </button>
+                        </div>
                       );
                     })}
                     {rows.length > ROW_CAP && (
