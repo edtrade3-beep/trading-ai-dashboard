@@ -184,7 +184,14 @@ export default function NewsTab({
               <div style={{ fontSize: 12, fontFamily: MONO, color: C.textDim, letterSpacing: "0.08em" }}>
                 NEWS DESK — LIVE HEADLINES
               </div>
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              {/* flexWrap added (2026-08-25, explicit user request: "news
+                  in phone its mess") — this inner control group (filter
+                  input/sentiment dropdown/refresh/AI sentiment/view-mode
+                  toggle) had no wrap of its own, so on a narrow phone
+                  viewport it overflowed past the screen edge instead of
+                  wrapping onto a second line, even though the OUTER row
+                  around it already wraps correctly. */}
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                 <input
                   value={newsSymFilter}
                   onChange={(e) => setNewsSymFilter(e.target.value.toUpperCase())}

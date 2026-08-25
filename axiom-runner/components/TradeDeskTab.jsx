@@ -230,13 +230,14 @@ export default function TradeDeskTab({
     setDockModule((prev) => (prev === key ? null : key));
   };
   // VCP overlay toggle (2026-08-25, explicit user request: "vcp make it on
-  // and off") — Trade Desk's center panel always uses the self-rendered
-  // TrendChart (unlike MarketTerminalTab.jsx, which SWAPS between a
-  // TradingView iframe and TrendChart on this same toggle), so here it's
-  // simply flipping the real vcpOverlayOn prop, on by default so the
-  // desk's contraction/pivot/volume-dry-up evidence is visible with zero
-  // taps.
-  const [vcpOn, setVcpOn] = useState(true);
+  // and off"; default flipped to off same day per explicit follow-up
+  // request: "vcp in chart set it as off default" — matches
+  // MarketTerminalTab.jsx's own established default). Trade Desk's center
+  // panel always uses the self-rendered TrendChart (unlike
+  // MarketTerminalTab.jsx, which SWAPS between a TradingView iframe and
+  // TrendChart on this same toggle), so here it's simply flipping the
+  // real vcpOverlayOn prop.
+  const [vcpOn, setVcpOn] = useState(false);
 
   const pill = { fontFamily: MONO, fontSize: 11, display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap" };
 

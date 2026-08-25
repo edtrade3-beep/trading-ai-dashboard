@@ -50,6 +50,23 @@ export default function LightBoxTab({ C, MONO, SANS, lightboxSettings, setLightb
   const [confirmBarsInput, setConfirmBarsInput] = useState(String(lightboxSettings.confirmBars || 2));
   const lastSeenTsRef = useRef(null);
   const firstLoadRef = useRef(true);
+  // Real mobile fix (2026-08-25, explicit user request: "fix light box its
+  // mess" — a live phone screenshot showed the State Changes log visually
+  // overlapping the signal-card grid). Root cause: the grid+log row below
+  // was a fixed flex ROW (grid flex:1, log width:260, no wrap) — on a
+  // ~390px phone, 260px for the log alone leaves the grid almost nothing,
+  // so the two panels compressed into each other instead of the desktop
+  // side-by-side layout they were actually designed for. No isMobile prop
+  // exists on this component (it's mounted both standalone and, as of
+  // 2026-08-25, inside Trade Desk's dock) — same local resize-listener
+  // pattern already used elsewhere in this app rather than threading a
+  // new prop through both call sites.
+  const [isNarrow, setIsNarrow] = useState(() => typeof window !== "undefined" && window.innerWidth < 820);
+  useEffect(() => {
+    const onResize = () => setIsNarrow(window.innerWidth < 820);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -164,7 +181,7 @@ export default function LightBoxTab({ C, MONO, SANS, lightboxSettings, setLightb
 
       <PremarketPanel C={C} MONO={MONO} SANS={SANS} />
 
-      <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+      <div style={{ display: "flex", flexDirection: isNarrow ? "column" : "row", gap: 14, alignItems: isNarrow ? "stretch" : "flex-start" }}>
         {/* Grid */}
         <div style={{ flex: 1, minWidth: 0 }}>
           {loading && !rows.length ? (
@@ -181,7 +198,7 @@ export default function LightBoxTab({ C, MONO, SANS, lightboxSettings, setLightb
         </div>
 
         {/* State-change log */}
-        <div style={{ width: 260, flexShrink: 0, background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 10, maxHeight: 560, overflowY: "auto" }}>
+        <div style={{ width: isNarrow ? "100%" : 260, flexShrink: 0, background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 10, maxHeight: 560, overflowY: "auto" }}>
           <div style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 800, color: C.textDim, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8 }}>State Changes</div>
           {!transitions.length ? (
             <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>No transitions yet this session.</div>
