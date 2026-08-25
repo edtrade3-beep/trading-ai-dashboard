@@ -47,28 +47,17 @@ export const SIDEBAR_ITEMS = [
   // got promoted out of hiding for.
   { id: "cortex", label: "Cortex", icon: "🧠", tab: "cortex" },
 
-  // Discover — "what should I trade?" Scan is the primary/default view;
-  // Watchlists and Options Flow are one click away via the shared
-  // PageSubNav rendered at the top of all three real activeTab blocks
-  // (rhpro-scan / rhpro-lists / flow — ids kept exactly as-is so every
-  // existing palette alias, localStorage handoff, and Dashboard sub-tab
-  // mount pointing at them keeps working unchanged). alsoActive is what
-  // keeps this row highlighted while on any of the 3 sub-views.
-  // Discover now IS the merged Discover + Smart Scan + Workspace
-  // experience (2026-08-20, explicit user request: "I want one tab
-  // combine all three somehow" — split-screen master/detail via
-  // ScanTerminalHub.jsx, mounted for the "rhpro-scan" SCAN sub-view).
-  // Smart Scan's and Workspace's own former sidebar rows are retired —
-  // both real components (SmartScanTab.jsx/MarketTerminalTab.jsx) are
-  // still directly reused *inside* this same tab (a toggle for the scan
-  // table, always-on for the detail pane), just no longer independently
-  // routed to from the sidebar. alsoActive covers rhpro-scan's existing
-  // 3 sub-views plus smartscan/mterminal — those activeTab values are
-  // still real (a few other real callers, e.g. MoversTab's
-  // openDeepDiveFor, can still land there directly) so the sidebar stays
-  // correctly highlighted on Discover rather than going dark if that ever
-  // happens.
-  { id: "discover",  label: "Discover",   icon: "🎯", tab: "rhpro-scan", alsoActive: ["rhpro-lists", "flow", "smartscan", "mterminal"] },
+  // Discover dropped from the rail (2026-08-25, explicit user request: "i
+  // want discover inside trade desk linked not as a tab on side"). The
+  // real, full ScanTerminalHub.jsx is now reached through Trade Desk's
+  // "DISCOVER" bottom-dock button instead of a standalone sidebar row —
+  // same real component, same real data, no rewrite. Not deleted — "rhpro-
+  // scan" and its sub-views (rhpro-lists/flow/smartscan/mterminal) stay
+  // fully real and reachable via the command palette (DISCOVER — new
+  // alias added alongside the existing SCANNER/BREAKOUTS/BESTOPP/EARLY —
+  // plus WATCHLISTS/FLOW/TERMINAL/CHARTS for the sub-views individually),
+  // and every existing internal caller that lands on these activeTab
+  // values directly (MoversTab's openDeepDiveFor, etc.) is untouched.
 
   // Sniper AI dropped from the rail (2026-08-25, "remove duplicate tabs" —
   // Trade Desk's left panel now shows this exact same real ranked scan,
@@ -172,7 +161,10 @@ export default function Sidebar({ C, MONO, SANS, activeTab, setActiveTab, topOff
         </button>
         {SIDEBAR_ITEMS.map((item) => {
           const isActive = activeTab === item.tab || (item.alsoActive || []).includes(activeTab);
-          const badgeCount = item.id === "discover" ? scannerBadge : null;
+          // Moved from the now-removed "discover" row (2026-08-25) — same
+          // real count (scanner rows scoring >=70), now surfaced on Trade
+          // Desk since that's where Discover itself moved to.
+          const badgeCount = item.id === "trade-desk" ? scannerBadge : null;
           return (
             <button key={item.id}
               onClick={() => setActiveTab(item.tab)}

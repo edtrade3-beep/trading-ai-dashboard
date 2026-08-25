@@ -4149,6 +4149,10 @@ export default function App() {
       OLDPORTFOLIO: "portfolio",
       FIVEX: "fivex",
       SCANNER: "rhpro-scan",
+      // DISCOVER — new alias (2026-08-25) added when Discover's sidebar row
+      // was dropped in favor of Trade Desk's "DISCOVER" dock button, so
+      // typing the exact word the sidebar used to show still works.
+      DISCOVER: "rhpro-scan",
       OLDSCANNER: "scanner",
       BACKTEST: "backtest",
       ROTATION: "rotation",
