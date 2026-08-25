@@ -4099,8 +4099,12 @@ export default function App() {
       APEX: "rhpro-apex",
       // SNIPER used to alias to rhpro-scan (Discover) — the only place
       // "Sniper" could go before it had a real destination of its own.
-      // Now that Sniper AI is a real, separate sidebar tab (2026-08-23),
-      // this points there instead.
+      // Sniper AI (SniperAITab.jsx, activeTab "sniper-ai") got a real
+      // sidebar row 2026-08-23, then lost it again 2026-08-25 (Trade
+      // Desk's left panel now covers the same real ranked scan as
+      // quick-access) — this alias is now the primary way back to the
+      // full standalone page, same "hide, don't delete" pattern as
+      // MARKET/CRYPTO/CALENDAR above.
       SNIPER: "sniper-ai",
       // Added with the SMART MONEY trim — SMARTMONEY (13F Lookup) already
       // had an alias below.

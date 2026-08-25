@@ -70,15 +70,13 @@ export const SIDEBAR_ITEMS = [
   // happens.
   { id: "discover",  label: "Discover",   icon: "🎯", tab: "rhpro-scan", alsoActive: ["rhpro-lists", "flow", "smartscan", "mterminal"] },
 
-  // Sniper AI — a real, separate tab from Discover (2026-08-23, explicit
-  // user request: "separate sniper ai from discover tab but sniper ai
-  // lead to discover"). Discover shows a broader 9-tier quality
-  // vocabulary (ai-actions.js); this shows Sniper's own narrower,
-  // hard-gated entry-timing verdict (ENTER_LONG/WAIT/NO_CHASE/AVOID,
-  // computeSniperDecision — same real engine Telegram's /sniper command
-  // and Cortex's Sniper Timing card already use). Each row hands off into
-  // Discover for the full scanner + detail view (SniperAITab.jsx).
-  { id: "sniper-ai", label: "Sniper AI",  icon: "🔭", tab: "sniper-ai" },
+  // Sniper AI dropped from the rail (2026-08-25, "remove duplicate tabs" —
+  // Trade Desk's left panel now shows this exact same real ranked scan,
+  // /api/market/sniper-scan, as quick-access, making a dedicated rail slot
+  // redundant). Not deleted — same "hide, don't delete" convention as
+  // Market/Crypto/Calendar above: SniperAITab.jsx and its activeTab
+  // "sniper-ai" are fully intact, still one keystroke away via the
+  // existing SNIPER command-palette alias.
 
   // Portfolio — "how am I performing?" Unchanged from before.
   { id: "portfolio", label: "Portfolio",  icon: "💼", tab: "portfolio-tab" },
