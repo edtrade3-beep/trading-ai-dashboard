@@ -808,6 +808,29 @@ async function runScan(options = {}) {
             const lastSmc = smcCooldown.get(smcKey);
             if (lastSmc && Date.now() - lastSmc < SMC_COOLDOWN_MS) continue;
 
+            // Real duplicate-alert bug fix (2026-08-25, live report: the
+            // exact same $EWG BUY alert sent twice, 10 seconds apart). This
+            // whole VERDICT-BASED ALERTS block is an un-awaited async IIFE
+            // (see its own opening `(async () => {...})()` a few lines up) —
+            // runScan()'s own `isRunning` mutex resets in its `finally` as
+            // soon as the SYNCHRONOUS part of runScan() returns, which does
+            // NOT wait for this IIFE's own async work to finish. Two
+            // independent timers can each start a runScan() (the interval-
+            // based scan and the time-based scheduled scan, see
+            // startMarketScanner() below) — if the first one's IIFE hasn't
+            // reached the old post-fetch cooldown SET (below) by the time a
+            // second runScan() reaches this same check for the same symbol,
+            // both pass and both alert. Fixed by reserving the cooldown
+            // slot HERE, synchronously, before the only `await` in this
+            // path (fetchYahooBars) — nothing can interleave between the
+            // check above and this reservation, so a second concurrent
+            // pass now always sees it. Cost: a real symbol whose bars-fetch
+            // or BULL_BOS check later fails still consumes its 24h cooldown
+            // slot for this attempt — a minor, acceptable tradeoff against
+            // a real duplicate-alert bug.
+            smcCooldown.set(smcKey, Date.now());
+            saveScannerState();
+
             const bars = await fetchYahooBars(sym, "3mo", "1d").catch(() => []);
             if (bars.length < 20) continue;
 
@@ -829,14 +852,26 @@ async function runScan(options = {}) {
             // placeholders, not real per-symbol data) and produced a second,
             // differently-labeled verdict for the same setup shown elsewhere.
 
-            smcCooldown.set(smcKey, Date.now());
-            saveScannerState();
             if (incCount) incCount();
 
             // Entry/stop/targets
             const nearOB = obs.find(ob => ob.type === "BULL_OB" && Math.abs(ob.mid - price) / price < 0.08);
             const entry  = nearOB ? round2((nearOB.top + nearOB.bot) / 2) : round2(price);
-            const stop   = round2(Math.max((nearOB?.bot || price) * 0.985, price * 0.92));
+            // Real degenerate-stop bug fix (2026-08-25, same live report: a
+            // $40.96 entry / $40.95 stop pair — a $0.01 risk distance,
+            // producing an absurd 328:1 R:R and an artificially maxed-out
+            // 100/100 score). Root cause: when a matched bull order block's
+            // real bottom sits almost exactly at entry, `nearOB.bot * 0.985`
+            // can land just a cent or two below entry — the formula had no
+            // floor on how CLOSE the stop could be, only a floor on how far
+            // it could be (`price * 0.92`). Added a real minimum risk
+            // distance (entry can never be less than 1% above stop) so a
+            // degenerate near-zero stop can no longer produce a fake
+            // "perfect" setup — this clamps the result, it does not change
+            // which candidate (order-block-derived vs the 8%-below floor)
+            // was chosen.
+            const rawStop = Math.max((nearOB?.bot || price) * 0.985, price * 0.92);
+            const stop   = round2(Math.min(rawStop, entry * 0.99));
             const t1     = round2(entry * 1.08);
             const t2     = round2(entry * 1.15);
             const rr     = stop < entry ? round2((t1 - entry) / (entry - stop)) : 0;
