@@ -179,6 +179,31 @@ export default function TradeDeskTab({
   }, [alpacaPositions]);
 
   const [dockModule, setDockModule] = useState(null);
+  // Search -> Discover handoff (2026-08-25, explicit user request: "when
+  // you search for stock it is link to discover for that specific stock
+  // not for main page"). ScanTerminalHub.jsx (mounted below for
+  // dockModule === "discover") already reads scanhub_last_symbol/
+  // scanhub_force_open once on mount — the exact real one-shot handoff
+  // SniperAITab.jsx's own "Open in Discover" button already uses. Since
+  // this dock's ScanTerminalHub only mounts (fresh, re-running that
+  // mount-time read) when the DISCOVER button is actually clicked, writing
+  // those same two keys right before opening it reuses that real
+  // mechanism instead of inventing a second one — Discover opens straight
+  // to the currently-searched symbol's deep-dive panel, not its generic
+  // ranked-list landing page. Known, consistent-with-the-rest-of-the-app
+  // limitation: this fires on OPEN only (same one-shot-on-arrival contract
+  // every other real handoff in this app already has) — searching a
+  // different symbol while Discover is already open doesn't re-target an
+  // already-mounted instance; close and reopen the dock module for that.
+  const openDockModule = (key) => {
+    if (key === "discover" && symbol) {
+      try {
+        localStorage.setItem("scanhub_last_symbol", symbol);
+        localStorage.setItem("scanhub_force_open", "1");
+      } catch {}
+    }
+    setDockModule((prev) => (prev === key ? null : key));
+  };
   // VCP overlay toggle (2026-08-25, explicit user request: "vcp make it on
   // and off") — Trade Desk's center panel always uses the self-rendered
   // TrendChart (unlike MarketTerminalTab.jsx, which SWAPS between a
@@ -249,7 +274,7 @@ export default function TradeDeskTab({
           {DOCK_MODULES.map((m) => (
             <button
               key={m.key}
-              onClick={() => setDockModule(dockModule === m.key ? null : m.key)}
+              onClick={() => openDockModule(m.key)}
               style={{
                 flex: isMobile ? "0 0 auto" : 1, padding: "8px 10px", border: "none",
                 borderBottom: dockModule === m.key ? `2px solid ${C.accent}` : "2px solid transparent",
