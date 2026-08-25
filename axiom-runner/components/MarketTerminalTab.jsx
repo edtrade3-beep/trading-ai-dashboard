@@ -535,6 +535,25 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
     return () => { cancelled = true; };
   }, [sym]);
 
+  // Live refresh — silently re-pull the same trend row every 45s (2026-08-26,
+  // explicit user request: "if the hourly changed, it will change live, don't
+  // have to refresh page"). Same real cadence/no-spinner pattern the chart's
+  // own live refresh already uses above (45000ms) — this is what actually
+  // drives the MTF panel's "1D" pill (dwDailyBias) below, which previously
+  // only ever refetched on a symbol change, not on a timer.
+  useEffect(() => {
+    if (!sym) return;
+    let cancelled = false;
+    const symbol = sym;
+    const t = setInterval(() => {
+      fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(symbol)}`)
+        .then(r => r.json())
+        .then(j => { if (cancelled) return; const row = (j.results || []).find(r => !r.error); if (row) setSymTrend(row); })
+        .catch(() => {});
+    }, 45000);
+    return () => { cancelled = true; clearInterval(t); };
+  }, [sym]);
+
   // Real 4H SWING_SETUP + 1H EARLY_DEVELOPMENT reads (MTF Decision System
   // Phase 2, 2026-08-20) for the Decision Workspace's MTF panel — own
   // fetch since these are new, dedicated timeframes not covered by the
@@ -561,6 +580,35 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
       .catch(() => {});
     return () => { cancelled = true; };
   }, [sym, symTrend?.abovePivotPct, symTrend?.stage, symTrend?.passCount]);
+
+  // Live refresh — silently re-pull the real 4H/1H MTF read every 45s
+  // (2026-08-26, explicit user request: "if the hourly changed, it will
+  // change live, don't have to refresh page"). This is what actually
+  // drives the MTF panel's 4H/1H/15M/5M pills + MTF Alignment score below
+  // — previously a one-shot fetch, only ever re-firing on a real symbol
+  // change (or when symTrend's own daily fields happened to shift). A ref
+  // (not a dependency) carries the latest symTrend so this doesn't restart
+  // the 45s timer on every daily-data tick, matching the chart's own
+  // live-refresh pattern above (separate interval effect, not baked into
+  // the initial-load effect).
+  const symTrendRef = useRef(null);
+  useEffect(() => { symTrendRef.current = symTrend; }, [symTrend]);
+  useEffect(() => {
+    if (!sym) return;
+    let cancelled = false;
+    const symbol = sym;
+    const t = setInterval(() => {
+      const st = symTrendRef.current;
+      const apctParam = Number.isFinite(st?.abovePivotPct) ? `&abovePivotPct=${st.abovePivotPct}` : "";
+      const direction = st ? ((String(st.stage || "").includes("2") && Number(st.passCount || 0) >= 6) ? "BULLISH" : String(st.stage || "").includes("4") ? "BEARISH" : "NEUTRAL") : null;
+      const dirParam = direction ? `&direction=${direction}` : "";
+      fetch(`/api/market/mtf?symbol=${encodeURIComponent(symbol)}${apctParam}${dirParam}`)
+        .then(r => r.json())
+        .then(j => { if (!cancelled && j && j.ok) setSymMtf(j); })
+        .catch(() => {});
+    }, 45000);
+    return () => { cancelled = true; clearInterval(t); };
+  }, [sym]);
 
   // Real persisted, server-confirmed 8-state read (MTF Decision System
   // Phase 3, 2026-08-20) — the debounced WATCH/EARLY/START/ADD/HOLD/
