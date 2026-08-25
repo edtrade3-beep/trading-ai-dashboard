@@ -78,18 +78,28 @@ export default function TradeDeskTab({
   });
 
   // Real root-level height fix (2026-08-25, "fix chart in trade desk make
-  // it fit designated section"). This app has no fixed-viewport app shell
-  // ANYWHERE — every other tab is a normal scrolling page, and
-  // TrendChart.jsx's own height="fill" mode exists specifically because it
-  // can't rely on any ancestor giving it a real CSS height either (see that
-  // file's own comment: it measures window.innerHeight directly). A plain
-  // height:"100%" on this root resolves to nothing (no ancestor has an
-  // explicit height), so the whole 3-pane view + dock silently became one
-  // long scrolling page instead of a fixed layout with internally-
-  // scrolling panels — the actual root cause of the chart "not fitting."
-  // Fixed the same way TrendChart fixes its own version of this problem:
-  // measure the real rendered top of this root and size it to reach the
-  // real viewport bottom, minus the app's fixed bottom StatusBar (40px).
+  // it fit designated section"; revised same day, 2nd pass, after a live
+  // screenshot showed the chart's own price-line labels — AI TARGET/
+  // PIVOT/RESISTANCE/PRE-MKT/BASE LOW — visually overlapping into an
+  // illegible cluster whenever a dock module was open). This app has no
+  // fixed-viewport app shell ANYWHERE — every other tab is a normal
+  // scrolling page.
+  //
+  // rootRef/rootHeight measure and size ONLY the core zone (top strip +
+  // 3-pane) — a real, HARD height, giving the chart a stable, generous,
+  // never-squeezed budget. The dock (tab row + optional open panel) is
+  // rendered as a plain SIBLING outside this core zone entirely (see the
+  // JSX below), not a flex child competing for the same budget — a first
+  // attempt tried making the whole thing minHeight-based so the dock
+  // could share space with the core zone and let the page grow, but with
+  // no bounded ancestor left anywhere, ChartPane's own ref-measurement
+  // effect fed back into a runaway growth loop (a several-thousand-pixel
+  // chart, confirmed live). Splitting the two into independent budgets is
+  // simpler and avoids that whole class of feedback bug: the core zone
+  // always gets the same real viewport-derived height regardless of dock
+  // state, and the dock, being outside it, just adds its own real height
+  // to the page/scroll length when opened — the fixed bottom StatusBar
+  // stays correctly pinned to the true viewport bottom regardless.
   const rootRef = useRef(null);
   const [rootHeight, setRootHeight] = useState(null);
   useEffect(() => {
@@ -97,7 +107,7 @@ export default function TradeDeskTab({
       const el = rootRef.current;
       if (!el) return;
       const top = Math.max(0, el.getBoundingClientRect().top);
-      const h = Math.max(420, Math.floor(window.innerHeight - top - 48));
+      const h = Math.max(560, Math.floor(window.innerHeight - top - 48));
       setRootHeight((prev) => (prev == null || Math.abs(prev - h) > 4 ? h : prev));
     };
     measure();
@@ -235,40 +245,56 @@ export default function TradeDeskTab({
   );
 
   return (
-    <div ref={rootRef} style={{ display: "flex", flexDirection: "column", height: rootHeight ? `${rootHeight}px` : "80vh", minHeight: 0 }}>
-      {/* Top status strip — real regime/SPY/QQQ/VIX/cash/risk/autopilot */}
-      <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "8px 12px", borderBottom: `1px solid ${C.border}`, flexWrap: "wrap", background: C.card }}>
-        <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: C.text }}>AM TRADING</span>
-        <span style={pill}><span style={{ color: C.textDim }}>REGIME</span> <b style={{ color: regime.color }}>{regime.label}</b></span>
-        <span style={pill}><span style={{ color: C.textDim }}>SPY</span> <b style={{ color: chgColor(chg(spy)) }}>{spy ? `${chg(spy) > 0 ? "+" : ""}${chg(spy).toFixed(2)}%` : "—"}</b></span>
-        <span style={pill}><span style={{ color: C.textDim }}>QQQ</span> <b style={{ color: chgColor(chg(qqq)) }}>{qqq ? `${chg(qqq) > 0 ? "+" : ""}${chg(qqq).toFixed(2)}%` : "—"}</b></span>
-        <span style={pill}><span style={{ color: C.textDim }}>VIX</span> <b style={{ color: C.text }}>{vixQuote?.price != null ? Number(vixQuote.price).toFixed(1) : "—"}</b></span>
-        <span style={pill}><span style={{ color: C.textDim }}>CASH</span> <b style={{ color: C.text }}>{account?.cash != null ? `$${Math.round(Number(account.cash)).toLocaleString()}` : "—"}</b></span>
-        <span style={pill}><span style={{ color: C.textDim }}>RISK</span> <b style={{ color: chgColor(riskRead.pl) }}>{riskRead.count} pos · {riskRead.pl >= 0 ? "+" : ""}${Math.round(riskRead.pl).toLocaleString()}</b></span>
-        <span style={{ ...pill, marginLeft: "auto" }}>
-          <span>{autopilotStatus?.mode === "on" ? "🟢" : "🔴"}</span>
-          <span style={{ color: C.textDim }}>Autopilot</span>
-        </span>
+    <div style={{ display: "flex", flexDirection: "column" }}>
+      {/* Fixed-budget core zone (top strip + 3-pane) — a HARD height, not a
+          minHeight. 2026-08-25 (2nd pass, live screenshot): the dock used
+          to be a flex sibling INSIDE this same budget, so opening it made
+          flexbox shrink the 3-pane row to make room — with an unconstrained
+          parent instead, that produced a much worse runaway-growth
+          feedback loop (ChartPane's own ref-measurement reading back a
+          size its own last render had already inflated). Real fix: the
+          core zone gets its own fixed, self-contained height budget
+          (exactly like the first pass), and the dock (below) is a plain
+          sibling OUTSIDE it — never competing for the same space, free to
+          add its own height and let the page scroll further when open. */}
+      <div ref={rootRef} style={{ display: "flex", flexDirection: "column", height: rootHeight ? `${rootHeight}px` : "80vh" }}>
+        {/* Top status strip — real regime/SPY/QQQ/VIX/cash/risk/autopilot */}
+        <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "8px 12px", borderBottom: `1px solid ${C.border}`, flexWrap: "wrap", background: C.card }}>
+          <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: C.text }}>AM TRADING</span>
+          <span style={pill}><span style={{ color: C.textDim }}>REGIME</span> <b style={{ color: regime.color }}>{regime.label}</b></span>
+          <span style={pill}><span style={{ color: C.textDim }}>SPY</span> <b style={{ color: chgColor(chg(spy)) }}>{spy ? `${chg(spy) > 0 ? "+" : ""}${chg(spy).toFixed(2)}%` : "—"}</b></span>
+          <span style={pill}><span style={{ color: C.textDim }}>QQQ</span> <b style={{ color: chgColor(chg(qqq)) }}>{qqq ? `${chg(qqq) > 0 ? "+" : ""}${chg(qqq).toFixed(2)}%` : "—"}</b></span>
+          <span style={pill}><span style={{ color: C.textDim }}>VIX</span> <b style={{ color: C.text }}>{vixQuote?.price != null ? Number(vixQuote.price).toFixed(1) : "—"}</b></span>
+          <span style={pill}><span style={{ color: C.textDim }}>CASH</span> <b style={{ color: C.text }}>{account?.cash != null ? `$${Math.round(Number(account.cash)).toLocaleString()}` : "—"}</b></span>
+          <span style={pill}><span style={{ color: C.textDim }}>RISK</span> <b style={{ color: chgColor(riskRead.pl) }}>{riskRead.count} pos · {riskRead.pl >= 0 ? "+" : ""}${Math.round(riskRead.pl).toLocaleString()}</b></span>
+          <span style={{ ...pill, marginLeft: "auto" }}>
+            <span>{autopilotStatus?.mode === "on" ? "🟢" : "🔴"}</span>
+            <span style={{ color: C.textDim }}>Autopilot</span>
+          </span>
+        </div>
+
+        {/* Middle: 3-pane on desktop, stacked segmented view on mobile — never
+            force the fixed-column grid on a narrow screen (ScanTerminalHub's
+            own history is the reason this is a deliberate, up-front choice). */}
+        {isMobile ? (
+          <MobileTradeDeskBody symbol={symbol} selectSymbol={selectSymbol} chart={chart} loadingChart={loadingChart} vcpOn={vcpOn} setVcpOn={setVcpOn} setActiveTab={setActiveTab} C={C} MONO={MONO} SANS={SANS} />
+        ) : (
+          <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "220px 1fr 280px" }}>
+            <div style={{ borderRight: `1px solid ${C.border}`, minHeight: 0, overflow: "hidden" }}>
+              <CommandSearchPanel symbol={symbol} onSelectSymbol={selectSymbol} C={C} MONO={MONO} SANS={SANS} />
+            </div>
+            <ChartPane symbol={symbol} chart={chart} loadingChart={loadingChart} vcpOn={vcpOn} setVcpOn={setVcpOn} C={C} MONO={MONO} SANS={SANS} />
+            <div style={{ borderLeft: `1px solid ${C.border}`, minHeight: 0, overflow: "hidden" }}>
+              <CortexMiniPanel symbol={symbol} onSelectSymbol={selectSymbol} setActiveTab={setActiveTab} C={C} MONO={MONO} SANS={SANS} />
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Middle: 3-pane on desktop, stacked segmented view on mobile — never
-          force the fixed-column grid on a narrow screen (ScanTerminalHub's
-          own history is the reason this is a deliberate, up-front choice). */}
-      {isMobile ? (
-        <MobileTradeDeskBody symbol={symbol} selectSymbol={selectSymbol} chart={chart} loadingChart={loadingChart} vcpOn={vcpOn} setVcpOn={setVcpOn} setActiveTab={setActiveTab} C={C} MONO={MONO} SANS={SANS} />
-      ) : (
-        <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "220px 1fr 280px" }}>
-          <div style={{ borderRight: `1px solid ${C.border}`, minHeight: 0, overflow: "hidden" }}>
-            <CommandSearchPanel symbol={symbol} onSelectSymbol={selectSymbol} C={C} MONO={MONO} SANS={SANS} />
-          </div>
-          <ChartPane symbol={symbol} chart={chart} loadingChart={loadingChart} vcpOn={vcpOn} setVcpOn={setVcpOn} dockModule={dockModule} C={C} MONO={MONO} SANS={SANS} />
-          <div style={{ borderLeft: `1px solid ${C.border}`, minHeight: 0, overflow: "hidden" }}>
-            <CortexMiniPanel symbol={symbol} onSelectSymbol={selectSymbol} setActiveTab={setActiveTab} C={C} MONO={MONO} SANS={SANS} />
-          </div>
-        </div>
-      )}
-
-      {/* Bottom dock — 10 modules, one shared panel, only the selected one mounts */}
+      {/* Bottom dock — 10 modules, one shared panel, only the selected one
+          mounts. A plain sibling of the core zone above, not inside it —
+          opening a module adds real page height/scroll instead of
+          squeezing the chart. */}
       <div style={{ borderTop: `1px solid ${C.border}` }}>
         <div style={{ display: "flex", overflowX: "auto" }}>
           {DOCK_MODULES.map((m) => (
@@ -311,14 +337,22 @@ export default function TradeDeskTab({
 // tick, which is the exact "chart torn down/recreated on every pixel of a
 // drag-resize" bug TrendChart.jsx's own header comment already documents
 // avoiding for its own "fill" mode.
-function ChartPane({ symbol, chart, loadingChart, vcpOn, setVcpOn, dockModule, C, MONO, SANS }) {
+function ChartPane({ symbol, chart, loadingChart, vcpOn, setVcpOn, C, MONO, SANS }) {
   const wrapRef = useRef(null);
   const [chartHeight, setChartHeight] = useState(480);
   useEffect(() => {
     const measure = () => {
       const el = wrapRef.current;
       if (!el) return;
-      const h = Math.max(320, Math.floor(el.clientHeight) - 16);
+      // Floor raised 320 -> 420 (2026-08-25, live screenshot showed
+      // TrendChart's own price-line labels — AI TARGET/PIVOT/RESISTANCE/
+      // PRE-MKT/BASE LOW — visually overlapping into an illegible cluster
+      // when this pane got small) — real headroom for 5 labels to space
+      // out. No longer keyed on dockModule: the dock now lives outside
+      // this pane's fixed-budget ancestor entirely (see the parent's own
+      // comment), so opening it can't shrink this measurement anymore —
+      // only a genuine window resize does.
+      const h = Math.max(420, Math.floor(el.clientHeight) - 16);
       setChartHeight((prev) => (Math.abs(prev - h) > 4 ? h : prev));
     };
     measure();
@@ -326,7 +360,7 @@ function ChartPane({ symbol, chart, loadingChart, vcpOn, setVcpOn, dockModule, C
     const onResize = () => { clearTimeout(t); t = setTimeout(measure, 200); };
     window.addEventListener("resize", onResize);
     return () => { window.removeEventListener("resize", onResize); clearTimeout(t); };
-  }, [dockModule]);
+  }, []);
 
   return (
     <div style={{ minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
