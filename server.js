@@ -411,7 +411,16 @@ server.listen(PORT, HOST, () => {
   // — the interval alone wasn't enough, since each individual tick still
   // bursts its full request count regardless of how often it fires.
   registerJob("Light Box Confirm", 5 * 60_000, () => require("./src/lightbox-state-store").tickLightBox());
-  console.log("[Light Box] Confirmation tick active — every 5 min (top 50 watchlist symbols), 4 AM-8 PM ET weekdays");
+  console.log("[Light Box] Confirmation tick active — every 5 min (80 real symbols/tick, rotating across watchlist + DAYTRADE_UNIVERSE), 4 AM-8 PM ET weekdays");
+
+  // Light Box outcome tracking (Market Opportunity Intelligence Engine
+  // upgrade, 2026-08-26) — real forward-tracking of every logged BUY/SELL
+  // event (lightbox-outcome-tracker.js). Runs every 15 min, not MTF
+  // Outcome Tracking's hourly cadence — Light Box's real horizons are bar-
+  // counts on 15m bars (up to 26 bars, ~1 session), a materially shorter
+  // real timescale than MTF's multi-day horizons, so outcomes should fill
+  // in closer to real-time.
+  registerJob("Light Box Outcome Tracking", 15 * 60_000, () => require("./src/lightbox-outcome-tracker").trackOutcomes());
 
   // MTF Decision System, Phase 3 (2026-08-20) — the 8-state
   // WATCH/EARLY/START/ADD/HOLD/EXIT_WARNING/REDUCE/EXIT machine's

@@ -15,13 +15,23 @@
 "use strict";
 
 const path = require("node:path");
-const { ROOT, resolveProviderKeys } = require("./config");
+const { ROOT, PORT, resolveProviderKeys } = require("./config");
 const { writeJsonAtomic, readJsonSafe } = require("./atomic-write");
 const { loadWatchlist } = require("./routes/watchlist");
 const { computeDayTradeSignal } = require("./day-trade-calc");
 const { getMinBuyScore } = require("./day-trade-signal-store");
-const { stepSymbol } = require("./lightbox-engine");
+const { stepSymbol, classifyLifecycle, applyWeakeningOverride } = require("./lightbox-engine");
 const { LIGHTBOX_DEFAULTS, SIGNAL_TO_STATE } = require("./lightbox-config");
+const { getEdgeVelocityFor, recordQualitySnapshots } = require("./lightbox-timeline-store");
+const { recordEvent: recordOutcomeEvent, winRateFor, HORIZONS: OUTCOME_HORIZONS } = require("./lightbox-outcome-tracker");
+const { computeDayTradeEV, computeDayTradeChase, computeOpportunityGap, computeDayTradeRedFlags, computeAttentionScore } = require("./lightbox-intelligence");
+
+// Same real self-loopback JSON-fetch convention routes/ai-hub.js and
+// quick-trade-service.js already use for computeSymbolVsPositionsCorrelation.
+const BASE = () => process.env.RENDER_EXTERNAL_URL || `http://127.0.0.1:${PORT}`;
+async function getJson(pathAndQuery) {
+  try { const r = await fetch(`${BASE()}${pathAndQuery}`); return await r.json(); } catch { return null; }
+}
 
 const STORE_PATH = path.join(ROOT, "data", "lightbox-state.json");
 
@@ -124,8 +134,31 @@ function rotateSlice(arr, offset, count) {
 
 async function tickLightBox() {
   if (!isLightBoxHoursET()) return { ok: true, skipped: "outside Light Box hours (4 AM-8 PM ET)" };
-  const { symbols: allSymbols } = loadWatchlist();
-  if (!Array.isArray(allSymbols) || !allSymbols.length) return { ok: true, checked: 0 };
+
+  // Lazy require (not top-level) — src/routes/market.js's route handler
+  // lazily requires this file too, so a top-level require here would form
+  // a circular require. Same lazy-require pattern watchlist-daytrade-alerts.js
+  // already uses for the exact same reason.
+  let fetchDayTradeScanRows, fetchMarketQuotes, DAYTRADE_UNIVERSE;
+  try {
+    ({ fetchDayTradeScanRows, fetchMarketQuotes, DAYTRADE_UNIVERSE } = require("./routes/market"));
+  } catch {
+    return { ok: false, checked: 0 };
+  }
+
+  // Broader real universe (#10, Market Opportunity Intelligence Engine
+  // upgrade, 2026-08-26, explicit spec: "broader market universe... more
+  // opportunities without more noise"). Union of the user's real watchlist
+  // and the SAME real DAYTRADE_UNIVERSE the /api/market/lightbox route's
+  // own ?universe=full option already uses, deduped — MAX_SCAN_SYMBOLS
+  // stays unchanged (80/tick), the same real rate-limit-safe rotation
+  // discipline just cycles through a bigger real pool over more real
+  // ticks instead of bursting more per tick. An empty watchlist no longer
+  // means zero real coverage — DAYTRADE_UNIVERSE alone still gives real
+  // signal.
+  const { symbols: watchlistSymbols } = loadWatchlist();
+  const allSymbols = [...new Set([...(watchlistSymbols || []), ...(DAYTRADE_UNIVERSE || [])])];
+  if (!allSymbols.length) return { ok: true, checked: 0 };
 
   const state = loadState();
   const confirmBars = state.config.confirmBars || LIGHTBOX_DEFAULTS.confirmBars;
@@ -133,16 +166,6 @@ async function tickLightBox() {
   const symbols = rotateSlice(allSymbols, offset, MAX_SCAN_SYMBOLS);
   const nextOffset = allSymbols.length ? (offset + MAX_SCAN_SYMBOLS) % allSymbols.length : 0;
 
-  // Lazy require (not top-level) — src/routes/market.js's route handler
-  // lazily requires this file too, so a top-level require here would form
-  // a circular require. Same lazy-require pattern watchlist-daytrade-alerts.js
-  // already uses for the exact same reason.
-  let fetchDayTradeScanRows, fetchMarketQuotes;
-  try {
-    ({ fetchDayTradeScanRows, fetchMarketQuotes } = require("./routes/market"));
-  } catch {
-    return { ok: false, checked: 0 };
-  }
   const { etfOf } = require("./sector-theme-map");
   const { getTrendQuality } = require("./trend-quality-store");
 
@@ -170,12 +193,26 @@ async function tickLightBox() {
   const nextBySymbol = { ...state.bySymbol };
   const newTransitions = [];
   const nowIso = new Date().toISOString();
+  const qualitySnapshotBatch = [];
 
   // Real, configurable quality gate (2026-08-19, "Fix Trading Signal
   // Logic" spec) — same threshold every other real caller reads, so Light
   // Box's BUY/WAIT/SELL state stays consistent with Green Light's and the
   // Telegram alert's.
   const minBuyScore = getMinBuyScore();
+
+  // Real global win rate for THIS tick's EV calc (Market Opportunity
+  // Intelligence Engine upgrade, 2026-08-26) — computed ONCE per tick, not
+  // per symbol: lightbox-outcome-tracker.js's real sample floor
+  // (MIN_WIN_SAMPLE=10) is far more reachable pooled across every real
+  // confirmed BUY/SELL this store has ever logged than per-individual-
+  // symbol, same real reasoning institutional-scoring.js's winProbFor
+  // already uses for its own broader buckets. Uses the longest real
+  // horizon (a full regular session) to match Light Box's own real
+  // "Flatten by 3:55 PM ET" same-day expectation.
+  const primaryHorizon = OUTCOME_HORIZONS[OUTCOME_HORIZONS.length - 1];
+  const { winRate } = winRateFor(primaryHorizon);
+
   for (const row of scanResult.rows || []) {
     const sectorEtf = etfOf(row.symbol);
     const tq = getTrendQuality(row.symbol);
@@ -185,18 +222,97 @@ async function tickLightBox() {
     const symbol = dt.symbol;
     const prev = state.bySymbol[symbol];
     const stepped = stepSymbol(prev, dt.signal, generatedAt, confirmBars);
-    nextBySymbol[symbol] = { ...stepped, raw: dt, updatedAt: nowIso };
+
+    // Edge Velocity (#4) — real same-day rate-of-change, read BEFORE this
+    // tick's own new quality snapshot is recorded (batched below, after
+    // this loop) so there's no leakage of this tick's own score into its
+    // own velocity read — same real ordering discipline
+    // routes/market.js's computeAllOpportunities already established.
+    const edgeVelocity = getEdgeVelocityFor(symbol);
+
+    // Lifecycle (#1) — real base state from confirmation/entry-trigger,
+    // then the one real override (WEAKENING) edge velocity can trigger.
+    const baseLifecycle = classifyLifecycle({
+      confirmed: stepped.confirmed, pendingSignal: stepped.pendingSignal, pendingCount: stepped.pendingCount,
+      entryTriggerStatus: dt.entryTriggerStatus, qualifiesAPlus: dt.qualifiesAPlus,
+    });
+    const lifecycle = applyWeakeningOverride(baseLifecycle, edgeVelocity.status);
+
+    // Chase Engine (#6) + WHY NOW/NOT (#5) — real, reused engines.
+    const chase = computeDayTradeChase(dt);
+    const redFlags = computeDayTradeRedFlags(dt);
+
+    // EV (#3) + Opportunity Gap (#7) — honest null whenever the real
+    // pooled win rate hasn't reached MIN_WIN_SAMPLE yet.
+    const ev = computeDayTradeEV({ winRate, entry: dt.bestEntry, stop: dt.stop, target: dt.target, direction: dt.direction });
+    const opportunityGap = computeOpportunityGap({ winRate, dt });
+
+    // Portfolio Awareness (#9) — real, but deliberately bounded: only
+    // recomputed on a genuine NEW transition into ACTIONABLE/A+ (never on
+    // every tick a symbol simply stays there), same "expensive real
+    // fetch must be event-gated, not auto-polled every tick" discipline
+    // already established for this exact real correlation check
+    // elsewhere in the app. A symbol that stays ACTIONABLE/A+ carries its
+    // prior real correlation read forward unchanged.
+    const prevLifecycle = prev?.lifecycle;
+    const justBecameActionable = (lifecycle === "ACTIONABLE" || lifecycle === "A+") && prevLifecycle !== "ACTIONABLE" && prevLifecycle !== "A+";
+    let correlation = prev?.correlation ?? null;
+    if (justBecameActionable) {
+      correlation = null; // reset while the real check below runs; honestly null if it fails rather than stale
+      try {
+        const posResp = await getJson("/api/alpaca/positions");
+        const positions = posResp?.positions || [];
+        if (positions.length) {
+          const { computeSymbolVsPositionsCorrelation, correlationGateTripped } = require("./portfolio-correlation-calc");
+          const acctResp = await getJson("/api/alpaca/account");
+          const equity = Number(acctResp?.account?.equity) || 0;
+          const result = await computeSymbolVsPositionsCorrelation(symbol, positions, getJson);
+          const hit = correlationGateTripped({ correlations: result.correlations, equity });
+          correlation = { highCorrelation: !!hit, top: result.correlations?.[0] || null };
+        } else {
+          correlation = { highCorrelation: false, top: null };
+        }
+      } catch { correlation = null; } // best-effort — never blocks the real tick
+    }
+
+    // Attention Score (#8) — real, disclosed ranking input.
+    const attentionScore = computeAttentionScore({
+      quality: dt.quality, entryTriggerStatus: dt.entryTriggerStatus, chaseBand: chase.band,
+      edgeVelocityStatus: edgeVelocity.status, ev, highCorrelation: !!correlation?.highCorrelation,
+    });
+
+    nextBySymbol[symbol] = {
+      ...stepped, raw: dt, updatedAt: nowIso,
+      lifecycle, edgeVelocity, chase, redFlags, ev, opportunityGap, correlation, attentionScore,
+    };
+    qualitySnapshotBatch.push({ symbol, quality: dt.quality });
 
     if (prev && stepped.confirmed !== prev.confirmed) {
+      const to = SIGNAL_TO_STATE[stepped.confirmed] || stepped.confirmed;
       newTransitions.push({
         ts: nowIso,
         symbol,
         from: SIGNAL_TO_STATE[prev.confirmed] || prev.confirmed,
-        to: SIGNAL_TO_STATE[stepped.confirmed] || stepped.confirmed,
+        to,
         quality: dt.quality,
+        lifecycle,
       });
+      // Day-trade outcome tracking (#2) — real forward-tracking log,
+      // fired exactly on the genuine transition (never re-logged while
+      // the same confirmed state persists).
+      try {
+        recordOutcomeEvent({
+          symbol, toState: to, price: dt.px, stop: dt.stop, target: dt.target,
+          quality: dt.quality, grade: dt.grade, direction: dt.direction, rr: dt.rr, entryTriggerStatus: dt.entryTriggerStatus,
+        });
+      } catch { /* best-effort — a logging failure never blocks the real tick */ }
     }
   }
+
+  // Batch-record this tick's real quality snapshots for tomorrow... er,
+  // the NEXT tick's edge-velocity read (same batching discipline
+  // opportunity-timeline-store.js's own recordOpportunitySnapshots uses).
+  try { recordQualitySnapshots(qualitySnapshotBatch); } catch { /* additive-only, never blocks the real tick */ }
 
   const transitions = [...newTransitions, ...state.transitions].slice(0, LIGHTBOX_DEFAULTS.maxTransitions);
   saveState({ config: { ...state.config, scanOffset: nextOffset }, bySymbol: nextBySymbol, transitions, updatedAt: nowIso });

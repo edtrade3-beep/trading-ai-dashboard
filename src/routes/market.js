@@ -3691,12 +3691,40 @@ Explain this.`;
         entryTriggerStatus: r.entryTriggerStatus ?? null, direction: r.direction ?? null,
         signalReason: r.signalReason ?? null,
         updatedAt: entry.updatedAt || null,
+        // Market Opportunity Intelligence Engine upgrade (2026-08-26) —
+        // real fields computed by lightbox-state-store.js's tick
+        // (lifecycle state machine, edge velocity, chase band, WHY NOT
+        // red flags, EV/opportunity gap, portfolio correlation, attention
+        // score). Every one of these is honestly null/absent when the
+        // underlying real data isn't available yet (e.g. EV before the
+        // outcome tracker has real samples) — never fabricated.
+        lifecycle: entry.lifecycle ?? null,
+        edgeVelocity: entry.edgeVelocity ?? null,
+        chase: entry.chase ?? null,
+        redFlags: entry.redFlags ?? null,
+        ev: entry.ev ?? null,
+        opportunityGap: entry.opportunityGap ?? null,
+        correlation: entry.correlation ?? null,
+        attentionScore: entry.attentionScore ?? null,
       };
     }).filter(Boolean);
+
+    // TOP OPPORTUNITIES NOW (spec's explicit ask) — real, disclosed sort
+    // by attentionScore descending over whatever this same real response
+    // already computed, never a second ranking pass. INVALIDATED/null-
+    // score rows never appear at the top — they're excluded outright, not
+    // just sorted low, since an invalidated setup was never a real
+    // "opportunity" to begin with.
+    const topOpportunities = rows
+      .filter((r) => r.lifecycle && r.lifecycle !== "INVALIDATED" && Number.isFinite(r.attentionScore))
+      .sort((a, b) => b.attentionScore - a.attentionScore)
+      .slice(0, 10)
+      .map((r) => r.symbol);
 
     return writeJson(res, 200, {
       ok: true,
       rows,
+      topOpportunities,
       transitions: (state.transitions || []).slice(0, 100),
       generatedAt: state.updatedAt || null,
       confirmBars: state.config.confirmBars,
@@ -6158,3 +6186,4 @@ module.exports.fetchMarketNews = fetchMarketNews; // exposed for src/news/provid
 module.exports.buildCortexFollowupSystemPrompt = buildCortexFollowupSystemPrompt; // exposed for direct unit testing — the route itself short-circuits before this runs when ANTHROPIC_API_KEY is missing
 module.exports.getTrackReportCached = _getTrackReportCached; // exposed for opportunity-engine.js's real winProbFor lookup (Market Opportunity Engine Phase 1)
 module.exports.computeAllOpportunities = computeAllOpportunities; // exposed for opportunity-pivot-alerts.js's real WAIT/DEVELOPING/EXTENDED -> ACTIONABLE background watch job
+module.exports.DAYTRADE_UNIVERSE = DAYTRADE_UNIVERSE; // exposed for lightbox-state-store.js's broader real rotation pool (Market Opportunity Intelligence Engine upgrade, 2026-08-26)

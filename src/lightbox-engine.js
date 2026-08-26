@@ -78,4 +78,36 @@ function computeReason(state, raw) {
   return "Mixed signals";
 }
 
-module.exports = { stepSymbol, computeReason };
+// Opportunity lifecycle (Market Opportunity Intelligence Engine upgrade,
+// 2026-08-26, explicit spec: "every opportunity should have a state:
+// EARLY -> DEVELOPING -> QUALIFIED -> ACTIONABLE -> A+ -> WEAKENING ->
+// INVALIDATED"). Every state is derived from real fields already
+// computed elsewhere — stepSymbol's own confirmation counter above and
+// computeDayTradeSignal's real entryTriggerStatus/qualifiesAPlus — never
+// fabricated. Two-step by design: this function computes the BASE
+// lifecycle from confirmation/entry-trigger state alone; the caller
+// (lightbox-state-store.js's tick) applies the one real override this
+// pure function has no access to — WEAKENING, which needs a same-day
+// edge-velocity read (lightbox-timeline-store.js) — via
+// applyWeakeningOverride below.
+function classifyLifecycle({ confirmed, pendingSignal, pendingCount, entryTriggerStatus, qualifiesAPlus }) {
+  if (confirmed === "RED" || entryTriggerStatus === "INVALIDATED") return "INVALIDATED";
+  if (confirmed === "GREEN") return qualifiesAPlus ? "A+" : "ACTIONABLE";
+  // confirmed === "YELLOW" (WAIT) from here down.
+  if (entryTriggerStatus === "APPROACHING" || entryTriggerStatus === "CONFIRMED") return "QUALIFIED";
+  if (pendingSignal === "GREEN" && (pendingCount || 0) >= 1) return "DEVELOPING";
+  return "EARLY";
+}
+
+// Only a confirmed BUY (ACTIONABLE/A+) whose real same-day edge is
+// genuinely DECAYING gets downgraded to WEAKENING — the spec has no
+// "weakening" concept for QUALIFIED/DEVELOPING/EARLY (an opportunity
+// that was never actionable can't lose an edge it didn't have yet).
+function applyWeakeningOverride(baseLifecycle, edgeVelocityStatus) {
+  if ((baseLifecycle === "ACTIONABLE" || baseLifecycle === "A+") && edgeVelocityStatus === "DECAYING") {
+    return "WEAKENING";
+  }
+  return baseLifecycle;
+}
+
+module.exports = { stepSymbol, computeReason, classifyLifecycle, applyWeakeningOverride };
