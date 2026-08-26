@@ -2033,6 +2033,57 @@ ${aplusReasons}
 ${evidenceList}${contextBlock}`;
 }
 
+// Real, shared opportunity scan — extracted (2026-08-26, "system watch
+// them for me": a background Telegram-alert job needs the exact same
+// real tiered scan the /api/market/opportunities route returns, not a
+// second copy of it) so the route handler and opportunity-pivot-
+// alerts.js's background job call the identical real computation. See
+// that route's own header comment below for what it does and why.
+async function computeAllOpportunities() {
+  const { SCAN_UNIVERSE } = require("../advisor-ai");
+  const { computeRegime, regimeToEntryVocabulary } = require("../trade-planner-scoring");
+  const { computeOpportunity } = require("../opportunity-engine");
+
+  const MACRO_SYMS = ["SPY", "QQQ", "IWM", "DIA", "^VIX", "UUP", "VIXY", "TLT", "HYG"];
+  const [rows, macroQuotes, sectorQuotes, trackReport] = await Promise.all([
+    screenTrendTemplate(SCAN_UNIVERSE),
+    fetchYahooQuoteBatch(MACRO_SYMS).catch(() => []),
+    fetchYahooQuoteBatch(SECTOR_THEME_MAP.SECTOR_ETFS.map((s) => s.sym)).catch(() => []),
+    _getTrackReportCached(),
+  ]);
+
+  const macroData = macroQuotes.map((q) => ({
+    symbol: q.symbol, price: q.regularMarketPrice, changesPercentage: q.regularMarketChangePercent,
+  }));
+  const regime = computeRegime(macroData);
+  const marketRegime = regimeToEntryVocabulary(regime.label);
+
+  const sectorRanked = SECTOR_THEME_MAP.SECTOR_ETFS
+    .map((s) => ({ sym: s.sym, chgPct: Number(sectorQuotes.find((q) => q.symbol === s.sym)?.regularMarketChangePercent) || 0 }))
+    .sort((a, b) => b.chgPct - a.chgPct);
+  const sectorInfoFor = (symbol) => {
+    const etf = SECTOR_THEME_MAP.etfOf(symbol);
+    if (!etf) return null;
+    const idx = sectorRanked.findIndex((r) => r.sym === etf);
+    return idx >= 0 ? { rank: idx + 1, of: sectorRanked.length } : null;
+  };
+
+  const tiers = { actionable: [], developing: [], wait: [], extended: [], invalidated: [] };
+  for (const row of rows) {
+    if (row.error) continue;
+    const opp = computeOpportunity({
+      symbol: row.symbol, row, regime, marketRegime,
+      sectorInfo: sectorInfoFor(row.symbol), adx: row.technicals?.adx || null,
+      optionsFlow: null, trackReport,
+    });
+    if (!opp) continue;
+    const bucket = tiers[opp.tier.toLowerCase()];
+    if (bucket) bucket.push(opp);
+  }
+  for (const key of Object.keys(tiers)) tiers[key].sort((a, b) => (b.score || 0) - (a.score || 0));
+  return tiers;
+}
+
 async function handleMarket(req, res, requestUrl) {
   const { pathname, searchParams } = requestUrl;
 
@@ -2840,52 +2891,7 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
   // a ~100-symbol-per-request fetch.
   if (pathname === "/api/market/opportunities" && req.method === "GET") {
     try {
-      const { SCAN_UNIVERSE } = require("../advisor-ai");
-      const { computeRegime, regimeToEntryVocabulary } = require("../trade-planner-scoring");
-      const { computeOpportunity } = require("../opportunity-engine");
-
-      const MACRO_SYMS = ["SPY", "QQQ", "IWM", "DIA", "^VIX", "UUP", "VIXY", "TLT", "HYG"];
-      const [rows, macroQuotes, sectorQuotes, trackReport] = await Promise.all([
-        screenTrendTemplate(SCAN_UNIVERSE),
-        fetchYahooQuoteBatch(MACRO_SYMS).catch(() => []),
-        fetchYahooQuoteBatch(SECTOR_THEME_MAP.SECTOR_ETFS.map((s) => s.sym)).catch(() => []),
-        _getTrackReportCached(),
-      ]);
-
-      const macroData = macroQuotes.map((q) => ({
-        symbol: q.symbol, price: q.regularMarketPrice, changesPercentage: q.regularMarketChangePercent,
-      }));
-      const regime = computeRegime(macroData);
-      const marketRegime = regimeToEntryVocabulary(regime.label);
-
-      // Real per-symbol sector rank — identical logic to the Smart Money
-      // route above (SECTOR_THEME_MAP.sectorOf/etfOf + a rank of the 11
-      // real sector ETFs by today's %change), just computed once per
-      // sector ETF here and looked up per symbol below instead of
-      // recomputed per single-symbol request.
-      const sectorRanked = SECTOR_THEME_MAP.SECTOR_ETFS
-        .map((s) => ({ sym: s.sym, chgPct: Number(sectorQuotes.find((q) => q.symbol === s.sym)?.regularMarketChangePercent) || 0 }))
-        .sort((a, b) => b.chgPct - a.chgPct);
-      const sectorInfoFor = (symbol) => {
-        const etf = SECTOR_THEME_MAP.etfOf(symbol);
-        if (!etf) return null;
-        const idx = sectorRanked.findIndex((r) => r.sym === etf);
-        return idx >= 0 ? { rank: idx + 1, of: sectorRanked.length } : null;
-      };
-
-      const tiers = { actionable: [], developing: [], wait: [], extended: [], invalidated: [] };
-      for (const row of rows) {
-        if (row.error) continue;
-        const opp = computeOpportunity({
-          symbol: row.symbol, row, regime, marketRegime,
-          sectorInfo: sectorInfoFor(row.symbol), adx: row.technicals?.adx || null,
-          optionsFlow: null, trackReport,
-        });
-        if (!opp) continue;
-        const bucket = tiers[opp.tier.toLowerCase()];
-        if (bucket) bucket.push(opp);
-      }
-      for (const key of Object.keys(tiers)) tiers[key].sort((a, b) => (b.score || 0) - (a.score || 0));
+      const tiers = await computeAllOpportunities();
 
       // Same-session Edge Timeline (Phase 2, 2026-08-26) — real, throttled
       // intraday snapshot of every real Opportunity Object this scan just
@@ -6126,3 +6132,4 @@ module.exports.ttWeightedMomentum = ttWeightedMomentum; // exposed for the same 
 module.exports.fetchMarketNews = fetchMarketNews; // exposed for src/news/provider.js's NewsProvider implementation — same real Finnhub->Polygon->Yahoo/Google chain this route already uses, not a second news fetch path
 module.exports.buildCortexFollowupSystemPrompt = buildCortexFollowupSystemPrompt; // exposed for direct unit testing — the route itself short-circuits before this runs when ANTHROPIC_API_KEY is missing
 module.exports.getTrackReportCached = _getTrackReportCached; // exposed for opportunity-engine.js's real winProbFor lookup (Market Opportunity Engine Phase 1)
+module.exports.computeAllOpportunities = computeAllOpportunities; // exposed for opportunity-pivot-alerts.js's real WAIT/DEVELOPING/EXTENDED -> ACTIONABLE background watch job

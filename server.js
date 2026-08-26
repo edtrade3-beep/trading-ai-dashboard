@@ -352,6 +352,15 @@ server.listen(PORT, HOST, () => {
   registerJob("Best Opportunities", 15 * 60_000, () => require("./src/best-opportunities-alerts").checkBestOpportunitiesAlerts());
   console.log("[Best Opportunities] Real new-GO-setup detection active — every 15 min, feeds the morning digest");
 
+  // Opportunity pivot watch (explicit user request, 2026-08-26: "i need
+  // system watchem for me" — auto-watch every real WAIT/DEVELOPING/
+  // EXTENDED-tier symbol in Trade Desk's own Opportunity Inbox, not a
+  // manual per-symbol opt-in). Fires a real Telegram alert the moment a
+  // symbol's real tier genuinely transitions to ACTIONABLE — same real
+  // scan Trade Desk's Opportunity Inbox itself reads.
+  registerJob("Opportunity Pivot Watch", 15 * 60_000, () => require("./src/opportunity-pivot-alerts").checkOpportunityPivotAlerts());
+  console.log("[Opportunity Pivot Watch] Real WAIT->ACTIONABLE transition detection active — every 15 min");
+
   // Bearish setups alerts (explicit user request, 2026-08-03: "when market
   // is down what stocks to short") — the real bearish counterpart to the
   // job above. Puts, not equity shorts (long-only guardrail stays intact).
