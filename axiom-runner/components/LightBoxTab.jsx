@@ -9,6 +9,7 @@ const STATE_PRIORITY = { BUY: 0, WAIT: 1, SELL: 2 };
 const STATE_TO_SIGNAL = { BUY: "GREEN", WAIT: "YELLOW", SELL: "RED" };
 const SECONDARY_SORTS = [
   { id: "score", label: "A+ Score" },
+  { id: "attention", label: "Attention Score" },
   { id: "volume", label: "Volume (RVOL)" },
   { id: "move", label: "% Move" },
   { id: "alpha", label: "Alphabetical" },
@@ -29,6 +30,7 @@ function sortRows(rows, secondarySort) {
   return [...rows].sort((a, b) => {
     const p = STATE_PRIORITY[a.state] - STATE_PRIORITY[b.state];
     if (p !== 0) return p;
+    if (secondarySort === "attention") return (b.attentionScore || 0) - (a.attentionScore || 0);
     if (secondarySort === "volume") return (b.rvol || 0) - (a.rvol || 0);
     if (secondarySort === "move") return Math.abs(b.chg || 0) - Math.abs(a.chg || 0);
     if (secondarySort === "alpha") return a.symbol.localeCompare(b.symbol);
@@ -46,6 +48,7 @@ function sortRows(rows, secondarySort) {
 export default function LightBoxTab({ C, MONO, SANS, lightboxSettings, setLightboxSettings, onOpenSymbol }) {
   const [bySymbol, setBySymbol] = useState({});
   const [transitions, setTransitions] = useState([]);
+  const [topOpportunities, setTopOpportunities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [confirmBarsInput, setConfirmBarsInput] = useState(String(lightboxSettings.confirmBars || 2));
   const lastSeenTsRef = useRef(null);
@@ -87,6 +90,7 @@ export default function LightBoxTab({ C, MONO, SANS, lightboxSettings, setLightb
           return next;
         });
         setTransitions(j.transitions || []);
+        setTopOpportunities(j.topOpportunities || []);
         setLoading(false);
       } catch {}
     };
@@ -176,6 +180,33 @@ export default function LightBoxTab({ C, MONO, SANS, lightboxSettings, setLightb
           </div>
         </div>
       </div>
+
+      {/* TOP OPPORTUNITIES NOW (Market Opportunity Intelligence Engine
+          upgrade, 2026-08-26, spec's explicit "WHAT DESERVES MY ATTENTION
+          RIGHT NOW?" ask) — real, disclosed attentionScore ranking
+          straight off the same /api/market/lightbox response the grid
+          below reads, never a second ranking pass. Honestly absent (not
+          padded) when nothing real currently qualifies (every row is
+          INVALIDATED or attentionScore itself isn't available yet). */}
+      {topOpportunities.length > 0 && (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12, padding: "10px 12px", background: `${C.accent}0c`, border: `1px solid ${C.accent}33`, borderRadius: 10 }}>
+          <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent, alignSelf: "center" }}>🔥 TOP NOW</span>
+          {topOpportunities.map((sym, i) => {
+            const row = bySymbol[sym];
+            if (!row) return null;
+            return (
+              <button key={sym} onClick={() => onOpenSymbol && onOpenSymbol(row)}
+                title={row.signalReason || row.reason || ""}
+                style={{
+                  fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "5px 10px", borderRadius: 999, cursor: onOpenSymbol ? "pointer" : "default",
+                  border: `1px solid ${C[STATE_COLOR_KEY[row.state]] || C.border}`, background: C.card, color: C.text,
+                }}>
+                {i + 1}. {sym} {Number.isFinite(row.attentionScore) ? `(${row.attentionScore})` : ""}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       <AutopilotPanel C={C} MONO={MONO} SANS={SANS} />
 

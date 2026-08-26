@@ -51,6 +51,23 @@ function entryTriggerColor(status, C) {
   return C.textDim;
 }
 
+// Lifecycle badge (Market Opportunity Intelligence Engine upgrade,
+// 2026-08-26) — real state from lightbox-state-store.js's own tick
+// (classifyLifecycle/applyWeakeningOverride), shown alongside the
+// existing BUY/WAIT/SELL badge rather than replacing it (that badge is
+// the real debounce-confirmed signal; lifecycle is the richer real
+// EARLY/DEVELOPING/QUALIFIED/ACTIONABLE/A+/WEAKENING/INVALIDATED read on
+// top of it — different real questions, both worth showing).
+const LIFECYCLE_META = {
+  EARLY: { icon: "🔵", color: "#3b82f6" },
+  DEVELOPING: { icon: "🟢", color: "#0d9465" },
+  QUALIFIED: { icon: "🟢", color: "#0d9465" },
+  ACTIONABLE: { icon: "🚨", color: "#ea580c" },
+  "A+": { icon: "🔥", color: "#9c27b0" },
+  WEAKENING: { icon: "🟡", color: "#d6a312" },
+  INVALIDATED: { icon: "🔴", color: "#c8282a" },
+};
+
 function LightBoxCardInner({ C, MONO, SANS, data, showSecondary, onOpenSymbol }) {
   const col = C[STATE_COLOR_KEY[data.state]] || C.textDim;
   const age = ageLabel(data.updatedAt);
@@ -76,8 +93,8 @@ function LightBoxCardInner({ C, MONO, SANS, data, showSecondary, onOpenSymbol })
 
   return (
     <div
-      onClick={onOpenSymbol ? () => onOpenSymbol(data.symbol) : undefined}
-      title={onOpenSymbol ? `Open ${data.symbol} in Day Trade Console` : undefined}
+      onClick={onOpenSymbol ? () => onOpenSymbol(data) : undefined}
+      title={onOpenSymbol ? `Open ${data.symbol} in Trade Desk` : undefined}
       style={{
         background: `${col}14`,
         border: `2px solid ${col}`,
@@ -94,7 +111,15 @@ function LightBoxCardInner({ C, MONO, SANS, data, showSecondary, onOpenSymbol })
       }}
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
-        <span style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.text, letterSpacing: "0.02em" }}>{data.symbol}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.text, letterSpacing: "0.02em" }}>{data.symbol}</span>
+          {data.lifecycle && LIFECYCLE_META[data.lifecycle] && (
+            <span title={`Real opportunity lifecycle: ${data.lifecycle}`}
+              style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: LIFECYCLE_META[data.lifecycle].color }}>
+              {LIFECYCLE_META[data.lifecycle].icon} {data.lifecycle}
+            </span>
+          )}
+        </div>
         <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
           {data.entryTriggerStatus && (
             <span title={data.signalReason || "Entry trigger status — same CONFIRMED/APPROACHING/NOT_READY/INVALIDATED classification Green Light's Day Trade Mode uses"}
@@ -154,6 +179,17 @@ function LightBoxCardInner({ C, MONO, SANS, data, showSecondary, onOpenSymbol })
           <SecondaryStat label="Suggested Entry" value={data.bestEntry != null ? `$${Number(data.bestEntry).toFixed(2)}` : "—"} C={C} SANS={SANS} MONO={MONO} />
           <SecondaryStat label="Stop" value={data.stop != null ? `$${Number(data.stop).toFixed(2)}` : "—"} C={C} SANS={SANS} MONO={MONO} />
           <SecondaryStat label="Target" value={data.target != null ? `$${Number(data.target).toFixed(2)}` : "—"} C={C} SANS={SANS} MONO={MONO} />
+          <SecondaryStat label="EV" value={Number.isFinite(data.ev) ? `${data.ev >= 0 ? "+" : ""}${data.ev}%` : "insufficient data"} C={C} SANS={SANS} MONO={MONO} />
+          <SecondaryStat label="Attention" value={Number.isFinite(data.attentionScore) ? `${data.attentionScore}/100` : "—"} C={C} SANS={SANS} MONO={MONO} />
+          {data.chase?.band && <SecondaryStat label="Chase Risk" value={data.chase.band.replace(/_/g, " ")} C={C} SANS={SANS} MONO={MONO} />}
+          {data.edgeVelocity?.status && data.edgeVelocity.status !== "INSUFFICIENT_DATA" && (
+            <SecondaryStat label="Edge" value={`${data.edgeVelocity.status}${data.edgeVelocity.velocity != null ? ` ${data.edgeVelocity.velocity >= 0 ? "+" : ""}${data.edgeVelocity.velocity}` : ""}`} C={C} SANS={SANS} MONO={MONO} />
+          )}
+          {data.correlation?.highCorrelation && (
+            <div style={{ gridColumn: "1 / -1", fontFamily: SANS, fontSize: 10, color: "#c8282a", marginTop: 2 }}>
+              ⚠ High portfolio correlation with an existing position
+            </div>
+          )}
         </div>
       )}
     </div>

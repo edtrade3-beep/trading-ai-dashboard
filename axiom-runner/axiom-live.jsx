@@ -1648,6 +1648,45 @@ export default function App() {
     setDaytradeConsoleSymbol(sym);
     setActiveTab("daytrade-console");
   }, []);
+
+  // Full-Opportunity-Object handoff to Trade Desk (Market Opportunity
+  // Intelligence Engine upgrade, 2026-08-26, spec's explicit, repeated
+  // instruction: "the button opens the EXISTING TRADE DESK... Do NOT
+  // recreate the Trade Desk inside LIGHT BOX"). Replaces
+  // openDaytradeConsole as Light Box's own "open" action (that function
+  // had no other real caller anywhere in the app — Day Trade Console was
+  // only ever reached via Light Box). Same real localStorage handoff
+  // convention as mterminal_load_sym (TradeDeskTab.jsx's own symbol
+  // useState initializer) for the symbol itself, plus a new key carrying
+  // the real day-trade Opportunity Object fields (entry/stop/target/EV/
+  // probability/thesis) Trade Desk can show as a real, clearly-labeled
+  // handoff — never silently recomputed by Trade Desk's own daily-bar
+  // swing engine, which would produce a genuinely different (and wrong,
+  // for a 15m day-trade context) set of numbers for the same symbol.
+  // Accepts either a bare symbol string (safe fallback) or a real Light
+  // Box row object (symbol/state/lifecycle/ev/etc.).
+  const openInTradeDesk = React.useCallback((rowOrSymbol) => {
+    const isRow = rowOrSymbol && typeof rowOrSymbol === "object";
+    const symbol = isRow ? rowOrSymbol.symbol : rowOrSymbol;
+    if (!symbol) return;
+    try {
+      localStorage.setItem("mterminal_load_sym", symbol);
+      if (isRow) {
+        localStorage.setItem("lightbox_handoff_opportunity", JSON.stringify({
+          symbol, direction: rowOrSymbol.direction || null, timeframe: "15m",
+          lifecycle: rowOrSymbol.lifecycle || null, state: rowOrSymbol.state || null,
+          entry: rowOrSymbol.bestEntry ?? null, stop: rowOrSymbol.stop ?? null, target: rowOrSymbol.target ?? null,
+          ev: rowOrSymbol.ev ?? null, opportunityGap: rowOrSymbol.opportunityGap ?? null,
+          quality: rowOrSymbol.quality ?? null, grade: rowOrSymbol.grade ?? null,
+          attentionScore: rowOrSymbol.attentionScore ?? null,
+          chase: rowOrSymbol.chase ?? null, redFlags: rowOrSymbol.redFlags ?? null,
+          thesis: rowOrSymbol.signalReason || rowOrSymbol.reason || null,
+          ts: Date.now(),
+        }));
+      }
+    } catch {}
+    setActiveTab("trade-desk");
+  }, []);
   // Save tab on change
   React.useEffect(() => { try { localStorage.setItem("last_tab", activeTab); } catch {} }, [activeTab]);
   // In-app Back/Forward nav history (explicit user request, 2026-08-03:
@@ -6685,7 +6724,7 @@ export default function App() {
             alpacaPositions={alpacaPositions} terminalSymbol={terminalSymbol} setTerminalSymbol={setTerminalSymbol}
             setActiveTab={setActiveTab} isMobile={isMobile} isTablet={isTablet}
             watchlistSymbols={watchlistSymbols} setWatchlistSymbols={setWatchlistSymbols}
-            lightboxSettings={lightboxSettings} setLightboxSettings={setLightboxSettings} openDaytradeConsole={openDaytradeConsole}
+            lightboxSettings={lightboxSettings} setLightboxSettings={setLightboxSettings} openDaytradeConsole={openDaytradeConsole} openInTradeDesk={openInTradeDesk}
             discoverProps={{
               distData, preMktMovers, marketSession, watchlistData, openDeepDiveFor,
               optionsFlow, flowBias, flowCallNotional, flowPutNotional, flowFilters, setFlowFilters,
@@ -7300,7 +7339,7 @@ export default function App() {
       {activeTab === "holdings" && <HoldingsTab C={C} MONO={MONO} SANS={SANS} macroData={macroData} />}
       {activeTab === "gl-backtest" && <GLBacktestTab C={C} MONO={MONO} SANS={SANS} watchlistSymbols={watchlistSymbols} />}
       {activeTab === "predictions" && <PredictionsTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} macroData={macroData} />}
-      {activeTab === "lightbox" && <LightBoxTab C={C} MONO={MONO} SANS={SANS} lightboxSettings={lightboxSettings} setLightboxSettings={setLightboxSettings} onOpenSymbol={openDaytradeConsole} />}
+      {activeTab === "lightbox" && <LightBoxTab C={C} MONO={MONO} SANS={SANS} lightboxSettings={lightboxSettings} setLightboxSettings={setLightboxSettings} onOpenSymbol={openInTradeDesk} />}
 
       {activeTab === "daytrade-console" && (
         <DayTradeConsoleTab C={C} MONO={MONO} SANS={SANS} symbol={daytradeConsoleSymbol} onBack={() => setActiveTab("lightbox")} />

@@ -99,7 +99,7 @@ export default function TradeDeskTab({
   C, MONO, SANS, macroData, sectorData, alpacaPositions, terminalSymbol, setTerminalSymbol,
   setActiveTab, isMobile, isTablet, watchlistSymbols, setWatchlistSymbols,
   alertsProps, newsProps, scannerProps, discoverProps,
-  lightboxSettings, setLightboxSettings, openDaytradeConsole,
+  lightboxSettings, setLightboxSettings, openDaytradeConsole, openInTradeDesk,
 }) {
   const [symbol, setSymbol] = useState(() => {
     try {
@@ -189,6 +189,44 @@ export default function TradeDeskTab({
     }
     setSymbol(sym);
     setTerminalSymbol && setTerminalSymbol(sym);
+  };
+
+  // Full-Opportunity-Object handoff from Light Box (Market Opportunity
+  // Intelligence Engine upgrade, 2026-08-26) — consumed two ways: (1) on a
+  // genuinely FRESH mount (navigating in from the standalone Light Box
+  // tab), read once from the same real localStorage key openInTradeDesk
+  // (axiom-live.jsx) just wrote, matching the mterminal_load_sym
+  // convention above; honestly discarded if stale (>60s old — a leftover
+  // from a much earlier click should never silently reappear). (2) a live
+  // click on the LightBoxTab DOCKED inside this same Trade Desk instance
+  // (applyLightboxHandoff below) — no remount happens in that case, so
+  // this sets the state directly instead of relying on the mount-time read.
+  const [dayTradeHandoff, setDayTradeHandoff] = useState(() => {
+    try {
+      const raw = localStorage.getItem("lightbox_handoff_opportunity");
+      if (!raw) return null;
+      localStorage.removeItem("lightbox_handoff_opportunity");
+      const obj = JSON.parse(raw);
+      if (!obj?.symbol || Date.now() - (obj.ts || 0) > 60_000) return null;
+      return obj;
+    } catch { return null; }
+  });
+  const applyLightboxHandoff = (rowOrSymbol) => {
+    const isRow = rowOrSymbol && typeof rowOrSymbol === "object";
+    const sym = isRow ? rowOrSymbol.symbol : rowOrSymbol;
+    if (!sym) return;
+    if (isRow) {
+      setDayTradeHandoff({
+        symbol: sym, direction: rowOrSymbol.direction || null, lifecycle: rowOrSymbol.lifecycle || null,
+        entry: rowOrSymbol.bestEntry ?? null, stop: rowOrSymbol.stop ?? null, target: rowOrSymbol.target ?? null,
+        ev: rowOrSymbol.ev ?? null, opportunityGap: rowOrSymbol.opportunityGap ?? null,
+        quality: rowOrSymbol.quality ?? null, grade: rowOrSymbol.grade ?? null, attentionScore: rowOrSymbol.attentionScore ?? null,
+        chase: rowOrSymbol.chase ?? null, redFlags: rowOrSymbol.redFlags ?? null,
+        thesis: rowOrSymbol.signalReason || rowOrSymbol.reason || null, ts: Date.now(),
+      });
+    }
+    selectSymbol(sym);
+    setDockModule(null); // close the dock so the loaded Sniper Mode/chart is immediately visible
   };
 
   const [chart, setChart] = useState(null);
@@ -336,7 +374,7 @@ export default function TradeDeskTab({
           setWatchlistSymbols={setWatchlistSymbols} onSelectSymbol={selectSymbol}
         />
       )}
-      {dockModule === "lightbox" && <LightBoxTab C={C} MONO={MONO} SANS={SANS} lightboxSettings={lightboxSettings} setLightboxSettings={setLightboxSettings} onOpenSymbol={openDaytradeConsole} />}
+      {dockModule === "lightbox" && <LightBoxTab C={C} MONO={MONO} SANS={SANS} lightboxSettings={lightboxSettings} setLightboxSettings={setLightboxSettings} onOpenSymbol={applyLightboxHandoff} />}
       {dockModule === "portfolio" && (
         // Active Trades (Phase 2, 2026-08-26) — was PortfolioSnapshotCard
         // alone (equity/day-change/open-position-COUNT, no per-position
@@ -411,11 +449,11 @@ export default function TradeDeskTab({
             force the fixed-column grid on a narrow screen (ScanTerminalHub's
             own history is the reason this is a deliberate, up-front choice). */}
         {isMobile ? (
-          <MobileTradeDeskBody symbol={symbol} selectSymbol={selectSymbol} chart={chart} symbolQuote={symbolQuote} openDaytradeConsole={openDaytradeConsole} loadingChart={loadingChart} vcpOn={vcpOn} setVcpOn={setVcpOn} setActiveTab={setActiveTab} C={C} MONO={MONO} SANS={SANS} />
+          <MobileTradeDeskBody symbol={symbol} selectSymbol={selectSymbol} chart={chart} symbolQuote={symbolQuote} applyLightboxHandoff={applyLightboxHandoff} dayTradeHandoff={dayTradeHandoff} loadingChart={loadingChart} vcpOn={vcpOn} setVcpOn={setVcpOn} setActiveTab={setActiveTab} C={C} MONO={MONO} SANS={SANS} />
         ) : (
           <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "220px 1fr 280px" }}>
             <div style={{ borderRight: `1px solid ${C.border}`, minHeight: 0, overflow: "hidden" }}>
-              <CommandSearchPanel symbol={symbol} onSelectSymbol={selectSymbol} onOpenDaytrade={openDaytradeConsole} chart={chart} symbolQuote={symbolQuote} C={C} MONO={MONO} SANS={SANS} />
+              <CommandSearchPanel symbol={symbol} onSelectSymbol={selectSymbol} onOpenDaytrade={applyLightboxHandoff} chart={chart} symbolQuote={symbolQuote} C={C} MONO={MONO} SANS={SANS} />
             </div>
             <ChartPane symbol={symbol} chart={chart} loadingChart={loadingChart} vcpOn={vcpOn} setVcpOn={setVcpOn} C={C} MONO={MONO} SANS={SANS} />
             {/* Right column split (Phase 2, 2026-08-26, user-confirmed
@@ -443,7 +481,7 @@ export default function TradeDeskTab({
                 )}
               </div>
               <div style={{ flex: 1, minHeight: 0 }}>
-                <CortexMiniPanel symbol={symbol} onSelectSymbol={selectSymbol} setActiveTab={setActiveTab} C={C} MONO={MONO} SANS={SANS} />
+                <CortexMiniPanel symbol={symbol} onSelectSymbol={selectSymbol} setActiveTab={setActiveTab} dayTradeHandoff={dayTradeHandoff} C={C} MONO={MONO} SANS={SANS} />
               </div>
             </div>
           </div>
@@ -549,7 +587,7 @@ function ChartPane({ symbol, chart, loadingChart, vcpOn, setVcpOn, C, MONO, SANS
   );
 }
 
-function MobileTradeDeskBody({ symbol, selectSymbol, chart, symbolQuote, openDaytradeConsole, loadingChart, vcpOn, setVcpOn, setActiveTab, C, MONO, SANS }) {
+function MobileTradeDeskBody({ symbol, selectSymbol, chart, symbolQuote, applyLightboxHandoff, dayTradeHandoff, loadingChart, vcpOn, setVcpOn, setActiveTab, C, MONO, SANS }) {
   const [view, setView] = useState("chart");
   return (
     <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
@@ -564,7 +602,7 @@ function MobileTradeDeskBody({ symbol, selectSymbol, chart, symbolQuote, openDay
         ))}
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
-        {view === "search" && <CommandSearchPanel symbol={symbol} onSelectSymbol={(s) => { selectSymbol(s); setView("chart"); }} onOpenDaytrade={openDaytradeConsole} chart={chart} symbolQuote={symbolQuote} C={C} MONO={MONO} SANS={SANS} />}
+        {view === "search" && <CommandSearchPanel symbol={symbol} onSelectSymbol={(s) => { selectSymbol(s); setView("chart"); }} onOpenDaytrade={(r) => { applyLightboxHandoff(r); setView("chart"); }} chart={chart} symbolQuote={symbolQuote} C={C} MONO={MONO} SANS={SANS} />}
         {view === "chart" && (
           <div style={{ padding: "8px 10px 10px" }}>
             <TickerHeader symbol={symbol} chart={chart} symbolQuote={symbolQuote} C={C} MONO={MONO} SANS={SANS} />
@@ -587,7 +625,7 @@ function MobileTradeDeskBody({ symbol, selectSymbol, chart, symbolQuote, openDay
             )}
           </div>
         )}
-        {view === "cortex" && <CortexMiniPanel symbol={symbol} onSelectSymbol={selectSymbol} setActiveTab={setActiveTab} C={C} MONO={MONO} SANS={SANS} />}
+        {view === "cortex" && <CortexMiniPanel symbol={symbol} onSelectSymbol={selectSymbol} setActiveTab={setActiveTab} dayTradeHandoff={dayTradeHandoff} C={C} MONO={MONO} SANS={SANS} />}
       </div>
     </div>
   );

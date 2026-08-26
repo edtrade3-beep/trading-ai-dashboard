@@ -42,7 +42,7 @@ function riskLevelFor(opp) {
 }
 const RISK_LEVEL_COLOR = { LOW: "#0d9465", MODERATE: "#d6a312", HIGH: "#c8282a" };
 
-export default function CortexMiniPanel({ symbol, onSelectSymbol, setActiveTab, C, MONO, SANS }) {
+export default function CortexMiniPanel({ symbol, onSelectSymbol, setActiveTab, dayTradeHandoff, C, MONO, SANS }) {
   const [query, setQuery] = useState("");
   const [analysis, setAnalysis] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -163,6 +163,43 @@ export default function CortexMiniPanel({ symbol, onSelectSymbol, setActiveTab, 
       {loading && <div style={{ margin: "0 10px 8px", fontFamily: SANS, fontSize: 11, color: C.textDim }}>Analyzing {symbol}…</div>}
 
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 10px 10px" }}>
+        {dayTradeHandoff && dayTradeHandoff.symbol === symbol && (
+          // Full-Opportunity-Object handoff from Light Box (Market
+          // Opportunity Intelligence Engine upgrade, 2026-08-26, spec:
+          // "the Trade Desk should receive the same Opportunity Object...
+          // do not duplicate calculations"). Real day-trade entry/stop/
+          // target/EV from Light Box's own 15m engine, shown here
+          // clearly labeled as a DIFFERENT real timeframe than the AI
+          // VERDICT card below (which is Trade Desk's own daily-bar swing
+          // read) — never silently recomputed or blended together.
+          <div style={{ border: `1px solid #f59e0b55`, background: "#f59e0b0f", borderRadius: 10, padding: "10px 12px", marginBottom: 10 }}>
+            <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: "#f59e0b", letterSpacing: 0.5, marginBottom: 4 }}>
+              🚦 DAY-TRADE OPPORTUNITY FROM LIGHT BOX — {dayTradeHandoff.lifecycle || dayTradeHandoff.state}
+            </div>
+            <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textSec, marginBottom: 6 }}>
+              Real 15m-timeframe read, not the daily-bar verdict below. {dayTradeHandoff.thesis || ""}
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11, marginBottom: 8 }}>
+              <span><span style={{ color: C.textDim }}>Entry</span> <b style={{ color: C.text }}>{Number.isFinite(dayTradeHandoff.entry) ? `$${dayTradeHandoff.entry.toFixed(2)}` : "—"}</b></span>
+              <span><span style={{ color: C.textDim }}>Stop</span> <b style={{ color: "#c8282a" }}>{Number.isFinite(dayTradeHandoff.stop) ? `$${dayTradeHandoff.stop.toFixed(2)}` : "—"}</b></span>
+              <span><span style={{ color: C.textDim }}>Target</span> <b style={{ color: "#0d9465" }}>{Number.isFinite(dayTradeHandoff.target) ? `$${dayTradeHandoff.target.toFixed(2)}` : "—"}</b></span>
+              <span><span style={{ color: C.textDim }}>EV</span> <b style={{ color: Number.isFinite(dayTradeHandoff.ev) ? (dayTradeHandoff.ev >= 0 ? "#0d9465" : "#c8282a") : C.textDim }}>{Number.isFinite(dayTradeHandoff.ev) ? `${dayTradeHandoff.ev >= 0 ? "+" : ""}${dayTradeHandoff.ev}%` : "insufficient data"}</b></span>
+            </div>
+            {Number.isFinite(dayTradeHandoff.entry) && Number.isFinite(dayTradeHandoff.stop) && Number.isFinite(dayTradeHandoff.target) && (
+              <button
+                onClick={() => {
+                  const riskPerShare = Math.max(0.01, dayTradeHandoff.entry - dayTradeHandoff.stop);
+                  const acct = Number(localStorage.getItem("axiom_acct_size")) || 10000;
+                  const riskPct = Number(localStorage.getItem("axiom_risk_pct")) || 1;
+                  const shares = Math.floor((acct * riskPct / 100) / riskPerShare);
+                  window.dispatchEvent(new CustomEvent("open-quick-trade", { detail: { symbol, shares, stopLoss: dayTradeHandoff.stop, takeProfit: dayTradeHandoff.target } }));
+                }}
+                style={{ width: "100%", fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "8px 10px", borderRadius: 7, border: "none", background: "#f59e0b", color: "#fff", cursor: "pointer" }}>
+                ⚡ Review Day-Trade Plan
+              </button>
+            )}
+          </div>
+        )}
         {analysis && heldPosition && (
           <div style={{ border: `1px solid ${C.accent}55`, background: `${C.accent}0f`, borderRadius: 10, padding: "10px 12px", marginBottom: 10 }}>
             <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.accent, letterSpacing: 0.5, marginBottom: 4 }}>
