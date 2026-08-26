@@ -11,7 +11,7 @@
 // Run: node test/photo-banner.test.js (or npm test).
 "use strict";
 const assert = require("node:assert");
-const { sanitizeSuggestion, MAX_BADGES } = require("../src/routes/photo-banner");
+const { sanitizeSuggestion, MAX_BADGES, VALID_FONTS, VALID_BADGE_SHAPES } = require("../src/routes/photo-banner");
 
 let passed = 0;
 function ok(name, fn) { try { fn(); passed++; console.log(`  ✓ ${name}`); } catch (e) { console.error(`  ✗ ${name}\n    ${e.message}`); process.exitCode = 1; } }
@@ -21,17 +21,74 @@ console.log("Checking sanitizeSuggestion — real validation of Claude's raw out
 ok("a real, well-formed title + badges suggestion passes through unchanged", () => {
   const r = sanitizeSuggestion({
     titleText: "TOYOTA COROLLA",
-    badges: [{ icon: "✅", label: "ONE OWNER", sublabel: "" }, { icon: "⏱️", label: "71K", sublabel: "MILES ONLY" }],
+    badges: [{ icon: "✅", label: "ONE OWNER", sublabel: "" }, { icon: "⏱️", label: "71K", sublabel: "MILES ONLY", primary: true }],
     position: "top", bgColor: "#12203a", textColor: "#ffffff", accentColor: "#2563eb",
+    fontFamily: "Georgia", badgeShape: "square",
     reasoning: "Dark navy reads clean against the showroom background.",
   });
   assert.strictEqual(r.titleText, "TOYOTA COROLLA");
   assert.strictEqual(r.badges.length, 2);
-  assert.deepStrictEqual(r.badges[0], { icon: "✅", label: "ONE OWNER", sublabel: "" });
-  assert.deepStrictEqual(r.badges[1], { icon: "⏱️", label: "71K", sublabel: "MILES ONLY" });
+  assert.deepStrictEqual(r.badges[0], { icon: "✅", label: "ONE OWNER", sublabel: "", primary: false });
+  assert.deepStrictEqual(r.badges[1], { icon: "⏱️", label: "71K", sublabel: "MILES ONLY", primary: true });
   assert.strictEqual(r.position, "top");
   assert.strictEqual(r.bgColor, "#12203a");
   assert.strictEqual(r.accentColor, "#2563eb");
+  assert.strictEqual(r.fontFamily, "Georgia");
+  assert.strictEqual(r.badgeShape, "square");
+});
+
+console.log("Checking sanitizeSuggestion — gradient, font, badge shape, and primary-badge hierarchy (2026-08-26 design upgrade)…");
+
+ok("gradient:true with a real bgColor2 is honored", () => {
+  const r = sanitizeSuggestion({ titleText: "X", gradient: true, bgColor: "#111111", bgColor2: "#eeeeee" });
+  assert.strictEqual(r.gradient, true);
+  assert.strictEqual(r.bgColor2, "#eeeeee");
+});
+
+ok("gradient:false (or absent) honestly ignores bgColor2 — falls back to a flat single-color fill (bgColor2 === bgColor)", () => {
+  const r1 = sanitizeSuggestion({ titleText: "X", gradient: false, bgColor: "#111111", bgColor2: "#eeeeee" });
+  assert.strictEqual(r1.gradient, false);
+  assert.strictEqual(r1.bgColor2, "#111111");
+  const r2 = sanitizeSuggestion({ titleText: "X", bgColor: "#111111", bgColor2: "#eeeeee" });
+  assert.strictEqual(r2.gradient, false);
+  assert.strictEqual(r2.bgColor2, "#111111");
+});
+
+ok("an invalid bgColor2 while gradient:true honestly falls back to bgColor (never a broken gradient stop)", () => {
+  const r = sanitizeSuggestion({ titleText: "X", gradient: true, bgColor: "#111111", bgColor2: "not-a-color" });
+  assert.strictEqual(r.bgColor2, "#111111");
+});
+
+ok("an invalid fontFamily falls back to the honest default 'Arial', never an unvalidated font string reaching Canvas", () => {
+  const r = sanitizeSuggestion({ titleText: "X", fontFamily: "Comic Sans MS" });
+  assert.strictEqual(r.fontFamily, "Arial");
+});
+
+ok("every real font in the allowed list is honored exactly", () => {
+  for (const f of VALID_FONTS) assert.strictEqual(sanitizeSuggestion({ titleText: "X", fontFamily: f }).fontFamily, f);
+});
+
+ok("an invalid badgeShape falls back to the honest default 'circle'", () => {
+  const r = sanitizeSuggestion({ titleText: "X", badgeShape: "diamond" });
+  assert.strictEqual(r.badgeShape, "circle");
+});
+
+ok("every real badge shape in the allowed list is honored exactly", () => {
+  for (const s of VALID_BADGE_SHAPES) assert.strictEqual(sanitizeSuggestion({ titleText: "X", badgeShape: s }).badgeShape, s);
+});
+
+ok("only the FIRST badge marked primary:true wins — one clear hierarchy, never several competing 'biggest' badges", () => {
+  const r = sanitizeSuggestion({
+    badges: [{ icon: "✅", label: "A", primary: true }, { icon: "🛡️", label: "B", primary: true }, { icon: "⏱️", label: "C", primary: true }],
+  });
+  assert.strictEqual(r.badges[0].primary, true);
+  assert.strictEqual(r.badges[1].primary, false);
+  assert.strictEqual(r.badges[2].primary, false);
+});
+
+ok("no badge marked primary -> all honestly false, never a fabricated default primary", () => {
+  const r = sanitizeSuggestion({ badges: [{ icon: "✅", label: "A" }, { icon: "🛡️", label: "B" }] });
+  assert.strictEqual(r.badges.every((b) => b.primary === false), true);
 });
 
 ok("no titleText AND no real badges -> honestly null, never a fabricated empty banner", () => {

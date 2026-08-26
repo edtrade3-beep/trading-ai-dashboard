@@ -18,7 +18,31 @@ import { useState, useRef, useEffect } from "react";
 // sublabel badges laid out left-to-right with dividers, matching that
 // reference bar. No brand logo is ever drawn (no real logo asset exists
 // in this app) — the title is real styled text instead.
+//
+// Design upgraded again 2026-08-26 (explicit user follow-up pasting a
+// full generative-image-editing-style design brief — vary gradient/
+// typography/badge-shape, give the strongest claim visual prominence).
+// Confirmed with the user: no image-generation API exists in this app
+// (Claude vision input only), so this widens what the deterministic
+// Canvas renderer can express instead — a real 2-color gradient fill, a
+// real font-family choice (src/routes/photo-banner.js's curated
+// system-font whitelist), a real badge-shape choice (circle/rounded-
+// square), and a real "primary" badge rendered larger for genuine
+// typographic hierarchy — while the underlying photo is still never
+// touched, only drawn once and composited under the bar exactly as before.
 const MAX_BADGES = 4;
+const PRIMARY_BOOST = 1.22; // real, disclosed size multiplier for the one badge marked primary
+
+function roundRectPath(ctx, x, y, w, h, r) {
+  const rr = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + rr, y);
+  ctx.arcTo(x + w, y, x + w, y + h, rr);
+  ctx.arcTo(x + w, y + h, x, y + h, rr);
+  ctx.arcTo(x, y + h, x, y, rr);
+  ctx.arcTo(x, y, x + w, y, rr);
+  ctx.closePath();
+}
 
 export default function PhotoBannerTab({ C, MONO, SANS }) {
   const [imageDataUrl, setImageDataUrl] = useState(null);
@@ -51,30 +75,36 @@ export default function PhotoBannerTab({ C, MONO, SANS }) {
     return { padX, titleSize, iconR, labelSize, labelSizeWithSub, subSize };
   }
 
-  function measureTotalWidth(ctx, sugg, badges, barHeight, scale) {
-    const { padX, titleSize, iconR, labelSize, labelSizeWithSub, subSize } = layoutMetrics(barHeight, scale);
-    let width = padX;
+  function badgeMetrics(base, primary) {
+    if (!primary) return base;
+    return { iconR: Math.round(base.iconR * PRIMARY_BOOST), labelSize: Math.round(base.labelSize * PRIMARY_BOOST), labelSizeWithSub: Math.round(base.labelSizeWithSub * PRIMARY_BOOST), subSize: base.subSize };
+  }
+
+  function measureTotalWidth(ctx, sugg, badges, barHeight, scale, fontStack) {
+    const base = layoutMetrics(barHeight, scale);
+    let width = base.padX;
     if (sugg.titleText) {
-      ctx.font = `900 ${titleSize}px sans-serif`;
-      width += ctx.measureText(sugg.titleText.toUpperCase()).width + padX;
-      if (badges.length) width += padX;
+      ctx.font = `900 ${base.titleSize}px ${fontStack}`;
+      width += ctx.measureText(sugg.titleText.toUpperCase()).width + base.padX;
+      if (badges.length) width += base.padX;
     }
     badges.forEach((b, i) => {
-      width += iconR * 2 + Math.round(padX * 0.5);
+      const m = badgeMetrics(base, b.primary);
+      width += m.iconR * 2 + Math.round(base.padX * 0.5);
       const label = b.label.toUpperCase();
       let labelW;
       if (b.sublabel) {
-        ctx.font = `900 ${labelSizeWithSub}px sans-serif`;
+        ctx.font = `900 ${m.labelSizeWithSub}px ${fontStack}`;
         const wLabel = ctx.measureText(label).width;
-        ctx.font = `700 ${subSize}px sans-serif`;
+        ctx.font = `700 ${m.subSize}px ${fontStack}`;
         const wSub = ctx.measureText(b.sublabel.toUpperCase()).width;
         labelW = Math.max(wLabel, wSub);
       } else {
-        ctx.font = `800 ${labelSize}px sans-serif`;
+        ctx.font = `800 ${m.labelSize}px ${fontStack}`;
         labelW = ctx.measureText(label).width;
       }
-      width += labelW + padX;
-      if (i < badges.length - 1) width += padX;
+      width += labelW + base.padX;
+      if (i < badges.length - 1) width += base.padX;
     });
     return width;
   }
@@ -91,17 +121,33 @@ export default function PhotoBannerTab({ C, MONO, SANS }) {
     const badges = (sugg?.badges || []).filter((b) => b.label);
     if (!sugg || (!sugg.titleText && !badges.length)) return;
 
+    const fontStack = `"${sugg.fontFamily || "Arial"}", Arial, sans-serif`;
     const barHeight = Math.max(56, Math.round(canvas.height * 0.11));
     const y = sugg.position === "bottom" ? canvas.height - barHeight : 0;
     const midY = y + barHeight / 2;
     const availableWidth = canvas.width - Math.round(barHeight * 0.32); // trailing margin at scale 1, real headroom
 
-    const totalAtScale1 = measureTotalWidth(ctx, sugg, badges, barHeight, 1);
+    const totalAtScale1 = measureTotalWidth(ctx, sugg, badges, barHeight, 1, fontStack);
     const scale = totalAtScale1 > availableWidth ? Math.max(MIN_FIT_SCALE, availableWidth / totalAtScale1) : 1;
-    const { padX, titleSize, iconR, labelSize, labelSizeWithSub, subSize } = layoutMetrics(barHeight, scale);
+    const base = layoutMetrics(barHeight, scale);
+    const { padX, titleSize } = base;
 
-    ctx.fillStyle = sugg.bgColor;
+    // Real background — flat fill, or a real 2-color gradient when the AI
+    // (or a hand edit) opted into one, same real bar either way.
+    if (sugg.gradient && sugg.bgColor2 && sugg.bgColor2 !== sugg.bgColor) {
+      const grad = ctx.createLinearGradient(0, y, canvas.width, y);
+      grad.addColorStop(0, sugg.bgColor);
+      grad.addColorStop(1, sugg.bgColor2);
+      ctx.fillStyle = grad;
+    } else {
+      ctx.fillStyle = sugg.bgColor;
+    }
     ctx.fillRect(0, y, canvas.width, barHeight);
+
+    // A thin accent-colored edge line — a small, real "premium" polish
+    // touch along the bar's inner border.
+    ctx.fillStyle = sugg.accentColor;
+    ctx.fillRect(0, sugg.position === "bottom" ? y : y + barHeight - Math.max(2, Math.round(barHeight * 0.02)), canvas.width, Math.max(2, Math.round(barHeight * 0.02)));
 
     const divider = (x) => {
       ctx.save();
@@ -117,7 +163,7 @@ export default function PhotoBannerTab({ C, MONO, SANS }) {
 
     let x = padX;
     if (sugg.titleText) {
-      ctx.font = `900 ${titleSize}px sans-serif`;
+      ctx.font = `900 ${titleSize}px ${fontStack}`;
       ctx.textAlign = "left";
       ctx.textBaseline = "middle";
       ctx.fillStyle = sugg.textColor;
@@ -128,33 +174,41 @@ export default function PhotoBannerTab({ C, MONO, SANS }) {
     }
 
     badges.forEach((b, i) => {
-      ctx.beginPath();
-      ctx.arc(x + iconR, midY, iconR, 0, Math.PI * 2);
-      ctx.fillStyle = sugg.accentColor;
-      ctx.fill();
-      ctx.font = `${Math.round(iconR * 1.15)}px sans-serif`;
+      const m = badgeMetrics(base, b.primary);
+      if (sugg.badgeShape === "square") {
+        roundRectPath(ctx, x, midY - m.iconR, m.iconR * 2, m.iconR * 2, Math.round(m.iconR * 0.35));
+        ctx.fillStyle = sugg.accentColor;
+        ctx.fill();
+      } else {
+        ctx.beginPath();
+        ctx.arc(x + m.iconR, midY, m.iconR, 0, Math.PI * 2);
+        ctx.fillStyle = sugg.accentColor;
+        ctx.fill();
+      }
+      ctx.font = `${Math.round(m.iconR * 1.15)}px ${fontStack}`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText(b.icon || "•", x + iconR, midY + 1);
-      x += iconR * 2 + Math.round(padX * 0.5);
+      ctx.fillStyle = "#ffffff";
+      ctx.fillText(b.icon || "•", x + m.iconR, midY + 1);
+      x += m.iconR * 2 + Math.round(padX * 0.5);
 
       ctx.textAlign = "left";
       ctx.fillStyle = sugg.textColor;
       const label = b.label.toUpperCase();
       if (b.sublabel) {
-        ctx.font = `900 ${labelSizeWithSub}px sans-serif`;
+        ctx.font = `900 ${m.labelSizeWithSub}px ${fontStack}`;
         ctx.textBaseline = "alphabetic";
         ctx.fillText(label, x, midY - 1);
         const wLabel = ctx.measureText(label).width;
-        ctx.font = `700 ${subSize}px sans-serif`;
+        ctx.font = `700 ${m.subSize}px ${fontStack}`;
         ctx.globalAlpha = 0.85;
         const sub = b.sublabel.toUpperCase();
-        ctx.fillText(sub, x, midY - 1 + subSize + 2);
+        ctx.fillText(sub, x, midY - 1 + m.subSize + 2);
         const wSub = ctx.measureText(sub).width;
         ctx.globalAlpha = 1;
         x += Math.max(wLabel, wSub) + padX;
       } else {
-        ctx.font = `800 ${labelSize}px sans-serif`;
+        ctx.font = `800 ${m.labelSize}px ${fontStack}`;
         ctx.textBaseline = "middle";
         ctx.fillText(label, x, midY);
         x += ctx.measureText(label).width + padX;
@@ -216,7 +270,11 @@ export default function PhotoBannerTab({ C, MONO, SANS }) {
 
   const updateBadge = (i, patch) => setSuggestion((s) => ({ ...s, badges: s.badges.map((b, idx) => (idx === i ? { ...b, ...patch } : b)) }));
   const removeBadge = (i) => setSuggestion((s) => ({ ...s, badges: s.badges.filter((_, idx) => idx !== i) }));
-  const addBadge = () => setSuggestion((s) => ({ ...s, badges: [...(s.badges || []), { icon: "✅", label: "NEW", sublabel: "" }].slice(0, MAX_BADGES) }));
+  const addBadge = () => setSuggestion((s) => ({ ...s, badges: [...(s.badges || []), { icon: "✅", label: "NEW", sublabel: "", primary: false }].slice(0, MAX_BADGES) }));
+  // Only one real "primary" (larger) badge at a time — matches the same
+  // real "first one wins" rule src/routes/photo-banner.js's
+  // sanitizeSuggestion enforces on the AI's own output.
+  const togglePrimary = (i) => setSuggestion((s) => ({ ...s, badges: s.badges.map((b, idx) => ({ ...b, primary: idx === i ? !b.primary : false })) }));
 
   const field = (label, node) => (
     <label style={{ display: "flex", flexDirection: "column", gap: 4, fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: 0.4 }}>
@@ -294,14 +352,35 @@ export default function PhotoBannerTab({ C, MONO, SANS }) {
                 ))}
                 {field("BACKGROUND", <input type="color" value={suggestion.bgColor}
                   onChange={(e) => setSuggestion((s) => ({ ...s, bgColor: e.target.value }))} style={colorSwatchStyle} />)}
+                {suggestion.gradient && field("GRADIENT TO", <input type="color" value={suggestion.bgColor2}
+                  onChange={(e) => setSuggestion((s) => ({ ...s, bgColor2: e.target.value }))} style={colorSwatchStyle} />)}
                 {field("TEXT", <input type="color" value={suggestion.textColor}
                   onChange={(e) => setSuggestion((s) => ({ ...s, textColor: e.target.value }))} style={colorSwatchStyle} />)}
                 {field("BADGE ACCENT", <input type="color" value={suggestion.accentColor}
                   onChange={(e) => setSuggestion((s) => ({ ...s, accentColor: e.target.value }))} style={colorSwatchStyle} />)}
+                {field("GRADIENT", (
+                  <button onClick={() => setSuggestion((s) => ({ ...s, gradient: !s.gradient, bgColor2: s.gradient ? s.bgColor2 : (s.bgColor2 || s.bgColor) }))}
+                    style={{ ...smallBtn, borderColor: suggestion.gradient ? C.accent : C.border, color: suggestion.gradient ? C.accent : C.textDim, padding: "7px 10px" }}>
+                    {suggestion.gradient ? "✓ On" : "Off"}
+                  </button>
+                ))}
+                {field("FONT", (
+                  <select style={inputStyle} value={suggestion.fontFamily}
+                    onChange={(e) => setSuggestion((s) => ({ ...s, fontFamily: e.target.value }))}>
+                    {["Arial", "Helvetica Neue", "Georgia", "Impact", "Trebuchet MS", "Verdana", "Futura"].map((f) => <option key={f} value={f}>{f}</option>)}
+                  </select>
+                ))}
+                {field("BADGE SHAPE", (
+                  <select style={inputStyle} value={suggestion.badgeShape}
+                    onChange={(e) => setSuggestion((s) => ({ ...s, badgeShape: e.target.value }))}>
+                    <option value="circle">Circle</option>
+                    <option value="square">Rounded square</option>
+                  </select>
+                ))}
               </div>
 
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: 0.4 }}>BADGES ({(suggestion.badges || []).length}/{MAX_BADGES})</div>
+                <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: 0.4 }}>BADGES ({(suggestion.badges || []).length}/{MAX_BADGES}) — ⭐ marks the strongest claim (renders larger)</div>
                 {(suggestion.badges || []).map((b, i) => (
                   <div key={i} style={{ display: "flex", gap: 6, alignItems: "center" }}>
                     <input style={{ ...inputStyle, width: 48, textAlign: "center" }} value={b.icon}
@@ -310,6 +389,10 @@ export default function PhotoBannerTab({ C, MONO, SANS }) {
                       onChange={(e) => updateBadge(i, { label: e.target.value.slice(0, 16) })} />
                     <input style={{ ...inputStyle, width: 130 }} value={b.sublabel} placeholder="Sublabel (optional)"
                       onChange={(e) => updateBadge(i, { sublabel: e.target.value.slice(0, 16) })} />
+                    <button onClick={() => togglePrimary(i)} title="Make this the primary (larger) badge"
+                      style={{ ...smallBtn, borderColor: b.primary ? C.accent : C.border, color: b.primary ? C.accent : C.textDim }}>
+                      {b.primary ? "⭐" : "☆"}
+                    </button>
                     <button onClick={() => removeBadge(i)} style={smallBtn}>✕</button>
                   </div>
                 ))}
