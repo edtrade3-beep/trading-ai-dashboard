@@ -473,6 +473,16 @@ server.listen(PORT, HOST, () => {
   registerJob("Future Wallet Daily Refresh", 20 * 60_000, () => require("./src/future-wallet-daily-job").runFutureWalletDailyRefresh());
   console.log("[Future Wallet] Daily refresh tick active — gated to once/real-trading-day");
 
+  // Future Wallet Weekly Agent Swarm — Horse Hunter Tier B2: promotes the
+  // 6-agent swarm (now including the real Market/TAM agent, B1) from
+  // purely on-demand to a real but bounded automatic cadence — top 10 real
+  // Horse candidates only, gated to once/real-week (src/future-wallet-
+  // weekly-agents-job.js). Hourly check interval, not a literal "run every
+  // hour" cadence — the internal gate is what keeps real Claude spend
+  // bounded against the app's shared $25/mo Anthropic budget.
+  registerJob("Future Wallet Weekly Agent Swarm", 60 * 60_000, () => require("./src/future-wallet-weekly-agents-job").runWeeklyAgentSwarm());
+  console.log("[Future Wallet] Weekly agent swarm tick active — gated to once/real-week, top 10 Horse candidates");
+
   // Trend Quality cache — real Minervini Trend Template + VCP, precomputed
   // on a slow cadence (daily-timeframe data that doesn't meaningfully
   // change tick-to-tick) so the day-trade weighted engine can read a

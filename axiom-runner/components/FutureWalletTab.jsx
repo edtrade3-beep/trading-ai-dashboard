@@ -39,10 +39,29 @@ export default function FutureWalletTab({ C, MONO, SANS }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const [search, setSearch] = useState("");
+  // Real handoff from Light Box's "🐎 TOP HORSES" / "⭐ BEST OF BOTH WORLDS"
+  // cards (Horse Hunter upgrade, 2026-08-26) — same one-time localStorage
+  // read pattern axiom-live.jsx's other cross-tab handoffs already use
+  // (mterminal_load_sym, lightbox_handoff_opportunity), honestly discarded
+  // if stale (>60s) so a leftover key from an old session never silently
+  // re-fires. Pre-fills the search box too, so the symbol is findable even
+  // if it falls outside the default US-only/sector filters.
+  const horseHandoff = useState(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const raw = localStorage.getItem("lightbox_horse_handoff");
+      if (!raw) return null;
+      localStorage.removeItem("lightbox_horse_handoff");
+      const { symbol, ts } = JSON.parse(raw);
+      if (!symbol || !ts || Date.now() - ts > 60_000) return null;
+      return symbol;
+    } catch { return null; }
+  })[0];
+
+  const [search, setSearch] = useState(horseHandoff || "");
   const [sectorFilter, setSectorFilter] = useState("ALL");
-  const [showAll, setShowAll] = useState(false); // false = US-only (default)
-  const [expanded, setExpanded] = useState(null);
+  const [showAll, setShowAll] = useState(!!horseHandoff); // real handoff may land on a non-US symbol; only default true when arriving via handoff — preserves the normal US-only default otherwise
+  const [expanded, setExpanded] = useState(horseHandoff || null);
   const [runningFor, setRunningFor] = useState(null);
 
   const loadAll = () => {

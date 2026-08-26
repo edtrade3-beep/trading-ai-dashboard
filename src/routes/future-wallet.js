@@ -13,7 +13,7 @@ const { runQuantScreen, getLatestQuantMetrics } = require("../future-wallet-quan
 const { runTechnicalScreen, getLatestTechnicalScores } = require("../future-wallet-technical");
 const { runFuturePotentialScoring, getLatestFuturePotential } = require("../future-wallet-potential");
 const { runAgentSwarm, getLatestAgentAnalysis, getRawStats, dedupeAgentAnalysis, PILOT_AGENTS } = require("../future-wallet-agents");
-const { getLatestScores, getHorseJournal } = require("../future-wallet-synthesis");
+const { getLatestScores, getLatestStages, getHorseJournal } = require("../future-wallet-synthesis");
 const { ANTHROPIC_API_KEY } = require("../config");
 
 async function handleFutureWallet(req, res, requestUrl) {
@@ -166,12 +166,77 @@ async function handleFutureWallet(req, res, requestUrl) {
     return writeJson(res, 200, { ok: true, symbol, count: rows.length, rows });
   }
 
+  // Horse Hunter Tier B3 — the one combined real read Light Box's UI
+  // needs: top Horses ranked by real Wealth Score, each carrying its real
+  // stage and whether it's also a real current Light Box opportunity
+  // (bestOfBoth), so the frontend makes one call instead of three.
+  if (pathname === "/api/future-wallet/horses" && req.method === "GET") {
+    const limit = Math.max(1, Math.min(50, Number(requestUrl.searchParams.get("limit")) || 20));
+    const [scores, stages, crossover] = await Promise.all([
+      getLatestScores(),
+      getLatestStages(),
+      require("../horse-opportunity-crossover").getBestOfBothWorlds().catch(() => []),
+    ]);
+    const stageBySymbol = new Map(stages.map((s) => [s.symbol, s.status]));
+    const crossoverSymbols = new Set(crossover.map((c) => c.symbol));
+    const rows = scores
+      .filter((s) => s.future_wealth_score != null)
+      .map((s) => ({
+        symbol: s.symbol,
+        horseScore: Number(s.future_wealth_score),
+        entryScore: s.current_entry_score != null ? Number(s.current_entry_score) : null,
+        riskScore: s.risk_score != null ? Number(s.risk_score) : null,
+        stage: stageBySymbol.get(s.symbol) || "UNKNOWN",
+        verdict: s.verdict || null,
+        bestOfBoth: crossoverSymbols.has(s.symbol),
+      }))
+      .sort((a, b) => b.horseScore - a.horseScore)
+      .slice(0, limit);
+    return writeJson(res, 200, { ok: true, count: rows.length, rows, bestOfBoth: crossover });
+  }
+
   // The spec's real "⭐ BEST OF BOTH WORLDS" — symbols that are simultaneously
   // a real long-term Horse and a real current Light Box opportunity.
   if (pathname === "/api/future-wallet/best-of-both" && req.method === "GET") {
     const { getBestOfBothWorlds } = require("../horse-opportunity-crossover");
     const rows = await getBestOfBothWorlds();
     return writeJson(res, 200, { ok: true, count: rows.length, rows });
+  }
+
+  // The spec's real "10X Question" / Reverse Valuation Engine — real
+  // current market cap (always available) x the Market agent's real
+  // ESTIMATE-labeled TAM/market-share (B1), honestly DATA_INSUFFICIENT
+  // until that agent has actually analyzed this symbol. Current margin/
+  // multiple default to the company's OWN real current figures (never an
+  // invented "fair" multiple) — a pre-profit company (net margin <= 0)
+  // falls back to a real EV/Sales-style multiple instead of P/E.
+  if (pathname === "/api/future-wallet/10x-path" && req.method === "GET") {
+    const symbol = (requestUrl.searchParams.get("symbol") || "").trim().toUpperCase();
+    if (!symbol) return writeJson(res, 400, { ok: false, error: "symbol is required" });
+    const years = Number(requestUrl.searchParams.get("years")) || 7;
+    const targetMultiple = Number(requestUrl.searchParams.get("targetMultiple")) || 10;
+    const { getSymbolContext, getMarketEstimate } = require("../future-wallet-agents");
+    const { compute10xPath } = require("../horse-valuation-engine");
+    const [ctx, marketEstimate] = await Promise.all([getSymbolContext(symbol), getMarketEstimate(symbol)]);
+    if (!ctx.universe || !ctx.metrics) {
+      return writeJson(res, 200, { ok: true, symbol, pathStatus: "DATA_INSUFFICIENT", reason: "no real quant/universe data on file for this symbol" });
+    }
+    if (!marketEstimate) {
+      return writeJson(res, 200, { ok: true, symbol, pathStatus: "DATA_INSUFFICIENT", reason: "no real Market-agent TAM estimate on file yet — run the agent swarm for this symbol" });
+    }
+    const currentMarketCap = ctx.universe.market_cap != null ? Number(ctx.universe.market_cap) : null;
+    const netMargin = ctx.metrics.net_margin != null ? Number(ctx.metrics.net_margin) : null;
+    const pe = ctx.metrics.pe != null ? Number(ctx.metrics.pe) : null;
+    const evSales = ctx.metrics.ev_sales != null ? Number(ctx.metrics.ev_sales) : null;
+    const useRevenueMultiple = netMargin == null || netMargin <= 0;
+    const result = compute10xPath({
+      currentMarketCap, years, targetMultiple,
+      revenue: marketEstimate.revenueCeilingUsd,
+      margin: useRevenueMultiple ? null : netMargin,
+      multiple: useRevenueMultiple ? evSales : pe,
+      multipleType: useRevenueMultiple ? "revenue" : "earnings",
+    });
+    return writeJson(res, 200, { ok: true, symbol, marketEstimate, ...result });
   }
 
   // Manual trigger for the daily refresh (quant -> technical -> future-
@@ -185,6 +250,15 @@ async function handleFutureWallet(req, res, requestUrl) {
     let body = {};
     try { const raw = await readRequestBody(req); body = raw ? JSON.parse(raw) : {}; } catch {}
     const result = await require("../future-wallet-daily-job").runFutureWalletDailyRefresh({ force: !!body.force });
+    return writeJson(res, 200, result);
+  }
+
+  // Manual trigger for the weekly agent swarm (B2) — same on-demand
+  // convention. Real Claude spend every call; this route exists for
+  // verification, not for routine use (the real registered job already
+  // covers the once/real-week cadence).
+  if (pathname === "/api/future-wallet/run-weekly-agents" && req.method === "POST") {
+    const result = await require("../future-wallet-weekly-agents-job").runWeeklyAgentSwarm();
     return writeJson(res, 200, result);
   }
 

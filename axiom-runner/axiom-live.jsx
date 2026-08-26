@@ -1687,6 +1687,20 @@ export default function App() {
     } catch {}
     setActiveTab("trade-desk");
   }, []);
+
+  // Horse Hunter upgrade (2026-08-26) — Light Box's "🐎 TOP HORSES" /
+  // "⭐ BEST OF BOTH WORLDS" cards deep-link into the EXISTING Future
+  // Wallet tab (real long-term deep-dive UI, already built) rather than
+  // recreating any of that view inside Light Box — same real handoff
+  // convention as openInTradeDesk above, just landing on a different
+  // existing tab. FutureWalletTab.jsx reads this key once on mount.
+  const openHorseInFutureWallet = React.useCallback((symbol) => {
+    if (!symbol) return;
+    try {
+      localStorage.setItem("lightbox_horse_handoff", JSON.stringify({ symbol, ts: Date.now() }));
+    } catch {}
+    setActiveTab("futurewallet");
+  }, []);
   // Save tab on change
   React.useEffect(() => { try { localStorage.setItem("last_tab", activeTab); } catch {} }, [activeTab]);
   // In-app Back/Forward nav history (explicit user request, 2026-08-03:
@@ -7339,7 +7353,7 @@ export default function App() {
       {activeTab === "holdings" && <HoldingsTab C={C} MONO={MONO} SANS={SANS} macroData={macroData} />}
       {activeTab === "gl-backtest" && <GLBacktestTab C={C} MONO={MONO} SANS={SANS} watchlistSymbols={watchlistSymbols} />}
       {activeTab === "predictions" && <PredictionsTab C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} macroData={macroData} />}
-      {activeTab === "lightbox" && <LightBoxTab C={C} MONO={MONO} SANS={SANS} lightboxSettings={lightboxSettings} setLightboxSettings={setLightboxSettings} onOpenSymbol={openInTradeDesk} />}
+      {activeTab === "lightbox" && <LightBoxTab C={C} MONO={MONO} SANS={SANS} lightboxSettings={lightboxSettings} setLightboxSettings={setLightboxSettings} onOpenSymbol={openInTradeDesk} onOpenHorse={openHorseInFutureWallet} />}
 
       {activeTab === "daytrade-console" && (
         <DayTradeConsoleTab C={C} MONO={MONO} SANS={SANS} symbol={daytradeConsoleSymbol} onBack={() => setActiveTab("lightbox")} />

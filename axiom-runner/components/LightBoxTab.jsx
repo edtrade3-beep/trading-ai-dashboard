@@ -7,6 +7,25 @@ import { riskBuzz } from "./monitor-shared.js";
 
 const STATE_PRIORITY = { BUY: 0, WAIT: 1, SELL: 2 };
 const STATE_TO_SIGNAL = { BUY: "GREEN", WAIT: "YELLOW", SELL: "RED" };
+// Real 8-stage Horse Hunter lifecycle icons (src/horse-stage.js), matched
+// order/vocabulary — no separate/renamed labels invented here.
+const STAGE_ICON = {
+  UNKNOWN: "⚪", INTERESTING: "🔵", EMERGING: "🟢", INFLECTION: "🟡",
+  EARLY_LEADER: "🟠", INSTITUTIONAL_RECOGNITION: "🟣", MARKET_LEADER: "🏆", MATURE: "⚫",
+};
+// Real one-click Horse filters (Horse Hunter upgrade B4, 2026-08-26) —
+// "Do not make me construct complicated filters manually." Only real,
+// already-fetched fields: the actual 8-stage lifecycle + the real
+// Best-of-Both-Worlds crossover flag. No fabricated "ACCELERATING" filter
+// here — that needs a real journal-delta field this endpoint doesn't
+// return yet, so it's honestly left out rather than faked.
+const HORSE_FILTERS = [
+  { id: "ALL", label: "ALL" },
+  { id: "EMERGING", label: "EMERGING" },
+  { id: "INFLECTION", label: "INFLECTION" },
+  { id: "EARLY_LEADER", label: "EARLY LEADER" },
+  { id: "BEST_OF_BOTH", label: "⭐ BEST OF BOTH" },
+];
 const SECONDARY_SORTS = [
   { id: "score", label: "A+ Score" },
   { id: "attention", label: "Attention Score" },
@@ -45,10 +64,12 @@ function sortRows(rows, secondarySort) {
 // component does zero signal math of its own, it only renders what the
 // server already confirmed. See src/lightbox-engine.js/lightbox-state-
 // store.js for why confirmation has to live server-side.
-export default function LightBoxTab({ C, MONO, SANS, lightboxSettings, setLightboxSettings, onOpenSymbol }) {
+export default function LightBoxTab({ C, MONO, SANS, lightboxSettings, setLightboxSettings, onOpenSymbol, onOpenHorse }) {
   const [bySymbol, setBySymbol] = useState({});
   const [transitions, setTransitions] = useState([]);
   const [topOpportunities, setTopOpportunities] = useState([]);
+  const [horses, setHorses] = useState([]);
+  const [horseFilter, setHorseFilter] = useState("ALL");
   const [loading, setLoading] = useState(true);
   const [confirmBarsInput, setConfirmBarsInput] = useState(String(lightboxSettings.confirmBars || 2));
   const lastSeenTsRef = useRef(null);
@@ -98,6 +119,27 @@ export default function LightBoxTab({ C, MONO, SANS, lightboxSettings, setLightb
     const t = setInterval(poll, LIGHTBOX_DEFAULTS.pollMs);
     return () => { alive = false; clearInterval(t); };
   }, [lightboxSettings.universe, lightboxSettings.confirmBars]);
+
+  // Horse Hunter upgrade (2026-08-26) — real Horse scores refresh at most
+  // once/real-trading-day server-side (Future Wallet's daily job), so this
+  // polls far slower than the 15m day-trade grid above; still a real
+  // independent poll rather than a one-time fetch, so a Horse Journal
+  // transition/alert that lands mid-session shows up without a manual
+  // page reload.
+  useEffect(() => {
+    let alive = true;
+    const pollHorses = async () => {
+      try {
+        const r = await fetch("/api/future-wallet/horses?limit=20");
+        const j = await r.json();
+        if (!alive || !j.ok) return;
+        setHorses(j.rows || []);
+      } catch {}
+    };
+    pollHorses();
+    const t = setInterval(pollHorses, 5 * 60_000);
+    return () => { alive = false; clearInterval(t); };
+  }, []);
 
   // Sound/notification on genuinely new transitions only — never on the
   // batch of pre-existing history the log already had when the tab mounted.
@@ -205,6 +247,65 @@ export default function LightBoxTab({ C, MONO, SANS, lightboxSettings, setLightb
               </button>
             );
           })}
+        </div>
+      )}
+
+      {/* 🐎 TOP HORSES + ⭐ BEST OF BOTH WORLDS (Horse Hunter upgrade,
+          2026-08-26) — real long-term Horse Score ranking from Future
+          Wallet 100's real CIO synthesis (src/future-wallet-synthesis.js),
+          refreshed at most once/real-trading-day server-side
+          (src/future-wallet-daily-job.js), never recomputed client-side.
+          Honestly absent when nothing has been scored yet. Cards deep-link
+          into the EXISTING Future Wallet tab (onOpenHorse), never a second
+          long-term-analysis view built inside Light Box. */}
+      {horses.length > 0 && (
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
+            {HORSE_FILTERS.map((f) => (
+              <button key={f.id} onClick={() => setHorseFilter(f.id)}
+                style={{
+                  fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "3px 9px", borderRadius: 7, cursor: "pointer",
+                  border: `1px solid ${horseFilter === f.id ? "#a855f7" : C.border}`,
+                  background: horseFilter === f.id ? "#a855f718" : "transparent",
+                  color: horseFilter === f.id ? "#a855f7" : C.textDim,
+                }}>
+                {f.label}
+              </button>
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", padding: "10px 12px", background: "#a855f70c", border: "1px solid #a855f733", borderRadius: 10 }}>
+            <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: "#a855f7", alignSelf: "center" }}>🐎 TOP HORSES</span>
+            {(() => {
+              const filtered = horses.filter((h) => horseFilter === "ALL" ? true : horseFilter === "BEST_OF_BOTH" ? h.bestOfBoth : h.stage === horseFilter);
+              if (!filtered.length) return <span style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, alignSelf: "center" }}>No real Horses match this filter right now.</span>;
+              return filtered.slice(0, 12).map((h) => (
+                <button key={h.symbol} onClick={() => onOpenHorse && onOpenHorse(h.symbol)}
+                  title={h.verdict || ""}
+                  style={{
+                    fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "5px 10px", borderRadius: 999, cursor: onOpenHorse ? "pointer" : "default",
+                    border: "1px solid #a855f755", background: C.card, color: C.text,
+                  }}>
+                  {STAGE_ICON[h.stage] || "⚪"} {h.symbol} ({h.horseScore})
+                </button>
+              ));
+            })()}
+          </div>
+        </div>
+      )}
+
+      {horses.some((h) => h.bestOfBoth) && (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12, padding: "10px 12px", background: "#f59e0b0c", border: "1px solid #f59e0b33", borderRadius: 10 }}>
+          <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: "#f59e0b", alignSelf: "center" }}>⭐ BEST OF BOTH WORLDS</span>
+          {horses.filter((h) => h.bestOfBoth).map((h) => (
+            <button key={h.symbol} onClick={() => onOpenHorse && onOpenHorse(h.symbol)}
+              title="A real strong long-term Horse that's ALSO a real current Light Box opportunity"
+              style={{
+                fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "5px 10px", borderRadius: 999, cursor: onOpenHorse ? "pointer" : "default",
+                border: "1px solid #f59e0b55", background: C.card, color: C.text,
+              }}>
+              {h.symbol} (Horse {h.horseScore})
+            </button>
+          ))}
         </div>
       )}
 

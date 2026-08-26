@@ -30,6 +30,17 @@ Respond with ONLY a single JSON object, no prose outside it, in exactly this sha
 {"score": <integer 0-100, or null if you cannot honestly score this>, "verdict": "<one short phrase, e.g. 'Strong moat, priced for it'>", "reasoning": "<2-4 sentences, grounded ONLY in the real data given below>", "data_quality": "<FACT | ESTIMATE | ASSUMPTION | UNKNOWN — the honest basis of this analysis>"}
 Never invent a number that was not given to you. If the real data provided is insufficient to score this dimension honestly, set score to null and data_quality to "UNKNOWN" rather than guessing.`.trim();
 
+// Distinct format for the Market agent — it exists specifically to supply
+// the TAM/market-share numbers the reverse-valuation math engine
+// (src/horse-valuation-engine.js) needs and nothing else in this app can
+// honestly provide. Every numeric field here is data_quality: "ESTIMATE"
+// by construction (no real TAM dataset exists anywhere in this app) — the
+// agent is told that explicitly so it never dresses a guess up as a FACT.
+const MARKET_RESPONSE_FORMAT_INSTRUCTIONS = `
+Respond with ONLY a single JSON object, no prose outside it, in exactly this shape:
+{"score": <integer 0-100 market-opportunity-size score, or null>, "verdict": "<one short phrase>", "reasoning": "<2-4 sentences>", "data_quality": "ESTIMATE", "tamUsd": <your best real-world estimate of the total addressable market in USD, rounded to a sensible order of magnitude, or null if you genuinely cannot estimate it>, "realisticMarketSharePct": <a realistic long-term achievable market share as a decimal 0-1 (e.g. 0.08 = 8%), or null>, "revenueCeilingUsd": <tamUsd * realisticMarketSharePct if both are set, else null>}
+This is explicitly an ESTIMATE, never a FACT — ground it in your real knowledge of the industry's actual market size, not the company's own numbers alone. Round generously rather than implying false precision. If you genuinely cannot estimate a real TAM for this business, set tamUsd, realisticMarketSharePct, and revenueCeilingUsd all to null rather than inventing a number.`.trim();
+
 const PILOT_AGENTS = [
   {
     name: "Fundamental",
@@ -50,6 +61,15 @@ const PILOT_AGENTS = [
   {
     name: "Risk",
     systemPrompt: `You are the RISK AGENT on an equity research desk. You assess real downside risk — valuation risk from the given multiples, technical/momentum risk from the given trend and distance-from-high figures, and balance-sheet risk from whatever leverage/dilution figures are given — using ONLY the real numbers provided. Score LOW risk as a HIGH score (100 = low risk, 0 = high risk) and say so explicitly in your reasoning. You never fabricate a risk factor not supported by the given data. ${RESPONSE_FORMAT_INSTRUCTIONS}`,
+  },
+  {
+    // 2026-08-26, Horse Hunter upgrade B1 — the one piece nothing else in
+    // this app can honestly supply: a real TAM/market-share estimate,
+    // which src/horse-valuation-engine.js's compute10xPath needs to stop
+    // returning DATA_INSUFFICIENT. See MARKET_RESPONSE_FORMAT_INSTRUCTIONS
+    // above for why every field here is explicitly ESTIMATE, never FACT.
+    name: "Market",
+    systemPrompt: `You are the MARKET AGENT on an equity research desk. You estimate the real total addressable market (TAM) for this company's actual business, a realistic long-term achievable market share, and the resulting revenue ceiling — using the real company/sector/industry/revenue context given to you plus your own general real-world knowledge of that industry's actual market size (state clearly when you're drawing on general knowledge vs. a given number). You never invent a precise TAM with false confidence — round to a sensible order of magnitude, and set fields to null rather than guess when you genuinely don't have a defensible basis. ${MARKET_RESPONSE_FORMAT_INSTRUCTIONS}`,
   },
 ];
 
@@ -112,14 +132,27 @@ function fmt(v, suffix = "") {
 }
 function fmtPct(v) { return v == null ? "unknown" : `${(Number(v) * 100).toFixed(1)}%`; }
 
+// fw_quant_metrics has no raw revenue column (only revenue_growth) — a
+// real, disclosed derivation (market cap / price-to-sales) when both real
+// inputs exist, explicitly labeled as derived rather than a direct real
+// figure. Needed so the Market agent (below) has an actual dollar revenue
+// base to reason about TAM/market-share from, not just a growth rate.
+function estimatedRevenue(marketCap, priceSales) {
+  const mc = Number(marketCap), ps = Number(priceSales);
+  if (!(mc > 0) || !(ps > 0)) return null;
+  return mc / ps;
+}
+
 function buildContextText(ctx) {
   const u = ctx.universe || {};
   const m = ctx.metrics || {};
   const t = ctx.technical || {};
   const fp = ctx.potential || {};
+  const revEst = estimatedRevenue(u.market_cap, m.price_sales);
   return `
 Company: ${u.company || "unknown"} (${u.ticker || "unknown"}) — ${u.sector || "unknown sector"} / ${u.industry || "unknown industry"}
 Market cap: ${fmt(u.market_cap)}
+Estimated annual revenue (derived: market cap / price-to-sales, NOT a direct real figure): ${revEst != null ? fmt(Math.round(revEst)) : "unknown"}
 
 REAL QUANT METRICS (as of ${m.as_of || "unknown"}):
 Price: ${fmt(m.price)}  |  52w range: ${fmt(m.week52_low)} - ${fmt(m.week52_high)}  |  Distance from 52w high: ${fmt(m.distance_from_high, "%")}
@@ -140,6 +173,11 @@ Future potential score (quantitative-only, 0-100): ${fmt(fp.future_potential_sco
 `.trim();
 }
 
+// `extra` keeps the FULL real parsed JSON object (not just the 4 common
+// fields every agent shares) — needed so an agent with its own additional
+// disclosed fields (e.g. the Market agent's tamUsd/realisticMarketSharePct
+// below) doesn't have them silently discarded before they ever reach
+// fw_agent_analysis.raw_response.
 function parseAgentResponse(text) {
   try {
     const match = String(text).match(/\{[\s\S]*\}/);
@@ -151,9 +189,10 @@ function parseAgentResponse(text) {
       reasoning: parsed.reasoning || null,
       data_quality: parsed.data_quality || "UNKNOWN",
       parseError: false,
+      extra: parsed,
     };
   } catch {
-    return { score: null, verdict: null, reasoning: String(text || "").slice(0, 500), data_quality: "UNKNOWN", parseError: true };
+    return { score: null, verdict: null, reasoning: String(text || "").slice(0, 500), data_quality: "UNKNOWN", parseError: true, extra: null };
   }
 }
 
@@ -168,7 +207,7 @@ async function runOneAgent(agentDef, symbol, contextText, apiKey) {
     feature: "future-wallet-agent-swarm",
   });
   const parsed = parseAgentResponse(raw);
-  return { ...parsed, model_used: MODELS.sonnet, raw_response: { text: raw } };
+  return { ...parsed, model_used: MODELS.sonnet, raw_response: { text: raw, parsed: parsed.extra } };
 }
 
 async function runAgentSwarm({ symbols, candidateCount = 5, agentNames, apiKey } = {}) {
@@ -217,6 +256,28 @@ async function runAgentSwarm({ symbols, candidateCount = 5, agentNames, apiKey }
     succeeded: ok.length,
     failed: results.length - ok.length,
     results,
+  };
+}
+
+// Real latest Market-agent TAM/market-share estimate for one symbol, or
+// null if the Market agent hasn't analyzed it yet (or explicitly returned
+// null fields itself — an honest "I can't estimate this"). Feeds
+// src/horse-valuation-engine.js's compute10xPath so it can move off
+// DATA_INSUFFICIENT once a real estimate exists.
+async function getMarketEstimate(symbol) {
+  const pool = requirePool();
+  const { rows } = await pool.query(
+    `SELECT raw_response, run_at FROM fw_agent_analysis WHERE symbol = $1 AND agent_name = 'Market' ORDER BY run_at DESC LIMIT 1`,
+    [String(symbol).trim().toUpperCase()]
+  );
+  const row = rows[0];
+  const parsed = row?.raw_response?.parsed;
+  if (!parsed || parsed.tamUsd == null || parsed.realisticMarketSharePct == null) return null;
+  return {
+    tamUsd: Number(parsed.tamUsd),
+    realisticMarketSharePct: Number(parsed.realisticMarketSharePct),
+    revenueCeilingUsd: parsed.revenueCeilingUsd != null ? Number(parsed.revenueCeilingUsd) : Number(parsed.tamUsd) * Number(parsed.realisticMarketSharePct),
+    asOf: row.run_at,
   };
 }
 
@@ -271,5 +332,5 @@ async function dedupeAgentAnalysis() {
 module.exports = {
   PILOT_AGENTS,
   rankScore, selectCandidates, getSymbolContext, buildContextText, parseAgentResponse,
-  runAgentSwarm, getLatestAgentAnalysis, getRawStats, dedupeAgentAnalysis,
+  runAgentSwarm, getLatestAgentAnalysis, getMarketEstimate, getRawStats, dedupeAgentAnalysis,
 };

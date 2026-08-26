@@ -33,10 +33,15 @@ ok("revenue-multiple mode: revenue x EV/Sales-style multiple directly (for pre-p
   const r = computeReverseValuation({ revenue: 500_000_000, margin: -0.05, multiple: 8, multipleType: "revenue" });
   assert.strictEqual(r.potentialMarketCap, 4_000_000_000);
 });
-ok("honest null when revenue/margin/multiple is missing or non-positive", () => {
+ok("honest null when revenue/margin/multiple is missing or non-positive (earnings mode requires margin)", () => {
   assert.strictEqual(computeReverseValuation({ revenue: 0, margin: 0.1, multiple: 10 }), null);
   assert.strictEqual(computeReverseValuation({ revenue: 100, margin: null, multiple: 10 }), null);
   assert.strictEqual(computeReverseValuation({ revenue: 100, margin: 0.1, multiple: 0 }), null);
+});
+ok("revenue mode does NOT require margin — it's unused in that branch's market-cap math", () => {
+  const r = computeReverseValuation({ revenue: 500_000_000, margin: null, multiple: 8, multipleType: "revenue" });
+  assert.strictEqual(r.potentialMarketCap, 4_000_000_000);
+  assert.strictEqual(r.potentialEarnings, null, "honestly null, not fabricated from a missing margin");
 });
 
 console.log("Checking compute10xPath — the spec's real '10X Question,' honestly gated…");

@@ -26,14 +26,24 @@ function computeRequiredCagr(targetMultiple, years) {
 
 // Real reverse valuation: revenue x margin -> potential earnings, then
 // applied against a real multiple. multipleType "earnings" = P/E-style
-// (multiple x potential earnings); "revenue" = EV/Sales-style (multiple x
-// potential revenue directly, for pre-profit companies where an earnings
-// multiple isn't honestly applicable yet).
+// (multiple x potential earnings, margin required — earnings can't be
+// computed without it); "revenue" = EV/Sales-style (multiple x potential
+// revenue directly, for pre-profit companies where an earnings multiple
+// isn't honestly applicable yet — margin is optional there since it's not
+// part of that branch's market-cap math, but is still reported when given).
 function computeReverseValuation({ revenue, margin, multiple, multipleType = "earnings" } = {}) {
-  if (!(revenue > 0) || margin == null || !Number.isFinite(Number(margin)) || !(multiple > 0)) return null;
+  if (!(revenue > 0) || !(multiple > 0)) return null;
+  const hasMargin = margin != null && Number.isFinite(Number(margin));
+  if (multipleType === "revenue") {
+    return {
+      potentialEarnings: hasMargin ? revenue * Number(margin) : null,
+      potentialMarketCap: revenue * multiple,
+      multiple, multipleType,
+    };
+  }
+  if (!hasMargin) return null; // earnings mode genuinely can't compute without a real margin
   const potentialEarnings = revenue * Number(margin);
-  const potentialMarketCap = multipleType === "revenue" ? revenue * multiple : potentialEarnings * multiple;
-  return { potentialEarnings, potentialMarketCap, multiple, multipleType };
+  return { potentialEarnings, potentialMarketCap: potentialEarnings * multiple, multiple, multipleType };
 }
 
 // The spec's own "10X Question," reframed correctly: NOT "will this 10X"
@@ -45,7 +55,8 @@ function compute10xPath({ currentMarketCap, years, targetMultiple = 10, revenue,
   if (!(currentMarketCap > 0)) {
     return { pathStatus: "DATA_INSUFFICIENT", reason: "no real current market cap on file" };
   }
-  if (!(revenue > 0) || margin == null || !(multiple > 0)) {
+  const needsMargin = multipleType !== "revenue";
+  if (!(revenue > 0) || (needsMargin && margin == null) || !(multiple > 0)) {
     return { pathStatus: "DATA_INSUFFICIENT", reason: "no real TAM/market-share/margin estimate on file yet — needs the agent swarm's Market agent" };
   }
   const requiredMarketCap = currentMarketCap * targetMultiple;
