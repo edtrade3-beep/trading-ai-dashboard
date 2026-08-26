@@ -30,6 +30,55 @@ export default function PhotoBannerTab({ C, MONO, SANS }) {
   const canvasRef = useRef(null);
   const imgElRef = useRef(null);
 
+  // Real "shrink to fit" — a photo can be narrow/portrait, or the real
+  // title + up to 4 badges can genuinely be wider than the image (explicit
+  // user follow-up, 2026-08-26: "always make them fit the page"). Measures
+  // the real layout width at scale 1 first (a pure measurement pass, no
+  // drawing), then — only if it would actually overflow — uniformly
+  // shrinks every real size (fonts, icon radius, spacing) by the exact
+  // real ratio needed, clamped to a floor so text never shrinks into
+  // unreadable. Never crops/truncates content silently; always the same
+  // real title/badges, just sized to actually fit this specific photo.
+  const MIN_FIT_SCALE = 0.45;
+
+  function layoutMetrics(barHeight, scale) {
+    const padX = Math.round(barHeight * 0.32 * scale);
+    const titleSize = Math.max(11, Math.round(barHeight * 0.34 * scale));
+    const iconR = Math.round(barHeight * 0.26 * scale);
+    const labelSize = Math.max(9, Math.round(barHeight * 0.26 * scale));
+    const labelSizeWithSub = Math.max(9, Math.round(barHeight * 0.25 * scale));
+    const subSize = Math.max(7, Math.round(barHeight * 0.17 * scale));
+    return { padX, titleSize, iconR, labelSize, labelSizeWithSub, subSize };
+  }
+
+  function measureTotalWidth(ctx, sugg, badges, barHeight, scale) {
+    const { padX, titleSize, iconR, labelSize, labelSizeWithSub, subSize } = layoutMetrics(barHeight, scale);
+    let width = padX;
+    if (sugg.titleText) {
+      ctx.font = `900 ${titleSize}px sans-serif`;
+      width += ctx.measureText(sugg.titleText.toUpperCase()).width + padX;
+      if (badges.length) width += padX;
+    }
+    badges.forEach((b, i) => {
+      width += iconR * 2 + Math.round(padX * 0.5);
+      const label = b.label.toUpperCase();
+      let labelW;
+      if (b.sublabel) {
+        ctx.font = `900 ${labelSizeWithSub}px sans-serif`;
+        const wLabel = ctx.measureText(label).width;
+        ctx.font = `700 ${subSize}px sans-serif`;
+        const wSub = ctx.measureText(b.sublabel.toUpperCase()).width;
+        labelW = Math.max(wLabel, wSub);
+      } else {
+        ctx.font = `800 ${labelSize}px sans-serif`;
+        labelW = ctx.measureText(label).width;
+      }
+      width += labelW + padX;
+      if (i < badges.length - 1) width += padX;
+    });
+    return width;
+  }
+
   function drawCanvas(img, sugg) {
     const canvas = canvasRef.current;
     if (!canvas || !img) return;
@@ -45,7 +94,11 @@ export default function PhotoBannerTab({ C, MONO, SANS }) {
     const barHeight = Math.max(56, Math.round(canvas.height * 0.11));
     const y = sugg.position === "bottom" ? canvas.height - barHeight : 0;
     const midY = y + barHeight / 2;
-    const padX = Math.round(barHeight * 0.32);
+    const availableWidth = canvas.width - Math.round(barHeight * 0.32); // trailing margin at scale 1, real headroom
+
+    const totalAtScale1 = measureTotalWidth(ctx, sugg, badges, barHeight, 1);
+    const scale = totalAtScale1 > availableWidth ? Math.max(MIN_FIT_SCALE, availableWidth / totalAtScale1) : 1;
+    const { padX, titleSize, iconR, labelSize, labelSizeWithSub, subSize } = layoutMetrics(barHeight, scale);
 
     ctx.fillStyle = sugg.bgColor;
     ctx.fillRect(0, y, canvas.width, barHeight);
@@ -64,7 +117,6 @@ export default function PhotoBannerTab({ C, MONO, SANS }) {
 
     let x = padX;
     if (sugg.titleText) {
-      const titleSize = Math.max(14, Math.round(barHeight * 0.34));
       ctx.font = `900 ${titleSize}px sans-serif`;
       ctx.textAlign = "left";
       ctx.textBaseline = "middle";
@@ -76,7 +128,6 @@ export default function PhotoBannerTab({ C, MONO, SANS }) {
     }
 
     badges.forEach((b, i) => {
-      const iconR = Math.round(barHeight * 0.26);
       ctx.beginPath();
       ctx.arc(x + iconR, midY, iconR, 0, Math.PI * 2);
       ctx.fillStyle = sugg.accentColor;
@@ -91,9 +142,7 @@ export default function PhotoBannerTab({ C, MONO, SANS }) {
       ctx.fillStyle = sugg.textColor;
       const label = b.label.toUpperCase();
       if (b.sublabel) {
-        const labelSize = Math.max(12, Math.round(barHeight * 0.25));
-        const subSize = Math.max(9, Math.round(barHeight * 0.17));
-        ctx.font = `900 ${labelSize}px sans-serif`;
+        ctx.font = `900 ${labelSizeWithSub}px sans-serif`;
         ctx.textBaseline = "alphabetic";
         ctx.fillText(label, x, midY - 1);
         const wLabel = ctx.measureText(label).width;
@@ -105,7 +154,6 @@ export default function PhotoBannerTab({ C, MONO, SANS }) {
         ctx.globalAlpha = 1;
         x += Math.max(wLabel, wSub) + padX;
       } else {
-        const labelSize = Math.max(12, Math.round(barHeight * 0.26));
         ctx.font = `800 ${labelSize}px sans-serif`;
         ctx.textBaseline = "middle";
         ctx.fillText(label, x, midY);
