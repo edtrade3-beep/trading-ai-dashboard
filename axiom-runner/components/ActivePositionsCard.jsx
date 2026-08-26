@@ -11,8 +11,11 @@ import { AI_ACTIONS } from "./ai-actions.js";
 // order action, purely informational. HOLD is neutral (not exciting —
 // it's the default, "nothing to do" state); TRAIL/TAKE_PARTIAL/EXIT use
 // the same green/amber/red semantic tokens Light Box's own states use.
-const DAYTRADE_STATE_LABEL = { HOLD: "HOLD", TRAIL: "TRAIL", TAKE_PARTIAL: "PARTIAL", EXIT: "EXIT" };
-function DAYTRADE_STATE_COLOR(C, state) {
+// Exported (2026-08-26) so CortexMiniPanel.jsx's "you already hold this"
+// banner can reuse the identical real label/color mapping instead of a
+// second, possibly-drifting copy.
+export const DAYTRADE_STATE_LABEL = { HOLD: "HOLD", TRAIL: "TRAIL", TAKE_PARTIAL: "PARTIAL", EXIT: "EXIT" };
+export function DAYTRADE_STATE_COLOR(C, state) {
   if (state === "TRAIL") return C.green;
   if (state === "TAKE_PARTIAL") return C.amber;
   if (state === "EXIT") return C.red;
@@ -27,7 +30,7 @@ function DAYTRADE_STATE_COLOR(C, state) {
 // bought). Only rendered when a real entry snapshot exists — a position
 // opened before this feature existed or outside the app honestly shows
 // nothing here, never a fabricated "STABLE."
-const EDGE_MONITOR_META = {
+export const EDGE_MONITOR_META = {
   STRENGTHENING: { icon: "🟢", label: "EDGE ↑", color: "#0d9465" },
   STABLE: { icon: "🟢", label: "EDGE STABLE", color: "#0d9465" },
   WEAKENING: { icon: "🟡", label: "EDGE ↓", color: "#d6a312" },

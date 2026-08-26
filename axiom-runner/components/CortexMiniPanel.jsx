@@ -4,6 +4,7 @@ import { CORE_VERDICT_META } from "./am-core-engine.js";
 import { parseCortexQuery } from "./cortex-engine.js";
 import WhyBreakdownPanel from "./WhyBreakdownPanel.jsx";
 import EdgeTimelineSparkline from "./EdgeTimelineSparkline.jsx";
+import { DAYTRADE_STATE_LABEL, DAYTRADE_STATE_COLOR, EDGE_MONITOR_META } from "./ActivePositionsCard.jsx";
 
 // CortexMiniPanel — Command Center's right column (2026-08-25, explicit
 // user request: unified one-screen layout, "ask anything" + "AI VERDICT"
@@ -63,6 +64,29 @@ export default function CortexMiniPanel({ symbol, onSelectSymbol, setActiveTab, 
   const [correlation, setCorrelation] = useState(null);
   const [correlationLoading, setCorrelationLoading] = useState(false);
   useEffect(() => { setCorrelation(null); }, [symbol]);
+
+  // Real "you already hold this" banner (2026-08-26, explicit user report:
+  // Sniper Mode's AI VERDICT is a NEW-ENTRY verdict — classifyCoreVerdict
+  // always answers "is this a good new long right now," with no idea
+  // whether the user already holds the symbol. Searching a symbol you
+  // already own showed a big red AVOID at the top, easy to misread as
+  // "get out," while the REAL, position-aware read (dayTradeState from
+  // position-decision-engine.js) sat calmer and different on a totally
+  // separate screen (the Portfolio dock's Active Positions list) — the
+  // user had to leave Sniper Mode and scroll to find it. This surfaces
+  // that same real, already-computed per-position state (the exact same
+  // /api/alpaca/positions overlay ActivePositionsCard.jsx reads) right
+  // next to the entry verdict instead, clearly labeled as a DIFFERENT
+  // question ("how's my existing position" vs "should I open a new one").
+  const [heldPosition, setHeldPosition] = useState(null);
+  useEffect(() => {
+    if (!symbol) { setHeldPosition(null); return; }
+    let cancelled = false;
+    fetch("/api/alpaca/positions").then((r) => r.json())
+      .then((d) => { if (!cancelled) setHeldPosition((d.positions || []).find((p) => p.symbol === symbol) || null); })
+      .catch(() => { if (!cancelled) setHeldPosition(null); });
+    return () => { cancelled = true; };
+  }, [symbol]);
   const checkCorrelation = () => {
     if (!symbol || correlationLoading) return;
     setCorrelationLoading(true);
@@ -139,6 +163,37 @@ export default function CortexMiniPanel({ symbol, onSelectSymbol, setActiveTab, 
       {loading && <div style={{ margin: "0 10px 8px", fontFamily: SANS, fontSize: 11, color: C.textDim }}>Analyzing {symbol}…</div>}
 
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 10px 10px" }}>
+        {analysis && heldPosition && (
+          <div style={{ border: `1px solid ${C.accent}55`, background: `${C.accent}0f`, borderRadius: 10, padding: "10px 12px", marginBottom: 10 }}>
+            <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.accent, letterSpacing: 0.5, marginBottom: 4 }}>
+              📍 YOU ALREADY HOLD {heldPosition.qty} SH @ ${Number(heldPosition.avgEntry || 0).toFixed(2)}
+            </div>
+            <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textSec, marginBottom: heldPosition.dayTradeState || heldPosition.edgeMonitor ? 6 : 0 }}>
+              The verdict below answers "is this a good NEW entry right now?" — it is NOT telling you to exit this position. Your real position status:
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {heldPosition.dayTradeState && (
+                <span title={heldPosition.dayTradeReason || undefined}
+                  style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: DAYTRADE_STATE_COLOR(C, heldPosition.dayTradeState),
+                    border: `1px solid ${DAYTRADE_STATE_COLOR(C, heldPosition.dayTradeState)}`, borderRadius: 4, padding: "2px 6px" }}>
+                  {DAYTRADE_STATE_LABEL[heldPosition.dayTradeState] || heldPosition.dayTradeState}
+                </span>
+              )}
+              {heldPosition.edgeMonitor && EDGE_MONITOR_META[heldPosition.edgeMonitor.status] && (
+                <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: EDGE_MONITOR_META[heldPosition.edgeMonitor.status].color,
+                  border: `1px solid ${EDGE_MONITOR_META[heldPosition.edgeMonitor.status].color}`, borderRadius: 4, padding: "2px 6px" }}>
+                  {EDGE_MONITOR_META[heldPosition.edgeMonitor.status].icon} {EDGE_MONITOR_META[heldPosition.edgeMonitor.status].label}
+                </span>
+              )}
+            </div>
+            {heldPosition.dayTradeReason && (
+              <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginTop: 5 }}>{heldPosition.dayTradeReason}</div>
+            )}
+            {!heldPosition.dayTradeState && !heldPosition.edgeMonitor && (
+              <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginTop: 5 }}>No real-time position read available right now — check the Portfolio dock for full position detail.</div>
+            )}
+          </div>
+        )}
         {analysis && verdictMeta && (
           <div style={{ border: `1px solid ${verdictMeta.color}55`, background: `${verdictMeta.color}12`, borderRadius: 10, padding: 14, textAlign: "center", marginBottom: 12 }}>
             <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.6 }}>AI VERDICT — {analysis.symbol}</div>
