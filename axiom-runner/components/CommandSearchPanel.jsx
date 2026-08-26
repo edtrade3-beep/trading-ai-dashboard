@@ -29,6 +29,23 @@ const TIER_META = {
 const TIER_ORDER = ["actionable", "developing", "wait", "extended", "invalidated"];
 const ROW_CAP = 25;
 
+// Best Opportunity headline (Phase 3, 2026-08-26, spec Parts 38/40/48:
+// "the first thing I should see: WHAT DID YOU FIND?"). Zero new signal
+// math — a presentation promotion of the exact same real, already-sorted
+// tiers this panel already fetches (tier priority, then score, then Edge
+// Velocity — routes/market.js's own real sort). INVALIDATED never
+// surfaces here (never a "found opportunity"); WAIT/EXTENDED only appear
+// if nothing better exists, so the top slot never overstates a symbol
+// that isn't actually tradable yet.
+const TOP_TIER_ORDER = ["actionable", "developing", "wait", "extended"];
+function pickTopOpportunities(tiers, n = 3) {
+  const flat = [];
+  for (const key of TOP_TIER_ORDER) {
+    for (const o of tiers[key] || []) flat.push(o);
+  }
+  return flat.slice(0, n);
+}
+
 const fmtPrice = (v) => Number.isFinite(v) ? `$${Number(v).toFixed(2)}` : "—";
 const fmtPct = (v) => Number.isFinite(v) ? `${v > 0 ? "+" : ""}${v}%` : "—";
 
@@ -98,6 +115,46 @@ export default function CommandSearchPanel({ symbol, onSelectSymbol, C, MONO, SA
         </div>
       </div>
 
+      {data?.dataQuality?.stale && (
+        <div style={{ margin: "0 10px 8px", padding: "6px 8px", border: "1px solid #d6a31255", background: "#d6a31212", borderRadius: 6, fontFamily: SANS, fontSize: 10.5, color: "#d6a312" }}>
+          ⚠ DATA QUALITY WARNING — real market quotes are {data.dataQuality.ageMinutes} min old (expected under {data.dataQuality.staleAfterMinutes} min during market hours). Scores below may be based on stale prices.
+        </div>
+      )}
+
+      {data && (() => {
+        const top = pickTopOpportunities(tiers, 3);
+        return (
+          <div style={{ padding: "0 10px 10px", borderBottom: `1px solid ${C.border}`, marginBottom: 4 }}>
+            <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: 0.6, marginBottom: 6 }}>
+              {top.length ? `🔭 I FOUND ${top.length} OPPORTUNIT${top.length === 1 ? "Y" : "IES"}` : "🔭 OPPORTUNITIES"}
+            </div>
+            {!top.length && (
+              <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, padding: "2px 0" }}>No high-quality opportunity right now.</div>
+            )}
+            {top.map((o, i) => {
+              const meta = TIER_META[o.tier.toLowerCase()] || TIER_META.wait;
+              return (
+                <button
+                  key={o.symbol}
+                  onClick={() => onSelectSymbol(o.symbol)}
+                  style={{
+                    width: "100%", display: "flex", alignItems: "center", gap: 6, cursor: "pointer", textAlign: "left",
+                    background: "transparent", border: "none", padding: "3px 0", fontFamily: MONO, fontSize: 11.5,
+                  }}
+                >
+                  <span>{meta.icon}</span>
+                  <b style={{ color: C.text }}>{o.symbol}</b>
+                  <span style={{ color: meta.color, fontWeight: 700, fontSize: 10 }}>{meta.label}</span>
+                  {o.edgeVelocity?.status === "ACCELERATING" && <span style={{ color: "#0d9465", fontSize: 10 }}>▲</span>}
+                  {o.edgeVelocity?.status === "DECAYING" && <span style={{ color: "#c8282a", fontSize: 10 }}>▼</span>}
+                  <span style={{ marginLeft: "auto", color: C.textDim, fontSize: 10, fontWeight: 700 }}>{i === 0 ? "BEST" : i === 1 ? "2ND" : "3RD"}</span>
+                </button>
+              );
+            })}
+          </div>
+        );
+      })()}
+
       <div style={{ padding: "4px 10px 6px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: 0.6 }}>OPPORTUNITIES</div>
         <button onClick={load} disabled={loading} title="Refresh Opportunity Engine scan" style={{ border: "none", background: "transparent", color: C.textDim, cursor: loading ? "not-allowed" : "pointer", fontFamily: MONO, fontSize: 11 }}>
@@ -156,6 +213,12 @@ export default function CommandSearchPanel({ symbol, onSelectSymbol, C, MONO, SA
                         >
                           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                             <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: C.text }}>{o.symbol}</span>
+                            {o.edgeVelocity?.status === "ACCELERATING" && (
+                              <span title={`Edge accelerating +${o.edgeVelocity.velocity} today`} style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: "#0d9465" }}>▲</span>
+                            )}
+                            {o.edgeVelocity?.status === "DECAYING" && (
+                              <span title={`Edge decaying ${o.edgeVelocity.velocity} today`} style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: "#c8282a" }}>▼</span>
+                            )}
                             <span style={{ fontFamily: MONO, fontSize: 10.5, color: C.textDim, marginLeft: "auto" }}>{fmtPrice(o.price)}</span>
                             {tradable && (
                               <button

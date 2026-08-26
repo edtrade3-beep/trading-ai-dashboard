@@ -45,9 +45,9 @@ async function checkOpportunityPivotAlerts() {
     return { ok: false, checked: 0, alerts: [] };
   }
 
-  const tiers = await computeAllOpportunities().catch(() => null);
-  if (!tiers) return { ok: false, checked: 0, alerts: [] };
-  const all = Object.values(tiers).flat();
+  const result = await computeAllOpportunities().catch(() => null);
+  if (!result?.tiers) return { ok: false, checked: 0, alerts: [] };
+  const all = Object.values(result.tiers).flat();
 
   const prev = loadState();
   const next = {};

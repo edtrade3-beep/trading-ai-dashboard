@@ -33,9 +33,12 @@ function HorizonRow({ C, MONO, horizon, stats }) {
           <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, textAlign: "right", fontFamily: MONO, fontSize: 12, color: C.red }}>{stats.avgMaePct}%</td>
           <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, textAlign: "right", fontFamily: MONO, fontSize: 12, color: C.textDim }}>{stats.stopHitRate != null ? `${stats.stopHitRate}%` : "—"}</td>
           <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, textAlign: "right", fontFamily: MONO, fontSize: 12, color: C.textDim }}>{stats.target1HitRate != null ? `${stats.target1HitRate}%` : "—"}</td>
+          <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, textAlign: "right", fontFamily: MONO, fontSize: 12, color: C.green }}>{stats.avgWin != null ? `+${stats.avgWin}%` : "—"}</td>
+          <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, textAlign: "right", fontFamily: MONO, fontSize: 12, color: C.red }}>{stats.avgLoss != null ? `-${stats.avgLoss}%` : "—"}</td>
+          <td style={{ padding: "8px", borderTop: `1px solid ${C.border}`, textAlign: "right", fontFamily: MONO, fontSize: 12, color: C.textDim }} title={stats.profitFactorNote || ""}>{stats.profitFactor != null ? `${stats.profitFactor}x` : (stats.profitFactorNote ? "no losses" : "—")}</td>
         </>
       ) : (
-        <td colSpan={7} style={{ padding: "8px", borderTop: `1px solid ${C.border}`, textAlign: "center", fontFamily: MONO, fontSize: 11, color: C.textDim }}>Not enough real completed outcomes yet at this horizon</td>
+        <td colSpan={10} style={{ padding: "8px", borderTop: `1px solid ${C.border}`, textAlign: "center", fontFamily: MONO, fontSize: 11, color: C.textDim }}>Not enough real completed outcomes yet at this horizon</td>
       )}
     </tr>
   );
@@ -105,7 +108,11 @@ export default function BacktestTab({
             <StatTile C={C} MONO={MONO} label="Real Signals" value={report.totalEvents} />
             <StatTile C={C} MONO={MONO} label="d20 Win Rate" value={report.overall?.d20 ? `${report.overall.d20.winRate}%` : "—"} color={report.overall?.d20 && report.overall.d20.winRate >= 50 ? C.green : C.red} />
             <StatTile C={C} MONO={MONO} label="d20 Avg Return" value={report.overall?.d20 ? `${report.overall.d20.avgReturnPct >= 0 ? "+" : ""}${report.overall.d20.avgReturnPct}%` : "—"} color={report.overall?.d20 && report.overall.d20.avgReturnPct >= 0 ? C.green : C.red} />
-            <StatTile C={C} MONO={MONO} label="Scope" value="Daily layer only" />
+            <StatTile C={C} MONO={MONO}
+              label="d20 Profit Factor"
+              value={report.overall?.d20?.profitFactor != null ? `${report.overall.d20.profitFactor}x` : (report.overall?.d20?.profitFactorNote ? "no losses" : "—")}
+              color={report.overall?.d20?.profitFactor != null ? (report.overall.d20.profitFactor >= 1 ? C.green : C.red) : undefined}
+            />
           </div>
 
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden", marginBottom: 12 }}>
@@ -122,6 +129,9 @@ export default function BacktestTab({
                     <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 12, color: C.textDim }}>Avg MAE</th>
                     <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 12, color: C.textDim }}>Stop Hit</th>
                     <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 12, color: C.textDim }}>Target Hit</th>
+                    <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 12, color: C.textDim }}>Avg Win</th>
+                    <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 12, color: C.textDim }}>Avg Loss</th>
+                    <th style={{ padding: "8px", textAlign: "right", fontFamily: MONO, fontSize: 12, color: C.textDim }}>Profit Factor</th>
                   </tr>
                 </thead>
                 <tbody>

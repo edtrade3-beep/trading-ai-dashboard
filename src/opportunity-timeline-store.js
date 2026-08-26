@@ -78,7 +78,49 @@ function getTodayTimeline(symbol) {
   return store.bySymbol[symbol] || [];
 }
 
+// Edge Velocity (Phase 3, 2026-08-26, explicit spec ask: "measure how
+// quickly the opportunity is changing" — MS: 61->65->68->73->81, EDGE
+// VELOCITY +20, ACCELERATING). Pure function over this store's own real
+// same-session samples — no new data source, no fabrication. Deliberately
+// a stricter floor (3 samples) than getTodayTimeline's raw read or the
+// sparkline's own 2-point line-drawing floor: a single interval is too
+// noisy to honestly call a "trend," so this needs at least 2 real
+// intervals (3 points) before it will name a status. Velocity itself is
+// the same simple first-vs-last real score delta the spec's own example
+// uses (not a smoothed/regressed rate) — the consistency check below
+// (majority of real consecutive moves agreeing with that direction)
+// exists so a single lucky last point can't call a genuinely choppy
+// symbol "ACCELERATING."
+const MIN_SAMPLES_FOR_VELOCITY = 3;
+const MEANINGFUL_VELOCITY = 5; // real score points over the available same-session window
+function computeEdgeVelocity(samples) {
+  const sampleCount = Array.isArray(samples) ? samples.length : 0;
+  if (sampleCount < MIN_SAMPLES_FOR_VELOCITY) {
+    return { status: "INSUFFICIENT_DATA", velocity: null, elapsedMinutes: null, sampleCount };
+  }
+  const first = samples[0], last = samples[samples.length - 1];
+  const velocity = Math.round((last.score - first.score) * 10) / 10;
+  const elapsedMinutes = Math.max(1, Math.round((last.ts - first.ts) / 60_000));
+  let upMoves = 0, downMoves = 0;
+  for (let i = 1; i < samples.length; i++) {
+    const d = samples[i].score - samples[i - 1].score;
+    if (d > 0) upMoves++; else if (d < 0) downMoves++;
+  }
+  let status = "STABLE";
+  if (velocity >= MEANINGFUL_VELOCITY && upMoves >= downMoves) status = "ACCELERATING";
+  else if (velocity <= -MEANINGFUL_VELOCITY && downMoves >= upMoves) status = "DECAYING";
+  return { status, velocity, elapsedMinutes, sampleCount };
+}
+
+// Convenience combining the two — the shape every real caller (the
+// opportunities scan's ranking tie-breaker, the timeline route, the
+// sparkline) actually wants.
+function getEdgeVelocityFor(symbol) {
+  return computeEdgeVelocity(getTodayTimeline(symbol));
+}
+
 module.exports = {
   recordOpportunitySnapshots, getTodayTimeline, MIN_GAP_MS, MAX_SAMPLES_PER_SYMBOL,
+  computeEdgeVelocity, getEdgeVelocityFor, MIN_SAMPLES_FOR_VELOCITY, MEANINGFUL_VELOCITY,
   loadStore, saveStore, // exposed for test snapshot/restore, same discipline as mtf-outcome-tracker.js's loadEvents/saveEvents
 };

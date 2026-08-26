@@ -156,9 +156,25 @@ function aggregate(events, horizonKey) {
   if (!rows.length) return null;
   const n = rows.length;
   const avg = (f) => round2(rows.reduce((s, r) => s + f(r), 0) / n);
-  const wins = rows.filter((r) => r.returnPct > 0).length;
+  const winRows = rows.filter((r) => r.returnPct > 0);
+  const lossRows = rows.filter((r) => r.returnPct < 0);
+  const wins = winRows.length;
   const stopRows = rows.filter((r) => r.stopHit != null);
   const targetRows = rows.filter((r) => r.target1Hit != null);
+  // Expectancy + Profit Factor (Phase 3, 2026-08-26, spec's explicit ask:
+  // "a strategy with a lower win rate can still have positive expectancy
+  // if its winners are sufficiently larger than its losers"). Expectancy
+  // in the same %-return units as everything else here is, by
+  // construction, mathematically identical to avgReturnPct — decomposing
+  // a mean into its win/loss halves doesn't change the mean, it only
+  // explains WHY it's positive or negative (win-rate-driven vs.
+  // magnitude-driven). Exposed under its own name because the spec asks
+  // for it by that name, not because it's a second, different number.
+  // Profit Factor (gross win $ / gross loss $) is the genuinely different,
+  // new diagnostic: honestly null (not Infinity) when there are zero
+  // losing trades in the real sample — an undefined ratio, not "perfect."
+  const grossProfit = winRows.reduce((s, r) => s + r.returnPct, 0);
+  const grossLoss = Math.abs(lossRows.reduce((s, r) => s + r.returnPct, 0));
   return {
     count: n,
     avgReturnPct: avg((r) => r.returnPct),
@@ -167,6 +183,11 @@ function aggregate(events, horizonKey) {
     avgMaePct: avg((r) => r.maePct),
     stopHitRate: stopRows.length ? round2((stopRows.filter((r) => r.stopHit).length / stopRows.length) * 100) : null,
     target1HitRate: targetRows.length ? round2((targetRows.filter((r) => r.target1Hit).length / targetRows.length) * 100) : null,
+    avgWin: winRows.length ? round2(grossProfit / winRows.length) : null,
+    avgLoss: lossRows.length ? round2(grossLoss / lossRows.length) : null,
+    expectancy: avg((r) => r.returnPct),
+    profitFactor: grossLoss > 0 ? round2(grossProfit / grossLoss) : null,
+    profitFactorNote: grossLoss === 0 && grossProfit > 0 ? "No losing trades in this real sample — profit factor is undefined, not infinite." : null,
   };
 }
 

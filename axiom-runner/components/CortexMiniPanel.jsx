@@ -25,6 +25,22 @@ import EdgeTimelineSparkline from "./EdgeTimelineSparkline.jsx";
 // free-form follow-up conversation are AMCortexTab.jsx's real, larger
 // surface — this panel hands those off there with one tap instead of
 // half-duplicating that UI.
+// WHY NOT / Risk Level (Phase 3, 2026-08-26, explicit spec ask: "WHAT
+// COULD GO WRONG? RISK LEVEL: LOW/MODERATE/HIGH"). Pure real-data
+// surfacing — opp.redFlags/opp.criticalFlags already exist on every real
+// Opportunity Object (red-flag-engine.js's own computeRedFlags, the same
+// gate classifyOpportunityTier already hard-gates on); this adds zero
+// new computation, just an explicit label the spec asked for that wasn't
+// shown anywhere before.
+function riskLevelFor(opp) {
+  if (!opp || !Array.isArray(opp.redFlags)) return null;
+  const criticalCount = opp.criticalFlags || 0;
+  const flags = opp.redFlags;
+  const level = criticalCount > 0 ? "HIGH" : flags.length > 0 ? "MODERATE" : "LOW";
+  return { level, flags };
+}
+const RISK_LEVEL_COLOR = { LOW: "#0d9465", MODERATE: "#d6a312", HIGH: "#c8282a" };
+
 export default function CortexMiniPanel({ symbol, onSelectSymbol, setActiveTab, C, MONO, SANS }) {
   const [query, setQuery] = useState("");
   const [analysis, setAnalysis] = useState(null);
@@ -143,6 +159,26 @@ export default function CortexMiniPanel({ symbol, onSelectSymbol, setActiveTab, 
               </div>
             )}
             {opp && <EdgeTimelineSparkline symbol={analysis.symbol} C={C} MONO={MONO} SANS={SANS} />}
+            {opp && (() => {
+              const risk = riskLevelFor(opp);
+              if (!risk) return null;
+              const color = RISK_LEVEL_COLOR[risk.level];
+              return (
+                <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${verdictMeta.color}33`, textAlign: "left" }}>
+                  <div style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 800, color, marginBottom: risk.flags.length ? 4 : 0 }}>
+                    RISK LEVEL: {risk.level}
+                  </div>
+                  {risk.flags.slice(0, 3).map((f, i) => (
+                    <div key={f.key || i} style={{ fontFamily: SANS, fontSize: 10, color: f.critical ? "#c8282a" : C.textSec, marginBottom: 1 }}>
+                      {f.critical ? "🔴" : "⚠"} {f.reason || f.label}
+                    </div>
+                  ))}
+                  {risk.flags.length > 3 && (
+                    <div style={{ fontFamily: SANS, fontSize: 9.5, color: C.textDim }}>+{risk.flags.length - 3} more</div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         )}
 

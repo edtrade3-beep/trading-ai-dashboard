@@ -2058,6 +2058,10 @@ async function computeAllOpportunities() {
   const regime = computeRegime(macroData);
   const marketRegime = regimeToEntryVocabulary(regime.label);
 
+  const { computeDataFreshness } = require("../data-freshness");
+  const { isMarketHoursET } = require("../risk-guardrails");
+  const dataQuality = computeDataFreshness({ quotes: macroQuotes, nowMs: Date.now(), isMarketHours: isMarketHoursET() });
+
   const sectorRanked = SECTOR_THEME_MAP.SECTOR_ETFS
     .map((s) => ({ sym: s.sym, chgPct: Number(sectorQuotes.find((q) => q.symbol === s.sym)?.regularMarketChangePercent) || 0 }))
     .sort((a, b) => b.chgPct - a.chgPct);
@@ -2077,11 +2081,24 @@ async function computeAllOpportunities() {
       optionsFlow: null, trackReport,
     });
     if (!opp) continue;
+    // Edge Velocity (Phase 3, 2026-08-26) — real rate-of-change over this
+    // symbol's own prior real same-session samples (opportunity-timeline-
+    // store.js). Read BEFORE this scan's own new snapshot is recorded
+    // (recordOpportunitySnapshots runs later, after this function
+    // returns) so there's no leakage of this run's own score into its own
+    // velocity read. A visible field + ranking tie-breaker only — never
+    // changes the opportunity's own score/tier/EV.
+    try {
+      const { getEdgeVelocityFor } = require("../opportunity-timeline-store");
+      opp.edgeVelocity = getEdgeVelocityFor(opp.symbol);
+    } catch { opp.edgeVelocity = null; }
     const bucket = tiers[opp.tier.toLowerCase()];
     if (bucket) bucket.push(opp);
   }
-  for (const key of Object.keys(tiers)) tiers[key].sort((a, b) => (b.score || 0) - (a.score || 0));
-  return tiers;
+  for (const key of Object.keys(tiers)) {
+    tiers[key].sort((a, b) => (b.score || 0) - (a.score || 0) || ((b.edgeVelocity?.velocity || 0) - (a.edgeVelocity?.velocity || 0)));
+  }
+  return { tiers, dataQuality };
 }
 
 async function handleMarket(req, res, requestUrl) {
@@ -2891,7 +2908,7 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
   // a ~100-symbol-per-request fetch.
   if (pathname === "/api/market/opportunities" && req.method === "GET") {
     try {
-      const tiers = await computeAllOpportunities();
+      const { tiers, dataQuality } = await computeAllOpportunities();
 
       // Same-session Edge Timeline (Phase 2, 2026-08-26) — real, throttled
       // intraday snapshot of every real Opportunity Object this scan just
@@ -2905,7 +2922,7 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
       return writeJson(res, 200, {
         ok: true, generatedAt: new Date().toISOString(),
         counts: Object.fromEntries(Object.entries(tiers).map(([k, v]) => [k, v.length])),
-        tiers,
+        tiers, dataQuality,
       });
     } catch (err) {
       return writeJson(res, 502, { ok: false, error: err instanceof Error ? err.message : "Opportunity scan failed." });
@@ -2920,8 +2937,9 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
     const symbol = (searchParams.get("symbol") || "").trim().toUpperCase();
     if (!symbol) return writeJson(res, 400, { ok: false, error: "symbol required" });
     try {
-      const { getTodayTimeline } = require("../opportunity-timeline-store");
-      return writeJson(res, 200, { ok: true, symbol, samples: getTodayTimeline(symbol) });
+      const { getTodayTimeline, computeEdgeVelocity } = require("../opportunity-timeline-store");
+      const samples = getTodayTimeline(symbol);
+      return writeJson(res, 200, { ok: true, symbol, samples, edgeVelocity: computeEdgeVelocity(samples) });
     } catch (err) {
       return writeJson(res, 502, { ok: false, error: err instanceof Error ? err.message : "Timeline unavailable." });
     }

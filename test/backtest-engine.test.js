@@ -155,6 +155,29 @@ ok("aggregate: real avg return/win rate/stop-target-hit rate off completed outco
   assert.strictEqual(a.stopHitRate, 50);
   assert.strictEqual(a.target1HitRate, 50);
 });
+ok("aggregate: real expectancy/profitFactor/avgWin/avgLoss off a mixed win/loss sample", () => {
+  const events = [
+    { outcomes: { d5: { returnPct: 10, mfePct: 12, maePct: -2, stopHit: false, target1Hit: true } } },
+    { outcomes: { d5: { returnPct: 20, mfePct: 22, maePct: -1, stopHit: false, target1Hit: true } } },
+    { outcomes: { d5: { returnPct: -6, mfePct: 1, maePct: -8, stopHit: true, target1Hit: false } } },
+  ];
+  const a = aggregate(events, "d5");
+  assert.strictEqual(a.avgWin, 15, "avg of the two real +10/+20 winners");
+  assert.strictEqual(a.avgLoss, 6, "the one real -6 loser, as a positive magnitude");
+  assert.strictEqual(a.expectancy, a.avgReturnPct, "expectancy is the same real number as avgReturnPct by construction");
+  assert.strictEqual(a.profitFactor, 5, "gross profit 30 / gross loss 6 = 5");
+  assert.strictEqual(a.profitFactorNote, null);
+});
+ok("aggregate: zero real losing trades -> profitFactor is honestly null, never Infinity", () => {
+  const events = [
+    { outcomes: { d5: { returnPct: 10, mfePct: 10, maePct: -1, stopHit: false, target1Hit: true } } },
+    { outcomes: { d5: { returnPct: 5, mfePct: 5, maePct: -1, stopHit: false, target1Hit: false } } },
+  ];
+  const a = aggregate(events, "d5");
+  assert.strictEqual(a.profitFactor, null);
+  assert.strictEqual(a.avgLoss, null);
+  assert.ok(a.profitFactorNote && /undefined/i.test(a.profitFactorNote));
+});
 
 console.log("Checking buildReport…");
 ok("buildReport: regimes are aggregated completely separately, never mixed with overall", () => {
