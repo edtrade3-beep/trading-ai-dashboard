@@ -25,12 +25,26 @@ const { LIGHTBOX_DEFAULTS, SIGNAL_TO_STATE } = require("./lightbox-config");
 const { getEdgeVelocityFor, recordQualitySnapshots } = require("./lightbox-timeline-store");
 const { recordEvent: recordOutcomeEvent, winRateFor, HORIZONS: OUTCOME_HORIZONS } = require("./lightbox-outcome-tracker");
 const { computeDayTradeEV, computeDayTradeChase, computeOpportunityGap, computeDayTradeRedFlags, computeAttentionScore } = require("./lightbox-intelligence");
+const { withTimeout } = require("./utils");
 
 // Same real self-loopback JSON-fetch convention routes/ai-hub.js and
-// quick-trade-service.js already use for computeSymbolVsPositionsCorrelation.
+// quick-trade-service.js already use for computeSymbolVsPositionsCorrelation
+// — but THOSE call sites run inside a real HTTP route handler, naturally
+// bounded by the calling client's own timeout/cancellation. This one runs
+// inside a recurring BACKGROUND JOB (tickLightBox, every 5 real min) —
+// an unbounded hang here would silently freeze the entire tick forever
+// (setState never reached, the whole real symbol grid stops updating,
+// with no thrown error for job-heartbeat.js to even record). Real,
+// explicit 8s timeout, same withTimeout() utility every other real
+// external fetch in this codebase already uses — honest null on timeout,
+// never a fabricated response, and the tick keeps moving.
 const BASE = () => process.env.RENDER_EXTERNAL_URL || `http://127.0.0.1:${PORT}`;
 async function getJson(pathAndQuery) {
-  try { const r = await fetch(`${BASE()}${pathAndQuery}`); return await r.json(); } catch { return null; }
+  try {
+    const r = await withTimeout(fetch(`${BASE()}${pathAndQuery}`), 8000, null);
+    if (!r) return null;
+    return await withTimeout(r.json(), 8000, null);
+  } catch { return null; }
 }
 
 const STORE_PATH = path.join(ROOT, "data", "lightbox-state.json");
@@ -214,6 +228,7 @@ async function tickLightBox() {
   const { winRate } = winRateFor(primaryHorizon);
 
   for (const row of scanResult.rows || []) {
+   try {
     const sectorEtf = etfOf(row.symbol);
     const tq = getTrendQuality(row.symbol);
     const extra = { qqqChg, sectorChg: sectorEtf ? sectorChgByEtf.get(sectorEtf) ?? null : null, trendLabel: tq.trendLabel, vcpVerdict: tq.vcpVerdict, minBuyScore };
@@ -307,6 +322,16 @@ async function tickLightBox() {
         });
       } catch { /* best-effort — a logging failure never blocks the real tick */ }
     }
+   } catch (err) {
+     // One real symbol's processing failure must never abort the whole
+     // tick (same "one item's failure never blocks the rest" discipline
+     // mtf-outcome-tracker.js's/lightbox-outcome-tracker.js's own
+     // trackOutcomes() loops already use) — this symbol's entry simply
+     // carries forward whatever was already in nextBySymbol (its prior
+     // real state, from the `{...state.bySymbol}` seed above), never a
+     // half-written/corrupt entry.
+     console.error(`[Light Box] real per-symbol processing failed for ${row?.symbol}:`, err instanceof Error ? err.message : err);
+   }
   }
 
   // Batch-record this tick's real quality snapshots for tomorrow... er,
