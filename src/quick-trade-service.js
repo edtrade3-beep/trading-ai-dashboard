@@ -135,6 +135,40 @@ async function submitOrder(orderPayload) {
   return { ok: true, order: { id: a.data.id, symbol: a.data.symbol, qty: Number(a.data.qty), side: a.data.side, status: a.data.status } };
 }
 
+// Real single-order status lookup, used both by the poll below and by
+// the client-facing GET /api/quick-trade/order-status route (Phase 3
+// Tier B, 2026-08-26, spec Part 23: "never assume an order filled simply
+// because it was submitted").
+async function getOrderStatus(orderId) {
+  const a = await alpacaTradingRequest(`/v2/orders/${encodeURIComponent(orderId)}`);
+  if (!a._ok) return null;
+  return {
+    id: a.data.id, symbol: a.data.symbol, status: a.data.status,
+    filledQty: Number(a.data.filled_qty) || 0,
+    filledAvgPrice: a.data.filled_avg_price != null ? Number(a.data.filled_avg_price) : null,
+  };
+}
+
+const TERMINAL_ORDER_STATUSES = new Set(["filled", "canceled", "expired", "rejected", "done_for_day", "stopped"]);
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Real, bounded poll — a market order on Alpaca's paper API usually
+// resolves within a couple of seconds; this polls a real short window
+// (default 7 x 2s = 14s) rather than trusting the order's initial
+// accepted-but-not-yet-filled response. Returns the last real status
+// observed even if it never reached a terminal state within the window
+// (honest PENDING/PARTIALLY_FILLED, never assumed FILLED).
+async function pollOrderFill(orderId, { intervalMs = 2000, maxAttempts = 7 } = {}) {
+  let last = null;
+  for (let i = 0; i < maxAttempts; i++) {
+    await sleep(intervalMs);
+    const status = await getOrderStatus(orderId).catch(() => null);
+    if (status) last = status;
+    if (status && TERMINAL_ORDER_STATUSES.has(status.status)) break;
+  }
+  return last;
+}
+
 // buy/sell — long side, real long-only guard preserved for sell (same real
 // behavior as the legacy route: can't sell more than real held qty here).
 async function buy(symbol, qty, opts = {}) {
@@ -239,4 +273,5 @@ module.exports = {
   buy, sell, short, cover, submitBracket,
   closePosition, closeAll, closeAllLongs, closeAllShorts, flatten,
   cancelOrders, modifyStop, modifyTarget,
+  getOrderStatus, pollOrderFill,
 };

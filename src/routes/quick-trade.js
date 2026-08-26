@@ -71,18 +71,31 @@ async function handleQuickTrade(req, res, requestUrl) {
 
     const fn = { buy: svc.buy, sell: svc.sell, short: svc.short, cover: svc.cover }[side];
     const result = await fn(symbol, qty, opts);
-    // Post-entry Edge Monitoring (Phase 3 Tier B, 2026-08-26) — snapshot
-    // the real Opportunity Object at the exact moment a real long entry
-    // succeeds, captured here (server-side, order-placement time) so it's
-    // accurate regardless of which UI path triggered the trade. Long-only
-    // (the Opportunity Engine itself is long-only — am-core-engine.js
-    // returns null for SHORT), fire-and-forget so a slow/failed snapshot
-    // never delays or breaks the real order response that already
-    // succeeded.
-    if (side === "buy" && result?.ok) {
-      require("../position-edge-store").captureEntrySnapshot(symbol).catch(() => {});
+    // Order fill confirmation + Post-entry Edge Monitoring (Phase 3 Tier
+    // B, 2026-08-26, spec Part 23: "never assume an order filled simply
+    // because it was submitted"). Fire-and-forget — the real order
+    // response above already returned Alpaca's immediate accepted
+    // status; this polls for the real fill in the background and only
+    // THEN captures the Edge Monitoring entry snapshot, never at mere
+    // acceptance time. Client can independently confirm the real fill
+    // via GET /api/quick-trade/order-status?id=... below. Long-only (the
+    // Opportunity Engine itself is long-only).
+    if (side === "buy" && result?.ok && result.order?.id) {
+      require("../order-fill-tracker").confirmFillAndCapture(result.order.id, symbol).catch(() => {});
     }
     return writeJson(res, 200, result);
+  }
+
+  // GET /api/quick-trade/order-status?id=X — real, on-demand fill check
+  // (Phase 3 Tier B, 2026-08-26) so a client can confirm PLANNED ENTRY
+  // (what was submitted) vs ACTUAL ENTRY (what really filled, and at
+  // what price) without waiting on the fire-and-forget background poll.
+  if (pathname === "/api/quick-trade/order-status" && req.method === "GET") {
+    const id = (searchParams.get("id") || "").trim();
+    if (!id) return writeJson(res, 400, { ok: false, error: "id required" });
+    const status = await svc.getOrderStatus(id);
+    if (!status) return writeJson(res, 200, { ok: false, reason: "not found or Alpaca unavailable" });
+    return writeJson(res, 200, { ok: true, ...status });
   }
 
   // POST /api/quick-trade/close  Body: { symbol, qty?, percentage? }

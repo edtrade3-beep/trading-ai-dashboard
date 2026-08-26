@@ -206,10 +206,41 @@ export default function QuickTradePanel({ C, MONO, SANS, terminalSymbol, setTerm
       const r = await fetch("/api/quick-trade/order", { method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ symbol, qty: computedQty, side, ...opts }) });
       const d = await r.json();
-      if (d.ok) setStatus(`✅ ${side.toUpperCase()} ${computedQty} ${symbol} — order ${d.order.status}`);
-      else setStatus(`⚠ ${d.reason || d.error || "order blocked"}`);
+      if (d.ok) {
+        // Order fill confirmation (Phase 3 Tier B, 2026-08-26, spec Part
+        // 23: "never assume an order filled simply because it was
+        // submitted"). The order response above is only Alpaca's
+        // immediate accepted-but-not-necessarily-filled status (PLANNED
+        // ENTRY) — poll for the real confirmed fill (ACTUAL ENTRY,
+        // including the real fill price) instead of treating "accepted"
+        // as "done." Non-blocking — the panel stays usable while this runs.
+        setStatus(`⏳ ${side.toUpperCase()} ${computedQty} ${symbol} — order ${d.order.status}, confirming fill…`);
+        confirmFill(d.order.id, side, computedQty, symbol);
+      } else setStatus(`⚠ ${d.reason || d.error || "order blocked"}`);
     } catch (e) { setStatus(`⚠ ${e.message}`); }
     setBusy(false);
+  };
+
+  const TERMINAL_UNFILLED = new Set(["canceled", "expired", "rejected", "done_for_day", "stopped"]);
+  const confirmFill = async (orderId, side, qty, sym) => {
+    for (let i = 0; i < 6; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      try {
+        const r = await fetch(`/api/quick-trade/order-status?id=${encodeURIComponent(orderId)}`);
+        const d = await r.json();
+        if (!d.ok) continue;
+        if (d.status === "filled" || d.status === "partially_filled") {
+          const priceStr = Number.isFinite(d.filledAvgPrice) ? `$${d.filledAvgPrice.toFixed(2)}` : "an unconfirmed price";
+          setStatus(`✅ ${side.toUpperCase()} ${sym} — ${d.status === "filled" ? "FILLED" : "PARTIALLY FILLED"} ${d.filledQty} sh @ ${priceStr}`);
+          return;
+        }
+        if (TERMINAL_UNFILLED.has(d.status)) {
+          setStatus(`⚠ ${side.toUpperCase()} ${sym} — order ${d.status}, never filled`);
+          return;
+        }
+      } catch { /* keep polling — a transient network error shouldn't end the real confirmation attempt early */ }
+    }
+    setStatus(`⏳ ${side.toUpperCase()} ${qty} ${sym} — order accepted, fill still unconfirmed after 12s (check the Orders tab)`);
   };
 
   const panic = async (path, label) => {
