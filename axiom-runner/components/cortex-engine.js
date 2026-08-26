@@ -83,9 +83,19 @@ export function parseCortexQuery(query, knownSymbols) {
 // (Sniper Decision's gates/reversal detector, the screener's extended/
 // stage fields) rather than inventing new ones. Exactly the 5 states the
 // user specified. ----
-export function computeHeatRisk(row, sniper) {
+// `antiChase` (real computeAntiChase output, anti-chase.js) is optional —
+// real bug fix (2026-08-26, "unify the swing/entry-decision verdict"): this
+// used to read ONLY the crude `row.extended` boolean flag, so it could
+// disagree with am-core-engine's classifyCoreVerdict (which reads the real
+// graduated band) on the exact same stock at the exact same moment — the
+// live case reported. Now prefers the real band (EXTENDED/DO_NOT_CHASE =
+// extended) when a caller supplies one, same "real band takes priority,
+// crude flag is the fallback for callers without one yet" pattern
+// entry-engine.js's isAntiChaseBlocking already established (2026-08-21).
+export function computeHeatRisk(row, sniper, antiChase) {
   const rev = sniper?.reversal;
-  const extended = !!row?.extended;
+  const band = antiChase?.band;
+  const extended = band != null ? (band === "EXTENDED" || band === "DO_NOT_CHASE") : !!row?.extended;
   const dayChg = Number(row?.dayChangePct);
   const volRatio = Number(row?.volRatio ?? row?.volSurge);
   const climaxMove = Number.isFinite(dayChg) && Number.isFinite(volRatio) && Math.abs(dayChg) >= 5 && volRatio >= 2.5;
@@ -100,7 +110,9 @@ export function computeHeatRisk(row, sniper) {
   if (extended || rev?.isTop) {
     return {
       state: "OVEREXTENDED_DO_NOT_CHASE", label: "OVEREXTENDED — DO NOT CHASE", color: "#e08a1e", icon: "🟠",
-      reason: extended && Number.isFinite(row?.abovePivotPct) ? `${row.abovePivotPct.toFixed(1)}% above pivot — chasing risk.` : (rev?.verdict || "Stretched from recent structure."),
+      reason: band != null
+        ? (antiChase.label || "Extended above the breakout — chasing risk.")
+        : (extended && Number.isFinite(row?.abovePivotPct) ? `${row.abovePivotPct.toFixed(1)}% above pivot — chasing risk.` : (rev?.verdict || "Stretched from recent structure.")),
     };
   }
   if (stage4 || sniper?.action === "AVOID") {

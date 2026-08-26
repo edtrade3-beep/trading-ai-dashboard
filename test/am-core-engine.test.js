@@ -19,7 +19,7 @@ const STRONG_INPUT = {
   passCount: 8, rsRating: 90, momentum: 0.3, volRatio: 1.8,
   regime: { score: 85, label: "GREEN" },
   vcpScore: 90, riskPct: 4, dollarVolume: 500_000_000,
-  antiChase: { band: "IDEAL" }, epsGrowth: 15,
+  antiChase: { band: "NORMAL" }, epsGrowth: 15,
   optionsFlow: { callNotional: 800_000, putNotional: 200_000 },
   adx: { strength: "Strong", direction: "Bullish" },
   smc: { bos: { type: "BULL_BOS" } },
@@ -52,6 +52,25 @@ ok("real sector rank #1 of 11 scores near the sector bucket's max; unranked degr
   const unranked = computeCoreScore({ ...STRONG_INPUT, sectorInfo: undefined });
   assert.ok(ranked.breakdown.sector > unranked.breakdown.sector, "a real #1 sector rank must score higher than an honest unranked default");
   assert.strictEqual(unranked.breakdown.sector, 4, "unranked default should be the documented mid-point (half of the 8pt bucket)");
+});
+
+console.log("\nChecking computeCoreScore's real antiChase band names — regression for the 2026-08-26 'unify the swing/entry-decision verdict' bug fix…");
+ok("real bands NOT_YET_BROKEN_OUT/NORMAL score the SAME (both genuinely no chase risk) — the max entryQuality sub-score", () => {
+  const notYet = computeCoreScore({ ...STRONG_INPUT, antiChase: { band: "NOT_YET_BROKEN_OUT" } });
+  const normal = computeCoreScore({ ...STRONG_INPUT, antiChase: { band: "NORMAL" } });
+  assert.strictEqual(notYet.breakdown.entryQuality, normal.breakdown.entryQuality);
+});
+ok("real bands CAUTION < NORMAL < ... and EXTENDED < CAUTION and DO_NOT_CHASE < EXTENDED — entryQuality strictly decreases with real chase risk", () => {
+  const scoreFor = (band) => computeCoreScore({ ...STRONG_INPUT, antiChase: { band } }).breakdown.entryQuality;
+  const normal = scoreFor("NORMAL"), caution = scoreFor("CAUTION"), extended = scoreFor("EXTENDED"), doNotChase = scoreFor("DO_NOT_CHASE");
+  assert.ok(normal > caution, `NORMAL (${normal}) must score above CAUTION (${caution})`);
+  assert.ok(caution > extended, `CAUTION (${caution}) must score above EXTENDED (${extended})`);
+  assert.ok(extended > doNotChase, `EXTENDED (${extended}) must score above DO_NOT_CHASE (${doNotChase})`);
+});
+ok("regression: the invented band names 'IDEAL'/'ACCEPTABLE'/'STRETCHED' (the real pre-fix bug) are honestly treated as unrecognized, not silently matched", () => {
+  const invented = computeCoreScore({ ...STRONG_INPUT, antiChase: { band: "IDEAL" } }).breakdown.entryQuality;
+  const unavailable = computeCoreScore({ ...STRONG_INPUT, antiChase: undefined }).breakdown.entryQuality;
+  assert.strictEqual(invented, unavailable, "an unrecognized band name must fall through to the same honest 'unavailable' default, never accidentally scored as real");
 });
 
 console.log("\nChecking AM_CORE_SETUP — the one canonical threshold config…");
@@ -112,6 +131,17 @@ ok("DO_NOT_CHASE (extended) forces AVOID_LONG even at a high score", () => {
   const r = classifyCoreVerdict({ score: 95, entryPlan: { entryPrice: 100, doNotChaseZone: { band: "DO_NOT_CHASE" } }, redFlagResult: CLEAN_RED_FLAGS });
   assert.strictEqual(r.verdict, "AVOID_LONG");
   assert.match(r.reason, /chase/i);
+});
+ok("regression (2026-08-26, real live bug reported by the user): EXTENDED (not yet terminal DO_NOT_CHASE) also forces AVOID_LONG, not BUY — this is the exact contradiction the reported screenshot showed", () => {
+  const r = classifyCoreVerdict({ score: 95, entryPlan: { entryPrice: 100, doNotChaseZone: { band: "EXTENDED" } }, redFlagResult: CLEAN_RED_FLAGS });
+  assert.strictEqual(r.verdict, "AVOID_LONG");
+  assert.match(r.reason, /pullback|extended|stretched/i);
+});
+ok("NORMAL/CAUTION/NOT_YET_BROKEN_OUT bands do NOT trip the hard gate — only EXTENDED/DO_NOT_CHASE block", () => {
+  for (const band of ["NORMAL", "CAUTION", "NOT_YET_BROKEN_OUT"]) {
+    const r = classifyCoreVerdict({ score: 95, entryPlan: { entryPrice: 100, doNotChaseZone: { band } }, redFlagResult: CLEAN_RED_FLAGS });
+    assert.notStrictEqual(r.verdict, "AVOID_LONG", `band ${band} should not trip the anti-chase hard gate`);
+  }
 });
 ok("a critical red flag forces AVOID_LONG even at a high score, real flag label named in the reason", () => {
   const r = classifyCoreVerdict({ score: 95, entryPlan: CLEAN_ENTRY_PLAN, redFlagResult: { criticalCount: 1, flags: [{ critical: true, label: "Daily Trend Breakdown" }] } });

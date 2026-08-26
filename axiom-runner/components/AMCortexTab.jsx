@@ -3,6 +3,7 @@ import { RH_UNIVERSE, rhScreenProgressive } from "./rhpro-shared.jsx";
 import { computeRegime, computeAPlusScore, computeInstitutionalGrade, computeInstitutionScore, computeFundamentalsRead, classifyEntryType, SECTOR_ETFS, STOCK_TO_SECTOR } from "./market-helpers.js";
 import { computeSniperDecision } from "./sniper-decision.js";
 import { computeCoreScore, CORE_VERDICT_META } from "./am-core-engine.js";
+import { computeAntiChase } from "./anti-chase.js";
 import { FundamentalsPanel, OptionsFlowPanel, NewsPanel, InvestorsPanel } from "./terminal-panels.jsx";
 import {
   parseCortexQuery, computeHeatRisk, computeCortexVerdict, computePriceToPay, summarizeBuyPrice, whyEvidence,
@@ -163,7 +164,13 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
     const sniper = computeSniperDecision(row);
     const aplus = computeAPlusScore(row, regime);
     const grade = computeInstitutionalGrade(row, row.technicals, regime, sectorInfoFor(symbol), null);
-    const heat = computeHeatRisk(row, sniper);
+    // Real bug fix (2026-08-26, "unify the swing/entry-decision verdict"):
+    // this file used to hardcode antiChase: null into computeCoreScore
+    // (below) and never passed one to computeHeatRisk either — both real
+    // gaps, not intentional degrades (row.abovePivotPct is already real
+    // data on this same row). Computed once, reused by both.
+    const antiChase = computeAntiChase(row.abovePivotPct);
+    const heat = computeHeatRisk(row, sniper, antiChase);
     const verdict = computeCortexVerdict({ sniper, heat, aplusScore: aplus.score });
     const priceToPay = computePriceToPay(row, sniper);
     const evidence = whyEvidence(sniper, aplus);
@@ -191,7 +198,7 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
       passCount: row.passCount, rsRating: row.rsRating, momentum: row.momentum,
       stage: row.stage, volRatio: row.volRatio, regime, sectorInfo: sectorInfoFor(symbol),
       adx: null, smc: row.smc, epsGrowth: row.epsGrowth, vcpScore: row.vcpScore,
-      riskPct: row.riskPct, pctFromHigh: row.pctFromHigh, antiChase: null,
+      riskPct: row.riskPct, pctFromHigh: row.pctFromHigh, antiChase,
       optionsFlow: null, dollarVolume: row.dollarVolume,
     });
     return {

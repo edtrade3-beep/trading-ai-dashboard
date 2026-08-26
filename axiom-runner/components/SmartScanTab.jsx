@@ -375,7 +375,11 @@ export default function SmartScanTab({
             if (!tr) return;
             const ap = computeAPlusScore(tr, smartScanRegime);
             const sd = computeSniperDecision(tr);
-            const hd = computeHeatRisk(tr, sd);
+            // Real bug fix (2026-08-26, "unify the swing/entry-decision
+            // verdict") — real graduated antiChase band, same primitive
+            // already used elsewhere in this file, threaded into the heat
+            // check here too.
+            const hd = computeHeatRisk(tr, sd, computeAntiChase(tr.abovePivotPct));
             const cv = computeCortexVerdict({ sniper: sd, heat: hd, aplusScore: ap.score });
             if (sigCounts[cv.verdict] !== undefined) sigCounts[cv.verdict]++;
           });
@@ -915,7 +919,11 @@ export default function SmartScanTab({
                         const trendRow = smartScanTrendMap[row.ticker] || null;
                         const aplus = computeAPlusScore(trendRow || {}, smartScanRegime);
                         const sniperD = trendRow ? computeSniperDecision(trendRow) : null;
-                        const heatD = trendRow && sniperD ? computeHeatRisk(trendRow, sniperD) : null;
+                        // Real bug fix (2026-08-26, "unify the swing/entry-
+                        // decision verdict") — threads the real graduated
+                        // antiChase band in, same primitive already used
+                        // elsewhere in this file.
+                        const heatD = trendRow && sniperD ? computeHeatRisk(trendRow, sniperD, computeAntiChase(trendRow.abovePivotPct)) : null;
                         const cortexV = trendRow && sniperD && heatD ? computeCortexVerdict({ sniper: sniperD, heat: heatD, aplusScore: aplus.score }) : null;
                         // Discover/Cortex Additive Verdict (2026-08-23) — the
                         // row badge (bar color + primary label) is now driven

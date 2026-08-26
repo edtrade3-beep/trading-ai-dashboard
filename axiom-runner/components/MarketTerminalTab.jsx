@@ -931,7 +931,11 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   // they're real future phases (MTF combiner + state machine), not
   // something to fake here.
   const sniperD = symTrend ? computeSniperDecision(symTrend) : null;
-  const heatD = (symTrend && sniperD) ? computeHeatRisk(symTrend, sniperD) : null;
+  // Real bug fix (2026-08-26): threads the same real antiChase band already
+  // used by computeCoreScore/computeEntryPlan below (symMtf?.antiChase) into
+  // Cortex's heat check too, so it can never again disagree with
+  // classifyCoreVerdict's hard gate about the same real chase-distance read.
+  const heatD = (symTrend && sniperD) ? computeHeatRisk(symTrend, sniperD, symMtf?.antiChase) : null;
   const cortexV = (symTrend && sniperD && heatD && aPlusScore) ? computeCortexVerdict({ sniper: sniperD, heat: heatD, aplusScore: aPlusScore.score }) : null;
   const entryTypeDW = (symTrend && aPlusScore) ? classifyEntryType(symTrend, aPlusScore.score) : null;
   const setupScoreDW = symTrend ? computeSetupScore(symTrend) : null;
@@ -1339,10 +1343,24 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   // volume off symTrend.volRatio, risk off chart.setup.riskPct).
   const decisionInputs = (chart && chart.setup) ? (() => {
     const su = chart.setup;
-    const verdict = su.verdict; // "GO" | "WAIT" | "AVOID"
-    const vColor = verdict === "GO" ? "#0d9465" : verdict === "WAIT" ? "#d6a312" : "#c8282a";
-    const vIcon = verdict === "GO" ? "🟢" : verdict === "WAIT" ? "🟡" : "🔴";
-    const vLabel = verdict === "GO" ? "BUY" : verdict === "WAIT" ? "WAIT" : "AVOID";
+    // Real bug fix (2026-08-26, "unify the swing/entry-decision verdict"):
+    // this used to derive its OWN independent BUY/WAIT/AVOID label straight
+    // off chart.setup.verdict (routes/market.js's trend-template GO/WAIT/
+    // AVOID check) — a second, separately-computed verdict from
+    // coreVerdictDW below, which is exactly why the top banner and the
+    // DECISION card underneath it could show two different verdicts for
+    // the same stock (the reported live bug). Both now read the one real
+    // verdict (coreVerdictDW/classifyCoreVerdict) — chart.setup's own real
+    // passCount/breakoutConfirmed signal still feeds INTO computeCoreScore's
+    // trendPts (see coreScoreDW above), it's just not a second, independently
+    // displayed verdict anymore. Falls back to the old chart.setup-driven
+    // read only if coreVerdictDW itself isn't available yet (e.g. still loading).
+    const meta = coreVerdictDW ? (CORE_VERDICT_META[coreVerdictDW.verdict] || {}) : null;
+    const legacyVerdict = su.verdict; // "GO" | "WAIT" | "AVOID" — fallback only
+    const vColor = meta?.color || (legacyVerdict === "GO" ? "#0d9465" : legacyVerdict === "WAIT" ? "#d6a312" : "#c8282a");
+    const vIcon = meta?.icon || (legacyVerdict === "GO" ? "🟢" : legacyVerdict === "WAIT" ? "🟡" : "🔴");
+    const vLabel = meta?.label || (legacyVerdict === "GO" ? "BUY" : legacyVerdict === "WAIT" ? "WAIT" : "AVOID");
+    const verdict = coreVerdictDW?.verdict || legacyVerdict;
     const target1R = Math.round((su.entry + (su.entry - su.stop)) * 100) / 100;
     const stage = String(chart.stage || "");
     const trendColor = stage.includes("Stage 2") ? "#0d9465" : stage.includes("Transition") ? "#d6a312" : stage.includes("Stage 4") ? "#c8282a" : C.textDim;
@@ -1659,20 +1677,25 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                 <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }} title={`MTF coverage: ${dataQualityDW.coverage} timeframes available`}>Data Quality: <b style={{ color: dataQualityDW.score >= 70 ? "#22d47e" : dataQualityDW.score >= 45 ? "#d6a312" : "#ef4444" }}>{dataQualityDW.score}/100</b> ({dataQualityDW.coverage} MTF)</span>
               )}
             </div>
-            {/* Real, honest disclosure — found live while shipping this:
-                the BUY/WAIT/AVOID line above (decisionInputs, driven by
-                chart.setup.verdict / computeNextAction) can disagree with
-                Cortex Verdict here, because they're two independently-built
-                engines that both pre-date this panel — not something
-                introduced by this change, just made newly visible by
-                putting them on the same screen. Not unified in Phase 1
-                (chart.setup.verdict also drives the DECISION section below
-                and other flows — a real, separate reconciliation task, not
-                a quick fix). Disclosed rather than hidden, same "label it"
-                discipline as Trade Planner's Options Recommendation. */}
-            {decisionInputs && ((decisionInputs.vLabel === "BUY") !== (dwState.label === "START")) && (
+            {/* Real, honest disclosure, UPDATED 2026-08-26 ("unify the
+                swing/entry-decision verdict"): the line above (decisionInputs)
+                now reads the SAME real verdict (coreVerdictDW/
+                classifyCoreVerdict) as the DECISION card below it, and the
+                real chase-distance/anti-chase signal is now unified too
+                (computeHeatRisk here and classifyCoreVerdict's hard gate
+                both read the same real computeAntiChase band) — the exact
+                contradiction this disclaimer used to warn about (a stock
+                showing BUY up top while this panel said DO NOT CHASE) can no
+                longer happen. Cortex Verdict here is a genuinely separate
+                engine still (its own real Sniper/Heat-Risk/A+ blend), so a
+                narrower disagreement is still honestly possible for OTHER
+                reasons (e.g. a red flag or Stage-4 check one engine has and
+                the other doesn't) — fully merging every input is a larger,
+                separate future pass (see the plan's Tier 3), not silently
+                claimed as done here. */}
+            {decisionInputs && (((decisionInputs.verdict === "BUY" || decisionInputs.verdict === "EARLY_BUY") ? "BUY" : decisionInputs.vLabel) === "BUY") !== (dwState.label === "START") && (
               <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginBottom: 8 }}>
-                ⚠ The {decisionInputs.vLabel} shown above uses a different engine (chart setup verdict) than this panel's Cortex-based read — they can disagree. Reconciling these is a planned future pass, not done yet.
+                ⚠ The {decisionInputs.vLabel} verdict above and this panel's Cortex-based read disagree on this symbol right now — the real anti-chase check itself is unified between them, so this is a narrower difference (e.g. a red flag or structural check one engine weighs and the other doesn't). Full merge is a separate, larger future pass.
               </div>
             )}
 

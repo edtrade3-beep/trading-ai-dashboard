@@ -4,6 +4,7 @@ import { computeScores } from "./trading-utils.js";
 import { STOCK_TO_SECTOR, computeRegime, computeAPlusScore } from "./market-helpers.js";
 import { computeSniperDecision } from "./sniper-decision.js";
 import { computeHeatRisk, computeCortexVerdict } from "./cortex-engine.js";
+import { computeAntiChase } from "./anti-chase.js";
 
 // Real Cortex Verdict per symbol — replaces this file's own separate
 // composite-score thresholds (sig/sig2/qs, 72/55/40 cutoffs on
@@ -18,7 +19,14 @@ function cortexVerdictFor(trendRow, regime) {
   if (!trendRow) return null;
   const aplus = computeAPlusScore(trendRow, regime);
   const sniper = computeSniperDecision(trendRow);
-  const heat = computeHeatRisk(trendRow, sniper);
+  // Real bug fix (2026-08-26, "unify the swing/entry-decision verdict"):
+  // threads the real graduated computeAntiChase band (same primitive
+  // SmartScanTab.jsx already uses) into the heat check, same as
+  // MarketTerminalTab.jsx's own fix, so this file's Cortex read can't
+  // disagree with the unified verdict elsewhere over the exact same
+  // real chase-distance signal.
+  const antiChase = computeAntiChase(trendRow.abovePivotPct);
+  const heat = computeHeatRisk(trendRow, sniper, antiChase);
   return computeCortexVerdict({ sniper, heat, aplusScore: aplus.score });
 }
 const verdictLabelColor = (v) => !v ? [null, C.textDim]

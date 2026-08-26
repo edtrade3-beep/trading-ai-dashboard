@@ -127,7 +127,16 @@ ok("regression (live prod bug, 2026-08-25, AMD): EV uses row.entry (the pivot-re
     price: 475.7, entry: 561.47, pivot: 561.47, stop: 516.55, target2: 651.31,
     abovePivotPct: -14.9, breakoutConfirmed: false, extended: false, passCount: 6,
   });
-  const trackReport = { horizons: { d20: { buckets: { "60-79": { winRate: 33, count: 27 } } } } };
+  // Bucket key updated 2026-08-26 (real am-core-engine.js bug fix, "unify
+  // the swing/entry-decision verdict"): computeCoreScore's entryQuality
+  // sub-score used to silently default this row's real "not yet broken
+  // out, no chase risk" antiChase band to the generic 2.25 fallback (a
+  // band-name mismatch bug — see am-core-engine.js), landing this row's
+  // real score at ~79. The fix correctly credits NOT_YET_BROKEN_OUT as
+  // real evidence of a clean, non-extended setup, moving the accurate
+  // score to 82 — bucket "80-100", not "60-79". Same real winRate/count,
+  // just the honest bucket for this row's now-correct score.
+  const trackReport = { horizons: { d20: { buckets: { "80-100": { winRate: 33, count: 27 } } } } };
   const o = computeOpportunity({ symbol: "AMD", row, regime: REGIME, marketRegime: "RISK_ON", trackReport });
   assert.ok(o, "expected a real Opportunity Object");
   assert.strictEqual(o.entry, 561.47, "entry must be the real pivot-relative reference (row.entry), not the current price");

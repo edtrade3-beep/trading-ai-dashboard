@@ -113,8 +113,20 @@ function computeCoreScore(input = {}) {
   // risk% stop distance, combined; computeAPlusScore weighted these
   // 15+20=35 separately — heavily trimmed here since Entry Quality is
   // one bucket in the new split, not two).
+  //
+  // Real bug fix (2026-08-26, "unify the swing/entry-decision verdict"):
+  // this used to check band names "IDEAL"/"ACCEPTABLE"/"STRETCHED" — names
+  // computeAntiChase (src/atr-risk-engine.js) never actually produces. Its
+  // real bands are NOT_YET_BROKEN_OUT/NORMAL/CAUTION/EXTENDED/DO_NOT_CHASE,
+  // so every real antiChase read except the exact terminal DO_NOT_CHASE
+  // silently fell through to the generic 2.25 "unavailable" default —
+  // chase risk was barely being scored at all.
   const antiChaseBand = input.antiChase?.band;
-  const entryDistPts = antiChaseBand === "IDEAL" ? 4.5 : antiChaseBand === "ACCEPTABLE" ? 3 : antiChaseBand === "STRETCHED" ? 1.5 : antiChaseBand === "DO_NOT_CHASE" ? 0 : 2.25;
+  const entryDistPts = antiChaseBand === "NOT_YET_BROKEN_OUT" || antiChaseBand === "NORMAL" ? 4.5
+    : antiChaseBand === "CAUTION" ? 3
+    : antiChaseBand === "EXTENDED" ? 1.5
+    : antiChaseBand === "DO_NOT_CHASE" ? 0
+    : 2.25;
   const riskPct = Number(input.riskPct);
   const riskDistPts = Number.isFinite(riskPct) && riskPct > 0 ? Math.max(0, Math.min(1, (10 - riskPct) / 7)) * 4.5 : 2.25;
   const entryQualityPts = clampRound(entryDistPts + riskDistPts, 9);
@@ -233,7 +245,14 @@ function classifyCoreVerdict(input = {}) {
   // exact TSLA-shaped case the spec's own worked example describes
   // (Stage 4 + a high score must never read as BUY).
   if (entryPlan.stage === "STRUCTURE_BROKEN") return { verdict: "AVOID_LONG", reason: "4H structure is broken." };
-  if (entryPlan.doNotChaseZone?.band === "DO_NOT_CHASE") return { verdict: "AVOID_LONG", reason: "Price is extended — do not chase." };
+  // Real bug fix (2026-08-26, "unify the swing/entry-decision verdict"):
+  // this only blocked on the terminal DO_NOT_CHASE band, missing EXTENDED
+  // — reusing entry-engine.js's own already-correct rule verbatim
+  // (isAntiChaseBlocking, entry-engine.js:152-156) so this hard gate can
+  // never again let an EXTENDED (real, stretched, not-yet-terminal) entry
+  // through as a BUY the way the reported live case did.
+  if (entryPlan.doNotChaseZone?.band === "DO_NOT_CHASE") return { verdict: "AVOID_LONG", reason: "Price is extended — too far above the breakout to chase now." };
+  if (entryPlan.doNotChaseZone?.band === "EXTENDED") return { verdict: "AVOID_LONG", reason: "Price is stretched above the breakout — wait for a pullback before entering." };
   if (criticalCount > 0) {
     const names = redFlags.filter((f) => f.critical).map((f) => f.label).join(", ");
     return { verdict: "AVOID_LONG", reason: names ? `Critical red flag: ${names}.` : "A critical red flag is active." };
