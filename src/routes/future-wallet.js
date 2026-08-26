@@ -13,6 +13,7 @@ const { runQuantScreen, getLatestQuantMetrics } = require("../future-wallet-quan
 const { runTechnicalScreen, getLatestTechnicalScores } = require("../future-wallet-technical");
 const { runFuturePotentialScoring, getLatestFuturePotential } = require("../future-wallet-potential");
 const { runAgentSwarm, getLatestAgentAnalysis, getRawStats, dedupeAgentAnalysis, PILOT_AGENTS } = require("../future-wallet-agents");
+const { getLatestScores, getHorseJournal } = require("../future-wallet-synthesis");
 const { ANTHROPIC_API_KEY } = require("../config");
 
 async function handleFutureWallet(req, res, requestUrl) {
@@ -145,6 +146,46 @@ async function handleFutureWallet(req, res, requestUrl) {
   if (pathname === "/api/future-wallet/dedupe-agent-analysis" && req.method === "POST") {
     const result = await dedupeAgentAnalysis();
     return writeJson(res, 200, { ok: true, ...result });
+  }
+
+  // Horse Hunter upgrade (2026-08-26) — real CIO-synthesized scores
+  // (fw_scores, populated by future-wallet-synthesis.js's runSynthesisAndStage,
+  // wired into the daily job below) and the real score-history Journal
+  // (fw_thesis_history) for one symbol.
+  if (pathname === "/api/future-wallet/scores" && req.method === "GET") {
+    const symbolParam = requestUrl.searchParams.get("symbols");
+    const symbols = symbolParam ? symbolParam.split(",").map((s) => s.trim()).filter(Boolean) : undefined;
+    const rows = await getLatestScores(symbols);
+    return writeJson(res, 200, { ok: true, count: rows.length, rows });
+  }
+
+  if (pathname === "/api/future-wallet/journal" && req.method === "GET") {
+    const symbol = (requestUrl.searchParams.get("symbol") || "").trim().toUpperCase();
+    if (!symbol) return writeJson(res, 400, { ok: false, error: "symbol is required" });
+    const rows = await getHorseJournal(symbol);
+    return writeJson(res, 200, { ok: true, symbol, count: rows.length, rows });
+  }
+
+  // The spec's real "⭐ BEST OF BOTH WORLDS" — symbols that are simultaneously
+  // a real long-term Horse and a real current Light Box opportunity.
+  if (pathname === "/api/future-wallet/best-of-both" && req.method === "GET") {
+    const { getBestOfBothWorlds } = require("../horse-opportunity-crossover");
+    const rows = await getBestOfBothWorlds();
+    return writeJson(res, 200, { ok: true, count: rows.length, rows });
+  }
+
+  // Manual trigger for the daily refresh (quant -> technical -> future-
+  // potential -> synthesis -> stage -> journal -> alerts), same "run-*"
+  // on-demand convention every other phase's endpoint above already
+  // follows. force=true deliberately bypasses the once/real-day background
+  // gate (runFutureWalletDailyRefresh's default behavior respects it) —
+  // needed to actually verify the pipeline on demand rather than waiting
+  // for a real day boundary.
+  if (pathname === "/api/future-wallet/run-daily-refresh" && req.method === "POST") {
+    let body = {};
+    try { const raw = await readRequestBody(req); body = raw ? JSON.parse(raw) : {}; } catch {}
+    const result = await require("../future-wallet-daily-job").runFutureWalletDailyRefresh({ force: !!body.force });
+    return writeJson(res, 200, result);
   }
 
   return writeJson(res, 404, { ok: false, error: "Not found" });

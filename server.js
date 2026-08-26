@@ -459,6 +459,20 @@ server.listen(PORT, HOST, () => {
   registerJob("News Intelligence Ingest", 5 * 60_000, () => require("./src/news/pipeline").runIngestionTick());
   console.log("[News Intel] Ingestion tick active — every 5 min (rotating watchlist slice)");
 
+  // Future Wallet Daily Refresh — Horse Hunter upgrade (2026-08-26): the
+  // real "continuous" piece Future Wallet never had (every phase was
+  // manually POST-triggered from the tab's own buttons until now). Runs
+  // the existing real quant/technical/future-potential pipeline plus the
+  // new CIO synthesis + 8-stage classify + Horse Journal write + real
+  // transition alerts (src/future-wallet-daily-job.js) — gated internally
+  // to once per real trading day (checked against fw_quant_metrics' own
+  // MAX(as_of), same "check real persisted state" idea morning-digest.js
+  // already uses), so this 20-min interval just needs to be frequent
+  // enough to catch the day rolling over, not a literal "run every 20
+  // min" cadence. Zero new Claude API calls in this phase.
+  registerJob("Future Wallet Daily Refresh", 20 * 60_000, () => require("./src/future-wallet-daily-job").runFutureWalletDailyRefresh());
+  console.log("[Future Wallet] Daily refresh tick active — gated to once/real-trading-day");
+
   // Trend Quality cache — real Minervini Trend Template + VCP, precomputed
   // on a slow cadence (daily-timeframe data that doesn't meaningfully
   // change tick-to-tick) so the day-trade weighted engine can read a
