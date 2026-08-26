@@ -26,6 +26,49 @@ const { getEdgeVelocityFor, recordQualitySnapshots } = require("./lightbox-timel
 const { recordEvent: recordOutcomeEvent, winRateFor, HORIZONS: OUTCOME_HORIZONS } = require("./lightbox-outcome-tracker");
 const { computeDayTradeEV, computeDayTradeChase, computeOpportunityGap, computeDayTradeRedFlags, computeAttentionScore } = require("./lightbox-intelligence");
 const { withTimeout } = require("./utils");
+const { sendTelegramMessage, isConfigured: telegramConfigured } = require("./telegram");
+
+// Real Telegram delivery on a lifecycle transition (#11, Market
+// Opportunity Intelligence Engine upgrade, 2026-08-26, spec: "Light Box
+// should NOT constantly interrupt me... alert when something materially
+// changes"). EARLY/DEVELOPING are deliberately excluded — they're by far
+// the most frequent real transitions (every symbol passes through them
+// on the way to anything else), so pushing on those would be exactly the
+// "more alerts" noise the spec explicitly rules out; they stay visible
+// in-app (the real lifecycle field on every row) without an external
+// push. The other 5 states get a real, disclosed priority tag in the
+// message text itself — a full graphical priority-tiered Notification
+// Center is explicitly deferred (see the approved plan).
+const TELEGRAM_WORTHY_LIFECYCLES = { QUALIFIED: "🟢 Level 2 — Watch", ACTIONABLE: "🚨 Level 4 — Urgent", "A+": "🔥 Level 5 — Critical", WEAKENING: "🟡 Level 3 — Important", INVALIDATED: "🔴 Level 3 — Important" };
+// Real elapsed-time cooldown, same Map-based pattern price-alert-monitor.js/
+// adol22-scanner.js already use — prevents a flapping symbol (bouncing
+// QUALIFIED<->ACTIONABLE tick to tick) from spamming Telegram. In-memory
+// (resets on a real server restart) — acceptable, a fresh restart
+// re-establishing cooldowns from scratch is a real, honest, minor cost,
+// not a correctness issue. 15 min matches Light Box's own real 15m
+// primary timeframe — long enough to damp flapping, short enough that a
+// genuinely new development still gets through same-session.
+const TELEGRAM_COOLDOWN_MS = 15 * 60_000;
+const lastTelegramSentAt = new Map();
+
+async function sendLifecycleTelegram(symbol, lifecycle, dt) {
+  if (!telegramConfigured()) return;
+  const tag = TELEGRAM_WORTHY_LIFECYCLES[lifecycle];
+  if (!tag) return;
+  const last = lastTelegramSentAt.get(symbol) || 0;
+  if (Date.now() - last < TELEGRAM_COOLDOWN_MS) return;
+  lastTelegramSentAt.set(symbol, Date.now());
+  const fmt = (v) => Number.isFinite(v) ? `$${Number(v).toFixed(2)}` : "—";
+  const lines = [
+    `🚦 LIGHT BOX — ${symbol}`,
+    `${tag}`,
+    `${lifecycle} · ${dt.direction || "—"}`,
+    `Entry ${fmt(dt.bestEntry)} · Stop ${fmt(dt.stop)} · Target ${fmt(dt.target)}`,
+    `Quality ${dt.quality ?? "—"}/100 (${dt.grade || "—"}) · RVOL ${Number.isFinite(dt.rvol) ? dt.rvol.toFixed(1) + "x" : "—"}`,
+    dt.signalReason ? `Why: ${dt.signalReason}` : null,
+  ].filter(Boolean);
+  await sendTelegramMessage(lines.join("\n")).catch(() => {});
+}
 
 // Same real self-loopback JSON-fetch convention routes/ai-hub.js and
 // quick-trade-service.js already use for computeSymbolVsPositionsCorrelation
@@ -270,6 +313,16 @@ async function tickLightBox() {
     // elsewhere in the app. A symbol that stays ACTIONABLE/A+ carries its
     // prior real correlation read forward unchanged.
     const prevLifecycle = prev?.lifecycle;
+
+    // Real Telegram delivery (#11) — fires exactly on a genuine lifecycle
+    // transition (prev must be a real known state, never on first-seen —
+    // same "no alert flood on first deploy/restart" discipline
+    // opportunity-pivot-alerts.js's justBecameActionable already
+    // established), gated to the worthy states + cooldown above.
+    if (prevLifecycle && prevLifecycle !== lifecycle) {
+      sendLifecycleTelegram(symbol, lifecycle, dt).catch(() => {});
+    }
+
     const justBecameActionable = (lifecycle === "ACTIONABLE" || lifecycle === "A+") && prevLifecycle !== "ACTIONABLE" && prevLifecycle !== "A+";
     let correlation = prev?.correlation ?? null;
     if (justBecameActionable) {
