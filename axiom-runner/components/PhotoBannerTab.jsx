@@ -53,9 +53,10 @@ function drawRibbon(ctx, canvas, sugg, fontStack, text) {
   const corner = sugg.corner || "top-right";
   const isLeft = corner.includes("left");
   const isTop = corner.includes("top");
+  // Sized up (explicit user request, 2026-08-26: "make bigger banners more visible").
   const shortSide = Math.min(canvas.width, canvas.height);
-  const length = shortSide * 0.62;
-  const thickness = Math.max(30, Math.round(shortSide * 0.085));
+  const length = shortSide * 0.72;
+  const thickness = Math.max(46, Math.round(shortSide * 0.13));
 
   const cx = isLeft ? 0 : canvas.width;
   const cy = isTop ? 0 : canvas.height;
@@ -75,6 +76,11 @@ function drawRibbon(ctx, canvas, sugg, fontStack, text) {
   ctx.translate(cx, cy);
   ctx.rotate(baseAngle);
 
+  // Real drop shadow — same "more visible" pop as the bar layout.
+  ctx.save();
+  ctx.shadowColor = "rgba(0,0,0,0.45)";
+  ctx.shadowBlur = Math.round(thickness * 0.2);
+  ctx.shadowOffsetY = Math.round(thickness * 0.08);
   if (sugg.gradient && sugg.bgColor2 && sugg.bgColor2 !== sugg.bgColor) {
     const grad = ctx.createLinearGradient(start, 0, start + length, 0);
     grad.addColorStop(0, sugg.bgColor);
@@ -84,6 +90,7 @@ function drawRibbon(ctx, canvas, sugg, fontStack, text) {
     ctx.fillStyle = sugg.bgColor;
   }
   ctx.fillRect(start, -thickness / 2, length, thickness);
+  ctx.restore();
 
   const edge = Math.max(2, Math.round(thickness * 0.06));
   ctx.fillStyle = sugg.accentColor;
@@ -183,8 +190,12 @@ export default function PhotoBannerTab({ C, MONO, SANS }) {
       return;
     }
 
-    const barHeight = Math.max(56, Math.round(canvas.height * 0.11));
-    const y = sugg.position === "bottom" ? canvas.height - barHeight : 0;
+    // Sized up (explicit user request, 2026-08-26: "make bigger banners
+    // more visible") — every font/icon/spacing size below is already a
+    // ratio of barHeight, so increasing this one number scales the whole
+    // bar up proportionally.
+    const barHeight = Math.max(76, Math.round(canvas.height * 0.16));
+    const y = 0; // always top (see the "always in top" fix above)
     const midY = y + barHeight / 2;
     const availableWidth = canvas.width - Math.round(barHeight * 0.32); // trailing margin at scale 1, real headroom
 
@@ -192,6 +203,14 @@ export default function PhotoBannerTab({ C, MONO, SANS }) {
     const scale = totalAtScale1 > availableWidth ? Math.max(MIN_FIT_SCALE, availableWidth / totalAtScale1) : 1;
     const base = layoutMetrics(barHeight, scale);
     const { padX, titleSize } = base;
+
+    // A real drop shadow under the bar — "more visible" (2026-08-26): makes
+    // the bar read as a distinct layer sitting on top of the photo instead
+    // of blending flat into it, regardless of color choice.
+    ctx.save();
+    ctx.shadowColor = "rgba(0,0,0,0.45)";
+    ctx.shadowBlur = Math.round(barHeight * 0.18);
+    ctx.shadowOffsetY = Math.round(barHeight * 0.06);
 
     // Real background — flat fill, or a real 2-color gradient when the AI
     // (or a hand edit) opted into one, same real bar either way.
@@ -204,6 +223,7 @@ export default function PhotoBannerTab({ C, MONO, SANS }) {
       ctx.fillStyle = sugg.bgColor;
     }
     ctx.fillRect(0, y, canvas.width, barHeight);
+    ctx.restore();
 
     // A thin accent-colored edge line — a small, real "premium" polish
     // touch along the bar's inner border.
