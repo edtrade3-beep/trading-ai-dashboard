@@ -290,6 +290,14 @@ export default function TradeDeskTab({
   // TrendChart on this same toggle), so here it's simply flipping the
   // real vcpOverlayOn prop.
   const [vcpOn, setVcpOn] = useState(false);
+  // Market Context collapsed by default (2026-08-26, explicit user
+  // request: right column was "messy" — 5 stacked sections with no
+  // hierarchy, macro chips eating 40% of a narrow column's height above
+  // the actual decision content). Macro data is real and unchanged either
+  // way, just one click away instead of permanently open — it's the same
+  // regardless of which symbol is selected, so it's the least
+  // symbol-specific thing in this column and the safest to default-collapse.
+  const [marketContextOpen, setMarketContextOpen] = useState(false);
 
   const pill = { fontFamily: MONO, fontSize: 11, display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap" };
 
@@ -402,9 +410,19 @@ export default function TradeDeskTab({
                 mistake), Sniper (CortexMiniPanel) below taking the rest
                 via flex:1/minHeight:0, unchanged from before. */}
             <div style={{ borderLeft: `1px solid ${C.border}`, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-              <div style={{ maxHeight: "40%", overflowY: "auto", padding: "10px 10px 6px", borderBottom: `1px solid ${C.border}`, flex: "0 0 auto" }}>
-                <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: 0.6, marginBottom: 6 }}>🌍 MARKET CONTEXT</div>
-                <MacroStatusStrip C={C} MONO={MONO} macroData={macroData} distData={macroDistData} fred={fred} />
+              <div style={{ borderBottom: `1px solid ${C.border}`, flex: "0 0 auto" }}>
+                <button
+                  onClick={() => setMarketContextOpen((v) => !v)}
+                  style={{ width: "100%", display: "flex", alignItems: "center", gap: 6, cursor: "pointer", background: "transparent", border: "none", padding: "10px 10px", textAlign: "left" }}
+                >
+                  <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: 0.6 }}>🌍 MARKET CONTEXT</span>
+                  <span style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 10, color: C.textDim }}>{marketContextOpen ? "▾ hide" : "▸ show"}</span>
+                </button>
+                {marketContextOpen && (
+                  <div style={{ maxHeight: "40vh", overflowY: "auto", padding: "0 10px 10px" }}>
+                    <MacroStatusStrip C={C} MONO={MONO} macroData={macroData} distData={macroDistData} fred={fred} />
+                  </div>
+                )}
               </div>
               <div style={{ flex: 1, minHeight: 0 }}>
                 <CortexMiniPanel symbol={symbol} onSelectSymbol={selectSymbol} setActiveTab={setActiveTab} C={C} MONO={MONO} SANS={SANS} />

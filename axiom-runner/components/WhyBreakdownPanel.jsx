@@ -25,7 +25,20 @@
 //
 // A category with no real bullets is shown as genuinely unavailable/flat —
 // never padded with a fabricated reason to avoid an empty column.
+//
+// Collapsible accordion, not a permanently-expanded 4-box grid (2026-08-26,
+// explicit user request: Trade Desk's right column — Market Context/
+// Cortex/AI Verdict/Trade Plan/this panel — was "messy": in a narrow
+// ~280px column the old grid fell back to 4 fully-open boxes stacked
+// top to bottom, a wall of small bullet text below the actual decision
+// (AI Verdict/Trade Plan). TECHNICAL opens by default (the category that
+// most directly explains the verdict above it); the other 3 collapse to
+// a one-line header showing a real ▲/▼ bull/bear count, so the real
+// content is still one click away, never removed.
+import { useState } from "react";
 import { computeFundamentalsRead } from "./market-helpers.js";
+
+const DEFAULT_OPEN = { TECHNICAL: true, FUNDAMENTAL: false, NEWS: false, OPTIONS: false };
 
 function readForOptions(options) {
   if (!options || options.status === "NO_DATA") return { unavailable: true, note: options?.note || "No real options flow data available." };
@@ -58,6 +71,7 @@ function readForTechnical(sniperReasons) {
 }
 
 export default function WhyBreakdownPanel({ symbol, sniperReasons, fundamentals, news, options, C, MONO, SANS }) {
+  const [open, setOpen] = useState(DEFAULT_OPEN);
   const categories = [
     { key: "TECHNICAL", data: readForTechnical(sniperReasons) },
     { key: "FUNDAMENTAL", data: fundamentals !== undefined ? (computeFundamentalsRead(fundamentals) || { bull: [], bear: [] }) : null },
@@ -66,26 +80,53 @@ export default function WhyBreakdownPanel({ symbol, sniperReasons, fundamentals,
   ];
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8 }}>
-      {categories.map((cat) => (
-        <div key={cat.key} style={{ border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 10px", background: C.card, minHeight: 54 }}>
-          <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.6, marginBottom: 5 }}>{cat.key}</div>
-          {cat.data == null && <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim }}>Loading…</div>}
-          {cat.data?.unavailable && <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim }}>{cat.data.note}</div>}
-          {cat.data && !cat.data.unavailable && !cat.data.bull.length && !cat.data.bear.length && !cat.data.flag && (
-            <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim }}>No strong real signal either way.</div>
-          )}
-          {cat.data?.bull?.map((t, i) => (
-            <div key={`b${i}`} style={{ fontFamily: SANS, fontSize: 10.5, color: "#22d47e", marginBottom: 2, lineHeight: 1.35 }}>▲ {t}</div>
-          ))}
-          {cat.data?.bear?.map((t, i) => (
-            <div key={`r${i}`} style={{ fontFamily: SANS, fontSize: 10.5, color: "#ef4444", marginBottom: 2, lineHeight: 1.35 }}>▼ {t}</div>
-          ))}
-          {cat.data?.flag && (
-            <div style={{ fontFamily: SANS, fontSize: 10.5, color: "#d6a312", lineHeight: 1.35 }}>⚠ {cat.data.flag}</div>
-          )}
-        </div>
-      ))}
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      {categories.map((cat) => {
+        const isOpen = open[cat.key];
+        const bullN = cat.data?.bull?.length || 0;
+        const bearN = cat.data?.bear?.length || 0;
+        return (
+          <div key={cat.key} style={{ border: `1px solid ${C.border}`, borderRadius: 8, background: C.card, overflow: "hidden" }}>
+            <button
+              onClick={() => setOpen((o) => ({ ...o, [cat.key]: !o[cat.key] }))}
+              style={{ width: "100%", display: "flex", alignItems: "center", gap: 6, cursor: "pointer", background: "transparent", border: "none", padding: "7px 10px", textAlign: "left" }}
+            >
+              <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.6 }}>{cat.key}</span>
+              {cat.data == null && <span style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>Loading…</span>}
+              {cat.data?.unavailable && <span style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>unavailable</span>}
+              {cat.data && !cat.data.unavailable && (bullN > 0 || bearN > 0) && (
+                <span style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 700 }}>
+                  {bullN > 0 && <span style={{ color: "#22d47e" }}>▲{bullN}</span>}
+                  {bullN > 0 && bearN > 0 && " "}
+                  {bearN > 0 && <span style={{ color: "#ef4444" }}>▼{bearN}</span>}
+                </span>
+              )}
+              {cat.data?.flag && <span style={{ fontFamily: SANS, fontSize: 10, color: "#d6a312" }}>⚠</span>}
+              {cat.data && !cat.data.unavailable && !bullN && !bearN && !cat.data.flag && (
+                <span style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>flat</span>
+              )}
+              <span style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 10, color: C.textDim }}>{isOpen ? "▾" : "▸"}</span>
+            </button>
+            {isOpen && (
+              <div style={{ padding: "0 10px 8px" }}>
+                {cat.data?.unavailable && <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim }}>{cat.data.note}</div>}
+                {cat.data && !cat.data.unavailable && !bullN && !bearN && !cat.data.flag && (
+                  <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim }}>No strong real signal either way.</div>
+                )}
+                {cat.data?.bull?.map((t, i) => (
+                  <div key={`b${i}`} style={{ fontFamily: SANS, fontSize: 10.5, color: "#22d47e", marginBottom: 2, lineHeight: 1.35 }}>▲ {t}</div>
+                ))}
+                {cat.data?.bear?.map((t, i) => (
+                  <div key={`r${i}`} style={{ fontFamily: SANS, fontSize: 10.5, color: "#ef4444", marginBottom: 2, lineHeight: 1.35 }}>▼ {t}</div>
+                ))}
+                {cat.data?.flag && (
+                  <div style={{ fontFamily: SANS, fontSize: 10.5, color: "#d6a312", lineHeight: 1.35 }}>⚠ {cat.data.flag}</div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

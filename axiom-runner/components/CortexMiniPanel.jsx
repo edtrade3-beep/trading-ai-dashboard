@@ -223,14 +223,17 @@ export default function CortexMiniPanel({ symbol, onSelectSymbol, setActiveTab, 
         )}
 
         {analysis && (
-          <WhyBreakdownPanel
-            symbol={analysis.symbol}
-            sniperReasons={analysis.sniper?.reasons}
-            fundamentals={analysis.fundamentals}
-            news={analysis.news}
-            options={opp?.options}
-            C={C} MONO={MONO} SANS={SANS}
-          />
+          <div>
+            <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.6, marginBottom: 6 }}>🔍 WHY</div>
+            <WhyBreakdownPanel
+              symbol={analysis.symbol}
+              sniperReasons={analysis.sniper?.reasons}
+              fundamentals={analysis.fundamentals}
+              news={analysis.news}
+              options={opp?.options}
+              C={C} MONO={MONO} SANS={SANS}
+            />
+          </div>
         )}
 
         {!analysis && !loading && !error && (
