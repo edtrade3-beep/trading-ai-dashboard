@@ -86,7 +86,12 @@ function ChangeBadge({ label, pct, C, MONO }) {
   const color = pct >= 0 ? "#0d9465" : "#c8282a";
   return <span style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 700, color }}>{label} {pct >= 0 ? "+" : ""}{pct}%</span>;
 }
-function TickerHeader({ symbol, chart, symbolQuote, C, MONO, SANS }) {
+// Exported (not just used internally below) so TradeDeskTab.jsx's mobile
+// Chart view can mount the identical real header instead of duplicating
+// this JSX (explicit user request, 2026-08-26, screenshot of the mobile
+// layout: "add in black square area under search" — the empty strip
+// between the Search/Chart/Cortex tabs and the VCP toggle on mobile).
+export function TickerHeader({ symbol, chart, symbolQuote, C, MONO, SANS }) {
   if (!symbol) return null;
   const name = symbolQuote?.name && symbolQuote.name !== symbol ? symbolQuote.name : null;
   return (

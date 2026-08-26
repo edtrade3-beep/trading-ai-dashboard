@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { computeRegime } from "./market-helpers.js";
 import TrendChart from "./TrendChart.jsx";
-import CommandSearchPanel from "./CommandSearchPanel.jsx";
+import CommandSearchPanel, { TickerHeader } from "./CommandSearchPanel.jsx";
 import CortexMiniPanel from "./CortexMiniPanel.jsx";
 import { PortfolioSnapshotCard } from "./DashboardTab.jsx";
 import ActivePositionsCard from "./ActivePositionsCard.jsx";
@@ -567,6 +567,7 @@ function MobileTradeDeskBody({ symbol, selectSymbol, chart, symbolQuote, loading
         {view === "search" && <CommandSearchPanel symbol={symbol} onSelectSymbol={(s) => { selectSymbol(s); setView("chart"); }} chart={chart} symbolQuote={symbolQuote} C={C} MONO={MONO} SANS={SANS} />}
         {view === "chart" && (
           <div style={{ padding: "8px 10px 10px" }}>
+            <TickerHeader symbol={symbol} chart={chart} symbolQuote={symbolQuote} C={C} MONO={MONO} SANS={SANS} />
             <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 6 }}>
               <button
                 onClick={() => setVcpOn((v) => !v)}
