@@ -52,8 +52,9 @@ function isReady() { return !!pool; }
 // re-ingested duplicate (same headline/source/ticker within the retention
 // window) never creates a second row or inflates any aggregate.
 async function insertNewsItems(items) {
-  if (!pool || !items.length) return { inserted: 0 };
+  if (!pool || !items.length) return { inserted: 0, insertedItems: [] };
   let inserted = 0;
+  const insertedItems = []; // the real, still-in-memory enriched items that were genuinely new this tick (rowCount 0 = ON CONFLICT hit an existing story) — lets callers (e.g. the regime-news alert) fire on truly-new stories only, never re-alerting a duplicate
   for (const item of items) {
     const res = await pool.query(
       `INSERT INTO news_items
@@ -72,9 +73,9 @@ async function insertNewsItems(items) {
         item.verdict || null, item.newsSignal || null,
       ]
     );
-    inserted += res.rowCount;
+    if (res.rowCount > 0) { inserted += 1; insertedItems.push(item); }
   }
-  return { inserted };
+  return { inserted, insertedItems };
 }
 
 async function getFeed({ ticker, category, sentiment, minImpact, sinceMinutes, limit = 50 } = {}) {

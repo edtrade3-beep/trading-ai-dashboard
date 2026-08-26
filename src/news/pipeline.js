@@ -49,6 +49,29 @@ async function runIngestionTick() {
     providerOk = false;
   }
 
+  // Broad, non-ticker-scoped market news (2026-08-26, explicit user request:
+  // "make sure system platform detect big/major news that change market
+  // regime/change narrative"). Real gap found before this change: the fetch
+  // above is per-watchlist-ticker only, so a genuinely regime-shifting
+  // headline that doesn't name any watchlist symbol (e.g. "Fed Surprises
+  // Markets With Emergency Rate Cut") never reached this pipeline at all —
+  // it could only ever show up in the pull-only, unscored /api/market/
+  // macro-news route. SPY/QQQ/DIA are broad-market ETFs, so a ticker-scoped
+  // provider search on them still naturally surfaces Fed/CPI/jobs/
+  // geopolitical coverage (same real technique /api/market/macro-news
+  // already uses) without a second provider. Tagged ticker "MARKET" so it
+  // reads as market-wide, not SPY-specific. No separate keyword pre-filter
+  // needed: it flows through the SAME classifier/scorer below, and anything
+  // merely incidental (a single-stock story that happened to surface via an
+  // SPY search) lands in OTHER (catalyst weight 30) — mathematically
+  // incapable of reaching the impact-score bar /majornews and the regime
+  // alert below both use. Best-effort/isolated: a failure here never blocks
+  // the primary per-ticker leg above.
+  try {
+    const marketRaw = await provider.getLatestNews(["SPY", "QQQ", "DIA"], 15);
+    raw = raw.concat(marketRaw.map((item) => ({ ...item, ticker: "MARKET" })));
+  } catch { /* best-effort secondary leg */ }
+
   const normalized = normalizeBatch(raw);
   const deduped = dedupeBatch(normalized);
   if (!deduped.length) {
@@ -79,9 +102,47 @@ async function runIngestionTick() {
     };
   });
 
-  const { inserted } = await insertNewsItems(enriched);
+  const { inserted, insertedItems } = await insertNewsItems(enriched);
+  await sendRegimeAlerts(insertedItems).catch(() => {});
   await pruneOld().catch(() => {});
   return { ok: true, providerOk, checked: symbols.length, fetched: raw.length, deduped: deduped.length, inserted };
+}
+
+// Proactive push for genuinely regime/narrative-shifting news (2026-08-26,
+// explicit user request — see the classifier.js header comment for the
+// real gap this closes). Deliberately narrower than /majornews's own
+// HIGH/EXTREME (>=80) bar: gated to the 3 real regime-relevant categories
+// (SYSTEMIC_RISK/GEOPOLITICAL/MACRO) so a routine single-stock M&A or FDA
+// story — which can also clear 80 — never fires this specific alert; those
+// are still visible via /majornews on request. Fires only on `insertedItems`
+// (genuinely new rows this tick, per store.js's ON CONFLICT check), so the
+// same story is never re-alerted on a later tick. sendTelegramMessage's own
+// global 60s cooldown / 40-per-day cap (src/telegram.js) is the real
+// backstop against a burst of simultaneous regime headlines spamming chat.
+const REGIME_ALERT_CATEGORIES = new Set(["SYSTEMIC_RISK", "GEOPOLITICAL", "MACRO"]);
+const REGIME_ALERT_MIN_IMPACT = 80;
+
+async function sendRegimeAlerts(items) {
+  const worthy = (items || []).filter(
+    (i) => REGIME_ALERT_CATEGORIES.has(i.category) && Number(i.impactScore) >= REGIME_ALERT_MIN_IMPACT
+  );
+  if (!worthy.length) return;
+  const { sendTelegramMessage } = require("../telegram");
+  for (const item of worthy) {
+    const cls = item.impactScore >= 90 ? "EXTREME" : "HIGH";
+    const when = item.publishedAt
+      ? new Date(item.publishedAt).toLocaleString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
+      : "";
+    const text = [
+      `🚨 MARKET REGIME ALERT — ${item.category} [${cls}]`,
+      item.headline,
+      [item.source, when].filter(Boolean).join(" · "),
+      item.url || null,
+      "",
+      "/majornews for more",
+    ].filter((l) => l != null).join("\n");
+    await sendTelegramMessage(text).catch(() => {});
+  }
 }
 
 module.exports = { runIngestionTick };
