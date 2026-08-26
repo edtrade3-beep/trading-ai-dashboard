@@ -44,6 +44,59 @@ function roundRectPath(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
+// Real "shape" variety (explicit user follow-up, 2026-08-26 — "vary
+// banner shape," not just full-width bars every time): a classic diagonal
+// ribbon draped across one corner, holding a single short phrase. Pure
+// rotation math around the chosen corner — no image alteration, drawn on
+// top exactly like the bar layout.
+function drawRibbon(ctx, canvas, sugg, fontStack, text) {
+  const corner = sugg.corner || "top-right";
+  const isLeft = corner.includes("left");
+  const isTop = corner.includes("top");
+  const shortSide = Math.min(canvas.width, canvas.height);
+  const length = shortSide * 0.62;
+  const thickness = Math.max(30, Math.round(shortSide * 0.085));
+
+  const cx = isLeft ? 0 : canvas.width;
+  const cy = isTop ? 0 : canvas.height;
+  // Rotate so the ribbon's long axis runs diagonally FROM this corner INTO
+  // the photo (canvas rotate() is clockwise with y pointing down).
+  const baseAngle = isTop ? (isLeft ? Math.PI / 4 : (Math.PI * 3) / 4) : (isLeft ? -Math.PI / 4 : (-Math.PI * 3) / 4);
+  const start = -length * 0.15; // small real overhang past the corner, the classic "wrapped" look
+
+  let fontSize = Math.max(12, Math.round(thickness * 0.42));
+  ctx.font = `900 ${fontSize}px ${fontStack}`;
+  const visibleLength = length * 0.75;
+  const textW = ctx.measureText(text.toUpperCase()).width;
+  if (textW > visibleLength) fontSize = Math.max(9, Math.round(fontSize * (visibleLength / textW)));
+  ctx.font = `900 ${fontSize}px ${fontStack}`;
+
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(baseAngle);
+
+  if (sugg.gradient && sugg.bgColor2 && sugg.bgColor2 !== sugg.bgColor) {
+    const grad = ctx.createLinearGradient(start, 0, start + length, 0);
+    grad.addColorStop(0, sugg.bgColor);
+    grad.addColorStop(1, sugg.bgColor2);
+    ctx.fillStyle = grad;
+  } else {
+    ctx.fillStyle = sugg.bgColor;
+  }
+  ctx.fillRect(start, -thickness / 2, length, thickness);
+
+  const edge = Math.max(2, Math.round(thickness * 0.06));
+  ctx.fillStyle = sugg.accentColor;
+  ctx.fillRect(start, -thickness / 2, length, edge);
+  ctx.fillRect(start, thickness / 2 - edge, length, edge);
+
+  ctx.fillStyle = sugg.textColor;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(text.toUpperCase(), start + length / 2, 1);
+  ctx.restore();
+}
+
 export default function PhotoBannerTab({ C, MONO, SANS }) {
   const [imageDataUrl, setImageDataUrl] = useState(null);
   const [instruction, setInstruction] = useState("");
@@ -122,6 +175,14 @@ export default function PhotoBannerTab({ C, MONO, SANS }) {
     if (!sugg || (!sugg.titleText && !badges.length)) return;
 
     const fontStack = `"${sugg.fontFamily || "Arial"}", Arial, sans-serif`;
+
+    if (sugg.layout === "ribbon") {
+      const primaryBadge = badges.find((b) => b.primary) || badges[0];
+      const ribbonText = sugg.titleText || (primaryBadge ? [primaryBadge.label, primaryBadge.sublabel].filter(Boolean).join(" ") : "");
+      if (ribbonText) drawRibbon(ctx, canvas, sugg, fontStack, ribbonText);
+      return;
+    }
+
     const barHeight = Math.max(56, Math.round(canvas.height * 0.11));
     const y = sugg.position === "bottom" ? canvas.height - barHeight : 0;
     const midY = y + barHeight / 2;
@@ -341,9 +402,24 @@ export default function PhotoBannerTab({ C, MONO, SANS }) {
               )}
 
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                {field("TITLE", <input style={{ ...inputStyle, width: 180 }} value={suggestion.titleText}
-                  onChange={(e) => setSuggestion((s) => ({ ...s, titleText: e.target.value.slice(0, 30) }))} placeholder="(optional)" />)}
-                {field("POSITION", (
+                {field("SHAPE", (
+                  <select style={inputStyle} value={suggestion.layout}
+                    onChange={(e) => setSuggestion((s) => ({ ...s, layout: e.target.value }))}>
+                    <option value="bar">Full bar</option>
+                    <option value="ribbon">Corner ribbon</option>
+                  </select>
+                ))}
+                {field(suggestion.layout === "ribbon" ? "RIBBON TEXT" : "TITLE", <input style={{ ...inputStyle, width: 180 }} value={suggestion.titleText}
+                  onChange={(e) => setSuggestion((s) => ({ ...s, titleText: e.target.value.slice(0, 30) }))} placeholder={suggestion.layout === "ribbon" ? "e.g. SALE" : "(optional)"} />)}
+                {suggestion.layout === "ribbon" ? field("CORNER", (
+                  <select style={inputStyle} value={suggestion.corner}
+                    onChange={(e) => setSuggestion((s) => ({ ...s, corner: e.target.value }))}>
+                    <option value="top-left">Top left</option>
+                    <option value="top-right">Top right</option>
+                    <option value="bottom-left">Bottom left</option>
+                    <option value="bottom-right">Bottom right</option>
+                  </select>
+                )) : field("POSITION", (
                   <select style={inputStyle} value={suggestion.position}
                     onChange={(e) => setSuggestion((s) => ({ ...s, position: e.target.value }))}>
                     <option value="top">Top</option>
@@ -370,7 +446,7 @@ export default function PhotoBannerTab({ C, MONO, SANS }) {
                     {["Arial", "Helvetica Neue", "Georgia", "Impact", "Trebuchet MS", "Verdana", "Futura"].map((f) => <option key={f} value={f}>{f}</option>)}
                   </select>
                 ))}
-                {field("BADGE SHAPE", (
+                {suggestion.layout !== "ribbon" && field("BADGE SHAPE", (
                   <select style={inputStyle} value={suggestion.badgeShape}
                     onChange={(e) => setSuggestion((s) => ({ ...s, badgeShape: e.target.value }))}>
                     <option value="circle">Circle</option>
@@ -379,6 +455,7 @@ export default function PhotoBannerTab({ C, MONO, SANS }) {
                 ))}
               </div>
 
+              {suggestion.layout !== "ribbon" && (
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: 0.4 }}>BADGES ({(suggestion.badges || []).length}/{MAX_BADGES}) — ⭐ marks the strongest claim (renders larger)</div>
                 {(suggestion.badges || []).map((b, i) => (
@@ -400,6 +477,7 @@ export default function PhotoBannerTab({ C, MONO, SANS }) {
                   <button onClick={addBadge} style={{ ...smallBtn, alignSelf: "flex-start" }}>+ Add badge</button>
                 )}
               </div>
+              )}
 
               <div>
                 <button onClick={download}

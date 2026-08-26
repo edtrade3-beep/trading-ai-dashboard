@@ -11,7 +11,7 @@
 // Run: node test/photo-banner.test.js (or npm test).
 "use strict";
 const assert = require("node:assert");
-const { sanitizeSuggestion, MAX_BADGES, VALID_FONTS, VALID_BADGE_SHAPES } = require("../src/routes/photo-banner");
+const { sanitizeSuggestion, MAX_BADGES, VALID_FONTS, VALID_BADGE_SHAPES, VALID_LAYOUTS, VALID_CORNERS } = require("../src/routes/photo-banner");
 
 let passed = 0;
 function ok(name, fn) { try { fn(); passed++; console.log(`  ✓ ${name}`); } catch (e) { console.error(`  ✗ ${name}\n    ${e.message}`); process.exitCode = 1; } }
@@ -89,6 +89,34 @@ ok("only the FIRST badge marked primary:true wins — one clear hierarchy, never
 ok("no badge marked primary -> all honestly false, never a fabricated default primary", () => {
   const r = sanitizeSuggestion({ badges: [{ icon: "✅", label: "A" }, { icon: "🛡️", label: "B" }] });
   assert.strictEqual(r.badges.every((b) => b.primary === false), true);
+});
+
+console.log("Checking sanitizeSuggestion — ribbon layout + corner (2026-08-26 shape-variety follow-up)…");
+
+ok("a real 'ribbon' layout with a real corner is honored exactly", () => {
+  const r = sanitizeSuggestion({ titleText: "SALE", layout: "ribbon", corner: "bottom-left" });
+  assert.strictEqual(r.layout, "ribbon");
+  assert.strictEqual(r.corner, "bottom-left");
+});
+
+ok("no layout given -> honest default 'bar', the original full-width behavior", () => {
+  assert.strictEqual(sanitizeSuggestion({ titleText: "X" }).layout, "bar");
+});
+
+ok("an invalid layout falls back to the honest default 'bar'", () => {
+  assert.strictEqual(sanitizeSuggestion({ titleText: "X", layout: "diagonal-explosion" }).layout, "bar");
+});
+
+ok("an invalid corner falls back to the honest default 'top-right' (the classic ribbon spot)", () => {
+  assert.strictEqual(sanitizeSuggestion({ titleText: "X", corner: "middle" }).corner, "top-right");
+});
+
+ok("every real corner in the allowed list is honored exactly", () => {
+  for (const c of VALID_CORNERS) assert.strictEqual(sanitizeSuggestion({ titleText: "X", corner: c }).corner, c);
+});
+
+ok("every real layout in the allowed list is honored exactly", () => {
+  for (const l of VALID_LAYOUTS) assert.strictEqual(sanitizeSuggestion({ titleText: "X", layout: l }).layout, l);
 });
 
 ok("no titleText AND no real badges -> honestly null, never a fabricated empty banner", () => {

@@ -43,6 +43,8 @@ function extractJsonBlock(text) {
 const VALID_POSITIONS = new Set(["top", "bottom"]);
 const VALID_FONTS = new Set(["Arial", "Helvetica Neue", "Georgia", "Impact", "Trebuchet MS", "Verdana", "Futura"]);
 const VALID_BADGE_SHAPES = new Set(["circle", "square"]);
+const VALID_LAYOUTS = new Set(["bar", "ribbon"]);
+const VALID_CORNERS = new Set(["top-left", "top-right", "bottom-left", "bottom-right"]);
 const HEX_RE = /^#[0-9a-fA-F]{6}$/;
 const MAX_BADGES = 4;
 
@@ -97,33 +99,39 @@ function sanitizeSuggestion(raw) {
   const accentColor = HEX_RE.test(raw.accentColor) ? raw.accentColor : "#2563eb";
   const fontFamily = VALID_FONTS.has(raw.fontFamily) ? raw.fontFamily : "Arial";
   const badgeShape = VALID_BADGE_SHAPES.has(raw.badgeShape) ? raw.badgeShape : "circle";
+  const layout = VALID_LAYOUTS.has(raw.layout) ? raw.layout : "bar";
+  const corner = VALID_CORNERS.has(raw.corner) ? raw.corner : "top-right";
   const reasoning = typeof raw.reasoning === "string" ? raw.reasoning.trim().slice(0, 300) : "";
-  return { titleText, badges, position, gradient, bgColor, bgColor2, textColor, accentColor, fontFamily, badgeShape, reasoning };
+  return { titleText, badges, position, layout, corner, gradient, bgColor, bgColor2, textColor, accentColor, fontFamily, badgeShape, reasoning };
 }
 
 async function suggestBanner(imageBlock, instruction, apiKey) {
-  const promptText = `You are a professional automotive dealership graphic designer composing a real promotional banner bar for a photo — a full-width bar (top or bottom of the photo) with a title and a few short icon "badges" (e.g. a checkmark + "ONE OWNER", a gauge + "71K MILES ONLY", a shield + "CLEAN TITLE"). This is an OVERLAY drawn on top of the real photo — the photo itself is never altered, regenerated, or touched in any way, only this bar is added.
+  const promptText = `You are a professional automotive dealership graphic designer composing a real promotional banner OVERLAY for a photo. This is drawn on top of the real photo — the photo itself is never altered, regenerated, or touched in any way, only this overlay is added.
 
 USER'S INSTRUCTION: ${instruction ? `"${instruction}"` : "(none given — use your own judgment based on what's actually in the photo)"}
 
 Look at the actual attached photo and design a UNIQUE banner for THIS specific photo (don't reuse the same template every time). Decide:
 
-1. TITLE: a short title (vehicle name/product name if visible/inferable — a couple words). Empty ("") if nothing real to title.
-2. BADGES: up to ${MAX_BADGES} — each a short real claim the user actually asked for or that's genuinely visible/reasonable. Each badge = one real matching emoji icon, a short bold label (a couple words or a number), an optional smaller sublabel (e.g. label "71K", sublabel "MILES ONLY"), and "primary": true on the ONE badge that's the strongest real selling point (it will render larger — pick at most one). Never invent a claim the user didn't ask for and isn't visibly true.
-3. POSITION: "top" or "bottom" — whichever won't cover the vehicle's grille, headlights, wheels, badges, or other identifying features. Use the real negative space in the photo.
-4. COLORS — think like a real designer:
+1. LAYOUT SHAPE — pick whichever genuinely suits this photo:
+   - "bar": a full-width bar (top or bottom of the photo) with a title and a few short icon badges — use this when you have multiple real claims to show (e.g. one-owner + mileage + clean title).
+   - "ribbon": a classic diagonal ribbon draped across one corner, showing just ONE short punchy phrase (put it in titleText, e.g. "SALE" or "ONE OWNER") — use this when there's really just one strong claim, or when the photo's negative space suits a corner accent better than a full bar.
+   Vary this choice across different photos — don't always pick the same one.
+2. TITLE: a short title/phrase (vehicle name, or the single ribbon phrase if layout is "ribbon"). Empty ("") if nothing real to title.
+3. BADGES (only rendered when layout is "bar"): up to ${MAX_BADGES} — each a short real claim the user actually asked for or that's genuinely visible/reasonable. Each badge = one real matching emoji icon, a short bold label (a couple words or a number), an optional smaller sublabel (e.g. label "71K", sublabel "MILES ONLY"), and "primary": true on the ONE badge that's the strongest real selling point (it will render larger — pick at most one). Never invent a claim the user didn't ask for and isn't visibly true.
+4. POSITION/CORNER: if layout is "bar", pick "top" or "bottom" for the position field. If layout is "ribbon", pick a corner field: "top-left", "top-right", "bottom-left", or "bottom-right". Either way, pick whichever won't cover the vehicle's grille, headlights, wheels, badges, or other identifying features — use the real negative space in the photo.
+5. COLORS — think like a real designer:
    a. Identify the real dominant color(s) of the photo's subject (e.g. "dark gray car," "white car," "red car").
    b. Choose bgColor/textColor/accentColor that genuinely CONTRAST with that real color — never near-black on a dark subject, never near-white on a light subject.
    c. Optionally set "gradient": true with a real bgColor2 for a two-color gradient background (e.g. dark navy fading to black, or a rich color fading to near-black) for a premium look — use this when it would look genuinely better than a flat fill, not automatically every time.
    d. Be creative and vary the palette per photo — real color theory, not the same navy-and-white every time.
-5. TYPOGRAPHY: pick ONE fontFamily from exactly this real list (pick whichever mood fits the vehicle — Impact/Futura read bold and sporty, Georgia reads premium/luxury, Arial/Helvetica Neue/Trebuchet MS/Verdana read clean and modern): ${[...VALID_FONTS].join(", ")}.
-6. BADGE SHAPE: "circle" or "square" (rounded-square reads more modern/premium on some photos, circle is more classic — pick whichever fits).
-7. One short sentence explaining your real choices (dominant color identified, why the palette contrasts, why this font/shape fits this vehicle's character).
+6. TYPOGRAPHY: pick ONE fontFamily from exactly this real list (pick whichever mood fits the vehicle — Impact/Futura read bold and sporty, Georgia reads premium/luxury, Arial/Helvetica Neue/Trebuchet MS/Verdana read clean and modern): ${[...VALID_FONTS].join(", ")}.
+7. BADGE SHAPE: "circle" or "square" (rounded-square reads more modern/premium on some photos, circle is more classic — pick whichever fits; irrelevant for "ribbon" layout).
+8. One short sentence explaining your real choices (dominant color identified, why the palette contrasts, why this layout/font/shape fits this vehicle's character).
 
 Only base this on what you can actually see in the photo and what the user actually asked for — never invent details about the photo, and never fabricate a brand logo (use real styled text for any title instead, never claim to reproduce a logo).
 
 Return ONLY a fenced \`\`\`json block with exactly this shape:
-{"titleText": "string (can be empty)", "badges": [{"icon": "emoji", "label": "string", "sublabel": "string (can be empty)", "primary": true or false}], "position": "top" | "bottom", "gradient": true or false, "bgColor": "#rrggbb", "bgColor2": "#rrggbb (only meaningful if gradient is true)", "textColor": "#rrggbb", "accentColor": "#rrggbb", "fontFamily": "one of the exact list above", "badgeShape": "circle" | "square", "reasoning": "one short sentence"}`;
+{"titleText": "string (can be empty)", "badges": [{"icon": "emoji", "label": "string", "sublabel": "string (can be empty)", "primary": true or false}], "layout": "bar" | "ribbon", "position": "top" | "bottom", "corner": "top-left" | "top-right" | "bottom-left" | "bottom-right", "gradient": true or false, "bgColor": "#rrggbb", "bgColor2": "#rrggbb (only meaningful if gradient is true)", "textColor": "#rrggbb", "accentColor": "#rrggbb", "fontFamily": "one of the exact list above", "badgeShape": "circle" | "square", "reasoning": "one short sentence"}`;
 
   const payload = {
     model: MODELS.sonnet, max_tokens: 700,
@@ -171,4 +179,4 @@ async function handlePhotoBanner(req, res, requestUrl) {
   return writeJson(res, 404, { ok: false, error: "Not found" });
 }
 
-module.exports = { handlePhotoBanner, sanitizeSuggestion, MAX_BADGES, VALID_FONTS, VALID_BADGE_SHAPES };
+module.exports = { handlePhotoBanner, sanitizeSuggestion, MAX_BADGES, VALID_FONTS, VALID_BADGE_SHAPES, VALID_LAYOUTS, VALID_CORNERS };
