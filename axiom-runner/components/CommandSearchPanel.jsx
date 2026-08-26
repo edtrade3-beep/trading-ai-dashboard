@@ -109,7 +109,7 @@ export function TickerHeader({ symbol, chart, symbolQuote, C, MONO, SANS }) {
   );
 }
 
-export default function CommandSearchPanel({ symbol, onSelectSymbol, chart, symbolQuote, C, MONO, SANS }) {
+export default function CommandSearchPanel({ symbol, onSelectSymbol, onOpenDaytrade, chart, symbolQuote, C, MONO, SANS }) {
   const [query, setQuery] = useState("");
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -127,6 +127,29 @@ export default function CommandSearchPanel({ symbol, onSelectSymbol, chart, symb
     } finally { setLoading(false); }
   };
   useEffect(() => { load(); }, []);
+
+  // Day Trade Signals (2026-08-26, explicit user request: faster, more
+  // frequent trades than this swing-oriented Opportunity Inbox naturally
+  // produces — "surface Light Box inside Trade Desk instead of a separate
+  // tab"). Real, cheap read of lightbox-state-store.js's own persisted
+  // background 5-min tick (GET /api/market/lightbox never triggers a
+  // fresh scan in the request path) — genuinely different real cadence
+  // from the daily-bar Opportunity Engine above (Light Box runs on real
+  // 15-min bars). Deliberately watchlist-scoped (the route's own default,
+  // NOT ?universe=full) — that's the only symbol set the background tick
+  // continuously confirms; the full DAYTRADE_UNIVERSE can show a stale/
+  // incomplete confirmed state per that route's own disclosed caveat.
+  const [lightbox, setLightbox] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    const loadLightbox = () => fetch("/api/market/lightbox").then((r) => r.json())
+      .then((d) => { if (!cancelled) setLightbox(d && d.ok ? d : null); })
+      .catch(() => {});
+    loadLightbox();
+    const iv = setInterval(loadLightbox, 30000);
+    return () => { cancelled = true; clearInterval(iv); };
+  }, []);
+  const buySignals = (lightbox?.rows || []).filter((r) => r.state === "BUY").sort((a, b) => (b.quality || 0) - (a.quality || 0));
 
   const tiers = data?.tiers || {};
   const counts = data?.counts || {};
@@ -193,6 +216,33 @@ export default function CommandSearchPanel({ symbol, onSelectSymbol, chart, symb
           </div>
         );
       })()}
+
+      {lightbox && (
+        <div style={{ padding: "0 10px 10px", borderBottom: `1px solid ${C.border}`, marginBottom: 4 }}>
+          <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: 0.6, marginBottom: 6 }}>
+            🚦 DAY TRADE{buySignals.length ? ` — ${buySignals.length} BUY` : ""}
+          </div>
+          {!buySignals.length && (
+            <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, padding: "2px 0" }}>
+              {lightbox.rows.length ? "No real BUY signals right now." : "Add symbols to your watchlist to see real day-trade signals here."}
+            </div>
+          )}
+          {buySignals.slice(0, 4).map((r) => (
+            <button
+              key={r.symbol}
+              onClick={() => (onOpenDaytrade ? onOpenDaytrade(r.symbol) : onSelectSymbol(r.symbol))}
+              title={r.reason || ""}
+              style={{ width: "100%", display: "flex", alignItems: "center", gap: 6, cursor: "pointer", textAlign: "left", background: "transparent", border: "none", padding: "3px 0", fontFamily: MONO, fontSize: 11.5 }}
+            >
+              <span style={{ color: "#0d9465" }}>🟢</span>
+              <b style={{ color: C.text }}>{r.symbol}</b>
+              <span style={{ color: C.textDim, fontSize: 10 }}>{fmtPrice(r.price)}</span>
+              {r.grade && <span style={{ color: C.textDim, fontSize: 10 }}>{r.grade}</span>}
+              <span style={{ marginLeft: "auto", color: C.textDim, fontSize: 9.5 }}>15m</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       <div style={{ padding: "4px 10px 6px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: 0.6 }}>OPPORTUNITIES</div>
