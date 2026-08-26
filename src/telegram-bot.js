@@ -262,6 +262,8 @@ async function cmdHelp() {
     "/twits                top 10 trending + crowd sentiment\n" +
     "/twits NVDA           bullish/bearish% + message previews\n" +
     "\n📰 NEWS\n" +
+    "/majornews             real HIGH/EXTREME-impact market news, last 4h (any symbol)\n" +
+    "/majornews 12          same, last 12h\n" +
     "/news AAPL            real company news headlines for a symbol\n" +
     "/news                 all Reddit finance + tech subs combined\n" +
     "/wsb                  r/wallstreetbets — meme stocks & DD\n" +
@@ -1146,6 +1148,48 @@ async function cmdNews(args) {
   }
 }
 
+// ── Major market news — real, cross-symbol, impact-scored ─────────────────────
+// (2026-08-26, explicit user request: "ask telegram if any major market
+// news"). Reuses the real news-intelligence pipeline already built and
+// running (src/news/pipeline.js's background ingestion job, real
+// Finnhub/Polygon/Yahoo+Google sources scored by src/news/scorer.js's
+// real 0-100 impact formula — catalyst/freshness/source-credibility/
+// sentiment/confirmation) — no second news fetch, no new scoring. "Major"
+// = impactClassification's own real HIGH/EXTREME bands (score >= 80),
+// same vocabulary NewsPanel.jsx already shows, not a new threshold
+// invented here. getFeed() with no `ticker` genuinely differs from
+// /news SYMBOL (that's real per-company news) and /news (Reddit chatter)
+// — this is the one real query across every symbol the pipeline covers,
+// which is exactly "market news," not one stock's news.
+async function cmdMajorNews(args) {
+  const { getFeed, isReady } = require("./news/store");
+  if (!isReady()) {
+    return reply("📰 Major market news is unavailable right now — no database configured for the real news store.\nTry /news for Reddit finance/tech chatter or /news SYMBOL for one company's real headlines.");
+  }
+  const hoursArg = Number(args[0]);
+  const hours = Number.isFinite(hoursArg) && hoursArg > 0 ? Math.min(24, hoursArg) : 4;
+  try {
+    const result = await withTimeout(getFeed({ minImpact: 80, sinceMinutes: hours * 60, limit: 12 }), 15_000, null);
+    if (!result?.ok) {
+      return reply("📰 Major market news is temporarily unavailable — the real news store isn't reachable right now. Try again shortly.");
+    }
+    if (!result.rows.length) {
+      return reply(`📰 No real HIGH/EXTREME-impact market news in the last ${hours}h.\nEverything real right now is below that bar — try /majornews 12 for a longer window, or /news SYMBOL for one company's headlines.`);
+    }
+    const lines = [`🚨 MAJOR MARKET NEWS — last ${hours}h (real HIGH/EXTREME impact only)`, "━━━━━━━━━━━━━━━━━━━━"];
+    for (const r of result.rows) {
+      const when = r.published_at ? new Date(r.published_at).toLocaleString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
+      const cls = r.impact_score >= 90 ? "EXTREME" : "HIGH";
+      lines.push(`[${cls}] ${r.ticker} — ${r.headline}`);
+      lines.push(`${[r.source, when, r.sentiment].filter(Boolean).join(" · ")}${r.url ? `\n${r.url}` : ""}`, "");
+    }
+    lines.push(`── /majornews 12 for a longer window · /news SYMBOL for one company`);
+    return reply(lines.join("\n").trim());
+  } catch (err) {
+    return reply(`Major news error: ${err.message}`);
+  }
+}
+
 // ── StockTwits: trending + per-symbol sentiment ───────────────────────────────
 
 async function cmdTwits(args) {
@@ -1259,6 +1303,9 @@ const COMMANDS = {
   breakout:    () => cmdFind(["breakout"]),
   accumulation:() => cmdFind(["institutional"]),
   news:      (a) => cmdNews(a),
+  majornews: (a) => cmdMajorNews(a),
+  bignews:   (a) => cmdMajorNews(a),
+  headlines: (a) => cmdMajorNews(a),
   wsb:       ()  => cmdNews(["wallstreetbets"]),
 
   // /athan — real, on-demand prayer schedule (2026-08-23, explicit user
@@ -1923,6 +1970,7 @@ async function registerCommands() {
   try {
     const cmds = [
       { command: "market",    description: "Macro snapshot — Risk On/Off, SPY QQQ VIX" },
+      { command: "majornews", description: "Real HIGH/EXTREME-impact market news, last 4h" },
       { command: "scan",      description: "Run full market scan now" },
       { command: "top",       description: "Top BUY signals from last scan" },
       { command: "worst",     description: "Top SELL signals from last scan" },
