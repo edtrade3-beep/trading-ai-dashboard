@@ -93,10 +93,15 @@ ok("no badge marked primary -> all honestly false, never a fabricated default pr
 
 console.log("Checking sanitizeSuggestion — ribbon layout + corner (2026-08-26 shape-variety follow-up)…");
 
-ok("a real 'ribbon' layout with a real corner is honored exactly", () => {
-  const r = sanitizeSuggestion({ titleText: "SALE", layout: "ribbon", corner: "bottom-left" });
+ok("a real 'ribbon' layout with a real top corner is honored exactly", () => {
+  const r = sanitizeSuggestion({ titleText: "SALE", layout: "ribbon", corner: "top-left" });
   assert.strictEqual(r.layout, "ribbon");
-  assert.strictEqual(r.corner, "bottom-left");
+  assert.strictEqual(r.corner, "top-left");
+});
+
+ok("regression (2026-08-26, explicit user request 'make sure banner always in top'): bottom corners are no longer valid at all — always forced to the honest default 'top-right', never passed through", () => {
+  assert.strictEqual(sanitizeSuggestion({ titleText: "X", corner: "bottom-left" }).corner, "top-right");
+  assert.strictEqual(sanitizeSuggestion({ titleText: "X", corner: "bottom-right" }).corner, "top-right");
 });
 
 ok("no layout given -> honest default 'bar', the original full-width behavior", () => {
@@ -170,9 +175,9 @@ ok("an invalid position falls back to the honest default 'top'", () => {
   assert.strictEqual(r.position, "top");
 });
 
-ok("both real valid positions ('top' and 'bottom') are honored exactly", () => {
+ok("regression (2026-08-26, explicit user request 'make sure banner always in top'): 'bottom' is no longer a real valid position at all — always forced to 'top', never passed through", () => {
   assert.strictEqual(sanitizeSuggestion({ titleText: "X", position: "top" }).position, "top");
-  assert.strictEqual(sanitizeSuggestion({ titleText: "X", position: "bottom" }).position, "bottom");
+  assert.strictEqual(sanitizeSuggestion({ titleText: "X", position: "bottom" }).position, "top");
 });
 
 ok("invalid/missing hex colors fall back to honest defaults, never a broken CSS value reaching the client", () => {

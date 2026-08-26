@@ -40,11 +40,15 @@ function extractJsonBlock(text) {
   try { return JSON.parse(candidate); } catch { return null; }
 }
 
-const VALID_POSITIONS = new Set(["top", "bottom"]);
+// Position locked to the top only (explicit user request, 2026-08-26:
+// "make sure banner always in top") — enforced here at the real
+// validation layer, not just asked for in the prompt, so it holds even if
+// Claude's raw output ever suggested otherwise.
+const VALID_POSITIONS = new Set(["top"]);
 const VALID_FONTS = new Set(["Arial", "Helvetica Neue", "Georgia", "Impact", "Trebuchet MS", "Verdana", "Futura"]);
 const VALID_BADGE_SHAPES = new Set(["circle", "square"]);
 const VALID_LAYOUTS = new Set(["bar", "ribbon"]);
-const VALID_CORNERS = new Set(["top-left", "top-right", "bottom-left", "bottom-right"]);
+const VALID_CORNERS = new Set(["top-left", "top-right"]);
 const HEX_RE = /^#[0-9a-fA-F]{6}$/;
 const MAX_BADGES = 4;
 
@@ -113,12 +117,12 @@ USER'S INSTRUCTION: ${instruction ? `"${instruction}"` : "(none given — use yo
 Look at the actual attached photo and design a UNIQUE banner for THIS specific photo (don't reuse the same template every time). Decide:
 
 1. LAYOUT SHAPE — pick whichever genuinely suits this photo:
-   - "bar": a full-width bar (top or bottom of the photo) with a title and a few short icon badges — use this when you have multiple real claims to show (e.g. one-owner + mileage + clean title).
-   - "ribbon": a classic diagonal ribbon draped across one corner, showing just ONE short punchy phrase (put it in titleText, e.g. "SALE" or "ONE OWNER") — use this when there's really just one strong claim, or when the photo's negative space suits a corner accent better than a full bar.
-   Vary this choice across different photos — don't always pick the same one.
+   - "bar": a full-width bar ACROSS THE TOP of the photo with a title and a few short icon badges — use this when you have multiple real claims to show (e.g. one-owner + mileage + clean title).
+   - "ribbon": a classic diagonal ribbon draped across a TOP corner, showing just ONE short punchy phrase (put it in titleText, e.g. "SALE" or "ONE OWNER") — use this when there's really just one strong claim, or when the photo's negative space suits a corner accent better than a full bar.
+   Vary this choice across different photos — don't always pick the same one. The banner always goes at the TOP of the photo — never the bottom.
 2. TITLE: a short title/phrase (vehicle name, or the single ribbon phrase if layout is "ribbon"). Empty ("") if nothing real to title.
 3. BADGES (only rendered when layout is "bar"): up to ${MAX_BADGES} — each a short real claim the user actually asked for or that's genuinely visible/reasonable. Each badge = one real matching emoji icon, a short bold label (a couple words or a number), an optional smaller sublabel (e.g. label "71K", sublabel "MILES ONLY"), and "primary": true on the ONE badge that's the strongest real selling point (it will render larger — pick at most one). Never invent a claim the user didn't ask for and isn't visibly true.
-4. POSITION/CORNER: if layout is "bar", pick "top" or "bottom" for the position field. If layout is "ribbon", pick a corner field: "top-left", "top-right", "bottom-left", or "bottom-right". Either way, pick whichever won't cover the vehicle's grille, headlights, wheels, badges, or other identifying features — use the real negative space in the photo.
+4. POSITION/CORNER: if layout is "bar", the position field is always "top". If layout is "ribbon", pick a corner field: "top-left" or "top-right" — whichever won't cover the vehicle's grille, headlights, wheels, badges, or other identifying features. Use the real negative space in the photo.
 5. COLORS — think like a real designer:
    a. Identify the real dominant color(s) of the photo's subject (e.g. "dark gray car," "white car," "red car").
    b. Choose bgColor/textColor/accentColor that genuinely CONTRAST with that real color — never near-black on a dark subject, never near-white on a light subject.
@@ -131,7 +135,7 @@ Look at the actual attached photo and design a UNIQUE banner for THIS specific p
 Only base this on what you can actually see in the photo and what the user actually asked for — never invent details about the photo, and never fabricate a brand logo (use real styled text for any title instead, never claim to reproduce a logo).
 
 Return ONLY a fenced \`\`\`json block with exactly this shape:
-{"titleText": "string (can be empty)", "badges": [{"icon": "emoji", "label": "string", "sublabel": "string (can be empty)", "primary": true or false}], "layout": "bar" | "ribbon", "position": "top" | "bottom", "corner": "top-left" | "top-right" | "bottom-left" | "bottom-right", "gradient": true or false, "bgColor": "#rrggbb", "bgColor2": "#rrggbb (only meaningful if gradient is true)", "textColor": "#rrggbb", "accentColor": "#rrggbb", "fontFamily": "one of the exact list above", "badgeShape": "circle" | "square", "reasoning": "one short sentence"}`;
+{"titleText": "string (can be empty)", "badges": [{"icon": "emoji", "label": "string", "sublabel": "string (can be empty)", "primary": true or false}], "layout": "bar" | "ribbon", "position": "top", "corner": "top-left" | "top-right", "gradient": true or false, "bgColor": "#rrggbb", "bgColor2": "#rrggbb (only meaningful if gradient is true)", "textColor": "#rrggbb", "accentColor": "#rrggbb", "fontFamily": "one of the exact list above", "badgeShape": "circle" | "square", "reasoning": "one short sentence"}`;
 
   const payload = {
     model: MODELS.sonnet, max_tokens: 700,

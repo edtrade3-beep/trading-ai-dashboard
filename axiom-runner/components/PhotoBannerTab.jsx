@@ -411,19 +411,15 @@ export default function PhotoBannerTab({ C, MONO, SANS }) {
                 ))}
                 {field(suggestion.layout === "ribbon" ? "RIBBON TEXT" : "TITLE", <input style={{ ...inputStyle, width: 180 }} value={suggestion.titleText}
                   onChange={(e) => setSuggestion((s) => ({ ...s, titleText: e.target.value.slice(0, 30) }))} placeholder={suggestion.layout === "ribbon" ? "e.g. SALE" : "(optional)"} />)}
-                {suggestion.layout === "ribbon" ? field("CORNER", (
+                {/* Position is locked to the top only (explicit user
+                    request, 2026-08-26: "make sure banner always in top")
+                    — no position/bottom-corner options offered at all, so
+                    a hand edit can't reintroduce one either. */}
+                {suggestion.layout === "ribbon" && field("CORNER", (
                   <select style={inputStyle} value={suggestion.corner}
                     onChange={(e) => setSuggestion((s) => ({ ...s, corner: e.target.value }))}>
                     <option value="top-left">Top left</option>
                     <option value="top-right">Top right</option>
-                    <option value="bottom-left">Bottom left</option>
-                    <option value="bottom-right">Bottom right</option>
-                  </select>
-                )) : field("POSITION", (
-                  <select style={inputStyle} value={suggestion.position}
-                    onChange={(e) => setSuggestion((s) => ({ ...s, position: e.target.value }))}>
-                    <option value="top">Top</option>
-                    <option value="bottom">Bottom</option>
                   </select>
                 ))}
                 {field("BACKGROUND", <input type="color" value={suggestion.bgColor}
