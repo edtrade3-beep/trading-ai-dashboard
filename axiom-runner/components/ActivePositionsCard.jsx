@@ -19,6 +19,22 @@ function DAYTRADE_STATE_COLOR(C, state) {
   return C.textDim; // HOLD
 }
 
+// Post-entry Edge Monitoring badge (Phase 3 Tier B, 2026-08-26, spec
+// Parts 24-26) — real, server-computed (src/routes/alpaca.js's
+// edgeMonitor overlay on /api/alpaca/positions, position-edge-store.js's
+// classifyEdgeChange diffing the live Opportunity Engine score against a
+// real snapshot captured at the moment this position was actually
+// bought). Only rendered when a real entry snapshot exists — a position
+// opened before this feature existed or outside the app honestly shows
+// nothing here, never a fabricated "STABLE."
+const EDGE_MONITOR_META = {
+  STRENGTHENING: { icon: "🟢", label: "EDGE ↑", color: "#0d9465" },
+  STABLE: { icon: "🟢", label: "EDGE STABLE", color: "#0d9465" },
+  WEAKENING: { icon: "🟡", label: "EDGE ↓", color: "#d6a312" },
+  UNDER_PRESSURE: { icon: "🟠", label: "UNDER PRESSURE", color: "#e08a1e" },
+  INVALIDATED: { icon: "🔴", label: "INVALIDATED", color: "#c8282a" },
+};
+
 // ── Active Positions — the one genuinely missing piece research found:
 // PortfolioSnapshotCard shows aggregate equity/cash/P&L but never the
 // actual list of what's open. Same /api/alpaca/positions endpoint
@@ -114,6 +130,13 @@ export default function ActivePositionsCard({ C, MONO, SANS, setTerminalSymbol, 
                         style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: DAYTRADE_STATE_COLOR(C, p.dayTradeState),
                           border: `1px solid ${DAYTRADE_STATE_COLOR(C, p.dayTradeState)}`, borderRadius: 4, padding: "1px 5px" }}>
                         {DAYTRADE_STATE_LABEL[p.dayTradeState] || p.dayTradeState}
+                      </span>
+                    )}
+                    {p.edgeMonitor && EDGE_MONITOR_META[p.edgeMonitor.status] && (
+                      <span title={`Entry score ${p.edgeMonitor.entryScore} -> now ${p.edgeMonitor.currentScore} (${p.edgeMonitor.delta > 0 ? "+" : ""}${p.edgeMonitor.delta}) — is the original thesis still working?`}
+                        style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: EDGE_MONITOR_META[p.edgeMonitor.status].color,
+                          border: `1px solid ${EDGE_MONITOR_META[p.edgeMonitor.status].color}`, borderRadius: 4, padding: "1px 5px" }}>
+                        {EDGE_MONITOR_META[p.edgeMonitor.status].icon} {EDGE_MONITOR_META[p.edgeMonitor.status].label}
                       </span>
                     )}
                   </div>

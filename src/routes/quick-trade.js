@@ -71,6 +71,17 @@ async function handleQuickTrade(req, res, requestUrl) {
 
     const fn = { buy: svc.buy, sell: svc.sell, short: svc.short, cover: svc.cover }[side];
     const result = await fn(symbol, qty, opts);
+    // Post-entry Edge Monitoring (Phase 3 Tier B, 2026-08-26) — snapshot
+    // the real Opportunity Object at the exact moment a real long entry
+    // succeeds, captured here (server-side, order-placement time) so it's
+    // accurate regardless of which UI path triggered the trade. Long-only
+    // (the Opportunity Engine itself is long-only — am-core-engine.js
+    // returns null for SHORT), fire-and-forget so a slow/failed snapshot
+    // never delays or breaks the real order response that already
+    // succeeded.
+    if (side === "buy" && result?.ok) {
+      require("../position-edge-store").captureEntrySnapshot(symbol).catch(() => {});
+    }
     return writeJson(res, 200, result);
   }
 

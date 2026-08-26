@@ -285,6 +285,50 @@ async function handleAlpaca(req, res, requestUrl) {
       } catch { /* best-effort overlay — real positions/P&L above still return even if this fails */ }
     }
 
+    // Post-entry Edge Monitoring overlay (Phase 3 Tier B, 2026-08-26,
+    // spec Parts 24-26) — for each real LONG position with a real entry
+    // snapshot (captured in routes/quick-trade.js at the moment the buy
+    // was confirmed), re-run the SAME real Opportunity Engine and diff
+    // the live score against entry. Honestly omits pos.edgeMonitor for
+    // any position with no real entry snapshot (opened before this
+    // feature existed, or outside the app) — never backfilled/fabricated.
+    // Same "small real position list, safe to compute live" precedent the
+    // dayTradeState overlay above already establishes in this exact route.
+    if (positions.length) {
+      try {
+        const { getEntrySnapshot, classifyEdgeChange } = require("../position-edge-store");
+        const longSymbols = positions.filter((p) => p.side === "long" && getEntrySnapshot(p.symbol)).map((p) => p.symbol);
+        if (longSymbols.length) {
+          const { screenTrendTemplate, getTrackReportCached } = require("./market");
+          const { computeRegime, regimeToEntryVocabulary } = require("../trade-planner-scoring");
+          const { computeOpportunity } = require("../opportunity-engine");
+          const { fetchYahooQuoteBatch } = require("../providers/yahoo");
+          const MACRO_SYMS = ["SPY", "QQQ", "IWM", "DIA", "^VIX", "UUP", "VIXY", "TLT", "HYG"];
+          const [rows, macroQuotes, trackReport] = await Promise.all([
+            screenTrendTemplate(longSymbols),
+            fetchYahooQuoteBatch(MACRO_SYMS).catch(() => []),
+            getTrackReportCached(),
+          ]);
+          const macroData = macroQuotes.map((q) => ({ symbol: q.symbol, price: q.regularMarketPrice, changesPercentage: q.regularMarketChangePercent }));
+          const regime = computeRegime(macroData);
+          const marketRegime = regimeToEntryVocabulary(regime.label);
+          const rowsBySymbol = new Map(rows.filter((r) => !r.error).map((r) => [r.symbol, r]));
+
+          for (const pos of positions) {
+            const snapshot = getEntrySnapshot(pos.symbol);
+            const row = rowsBySymbol.get(pos.symbol);
+            if (!snapshot || !row) continue;
+            const opp = computeOpportunity({ symbol: pos.symbol, row, regime, marketRegime, sectorInfo: null, adx: row.technicals?.adx || null, optionsFlow: null, trackReport });
+            if (!opp) continue;
+            pos.edgeMonitor = {
+              ...classifyEdgeChange({ entryScore: snapshot.score, entryTier: snapshot.tier, currentScore: opp.score, currentTier: opp.tier }),
+              entrySnapshotAt: snapshot.ts,
+            };
+          }
+        }
+      } catch { /* best-effort overlay — real positions/P&L above still return even if this fails */ }
+    }
+
     return writeJson(res, 200, { ok: true, positions });
   }
 
