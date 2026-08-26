@@ -10,6 +10,16 @@ import { useState, useRef, useEffect } from "react";
 // compositing, exactly where/how Claude said. You can also just edit the
 // suggestion by hand before downloading — never locked to the AI's first
 // answer.
+//
+// Layout upgraded 2026-08-26 (explicit user follow-up, showed a real
+// dealership listing-photo example: a dark top bar with a title on the
+// left and several icon badges like "✅ ONE OWNER" / "71K MILES ONLY")
+// from a single plain text line to a real title + up to 4 icon/label/
+// sublabel badges laid out left-to-right with dividers, matching that
+// reference bar. No brand logo is ever drawn (no real logo asset exists
+// in this app) — the title is real styled text instead.
+const MAX_BADGES = 4;
+
 export default function PhotoBannerTab({ C, MONO, SANS }) {
   const [imageDataUrl, setImageDataUrl] = useState(null);
   const [instruction, setInstruction] = useState("");
@@ -28,18 +38,82 @@ export default function PhotoBannerTab({ C, MONO, SANS }) {
     const ctx = canvas.getContext("2d");
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(img, 0, 0);
-    if (sugg && sugg.bannerText) {
-      const bandHeight = Math.max(40, Math.round(canvas.height * 0.1));
-      const y = sugg.position === "bottom" ? canvas.height - bandHeight : 0;
-      ctx.fillStyle = sugg.bgColor;
-      ctx.fillRect(0, y, canvas.width, bandHeight);
+
+    const badges = (sugg?.badges || []).filter((b) => b.label);
+    if (!sugg || (!sugg.titleText && !badges.length)) return;
+
+    const barHeight = Math.max(56, Math.round(canvas.height * 0.11));
+    const y = sugg.position === "bottom" ? canvas.height - barHeight : 0;
+    const midY = y + barHeight / 2;
+    const padX = Math.round(barHeight * 0.32);
+
+    ctx.fillStyle = sugg.bgColor;
+    ctx.fillRect(0, y, canvas.width, barHeight);
+
+    const divider = (x) => {
+      ctx.save();
+      ctx.strokeStyle = sugg.textColor;
+      ctx.globalAlpha = 0.35;
+      ctx.lineWidth = Math.max(1, Math.round(barHeight * 0.02));
+      ctx.beginPath();
+      ctx.moveTo(x, y + barHeight * 0.22);
+      ctx.lineTo(x, y + barHeight * 0.78);
+      ctx.stroke();
+      ctx.restore();
+    };
+
+    let x = padX;
+    if (sugg.titleText) {
+      const titleSize = Math.max(14, Math.round(barHeight * 0.34));
+      ctx.font = `900 ${titleSize}px sans-serif`;
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
       ctx.fillStyle = sugg.textColor;
-      const fontSize = Math.max(16, Math.round(bandHeight * 0.48));
-      ctx.font = `800 ${fontSize}px sans-serif`;
+      const t = sugg.titleText.toUpperCase();
+      ctx.fillText(t, x, midY);
+      x += ctx.measureText(t).width + padX;
+      if (badges.length) { divider(x); x += padX; }
+    }
+
+    badges.forEach((b, i) => {
+      const iconR = Math.round(barHeight * 0.26);
+      ctx.beginPath();
+      ctx.arc(x + iconR, midY, iconR, 0, Math.PI * 2);
+      ctx.fillStyle = sugg.accentColor;
+      ctx.fill();
+      ctx.font = `${Math.round(iconR * 1.15)}px sans-serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText(sugg.bannerText.toUpperCase(), canvas.width / 2, y + bandHeight / 2 + 1);
-    }
+      ctx.fillText(b.icon || "•", x + iconR, midY + 1);
+      x += iconR * 2 + Math.round(padX * 0.5);
+
+      ctx.textAlign = "left";
+      ctx.fillStyle = sugg.textColor;
+      const label = b.label.toUpperCase();
+      if (b.sublabel) {
+        const labelSize = Math.max(12, Math.round(barHeight * 0.25));
+        const subSize = Math.max(9, Math.round(barHeight * 0.17));
+        ctx.font = `900 ${labelSize}px sans-serif`;
+        ctx.textBaseline = "alphabetic";
+        ctx.fillText(label, x, midY - 1);
+        const wLabel = ctx.measureText(label).width;
+        ctx.font = `700 ${subSize}px sans-serif`;
+        ctx.globalAlpha = 0.85;
+        const sub = b.sublabel.toUpperCase();
+        ctx.fillText(sub, x, midY - 1 + subSize + 2);
+        const wSub = ctx.measureText(sub).width;
+        ctx.globalAlpha = 1;
+        x += Math.max(wLabel, wSub) + padX;
+      } else {
+        const labelSize = Math.max(12, Math.round(barHeight * 0.26));
+        ctx.font = `800 ${labelSize}px sans-serif`;
+        ctx.textBaseline = "middle";
+        ctx.fillText(label, x, midY);
+        x += ctx.measureText(label).width + padX;
+      }
+
+      if (i < badges.length - 1) { divider(x); x += padX; }
+    });
   }
 
   const onFileChange = (e) => {
@@ -92,6 +166,10 @@ export default function PhotoBannerTab({ C, MONO, SANS }) {
     a.click();
   };
 
+  const updateBadge = (i, patch) => setSuggestion((s) => ({ ...s, badges: s.badges.map((b, idx) => (idx === i ? { ...b, ...patch } : b)) }));
+  const removeBadge = (i) => setSuggestion((s) => ({ ...s, badges: s.badges.filter((_, idx) => idx !== i) }));
+  const addBadge = () => setSuggestion((s) => ({ ...s, badges: [...(s.badges || []), { icon: "✅", label: "NEW", sublabel: "" }].slice(0, MAX_BADGES) }));
+
   const field = (label, node) => (
     <label style={{ display: "flex", flexDirection: "column", gap: 4, fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: 0.4 }}>
       {label}
@@ -99,13 +177,15 @@ export default function PhotoBannerTab({ C, MONO, SANS }) {
     </label>
   );
   const inputStyle = { fontFamily: SANS, fontSize: 13, padding: "7px 10px", borderRadius: 7, border: `1px solid ${C.border}`, background: C.card, color: C.text };
+  const colorSwatchStyle = { width: 40, height: 32, padding: 0, border: `1px solid ${C.border}`, borderRadius: 6, background: "transparent", cursor: "pointer" };
+  const smallBtn = { fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 10px", borderRadius: 6, cursor: "pointer", border: `1px solid ${C.border}`, background: "transparent", color: C.textDim };
 
   return (
     <div>
       <div style={{ marginBottom: 12 }}>
         <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.text }}>🎨 PHOTO BANNERS</div>
         <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 2 }}>
-          Upload a photo, tell AI what banner you want (or leave it blank), and it'll suggest real text/placement/colors — then you can tweak anything before downloading.
+          Upload a photo, tell AI what banner you want (e.g. "one owner, 71k miles, clean title, gas saver, phone connection"), and it'll suggest a real title + icon badges — then tweak anything before downloading.
         </div>
       </div>
 
@@ -132,7 +212,7 @@ export default function PhotoBannerTab({ C, MONO, SANS }) {
 
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <input value={instruction} onChange={(e) => setInstruction(e.target.value)}
-              placeholder='e.g. "add a SALE banner" — or leave blank and let AI decide'
+              placeholder='e.g. "one owner, 71k miles, clean title" — or leave blank and let AI decide'
               style={{ ...inputStyle, flex: "1 1 280px" }} />
             <button onClick={askAi} disabled={loading}
               style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "8px 16px", borderRadius: 8, cursor: loading ? "default" : "pointer",
@@ -148,14 +228,15 @@ export default function PhotoBannerTab({ C, MONO, SANS }) {
           )}
 
           {suggestion && (
-            <div style={{ background: C.surface || C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ background: C.surface || C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 12, display: "flex", flexDirection: "column", gap: 12 }}>
               <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: 0.5 }}>AI SUGGESTION — edit anything below, the canvas above updates live</div>
               {suggestion.reasoning && (
                 <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec || C.textDim, fontStyle: "italic" }}>{suggestion.reasoning}</div>
               )}
+
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                {field("BANNER TEXT", <input style={inputStyle} value={suggestion.bannerText}
-                  onChange={(e) => setSuggestion((s) => ({ ...s, bannerText: e.target.value.slice(0, 40) }))} />)}
+                {field("TITLE", <input style={{ ...inputStyle, width: 180 }} value={suggestion.titleText}
+                  onChange={(e) => setSuggestion((s) => ({ ...s, titleText: e.target.value.slice(0, 30) }))} placeholder="(optional)" />)}
                 {field("POSITION", (
                   <select style={inputStyle} value={suggestion.position}
                     onChange={(e) => setSuggestion((s) => ({ ...s, position: e.target.value }))}>
@@ -164,12 +245,31 @@ export default function PhotoBannerTab({ C, MONO, SANS }) {
                   </select>
                 ))}
                 {field("BACKGROUND", <input type="color" value={suggestion.bgColor}
-                  onChange={(e) => setSuggestion((s) => ({ ...s, bgColor: e.target.value }))}
-                  style={{ width: 44, height: 32, padding: 0, border: `1px solid ${C.border}`, borderRadius: 6, background: "transparent" }} />)}
-                {field("TEXT COLOR", <input type="color" value={suggestion.textColor}
-                  onChange={(e) => setSuggestion((s) => ({ ...s, textColor: e.target.value }))}
-                  style={{ width: 44, height: 32, padding: 0, border: `1px solid ${C.border}`, borderRadius: 6, background: "transparent" }} />)}
+                  onChange={(e) => setSuggestion((s) => ({ ...s, bgColor: e.target.value }))} style={colorSwatchStyle} />)}
+                {field("TEXT", <input type="color" value={suggestion.textColor}
+                  onChange={(e) => setSuggestion((s) => ({ ...s, textColor: e.target.value }))} style={colorSwatchStyle} />)}
+                {field("BADGE ACCENT", <input type="color" value={suggestion.accentColor}
+                  onChange={(e) => setSuggestion((s) => ({ ...s, accentColor: e.target.value }))} style={colorSwatchStyle} />)}
               </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: 0.4 }}>BADGES ({(suggestion.badges || []).length}/{MAX_BADGES})</div>
+                {(suggestion.badges || []).map((b, i) => (
+                  <div key={i} style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <input style={{ ...inputStyle, width: 48, textAlign: "center" }} value={b.icon}
+                      onChange={(e) => updateBadge(i, { icon: e.target.value.slice(0, 4) })} title="Emoji icon" />
+                    <input style={{ ...inputStyle, width: 130 }} value={b.label} placeholder="Label"
+                      onChange={(e) => updateBadge(i, { label: e.target.value.slice(0, 16) })} />
+                    <input style={{ ...inputStyle, width: 130 }} value={b.sublabel} placeholder="Sublabel (optional)"
+                      onChange={(e) => updateBadge(i, { sublabel: e.target.value.slice(0, 16) })} />
+                    <button onClick={() => removeBadge(i)} style={smallBtn}>✕</button>
+                  </div>
+                ))}
+                {(suggestion.badges || []).length < MAX_BADGES && (
+                  <button onClick={addBadge} style={{ ...smallBtn, alignSelf: "flex-start" }}>+ Add badge</button>
+                )}
+              </div>
+
               <div>
                 <button onClick={download}
                   style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "8px 16px", borderRadius: 8, cursor: "pointer",
