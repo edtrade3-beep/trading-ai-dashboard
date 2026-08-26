@@ -66,11 +66,11 @@ function drawRibbon(ctx, canvas, sugg, fontStack, text) {
   const start = -length * 0.15; // small real overhang past the corner, the classic "wrapped" look
 
   let fontSize = Math.max(12, Math.round(thickness * 0.42));
-  ctx.font = `900 ${fontSize}px ${fontStack}`;
+  ctx.font = `800 ${fontSize}px ${fontStack}`;
   const visibleLength = length * 0.75;
   const textW = ctx.measureText(text.toUpperCase()).width;
   if (textW > visibleLength) fontSize = Math.max(9, Math.round(fontSize * (visibleLength / textW)));
-  ctx.font = `900 ${fontSize}px ${fontStack}`;
+  ctx.font = `800 ${fontSize}px ${fontStack}`;
 
   ctx.save();
   ctx.translate(cx, cy);
@@ -144,7 +144,7 @@ export default function PhotoBannerTab({ C, MONO, SANS }) {
     const base = layoutMetrics(barHeight, scale);
     let width = base.padX;
     if (sugg.titleText) {
-      ctx.font = `900 ${base.titleSize}px ${fontStack}`;
+      ctx.font = `800 ${base.titleSize}px ${fontStack}`;
       width += ctx.measureText(sugg.titleText.toUpperCase()).width + base.padX;
       if (badges.length) width += base.padX;
     }
@@ -154,13 +154,13 @@ export default function PhotoBannerTab({ C, MONO, SANS }) {
       const label = b.label.toUpperCase();
       let labelW;
       if (b.sublabel) {
-        ctx.font = `900 ${m.labelSizeWithSub}px ${fontStack}`;
+        ctx.font = `700 ${m.labelSizeWithSub}px ${fontStack}`;
         const wLabel = ctx.measureText(label).width;
-        ctx.font = `700 ${m.subSize}px ${fontStack}`;
+        ctx.font = `600 ${m.subSize}px ${fontStack}`;
         const wSub = ctx.measureText(b.sublabel.toUpperCase()).width;
         labelW = Math.max(wLabel, wSub);
       } else {
-        ctx.font = `800 ${m.labelSize}px ${fontStack}`;
+        ctx.font = `700 ${m.labelSize}px ${fontStack}`;
         labelW = ctx.measureText(label).width;
       }
       width += labelW + base.padX;
@@ -244,7 +244,7 @@ export default function PhotoBannerTab({ C, MONO, SANS }) {
 
     let x = padX;
     if (sugg.titleText) {
-      ctx.font = `900 ${titleSize}px ${fontStack}`;
+      ctx.font = `800 ${titleSize}px ${fontStack}`;
       ctx.textAlign = "left";
       ctx.textBaseline = "middle";
       ctx.fillStyle = sugg.textColor;
@@ -277,11 +277,11 @@ export default function PhotoBannerTab({ C, MONO, SANS }) {
       ctx.fillStyle = sugg.textColor;
       const label = b.label.toUpperCase();
       if (b.sublabel) {
-        ctx.font = `900 ${m.labelSizeWithSub}px ${fontStack}`;
+        ctx.font = `700 ${m.labelSizeWithSub}px ${fontStack}`;
         ctx.textBaseline = "alphabetic";
         ctx.fillText(label, x, midY - 1);
         const wLabel = ctx.measureText(label).width;
-        ctx.font = `700 ${m.subSize}px ${fontStack}`;
+        ctx.font = `600 ${m.subSize}px ${fontStack}`;
         ctx.globalAlpha = 0.85;
         const sub = b.sublabel.toUpperCase();
         ctx.fillText(sub, x, midY - 1 + m.subSize + 2);
@@ -289,7 +289,7 @@ export default function PhotoBannerTab({ C, MONO, SANS }) {
         ctx.globalAlpha = 1;
         x += Math.max(wLabel, wSub) + padX;
       } else {
-        ctx.font = `800 ${m.labelSize}px ${fontStack}`;
+        ctx.font = `700 ${m.labelSize}px ${fontStack}`;
         ctx.textBaseline = "middle";
         ctx.fillText(label, x, midY);
         x += ctx.measureText(label).width + padX;
