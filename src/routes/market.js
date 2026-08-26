@@ -1625,6 +1625,12 @@ async function _buildTrendTemplate(symbol, opts = {}) {
   const rsi14 = (() => { try { return require("../indicators").computeRSI(closes, 14); } catch { return null; } })();
   const dayChangePct = last >= 1 && closes[last - 1] > 0 ? round2((price / closes[last - 1] - 1) * 100) : null;
   const weekChangePct = last >= 5 && closes[last - 5] > 0 ? round2((price / closes[last - 5] - 1) * 100) : null;
+  // Real 1-month % change (2026-08-26, explicit user request: "add ...
+  // percentage move for the day and week and month") — 21 real trading
+  // days back (a standard trading month), same real daily `closes`
+  // already in memory, zero extra fetch, same honest-null-if-not-enough-
+  // real-history convention as dayChangePct/weekChangePct above.
+  const monthChangePct = last >= 21 && closes[last - 21] > 0 ? round2((price / closes[last - 21] - 1) * 100) : null;
   // ADX, computed here (not gated to !opts.light like Donchian/Bollinger
   // below) so bulk-scan callers (screenTrendTemplate) get the same real
   // technicalPts input computeInstitutionalGrade uses for the single-symbol
@@ -1663,6 +1669,7 @@ async function _buildTrendTemplate(symbol, opts = {}) {
     rsi: rsi14,
     dayChangePct,
     weekChangePct,
+    monthChangePct,
     criteria,
     setup,
     smc,

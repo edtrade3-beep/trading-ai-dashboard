@@ -72,7 +72,39 @@ function fireQuickTrade(o) {
   window.dispatchEvent(new CustomEvent("open-quick-trade", { detail: { symbol: o.symbol, shares, stopLoss: o.stop, takeProfit: o.target } }));
 }
 
-export default function CommandSearchPanel({ symbol, onSelectSymbol, C, MONO, SANS }) {
+// Ticker header — name + real 1D/1W/1M % change (2026-08-26, explicit
+// user request: "add ticker name and percentage move for the day and
+// week and month right under search"). Day/week/month come from `chart`
+// (TradeDeskTab's own /api/market/trend-template fetch — buildTrendTemplate's
+// real dayChangePct/weekChangePct/monthChangePct, all off the same daily
+// bars already loaded for the chart, zero extra fetch here); name comes
+// from `symbolQuote` (a small dedicated /api/market/quote fetch, same
+// real pattern this file's sibling already uses for the VIX pill). Same
+// colored-badge style as MacroTab.jsx's own 1D/1W chips.
+function ChangeBadge({ label, pct, C, MONO }) {
+  if (!Number.isFinite(pct)) return <span style={{ fontFamily: MONO, fontSize: 10.5, color: C.textDim }}>{label} —</span>;
+  const color = pct >= 0 ? "#0d9465" : "#c8282a";
+  return <span style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 700, color }}>{label} {pct >= 0 ? "+" : ""}{pct}%</span>;
+}
+function TickerHeader({ symbol, chart, symbolQuote, C, MONO, SANS }) {
+  if (!symbol) return null;
+  const name = symbolQuote?.name && symbolQuote.name !== symbol ? symbolQuote.name : null;
+  return (
+    <div style={{ padding: "0 10px 8px" }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+        <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.text }}>{symbol}</span>
+        {name && <span style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</span>}
+      </div>
+      <div style={{ display: "flex", gap: 10, marginTop: 3 }}>
+        <ChangeBadge label="1D" pct={chart?.dayChangePct} C={C} MONO={MONO} />
+        <ChangeBadge label="1W" pct={chart?.weekChangePct} C={C} MONO={MONO} />
+        <ChangeBadge label="1M" pct={chart?.monthChangePct} C={C} MONO={MONO} />
+      </div>
+    </div>
+  );
+}
+
+export default function CommandSearchPanel({ symbol, onSelectSymbol, chart, symbolQuote, C, MONO, SANS }) {
   const [query, setQuery] = useState("");
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -114,6 +146,8 @@ export default function CommandSearchPanel({ symbol, onSelectSymbol, C, MONO, SA
           <button onClick={submitSearch} style={{ border: "none", background: C.accent, color: "#fff", borderRadius: 6, padding: "0 10px", fontFamily: MONO, fontSize: 11.5, fontWeight: 800, cursor: "pointer" }}>GO</button>
         </div>
       </div>
+
+      <TickerHeader symbol={symbol} chart={chart} symbolQuote={symbolQuote} C={C} MONO={MONO} SANS={SANS} />
 
       {data?.dataQuality?.stale && (
         <div style={{ margin: "0 10px 8px", padding: "6px 8px", border: "1px solid #d6a31255", background: "#d6a31212", borderRadius: 6, fontFamily: SANS, fontSize: 10.5, color: "#d6a312" }}>

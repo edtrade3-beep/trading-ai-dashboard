@@ -220,6 +220,24 @@ export default function TradeDeskTab({
     return () => { cancelled = true; clearInterval(iv); };
   }, []);
 
+  // Real company/ticker name for the active symbol (2026-08-26, explicit
+  // user request: "add ticker name ... right under search"). Same real
+  // /api/market/quote route + array-response shape as vixQuote above,
+  // just keyed to the active symbol instead of ^VIX — day/week/month %
+  // change come from the `chart` fetch above instead (buildTrendTemplate's
+  // own real dayChangePct/weekChangePct/monthChangePct off the same bars
+  // already loaded for the chart), so this fetch only needs to supply the
+  // one real field that route doesn't have another source for: name.
+  const [symbolQuote, setSymbolQuote] = useState(null);
+  useEffect(() => {
+    if (!symbol) return;
+    let cancelled = false;
+    fetch(`/api/market/quote?symbols=${encodeURIComponent(symbol)}`).then((r) => r.json())
+      .then((arr) => { if (!cancelled) setSymbolQuote((Array.isArray(arr) && arr[0]) || null); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [symbol]);
+
   // Market Context panel (Phase 2, 2026-08-26) — the real, already-built
   // MacroStatusStrip.jsx (SPY/QQQ/IWM/DIA/VIX/DXY-proxy/10Y/Gold/Oil/BTC +
   // real regime/treasury/credit/liquidity/employment/breadth/sector-
@@ -393,11 +411,11 @@ export default function TradeDeskTab({
             force the fixed-column grid on a narrow screen (ScanTerminalHub's
             own history is the reason this is a deliberate, up-front choice). */}
         {isMobile ? (
-          <MobileTradeDeskBody symbol={symbol} selectSymbol={selectSymbol} chart={chart} loadingChart={loadingChart} vcpOn={vcpOn} setVcpOn={setVcpOn} setActiveTab={setActiveTab} C={C} MONO={MONO} SANS={SANS} />
+          <MobileTradeDeskBody symbol={symbol} selectSymbol={selectSymbol} chart={chart} symbolQuote={symbolQuote} loadingChart={loadingChart} vcpOn={vcpOn} setVcpOn={setVcpOn} setActiveTab={setActiveTab} C={C} MONO={MONO} SANS={SANS} />
         ) : (
           <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "220px 1fr 280px" }}>
             <div style={{ borderRight: `1px solid ${C.border}`, minHeight: 0, overflow: "hidden" }}>
-              <CommandSearchPanel symbol={symbol} onSelectSymbol={selectSymbol} C={C} MONO={MONO} SANS={SANS} />
+              <CommandSearchPanel symbol={symbol} onSelectSymbol={selectSymbol} chart={chart} symbolQuote={symbolQuote} C={C} MONO={MONO} SANS={SANS} />
             </div>
             <ChartPane symbol={symbol} chart={chart} loadingChart={loadingChart} vcpOn={vcpOn} setVcpOn={setVcpOn} C={C} MONO={MONO} SANS={SANS} />
             {/* Right column split (Phase 2, 2026-08-26, user-confirmed
@@ -531,7 +549,7 @@ function ChartPane({ symbol, chart, loadingChart, vcpOn, setVcpOn, C, MONO, SANS
   );
 }
 
-function MobileTradeDeskBody({ symbol, selectSymbol, chart, loadingChart, vcpOn, setVcpOn, setActiveTab, C, MONO, SANS }) {
+function MobileTradeDeskBody({ symbol, selectSymbol, chart, symbolQuote, loadingChart, vcpOn, setVcpOn, setActiveTab, C, MONO, SANS }) {
   const [view, setView] = useState("chart");
   return (
     <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
@@ -546,7 +564,7 @@ function MobileTradeDeskBody({ symbol, selectSymbol, chart, loadingChart, vcpOn,
         ))}
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
-        {view === "search" && <CommandSearchPanel symbol={symbol} onSelectSymbol={(s) => { selectSymbol(s); setView("chart"); }} C={C} MONO={MONO} SANS={SANS} />}
+        {view === "search" && <CommandSearchPanel symbol={symbol} onSelectSymbol={(s) => { selectSymbol(s); setView("chart"); }} chart={chart} symbolQuote={symbolQuote} C={C} MONO={MONO} SANS={SANS} />}
         {view === "chart" && (
           <div style={{ padding: "8px 10px 10px" }}>
             <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 6 }}>
