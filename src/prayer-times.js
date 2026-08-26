@@ -7,9 +7,8 @@
 // goes out at each prayer time regardless of whether the app is open.
 //
 // Location matches the app's own existing hardcoded default (axiom-live.jsx)
-// — Fairfield, OH 45014 — and the same calculation method (4 = Umm Al-Qura
-// University, Makkah) AthanTab.jsx defaults to. Not user-configurable yet;
-// if a different location is ever wanted, this is the one place to change.
+// — Fairfield, OH 45014. Not user-configurable yet; if a different location
+// is ever wanted, this is the one place to change.
 "use strict";
 
 const path = require("node:path");
@@ -18,7 +17,10 @@ const { writeJsonAtomic, readJsonSafe } = require("./atomic-write");
 const { sendTelegramMessage, isConfigured } = require("./telegram");
 
 const LOCATION = { lat: 39.3266, lng: -84.5479, label: "Fairfield, OH 45014" };
-const METHOD = 4; // Umm Al-Qura University, Makkah — same default AthanTab.jsx uses
+// ISNA (Islamic Society of North America, method 2) — explicit user request
+// 2026-08-25, replacing the original Umm Al-Qura default; ISNA is the
+// standard convention for a US location like this one.
+const METHOD = 2;
 
 // Sunrise deliberately excluded — it's a real Aladhan field but not a real
 // prayer, matching AthanTab.jsx's own "next prayer" logic (which filters
@@ -34,9 +36,17 @@ const PRAYERS = [
 const STATE_PATH = path.join(ROOT, "data", "prayer-times-state.json");
 function loadState() {
   const s = readJsonSafe(STATE_PATH, {});
-  return { date: s.date || null, times: s.times || null, alerted: Array.isArray(s.alerted) ? s.alerted : [] };
+  return { date: s.date || null, times: s.times || null, hijri: s.hijri || null, alerted: Array.isArray(s.alerted) ? s.alerted : [] };
 }
 function saveState(s) { writeJsonAtomic(STATE_PATH, s); }
+
+// Real Hijri date, straight off the same Aladhan response used for the
+// timings (explicit user request 2026-08-25: "add Hijri date") — no
+// separate call, no client-side Hijri math.
+function formatHijri(h) {
+  if (!h) return null;
+  return `${h.day} ${h.month?.en || ""} ${h.year} AH`.replace(/\s+/g, " ").trim();
+}
 
 function todayET() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date());
@@ -64,7 +74,7 @@ async function fetchTimesForToday() {
   const r = await fetch(url);
   const j = await r.json().catch(() => null);
   if (!r.ok || !j?.data?.timings) throw new Error("real Aladhan fetch failed");
-  return j.data.timings;
+  return { timings: j.data.timings, hijri: j.data.date?.hijri || null };
 }
 
 // Real, persisted per-day state — fetches fresh once per real ET day.
@@ -77,10 +87,10 @@ async function ensureTodayState() {
   const today = todayET();
   const state = loadState();
   if (state.date === today && state.times) return state;
-  const times = await fetchTimesForToday();
+  const { timings: times, hijri } = await fetchTimesForToday();
   const nowMin = nowMinutesET();
   const alreadyPast = PRAYERS.filter((p) => { const m = toMinutes(times[p.key]); return m != null && m <= nowMin; }).map((p) => p.key);
-  const fresh = { date: today, times, alerted: alreadyPast };
+  const fresh = { date: today, times, hijri, alerted: alreadyPast };
   saveState(fresh);
   return fresh;
 }
@@ -99,7 +109,8 @@ async function tickPrayerNotify() {
     state.alerted.push(p.key);
     alertedNow++;
     if (isConfigured()) {
-      await sendTelegramMessage(`${p.emoji} ${p.label.toUpperCase()} (${p.ar}) — ${state.times[p.key]}\n📍 ${LOCATION.label}`).catch(() => {});
+      const hijriLine = formatHijri(state.hijri);
+      await sendTelegramMessage(`${p.emoji} ${p.label.toUpperCase()} (${p.ar}) — ${state.times[p.key]}\n📍 ${LOCATION.label}${hijriLine ? `\n🌙 ${hijriLine}` : ""}`).catch(() => {});
     }
   }
   if (alertedNow) saveState(state);
@@ -112,7 +123,8 @@ async function formatScheduleMessage() {
   try { state = await ensureTodayState(); } catch (e) { return `Couldn't fetch real prayer times right now (${e.message}).`; }
   const nowMin = nowMinutesET();
   const next = PRAYERS.find((p) => { const m = toMinutes(state.times[p.key]); return m != null && m > nowMin; });
-  const lines = [`🕌 PRAYER TIMES — ${LOCATION.label}`, "━━━━━━━━━━━━━━━━━━━━"];
+  const hijriLine = formatHijri(state.hijri);
+  const lines = [`🕌 PRAYER TIMES — ${LOCATION.label}`, ...(hijriLine ? [`🌙 ${hijriLine}`] : []), "━━━━━━━━━━━━━━━━━━━━"];
   for (const p of PRAYERS) {
     const isNext = next && next.key === p.key;
     lines.push(`${p.emoji} ${p.label.padEnd(8)} ${state.times[p.key]}${isNext ? "  ← next" : ""}`);
