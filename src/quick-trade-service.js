@@ -20,10 +20,18 @@ const {
   checkAccountHealth, dailyLossBreakerTripped, openRiskPct, sectorCapExceeded,
   isMarketHoursET, sizePositionByRisk,
 } = require("./risk-guardrails");
+const { PORT } = require("./config");
 
 const MAX_LOSS_PCT = Number(process.env.SERVER_AUTOPILOT_MAXLOSS) || 2;
 const MAX_RISK_PCT = Number(process.env.SERVER_AUTOPILOT_MAXRISK) || 6;
 const MAX_PER_SECTOR = Number(process.env.SERVER_AUTOPILOT_MAXSECTOR) || 3;
+
+// Same real self-loopback JSON-fetch convention routes/ai-hub.js already
+// uses for this exact computeSymbolVsPositionsCorrelation call.
+const BASE = () => process.env.RENDER_EXTERNAL_URL || `http://127.0.0.1:${PORT}`;
+async function getJson(path) {
+  try { const r = await fetch(`${BASE()}${path}`); return await r.json(); } catch { return null; }
+}
 
 async function getAccount() {
   const a = await alpacaTradingRequest("/v2/account");
@@ -56,7 +64,7 @@ async function getPositions() {
 // (the remaining checks — relative volume, spread, liquidity, news risk —
 // need their own real data sources wired in, deferred to a later phase
 // rather than faked here).
-async function preTradeCheck({ symbol, requireMarketHours = true } = {}) {
+async function preTradeCheck({ symbol, requireMarketHours = true, checkCorrelation = false } = {}) {
   if (!isAlpacaConfigured()) return { ok: false, reason: "no-alpaca-key" };
   const account = await getAccount();
   if (!account) return { ok: false, reason: "could not load real account data" };
@@ -79,6 +87,33 @@ async function preTradeCheck({ symbol, requireMarketHours = true } = {}) {
 
   if (symbol && sectorCapExceeded({ positions, symbol, maxPerSector: MAX_PER_SECTOR })) {
     return { ok: false, reason: `sector cap: already ${MAX_PER_SECTOR}+ real positions in this sector` };
+  }
+
+  // Pre-trade correlation hard-check (Phase 3 Tier B, 2026-08-26, explicit
+  // user choice: hard block, matching how every other real guardrail in
+  // this function already behaves — spec Part 44: "risk controls should
+  // be treated as constraints, not suggestions"). checkCorrelation
+  // defaults to false and is only passed true from buy() below — this
+  // function is ALSO called by sell/short/cover (reducing exposure should
+  // never be blocked by a "don't add correlated risk" gate) and by the
+  // live GET /api/quick-trade/precheck route, which fires on every UI
+  // keystroke; running a real historical-bars fetch there would repeat
+  // this exact codebase's own already-solved "expensive real fetch must
+  // be button-gated, not auto-polled" mistake. Fails OPEN, not closed, on
+  // a real fetch error: a network hiccup here is an absence of evidence,
+  // not evidence of a violation — it must never become a single point of
+  // failure that blocks all trading. Only a REAL computed correlation
+  // that REALLY exceeds the threshold against a REAL large position
+  // blocks the order.
+  if (checkCorrelation && symbol && positions.length) {
+    try {
+      const { computeSymbolVsPositionsCorrelation, correlationGateTripped } = require("./portfolio-correlation-calc");
+      const result = await computeSymbolVsPositionsCorrelation(symbol, positions, getJson);
+      const hit = correlationGateTripped({ correlations: result.correlations, equity: account.equity });
+      if (hit) {
+        return { ok: false, reason: `correlation gate: ${symbol} is r=${hit.correlation} correlated with your existing ${hit.symbol} position ($${Math.round(hit.marketValue).toLocaleString()}) — blocked to avoid concentrated correlated risk` };
+      }
+    } catch { /* best-effort real fetch — a correlation-check failure never blocks an otherwise-valid trade */ }
   }
 
   if (requireMarketHours && !isMarketHoursET()) {
@@ -172,7 +207,7 @@ async function pollOrderFill(orderId, { intervalMs = 2000, maxAttempts = 7 } = {
 // buy/sell — long side, real long-only guard preserved for sell (same real
 // behavior as the legacy route: can't sell more than real held qty here).
 async function buy(symbol, qty, opts = {}) {
-  const gate = await preTradeCheck({ symbol, requireMarketHours: opts.requireMarketHours !== false });
+  const gate = await preTradeCheck({ symbol, requireMarketHours: opts.requireMarketHours !== false, checkCorrelation: true });
   if (!gate.ok) return gate;
   return submitOrder(buildOrder({ symbol, qty, side: "buy", ...opts }));
 }

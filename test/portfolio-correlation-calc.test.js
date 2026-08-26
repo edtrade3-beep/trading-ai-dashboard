@@ -4,7 +4,7 @@
 // node test/portfolio-correlation-calc.test.js (or npm test).
 "use strict";
 const assert = require("node:assert");
-const { pearson, computeSymbolVsPositionsCorrelation } = require("../src/portfolio-correlation-calc");
+const { pearson, computeSymbolVsPositionsCorrelation, correlationGateTripped } = require("../src/portfolio-correlation-calc");
 
 let passed = 0;
 function ok(name, fn) { try { fn(); passed++; console.log(`  ✓ ${name}`); } catch (e) { console.error(`  ✗ ${name}\n    ${e.message}`); process.exitCode = 1; } }
@@ -103,6 +103,28 @@ await okAsync("the candidate symbol is excluded from its own comparison set when
 await okAsync("no held positions at all -> honest empty result, no crash", async () => {
   const result = await computeSymbolVsPositionsCorrelation("CAND", [], async () => ({ bars: [] }));
   assert.deepStrictEqual(result, { candidateSymbol: "CAND", correlations: [], insufficientData: [] });
+});
+
+console.log("Checking correlationGateTripped — real pre-trade correlation hard-check…");
+ok("a real r=0.85 correlation against a real large position (>=5% equity) trips the gate", () => {
+  const hit = correlationGateTripped({ correlations: [{ symbol: "NVDA", correlation: 0.85, marketValue: 10_000 }], equity: 100_000 });
+  assert.ok(hit && hit.symbol === "NVDA");
+});
+ok("a real r=0.85 correlation against a small position (<5% equity) does NOT trip the gate", () => {
+  const hit = correlationGateTripped({ correlations: [{ symbol: "NVDA", correlation: 0.85, marketValue: 2_000 }], equity: 100_000 });
+  assert.strictEqual(hit, null);
+});
+ok("a real r=0.5 correlation (below CLUSTER_THRESHOLD) never trips the gate, even against a huge position", () => {
+  const hit = correlationGateTripped({ correlations: [{ symbol: "NVDA", correlation: 0.5, marketValue: 50_000 }], equity: 100_000 });
+  assert.strictEqual(hit, null);
+});
+ok("a real negative correlation is judged on magnitude (|r|), not sign", () => {
+  const hit = correlationGateTripped({ correlations: [{ symbol: "SPXS", correlation: -0.9, marketValue: 10_000 }], equity: 100_000 });
+  assert.ok(hit);
+});
+ok("no positions/no equity -> honest null, never crashes", () => {
+  assert.strictEqual(correlationGateTripped({ correlations: [], equity: 100_000 }), null);
+  assert.strictEqual(correlationGateTripped({ correlations: [{ symbol: "X", correlation: 0.9, marketValue: 10_000 }], equity: 0 }), null);
 });
 
 console.log(`\n${passed} checks passed.`);

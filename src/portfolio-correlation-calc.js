@@ -161,4 +161,23 @@ async function computeSymbolVsPositionsCorrelation(candidateSymbol, positions, g
   return { candidateSymbol, correlations, insufficientData };
 }
 
-module.exports = { pearson, computePortfolioCorrelation, computeSymbolVsPositionsCorrelation, FACTOR_PROXIES, MIN_BARS, CLUSTER_THRESHOLD };
+// Pre-trade correlation hard-check (Phase 3 Tier B, 2026-08-26, spec Part
+// 15/44: "if the new trade is another [highly correlated holding], reduce
+// its ranking" / "risk controls should be treated as constraints, not
+// suggestions"). Pure decision function, testable — reuses the SAME real
+// CLUSTER_THRESHOLD this file's own passive correlation annotation
+// already uses, no second threshold invented. "Large" position is a real,
+// disclosed percent-of-equity floor (LARGE_POSITION_EQUITY_PCT) — a
+// highly-correlated $50 position in a $500k account isn't a real
+// concentration risk worth blocking a trade over.
+const LARGE_POSITION_EQUITY_PCT = 5;
+function correlationGateTripped({ correlations, equity }) {
+  if (!Array.isArray(correlations) || !(equity > 0)) return null;
+  const threshold = equity * (LARGE_POSITION_EQUITY_PCT / 100);
+  return correlations.find((c) => Math.abs(c.correlation) >= CLUSTER_THRESHOLD && (c.marketValue || 0) >= threshold) || null;
+}
+
+module.exports = {
+  pearson, computePortfolioCorrelation, computeSymbolVsPositionsCorrelation, correlationGateTripped,
+  FACTOR_PROXIES, MIN_BARS, CLUSTER_THRESHOLD, LARGE_POSITION_EQUITY_PCT,
+};
