@@ -102,6 +102,12 @@ export const SIDEBAR_ITEMS = [
   // sub-view of an existing tab.
   { id: "futurewallet", label: "Future Wallet", icon: "💰", tab: "futurewallet" },
 
+  // Photo Banners — explicit user request (2026-08-26: "build tab so i can
+  // give image and ask to add banners by ai"). Given its own row, same
+  // reasoning as Light Box/Future Wallet above — a genuinely new
+  // standalone tool, not a sub-view of an existing tab.
+  { id: "photobanners", label: "Photo Banners", icon: "🎨", tab: "photobanners" },
+
   // BTC + HPC Deep Scan — real BTC regime + a ranked scan of the real
   // BTC-mining/HPC-hosting pivot universe (IREN/WULF/CORZ/CIFR/RIOT),
   // explicit user request (2026-08-20). Given its own row, same reasoning

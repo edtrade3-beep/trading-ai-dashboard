@@ -183,6 +183,7 @@ import CotTab from "./components/CotTab.jsx";
 import LightBoxTab from "./components/LightBoxTab.jsx";
 import DayTradeConsoleTab from "./components/DayTradeConsoleTab.jsx";
 import FutureWalletTab from "./components/FutureWalletTab.jsx";
+import PhotoBannerTab from "./components/PhotoBannerTab.jsx";
 import BtcHpcScanCard from "./components/BtcHpcScanCard.jsx";
 
 // Attach the API token (if the user set one) to every same-origin /api request,
@@ -7359,6 +7360,7 @@ export default function App() {
         <DayTradeConsoleTab C={C} MONO={MONO} SANS={SANS} symbol={daytradeConsoleSymbol} onBack={() => setActiveTab("lightbox")} />
       )}
       {activeTab === "futurewallet" && <FutureWalletTab C={C} MONO={MONO} SANS={SANS} />}
+      {activeTab === "photobanners" && <PhotoBannerTab C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "btc-hpc" && <BtcHpcScanCard C={C} MONO={MONO} SANS={SANS} />}
       {/* SETTINGS — composite sidebar destination (institutional redesign,
           2026-07-29) folding Coach/Learn/Quran/account-risk settings into

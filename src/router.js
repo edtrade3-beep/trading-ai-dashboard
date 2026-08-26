@@ -21,6 +21,7 @@ const handleSettings = require("./routes/settings");
 const handlePlan = require("./routes/plan");
 const handleWatchlist = require("./routes/watchlist");
 const { handleFutureWallet } = require("./routes/future-wallet");
+const { handlePhotoBanner } = require("./routes/photo-banner");
 const { handleAiUsage } = require("./routes/ai-usage");
 const { handleAutopilot } = require("./routes/autopilot");
 const { handleEmergencyStop } = require("./routes/emergency-stop");
@@ -272,6 +273,10 @@ async function handleRequest(req, res) {
 
     if (pathname.startsWith("/api/future-wallet/")) {
       return await handleFutureWallet(req, res, requestUrl);
+    }
+
+    if (pathname.startsWith("/api/photo-banner/")) {
+      return await handlePhotoBanner(req, res, requestUrl);
     }
 
     if (pathname === "/api/ai-usage") {

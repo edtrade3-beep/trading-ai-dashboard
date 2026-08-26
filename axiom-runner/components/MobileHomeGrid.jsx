@@ -27,6 +27,7 @@ const NAV_CARDS = [
   { id: "journal", label: "Journal", icon: "📓", tab: "rhpro-journal", desc: "Trade logs & personal notes" },
   { id: "lightbox", label: "Light Box", icon: "🚦", tab: "lightbox", desc: "Color-coded BUY / WAIT / SELL signal grid" },
   { id: "futurewallet", label: "Future Wallet", icon: "💰", tab: "futurewallet", desc: "Market regime & long-term candidate research" },
+  { id: "photobanners", label: "Photo Banners", icon: "🎨", tab: "photobanners", desc: "AI-suggested banner overlays on your photos" },
   { id: "btc-hpc", label: "BTC + HPC", icon: "₿", tab: "btc-hpc", desc: "Crypto regime & HPC-hosting/mining scan" },
   { id: "settings", label: "Settings", icon: "⚙️", tab: "settings", desc: "Preferences, API, security & more" },
 ];
