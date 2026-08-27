@@ -196,7 +196,7 @@ server.listen(PORT, HOST, () => {
 
   // AI Morning Game Plan (~9:40 AM ET) + AI Trade Coach (~4:15 PM ET) — weekdays, server-side.
   // Autopilot recap (~4:05 PM ET) — what the Alpaca paper autopilot did today.
-  let _gpSent = null, _coachSent = null, _recapAP = null, _weeklySent = null, _monthlyReview = null, _mrvPaper = null, _mrvSummary = null, _apexSent = null, _ceoSent = null, _aplusSnapshot = null, _cmdCenterSent = null, _ivSnapshot = null;
+  let _gpSent = null, _coachSent = null, _recapAP = null, _weeklySent = null, _monthlyReview = null, _mrvPaper = null, _mrvSummary = null, _apexSent = null, _ceoSent = null, _aplusSnapshot = null, _cmdCenterSent = null, _ivSnapshot = null, _edgeDecaySnapshot = null;
   setInterval(() => {
     const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
     const h = et.getHours(), m = et.getMinutes(), day = et.getDay();
@@ -233,6 +233,16 @@ server.listen(PORT, HOST, () => {
     if (h === 16 && m >= 40 && m < 46 && _aplusSnapshot !== today) {
       _aplusSnapshot = today;
       require("./src/aplus-score-history").logDailySnapshot().catch((e) => console.error("[A+ Score history] snapshot failed:", e.message));
+    }
+    // Edge-decay snapshot — "is this signal still working?" (2026-08-27).
+    // Reuses the A+ Score history's own real forward-return report
+    // (fires right after it above, same ~4:40 PM ET window) to log today's
+    // real d20 score-bucket win rates, so a later read can honestly
+    // compare against a real snapshot from ~90 days back. No new price
+    // fetching of its own.
+    if (h === 16 && m >= 40 && m < 46 && _edgeDecaySnapshot !== today) {
+      _edgeDecaySnapshot = today;
+      require("./src/edge-decay-tracker").logEdgeSnapshot().catch((e) => console.error("[Edge decay] snapshot failed:", e.message));
     }
     // Real IV history snapshot — options platform redesign Phase 5. Same
     // pure-forward-log pattern as the A+ Score snapshot above (fires

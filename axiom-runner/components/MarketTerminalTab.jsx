@@ -225,7 +225,7 @@ import FoundationCard from "./FoundationCard.jsx";
 // 4th scoring system.
 import {
   computeAPlusScore, computeRegime, computePrediction, STOCK_TO_SECTOR, SECTOR_ETFS,
-  computeInstitutionalGrade, institutionalLetterGrade, institutionalRecommendation, winProbFor, computeBullBearCase,
+  computeInstitutionalGrade, institutionalLetterGrade, institutionalRecommendation, winProbFor, getEdgeDecayFor, computeBullBearCase,
   deriveTopLevelScores, computeAiTradeScore, computeInstitutionScore, computeMarketBias, computeReversalDetector,
   computeTechnicalRead, classifyEntryType, computeSetupScore, computeDecisionStrength, computeDataQuality,
 } from "./market-helpers.js";
@@ -762,6 +762,14 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
     fetch("/api/market/aplus-track").then(r => r.json()).then(d => { if (d?.ok) setAplusTrack(d); }).catch(() => {});
   }, []);
 
+  // Real edge-decay report — "is this signal still working?" (2026-08-27),
+  // market-wide, fetched once. Honestly `available:false` until the log
+  // has run long enough for a real ~90-day-back comparison.
+  const [edgeDecayReport, setEdgeDecayReport] = useState(null);
+  useEffect(() => {
+    fetch("/api/market/edge-decay").then(r => r.json()).then(d => { if (d?.ok) setEdgeDecayReport(d); }).catch(() => {});
+  }, []);
+
   // Position Sizing (MTF spec §26, 2026-08-20) — "never recommend position
   // size without calculating risk." Real account equity, fetched once
   // (not per-symbol, same pattern as aplusTrack above) from the existing
@@ -924,6 +932,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   // a real rate instead of "insufficient data".
   const prediction = chart ? computePrediction(chart, chart, { track: aplusTrack, aplusScore: aPlusScore?.score }) : null;
   const winProb = (symTrend && aplusTrack) ? winProbFor(aplusTrack, aPlusScore.score) : null;
+  const edgeDecay = (symTrend && edgeDecayReport) ? getEdgeDecayFor(aPlusScore?.score, edgeDecayReport) : null;
   const riskLevel = symTrend?.riskPct != null ? (symTrend.riskPct <= 5 ? "Low" : symTrend.riskPct <= 8 ? "Medium" : "High") : null;
 
   // ── Decision Workspace (2026-08-20, Phase 1 of the MTF Decision System
@@ -2287,9 +2296,12 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                   prediction?.horizons?.yearly ? (prediction.horizons.yearly.movePct > 0 ? "#22d47e" : prediction.horizons.yearly.movePct < 0 ? "#ef4444" : C.text) : null,
                   prediction?.horizons?.yearly ? `Target $${prediction.horizons.yearly.target} — same real ATR x sqrt(time) model${prediction.rates?.yearly ? ` · real 252-day win rate ${prediction.rates.yearly.winRate}% (n=${prediction.rates.yearly.count})` : " · real win rate: insufficient data (the platform's forward log needs 252+ real trading days of history)"}` : null)}
                 {stat("RISK LEVEL", riskLevel || "—", riskLevel ? riskCol : null, symTrend?.riskPct != null ? `${symTrend.riskPct.toFixed(1)}% real ATR-based distance to stop` : null)}
-                {stat("PROB. OF SUCCESS", winProb?.winRate != null ? `${winProb.winRate}%` : winProb?.count != null ? `n=${winProb.count} (need ${10})` : "—",
+                {stat("PROB. OF SUCCESS",
+                  (winProb?.winRate != null ? `${winProb.winRate}%` : winProb?.count != null ? `n=${winProb.count} (need ${10})` : "—")
+                    + (edgeDecay ? (edgeDecay.status === "WEAKENING" ? " ▼" : edgeDecay.status === "STRENGTHENING" ? " ▲" : " ●") : ""),
                   winProb?.winRate != null ? (winProb.winRate >= 55 ? "#22d47e" : winProb.winRate >= 45 ? "#d6a312" : "#ef4444") : C.textDim,
-                  winProb?.winRate != null ? `Real forward ${winProb.horizon}-day win rate for this Trade Setup Score band, n=${winProb.count} — a different real measurement than Prediction Confidence, the two can disagree` : "Real forward-return log exists but sample is below the honest floor for this score band")}
+                  (winProb?.winRate != null ? `Real forward ${winProb.horizon}-day win rate for this Trade Setup Score band, n=${winProb.count} — a different real measurement than Prediction Confidence, the two can disagree` : "Real forward-return log exists but sample is below the honest floor for this score band")
+                    + (edgeDecay ? ` · is this still working? vs ~90 real days ago: ${edgeDecay.deltaPts >= 0 ? "+" : ""}${edgeDecay.deltaPts}pts (${edgeDecay.status.toLowerCase()}) — real ${edgeDecay.recent.winRate}% now vs real ${edgeDecay.reference.winRate}% then, n=${edgeDecay.recent.count}/${edgeDecay.reference.count}` : ""))}
                 {stat("HOLDING TIME", "—", C.textDim, "Not built — no real per-stock time-to-target dataset exists in this app to draw an honest number from")}
               </div>
               <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, marginTop: 10, lineHeight: 1.4 }}>

@@ -1048,6 +1048,17 @@ export function getPredictionRates(score, track) {
   return { weekly: rateFor("d5"), monthly: rateFor("d20"), yearly: rateFor("d252") };
 }
 
+// Client twin of src/edge-decay-tracker.js's getEdgeDecayFor (2026-08-27,
+// "is this signal still working?") — maps a real score to its bucket
+// (reusing winProbBucketOf above, the exact same 4-band scale
+// bucketOf/getPredictionRates already use) and returns that bucket's real
+// recent-vs-~90-days-ago win-rate drift, or null when the report isn't
+// available yet or that bucket's sample is too small on either side.
+export function getEdgeDecayFor(score, decayReport) {
+  if (!decayReport?.available || !Number.isFinite(score)) return null;
+  return decayReport.buckets?.[winProbBucketOf(score)] || null;
+}
+
 // Fibonacci retracement/extension levels from real daily candle bars — the
 // same pure calculation FibonacciTab's fetchFibonacci originally had
 // inline, extracted here so it can also auto-run on every stock's

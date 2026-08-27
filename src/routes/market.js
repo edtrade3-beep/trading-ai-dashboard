@@ -3325,6 +3325,19 @@ Explain this.`;
     }
   }
 
+  // Edge-decay report — "is this signal still working?" (2026-08-27). Real
+  // recent-vs-~90-days-ago diff of the A+ Score forward-return log's own
+  // d20 bucket win rates. Honestly reports available:false while the log
+  // is too young for a real 90-day-back comparison — never a guessed trend.
+  if (pathname === "/api/market/edge-decay" && req.method === "GET") {
+    try {
+      const report = await require("../edge-decay-tracker").getEdgeDecayReport();
+      return writeJson(res, 200, { ok: true, ...report });
+    } catch (err) {
+      return writeJson(res, 200, { ok: false, error: err instanceof Error ? err.message : "report failed" });
+    }
+  }
+
   // Real trigger history for the 5 watchlist-institutional-alerts.js
   // categories (Phase 5 of the Institutional Research Upgrade, 2026-07-29)
   // — an in-app view of what actually fired, not just Telegram.
