@@ -35,6 +35,7 @@ const SUGGESTED_COMMANDS = [
   { label: "Dashboard / Home", hint: "command center", cmd: "DASHBOARD GO" },
   { label: "Green Light Autopilot", hint: "auto entries/exits", cmd: "GREENLIGHT GO" },
   { label: "Predictions", hint: "weekly/monthly/yearly targets + real win rate", cmd: "PREDICTIONS GO" },
+  { label: "Autopilot 2.0", hint: "real $100k autonomous paper account", cmd: "AUTOPILOT2 GO" },
   { label: "Review my portfolio", hint: "ask the AI copilot", cmd: "REVIEW MY PORTFOLIO GO" },
 ];
 

@@ -78,6 +78,7 @@ import CashGoldSilverAdvisor from "./components/CashGoldSilverAdvisor.jsx";
 import TrendTemplateTab from "./components/TrendTemplateTab.jsx";
 import ChallengeTab from "./components/ChallengeTab.jsx";
 import Adol22Tab from "./components/Adol22Tab.jsx";
+import Autopilot2Tab from "./components/Autopilot2Tab.jsx";
 import GapScanner from "./components/GapScanner.jsx";
 import RecapTab from "./components/RecapTab.jsx";
 import TradePlannerTab from "./components/TradePlannerTab.jsx";
@@ -4301,6 +4302,8 @@ export default function App() {
       DIVIDEND: "ipo",
       RECAP: "recap",
       ADOL22: "adol22",
+      AUTOPILOT2: "autopilot2",
+      ADOL22AUTOPILOT: "autopilot2",
       GAP: "gap",
       TRADEPLANNER: "tradeplanner",
       AUTOEXEC: "autoexec",
@@ -7762,6 +7765,7 @@ export default function App() {
       {activeTab === "soccer" && <SoccerWatchTab C={C} MONO={MONO} SANS={SANS} isTablet={isTablet} />}
 
       {activeTab === "adol22"          && <Adol22Tab          C={C} MONO={MONO} SANS={SANS} />}
+      {activeTab === "autopilot2"      && <Autopilot2Tab      C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "notes"           && <NotesTab           C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "education"       && <EducationTab        C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "courses"         && <CoursesTab          C={C} MONO={MONO} SANS={SANS} />}

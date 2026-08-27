@@ -341,6 +341,16 @@ server.listen(PORT, HOST, () => {
   registerJob("Position Reversal", 5 * 60_000, () => require("./src/position-reversal-alerts").checkPositionReversals());
   console.log("[Position Reversal] Early get-out alerts for held positions active — every 5 min, market hours only");
 
+  // ADOL22 Autopilot 2.0 (Phase 1, 2026-08-27) — the one autonomous tick
+  // that scans, enters, manages, and exits real simulated positions on the
+  // real internal $100k paper account. Its own tick() is a real no-op
+  // unless the user has explicitly set the autopilot to something other
+  // than OFF (autopilot2-store.js, default OFF) — registering the job
+  // here just means the check happens every 5 min, same cadence
+  // server-autopilot.js already uses for its own real Alpaca swing loop.
+  registerJob("ADOL22 Autopilot 2.0", 5 * 60_000, () => require("./src/autopilot2-engine").tick());
+  console.log("[ADOL22 Autopilot 2.0] Autonomous paper-trading tick registered — every 5 min, market hours only, OFF by default");
+
   // Trade autopsy (explicit user request, 2026-08-14: "which one do I need
   // most" -> the automatic post-trade grade, over a live R-multiple
   // readout, specifically because it needs no attention while a trade is

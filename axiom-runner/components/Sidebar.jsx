@@ -77,6 +77,18 @@ export const SIDEBAR_ITEMS = [
   // of its own before. Still reachable via the palette (GREENLIGHT/GREEN).
   { id: "autopilot", label: "Autopilot",  icon: "🤖", tab: "greenlight" },
 
+  // ADOL22 Autopilot 2.0 (Phase 1, 2026-08-27) — a genuinely different
+  // real destination from "Autopilot" above: a real internal $100k
+  // simulated paper account run by its own fully autonomous scan->enter
+  // ->manage->exit loop (autopilot2-engine.js), separate from the
+  // existing Green Light system (which trades the real Alpaca paper
+  // account). Given its own row rather than folded into "Autopilot"
+  // above, same "genuinely new standalone tool" reasoning as Future
+  // Wallet/Photo Banners below — explicit distinct icon (🚀, matching the
+  // user's own spec header) so the two "Autopilot"-named rows are never
+  // confused for the same destination.
+  { id: "autopilot2", label: "Autopilot 2.0", icon: "🚀", tab: "autopilot2" },
+
   // News — "what changed?" Unchanged from before.
   { id: "news",      label: "News",       icon: "📰", tab: "news" },
 

@@ -24,6 +24,7 @@ const { handleFutureWallet } = require("./routes/future-wallet");
 const { handlePhotoBanner } = require("./routes/photo-banner");
 const { handleAiUsage } = require("./routes/ai-usage");
 const { handleAutopilot } = require("./routes/autopilot");
+const { handleAutopilot2 } = require("./routes/autopilot2");
 const { handleEmergencyStop } = require("./routes/emergency-stop");
 const handleFinviz = require("./routes/finviz");
 const handleNewsIntel = require("./routes/news-intel");
@@ -187,6 +188,10 @@ async function handleRequest(req, res) {
 
     if (pathname.startsWith("/api/paper-positions")) {
       return await handlePaperPositions(req, res, requestUrl);
+    }
+
+    if (pathname.startsWith("/api/autopilot2/")) {
+      return await handleAutopilot2(req, res, requestUrl);
     }
 
     if (pathname.startsWith("/api/alpaca/")) {
