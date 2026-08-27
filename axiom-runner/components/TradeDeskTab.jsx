@@ -15,8 +15,8 @@ import AutopilotPanel from "./AutopilotPanel.jsx";
 import RhProScanner from "./RhProScanner.jsx";
 import MarketTerminalTab from "./MarketTerminalTab.jsx";
 import LightBoxTab from "./LightBoxTab.jsx";
-import MacroStatusStrip, { useRealMacroOverrides } from "./MacroStatusStrip.jsx";
 import OptionsIntelligencePanel from "./OptionsIntelligencePanel.jsx";
+import MarketContextPanel from "./MarketContextPanel.jsx";
 
 // TradeDeskTab — one unified trading screen (2026-08-25, explicit user
 // request/mockup: top status strip, Discover-search | Chart | Cortex
@@ -276,17 +276,6 @@ export default function TradeDeskTab({
     return () => { cancelled = true; };
   }, [symbol]);
 
-  // Market Context panel (Phase 2, 2026-08-26) — the real, already-built
-  // MacroStatusStrip.jsx (SPY/QQQ/IWM/DIA/VIX/DXY-proxy/10Y/Gold/Oil/BTC +
-  // real regime/treasury/credit/liquidity/employment/breadth/sector-
-  // rotation scores), same component MacroTab.jsx already mounts — reused
-  // as-is, not rebuilt. `fred` (real 10Y/Brent) comes from its own hook,
-  // same real pattern MacroTab.jsx uses. distData reuses the real
-  // vixQuote already fetched above for the top strip's own VIX pill —
-  // zero new fetch, no new prop threaded from axiom-live.jsx.
-  const { fred } = useRealMacroOverrides();
-  const macroDistData = useMemo(() => ({ vix: vixQuote?.price ?? null }), [vixQuote]);
-
   const [account, setAccount] = useState(null);
   useEffect(() => {
     let cancelled = false;
@@ -346,14 +335,11 @@ export default function TradeDeskTab({
   // TrendChart on this same toggle), so here it's simply flipping the
   // real vcpOverlayOn prop.
   const [vcpOn, setVcpOn] = useState(false);
-  // Market Context collapsed by default (2026-08-26, explicit user
-  // request: right column was "messy" — 5 stacked sections with no
-  // hierarchy, macro chips eating 40% of a narrow column's height above
-  // the actual decision content). Macro data is real and unchanged either
-  // way, just one click away instead of permanently open — it's the same
-  // regardless of which symbol is selected, so it's the least
-  // symbol-specific thing in this column and the safest to default-collapse.
-  const [marketContextOpen, setMarketContextOpen] = useState(false);
+  // Market Context promoted to a real top-level section above the core
+  // zone (Phase 1, 2026-08-27) — replaces the old collapsed right-column
+  // sub-panel (2026-08-26) now that it's the primary "top-level brain"
+  // section the user explicitly asked for, not a secondary chip strip
+  // competing for a narrow column's height.
 
   const pill = { fontFamily: MONO, fontSize: 11, display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap" };
 
@@ -418,6 +404,14 @@ export default function TradeDeskTab({
 
   return (
     <div style={{ display: "flex", flexDirection: "column" }}>
+      {/* Market Context — the real top-level primary section (Phase 1,
+          2026-08-27), a plain sibling ABOVE the core zone, never inside its
+          fixed ref-measured height budget (same "own bounded box" rule the
+          core zone's own comment below documents — MarketContextPanel
+          manages its own expand/collapse height internally, so it can
+          never trigger the runaway-growth bug that rule guards against). */}
+      <MarketContextPanel C={C} MONO={MONO} SANS={SANS} />
+
       {/* Fixed-budget core zone (top strip + 3-pane) — a HARD height, not a
           minHeight. 2026-08-25 (2nd pass, live screenshot): the dock used
           to be a flex sibling INSIDE this same budget, so opening it made
@@ -456,33 +450,12 @@ export default function TradeDeskTab({
               <CommandSearchPanel symbol={symbol} onSelectSymbol={selectSymbol} onOpenDaytrade={applyLightboxHandoff} chart={chart} symbolQuote={symbolQuote} C={C} MONO={MONO} SANS={SANS} />
             </div>
             <ChartPane symbol={symbol} chart={chart} loadingChart={loadingChart} vcpOn={vcpOn} setVcpOn={setVcpOn} C={C} MONO={MONO} SANS={SANS} />
-            {/* Right column split (Phase 2, 2026-08-26, user-confirmed
-                layout): Market Context on top (its own capped/scrollable
-                box — MacroStatusStrip's real chip count varies with how
-                much of the real regime breakdown is available and can run
-                to 15+ chips, which must never grow the core zone's own
-                fixed, ref-measured height — see this file's own history
-                of a real runaway-growth bug from exactly that class of
-                mistake), Sniper (CortexMiniPanel) below taking the rest
-                via flex:1/minHeight:0, unchanged from before. */}
+            {/* Right column (2026-08-27) — Market Context moved to its own
+                real top-level section above the core zone, so this column
+                is Sniper (CortexMiniPanel) alone now, taking the full
+                real height instead of sharing it with a collapsed strip. */}
             <div style={{ borderLeft: `1px solid ${C.border}`, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-              <div style={{ borderBottom: `1px solid ${C.border}`, flex: "0 0 auto" }}>
-                <button
-                  onClick={() => setMarketContextOpen((v) => !v)}
-                  style={{ width: "100%", display: "flex", alignItems: "center", gap: 6, cursor: "pointer", background: "transparent", border: "none", padding: "10px 10px", textAlign: "left" }}
-                >
-                  <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: 0.6 }}>🌍 MARKET CONTEXT</span>
-                  <span style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 10, color: C.textDim }}>{marketContextOpen ? "▾ hide" : "▸ show"}</span>
-                </button>
-                {marketContextOpen && (
-                  <div style={{ maxHeight: "40vh", overflowY: "auto", padding: "0 10px 10px" }}>
-                    <MacroStatusStrip C={C} MONO={MONO} macroData={macroData} distData={macroDistData} fred={fred} />
-                  </div>
-                )}
-              </div>
-              <div style={{ flex: 1, minHeight: 0 }}>
-                <CortexMiniPanel symbol={symbol} onSelectSymbol={selectSymbol} setActiveTab={setActiveTab} dayTradeHandoff={dayTradeHandoff} C={C} MONO={MONO} SANS={SANS} />
-              </div>
+              <CortexMiniPanel symbol={symbol} onSelectSymbol={selectSymbol} setActiveTab={setActiveTab} dayTradeHandoff={dayTradeHandoff} C={C} MONO={MONO} SANS={SANS} />
             </div>
           </div>
         )}

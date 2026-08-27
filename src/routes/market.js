@@ -3480,6 +3480,19 @@ Explain this.`;
     }
   }
 
+  // Market Context Phase 1 (2026-08-27) — the real cross-asset layer on
+  // top of /api/market/macro-regime (src/market-context-engine.js).
+  // Tighter 5-min cache than the base 20-min macro-regime cache, matching
+  // the spec's "continuous" framing without hammering providers.
+  if (pathname === "/api/market/context" && req.method === "GET") {
+    try {
+      const data = await cached("market-context", 5 * 60_000, () => require("../market-context-engine").computeMarketContext());
+      return writeJson(res, 200, { ok: true, ...data });
+    } catch (err) {
+      return writeJson(res, 502, { ok: false, error: err instanceof Error ? err.message : "Market Context computation failed." });
+    }
+  }
+
   // Real market-wide BTC dominance — CoinGecko (coingecko.js), free, no
   // key. Replaces the app's own BTC/(BTC+ETH+SOL) 3-coin proxy, which only
   // reflects the coins this app happens to track, not the real market.

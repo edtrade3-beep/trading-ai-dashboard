@@ -1433,6 +1433,25 @@ const COMMANDS = {
     } catch (e) { await reply("Error: " + e.message); }
   },
 
+  // /CONTEXT — Market Context Phase 1 (2026-08-27), the spec's explicit
+  // "should return the complete market state" command. Reuses the exact
+  // same real formatMessage() the regime-change push alert uses (market-
+  // context-alerts.js), so a manually-requested read and an automatic
+  // push alert are never worded differently for the same real state.
+  // Called in-process (computeMarketContext runs in this same server, no
+  // HTTP round-trip needed) — distinct from `regime` above, which reads
+  // the older /api/market/distribution institutional-flow source, not
+  // macro-engine.js's real cross-asset regime.
+  context: async () => {
+    try {
+      const { computeMarketContext } = require("./market-context-engine");
+      const { formatMessage } = require("./market-context-alerts");
+      const ctx = await computeMarketContext();
+      if (!ctx.available) return reply(`Market Context unavailable: ${ctx.reason}`);
+      await reply(formatMessage(ctx));
+    } catch (e) { await reply("Error: " + e.message); }
+  },
+
   top5: async () => {
     const status = getScannerStatus();
     const hits   = (status.lastHits || []).filter(h => h.signal === "BUY").slice(0, 5);

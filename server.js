@@ -351,6 +351,13 @@ server.listen(PORT, HOST, () => {
   registerJob("ADOL22 Autopilot 2.0", 5 * 60_000, () => require("./src/autopilot2-engine").tick());
   console.log("[ADOL22 Autopilot 2.0] Autonomous paper-trading tick registered — every 5 min, market hours only, OFF by default");
 
+  // Market Context Phase 1 (2026-08-27) — real regime-change Telegram
+  // push, same 5-min cadence as /api/market/context's own cache window.
+  // A real no-op most ticks (only sends on an actual regime/Fed-signal
+  // change, never every tick) — see src/market-context-alerts.js.
+  registerJob("Market Context Alerts", 5 * 60_000, () => require("./src/market-context-alerts").checkMarketContextAlerts());
+  console.log("[Market Context] Regime-change alert tick registered — every 5 min, fires only on a real regime/Fed-signal change");
+
   // Trade autopsy (explicit user request, 2026-08-14: "which one do I need
   // most" -> the automatic post-trade grade, over a live R-multiple
   // readout, specifically because it needs no attention while a trade is

@@ -1059,6 +1059,30 @@ export function getEdgeDecayFor(score, decayReport) {
   return decayReport.buckets?.[winProbBucketOf(score)] || null;
 }
 
+// Client twin of src/market-context-engine.js's applyMarketContextToVerdict
+// (Market Context Phase 1, 2026-08-27) — pure, additive: never changes the
+// row's own real Core Verdict, just an interpretive overlay layer (same
+// discipline as getEdgeDecayFor above). `marketContext` is the real
+// fetched /api/market/context payload; null/unavailable degrades to an
+// honest no-op rather than a fabricated label.
+export function applyMarketContextToVerdict({ verdict, score }, marketContext) {
+  if (!marketContext || marketContext.macroScore == null) return { label: null, confidenceAdjustment: 0, explanation: null };
+  const bullishVerdict = verdict === "EARLY_BUY" || verdict === "BUY";
+  const macroSupportive = marketContext.macroScore >= 15;
+  const macroHostile = marketContext.macroScore <= -15;
+
+  if (bullishVerdict && macroHostile) {
+    return { label: "A+ TECHNICAL SETUP — MACRO HEADWIND", confidenceAdjustment: -15, explanation: `Real technical setup, but Market Context reads ${marketContext.macroScore} (macro-unsupportive) — reduce long confidence.` };
+  }
+  if (bullishVerdict && macroSupportive) {
+    return { label: "A+ SETUP + MACRO CONFIRMATION", confidenceAdjustment: 10, explanation: `Real technical setup confirmed by a supportive Market Context (${marketContext.macroScore}).` };
+  }
+  if (score >= 70 && !bullishVerdict && macroHostile) {
+    return { label: "TECHNICAL STRENGTH — MACRO CONFIRMS CAUTION", confidenceAdjustment: 0, explanation: "Real technical strength, but macro backdrop already hostile." };
+  }
+  return { label: null, confidenceAdjustment: 0, explanation: null };
+}
+
 // Fibonacci retracement/extension levels from real daily candle bars — the
 // same pure calculation FibonacciTab's fetchFibonacci originally had
 // inline, extracted here so it can also auto-run on every stock's

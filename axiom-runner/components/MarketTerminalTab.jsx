@@ -225,7 +225,7 @@ import FoundationCard from "./FoundationCard.jsx";
 // 4th scoring system.
 import {
   computeAPlusScore, computeRegime, computePrediction, STOCK_TO_SECTOR, SECTOR_ETFS,
-  computeInstitutionalGrade, institutionalLetterGrade, institutionalRecommendation, winProbFor, getEdgeDecayFor, computeBullBearCase,
+  computeInstitutionalGrade, institutionalLetterGrade, institutionalRecommendation, winProbFor, getEdgeDecayFor, applyMarketContextToVerdict, computeBullBearCase,
   deriveTopLevelScores, computeAiTradeScore, computeInstitutionScore, computeMarketBias, computeReversalDetector,
   computeTechnicalRead, classifyEntryType, computeSetupScore, computeDecisionStrength, computeDataQuality,
 } from "./market-helpers.js";
@@ -770,6 +770,14 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
     fetch("/api/market/edge-decay").then(r => r.json()).then(d => { if (d?.ok) setEdgeDecayReport(d); }).catch(() => {});
   }, []);
 
+  // Real Market Context — cross-asset regime layer (Market Context Phase
+  // 1, 2026-08-27), market-wide, fetched once. Purely additive overlay on
+  // the real Core Verdict below, never a second signal.
+  const [marketContext, setMarketContext] = useState(null);
+  useEffect(() => {
+    fetch("/api/market/context").then(r => r.json()).then(d => { if (d?.ok) setMarketContext(d); }).catch(() => {});
+  }, []);
+
   // Position Sizing (MTF spec §26, 2026-08-20) — "never recommend position
   // size without calculating risk." Real account equity, fetched once
   // (not per-symbol, same pattern as aplusTrack above) from the existing
@@ -1221,6 +1229,11 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
     stage: symTrend?.stage, dailyBias: dwDailyBias, entryScore: aPlusScore?.score,
     hasPosition: !!symPosition, positionState: symPosition?.dayTradeState, positionReason: symPosition?.dayTradeReason,
   }) : null;
+
+  // Market Context overlay (spec §10 "A+ SETUP + MACRO CONFIRMATION" /
+  // "A+ TECHNICAL SETUP — MACRO HEADWIND") — purely additive, never
+  // changes coreVerdictDW itself.
+  const macroOverlay = coreVerdictDW ? applyMarketContextToVerdict({ verdict: coreVerdictDW.verdict, score: aPlusScore?.score }, marketContext) : null;
 
   // Exit Panel dimensions (Phase 5, 2026-08-20) — 6 real, already-computed
   // reads bucketed into good/bad/unknown, matching the spec's "Momentum/
@@ -2303,6 +2316,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                   (winProb?.winRate != null ? `Real forward ${winProb.horizon}-day win rate for this Trade Setup Score band, n=${winProb.count} — a different real measurement than Prediction Confidence, the two can disagree` : "Real forward-return log exists but sample is below the honest floor for this score band")
                     + (edgeDecay ? ` · is this still working? vs ~90 real days ago: ${edgeDecay.deltaPts >= 0 ? "+" : ""}${edgeDecay.deltaPts}pts (${edgeDecay.status.toLowerCase()}) — real ${edgeDecay.recent.winRate}% now vs real ${edgeDecay.reference.winRate}% then, n=${edgeDecay.recent.count}/${edgeDecay.reference.count}` : ""))}
                 {stat("HOLDING TIME", "—", C.textDim, "Not built — no real per-stock time-to-target dataset exists in this app to draw an honest number from")}
+                {macroOverlay?.label && stat("MARKET CONTEXT", macroOverlay.label, macroOverlay.confidenceAdjustment > 0 ? "#22d47e" : macroOverlay.confidenceAdjustment < 0 ? "#ef4444" : C.textDim, macroOverlay.explanation)}
               </div>
               <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, marginTop: 10, lineHeight: 1.4 }}>
                 Prediction Confidence and Prob. of Success measure different things — the model's certainty in its own call vs. the real historical win rate for setups graded this well — and can legitimately disagree.
