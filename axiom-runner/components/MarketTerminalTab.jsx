@@ -914,9 +914,15 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   // Holding Time is deliberately NOT included — there's no real per-stock
   // time-to-target dataset in this app to draw it from honestly.
   const institutionalGrade = (symTrend && chart) ? computeInstitutionalGrade(symTrend, chart.technicals, regime, symSectorInfo, symOptionsFlow) : null;
-  const prediction = chart ? computePrediction(chart, chart) : null;
   const stockQuality = symTrend ? stockQualityBreakdown(symTrend, sectorPerf) : null;
   const aPlusScore = symTrend ? computeAPlusScore(symTrend, regime) : null;
+  // Real weekly/monthly/yearly targets + a real historical win rate per
+  // horizon (2026-08-27, "wire prediction to trade desk") — this page
+  // already has both a real Trade Setup Score (aPlusScore) and the real
+  // forward-return log (aplusTrack) PredictionsTab's own rows don't have,
+  // so this is the one place computePrediction's opts can honestly resolve
+  // a real rate instead of "insufficient data".
+  const prediction = chart ? computePrediction(chart, chart, { track: aplusTrack, aplusScore: aPlusScore?.score }) : null;
   const winProb = (symTrend && aplusTrack) ? winProbFor(aplusTrack, aPlusScore.score) : null;
   const riskLevel = symTrend?.riskPct != null ? (symTrend.riskPct <= 5 ? "Low" : symTrend.riskPct <= 8 ? "Medium" : "High") : null;
 
@@ -2271,7 +2277,15 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                     record — that's not a contradiction, it just wasn't
                     labeled clearly enough to tell them apart. */}
                 {stat("PREDICTION CONFIDENCE", prediction ? `${prediction.conf}%` : "—", null, prediction ? "How sure the trend/volume/momentum engine is in its own directional call — not the same as Prob. of Success's real historical win rate, and the two can disagree" : null)}
-                {stat("EXPECTED MOVE (1WK)", prediction ? `${prediction.movePct >= 0 ? "+" : ""}${prediction.movePct}%` : "—", prediction ? (prediction.movePct > 0 ? "#22d47e" : prediction.movePct < 0 ? "#ef4444" : C.text) : null, prediction ? `Target $${prediction.target} — real, deterministic, trend-template based` : null)}
+                {stat("EXPECTED MOVE (1WK)", prediction ? `${prediction.movePct >= 0 ? "+" : ""}${prediction.movePct}%` : "—",
+                  prediction ? (prediction.movePct > 0 ? "#22d47e" : prediction.movePct < 0 ? "#ef4444" : C.text) : null,
+                  prediction ? `Target $${prediction.target} — real, deterministic, trend-template based${prediction.rates?.weekly ? ` · real 5-day win rate ${prediction.rates.weekly.winRate}% (n=${prediction.rates.weekly.count})` : " · real win rate: insufficient data"}` : null)}
+                {stat("EXPECTED MOVE (1MO)", prediction?.horizons?.monthly ? `${prediction.horizons.monthly.movePct >= 0 ? "+" : ""}${prediction.horizons.monthly.movePct}%` : "—",
+                  prediction?.horizons?.monthly ? (prediction.horizons.monthly.movePct > 0 ? "#22d47e" : prediction.horizons.monthly.movePct < 0 ? "#ef4444" : C.text) : null,
+                  prediction?.horizons?.monthly ? `Target $${prediction.horizons.monthly.target} — same real ATR x sqrt(time) model${prediction.rates?.monthly ? ` · real 20-day win rate ${prediction.rates.monthly.winRate}% (n=${prediction.rates.monthly.count})` : " · real win rate: insufficient data"}` : null)}
+                {stat("EXPECTED MOVE (1YR)", prediction?.horizons?.yearly ? `${prediction.horizons.yearly.movePct >= 0 ? "+" : ""}${prediction.horizons.yearly.movePct}%` : "—",
+                  prediction?.horizons?.yearly ? (prediction.horizons.yearly.movePct > 0 ? "#22d47e" : prediction.horizons.yearly.movePct < 0 ? "#ef4444" : C.text) : null,
+                  prediction?.horizons?.yearly ? `Target $${prediction.horizons.yearly.target} — same real ATR x sqrt(time) model${prediction.rates?.yearly ? ` · real 252-day win rate ${prediction.rates.yearly.winRate}% (n=${prediction.rates.yearly.count})` : " · real win rate: insufficient data (the platform's forward log needs 252+ real trading days of history)"}` : null)}
                 {stat("RISK LEVEL", riskLevel || "—", riskLevel ? riskCol : null, symTrend?.riskPct != null ? `${symTrend.riskPct.toFixed(1)}% real ATR-based distance to stop` : null)}
                 {stat("PROB. OF SUCCESS", winProb?.winRate != null ? `${winProb.winRate}%` : winProb?.count != null ? `n=${winProb.count} (need ${10})` : "—",
                   winProb?.winRate != null ? (winProb.winRate >= 55 ? "#22d47e" : winProb.winRate >= 45 ? "#d6a312" : "#ef4444") : C.textDim,
