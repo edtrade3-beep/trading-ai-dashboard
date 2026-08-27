@@ -451,10 +451,10 @@ export default function RhProScanner({
         score: coreScore.score, entryPlan, redFlagResult: redFlags, stage: x.stage,
         dailyBias, entryScore: aplus?.score,
       });
-      return { ...x, score: quality.score, quality, aplus, institutionalGrade, next: computeNextAction(x), prediction: computePrediction(x, x), entryPlan, redFlags, coreScore, coreVerdict };
+      return { ...x, score: quality.score, quality, aplus, institutionalGrade, next: computeNextAction(x), prediction: computePrediction(x, x, { track, aplusScore: aplus?.score }), entryPlan, redFlags, coreScore, coreVerdict };
     }).sort((a, b) => (b.score - a.score) || ((b.rsRating || 0) - (a.rsRating || 0)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rawRows, sectorPerfKey, regime?.score, marketRegimeForEntry]);
+  }, [rawRows, sectorPerfKey, regime?.score, marketRegimeForEntry, track]);
 
   useEffect(() => {
     if ((category !== "lowiv" && category !== "highiv") || ivRanksState !== "idle") return;

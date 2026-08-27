@@ -11,6 +11,14 @@ import AMCortexTab from "./AMCortexTab.jsx";
 export default function RhProWatchlists({ C, MONO, SANS, setActiveTab, macroData, sectorData, watchlistSymbols, setTerminalSymbol }) {
   const regime = computeRegime(macroData);
 
+  // Real forward-return win-probability log (2026-08-27, "wire prediction
+  // rate into Sniper Scanner + Watchlists") — same real source
+  // RhProScanner/MarketTerminalTab already fetch, market-wide, once.
+  const [track, setTrack] = useState(null);
+  useEffect(() => {
+    fetch("/api/market/aplus-track").then(r => r.json()).then(d => { if (d?.ok) setTrack(d); }).catch(() => {});
+  }, []);
+
   // Same real per-symbol sector-rank lookup MarketTerminalTab.jsx (Workspace)
   // uses for its own Institutional Grade — computed purely client-side from
   // the 11 sector ETF quotes already fetched app-wide, zero extra network
@@ -52,7 +60,7 @@ export default function RhProWatchlists({ C, MONO, SANS, setActiveTab, macroData
     // just computing it here too so the modal renders identically
     // regardless of which page opened it.
     const aplus = computeAPlusScore(x, regime);
-    return { ...x, score: grade.score, grade, aplus, next, aiAction, action: aiAction, prediction: computePrediction(x, x) };
+    return { ...x, score: grade.score, grade, aplus, next, aiAction, action: aiAction, prediction: computePrediction(x, x, { track, aplusScore: aplus?.score }) };
   };
 
   const [rows, setRows] = useState([]); const [loading, setLoading] = useState(false); const [ranAt, setRanAt] = useState(null);
