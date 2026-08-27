@@ -8,6 +8,7 @@
 // the plan for the Phase 2b+ roadmap (puts, spreads, pressure-
 // acceleration curves, trap modeling, learning engine self-audit).
 "use strict";
+const { PORT } = require("./config");
 const {
   isMarketHoursET, checkAccountHealth, dailyLossBreakerTripped, weeklyLossBreakerTripped,
   totalDrawdownBreakerTripped, sectorCapExceeded, sizePositionByRisk,
@@ -17,6 +18,14 @@ const { getAccountSnapshot, openPosition, closePosition, partialClosePosition, u
 const { chooseExpression } = require("./autopilot2-expression");
 const { loadState, setState, appendActivity } = require("./autopilot2-store");
 const { computePositionState } = require("./position-decision-engine");
+
+// Real self-loopback JSON fetch — same established convention this file's
+// own account/expression modules already use to reuse a route's real
+// computation without refactoring it.
+const BASE = () => process.env.RENDER_EXTERNAL_URL || `http://127.0.0.1:${PORT}`;
+async function getJson(p) {
+  try { const r = await fetch(`${BASE()}${p}`); return await r.json(); } catch { return null; }
+}
 
 // A long call closes ahead of real expiration regardless of thesis — real
 // theta-crush/pin-risk into the last few real days is a genuinely
@@ -181,6 +190,56 @@ function sizeOptionEntry({ equity, cash, entryPremium, riskPct = RISK_PCT_PER_TR
   return { qty: Math.max(0, qty), riskDollars: Math.max(0, qty) * costPerContract };
 }
 
+// Light Box candidate source (2026-08-27, explicit user request: "link
+// light box to 2.0 autopilot") — a real, complementary, more real-time-
+// responsive source alongside the batch Opportunity Engine scan.
+// lightbox-state-store.js already runs its own confirm tick every 5 min
+// across a real, broader universe (DAYTRADE_UNIVERSE, universe=full —
+// deliberately not just the watchlist, which the Opportunity Engine scan
+// already covers) and tracks real, debounce-confirmed BUY/WAIT/SELL state
+// plus a precise entryTriggerStatus. Reused via the real GET
+// /api/market/lightbox route (self-loopback, same established pattern),
+// never recomputed independently — same "don't calculate a second real
+// signal" discipline as freshMixedVerdict above.
+//
+// Real, disclosed gate for eligibility (both required, not either/or):
+// `state === "BUY"` (the debounce-confirmed Light Box read, not just a
+// single fresh tick) AND `entryTriggerStatus === "CONFIRMED"` (the
+// precise real entry trigger is active right now) — plus the same real
+// lifecycle/anti-chase/red-flag checks Light Box's own UI already
+// surfaces. Mapped into the exact same shape tryEnter already consumes
+// (symbol/entry/stop/target/score/verdict/expectedValue) so it flows
+// through IDENTICAL real risk gating (sizing, sector cap, open-risk
+// ceiling, duplicate protection) as an Opportunity Engine candidate —
+// a second real signal source, never a second, looser risk path.
+async function fetchLightBoxCandidates() {
+  const data = await getJson("/api/market/lightbox?universe=full");
+  if (!data || !Array.isArray(data.rows)) return [];
+
+  return data.rows
+    .filter((r) =>
+      r.state === "BUY" &&
+      r.entryTriggerStatus === "CONFIRMED" &&
+      r.lifecycle && r.lifecycle !== "WEAKENING" && r.lifecycle !== "INVALIDATED" &&
+      (!r.chase?.band || (r.chase.band !== "EXTENDED" && r.chase.band !== "DO_NOT_CHASE")) &&
+      !(r.redFlags || []).some((f) => f.critical) &&
+      Number(r.price) > 0 && Number(r.stop) > 0 && Number(r.price) > Number(r.stop)
+    )
+    .map((r) => ({
+      symbol: r.symbol,
+      entry: Number(r.bestEntry) > 0 ? Number(r.bestEntry) : Number(r.price),
+      stop: Number(r.stop),
+      target: Number(r.target) > 0 ? Number(r.target) : null,
+      score: Number(r.quality) || null,
+      verdict: "LIGHTBOX_BUY", // distinct real label — never conflated with am-core-engine.js's own EARLY_BUY/BUY vocabulary
+      verdictReason: r.reason || r.signalReason || "Real Light Box CONFIRMED entry trigger",
+      tier: "LIGHTBOX",
+      probability: null,
+      expectedValue: Number.isFinite(r.attentionScore) ? r.attentionScore : null,
+      reasons: [r.reason, r.signalReason].filter(Boolean),
+    }));
+}
+
 // Real validate+size+enter for one candidate opportunity against the
 // current real account snapshot. Returns a real reason string either way
 // — a rejection is a logged, disclosed outcome (spec §25), never silent.
@@ -310,16 +369,29 @@ async function tick() {
   // (risk sizing, sector cap, open-risk ceiling, duplicate protection)
   // is completely unchanged.
   const allOpportunities = Object.values(scan.tiers).flat();
-  const candidates = allOpportunities
+  const opportunityCandidates = allOpportunities
     .filter((o) => (o.verdict === "EARLY_BUY" || o.verdict === "BUY") && (o.criticalFlags ?? 0) === 0)
     .sort((a, b) => (b.verdict === a.verdict ? (b.expectedValue ?? -Infinity) - (a.expectedValue ?? -Infinity) : (a.verdict === "EARLY_BUY" ? -1 : 1)));
+
+  // Light Box (2026-08-27) — a real, complementary, more real-time source
+  // (see fetchLightBoxCandidates' own header comment). Appended after the
+  // Opportunity Engine's own candidates, deduped by symbol — a symbol
+  // already surfaced by the stricter Opportunity Engine read keeps that
+  // read, never double-counted or overridden by the Light Box one.
+  const lightBoxCandidates = (await fetchLightBoxCandidates().catch(() => []))
+    .filter((lb) => !opportunityCandidates.some((o) => o.symbol === lb.symbol))
+    .sort((a, b) => (b.expectedValue ?? -Infinity) - (a.expectedValue ?? -Infinity));
+
+  const candidates = [...opportunityCandidates, ...lightBoxCandidates];
   let entered = 0;
   let workingSnapshot = freshSnapshot;
   for (const opp of candidates) {
     if (entered >= MAX_ENTRIES_PER_TICK) break;
     if (workingSnapshot.openPositions.length >= MAX_OPEN_POSITIONS) break;
     const result = await tryEnter(opp, workingSnapshot);
-    const verdictNote = ` [Core Verdict ${opp.verdict}, real Opportunity tier ${opp.tier}]`;
+    const verdictNote = opp.tier === "LIGHTBOX"
+      ? " [source: Light Box real CONFIRMED entry trigger]"
+      : ` [Core Verdict ${opp.verdict}, real Opportunity tier ${opp.tier}]`;
     appendActivity({ type: result.entered ? "ENTER" : "REJECT", symbol: opp.symbol, reason: `${result.reason}${verdictNote}` });
     if (result.entered) {
       entered++;
@@ -327,7 +399,7 @@ async function tick() {
     }
   }
 
-  return { ran: true, entered, candidatesConsidered: candidates.length };
+  return { ran: true, entered, candidatesConsidered: candidates.length, opportunityCandidates: opportunityCandidates.length, lightBoxCandidates: lightBoxCandidates.length };
 }
 
-module.exports = { tick, sizeEntry, sizeOptionEntry, RISK_PCT_PER_TRADE, MAX_TRADE_RISK_DOLLARS, MAX_OPEN_POSITIONS, MAX_PER_SECTOR, MAX_OPEN_RISK_PCT, CALL_DTE_EXIT_FLOOR };
+module.exports = { tick, sizeEntry, sizeOptionEntry, fetchLightBoxCandidates, RISK_PCT_PER_TRADE, MAX_TRADE_RISK_DOLLARS, MAX_OPEN_POSITIONS, MAX_PER_SECTOR, MAX_OPEN_RISK_PCT, CALL_DTE_EXIT_FLOOR };
