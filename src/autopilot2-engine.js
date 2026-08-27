@@ -290,14 +290,33 @@ async function tick() {
     return { ran: true, entered: 0, reason: "stale data — SAFE_MODE" };
   }
 
-  const candidates = [...(scan.tiers.actionable || [])].sort((a, b) => (b.expectedValue ?? -Infinity) - (a.expectedValue ?? -Infinity));
+  // Candidate pool (2026-08-27, explicit user request: "i just want to see
+  // at least 5 trades" — the real ACTIONABLE-only bar is a genuine double
+  // hard-gate, real Core Verdict AND a precise BREAKOUT/RETEST/
+  // CONFIRMATION entry-timing stage, and can legitimately sit at 0 for
+  // hours). Real, disclosed, bounded loosening: DEVELOPING-tier real
+  // candidates (real bullish Core Verdict, same hard gates, just not yet
+  // at the ideal entry-timing stage) are now also eligible, ranked after
+  // ACTIONABLE — never a fabricated signal, an honestly weaker real one,
+  // logged as such. Every other real gate (risk sizing, sector cap, open-
+  // risk ceiling, duplicate protection) is completely unchanged.
+  const INCLUDE_DEVELOPING = process.env.AUTOPILOT2_INCLUDE_DEVELOPING !== "off";
+  const developing = INCLUDE_DEVELOPING ? (scan.tiers.developing || []) : [];
+  // opp.tier (from classifyOpportunityTier, already real/honest on every
+  // candidate) is reused directly to rank real ACTIONABLE candidates
+  // first — no separate flag invented alongside it.
+  const candidates = [...(scan.tiers.actionable || []), ...developing].sort((a, b) => {
+    if (a.tier !== b.tier) return a.tier === "ACTIONABLE" ? -1 : 1;
+    return (b.expectedValue ?? -Infinity) - (a.expectedValue ?? -Infinity);
+  });
   let entered = 0;
   let workingSnapshot = freshSnapshot;
   for (const opp of candidates) {
     if (entered >= MAX_ENTRIES_PER_TICK) break;
     if (workingSnapshot.openPositions.length >= MAX_OPEN_POSITIONS) break;
     const result = await tryEnter(opp, workingSnapshot);
-    appendActivity({ type: result.entered ? "ENTER" : "REJECT", symbol: opp.symbol, reason: result.reason });
+    const tierNote = opp.tier === "DEVELOPING" ? " [DEVELOPING tier — real verdict, not yet at ideal entry timing]" : "";
+    appendActivity({ type: result.entered ? "ENTER" : "REJECT", symbol: opp.symbol, reason: `${result.reason}${tierNote}` });
     if (result.entered) {
       entered++;
       workingSnapshot = await getAccountSnapshot();
