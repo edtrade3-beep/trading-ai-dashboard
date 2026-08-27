@@ -1,16 +1,20 @@
-// autopilot2-account.js — ADOL22 Autopilot 2.0 Phase 1: a real internal
-// $100,000 simulated paper brokerage account (stocks only this phase —
-// options are Phase 2, see the plan). Every fill is a real, instant
+// autopilot2-account.js — ADOL22 Autopilot 2.0: a real internal $100,000
+// simulated paper brokerage account. Every fill is a real, instant
 // market-order-style simulation against a fresh real quote (bid/ask-aware
 // when the quote has real bid/ask, an honest disclosed default spread
 // otherwise) — never a fabricated price, and a missing real quote refuses
 // the fill rather than guessing one. There is deliberately no pending/
-// working-order state in this phase (every "order" fills synchronously
-// against a live quote) — restart recovery is just reloading this
-// persisted ledger, nothing to reconcile.
+// working-order state (every "order" fills synchronously against a live
+// quote) — restart recovery is just reloading this persisted ledger,
+// nothing to reconcile.
+//
+// Phase 2a (2026-08-27) adds real CALL option positions alongside stocks
+// in the SAME openPositions array (discriminated by `assetType`) — one
+// real equity curve across both asset classes, matching the spec's own
+// "CORE ACCOUNT" framing. Puts are Phase 2b (see the plan).
 "use strict";
 const path = require("node:path");
-const { ROOT } = require("./config");
+const { ROOT, PORT } = require("./config");
 const { writeJsonAtomic, readJsonSafe } = require("./atomic-write");
 const { fetchQuoteBatchWithFallback } = require("./providers/yahoo");
 
@@ -18,6 +22,27 @@ const ACCOUNT_PATH = path.join(ROOT, "data", "autopilot2-account.json");
 const STARTING_CAPITAL = 100_000;
 const DEFAULT_SPREAD_PCT = 0.0005; // 5bps — real, disclosed default when no real bid/ask is available
 const MAX_CLOSED_TRADES = 500; // same retention cap convention as meanrev-paper.js
+const CONTRACT_MULTIPLIER = 100; // real, standard US equity option contract size
+
+// Real self-loopback JSON fetch — same established convention
+// quick-trade-service.js/routes/ai-hub.js already use for a background
+// job to reuse a route's own real computation (here: GET /api/market/
+// options, whose chain-building logic lives inline in the route handler,
+// not worth refactoring out just for this reuse).
+const BASE = () => process.env.RENDER_EXTERNAL_URL || `http://127.0.0.1:${PORT}`;
+async function getJson(p) {
+  try { const r = await fetch(`${BASE()}${p}`); return await r.json(); } catch { return null; }
+}
+
+// Real option chain for one symbol/expiry — thin wrapper over the real
+// route so both this file's mark-to-market and autopilot2-expression.js's
+// contract selection share one real fetch path. Returns null (never a
+// guessed chain) on any real failure.
+async function fetchOptionsChain(symbol, expiry) {
+  const qs = expiry ? `?symbol=${encodeURIComponent(symbol)}&expiry=${encodeURIComponent(expiry)}` : `?symbol=${encodeURIComponent(symbol)}`;
+  const chain = await getJson(`/api/market/options${qs}`);
+  return chain && chain.ok !== false ? chain : null;
+}
 
 function etDateStr(d = new Date()) {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(d);
@@ -74,24 +99,44 @@ function rollWeeklyStart(account, equity) {
   if (account.weekAnchorDate !== anchor) { account.weekAnchorDate = anchor; account.weekStartEquity = equity; }
 }
 
-// Real mark-to-market snapshot — fetches current real quotes for every
-// open symbol, computes real unrealized P&L, real equity, real drawdown
-// off the real persisted all-time peak, real portfolio heat (Σ real
-// dollar risk-to-stop ÷ equity), and real sector exposure. A symbol whose
-// quote can't be fetched right now keeps its last real known price rather
-// than being silently dropped from equity — disclosed via `stalePricing`,
-// never hidden.
+// Real mark-to-market snapshot — fetches current real quotes/chains for
+// every open position, computes real unrealized P&L, real equity, real
+// drawdown off the real persisted all-time peak, real portfolio heat (Σ
+// real dollar risk ÷ equity, using each position's own real stored
+// riskDollars — the same real max-loss figure computed at entry for both
+// stocks (entry-to-stop) and calls (full premium paid), not re-derived),
+// and real sector exposure. A position whose real quote/contract can't be
+// re-matched right now keeps its last real known price rather than being
+// silently dropped from equity — disclosed via `stalePricing`, never
+// hidden. CALL positions' real market value/exposure use the real premium
+// paid (capital committed), not a delta-adjusted notional — a real,
+// disclosed simplification (see the plan).
 async function getAccountSnapshot() {
   const account = loadAccount();
   const { sectorOf } = require("./risk-guardrails");
-  const symbols = account.openPositions.map((p) => p.symbol);
-  const quotes = symbols.length ? await fetchQuoteBatchWithFallback(symbols).catch(() => []) : [];
+
+  const stockPositions = account.openPositions.filter((p) => p.assetType !== "CALL");
+  const optionPositions = account.openPositions.filter((p) => p.assetType === "CALL");
+
+  const stockSymbols = stockPositions.map((p) => p.symbol);
+  const quotes = stockSymbols.length ? await fetchQuoteBatchWithFallback(stockSymbols).catch(() => []) : [];
   const quoteBySymbol = new Map(quotes.map((q) => [String(q.symbol || "").toUpperCase(), q]));
+
+  // One real chain fetch per unique (symbol, expiry) among held calls —
+  // never one fetch per position, so multiple contracts on the same real
+  // expiry share a single real chain read.
+  const chainKeys = [...new Set(optionPositions.map((p) => `${p.symbol}|${p.expiry}`))];
+  const chainByKey = new Map();
+  for (const key of chainKeys) {
+    const [sym, exp] = key.split("|");
+    chainByKey.set(key, await fetchOptionsChain(sym, exp).catch(() => null));
+  }
 
   let marketValue = 0, unrealizedPnl = 0;
   const stalePricing = [];
   const sectorExposure = {};
-  const positions = account.openPositions.map((p) => {
+
+  const pricedStocks = stockPositions.map((p) => {
     const q = quoteBySymbol.get(p.symbol);
     const livePrice = Number(q?.regularMarketPrice);
     const currentPrice = Number.isFinite(livePrice) && livePrice > 0 ? livePrice : p.lastKnownPrice;
@@ -106,13 +151,31 @@ async function getAccountSnapshot() {
     return { ...p, currentPrice, unrealizedPnl: posUnrealized, unrealizedPnlPct: p.entryPrice > 0 ? ((currentPrice / p.entryPrice) - 1) * 100 : null };
   });
 
+  const pricedOptions = optionPositions.map((p) => {
+    const chain = chainByKey.get(`${p.symbol}|${p.expiry}`);
+    const contract = chain?.calls?.find((c) => c.contractSymbol === p.contractSymbol);
+    const liveBid = Number(contract?.bid);
+    const currentPrice = Number.isFinite(liveBid) && liveBid > 0 ? liveBid : p.lastKnownPrice;
+    if (!(Number.isFinite(liveBid) && liveBid > 0)) stalePricing.push(p.contractSymbol);
+    else p.lastKnownPrice = liveBid;
+    const posValue = currentPrice * p.qty * p.contractMultiplier;
+    const posUnrealized = (currentPrice - p.entryPrice) * p.qty * p.contractMultiplier;
+    marketValue += posValue;
+    unrealizedPnl += posUnrealized;
+    const sector = sectorOf(p.symbol) || "OTHER";
+    sectorExposure[sector] = (sectorExposure[sector] || 0) + posValue;
+    return { ...p, currentPrice, currentUnderlying: chain?.underlying ?? null, dte: contract?.dte ?? null, unrealizedPnl: posUnrealized, unrealizedPnlPct: p.entryPrice > 0 ? ((currentPrice / p.entryPrice) - 1) * 100 : null };
+  });
+
+  const positions = [...pricedStocks, ...pricedOptions];
+
   const equity = account.cash + marketValue;
   rollDailyStart(account, equity);
   rollWeeklyStart(account, equity);
   if (equity > account.peakEquity) account.peakEquity = equity;
   saveAccount(account); // persists any daily/weekly rollover + updated lastKnownPrice + peak — cheap, idempotent
 
-  const riskDollars = account.openPositions.reduce((s, p) => s + Math.max(0, (p.entryPrice - p.stop) * p.qty), 0);
+  const riskDollars = account.openPositions.reduce((s, p) => s + Math.max(0, Number(p.riskDollars) || 0), 0);
 
   return {
     cash: account.cash,
@@ -153,7 +216,7 @@ async function openPosition({ symbol, qty, stop, target, riskDollars, opportunit
   if (cost > account.cash) return { ok: false, error: `insufficient real cash — need $${cost.toFixed(2)}, have $${account.cash.toFixed(2)}` };
 
   const position = {
-    id: `${symbol}-${Date.now()}`, symbol, qty, entryPrice, entryAt: new Date().toISOString(),
+    id: `${symbol}-${Date.now()}`, assetType: "STOCK", symbol, qty, entryPrice, entryAt: new Date().toISOString(),
     stop, target, lastKnownPrice: entryPrice,
     riskDollars: riskDollars ?? Math.max(0, (entryPrice - stop) * qty),
     opportunitySnapshot: opportunitySnapshot || null,
@@ -162,6 +225,74 @@ async function openPosition({ symbol, qty, stop, target, riskDollars, opportunit
   account.openPositions.push(position);
   saveAccount(account);
   return { ok: true, position };
+}
+
+// Real, instant simulated CALL fill — same refuse-don't-fabricate
+// discipline as openPosition, priced off the real contract premium
+// (`entryPremium`, already resolved by autopilot2-expression.js's real
+// chain fetch/ranking) rather than re-fetching here, since the caller
+// just picked this exact real contract off a live chain a moment ago.
+// Real cash debit = premium x contracts x 100 (the real standard US
+// equity option multiplier).
+async function openOptionPosition({ symbol, strike, expiry, contractSymbol, qty, entryPremium, underlyingAtEntry, opportunitySnapshot }) {
+  symbol = String(symbol || "").trim().toUpperCase();
+  if (!symbol || !(qty > 0) || !(entryPremium > 0) || !contractSymbol) return { ok: false, error: "invalid option fill inputs" };
+  const account = loadAccount();
+  if (account.openPositions.some((p) => p.symbol === symbol)) {
+    return { ok: false, error: `already holding an open position in ${symbol} — duplicate entry blocked` };
+  }
+  const cost = entryPremium * qty * CONTRACT_MULTIPLIER;
+  if (cost > account.cash) return { ok: false, error: `insufficient real cash — need $${cost.toFixed(2)}, have $${account.cash.toFixed(2)}` };
+
+  const position = {
+    id: `${contractSymbol}-${Date.now()}`, assetType: "CALL", symbol, optionType: "call",
+    strike, expiry, contractSymbol, contractMultiplier: CONTRACT_MULTIPLIER, qty,
+    entryPrice: entryPremium, // same field name as stocks — everything downstream (P&L math) treats it uniformly
+    underlyingAtEntry: underlyingAtEntry ?? null,
+    entryAt: new Date().toISOString(), lastKnownPrice: entryPremium,
+    riskDollars: cost, // a long call's real max loss is the full real premium paid
+    opportunitySnapshot: opportunitySnapshot || null,
+  };
+  account.cash -= cost;
+  account.openPositions.push(position);
+  saveAccount(account);
+  return { ok: true, position };
+}
+
+// Real CALL close — real cash credit = premium x contracts x 100.
+// `exitPremium` lets a caller that already has a fresh real quote for
+// this exact contract in hand skip a second fetch; otherwise re-fetches
+// the real chain and matches by contractSymbol. A contract that can no
+// longer be matched (expired/delisted) refuses rather than fabricates —
+// the caller (autopilot2-engine.js) should already be closing ahead of
+// real expiration via the DTE floor, so this should be rare.
+async function closeOptionPosition(id, { exitPremium, reason } = {}) {
+  const account = loadAccount();
+  const idx = account.openPositions.findIndex((p) => p.id === id);
+  if (idx === -1) return { ok: false, error: `no open position with id ${id}` };
+  const position = account.openPositions[idx];
+
+  let fillPremium = Number(exitPremium);
+  if (!(fillPremium > 0)) {
+    const chain = await fetchOptionsChain(position.symbol, position.expiry);
+    const contract = chain?.calls?.find((c) => c.contractSymbol === position.contractSymbol);
+    fillPremium = Number(contract?.bid) > 0 ? Number(contract.bid) : null;
+  }
+  if (!(fillPremium > 0)) return { ok: false, error: `no real current quote available for ${position.contractSymbol} — refusing to fabricate an exit fill` };
+
+  const proceeds = fillPremium * position.qty * position.contractMultiplier;
+  const realizedPnl = (fillPremium - position.entryPrice) * position.qty * position.contractMultiplier;
+  const rMultiple = position.riskDollars > 0 ? realizedPnl / position.riskDollars : null;
+  const holdingMinutes = Math.round((Date.now() - new Date(position.entryAt).getTime()) / 60000);
+
+  account.cash += proceeds;
+  account.realizedPnl += realizedPnl;
+  account.openPositions.splice(idx, 1);
+  const closedTrade = { ...position, exitPrice: fillPremium, exitAt: new Date().toISOString(), exitReason: reason || "MANUAL", realizedPnl, rMultiple, holdingMinutes };
+  account.closedTrades.push(closedTrade);
+  account.closedTrades = account.closedTrades.slice(-MAX_CLOSED_TRADES);
+  saveAccount(account);
+  return { ok: true, closedTrade };
 }
 
 // Full close — real P&L off the real entry fill, real R-multiple off the
@@ -242,8 +373,9 @@ function resetAccount({ confirm } = {}) {
 }
 
 module.exports = {
-  STARTING_CAPITAL,
+  STARTING_CAPITAL, CONTRACT_MULTIPLIER,
   loadAccount, saveAccount, getAccountSnapshot,
   openPosition, closePosition, partialClosePosition, updateStop, resetAccount,
+  openOptionPosition, closeOptionPosition, fetchOptionsChain,
   realFillPrice,
 };

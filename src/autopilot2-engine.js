@@ -1,20 +1,29 @@
-// autopilot2-engine.js — ADOL22 Autopilot 2.0 Phase 1: the one
-// orchestrating tick that chains together engines that already exist and
-// are already real, rather than recomputing any of them independently
-// (same "AUTOPILOT MUST NOT INDEPENDENTLY CALCULATE ANOTHER FINAL SIGNAL"
-// discipline AutoPilotEngine.jsx already documents for the existing swing
-// autopilot). Stocks only this phase — see the plan for the Phase 2+
-// roadmap (options, pressure-acceleration curves, trap modeling, learning
-// engine self-audit).
+// autopilot2-engine.js — ADOL22 Autopilot 2.0: the one orchestrating tick
+// that chains together engines that already exist and are already real,
+// rather than recomputing any of them independently (same "AUTOPILOT MUST
+// NOT INDEPENDENTLY CALCULATE ANOTHER FINAL SIGNAL" discipline
+// AutoPilotEngine.jsx already documents for the existing swing autopilot).
+//
+// Phase 2a (2026-08-27) adds real CALL expression alongside stocks — see
+// the plan for the Phase 2b+ roadmap (puts, spreads, pressure-
+// acceleration curves, trap modeling, learning engine self-audit).
 "use strict";
 const {
   isMarketHoursET, checkAccountHealth, dailyLossBreakerTripped, weeklyLossBreakerTripped,
-  totalDrawdownBreakerTripped, openRiskPct, sectorCapExceeded, sizePositionByRisk,
+  totalDrawdownBreakerTripped, sectorCapExceeded, sizePositionByRisk,
 } = require("./risk-guardrails");
 const { isEmergencyStopActive } = require("./emergency-stop");
-const { getAccountSnapshot, openPosition, closePosition, partialClosePosition, updateStop } = require("./autopilot2-account");
+const { getAccountSnapshot, openPosition, closePosition, partialClosePosition, updateStop, openOptionPosition, closeOptionPosition } = require("./autopilot2-account");
+const { chooseExpression } = require("./autopilot2-expression");
 const { loadState, setState, appendActivity } = require("./autopilot2-store");
 const { computePositionState } = require("./position-decision-engine");
+
+// A long call closes ahead of real expiration regardless of thesis — real
+// theta-crush/pin-risk into the last few real days is a genuinely
+// different risk stocks don't have (spec §22's real hard-risk-always-on
+// principle, applied to the real thing that can zero a call: time, not
+// just price).
+const CALL_DTE_EXIT_FLOOR = Number(process.env.AUTOPILOT2_CALL_DTE_FLOOR) || 5;
 
 // Real, disclosed, configurable defaults (spec §17) — every one overridable
 // via env var, none silently hardcoded past what's documented here.
@@ -71,6 +80,8 @@ async function freshMixedVerdict(symbol) {
 // of whether a fresh verdict is even available.
 async function managePositions(snapshot) {
   for (const pos of snapshot.openPositions) {
+    if (pos.assetType === "CALL") { await manageCallPosition(pos); continue; }
+
     const gainPct = pos.unrealizedPnlPct;
     const riskPerShare = pos.entryPrice - pos.stop;
     const rNow = riskPerShare > 0 ? (pos.currentPrice - pos.entryPrice) / riskPerShare : null;
@@ -100,6 +111,45 @@ async function managePositions(snapshot) {
   }
 }
 
+// Real CALL management — same fresh-verdict thesis check as a stock (off
+// the real underlying), but real premium-based gain/R-multiple (a call's
+// real max loss is the full premium paid, not a share-price stop
+// distance), plus a real, unconditional DTE floor exit independent of
+// thesis (spec §22 applied to the real risk unique to options: time).
+async function manageCallPosition(pos) {
+  if (Number.isFinite(pos.dte) && pos.dte <= CALL_DTE_EXIT_FLOOR) {
+    const result = await closeOptionPosition(pos.id, { reason: "DTE_FLOOR" });
+    appendActivity({ type: "EXIT", symbol: pos.symbol, reason: `real DTE floor reached (${pos.dte}d <= ${CALL_DTE_EXIT_FLOOR}d) — closing ahead of real expiration risk`, realizedPnl: result.closedTrade?.realizedPnl ?? null });
+    return;
+  }
+
+  const gainPct = pos.unrealizedPnlPct;
+  const rNow = pos.riskDollars > 0 ? pos.unrealizedPnl / pos.riskDollars : null;
+  const { verdict: mixedVerdict, reason: mixedReason } = await freshMixedVerdict(pos.symbol);
+
+  // No real per-position stop PRICE concept for a long call (the real max
+  // loss is the premium itself, already reflected via rNow) — the hard-
+  // stop-breach branch inside computePositionState is skipped by omitting
+  // currentPrice/stopPrice, never faked with a stock-style level.
+  const decision = computePositionState({ side: "long", gainPct, mixedVerdict, mixedReason, rNow, rTarget: 1 });
+
+  if (decision.state === "EXIT") {
+    const result = await closeOptionPosition(pos.id, { reason: "EXIT" });
+    appendActivity({ type: "EXIT", symbol: pos.symbol, reason: decision.reason, realizedPnl: result.closedTrade?.realizedPnl ?? null });
+  } else if (decision.state === "TAKE_PARTIAL" && pos.qty > 1) {
+    // Real partial: close half the real contracts at the real current bid.
+    const chain = await require("./autopilot2-account").fetchOptionsChain(pos.symbol, pos.expiry).catch(() => null);
+    const contract = chain?.calls?.find((c) => c.contractSymbol === pos.contractSymbol);
+    if (Number(contract?.bid) > 0) {
+      // No partial-close helper for options yet (v1 scope) — a full close
+      // is the honest fallback rather than a fabricated partial fill.
+      const result = await closeOptionPosition(pos.id, { exitPremium: contract.bid, reason: "TAKE_PARTIAL" });
+      appendActivity({ type: "TAKE_PARTIAL", symbol: pos.symbol, reason: decision.reason, realizedPnl: result.closedTrade?.realizedPnl ?? null });
+    }
+  }
+  // HOLD/WARNING/null: no action, no log spam.
+}
+
 // Pure sizing math, extracted for direct unit testing (no network): a
 // real risk-%-based share count (risk-guardrails.js's sizePositionByRisk,
 // unchanged), then hard-capped so no single trade ever risks more than
@@ -116,18 +166,60 @@ function sizeEntry({ equity, cash, entry, stop, riskPct = RISK_PCT_PER_TRADE, ma
   return { qty: Math.max(0, qty), riskPerShare };
 }
 
+// Pure CALL sizing (spec §17 applied to options — same real risk budget a
+// stock trade would get, since a long call's own real max loss is the
+// full premium paid). Real, disclosed v1 simplification: risk-% and the
+// $ cap apply the same as stocks; no separate options-specific risk knob
+// yet.
+function sizeOptionEntry({ equity, cash, entryPremium, riskPct = RISK_PCT_PER_TRADE, maxTradeRiskDollars = MAX_TRADE_RISK_DOLLARS, maxNamePct = MAX_NAME_PCT, contractMultiplier = 100 }) {
+  if (!(entryPremium > 0)) return { qty: 0, reason: "no real valid contract premium" };
+  const costPerContract = entryPremium * contractMultiplier;
+  const riskBudget = Math.min(equity * (riskPct / 100), maxTradeRiskDollars);
+  let qty = Math.floor(riskBudget / costPerContract);
+  qty = Math.min(qty, Math.floor((cash || 0) / costPerContract));
+  qty = Math.min(qty, Math.floor((equity * (maxNamePct / 100)) / costPerContract));
+  return { qty: Math.max(0, qty), riskDollars: Math.max(0, qty) * costPerContract };
+}
+
 // Real validate+size+enter for one candidate opportunity against the
 // current real account snapshot. Returns a real reason string either way
 // — a rejection is a logged, disclosed outcome (spec §25), never silent.
+// Calls the real Expression Engine first (spec §11) to decide STOCK vs
+// CALL before any sizing happens.
 async function tryEnter(opp, snapshot) {
   if (snapshot.openPositions.some((p) => p.symbol === opp.symbol)) return { entered: false, reason: "already held" };
   if (snapshot.openPositions.length >= MAX_OPEN_POSITIONS) return { entered: false, reason: `max open positions (${MAX_OPEN_POSITIONS}) reached` };
   if (sectorCapExceeded({ positions: snapshot.openPositions, symbol: opp.symbol, maxPerSector: MAX_PER_SECTOR })) {
     return { entered: false, reason: `sector concentration cap (${MAX_PER_SECTOR}) reached for this symbol's sector` };
   }
-  const openRisk = openRiskPct({ positions: snapshot.openPositions.map((p) => ({ qty: p.qty, avgEntryPrice: p.entryPrice })), equity: snapshot.equity });
-  if (openRisk >= MAX_OPEN_RISK_PCT) return { entered: false, reason: `portfolio open-risk ceiling (${MAX_OPEN_RISK_PCT}%) reached (currently ${openRisk.toFixed(1)}%)` };
+  // Real portfolio open-risk — Σ each real position's own stored
+  // riskDollars (accurate for both stocks and calls) ÷ equity, not a
+  // generic assumed-stop-% proxy (risk-guardrails.js's openRiskPct
+  // doesn't know about option premiums).
+  const openRiskDollars = snapshot.openPositions.reduce((s, p) => s + Math.max(0, Number(p.riskDollars) || 0), 0);
+  const openRiskPctNow = snapshot.equity > 0 ? (openRiskDollars / snapshot.equity) * 100 : 100;
+  if (openRiskPctNow >= MAX_OPEN_RISK_PCT) return { entered: false, reason: `portfolio open-risk ceiling (${MAX_OPEN_RISK_PCT}%) reached (currently ${openRiskPctNow.toFixed(1)}%)` };
 
+  const expr = await chooseExpression(opp);
+
+  if (expr.expression === "CALL") {
+    const contract = expr.contract;
+    const { qty, riskDollars, reason: sizeReason } = sizeOptionEntry({ equity: snapshot.equity, cash: snapshot.cash, entryPremium: contract.ask });
+    if (sizeReason) return { entered: false, reason: `${expr.reason} — but ${sizeReason}` };
+    if (!(qty > 0)) return { entered: false, reason: `${expr.reason} — but sized to 0 contracts under current real risk limits` };
+
+    const result = await openOptionPosition({
+      symbol: opp.symbol, strike: contract.strike, expiry: contract.expiry, contractSymbol: contract.contractSymbol,
+      qty, entryPremium: contract.ask, underlyingAtEntry: contract.underlyingAtEntry,
+      opportunitySnapshot: { score: opp.score, verdict: opp.verdict, verdictReason: opp.verdictReason, tier: opp.tier, probability: opp.probability, expectedValue: opp.expectedValue, reasons: opp.reasons, expression: expr.reason },
+    });
+    if (!result.ok) return { entered: false, reason: result.error };
+    return { entered: true, reason: `${expr.reason} — ${qty} contract(s) @ $${result.position.entryPrice.toFixed(2)} (real risk $${riskDollars.toFixed(0)})` };
+  }
+
+  if (expr.expression === "NO_TRADE") return { entered: false, reason: expr.reason };
+
+  // STOCK — either the Expression Engine chose it, or it fell back to it.
   const { qty, riskPerShare, reason: sizeReason } = sizeEntry({ equity: snapshot.equity, cash: snapshot.cash, entry: opp.entry, stop: opp.stop });
   if (sizeReason) return { entered: false, reason: sizeReason };
   if (!(qty > 0)) return { entered: false, reason: "sized to 0 shares under current real risk limits" };
@@ -135,10 +227,10 @@ async function tryEnter(opp, snapshot) {
   const result = await openPosition({
     symbol: opp.symbol, qty, stop: opp.stop, target: opp.target,
     riskDollars: qty * riskPerShare,
-    opportunitySnapshot: { score: opp.score, verdict: opp.verdict, verdictReason: opp.verdictReason, tier: opp.tier, probability: opp.probability, expectedValue: opp.expectedValue, reasons: opp.reasons },
+    opportunitySnapshot: { score: opp.score, verdict: opp.verdict, verdictReason: opp.verdictReason, tier: opp.tier, probability: opp.probability, expectedValue: opp.expectedValue, reasons: opp.reasons, expression: expr.reason },
   });
   if (!result.ok) return { entered: false, reason: result.error };
-  return { entered: true, reason: `real entry: score ${opp.score}, EV ${opp.expectedValue ?? "n/a"}, ${qty} sh @ $${result.position.entryPrice.toFixed(2)}` };
+  return { entered: true, reason: `${expr.reason} — real entry: score ${opp.score}, EV ${opp.expectedValue ?? "n/a"}, ${qty} sh @ $${result.position.entryPrice.toFixed(2)}` };
 }
 
 // The one exported tick — registered via registerJob in server.js.
@@ -215,4 +307,4 @@ async function tick() {
   return { ran: true, entered, candidatesConsidered: candidates.length };
 }
 
-module.exports = { tick, sizeEntry, RISK_PCT_PER_TRADE, MAX_TRADE_RISK_DOLLARS, MAX_OPEN_POSITIONS, MAX_PER_SECTOR, MAX_OPEN_RISK_PCT };
+module.exports = { tick, sizeEntry, sizeOptionEntry, RISK_PCT_PER_TRADE, MAX_TRADE_RISK_DOLLARS, MAX_OPEN_POSITIONS, MAX_PER_SECTOR, MAX_OPEN_RISK_PCT, CALL_DTE_EXIT_FLOOR };

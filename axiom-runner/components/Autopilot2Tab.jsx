@@ -175,9 +175,20 @@ export default function Autopilot2Tab({ C, MONO, SANS }) {
             {acct.openPositions.map(p => (
               <div key={p.id} style={{ display: "flex", gap: 16, alignItems: "baseline", flexWrap: "wrap", padding: "6px 0", borderTop: `1px solid ${C.border}` }}>
                 <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text, minWidth: 60 }}>{p.symbol}</span>
-                <span style={{ fontFamily: MONO, fontSize: 12, color: C.textSec }}>{p.qty} sh @ ${p.entryPrice?.toFixed(2)}</span>
+                {p.assetType === "CALL" ? (
+                  <>
+                    <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.accent, background: `${C.accent}18`, borderRadius: 4, padding: "1px 6px" }}>CALL</span>
+                    <span style={{ fontFamily: MONO, fontSize: 12, color: C.textSec }}>{p.qty} ct ${p.strike} strike @ ${p.entryPrice?.toFixed(2)}</span>
+                  </>
+                ) : (
+                  <span style={{ fontFamily: MONO, fontSize: 12, color: C.textSec }}>{p.qty} sh @ ${p.entryPrice?.toFixed(2)}</span>
+                )}
                 <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: p.unrealizedPnl >= 0 ? C.green : C.red }}>{fmtMoney(p.unrealizedPnl)} ({fmtPct(p.unrealizedPnlPct)})</span>
-                <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>stop ${p.stop?.toFixed(2)} · target ${p.target?.toFixed(2)}</span>
+                {p.assetType === "CALL" ? (
+                  <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>exp {p.expiry}{Number.isFinite(p.dte) ? ` (${p.dte}d)` : ""}</span>
+                ) : (
+                  <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>stop ${p.stop?.toFixed(2)} · target ${p.target?.toFixed(2)}</span>
+                )}
               </div>
             ))}
           </div>
