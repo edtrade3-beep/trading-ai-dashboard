@@ -172,27 +172,35 @@ async function handleFutureWallet(req, res, requestUrl) {
   // (bestOfBoth), so the frontend makes one call instead of three.
   if (pathname === "/api/future-wallet/horses" && req.method === "GET") {
     const limit = Math.max(1, Math.min(50, Number(requestUrl.searchParams.get("limit")) || 20));
-    const [scores, stages, crossover] = await Promise.all([
+    const rawMaxPrice = Number(requestUrl.searchParams.get("maxPrice"));
+    const maxPrice = Number.isFinite(rawMaxPrice) && rawMaxPrice > 0 ? rawMaxPrice : null;
+    const [scores, stages, crossover, quantMetrics] = await Promise.all([
       getLatestScores(),
       getLatestStages(),
       require("../horse-opportunity-crossover").getBestOfBothWorlds().catch(() => []),
+      maxPrice != null ? require("../future-wallet-quant").getLatestQuantMetrics().catch(() => []) : Promise.resolve([]),
     ]);
     const stageBySymbol = new Map(stages.map((s) => [s.symbol, s.status]));
     const crossoverSymbols = new Set(crossover.map((c) => c.symbol));
-    const rows = scores
+    const priceBySymbol = new Map(quantMetrics.map((m) => [m.symbol, m.price != null ? Number(m.price) : null]));
+    let rows = scores
       .filter((s) => s.future_wealth_score != null)
       .map((s) => ({
         symbol: s.symbol,
+        price: priceBySymbol.get(s.symbol) ?? null,
         horseScore: Number(s.future_wealth_score),
         entryScore: s.current_entry_score != null ? Number(s.current_entry_score) : null,
         riskScore: s.risk_score != null ? Number(s.risk_score) : null,
         stage: stageBySymbol.get(s.symbol) || "UNKNOWN",
         verdict: s.verdict || null,
         bestOfBoth: crossoverSymbols.has(s.symbol),
-      }))
-      .sort((a, b) => b.horseScore - a.horseScore)
-      .slice(0, limit);
-    return writeJson(res, 200, { ok: true, count: rows.length, rows, bestOfBoth: crossover });
+      }));
+    // Real filter, applied only when requested — a row whose real price
+    // isn't known yet (quant screen hasn't run for it) is excluded rather
+    // than guessed into or out of the result.
+    if (maxPrice != null) rows = rows.filter((r) => r.price != null && r.price <= maxPrice);
+    rows = rows.sort((a, b) => b.horseScore - a.horseScore).slice(0, limit);
+    return writeJson(res, 200, { ok: true, count: rows.length, rows, bestOfBoth: crossover, maxPrice });
   }
 
   // The spec's real "⭐ BEST OF BOTH WORLDS" — symbols that are simultaneously

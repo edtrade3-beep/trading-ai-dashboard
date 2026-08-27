@@ -5,6 +5,24 @@ import { STOCK_TO_SECTOR, computePrediction } from "./market-helpers.js";
 // computePrediction moved to market-helpers.js 2026-07-28 so Market
 // Terminal, Sniper Scanner, and Pro Watchlists can show the same real
 // prediction inline with each stock's analysis instead of only here.
+//
+// Weekly/monthly/yearly horizons + a real prediction rate added 2026-08-26.
+// The rate is honestly "insufficient data" for every row on THIS tab — it
+// needs a row's real Trade Desk A+ Score (computeAPlusScore's VCP/entry
+// analysis) to look up a real historical win rate against, and this tab
+// only has lightweight trend-screen data (Stage/pctFromHigh/volRatio), not
+// a full setup score. Rather than reusing this file's own unrelated
+// momentum heuristic as a stand-in score (which would misrepresent
+// another score's real track record as this one's), the rate is left
+// honestly blank here. Market Terminal / Sniper Scanner / Pro Watchlists
+// DO have a real A+ Score per row and can pass it into computePrediction's
+// opts to get a real rate — not wired here, since none of that setup data
+// exists on this tab's rows.
+const HORIZONS = [
+  { key: "weekly", label: "1-WEEK" },
+  { key: "monthly", label: "1-MONTH" },
+  { key: "yearly", label: "1-YEAR" },
+];
 
 export default function PredictionsTab({ C, MONO, SANS, watchlistData, macroData }) {
   const [filter, setFilter] = useState("ALL");
@@ -62,7 +80,7 @@ export default function PredictionsTab({ C, MONO, SANS, watchlistData, macroData
       <div style={{ marginBottom: 16 }}>
         <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: C.text }}>🔮 PRICE PREDICTIONS</div>
         <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, marginTop: 3 }}>
-          Direction forecast + price target for stocks, crypto & the market — next ~1 week
+          Direction forecast + real weekly/monthly/yearly price targets, each with its real historical win rate where enough data exists
         </div>
       </div>
 
@@ -90,7 +108,7 @@ export default function PredictionsTab({ C, MONO, SANS, watchlistData, macroData
               <div style={{ textAlign: "center", minWidth: 90 }}>
                 <div style={{ fontSize: 20 }}>{dirIcon(p.dir)}</div>
                 <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: dirCol(p.dir) }}>{p.dir}</div>
-                <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{p.conf}% conf</div>
+                <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }} title="The engine's own self-confidence in this directional call — a real, deterministic read of trend/volume/momentum, NOT a historical win rate (see each horizon's real rate below).">{p.conf}% self-conf</div>
               </div>
               <div style={{ minWidth: 150 }}>
                 <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
@@ -103,10 +121,22 @@ export default function PredictionsTab({ C, MONO, SANS, watchlistData, macroData
                   <span style={{ color: p.chg >= 0 ? C.green : C.red, marginLeft: 5 }}>{p.chg >= 0 ? "+" : ""}{p.chg.toFixed(1)}%</span>
                 </div>
               </div>
-              <div style={{ textAlign: "center", minWidth: 110 }}>
-                <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>1-WEEK TARGET</div>
-                <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: dirCol(p.dir) }}>${p.target}</div>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: dirCol(p.dir) }}>{p.movePct >= 0 ? "+" : ""}{p.movePct}%</div>
+              <div style={{ display: "flex", gap: 10 }}>
+                {HORIZONS.map(hz => {
+                  const h = p.horizons?.[hz.key];
+                  const rate = p.rates?.[hz.key];
+                  if (!h) return null;
+                  return (
+                    <div key={hz.key} style={{ textAlign: "center", minWidth: 92 }}>
+                      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{hz.label}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: dirCol(p.dir) }}>${h.target}</div>
+                      <div style={{ fontFamily: MONO, fontSize: 10, color: dirCol(p.dir) }}>{h.movePct >= 0 ? "+" : ""}{h.movePct}%</div>
+                      <div style={{ fontFamily: MONO, fontSize: 9, color: rate ? C.textSec : C.textDim, marginTop: 2 }} title="Real historical win rate for this score band and horizon — insufficient data means the platform's forward-return log doesn't have enough real samples yet, never a guessed number.">
+                        {rate ? `${rate.winRate}% won (n=${rate.count})` : "rate: insufficient data"}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
               <div style={{ flex: 1, minWidth: 180 }}>
                 {p.why.map((w, i) => <div key={i} style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, padding: "1px 0" }}>• {w}</div>)}
@@ -117,7 +147,7 @@ export default function PredictionsTab({ C, MONO, SANS, watchlistData, macroData
       </div>
 
       <div style={{ marginTop: 16, padding: "10px 14px", background: `${C.amber}10`, border: `1px solid ${C.amber}33`, borderRadius: 8, fontFamily: SANS, fontSize: 12, color: C.amber }}>
-        ⚠️ Predictions are probability-based estimates from trend + momentum + volume — not guarantees. Always use stops.
+        ⚠️ Targets are ATR-scaled estimates from trend + momentum + volume, not guarantees. Win rates (where shown) are real historical results for that score band — always use stops.
       </div>
     </div>
   );

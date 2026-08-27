@@ -147,7 +147,7 @@ async function forwardReturnsForVerdict(daysAgo) {
 }
 
 async function buildForwardReturnReport() {
-  const horizons = [5, 10, 20, 60];
+  const horizons = [5, 10, 20, 60, 252]; // 252 = real ~1 trading year
   const results = {};
   const verdictResults = {};
   for (const h of horizons) {
@@ -175,4 +175,22 @@ async function buildForwardReturnReport() {
   };
 }
 
-module.exports = { logDailySnapshot, buildForwardReturnReport, forwardReturnsForVerdict, loadHistory, snapshotDaysAgo, bucketOf, etDateStr };
+// Real weekly/monthly/yearly prediction rate for a given A+ Score, read
+// from an already-built buildForwardReturnReport() result. Reuses
+// institutional-scoring.js's own MIN_WIN_SAMPLE floor (not a new invented
+// threshold) — a bucket below that real sample size honestly returns
+// null rather than a rate nobody could trust yet. The brand-new d252
+// (yearly) horizon returns null for every score until the forward log
+// has actually run 252+ real trading days.
+function getPredictionRates(score, report) {
+  const { MIN_WIN_SAMPLE } = require("./institutional-scoring");
+  const bucket = bucketOf(score);
+  const rateFor = (h) => {
+    const b = report?.horizons?.[h]?.buckets?.[bucket];
+    if (!b || b.count < MIN_WIN_SAMPLE) return null;
+    return { count: b.count, avgReturnPct: b.avgReturnPct, winRate: b.winRate };
+  };
+  return { weekly: rateFor("d5"), monthly: rateFor("d20"), yearly: rateFor("d252") };
+}
+
+module.exports = { logDailySnapshot, buildForwardReturnReport, forwardReturnsForVerdict, loadHistory, snapshotDaysAgo, bucketOf, etDateStr, getPredictionRates };

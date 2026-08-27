@@ -1029,6 +1029,25 @@ export function winProbFor(track, score) {
   return best ? { winRate: null, count: best.count, horizon: best.horizon } : null;
 }
 
+// Real weekly/monthly/yearly prediction rate for a real A+ Score, read from
+// an already-fetched /api/market/aplus-track report (client twin of
+// src/aplus-score-history.js's getPredictionRates, 2026-08-26). Unlike
+// winProbFor's single best-available-horizon fallback, this returns each
+// of the 3 real horizons independently, honestly null below MIN_WIN_SAMPLE
+// — a caller with no real A+ Score for a row (e.g. PredictionsTab, which
+// only has trend-screen data, not full Trade Desk setup data) should pass
+// nothing rather than guess a score.
+export function getPredictionRates(score, track) {
+  if (!Number.isFinite(score) || !track?.horizons) return { weekly: null, monthly: null, yearly: null };
+  const bucket = winProbBucketOf(score);
+  const rateFor = (h) => {
+    const b = track.horizons[h]?.buckets?.[bucket];
+    if (!b || b.count < MIN_WIN_SAMPLE) return null;
+    return { count: b.count, avgReturnPct: b.avgReturnPct, winRate: b.winRate };
+  };
+  return { weekly: rateFor("d5"), monthly: rateFor("d20"), yearly: rateFor("d252") };
+}
+
 // Fibonacci retracement/extension levels from real daily candle bars — the
 // same pure calculation FibonacciTab's fetchFibonacci originally had
 // inline, extracted here so it can also auto-run on every stock's
@@ -1068,7 +1087,21 @@ export function computeFibLevels(bars, ticker) {
 // — the trend-based scoring (the dominant part) still runs fully; only the
 // smaller today's-%-change component and the day-range ATR silently fall
 // back to a neutral default (0 / 2.5%) rather than fabricating a number.
-export function computePrediction(q, trend) {
+// `opts.track` (an already-fetched /api/market/aplus-track report) +
+// `opts.aplusScore` (the row's real A+ Score, from computeAPlusScore) are
+// both optional — when present, real weekly/monthly/yearly historical
+// prediction rates are attached under `rates`; when absent (this
+// function's own callers don't all have a real Trade Desk setup score —
+// e.g. PredictionsTab only has lightweight trend-screen data), `rates`
+// honestly comes back all-null rather than reusing `score` (this
+// function's own unrelated momentum heuristic, a different scale than the
+// real A+ Score the historical track was actually logged against) as a
+// stand-in — that would misrepresent one score's real track record as
+// another's. `conf` is unchanged: a real, deterministic self-confidence
+// read of THIS function's own directional call, not a historical rate —
+// same distinction MarketTerminalTab's "Prediction Confidence" stat
+// already discloses next to the real "Prob. of Success" win rate.
+export function computePrediction(q, trend, opts = {}) {
   const px = Number(q?.price || q?.regularMarketPrice || 0);
   if (!px) return null;
   const chg = Number(q?.changesPercentage || 0);
@@ -1102,12 +1135,30 @@ export function computePrediction(q, trend) {
   const dir  = score >= 20 ? "BULLISH" : score >= 8 ? "LEAN UP" : score <= -20 ? "BEARISH" : score <= -8 ? "LEAN DOWN" : "NEUTRAL";
   // Cap the ATR so a single huge-move day doesn't produce absurd targets
   const cappedAtr = Math.min(atrPct, 0.05); // max 5% daily range used
-  let weeklyMove = cappedAtr * Math.sqrt(5) * 100;
-  weeklyMove = Math.min(weeklyMove, 12); // hard cap weekly expected move at 12%
   const biasMult = score >= 8 ? 1 : score <= -8 ? -1 : 0;
-  const target = +(px * (1 + biasMult * weeklyMove / 100)).toFixed(2);
-  const movePct = +(biasMult * weeklyMove).toFixed(1);
-  return { px, chg, dir, conf: Math.round(conf), score, why: why.slice(0, 3), target, movePct, atrPct: cappedAtr };
+  // Same real ATR x sqrt(time) scaling for all 3 horizons — monthly/yearly
+  // caps are the weekly 12% cap carried forward by the same sqrt(days)
+  // ratio, not a separately invented number.
+  const WEEKLY_CAP = 12;
+  const horizonMove = (days, capPct) => {
+    const movePct = Math.min(cappedAtr * Math.sqrt(days) * 100, capPct);
+    return {
+      target: +(px * (1 + biasMult * movePct / 100)).toFixed(2),
+      movePct: +(biasMult * movePct).toFixed(1),
+    };
+  };
+  const weekly  = horizonMove(5, WEEKLY_CAP);
+  const monthly = horizonMove(20, WEEKLY_CAP * Math.sqrt(20 / 5));
+  const yearly  = horizonMove(252, WEEKLY_CAP * Math.sqrt(252 / 5));
+
+  const rates = getPredictionRates(opts.aplusScore, opts.track);
+
+  return {
+    px, chg, dir, conf: Math.round(conf), score, why: why.slice(0, 3),
+    target: weekly.target, movePct: weekly.movePct, atrPct: cappedAtr,
+    horizons: { weekly, monthly, yearly },
+    rates,
+  };
 }
 
 // Six-score consolidation — presentation layer ONLY (institutional redesign,

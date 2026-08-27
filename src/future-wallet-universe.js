@@ -11,6 +11,7 @@
 const { getPool } = require("./atomic-write");
 const { FMP_API_KEY } = require("./config");
 const { fetchFmpFundamentals } = require("./providers/fmp");
+const { UNIVERSE: UNDER10_UNIVERSE } = require("./routes/under10");
 
 // Real, curated ~100-symbol seed list — a server-side (CommonJS) copy of
 // axiom-runner/components/market-helpers.js's SCAN_UNIVERSE (client ES
@@ -20,7 +21,7 @@ const { fetchFmpFundamentals } = require("./providers/fmp");
 // trading-utils.js/greenlight-calc.js). If SCAN_UNIVERSE changes later,
 // re-sync this list by hand — it's a plain array, not shared logic, so a
 // drift is a visible diff, not a subtle bug.
-const SEED_UNIVERSE = [
+const CORE_SEED_UNIVERSE = [
   "AAPL","MSFT","NVDA","AMZN","META","GOOGL","AVGO","TSLA","AMD","NFLX",
   "CRM","ORCL","ADBE","NOW","PANW","CRWD","PLTR","SNOW","MU","QCOM",
   "ANET","MRVL","SMCI","ARM","LRCX","TSM","INTC","TXN","ON","KLAC",
@@ -33,6 +34,14 @@ const SEED_UNIVERSE = [
   "DELL","MARA","RIOT","RKLB","ASTS","IONQ","SOUN","CLSK","CIFR","WULF","IREN","RDDT",
   "PYPL","DIS","KO","PEP","MCD","IBM",
 ];
+
+// Broadened 2026-08-26: the mega-cap-heavy CORE_SEED_UNIVERSE above has
+// almost no real sub-$20 names, so Horse Hunter's real 10x-path math
+// (horse-valuation-engine.js) never ran on genuinely cheap stocks. Folding
+// in Under10's real curated low-price universe (src/routes/under10.js,
+// deduped) means the SAME already-built pipeline now scores real cheap
+// stocks too — no new math, no invented symbols.
+const SEED_UNIVERSE = [...new Set([...CORE_SEED_UNIVERSE, ...UNDER10_UNIVERSE])];
 
 function requirePool() {
   const pool = getPool();

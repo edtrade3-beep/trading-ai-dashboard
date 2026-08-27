@@ -25,6 +25,7 @@ const HORSE_FILTERS = [
   { id: "INFLECTION", label: "INFLECTION" },
   { id: "EARLY_LEADER", label: "EARLY LEADER" },
   { id: "BEST_OF_BOTH", label: "⭐ BEST OF BOTH" },
+  { id: "UNDER_20", label: "UNDER $20" },
 ];
 const SECONDARY_SORTS = [
   { id: "score", label: "A+ Score" },
@@ -276,7 +277,10 @@ export default function LightBoxTab({ C, MONO, SANS, lightboxSettings, setLightb
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", padding: "10px 12px", background: "#a855f70c", border: "1px solid #a855f733", borderRadius: 10 }}>
             <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: "#a855f7", alignSelf: "center" }}>🐎 TOP HORSES</span>
             {(() => {
-              const filtered = horses.filter((h) => horseFilter === "ALL" ? true : horseFilter === "BEST_OF_BOTH" ? h.bestOfBoth : h.stage === horseFilter);
+              const filtered = horses.filter((h) => horseFilter === "ALL" ? true
+                : horseFilter === "BEST_OF_BOTH" ? h.bestOfBoth
+                : horseFilter === "UNDER_20" ? (h.price != null && h.price <= 20)
+                : h.stage === horseFilter);
               if (!filtered.length) return <span style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, alignSelf: "center" }}>No real Horses match this filter right now.</span>;
               return filtered.slice(0, 12).map((h) => (
                 <button key={h.symbol} onClick={() => onOpenHorse && onOpenHorse(h.symbol)}

@@ -8,8 +8,9 @@
 const { writeJson } = require("../utils");
 const { fetchYahooBars, fetchYahooFundamentals, fetchQuoteBatchWithFallback } = require("../providers/yahoo");
 
-let _cache = null, _cacheTs = 0;
+const _cacheByPrice = new Map(); // maxPrice -> { results, ts }
 const TTL = 5 * 60 * 1000; // 5 min — shorter so results stay fresh
+const DEFAULT_MAX_PRICE = 20; // real, disclosed default ceiling — overridable via ?maxPrice=
 
 // Universe — verified sub-$50 stocks with real opportunity (updated June 2026)
 const UNIVERSE = [
@@ -76,9 +77,9 @@ function calcRSI(closes, n = 14) {
   return Math.round(100 - 100 / (1 + rs));
 }
 
-function scoreStock(sym, quoteRow, fund, bars) {
+function scoreStock(sym, quoteRow, fund, bars, maxPrice = DEFAULT_MAX_PRICE) {
   const price = Number(quoteRow?.regularMarketPrice || bars.at(-1)?.c || 0);
-  if (!price || price <= 0 || price > 50) return null; // only under $50
+  if (!price || price <= 0 || price > maxPrice) return null;
 
   // Calculate avgVol from bars (more reliable than a single quote snapshot)
   const recentVols = bars.slice(-20).map(b => b.v).filter(v => v > 0);
@@ -179,7 +180,7 @@ function scoreStock(sym, quoteRow, fund, bars) {
   };
 }
 
-async function runUnder10Scan(watchlistSyms) {
+async function runUnder10Scan(watchlistSyms, maxPrice = DEFAULT_MAX_PRICE) {
   // Merge watchlist under $10 + curated universe
   const all = [...new Set([...(watchlistSyms || []), ...UNIVERSE])].slice(0, 70);
   const results = [];
@@ -194,7 +195,7 @@ async function runUnder10Scan(watchlistSyms) {
     const batch = await Promise.all(all.slice(i, i + 8).map(s => fetchSymbolData(s)));
     for (const { sym, bars, fund } of batch) {
       const quoteRow = quoteBySym.get(sym);
-      const r = scoreStock(sym, quoteRow, fund, bars);
+      const r = scoreStock(sym, quoteRow, fund, bars, maxPrice);
       if (r) results.push(r);
     }
   }
@@ -204,19 +205,24 @@ async function runUnder10Scan(watchlistSyms) {
 
 async function handleUnder10(req, res, requestUrl) {
   const forceRefresh = requestUrl.searchParams.get("refresh") === "1";
-  if (!forceRefresh && _cache && Date.now() - _cacheTs < TTL) {
-    return writeJson(res, 200, { ok: true, results: _cache, updatedAt: new Date(_cacheTs).toISOString() });
+  const rawMaxPrice = Number(requestUrl.searchParams.get("maxPrice"));
+  const maxPrice = Number.isFinite(rawMaxPrice) && rawMaxPrice > 0 ? rawMaxPrice : DEFAULT_MAX_PRICE;
+
+  const cached = _cacheByPrice.get(maxPrice);
+  if (!forceRefresh && cached && Date.now() - cached.ts < TTL) {
+    return writeJson(res, 200, { ok: true, results: cached.results, maxPrice, updatedAt: new Date(cached.ts).toISOString() });
   }
-  _cache = null; // clear before fresh run
+  _cacheByPrice.delete(maxPrice); // clear before fresh run
   try {
     const wl = requestUrl.searchParams.get("symbols");
     const watchlistSyms = wl ? wl.split(",").map(s => s.trim().toUpperCase()) : [];
-    const results = await runUnder10Scan(watchlistSyms);
-    _cache = results; _cacheTs = Date.now();
-    return writeJson(res, 200, { ok: true, results, total: results.length, updatedAt: new Date(_cacheTs).toISOString() });
+    const results = await runUnder10Scan(watchlistSyms, maxPrice);
+    const ts = Date.now();
+    _cacheByPrice.set(maxPrice, { results, ts });
+    return writeJson(res, 200, { ok: true, results, total: results.length, maxPrice, updatedAt: new Date(ts).toISOString() });
   } catch (e) {
     return writeJson(res, 200, { ok: false, results: [], error: e.message });
   }
 }
 
-module.exports = { handleUnder10 };
+module.exports = { handleUnder10, UNIVERSE, scoreStock, DEFAULT_MAX_PRICE };
