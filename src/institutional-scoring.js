@@ -8,6 +8,7 @@
 // Engine" spec) so the new /api/market/smart-money endpoint can compute the same real
 // Confidence/Grade/Bias/Win% the website itself would show, not an approximation.
 const { computeRegime } = require("./trade-planner-scoring");
+const { computeAntiChase } = require("./atr-risk-engine");
 
 function computeInstitutionalGrade(row, technicals, regime, sectorInfo, optionsFlow) {
   const passCount = Number(row?.passCount);
@@ -42,7 +43,27 @@ function computeInstitutionalGrade(row, technicals, regime, sectorInfo, optionsF
 
   const sectorPts = sectorInfo?.rank ? Math.round(((11 - sectorInfo.rank + 1) / 11) * 10) : 5;
 
-  const score = Math.max(0, Math.min(100, trendPts + technicalPts + smartMoneyPts + optionsFlowPts + fundamentalPts + macroPts + sectorPts));
+  const rawScore = Math.max(0, Math.min(100, trendPts + technicalPts + smartMoneyPts + optionsFlowPts + fundamentalPts + macroPts + sectorPts));
+
+  // Real bug fix (2026-08-26, "Trade Desk Tier 3a") — this is the EXACT
+  // function this file's own header comment (below, institutionalRecommendation)
+  // documents a real live incident for: a "★★★★★ Strong Buy" card once
+  // shown directly under the real Core Engine's 🔴 AVOID banner. The
+  // wording was softened in an earlier phase, but the underlying score had
+  // zero real Stage-4/anti-chase awareness — this closes that gap at the
+  // source. institutionalRecommendation() is a pure function of this score,
+  // so capping it here automatically fixes the star/label read too.
+  const stage4 = /Stage\s*4/i.test(String(row?.stage || ""));
+  const abovePivotPct = Number(row?.abovePivotPct);
+  const antiChase = Number.isFinite(abovePivotPct) ? computeAntiChase(abovePivotPct) : null;
+  const chaseBlocked = antiChase?.band === "EXTENDED" || antiChase?.band === "DO_NOT_CHASE";
+  const gated = stage4 || chaseBlocked;
+  const score = gated ? Math.min(rawScore, 20) : rawScore;
+
+  const cautions = [];
+  if (stage4) cautions.push("🔴 Stage 4 downtrend — real score capped, not a valid long setup.");
+  if (chaseBlocked) cautions.push(`🔴 ${antiChase.label} — real score capped, too extended to chase.`);
+
   const reasons = [
     Number.isFinite(passCount) ? `${passCount}/8 real Minervini trend-template criteria pass` : "Trend template data unavailable",
     adx ? `ADX ${adx.adx} (${adx.strength}), ${adx.direction} — +DI ${adx.plusDI} / -DI ${adx.minusDI}` : "ADX unavailable (insufficient history)",
@@ -53,7 +74,7 @@ function computeInstitutionalGrade(row, technicals, regime, sectorInfo, optionsF
     sectorInfo?.rank ? `Sector rank #${sectorInfo.rank}/${sectorInfo.of} today` : "Sector rank unavailable",
   ];
   return {
-    score, reasons, cautions: [],
+    score, reasons, cautions,
     breakdown: { trendPts, technicalPts, smartMoneyPts, optionsFlowPts, fundamentalPts, macroPts, sectorPts },
   };
 }

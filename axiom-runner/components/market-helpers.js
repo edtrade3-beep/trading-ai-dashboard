@@ -346,12 +346,31 @@ export function computeAPlusScore(row, regime) {
   const vcpScoreRaw = Number(row?.vcpScore);
   const vcpPts = Number.isFinite(vcpScoreRaw) ? Math.round((vcpScoreRaw / 100) * 15) : 7;
 
-  const score = Math.max(0, Math.min(100, regimePts + entryPts + breakoutPts + volPts + riskPts + supportPts + vcpPts));
+  const rawScore = Math.max(0, Math.min(100, regimePts + entryPts + breakoutPts + volPts + riskPts + supportPts + vcpPts));
+
+  // Real bug fix (2026-08-26, "Trade Desk Tier 3a" — closing the same
+  // verdict-contradiction gap classifyCoreVerdict's hard gate already
+  // fixed for Market Terminal, am-core-engine.js): this score had zero
+  // awareness of Stage 4 downtrend or real anti-chase extension, so a
+  // stock the unified engine gates as AVOID could still show a high A+
+  // score everywhere else in the app that reads this function directly.
+  // Clamped to a real low ceiling when gated — every derived threshold
+  // check downstream (e.g. ">= 70 = strong") now naturally reads this
+  // stock as weak instead of strong, with zero change needed at any of
+  // this function's real call sites.
+  const stage4 = /Stage\s*4/i.test(String(row?.stage || ""));
+  const antiChase = idealDist == null ? null : computeAntiChase(abovePivotPct);
+  const chaseBlocked = antiChase?.band === "EXTENDED" || antiChase?.band === "DO_NOT_CHASE";
+  const gated = stage4 || chaseBlocked;
+  const score = gated ? Math.min(rawScore, 20) : rawScore;
+
   const cautions = [];
+  if (stage4) cautions.push("🔴 Stage 4 downtrend — real score capped, not a valid long setup.");
+  if (chaseBlocked) cautions.push(`🔴 ${antiChase.label} — real score capped, too extended to chase.`);
   if (row?.earningsSoon) cautions.push(`⚠️ Earnings within ${row.earningsDte} day${row.earningsDte === 1 ? "" : "s"} — added gap risk (not scored, timing-only caution)`);
   const reasons = [
     `Market regime ${regime?.label || "?"} (${regimeScore}/100)${regimeScore >= 75 ? " — favorable for breakouts" : regimeScore >= 55 ? " — mixed, be selective" : " — unfavorable, high failure risk"}`,
-    idealDist == null ? "Pivot distance unavailable" : computeAntiChase(abovePivotPct).label,
+    idealDist == null ? "Pivot distance unavailable" : antiChase.label,
     isGo ? `At buy point with volume confirmation${breakoutConf ? ` (${breakoutConf}% breakout confidence)` : ""}` : row?.actionable ? "Near pivot, not yet confirmed" : "Not yet actionable",
     Number.isFinite(volRatio) ? `Volume ${volRatio.toFixed(1)}x the 50-day average` : "Volume data unavailable",
     Number.isFinite(riskPct) && riskPct > 0 ? `${riskPct.toFixed(1)}% risk to stop — ${riskPct <= 5 ? "tight, low-risk entry" : riskPct <= 8 ? "moderate risk" : "wide stop, higher risk"}` : "Risk distance unavailable",
@@ -549,7 +568,27 @@ export function computeInstitutionalGrade(row, technicals, regime, sectorInfo, o
   // 7. Sector Strength (10) — real sector-ETF rank today (1 = strongest of 11).
   const sectorPts = sectorInfo?.rank ? Math.round(((11 - sectorInfo.rank + 1) / 11) * 10) : 5;
 
-  const score = Math.max(0, Math.min(100, trendPts + technicalPts + smartMoneyPts + optionsFlowPts + fundamentalPts + macroPts + sectorPts));
+  const rawScore = Math.max(0, Math.min(100, trendPts + technicalPts + smartMoneyPts + optionsFlowPts + fundamentalPts + macroPts + sectorPts));
+
+  // Real bug fix (2026-08-26, "Trade Desk Tier 3a") — this is the EXACT
+  // function institutionalRecommendation() (below) documents a real live
+  // incident for: a "★★★★★ Strong Buy" card once shown directly under the
+  // real Core Engine's 🔴 AVOID banner. The wording was softened in an
+  // earlier phase, but the underlying score had zero real Stage-4/anti-
+  // chase awareness — this closes that gap at the source.
+  // institutionalRecommendation() is a pure function of this score, so
+  // capping it here automatically fixes the star/label read too.
+  const stage4 = /Stage\s*4/i.test(String(row?.stage || ""));
+  const abovePivotPct = Number(row?.abovePivotPct);
+  const antiChase = Number.isFinite(abovePivotPct) ? computeAntiChase(abovePivotPct) : null;
+  const chaseBlocked = antiChase?.band === "EXTENDED" || antiChase?.band === "DO_NOT_CHASE";
+  const gated = stage4 || chaseBlocked;
+  const score = gated ? Math.min(rawScore, 20) : rawScore;
+
+  const cautions = [];
+  if (stage4) cautions.push("🔴 Stage 4 downtrend — real score capped, not a valid long setup.");
+  if (chaseBlocked) cautions.push(`🔴 ${antiChase.label} — real score capped, too extended to chase.`);
+
   const reasons = [
     Number.isFinite(passCount) ? `${passCount}/8 real Minervini trend-template criteria pass` : "Trend template data unavailable",
     adx ? `ADX ${adx.adx} (${adx.strength}), ${adx.direction} — +DI ${adx.plusDI} / -DI ${adx.minusDI}` : "ADX unavailable (insufficient history)",
@@ -560,7 +599,7 @@ export function computeInstitutionalGrade(row, technicals, regime, sectorInfo, o
     sectorInfo?.rank ? `Sector rank #${sectorInfo.rank}/${sectorInfo.of} today` : "Sector rank unavailable",
   ];
   return {
-    score, reasons, cautions: [],
+    score, reasons, cautions,
     breakdown: { trendPts, technicalPts, smartMoneyPts, optionsFlowPts, fundamentalPts, macroPts, sectorPts },
   };
 }
@@ -1169,8 +1208,19 @@ export function deriveTopLevelScores({ regime, sectorInfo, technicals, instituti
 export function computeNextAction(row) {
   const stage = String(row?.stage || "");
   const isGo = row?.verdict === "GO" || (row?.atBuyPoint && row?.volConfirmed);
-  if (isGo) return { action: "BUY", color: "#0d9465", reason: "At buy point with volume confirmation." };
+  // Real bug fix (2026-08-26, "Trade Desk Tier 3a"): this hard-gated Stage
+  // 4 already, but had zero real anti-chase awareness — a stock too
+  // extended to chase (the exact contradiction classifyCoreVerdict's own
+  // hard gate was just fixed for) could still read BUY/BREAKOUT here.
+  // Checked BEFORE the isGo branch so it can never be overridden by a
+  // real breakout/volume confirmation, same hard-gates-first ordering
+  // classifyCoreVerdict's own cascade uses.
+  const antiChaseBand = Number.isFinite(Number(row?.abovePivotPct)) ? computeAntiChase(Number(row.abovePivotPct)).band : null;
+  if (antiChaseBand === "EXTENDED" || antiChaseBand === "DO_NOT_CHASE") {
+    return { action: "AVOID", color: "#c8282a", reason: "Too extended above the breakout to chase — do not buy here." };
+  }
   if (stage.includes("4")) return { action: "AVOID", color: "#c8282a", reason: "Stage 4 downtrend — do not buy." };
+  if (isGo) return { action: "BUY", color: "#0d9465", reason: "At buy point with volume confirmation." };
   if (row?.atBuyPoint) return { action: "BREAKOUT", color: "#2563eb", reason: "At the pivot, but volume hasn't confirmed yet — wait for it or size down." };
   if (row?.actionable) return { action: "WATCH", color: "#d6a312", reason: "Near the buy zone, building strength — not a trigger yet." };
   return { action: "WAIT", color: "#94a3b8", reason: "Not yet actionable — no clean entry right now." };

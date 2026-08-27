@@ -1,6 +1,7 @@
 // Shared helpers for the Robinhood Pro AI cluster (RhProDashboard,
 // RhProScanner, RhProWatchlists, RhProHeatMap, RhProCoach, RhProApex).
 import { SCAN_UNIVERSE, STOCK_TO_SECTOR } from "./market-helpers.js";
+import { computeAntiChase } from "./anti-chase.js";
 
 // Robinhood Pro AI — Feature 2: AI Sniper Scanner. Ranks a universe 0–100 by
 // reusing the server trend-screen engine. Analysis only — no orders.
@@ -70,7 +71,26 @@ export function stockQualityBreakdown(r, sectorPerf) {
   const dollarVolume = Number(r?.dollarVolume);
   const liquidityPts = Number.isFinite(dollarVolume) && dollarVolume > 0 ? Math.round(Math.max(0, Math.min(1, dollarVolume / 1e9)) * 5) : 3;
 
-  const score = Math.max(0, Math.min(100, trendPts + rsPts + momentumPts + stagePts + volTrendPts + sectorPts + fundamentalPts + liquidityPts));
+  const rawScore = Math.max(0, Math.min(100, trendPts + rsPts + momentumPts + stagePts + volTrendPts + sectorPts + fundamentalPts + liquidityPts));
+
+  // Real bug fix (2026-08-26, "Trade Desk Tier 3a" — closing the same
+  // verdict-contradiction gap classifyCoreVerdict's hard gate already
+  // fixed for Market Terminal, am-core-engine.js): Stage 4 already zeroed
+  // out its own stagePts sub-component, but the other 7 dimensions could
+  // still add up to a moderately high overall score for a real Stage-4
+  // downtrend, and real anti-chase extension wasn't checked at all.
+  // Clamped to a real low ceiling when gated.
+  const stage4 = /Stage\s*4/i.test(stage);
+  const abovePivotPct = Number(r?.abovePivotPct);
+  const antiChase = Number.isFinite(abovePivotPct) ? computeAntiChase(abovePivotPct) : null;
+  const chaseBlocked = antiChase?.band === "EXTENDED" || antiChase?.band === "DO_NOT_CHASE";
+  const gated = stage4 || chaseBlocked;
+  const score = gated ? Math.min(rawScore, 20) : rawScore;
+
+  const cautions = [];
+  if (stage4) cautions.push("🔴 Stage 4 downtrend — real score capped, not a valid long setup.");
+  if (chaseBlocked) cautions.push(`🔴 ${antiChase.label} — real score capped, too extended to chase.`);
+
   const reasons = [
     `${passCount}/8 trend template criteria met`,
     rsRating >= 90 ? `RS ${rsRating} — top-decile market leader` : rsRating >= 70 ? `RS ${rsRating} — market leader` : `RS ${rsRating} — below leader threshold`,
@@ -81,7 +101,7 @@ export function stockQualityBreakdown(r, sectorPerf) {
     Number.isFinite(epsGrowth) ? `EPS growth (fwd vs TTM): ${epsGrowth >= 0 ? "+" : ""}${epsGrowth}%` : "Forward EPS data unavailable",
     Number.isFinite(dollarVolume) && dollarVolume > 0 ? `$${(dollarVolume / 1e6).toFixed(0)}M real daily dollar volume` : "Dollar volume unavailable",
   ];
-  return { score, reasons, breakdown: { trendPts, rsPts, momentumPts, stagePts, volTrendPts, sectorPts, fundamentalPts, liquidityPts } };
+  return { score, reasons, cautions, breakdown: { trendPts, rsPts, momentumPts, stagePts, volTrendPts, sectorPts, fundamentalPts, liquidityPts } };
 }
 
 export function rhScore(r, sectorPerf) {
