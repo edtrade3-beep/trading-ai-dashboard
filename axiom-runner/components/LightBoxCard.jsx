@@ -110,17 +110,17 @@ function LightBoxCardInner({ C, MONO, SANS, data, showSecondary, onOpenSymbol })
         animation: pulsing ? "lightboxPulse 1.5s ease-out 1" : "none",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "4px 6px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
           <span style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.text, letterSpacing: "0.02em" }}>{data.symbol}</span>
           {data.lifecycle && LIFECYCLE_META[data.lifecycle] && (
             <span title={`Real opportunity lifecycle: ${data.lifecycle}`}
-              style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: LIFECYCLE_META[data.lifecycle].color }}>
+              style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: LIFECYCLE_META[data.lifecycle].color, whiteSpace: "nowrap" }}>
               {LIFECYCLE_META[data.lifecycle].icon} {data.lifecycle}
             </span>
           )}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+        <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end", gap: 5, minWidth: 0 }}>
           {data.entryTriggerStatus && (
             <span title={data.signalReason || "Entry trigger status — same CONFIRMED/APPROACHING/NOT_READY/INVALIDATED classification Green Light's Day Trade Mode uses"}
               style={{
