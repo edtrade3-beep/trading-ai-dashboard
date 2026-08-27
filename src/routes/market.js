@@ -386,37 +386,46 @@ function classifyEconEvents(raw) {
     .filter(Boolean);
 }
 
-async function fetchMarketNews(tickers, limit, keys) {
+function sortByRecency(rows) {
+  return rows.slice().sort((a, b) => {
+    const ta = a.publishedAt ? Date.parse(a.publishedAt) : 0;
+    const tb = b.publishedAt ? Date.parse(b.publishedAt) : 0;
+    return tb - ta;
+  });
+}
+
+// perTicker:true (2026-08-27, "still not getting enough news" — real bug
+// found by reading this function, not assumed) caps EACH ticker's own
+// contribution to `limit` (sorted by that ticker's own recency) BEFORE
+// combining. The prior behavior (still the default, perTicker:false, so
+// every existing single-limit caller keeps its exact current response
+// shape) merged every ticker's news first and took the top `limit`
+// GLOBALLY — with many tickers requested at once (news/pipeline.js's real
+// 60-symbol/tick ingestion), a few frequently-covered names (confirmed
+// live: NVDA/SPY/GOOGL) filled the entire slice most ticks, so ~half the
+// real watchlist got zero real news in a 24h live check even with a real
+// Finnhub key configured. Real fix, not a config/API-tier issue.
+async function fetchMarketNews(tickers, limit, keys, { perTicker = false } = {}) {
+  const capRows = (rows) => perTicker
+    ? rows.flatMap((r) => sortByRecency(r).slice(0, limit))
+    : sortByRecency(rows.flat()).slice(0, limit);
+
   if (keys.finnhub) {
     const rows = await Promise.all(tickers.map((ticker) => fetchFinnhubNews(ticker, keys.finnhub)));
-    const merged = rows
-      .flat()
-      .sort((a, b) => {
-        const ta = a.publishedAt ? Date.parse(a.publishedAt) : 0;
-        const tb = b.publishedAt ? Date.parse(b.publishedAt) : 0;
-        return tb - ta;
-      })
-      .slice(0, limit);
+    const merged = capRows(rows);
     if (merged.length) return merged;
   }
 
   if (keys.polygon) {
     const rows = await Promise.all(tickers.map((ticker) => fetchPolygonNews(ticker, keys.polygon)));
-    const merged = rows
-      .flat()
-      .sort((a, b) => {
-        const ta = a.publishedAt ? Date.parse(a.publishedAt) : 0;
-        const tb = b.publishedAt ? Date.parse(b.publishedAt) : 0;
-        return tb - ta;
-      })
-      .slice(0, limit);
+    const merged = capRows(rows);
     if (merged.length) return merged;
   }
 
   // Free path (also runs on Render where Yahoo's JSON API is IP-blocked): pull
   // BOTH Yahoo and Google News RSS per ticker, then merge + dedupe for a richer feed.
   const { fetchGoogleNews } = require("../providers/googlenews");
-  const perTicker = await Promise.all(
+  const byTicker = await Promise.all(
     tickers.map(async (ticker) => {
       const [yahoo, google] = await Promise.all([
         fetchYahooNews(ticker).catch(() => []),
@@ -444,14 +453,7 @@ async function fetchMarketNews(tickers, limit, keys) {
       });
     })
   );
-  const deduped = perTicker.flat();
-  return deduped
-    .sort((a, b) => {
-      const ta = a.publishedAt ? Date.parse(a.publishedAt) : 0;
-      const tb = b.publishedAt ? Date.parse(b.publishedAt) : 0;
-      return tb - ta;
-    })
-    .slice(0, limit);
+  return capRows(byTicker);
 }
 
 // --- Fundamentals ---

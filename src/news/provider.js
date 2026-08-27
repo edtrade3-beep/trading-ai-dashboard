@@ -55,7 +55,12 @@ class MarketNewsProvider extends NewsProvider {
     const { fetchMarketNews } = require("../routes/market");
     if (!Array.isArray(tickers) || !tickers.length) return [];
     try {
-      return await fetchMarketNews(tickers, limit, this._keys);
+      // perTicker:true (2026-08-27 fix) — this call is always multi-ticker
+      // (the ingestion pipeline's whole point), so it needs `limit` real
+      // headlines per ticker, not `limit` total across the whole batch —
+      // see fetchMarketNews's own header comment for the real bug this
+      // closes (a few busy tickers were starving the rest of the batch).
+      return await fetchMarketNews(tickers, limit, this._keys, { perTicker: true });
     } catch {
       return [];
     }
