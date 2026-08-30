@@ -39,7 +39,13 @@ const ROW_CAP = 25;
 // if nothing better exists, so the top slot never overstates a symbol
 // that isn't actually tradable yet.
 const TOP_TIER_ORDER = ["actionable", "developing", "wait", "extended"];
-function pickTopOpportunities(tiers, n = 3) {
+// Exported so TradeDeskTab.jsx's own "default to the real best trade of
+// the day" symbol selection uses this EXACT same real ranking (2026-08-30,
+// explicit user request: "make trade desk open automatically in best
+// trade") — previously that used the older /api/market/sniper-scan's own
+// top pick, which could disagree with what this panel visibly labels
+// "BEST" on the very same screen. One real ranking, not two.
+export function pickTopOpportunities(tiers, n = 3) {
   const flat = [];
   for (const key of TOP_TIER_ORDER) {
     for (const o of tiers[key] || []) flat.push(o);

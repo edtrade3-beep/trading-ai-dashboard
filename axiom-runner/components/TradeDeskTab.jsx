@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { computeRegime, computeMarketBias, SCAN_UNIVERSE } from "./market-helpers.js";
 import TrendChart from "./TrendChart.jsx";
-import CommandSearchPanel, { TickerHeader } from "./CommandSearchPanel.jsx";
+import CommandSearchPanel, { TickerHeader, pickTopOpportunities } from "./CommandSearchPanel.jsx";
 import CortexMiniPanel from "./CortexMiniPanel.jsx";
 import { PortfolioSnapshotCard } from "./DashboardTab.jsx";
 import ActivePositionsCard from "./ActivePositionsCard.jsx";
@@ -147,26 +147,36 @@ export default function TradeDeskTab({
   });
   // Default to the real best trade of the day, not a hardcoded symbol
   // (2026-08-25, explicit user request: "default open on desk trade on
-  // best trade for the day"). Only fires on a genuine fresh load — a real
-  // cross-tab handoff (mterminal_load_sym) always wins and is never
-  // overridden. Deliberately does NOT treat the terminalSymbol PROP as
-  // "already explicit": axiom-live.jsx initializes that top-level state to
-  // WATCHLIST_SYMBOLS[0] unconditionally on every load (not a real user
-  // choice — confirmed live, this originally made the fetch below always
-  // skip since terminalSymbol is truthy from the very first render). "Best"
-  // = the #1 row of the same real hard-gated Sniper AI ranking
-  // (/api/market/sniper-scan, ENTER_LONG > WAIT > NO_CHASE > AVOID, then
-  // Minervini passCount/confidence) the left search panel already shows —
-  // no second ranking invented for this. Honest fallback to terminalSymbol
-  // (or NVDA) only if that real fetch genuinely fails or returns nothing.
+  // best trade for the day"; upgraded 2026-08-30, explicit follow-up
+  // request "make trade desk open automatically in best trade" — the
+  // symbol this loaded used to come from the older /api/market/sniper-scan
+  // top pick, which could genuinely disagree with what the left
+  // Opportunity Inbox visibly labels "BEST" on the very same screen (a
+  // real, confusing inconsistency: two different real rankings, only one
+  // shown as authoritative). Now uses /api/market/opportunities — the
+  // SAME real tiered scan (ACTIONABLE > DEVELOPING > WAIT > EXTENDED, then
+  // score, then Edge Velocity) via the exact same pickTopOpportunities
+  // helper CommandSearchPanel.jsx's own "BEST" headline uses — one real
+  // ranking, not two, so the auto-loaded symbol always matches what the
+  // panel calls "BEST" underneath it.
+  //
+  // Only fires on a genuine fresh load — a real cross-tab handoff
+  // (mterminal_load_sym) always wins and is never overridden. Deliberately
+  // does NOT treat the terminalSymbol PROP as "already explicit":
+  // axiom-live.jsx initializes that top-level state to WATCHLIST_SYMBOLS[0]
+  // unconditionally on every load (not a real user choice — confirmed
+  // live, this originally made the fetch below always skip since
+  // terminalSymbol is truthy from the very first render). Honest fallback
+  // to terminalSymbol (or NVDA) only if the real Opportunity Engine scan
+  // genuinely fails or finds nothing.
   const hadExplicitSymbolRef = useRef(!!symbol);
   useEffect(() => {
     if (hadExplicitSymbolRef.current) return;
     let cancelled = false;
-    fetch("/api/market/sniper-scan").then((r) => r.json())
+    fetch("/api/market/opportunities").then((r) => r.json())
       .then((j) => {
         if (cancelled) return;
-        const top = j?.ok && Array.isArray(j.results) ? j.results.find((r) => r.symbol) : null;
+        const top = j?.ok !== false && j?.tiers ? pickTopOpportunities(j.tiers, 1)[0] : null;
         setSymbol((s) => s || top?.symbol || terminalSymbol || "NVDA");
       })
       .catch(() => { if (!cancelled) setSymbol((s) => s || terminalSymbol || "NVDA"); });
