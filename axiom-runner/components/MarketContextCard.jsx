@@ -1,14 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
 
-// MarketContextCard — a compact Workspace Grid card version of
-// MarketContextPanel.jsx (explicit user request, 2026-08-30, live
-// screenshot: the grid's last row left blank space next to whichever card
-// landed alone there — CSS Grid's shared column template means those
-// columns can't collapse per-row since they're occupied in earlier rows;
-// adding one more real card is the fix). Same real GET /api/market/context
-// fetch, condensed to the grid's card visual style (bordered box, MONO
-// header) instead of the full-width top strip's own layout — no new data,
-// no second computation.
+// MarketContextCard — Trade Desk's real Market Context surface (moved
+// here 2026-08-30 per explicit user request, "move market context to that
+// area" — the Workspace Grid's blank last-row space, per a live
+// screenshot; retired the old full-width top-level MarketContextPanel.jsx
+// strip entirely rather than showing the same real data twice). Same real
+// GET /api/market/context fetch that panel used, condensed to the grid's
+// own bordered-card visual style.
 const ENV_META = {
   LONG_FAVORABLE: { label: "LONG FAVORABLE", color: "#0d9465" },
   SHORT_FAVORABLE: { label: "SHORT FAVORABLE", color: "#c8282a" },

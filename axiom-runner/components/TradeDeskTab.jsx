@@ -16,7 +16,6 @@ import RhProScanner from "./RhProScanner.jsx";
 import MarketTerminalTab from "./MarketTerminalTab.jsx";
 import LightBoxTab from "./LightBoxTab.jsx";
 import OptionsIntelligencePanel from "./OptionsIntelligencePanel.jsx";
-import MarketContextPanel from "./MarketContextPanel.jsx";
 import InstitutionalFlowCard from "./InstitutionalFlowCard.jsx";
 import MovementIntelligenceCard from "./MovementIntelligenceCard.jsx";
 import MultiTimeframePanel from "./MultiTimeframePanel.jsx";
@@ -498,14 +497,6 @@ export default function TradeDeskTab({
 
   return (
     <div style={{ display: "flex", flexDirection: "column" }}>
-      {/* Market Context — the real top-level primary section (Phase 1,
-          2026-08-27), a plain sibling ABOVE the core zone, never inside its
-          fixed ref-measured height budget (same "own bounded box" rule the
-          core zone's own comment below documents — MarketContextPanel
-          manages its own expand/collapse height internally, so it can
-          never trigger the runaway-growth bug that rule guards against). */}
-      <MarketContextPanel C={C} MONO={MONO} SANS={SANS} />
-
       {/* Fixed-budget core zone (top strip + 3-pane) — a HARD height, not a
           minHeight. 2026-08-25 (2nd pass, live screenshot): the dock used
           to be a flex sibling INSIDE this same budget, so opening it made
@@ -593,14 +584,16 @@ export default function TradeDeskTab({
       </div>
 
       {/* Workspace Grid (Trade Desk redesign Phase 1) — a plain sibling
-          BELOW the fixed-height core zone and ABOVE the bottom dock, same
-          "own bounded box, never a flex child of the fixed-height core
-          zone" rule MarketContextPanel's own mount point above already
-          documents (the reason that rule exists: ChartPane's own
+          BELOW the fixed-height core zone and ABOVE the bottom dock, never
+          a flex child of the fixed-height core zone (ChartPane's own
           ref-measurement effect can runaway-grow if a variable-height
           sibling is folded into that same fixed budget). Each card here is
           self-sized and real-data-only; none of them invent a number the
-          rest of the app doesn't already compute. */}
+          rest of the app doesn't already compute. Market Context moved
+          here (2026-08-30, explicit user request — "move market context
+          to that area") from its own full-width top-level strip; that
+          MarketContextPanel.jsx mount is retired, MarketContextCard.jsx
+          below is now the only real Market Context surface in Trade Desk. */}
       <div style={{ padding: "10px 12px", display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(280px, 1fr))", gap: 10, background: TD.bg, borderTop: `1px solid ${TD.border}` }}>
         <MovementIntelligenceCard symbol={symbol} chart={chart} macroData={macroData} sectorData={sectorData} C={TD} MONO={MONO} SANS={SANS} />
         <MultiTimeframePanel symbol={symbol} chart={chart} C={TD} MONO={MONO} SANS={SANS} />
