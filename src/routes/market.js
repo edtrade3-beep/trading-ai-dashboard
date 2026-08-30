@@ -1380,7 +1380,16 @@ async function buildTrendTemplate(symbol, opts = {}) {
   return data;
 }
 async function _buildTrendTemplate(symbol, opts = {}) {
-  const bars = await _fetchBarsCached(symbol);
+  // opts.bars (2026-08-30, real duplicate-fetch audit finding) — a caller
+  // that already has fresh real daily bars in hand (e.g. /api/market/
+  // foundation, which needs a real 2y window anyway) can pass them
+  // directly instead of this function independently re-fetching its own
+  // real 1y window — the same last-index-relative math (MA50/150/200,
+  // RS, criteria) works identically on a longer real array since every
+  // calculation here is anchored to `last = closes.length - 1`, never to
+  // a fixed array length. Real bars only, never a caller-fabricated array
+  // — same discipline as every other opts.* override in this app.
+  const bars = opts.bars || await _fetchBarsCached(symbol);
   if (!Array.isArray(bars) || bars.length < 200) {
     throw new Error(`Not enough history for ${symbol} (need ~200 trading days, got ${bars ? bars.length : 0}).`);
   }
@@ -2180,21 +2189,27 @@ async function handleMarket(req, res, requestUrl) {
       const hit = _ttCache.get(cacheKey);
       if (hit && Date.now() - hit.ts < TT_TTL_MS) return writeJson(res, 200, hit.data);
 
-      const [bars, chart] = await Promise.all([
+      // Real duplicate-fetch fix (2026-08-30 audit): this route needs a
+      // real 2y window (longer than trend-template's own 1y — see the
+      // header above for why), but used to fetch symbol bars AND SPY bars
+      // twice each — once here, once again inside buildTrendTemplate's
+      // own internal _fetchBarsCached/spyMom fetch. Fetches symbol+SPY
+      // bars ONCE now and threads them into _buildTrendTemplate directly
+      // (bypassing its cache wrapper, which this route's own _ttCache
+      // "fnd:" entry above already substitutes for) via the new opts.bars/
+      // opts.spyMom overrides — zero redundant real network calls, same
+      // real computation.
+      const sectorEtf = SECTOR_THEME_MAP.etfOf ? SECTOR_THEME_MAP.etfOf(symbol) : null;
+      const [bars, spyBars, sectorBars] = await Promise.all([
         fetchYahooBars(symbol, "2y", "1d"),
-        buildTrendTemplate(symbol, { interval: "1d" }).catch(() => null),
+        fetchYahooBars("SPY", "2y", "1d").catch(() => null),
+        sectorEtf ? fetchYahooBars(sectorEtf, "2y", "1d").catch(() => null) : Promise.resolve(null),
       ]);
       if (!Array.isArray(bars) || !bars.length) {
         return writeJson(res, 502, { error: "No real bars available for " + symbol + "." });
       }
-
-      // Best-effort market/sector context — honest-null in the engine if
-      // either fetch fails or no real sector mapping exists, never a guess.
-      const sectorEtf = SECTOR_THEME_MAP.etfOf ? SECTOR_THEME_MAP.etfOf(symbol) : null;
-      const [spyBars, sectorBars] = await Promise.all([
-        fetchYahooBars("SPY", "2y", "1d").catch(() => null),
-        sectorEtf ? fetchYahooBars(sectorEtf, "2y", "1d").catch(() => null) : Promise.resolve(null),
-      ]);
+      const spyMom = Array.isArray(spyBars) && spyBars.length ? ttWeightedMomentum(spyBars.map((b) => b.close)) : undefined;
+      const chart = await _buildTrendTemplate(symbol, { interval: "1d", bars, spyMom }).catch(() => null);
 
       const { computeFoundationAnalysis } = require("../foundation-engine");
       const result = computeFoundationAnalysis(bars, symbol, {
@@ -5888,9 +5903,21 @@ Explain this.`;
       const { detectFVGs, detectOrderBlocks, detectBOSChoCh, computeVolumeProfile, detectLiquidityLevels } = require("../smc-engine");
 
       const MACRO_SYMS = ["SPY", "QQQ", "IWM", "DIA", "^VIX", "UUP", "VIXY", "TLT", "HYG"];
-      const [trend, smcBars, macroQuotes, sectorQuotes, trackReport, darkpool] = await Promise.all([
-        buildTrendTemplate(symbol, {}),
-        fetchYahooBars(symbol, "3mo", "1d"),
+      // Real duplicate-fetch fix (2026-08-30 audit): smcBars used to be an
+      // independent real fetchYahooBars(symbol,"3mo","1d") call, racing in
+      // the same Promise.all against buildTrendTemplate's own internal 1y
+      // fetch for the identical symbol — two real Yahoo requests for
+      // strictly overlapping data (the 3mo window is a subset of the 1y
+      // window). Fetches the real 1y bars ONCE, threads them into
+      // _buildTrendTemplate directly (opts.bars, bypassing its cache
+      // wrapper since this route has no cache of its own to substitute —
+      // real per-request freshness preserved), and slices the real
+      // trailing ~63 trading days (matches Yahoo's own "3mo" range) for
+      // smcBars — same real data, zero redundant network calls.
+      const bars1y = await _fetchBarsCached(symbol);
+      const smcBars = Array.isArray(bars1y) ? bars1y.slice(-63) : [];
+      const [trend, macroQuotes, sectorQuotes, trackReport, darkpool] = await Promise.all([
+        _buildTrendTemplate(symbol, { bars: bars1y }),
         fetchYahooQuoteBatch([symbol, ...MACRO_SYMS]).catch(() => []),
         fetchYahooQuoteBatch(SECTOR_THEME_MAP.SECTOR_ETFS.map((s) => s.sym)).catch(() => []),
         _getTrackReportCached(),
