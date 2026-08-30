@@ -86,34 +86,36 @@ import OptionsStrategyRankPanel from "./OptionsStrategyRankPanel.jsx";
 // "ALERTS is red" as a bearish signal. Fixed hex (not theme-swapped) since
 // mid-saturation hues at this lightness hold up against both the light
 // and dark surface colors.
-// TD — Trade Desk's own fixed dark "trading terminal" palette (redesign
-// Phase 1, explicit user mockup + user's own answer "Trade Desk only" when
-// asked whether the new dark theme should apply app-wide). Deliberately a
-// STANDALONE object, not derived from the shared `C` prop (theme.js's
-// THEME_LIGHT/THEME_DARK) — the mockup is dark regardless of the app's own
-// light/dark toggle, and spreading a possibly-light `C` into this object
-// would fight the fixed dark ground it's built around. Same key names as
-// theme.js's real THEME_* objects (bg/surface/card/border/text/etc, plus
-// the same green/red/amber semantic hexes theme.js's own dark palette
-// already uses) so every child component that reads `C.foo` works
-// unmodified when handed `TD` instead of the real `C` — only the values
-// change, never the shape. `theme.js` itself is untouched: every other
-// tab keeps using the real `C` exactly as before.
+// TD — Trade Desk's own fixed "trading terminal" palette, STANDALONE from
+// the shared `C` prop (theme.js's THEME_LIGHT/THEME_DARK) — Trade Desk
+// keeps its own look regardless of the app's own light/dark toggle, per
+// the user's own answer "Trade Desk only" when this was first asked.
+// Switched dark -> light (2026-08-30, explicit user request from a live
+// screenshot: "change it from black to light"). Same key names as
+// theme.js's real THEME_* objects (bg/surface/card/border/text/etc) so
+// every child component that reads `C.foo` works unmodified when handed
+// `TD` instead of the real `C` — only the values change, never the shape.
+// Semantic green/red/amber/gold reuse theme.js's own THEME_LIGHT hexes
+// (already tuned for legibility on a light ground, not re-invented here);
+// accent/purple darkened from the dark palette's own cyan/violet so they
+// still hold contrast against a white/light-grey ground. `theme.js` itself
+// is untouched: every other tab keeps using the real `C` exactly as
+// before.
 const TD = {
-  bg: "#0a0e14", surface: "#0d121a", card: "#11161f", cardHover: "#161c27",
-  border: "#232c3a", borderLit: "#2f3b4d",
-  text: "#e7ecf3", textSec: "#aab4c4", textDim: "#7a8699",
-  accent: "#38bdf8", accentGlow: "rgba(56,189,248,0.20)",
-  green: "#2ec27e", greenBg: "rgba(46,194,126,0.12)", greenLight: "#8fd9ae",
-  red: "#e05c6a", redBg: "rgba(224,92,106,0.12)", redLight: "#eb98a0",
-  amber: "#f0a830", amberBg: "rgba(240,168,48,0.13)",
-  gold: "#d6ac47", goldBg: "rgba(214,172,71,0.14)",
+  bg: "#f6f8fb", surface: "#ffffff", card: "#ffffff", cardHover: "#eef3f9",
+  border: "#d7dee8", borderLit: "#c3ccd9",
+  text: "#1a2332", textSec: "#445064", textDim: "#69758a",
+  accent: "#0284c7", accentGlow: "rgba(2,132,199,0.15)",
+  green: "#0d9465", greenBg: "rgba(13,148,101,0.10)", greenLight: "#4fa87e",
+  red: "#c8282a", redBg: "rgba(200,40,42,0.10)", redLight: "#d9636a",
+  amber: "#c96f00", amberBg: "rgba(201,111,0,0.10)",
+  gold: "#9c7a1f", goldBg: "rgba(156,122,31,0.10)",
   // Purple "AI intelligence" accent (§1 of the spec: "Purple for AI
   // intelligence") — a new token, distinct from `accent` (routine
-  // info/navigation, now cyan) and from the real green/red/amber status
-  // system. Used only for Cortex/AI-verdict chrome, never a bull/bear read.
-  purple: "#a78bfa", purpleBg: "rgba(167,139,250,0.14)",
-  shadow: "0 1px 3px rgba(0,0,0,0.40), 0 1px 2px rgba(0,0,0,0.30)",
+  // info/navigation) and from the real green/red/amber status system.
+  // Used only for Cortex/AI-verdict chrome, never a bull/bear read.
+  purple: "#7c3aed", purpleBg: "rgba(124,58,237,0.10)",
+  shadow: "0 1px 3px rgba(15,23,42,0.08), 0 1px 2px rgba(15,23,42,0.06)",
 };
 
 const DOCK_MODULES = [
@@ -534,7 +536,7 @@ export default function TradeDeskTab({
               placeholder="🔍 Search ticker… TSLA, AMD, NVDA"
               style={{ flex: 1, minWidth: 0, border: `1px solid ${TD.border}`, background: TD.surface, color: TD.text, borderRadius: 6, padding: "6px 10px", fontFamily: MONO, fontSize: 12, outline: "none" }}
             />
-            <button onClick={() => submitTopSearch()} style={{ border: "none", background: TD.accent, color: "#08131c", borderRadius: 6, padding: "0 12px", fontFamily: MONO, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>GO</button>
+            <button onClick={() => submitTopSearch()} style={{ border: "none", background: TD.accent, color: "#ffffff", borderRadius: 6, padding: "0 12px", fontFamily: MONO, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>GO</button>
             {suggestOpen && topSuggestions.length > 0 && (
               <div style={{ position: "absolute", top: "100%", left: 0, right: 0, marginTop: 4, background: TD.card, border: `1px solid ${TD.border}`, borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,0.35)", zIndex: 20, overflow: "hidden" }}>
                 {topSuggestions.map((s) => (
@@ -658,26 +660,36 @@ const CHART_TF_OPTIONS = [["5m", "5m"], ["15m", "15m"], ["30m", "30m"], ["1h", "
 function ChartPane({ symbol, chart, loadingChart, vcpOn, setVcpOn, C, MONO, SANS, chartTf, setChartTf }) {
   const wrapRef = useRef(null);
   const [chartHeight, setChartHeight] = useState(480);
+  // ResizeObserver (Trade Desk redesign, real live bug fix — user
+  // screenshot: chart needed scrolling to see the whole thing) — a plain
+  // window-resize listener only re-measures on an actual browser resize,
+  // never when a SIBLING (the top header bar) changes its own real height
+  // for a reason that isn't a window resize — e.g. the header's real
+  // account/autopilot-status/market-session pills arriving async after
+  // mount and pushing it onto a second flex-wrapped line, which shrinks
+  // this pane's real available space AFTER the one-shot initial
+  // measurement already ran. That stale, too-tall chartHeight is exactly
+  // what forced the wrap's own overflow:auto to kick in and require
+  // scrolling to see the rest of the chart. Observing wrapRef's OWN real
+  // size directly (not the window) fixes the root cause instead of
+  // papering over it with a scrollbar.
   useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
     const measure = () => {
-      const el = wrapRef.current;
-      if (!el) return;
-      // Floor raised 320 -> 420 (2026-08-25, live screenshot showed
-      // TrendChart's own price-line labels — AI TARGET/PIVOT/RESISTANCE/
-      // PRE-MKT/BASE LOW — visually overlapping into an illegible cluster
-      // when this pane got small) — real headroom for 5 labels to space
-      // out. No longer keyed on dockModule: the dock now lives outside
-      // this pane's fixed-budget ancestor entirely (see the parent's own
-      // comment), so opening it can't shrink this measurement anymore —
-      // only a genuine window resize does.
-      const h = Math.max(420, Math.floor(el.clientHeight) - 16);
+      // Floor lowered 420 -> 280 (was chosen for price-line label spacing
+      // before the real timeframe-picker row above existed; keeping 420
+      // as a floor could itself force the chart taller than this pane's
+      // real remaining space on a shorter viewport, recreating the exact
+      // scroll bug this fix removes. 280 still gives 5 labels reasonable
+      // room; real measured height wins whenever it's larger.)
+      const h = Math.max(280, Math.floor(el.clientHeight) - 16);
       setChartHeight((prev) => (Math.abs(prev - h) > 4 ? h : prev));
     };
     measure();
-    let t;
-    const onResize = () => { clearTimeout(t); t = setTimeout(measure, 200); };
-    window.addEventListener("resize", onResize);
-    return () => { window.removeEventListener("resize", onResize); clearTimeout(t); };
+    const ro = new ResizeObserver(() => measure());
+    ro.observe(el);
+    return () => ro.disconnect();
   }, []);
 
   return (
@@ -709,7 +721,7 @@ function ChartPane({ symbol, chart, loadingChart, vcpOn, setVcpOn, C, MONO, SANS
           {vcpOn ? "🟪 VCP: On" : "🟪 VCP: Off"}
         </button>
       </div>
-      <div ref={wrapRef} style={{ flex: 1, minHeight: 0, padding: "6px 10px 10px", overflowY: "auto" }}>
+      <div ref={wrapRef} style={{ flex: 1, minHeight: 0, padding: "6px 10px 10px", overflow: "hidden" }}>
         {chart && symbol ? (
           <TrendChart data={chart} C={C} MONO={MONO} SANS={SANS} height={chartHeight} vcpOverlayOn={vcpOn} />
         ) : (
