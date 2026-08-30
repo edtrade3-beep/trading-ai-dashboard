@@ -3863,6 +3863,33 @@ Explain this.`;
     return writeJson(res, 200, { ok: true, symbol, source, annual: data.annual });
   }
 
+  // Next real earnings date for ANY symbol (Trade Desk redesign Phase 2,
+  // spec §19 Catalyst Calendar — earnings only; no real forward FOMC/econ-
+  // calendar data source exists anywhere in this codebase, confirmed
+  // before building this, so that part of the spec is honestly not
+  // attempted here rather than hardcoded/guessed). Same real
+  // earningsTimestamp extraction already used 3x elsewhere in this file
+  // (screenTrendTemplate's Stage-1 fundamentals overlay, the BTC/HPC deep
+  // route, /api/market/earnings-calendar) — a real Yahoo quote field, just
+  // never exposed as its own single-symbol lookup before. Real
+  // earnings-calendar's fixed ~46-symbol universe doesn't cover "any
+  // searched ticker," which is what this route is for.
+  if (pathname === "/api/market/next-earnings") {
+    const symbol = (searchParams.get("symbol") || "").trim().toUpperCase();
+    if (!symbol) return writeJson(res, 400, { ok: false, error: "symbol required" });
+    try {
+      const [q] = await fetchYahooQuoteBatch([symbol]).catch(() => []);
+      const ts = Number((Array.isArray(q?.earningsTimestamp) ? q.earningsTimestamp[0] : q?.earningsTimestamp) || 0);
+      if (!ts) return writeJson(res, 200, { ok: true, symbol, available: false });
+      const date = new Date(ts * 1000);
+      const dte = Math.round((date.getTime() - Date.now()) / 86400000);
+      const timing = q.earningsTimestampStart ? "Pre-Market" : q.earningsTimestampEnd ? "After-Hours" : "TBD";
+      return writeJson(res, 200, { ok: true, symbol, available: true, date: date.toISOString(), dte, timing });
+    } catch (err) {
+      return writeJson(res, 502, { ok: false, error: err instanceof Error ? err.message : "Next-earnings lookup failed." });
+    }
+  }
+
   if (pathname === "/api/market/news") {
     const tickers = (searchParams.get("tickers") || "")
       .split(",").map((s) => s.trim().toUpperCase()).filter(Boolean);
