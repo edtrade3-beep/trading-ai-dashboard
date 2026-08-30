@@ -186,6 +186,7 @@ import LightBoxTab from "./components/LightBoxTab.jsx";
 import DayTradeConsoleTab from "./components/DayTradeConsoleTab.jsx";
 import FutureWalletTab from "./components/FutureWalletTab.jsx";
 import ResearchTab from "./components/ResearchTab.jsx";
+import CarBusinessTab from "./components/CarBusinessTab.jsx";
 import PhotoBannerTab from "./components/PhotoBannerTab.jsx";
 
 // Attach the API token (if the user set one) to every same-origin /api request,
@@ -4201,6 +4202,11 @@ export default function App() {
       // is the redundant one-keystroke path every sidebar tab gets.
       RESEARCH: "research",
       MACRORESEARCH: "research",
+      // Car Business (2026-08-30) — also has a real Sidebar.jsx row, this
+      // is the redundant one-keystroke path every sidebar tab gets.
+      CARBUSINESS: "carbusiness",
+      DEALER: "carbusiness",
+      CARS: "carbusiness",
       // PORTFOLIO/SCANNER repointed 2026-07-29 (institutional redesign) to
       // match what those words now mean in the sidebar — the real Alpaca-
       // backed Portfolio (portfolio-tab) and Sniper Scanner (rhpro-scan),
@@ -7373,6 +7379,7 @@ export default function App() {
           — folded into Future Wallet's "🪙 BTC + HPC" filter toggle instead.
           BtcHpcScanCard.jsx stays on disk, unreferenced (see Sidebar.jsx). */}
       {activeTab === "research" && <ResearchTab C={C} MONO={MONO} SANS={SANS} />}
+      {activeTab === "carbusiness" && <CarBusinessTab C={C} MONO={MONO} SANS={SANS} />}
       {/* SETTINGS — composite sidebar destination (institutional redesign,
           2026-07-29) folding Coach/Learn/Quran/account-risk settings into
           one nav item, per the approved plan's "Settings" mapping — Tools

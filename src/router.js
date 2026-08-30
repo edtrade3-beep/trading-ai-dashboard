@@ -35,6 +35,7 @@ const { handleAutoExec } = require("./routes/autoexec");
 const { handleAiHub } = require("./routes/ai-hub");
 const { handleCommandCenter } = require("./routes/command-center");
 const { handleResearchIntel } = require("./routes/research-intel");
+const { handleCarBusiness } = require("./routes/car-business");
 const { handlePaperPositions } = require("./routes/paper-positions");
 const { handleLiquidations } = require("./routes/liquidations");
 const { handleMonitorExtras } = require("./routes/monitor-extras");
@@ -189,6 +190,10 @@ async function handleRequest(req, res) {
 
     if (pathname.startsWith("/api/research/intel")) {
       return await handleResearchIntel(req, res, requestUrl);
+    }
+
+    if (pathname.startsWith("/api/car-business/")) {
+      return await handleCarBusiness(req, res, requestUrl);
     }
 
     if (pathname.startsWith("/api/paper-positions")) {

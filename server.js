@@ -58,6 +58,7 @@ const { runMorningGamePlan, runTradeCoach, runWeeklyReview, runMonthlyDeepReview
 const { runCeoRecommendation } = require("./src/ceo-ai");
 const { buildCommandCenter } = require("./src/command-center-ai");
 const { buildResearchIntel } = require("./src/research-intel-ai");
+const { buildCarBusinessIntel } = require("./src/car-business-ai");
 const { runPredictionTracker } = require("./src/prediction-tracker");
 const { revertMisgradedXIntelShorts } = require("./src/predictions-store");
 const { runAutopilotRecap } = require("./src/alpaca-recap");
@@ -197,11 +198,18 @@ server.listen(PORT, HOST, () => {
 
   // AI Morning Game Plan (~9:40 AM ET) + AI Trade Coach (~4:15 PM ET) — weekdays, server-side.
   // Autopilot recap (~4:05 PM ET) — what the Alpaca paper autopilot did today.
-  let _gpSent = null, _coachSent = null, _recapAP = null, _weeklySent = null, _monthlyReview = null, _mrvPaper = null, _mrvSummary = null, _apexSent = null, _ceoSent = null, _aplusSnapshot = null, _cmdCenterSent = null, _ivSnapshot = null, _edgeDecaySnapshot = null, _researchIntelSent = null;
+  let _gpSent = null, _coachSent = null, _recapAP = null, _weeklySent = null, _monthlyReview = null, _mrvPaper = null, _mrvSummary = null, _apexSent = null, _ceoSent = null, _aplusSnapshot = null, _cmdCenterSent = null, _ivSnapshot = null, _edgeDecaySnapshot = null, _researchIntelSent = null, _carBusinessSent = null;
   setInterval(() => {
     const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
     const h = et.getHours(), m = et.getMinutes(), day = et.getDay();
     const today = `${et.getFullYear()}-${et.getMonth()}-${et.getDate()}`;
+    // Car Business Intelligence 6:05 PM ET — explicit user operating-
+    // schedule request ("After 6:00 PM each day, run the deep automotive
+    // research cycle"), deliberately BEFORE the weekday-only guard below —
+    // a dealership's real business (weekend showroom traffic, weekend
+    // acquisition opportunities) doesn't pause on Sat/Sun the way the
+    // trading-day jobs below correctly do.
+    if (h === 18 && m >= 5 && m < 11 && _carBusinessSent !== today) { _carBusinessSent = today; buildCarBusinessIntel().catch(() => {}); }
     if (day < 1 || day > 5) return;
     // Morning Brief 8:00 ET / CEO AI 8:10 ET — moved earlier from 9:15/9:25 at
     // the user's request so there's real pre-market reading time (80 min

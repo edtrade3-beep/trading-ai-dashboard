@@ -142,6 +142,15 @@ export const SIDEBAR_ITEMS = [
   // when asked.
   { id: "research",  label: "Research",    icon: "🧭",  tab: "research" },
 
+  // Car Business — a completely separate automotive-business decision
+  // system, explicit user /goal (2026-08-30: "Create a NEW standalone
+  // CAR BUSINESS tab... DO NOT MIX IT WITH THE TRADING ENGINE."). Given
+  // its own top-level row for exactly that reason — it must never read
+  // as a sub-view of the trading tabs. Reuses this app's real dealer
+  // backend (inventory-store.js, dealership/fb-hub.js's CRM) rather than
+  // duplicating it; no am-core-engine.js/opportunity-engine.js involved.
+  { id: "carbusiness", label: "Car Business", icon: "🚗", tab: "carbusiness" },
+
   // Settings — not one of the 7 "question" surfaces (it doesn't answer a
   // daily trading question, it configures the app), kept as a permanent
   // utility row rather than folded into the palette so account/risk/coach
