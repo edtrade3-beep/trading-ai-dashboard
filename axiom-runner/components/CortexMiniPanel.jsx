@@ -189,7 +189,15 @@ function FinalDecisionAndRS({ analysis, opp, macroData, C, MONO, SANS }) {
         </div>
       )}
       {aiTrade && (
-        <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11, marginBottom: 4 }}>
+        // Semantic disclaimer (One Engine consolidation, Phase 2.9 — audit
+        // finding: this row lacked the same "not a second buy/sell call"
+        // guard MarketTerminalTab.jsx's own "Options: X" badge already
+        // carries, born from a real prior user-reported confusion there —
+        // AVOID/WATCH are spelled identically in both the stock verdict
+        // and options-lean vocabularies, so an options-side "Avoid" could
+        // read as contradicting the STOCK row directly above it. Same real
+        // title tooltip, same real reasoning, no new score.
+        <div title="This is a calls-vs-puts read, not a second buy/sell call on the stock — see STOCK above for that." style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11, marginBottom: 4 }}>
           <span style={{ color: C.textDim }}>OPTIONS LEAN</span>
           <b style={{ color: aiTrade.recommendation.color }}>{aiTrade.recommendation.label}</b>
         </div>
