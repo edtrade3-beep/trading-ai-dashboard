@@ -1955,4 +1955,4 @@ async function scanEntryZoneAlerts(watchlistSymbols, fivexRef = {}) {
   } catch (e) { console.error("[Zone Alert]", e.message); }
 }
 
-module.exports = { startMarketScanner, runScan, getScannerStatus, sendMacroReport, loadConfig, saveConfig, DEFAULT_SYMBOLS, analyzeSymbol, computeMacroRegime, SCHEDULED_SCAN_TIMES_ET, scanWatchlistAlerts, scanEntryZoneAlerts };
+module.exports = { startMarketScanner, runScan, getScannerStatus, sendMacroReport, loadConfig, saveConfig, DEFAULT_SYMBOLS, analyzeSymbol, computeMacroRegime, SCHEDULED_SCAN_TIMES_ET, scanWatchlistAlerts, scanEntryZoneAlerts, checkCoreEngineBuy };

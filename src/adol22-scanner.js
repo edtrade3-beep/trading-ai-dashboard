@@ -420,8 +420,22 @@ async function runAdol22(watchlistSymbols) {
                      spyChg: Math.round(spyChg * 100) / 100, vix: Math.round(vixPrice * 10) / 10 };
 
   if (bull) {
-    await sendAdol22Alert(bull, "BULL");
-    saveHistory({ type: "BULL", sym: bull.sym, pattern: bull.pattern.name, price: bull.price, confidence: Math.round(bull.total), reasons: bull.scoring.reasons });
+    // ONE ENGINE gate: ADOL22 is a ratified second, labeled engine (real
+    // 15m candle-pattern reads, not fabricated) — but its bullish call
+    // still has to agree with the canonical am-core-engine.js verdict
+    // before firing an alert, same non-destructive pattern already used
+    // for market-scanner.js's own BUY path (checkCoreEngineBuy). No
+    // canonical short-side exists, so the bear path below is intentionally
+    // left unguarded — an honest, already-disclosed architectural gap,
+    // not an oversight.
+    const { checkCoreEngineBuy } = require("./market-scanner");
+    const coreAgrees = await checkCoreEngineBuy(bull.sym);
+    if (!coreAgrees) {
+      console.log(`[ADOL22] ${bull.sym} BULL pattern found but canonical engine disagrees — suppressing alert.`);
+    } else {
+      await sendAdol22Alert(bull, "BULL");
+      saveHistory({ type: "BULL", sym: bull.sym, pattern: bull.pattern.name, price: bull.price, confidence: Math.round(bull.total), reasons: bull.scoring.reasons });
+    }
   }
   if (bear) {
     await sendAdol22Alert(bear, "BEAR");
