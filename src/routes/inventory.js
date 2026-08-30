@@ -404,4 +404,11 @@ async function handleInventory(req, res, requestUrl) {
   return writeJson(res, 404, { error: "Unknown inventory endpoint." });
 }
 
+// normalizeVehicle attached as a property (not a second module.exports
+// value) so router.js's existing `const handleInventory =
+// require("./routes/inventory")` — a direct callable-function require —
+// keeps working unchanged. car-business-ai.js's CSV repricing analysis
+// (2026-08-30) reuses this exact real normalizer rather than re-deriving
+// its own vehicle-shape validation rules.
+handleInventory.normalizeVehicle = normalizeVehicle;
 module.exports = handleInventory;

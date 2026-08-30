@@ -24,7 +24,7 @@
 // GET/POST /api/car-business/intel[/refresh], daily auto-refresh at
 // 6:05 PM ET (server.js), manual Refresh button here for on-demand runs.
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 const SECTION_COLOR = (C) => ({ STRONG: C.green, NORMAL: C.accent, WEAKENING: C.amber, HIGH_RISK: C.red });
 const SECTION_ICON = { STRONG: "🟢", NORMAL: "🟡", WEAKENING: "🟠", HIGH_RISK: "🔴" };
@@ -52,6 +52,56 @@ const STATUS_STYLE = (C) => ({
   INVALIDATED: { bg: C.redBg, fg: C.red, label: "INVALIDATED" },
   UNCHANGED: { bg: C.card, fg: C.textDim, label: "UNCHANGED" },
 });
+const REPRICE_STYLE = (C) => ({
+  REPRICE_UP: { icon: "⬆️", color: C.green, label: "REPRICE UP" },
+  REPRICE_DOWN: { icon: "⬇️", color: C.red, label: "REPRICE DOWN" },
+  HOLD_PRICE: { icon: "➡️", color: C.textDim, label: "HOLD PRICE" },
+});
+
+// CSV Repricing Analysis (explicit user request: "add csv file to
+// analysis inventory and ai will tell me which one i need to reprice
+// supply and demand"). Same real quoted-field CSV row parser PortfolioTab.jsx
+// already uses for broker CSV import — duplicated here (not imported; a
+// small pure helper, and the two files parse different real column sets)
+// rather than re-derived from scratch. Flexible header matching (any
+// order/case) — vin/year/make/model/trim/mileage/price/condition, matching
+// the same real vehicle shape routes/inventory.js's own CSV export uses.
+function parseInventoryCsvForRepricing(text) {
+  const lines = text.trim().split(/\r?\n/).filter((l) => l.trim());
+  if (lines.length < 2) return { rows: [], errors: ["File is empty or has only a header row."] };
+  const parseRow = (line) => {
+    const fields = [];
+    let cur = "", inQuote = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') inQuote = !inQuote;
+      else if (ch === "," && !inQuote) { fields.push(cur.trim()); cur = ""; }
+      else cur += ch;
+    }
+    fields.push(cur.trim());
+    return fields;
+  };
+  const headers = parseRow(lines[0]).map((h) => h.toLowerCase().replace(/[\s_-]+/g, ""));
+  const col = (names) => headers.findIndex((h) => names.includes(h));
+  const idx = {
+    vin: col(["vin"]), year: col(["year"]), make: col(["make"]), model: col(["model"]),
+    trim: col(["trim", "trimlevel"]), mileage: col(["mileage", "miles", "odometer"]),
+    price: col(["price", "listprice", "askingprice"]), condition: col(["condition"]),
+  };
+  const rows = lines.slice(1).map(parseRow).map((f) => ({
+    vin: idx.vin >= 0 ? f[idx.vin] : "",
+    year: idx.year >= 0 ? f[idx.year] : "",
+    make: idx.make >= 0 ? f[idx.make] : "",
+    model: idx.model >= 0 ? f[idx.model] : "",
+    trim: idx.trim >= 0 ? f[idx.trim] : "",
+    mileage: idx.mileage >= 0 ? f[idx.mileage] : "",
+    price: idx.price >= 0 ? f[idx.price] : "",
+    condition: idx.condition >= 0 ? f[idx.condition] : "",
+  })).filter((r) => r.year && r.make && r.model);
+  const errors = [];
+  if (idx.year < 0 || idx.make < 0 || idx.model < 0) errors.push("Couldn't find year/make/model columns — check the CSV header row.");
+  return { rows, errors };
+}
 
 function StatusBadge({ C, MONO, status }) {
   const s = STATUS_STYLE(C)[status] || STATUS_STYLE(C).NEW;
@@ -197,6 +247,122 @@ function BuyRecCard({ C, MONO, b }) {
   );
 }
 
+// CSV Repricing Analysis — a manual, on-demand tool independent of the
+// daily Command Center report (works even before that's loaded). Upload
+// -> parse -> POST /api/car-business/reprice -> real per-vehicle
+// REPRICE_UP/REPRICE_DOWN/HOLD_PRICE read grounded in real supply/demand
+// comps research.
+function RepricingTool({ C, MONO, SANS }) {
+  const fileRef = useRef(null);
+  const [parsed, setParsed] = useState(null); // {rows, errors}
+  const [fileName, setFileName] = useState(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [result, setResult] = useState(null); // {results, analyzed, uploaded, skippedInvalid, truncated}
+  const [error, setError] = useState(null);
+
+  const onFile = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setResult(null); setError(null);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const info = parseInventoryCsvForRepricing(String(ev.target.result || ""));
+      setParsed(info);
+      setFileName(file.name);
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  };
+
+  const analyze = () => {
+    if (!parsed?.rows?.length) return;
+    setAnalyzing(true); setError(null);
+    fetch("/api/car-business/reprice", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ vehicles: parsed.rows }),
+    }).then((r) => r.json())
+      .then((d) => { if (d.ok) setResult(d); else setError(d.error || "Repricing analysis failed."); })
+      .catch((e) => setError(e.message))
+      .finally(() => setAnalyzing(false));
+  };
+
+  return (
+    <Section C={C} MONO={MONO} SANS={SANS} title="Repricing Analysis — upload a CSV" subtitle="Real supply/demand-grounded repricing read for any vehicles you upload — a subset, a fresh export, whatever you want checked right now.">
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "14px 16px", marginBottom: result || error ? 14 : 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <input ref={fileRef} type="file" accept=".csv,text/csv" style={{ display: "none" }} onChange={onFile} />
+          <button onClick={() => fileRef.current?.click()} style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "8px 14px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.surface, color: C.text, cursor: "pointer" }}>
+            📄 Choose CSV
+          </button>
+          {fileName && <span style={{ fontFamily: MONO, fontSize: 11.5, color: C.textDim }}>{fileName}</span>}
+          {parsed && (
+            <button onClick={analyze} disabled={analyzing || !parsed.rows.length} style={{
+              fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "8px 14px", borderRadius: 8,
+              border: `1px solid ${C.accent}`, background: analyzing ? C.card : C.accent, color: analyzing ? C.accent : "#fff",
+              cursor: analyzing || !parsed.rows.length ? "default" : "pointer",
+            }}>{analyzing ? "Analyzing…" : `Analyze ${parsed.rows.length} vehicle${parsed.rows.length === 1 ? "" : "s"} for Repricing`}</button>
+          )}
+        </div>
+        <div style={{ fontSize: 11, color: C.textDim, marginTop: 8 }}>
+          Expected columns (any order/case): vin, year, make, model, trim, mileage, price, condition. Same format as the dealer portal's own inventory export.
+        </div>
+        {parsed?.errors?.length > 0 && (
+          <div style={{ fontSize: 12, color: C.amber, marginTop: 8 }}>⚠ {parsed.errors[0]}</div>
+        )}
+        {parsed && !parsed.errors?.length && (
+          <div style={{ fontSize: 11.5, color: C.textDim, marginTop: 6 }}>Parsed {parsed.rows.length} real vehicle{parsed.rows.length === 1 ? "" : "s"} from the file.</div>
+        )}
+      </div>
+
+      {error && <div style={{ fontSize: 13, color: C.red, background: C.redBg, borderRadius: 8, padding: "10px 14px", marginBottom: 14 }}>{error}</div>}
+
+      {result && (
+        <>
+          <div style={{ fontSize: 11.5, color: C.textDim, marginBottom: 10 }}>
+            Analyzed {result.analyzed} of {result.uploaded} uploaded real vehicles, highest-price first
+            {result.skippedInvalid ? ` · ${result.skippedInvalid} row(s) couldn't be parsed into a real vehicle` : ""}
+            {result.truncated ? ` · ${result.truncated} lower-priced row(s) not analyzed this run — re-upload just those for a follow-up check` : ""}.
+          </div>
+          <div style={{ overflowX: "auto", border: `1px solid ${C.border}`, borderRadius: 10 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5, minWidth: 760 }}>
+              <thead>
+                <tr>
+                  {["VEHICLE", "ASKING", "ACTION", "SUGGESTED", "SUPPLY / DEMAND", "URGENCY"].map((h) => (
+                    <th key={h} style={{ textAlign: "left", fontFamily: MONO, fontSize: 10, textTransform: "uppercase", color: C.textDim, background: C.card, padding: "8px 12px", borderBottom: `1px solid ${C.border}` }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {result.results.map((r, i, arr) => {
+                  const rs = REPRICE_STYLE(C)[r.action] || {};
+                  const bb = i < arr.length - 1 ? `1px solid ${C.border}` : "none";
+                  const v = r.vehicle;
+                  return (
+                    <tr key={r.vin}>
+                      <td style={{ padding: "9px 12px", borderBottom: bb }}>
+                        <div style={{ fontWeight: 700, color: C.text }}>{v ? `${v.year} ${v.make} ${v.model} ${v.trim || ""}` : r.vin}</div>
+                        <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{r.vin}{v ? ` · ${Number(v.mileage).toLocaleString()} mi` : ""}</div>
+                        <div style={{ fontSize: 11, color: C.textSec, marginTop: 2 }}>{r.reasoning}</div>
+                      </td>
+                      <td style={{ padding: "9px 12px", borderBottom: bb, fontFamily: MONO, color: C.text }}>{v ? `$${Number(v.price).toLocaleString()}` : "—"}</td>
+                      <td style={{ padding: "9px 12px", borderBottom: bb }}>
+                        <span style={{ color: rs.color, fontWeight: 800, fontFamily: MONO, fontSize: 11 }}>{rs.icon} {rs.label}</span>
+                      </td>
+                      <td style={{ padding: "9px 12px", borderBottom: bb, fontFamily: MONO, color: C.text }}>{Number.isFinite(r.suggestedPrice) ? `$${r.suggestedPrice.toLocaleString()}` : "—"}</td>
+                      <td style={{ padding: "9px 12px", borderBottom: bb, fontSize: 11.5, color: C.textSec }}>{r.supplyDemandRead}</td>
+                      <td style={{ padding: "9px 12px", borderBottom: bb, fontFamily: MONO, fontSize: 10.5, color: r.urgency === "HIGH" ? C.red : r.urgency === "MEDIUM" ? C.amber : C.textDim }}>{r.urgency || "—"}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </Section>
+  );
+}
+
 export default function CarBusinessTab({ C, MONO, SANS }) {
   const [intel, setIntel] = useState(null);
   const [inventory, setInventory] = useState([]);
@@ -253,6 +419,8 @@ export default function CarBusinessTab({ C, MONO, SANS }) {
           cursor: refreshing ? "default" : "pointer", whiteSpace: "nowrap",
         }}>{refreshing ? "Researching…" : "↻ Refresh"}</button>
       </div>
+
+      <RepricingTool C={C} MONO={MONO} SANS={SANS} />
 
       {loading && <div style={{ fontSize: 13, color: C.textDim }}>Loading Car Business intelligence…</div>}
       {!loading && error && <div style={{ fontSize: 13, color: C.red, background: C.redBg, borderRadius: 8, padding: "10px 14px" }}>{error}</div>}

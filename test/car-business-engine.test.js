@@ -7,7 +7,7 @@
 "use strict";
 const assert = require("node:assert");
 const {
-  sanitizeMarketSections, sanitizeInventoryScores, sanitizeOpportunityCards,
+  sanitizeMarketSections, sanitizeInventoryScores, sanitizeOpportunityCards, sanitizeRepricingResults,
   sanitizeBuyRecommendations, sanitizeAvoidList, sanitizeCustomerSegments, sanitizeLeadChannels,
   sanitizeFunnelRead, sanitizeFinanceRead, sanitizeRegulationFlags, sanitizeFutureScan,
   sanitizeLocalMarketGap, sanitizeForecast,
@@ -129,6 +129,27 @@ ok("local market gap round-trips real fields", () => {
 ok("forecast round-trips base/bull/bear", () => {
   const out = sanitizeForecast({ baseCase: "a", bullCase: "b", bearCase: "c" });
   assert.strictEqual(out.baseCase, "a");
+});
+
+console.log("\nChecking sanitizeRepricingResults (CSV Repricing Analysis) — REAL uploaded-VIN grounding, never an invented vehicle…");
+const UPLOADED_VINS = new Set(["1HGCM82633A004352", "5FRYD4H45KB012345"]);
+ok("a real uploaded VIN is kept with real fields", () => {
+  const out = sanitizeRepricingResults([{ vin: "1hgcm82633a004352", action: "REPRICE_DOWN", suggestedPrice: 18500, supplyDemandRead: "loose supply", reasoning: "x", urgency: "HIGH", confidence: 80 }], UPLOADED_VINS);
+  assert.strictEqual(out.length, 1);
+  assert.strictEqual(out[0].vin, "1HGCM82633A004352");
+  assert.strictEqual(out[0].action, "REPRICE_DOWN");
+  assert.strictEqual(out[0].suggestedPrice, 18500);
+});
+ok("a VIN NOT actually uploaded this request is dropped — never analyzes an invented vehicle", () => {
+  assert.strictEqual(sanitizeRepricingResults([{ vin: "NOTUPLOADED000001", action: "REPRICE_UP" }], UPLOADED_VINS).length, 0);
+});
+ok("an out-of-enum action honestly degrades to HOLD_PRICE, never a guessed direction", () => {
+  const out = sanitizeRepricingResults([{ vin: "5FRYD4H45KB012345", action: "bogus" }], UPLOADED_VINS);
+  assert.strictEqual(out[0].action, "HOLD_PRICE");
+});
+ok("more than 50 results are capped", () => {
+  const many = Array.from({ length: 60 }, () => ({ vin: "1HGCM82633A004352" }));
+  assert.ok(sanitizeRepricingResults(many, UPLOADED_VINS).length <= 50);
 });
 
 console.log("\nChecking sanitizeDimensions — real cross-run diff…");

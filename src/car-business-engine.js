@@ -45,6 +45,10 @@ const REGULATION_FLAGS = ["ACTION_REQUIRED", "WATCH", "NO_MATERIAL_IMPACT"];
 const FUTURE_IMPACTS = ["CREATE_PROFIT", "DESTROY_PROFIT", "MIXED"];
 const FINAL_VERDICTS = ["EXPAND", "BUY_SELECTIVELY", "HOLD", "REDUCE_RISK", "DEFENSIVE"];
 const LEARNING_VERDICTS = ["CORRECT", "PARTIALLY_CORRECT", "WRONG", "TOO_EARLY", "TOO_LATE", "MISSED_OPPORTUNITY", "UNKNOWN"];
+// CSV repricing analysis (2026-08-30, explicit user request: "add csv file
+// to analysis inventory and ai will tell me which one i need to reprice
+// supply and demand").
+const REPRICE_ACTIONS = ["REPRICE_UP", "REPRICE_DOWN", "HOLD_PRICE"];
 
 function clamp0to100(n) {
   const v = Math.round(Number(n));
@@ -104,6 +108,30 @@ function sanitizeInventoryScores(raw, realVehiclesByVin) {
       deadInventoryAction: DEAD_INVENTORY_ACTIONS.includes(r.deadInventoryAction) ? r.deadInventoryAction : null,
       daysOnLot,
       action: String(r.action || "").slice(0, 120),
+    };
+  }).filter(Boolean);
+}
+
+// CSV Repricing Analysis sanitizer — grounded against whatever real VINs
+// were actually uploaded THIS request (uploadedVinsSet), never the live
+// /api/inventory list (a CSV upload is an explicit, ad hoc, user-chosen
+// batch — could be a subset, could be from an external export). Same
+// never-invent-a-vehicle discipline as sanitizeInventoryScores.
+function sanitizeRepricingResults(raw, uploadedVinsSet) {
+  if (!Array.isArray(raw)) return [];
+  const known = uploadedVinsSet instanceof Set ? uploadedVinsSet : new Set();
+  return raw.slice(0, 50).map((r) => {
+    if (!r || typeof r !== "object") return null;
+    const vin = String(r.vin || "").toUpperCase().slice(0, 17);
+    if (!vin || !known.has(vin)) return null;
+    return {
+      vin,
+      action: REPRICE_ACTIONS.includes(r.action) ? r.action : "HOLD_PRICE",
+      suggestedPrice: Number.isFinite(Number(r.suggestedPrice)) ? Math.round(Number(r.suggestedPrice)) : null,
+      supplyDemandRead: String(r.supplyDemandRead || "").slice(0, 200),
+      reasoning: String(r.reasoning || "").slice(0, 260),
+      urgency: RISK_LEVELS.includes(r.urgency) ? r.urgency : null,
+      confidence: clamp0to100(r.confidence),
     };
   }).filter(Boolean);
 }
@@ -462,8 +490,8 @@ function gradeLearningHistory(pastEntries, currentInventory) {
 module.exports = {
   BUSINESS_DIMENSIONS, SECTION_CLASSIFICATIONS, OPPORTUNITY_CLASSIFICATIONS, BUY_CLASSIFICATIONS,
   TURN_VERDICTS, DEAD_INVENTORY_ACTIONS, CARD_STATUSES, RISK_LEVELS, DATA_QUALITIES,
-  REGULATION_FLAGS, FUTURE_IMPACTS, FINAL_VERDICTS, LEARNING_VERDICTS, MIN_GRADE_AGE_DAYS,
-  sanitizeMarketSections, sanitizeInventoryScores, sanitizeOpportunityCards,
+  REGULATION_FLAGS, FUTURE_IMPACTS, FINAL_VERDICTS, LEARNING_VERDICTS, MIN_GRADE_AGE_DAYS, REPRICE_ACTIONS,
+  sanitizeMarketSections, sanitizeInventoryScores, sanitizeOpportunityCards, sanitizeRepricingResults,
   sanitizeBuyRecommendations, sanitizeAvoidList, sanitizeCustomerSegments, sanitizeLeadChannels,
   sanitizeFunnelRead, sanitizeFinanceRead, sanitizeRegulationFlags, sanitizeFutureScan,
   sanitizeLocalMarketGap, sanitizeForecast,

@@ -51,8 +51,8 @@ const { shouldSendAlert } = require("./telegram-bot");
 const { PORT } = require("./config");
 const {
   BUSINESS_DIMENSIONS, SECTION_CLASSIFICATIONS, OPPORTUNITY_CLASSIFICATIONS, BUY_CLASSIFICATIONS,
-  TURN_VERDICTS, DEAD_INVENTORY_ACTIONS, DATA_QUALITIES, RISK_LEVELS, REGULATION_FLAGS, FUTURE_IMPACTS,
-  sanitizeMarketSections, sanitizeInventoryScores, sanitizeOpportunityCards,
+  TURN_VERDICTS, DEAD_INVENTORY_ACTIONS, DATA_QUALITIES, RISK_LEVELS, REGULATION_FLAGS, FUTURE_IMPACTS, REPRICE_ACTIONS,
+  sanitizeMarketSections, sanitizeInventoryScores, sanitizeOpportunityCards, sanitizeRepricingResults,
   sanitizeBuyRecommendations, sanitizeAvoidList, sanitizeCustomerSegments, sanitizeLeadChannels,
   sanitizeFunnelRead, sanitizeFinanceRead, sanitizeRegulationFlags, sanitizeFutureScan,
   sanitizeLocalMarketGap, sanitizeForecast,
@@ -317,4 +317,69 @@ async function buildCarBusinessIntel() {
   return built;
 }
 
-module.exports = { buildCarBusinessIntel };
+// ── CSV Repricing Analysis — explicit user request (2026-08-30): "add csv
+// file to analysis inventory and ai will tell me which one i need to
+// reprice supply and demand". A 4th call through the SAME
+// callAnthropicWithSearch chokepoint (still no new engine) — reuses
+// routes/inventory.js's real normalizeVehicle (never re-derives vehicle-
+// shape validation) and this call's own grounding is whatever real VINs
+// the user actually uploaded THIS request, not the live /api/inventory
+// list — a CSV upload is an explicit, ad hoc, user-chosen batch (could be
+// a subset the user is worried about, could be an external DMS export).
+//
+// Capped at 20 vehicles per real call (2026-08-30, applying the exact
+// live-learned lesson from buildCarBusinessIntel's own 4 rounds of
+// timeout/truncation fixes before this file even had a second caller —
+// slightly more room than that call's 15 since this schema has fewer
+// fields per vehicle) — highest-price first, real dollars at risk first.
+const REPRICE_BATCH_CAP = 20;
+
+function summarizeVehiclesForRepricing(vehicles) {
+  return vehicles.map((v) => `${v.vin} — ${v.year} ${v.make} ${v.model} ${v.trim || ""} · ${v.mileage?.toLocaleString?.() ?? v.mileage} mi · asking $${v.price} · ${v.condition}`).join("\n");
+}
+
+async function analyzeRepricing(rawVehicles) {
+  if (!KEY()) return { ok: false, error: "ANTHROPIC_API_KEY not set" };
+  if (!Array.isArray(rawVehicles) || !rawVehicles.length) return { ok: false, error: "No real vehicles provided to analyze." };
+
+  const { normalizeVehicle } = require("./routes/inventory");
+  const normalized = rawVehicles.map((v) => normalizeVehicle(v)).filter(Boolean);
+  if (!normalized.length) return { ok: false, error: "None of the uploaded rows parsed into a valid real vehicle (need at minimum a real year/make/model)." };
+
+  const sorted = [...normalized].sort((a, b) => (Number(b.price) || 0) - (Number(a.price) || 0));
+  const batch = sorted.slice(0, REPRICE_BATCH_CAP);
+  const truncated = sorted.length - batch.length;
+  const uploadedVins = new Set(batch.map((v) => v.vin.toUpperCase()));
+
+  const system = `You are the REPRICING ANALYSIS layer of a real, independent used-car dealership's Car Business Intelligence system. You are given a real batch of vehicles the dealer uploaded for a repricing check — analyze each one's real current supply and demand and tell the dealer exactly what to do with its price today.
+
+For EVERY real vehicle given (by its real VIN — never invent a VIN, never analyze a vehicle not in the list given), search real, current comps/market data and determine: action (one of: ${REPRICE_ACTIONS.join("/")}), suggestedPrice (a real $ estimate grounded in real comps — if action is HOLD_PRICE this should be close to the current asking price), supplyDemandRead (one short real sentence: is supply tight or loose for this vehicle type right now, is demand strong or weak, and what that implies for price), reasoning (why this specific action, grounded in real comps/market conditions you found), urgency (${RISK_LEVELS.join("/")} — how urgently this needs a price change), confidence (0-100).
+
+Never invent a fact, price, or VIN. Never recommend a price change without a real comps-based reason. Return JSON ONLY:
+{"results":[{"vin":"...","action":"...","suggestedPrice":0,"supplyDemandRead":"...","reasoning":"...","urgency":"...","confidence":0-100}]}`;
+
+  const prompt = `REAL VEHICLES TO ANALYZE FOR REPRICING (${batch.length} of ${normalized.length} real uploaded rows${truncated ? `, top ${batch.length} by price — ${truncated} lower-priced rows not analyzed this run` : ""}):
+${summarizeVehiclesForRepricing(batch)}
+
+Search for real, current supply/demand comps data now and return the JSON.`;
+
+  const result = await runCall(prompt, system, { model: "claude-sonnet-4-6", maxTokens: 8000, maxSearches: 2, timeout: 280000, feature: "car-business-reprice" });
+  if (!result.ok) return { ok: false, error: result.error };
+
+  const results = sanitizeRepricingResults(result.parsed.results, uploadedVins);
+  // Real, disclosed pass-through of what each uploaded vehicle actually
+  // was (price/mileage/etc) so the UI can show "current asking price" next
+  // to the AI's real suggestion without a second lookup.
+  const byVin = new Map(batch.map((v) => [v.vin, v]));
+  return {
+    ok: true,
+    results: results.map((r) => ({ ...r, vehicle: byVin.get(r.vin) || null })),
+    analyzed: batch.length,
+    uploaded: rawVehicles.length,
+    skippedInvalid: rawVehicles.length - normalized.length,
+    truncated,
+    generatedAt: Date.now(),
+  };
+}
+
+module.exports = { buildCarBusinessIntel, analyzeRepricing };
