@@ -25,6 +25,11 @@ const {
 // (transparently Postgres-backed when DATABASE_URL is set — see
 // atomic-write.js's own header for why raw fs writes would silently lose
 // this on every Render restart).
+// Shared with lightbox-autopilot-execute.js (Autopilot goal audit,
+// 2026-08-30) — both trade the same real Alpaca paper account (see
+// emergency-stop.js's comment), so they now anchor the weekly/drawdown
+// breaker off the same real equity high-water mark instead of two files
+// independently disagreeing about the same account's real state.
 const RISK_STATE_PATH = path.join(ROOT, "data", "autopilot-risk-state.json");
 const DEFAULT_RISK_STATE = { weekAnchorDate: "", weekStartEquity: 0, peakEquity: 0 };
 function readRiskState() { return { ...DEFAULT_RISK_STATE, ...readJsonSafe(RISK_STATE_PATH, null) }; }

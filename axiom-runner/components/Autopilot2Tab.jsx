@@ -1,12 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
 
-// ADOL22 Autopilot 2.0 — Phase 1 Command Center (2026-08-27). A real
-// internal $100k simulated paper account (src/autopilot2-account.js) run
-// by a real autonomous scan->enter->manage->exit loop
-// (src/autopilot2-engine.js) — never a real order, never Alpaca. Stocks
-// only this phase; see the approved plan for the Phase 2+ roadmap
-// (options, pressure-acceleration curves, trap modeling, self-audited
-// learning engine).
+// ADOL22 Autopilot 2.0 — Command Center. A real internal $100k simulated
+// paper account (src/autopilot2-account.js) run by a real autonomous
+// scan->enter->manage->exit loop (src/autopilot2-engine.js) — never a
+// real order, never Alpaca. Stocks + long calls today (0.60-0.85 delta,
+// via src/autopilot2-expression.js); puts, spreads, and crypto are real,
+// disclosed gaps, not silently missing (Autopilot goal audit, 2026-08-30).
 //
 // Deliberately no manual Buy/Sell anywhere on this page (spec §31) — the
 // only controls are the 5 the spec lists. This is a monitoring surface,
@@ -108,7 +107,7 @@ export default function Autopilot2Tab({ C, MONO, SANS }) {
           </span>
         </div>
         <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 3 }}>
-          A real internal $100,000 simulated paper account — real stocks only, no real orders, ever. {data.state?.reason ? `(${data.state.reason})` : ""}
+          A real internal $100,000 simulated paper account — stocks + long calls, no real orders ever. No puts, spreads, or crypto yet. {data.state?.reason ? `(${data.state.reason})` : ""}
         </div>
       </div>
 

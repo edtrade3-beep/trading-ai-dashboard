@@ -62,7 +62,15 @@ async function apca(reqPath, method = "GET", body = null) {
   } catch { return null; }
 }
 
-const RISK_STATE_PATH = path.join(ROOT, "data", "lightbox-autopilot-risk-state.json");
+// Shared with server-autopilot.js (Autopilot goal audit, 2026-08-30) — this
+// file and server-autopilot.js trade the SAME real Alpaca paper account
+// (see emergency-stop.js's own comment confirming the shared account), but
+// used to persist weekStartEquity/peakEquity in two separate files and
+// could independently disagree about whether that one real account's
+// weekly/drawdown breaker had tripped. One real account gets one real
+// breaker anchor. Positions/order placement stay fully independent — only
+// the equity high-water-mark tracking is now shared.
+const RISK_STATE_PATH = path.join(ROOT, "data", "autopilot-risk-state.json");
 const DEFAULT_RISK_STATE = { weekAnchorDate: "", weekStartEquity: 0, peakEquity: 0 };
 function readRiskState() { return { ...DEFAULT_RISK_STATE, ...readJsonSafe(RISK_STATE_PATH, null) }; }
 function writeRiskState(state) { writeJsonAtomic(RISK_STATE_PATH, state); }

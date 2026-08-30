@@ -168,10 +168,23 @@ async function checkTradeGuardrails(cfg) {
   return { ok: true, reason: null, balances, equity };
 }
 
+// A real, narrow check for literal crypto pair tickers (BTC-USD, ETH-USD,
+// ...) — the actual broker-incompatible case, NOT market-scanner.js's own
+// broader CRYPTO_SYMBOLS set (which also includes real equities/ETFs like
+// IBIT/COIN/MSTR/HOOD that trade crypto-adjacent but ARE placeable through
+// a normal equity order; excluding those here would wrongly block real
+// trades). tradier-broker.js's placeEquityOrder has no crypto order class —
+// a "-USD" symbol reaching it would fail at the broker call instead of
+// being cleanly skipped upstream (Autopilot goal audit, 2026-08-30).
+function isCryptoPairSymbol(sym) {
+  return /-USD$/i.test(String(sym || "").trim());
+}
+
 // ── Exported for market-scanner.js to call ───────────────────────────────────
 async function maybeAutoExecute({ symbol, signal, composite, price, support, resistance, rvol }) {
   if (!broker.isConfigured()) return null;
   if (!isMarketHoursET()) return null;
+  if (isCryptoPairSymbol(symbol)) return null;
 
   let cfg = readConfig();
   cfg = await maybeResetDaily(cfg);
@@ -205,6 +218,22 @@ async function maybeAutoExecute({ symbol, signal, composite, price, support, res
   if (sectorCapExceeded({ positions: normPositions, symbol, maxPerSector: cfg.maxPerSector })) return null;
 
   const side = signal === "BUY" ? "buy" : "sell";
+
+  // ONE ENGINE safety gate (Autopilot goal audit, 2026-08-30): BUY signals
+  // are already re-verified against the real canonical engine before they
+  // ever reach this function (market-scanner.js's checkCoreEngineBuy, run
+  // ahead of maybeAutoExecute). SELL/short signals have NO such check —
+  // am-core-engine.js has no short-side verdict implementation to check
+  // against (a real, disclosed limitation, not something to fake here) —
+  // so an ungated SELL is the one case where this, the only one of the
+  // platform's execution paths capable of a real LIVE (non-paper) order,
+  // could fire on a signal nothing but market-scanner.js's own composite
+  // has ever looked at. Per "risk always overrides opportunity signals":
+  // force it through the human-approval (assistant) queue instead of
+  // "autopilot" mode's automatic placement, regardless of the configured
+  // mode. BUY keeps full autonomy; SELL always needs a human tap until a
+  // real canonical short verdict exists.
+  const forceAssistant = side === "sell" && cfg.mode === "autopilot";
 
   // Risk-based sizing for the long (BUY) path — entry/stop come from the
   // scanner's support level, same convention market-scanner.js already uses
@@ -242,21 +271,27 @@ async function maybeAutoExecute({ symbol, signal, composite, price, support, res
   }
 
   // Assistant mode — propose the trade and wait for explicit approval via
-  // /api/autoexec/pending instead of placing it automatically.
-  if (cfg.mode === "assistant") {
+  // /api/autoexec/pending instead of placing it automatically. Also entered
+  // for an ungated SELL in "autopilot" mode (forceAssistant, see above) —
+  // the message says so explicitly so it's never mistaken for the normal
+  // assistant-mode flow.
+  if (cfg.mode === "assistant" || forceAssistant) {
     cfg.tradedToday = [...(cfg.tradedToday || []), symbol];
     writeConfig(cfg);
     const pending = readPending();
     const entry = { id: `${symbol}-${Date.now()}`, symbol, side, qty, price, orderOpts, score: composite, rvol, proposedAt: Date.now(), status: "pending" };
     pending.push(entry);
     writePending(pending);
-    const msg = `🟡 ASSISTANT — proposed ${side.toUpperCase()} ${qty} ${symbol} @ ~$${price} (score ${composite}, RVOL ${rvol.toFixed ? rvol.toFixed(1) : rvol}). Approve in the app (Pending Approval) or via POST /api/autoexec/pending/${entry.id}/approve.`;
-    console.log(`[autoexec] ${msg}`);
-    if (telegramConfigured()) sendTelegramMessage(msg).catch(() => {});
-    return { proposed: true, id: entry.id, autoTriggered: true, score: composite, rvol, symbol, side, qty, price };
+    const reason = forceAssistant
+      ? `🟡 ASSISTANT (forced — ungated SELL) — proposed ${side.toUpperCase()} ${qty} ${symbol} @ ~$${price} (score ${composite}, RVOL ${rvol.toFixed ? rvol.toFixed(1) : rvol}). Autopilot mode auto-places BUYs (canonical-engine-verified) but always routes SELLs through approval — no real short-verdict engine exists to verify this signal. Approve in the app (Pending Approval) or via POST /api/autoexec/pending/${entry.id}/approve.`
+      : `🟡 ASSISTANT — proposed ${side.toUpperCase()} ${qty} ${symbol} @ ~$${price} (score ${composite}, RVOL ${rvol.toFixed ? rvol.toFixed(1) : rvol}). Approve in the app (Pending Approval) or via POST /api/autoexec/pending/${entry.id}/approve.`;
+    console.log(`[autoexec] ${reason}`);
+    if (telegramConfigured()) sendTelegramMessage(reason).catch(() => {});
+    return { proposed: true, id: entry.id, autoTriggered: true, score: composite, rvol, symbol, side, qty, price, forcedAssistant: forceAssistant };
   }
 
-  // Autopilot mode — unchanged from the original always-on behavior.
+  // Autopilot mode — unchanged from the original always-on behavior. Only
+  // ever reached here for BUY (SELL was routed to forceAssistant above).
   try {
     const result = await broker.placeEquityOrder(orderOpts);
 
@@ -453,4 +488,4 @@ async function handleAutoExec(req, res, requestUrl) {
   return writeJson(res, 404, { error: "Not found" });
 }
 
-module.exports = { handleAutoExec, maybeAutoExecute };
+module.exports = { handleAutoExec, maybeAutoExecute, isCryptoPairSymbol };
