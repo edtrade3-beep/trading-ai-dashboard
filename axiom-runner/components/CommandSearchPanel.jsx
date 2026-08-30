@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { computeKeyLevels } from "./market-helpers.js";
 
 // CommandSearchPanel — Command Center's left column, the real Opportunity
 // Inbox (Market Opportunity Engine Phase 1, 2026-08-25 — user's 36-section
@@ -86,6 +87,43 @@ function ChangeBadge({ label, pct, C, MONO }) {
   const color = pct >= 0 ? "#0d9465" : "#c8282a";
   return <span style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 700, color }}>{label} {pct >= 0 ? "+" : ""}{pct}%</span>;
 }
+const fmtLevel = (v) => `$${Number(v).toFixed(2)}`;
+
+// Key Levels card (Trade Desk redesign Phase 1, §12) — real top-3 swing
+// highs/lows above/below price (computeKeyLevels, market-helpers.js — the
+// SAME real computation TrendChart.jsx now uses for its own R1-R3/S1-S3
+// price lines, so this card and the chart never disagree). Nothing new is
+// detected here; this is purely a second, list-form presentation of
+// already-real chart levels for the left column, per the mockup's own
+// "KEY LEVELS" card. computeKeyLevels returns resistance/support nearest-
+// first (R1/S1 = closest to price) — resistance is reversed for display so
+// the farthest level (R3) renders at the top, price in the middle, nearest
+// support (S1) just below it, matching the mockup's visual stack.
+export function KeyLevelsCard({ chart, C, MONO, SANS }) {
+  if (!chart || !Array.isArray(chart.bars) || !chart.bars.length) return null;
+  const lastBar = chart.bars[chart.bars.length - 1];
+  const curPrice = Number(chart.livePrice) || Number(chart.price) || (lastBar ? lastBar.close : null);
+  if (!Number.isFinite(curPrice)) return null;
+  const { resistance, support } = computeKeyLevels(chart.bars, curPrice);
+  if (!resistance.length && !support.length) return null;
+  const row = (label, value, color) => (
+    <div key={label} style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11 }}>
+      <span style={{ color: C.textDim }}>{label}</span>
+      <b style={{ color }}>{fmtLevel(value)}</b>
+    </div>
+  );
+  return (
+    <div style={{ padding: "0 10px 10px", borderBottom: `1px solid ${C.border}`, marginBottom: 4 }}>
+      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: 0.6, marginBottom: 6 }}>📐 KEY LEVELS</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+        {resistance.map((v, i) => ({ v, label: `R${i + 1}` })).reverse().map(({ v, label }) => row(label, v, "#8b5cf6"))}
+        {row("PRICE", curPrice, C.text)}
+        {support.map((v, i) => row(`S${i + 1}`, v, "#8b5cf6"))}
+      </div>
+    </div>
+  );
+}
+
 // Exported (not just used internally below) so TradeDeskTab.jsx's mobile
 // Chart view can mount the identical real header instead of duplicating
 // this JSX (explicit user request, 2026-08-26, screenshot of the mobile
@@ -105,11 +143,28 @@ export function TickerHeader({ symbol, chart, symbolQuote, C, MONO, SANS }) {
         <ChangeBadge label="1W" pct={chart?.weekChangePct} C={C} MONO={MONO} />
         <ChangeBadge label="1M" pct={chart?.monthChangePct} C={C} MONO={MONO} />
       </div>
+      {/* 52-week range + volume (Trade Desk redesign Phase 1, §3) — real
+          fields already on the trend-template response (hi52/lo52,
+          buildTrendTemplate) and the real last daily bar's own volume
+          (chart.bars) + volRatio (real ratio vs the 50-day average,
+          already computed server-side) — no new fetch, no derived/
+          estimated "average volume" number. */}
+      {(Number.isFinite(chart?.hi52) || Number.isFinite(chart?.lo52) || Array.isArray(chart?.bars)) && (
+        <div style={{ display: "flex", gap: 10, marginTop: 4, fontFamily: MONO, fontSize: 10, color: C.textDim }}>
+          {Number.isFinite(chart?.lo52) && Number.isFinite(chart?.hi52) && (
+            <span>52W ${chart.lo52.toFixed(2)}–${chart.hi52.toFixed(2)}</span>
+          )}
+          {Array.isArray(chart?.bars) && chart.bars.length > 0 && (
+            <span>VOL {(() => { const v = chart.bars[chart.bars.length - 1].volume; return Number.isFinite(v) ? (v >= 1e6 ? `${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `${(v / 1e3).toFixed(0)}K` : v) : "—"; })()}</span>
+          )}
+          {Number.isFinite(chart?.volRatio) && <span>RVOL {chart.volRatio}x</span>}
+        </div>
+      )}
     </div>
   );
 }
 
-export default function CommandSearchPanel({ symbol, onSelectSymbol, onOpenDaytrade, chart, symbolQuote, C, MONO, SANS }) {
+export default function CommandSearchPanel({ symbol, onSelectSymbol, onOpenDaytrade, chart, symbolQuote, C, MONO, SANS, hideKeyLevels, hideSearch }) {
   const [query, setQuery] = useState("");
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -161,21 +216,28 @@ export default function CommandSearchPanel({ symbol, onSelectSymbol, onOpenDaytr
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
-      <div style={{ padding: "10px 10px 8px" }}>
-        <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: 0.6, marginBottom: 6 }}>🔎 SEARCH</div>
-        <div style={{ display: "flex", gap: 6 }}>
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value.toUpperCase())}
-            onKeyDown={(e) => { if (e.key === "Enter") submitSearch(); }}
-            placeholder="Symbol…"
-            style={{ flex: 1, minWidth: 0, border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 6, padding: "7px 9px", fontFamily: MONO, fontSize: 12.5, outline: "none" }}
-          />
-          <button onClick={submitSearch} style={{ border: "none", background: C.accent, color: "#fff", borderRadius: 6, padding: "0 10px", fontFamily: MONO, fontSize: 11.5, fontWeight: 800, cursor: "pointer" }}>GO</button>
+      {/* Search box hidden when hideSearch (Trade Desk redesign Phase 1,
+          §2) — the real search now lives in TradeDeskTab.jsx's own top
+          header bar, calling the identical onSelectSymbol handler; kept
+          here (unhidden) for every other real mount of this panel. */}
+      {!hideSearch && (
+        <div style={{ padding: "10px 10px 8px" }}>
+          <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: 0.6, marginBottom: 6 }}>🔎 SEARCH</div>
+          <div style={{ display: "flex", gap: 6 }}>
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value.toUpperCase())}
+              onKeyDown={(e) => { if (e.key === "Enter") submitSearch(); }}
+              placeholder="Symbol…"
+              style={{ flex: 1, minWidth: 0, border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 6, padding: "7px 9px", fontFamily: MONO, fontSize: 12.5, outline: "none" }}
+            />
+            <button onClick={submitSearch} style={{ border: "none", background: C.accent, color: "#fff", borderRadius: 6, padding: "0 10px", fontFamily: MONO, fontSize: 11.5, fontWeight: 800, cursor: "pointer" }}>GO</button>
+          </div>
         </div>
-      </div>
+      )}
 
       <TickerHeader symbol={symbol} chart={chart} symbolQuote={symbolQuote} C={C} MONO={MONO} SANS={SANS} />
+      {!hideKeyLevels && <KeyLevelsCard chart={chart} C={C} MONO={MONO} SANS={SANS} />}
 
       {data?.dataQuality?.stale && (
         <div style={{ margin: "0 10px 8px", padding: "6px 8px", border: "1px solid #d6a31255", background: "#d6a31212", borderRadius: 6, fontFamily: SANS, fontSize: 10.5, color: "#d6a312" }}>

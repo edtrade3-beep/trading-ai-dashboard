@@ -1501,3 +1501,93 @@ export function computeTechnicalRead({ rsRating, volRatio, momentum, adx, donchi
 
   return { verdict, color, flags, vRecovery, bullCount, bearCount, knownCount: known.length };
 }
+
+// computeKeyLevels — real top-3 swing-high/low resistance/support on each
+// side of price (Trade Desk redesign Phase 1, §12 of the "AI Trading
+// Ticker Intelligence Workspace" spec). Same W=3 local-extremum swing
+// detection TrendChart.jsx already ran inline for its single nearest
+// RESISTANCE/SUPPORT price line — extracted here as one shared pure
+// function so the chart's price lines and the new Key Levels card render
+// identical real numbers instead of two independently-drifting
+// computations. Real swing points only — never interpolates or fabricates
+// a level when fewer than 3 real swings exist on a side.
+export function computeKeyLevels(bars, curPrice) {
+  if (!Array.isArray(bars) || !bars.length || !Number.isFinite(curPrice)) {
+    return { resistance: [], support: [] };
+  }
+  const W = 3, n = bars.length;
+  const highs = bars.map((b) => b.high), lows = bars.map((b) => b.low);
+  const swingHighs = [], swingLows = [];
+  for (let i = W; i < n - W; i++) {
+    let isHigh = true, isLow = true;
+    for (let j = i - W; j <= i + W; j++) {
+      if (highs[j] > highs[i]) isHigh = false;
+      if (lows[j] < lows[i]) isLow = false;
+    }
+    if (isHigh) swingHighs.push(highs[i]);
+    if (isLow) swingLows.push(lows[i]);
+  }
+  const resistance = swingHighs.filter((h) => h > curPrice).sort((a, b) => a - b).slice(0, 3);
+  const support = swingLows.filter((l) => l < curPrice).sort((a, b) => b - a).slice(0, 3);
+  return { resistance, support };
+}
+
+// rankMoveDrivers — Movement Intelligence (Trade Desk redesign Phase 1,
+// §9: "WHY IS THIS STOCK MOVING?"). Same disclosed-threshold-rule style as
+// market-context-engine.js's evaluateCrossAssetPatterns — never invents a
+// driver with no real signal behind it. Every input is already real and
+// already fetched elsewhere in the app (day % change from the trend-
+// template response, SPY/QQQ/sector % change from the app-wide macro/
+// sector polls, bullish/bearish headline counts from
+// GET /api/news/ticker/:symbol's real aggregation) — this only combines
+// them into a ranked, labeled list; it computes zero new market data.
+// A quiet symbol with no distinguishing signal returns an empty list
+// (never a forced "driver" with nothing real behind it).
+export function rankMoveDrivers({ dayChangePct, spyChangePct, qqqChangePct, sectorChangePct, sectorLabel, newsBullish, newsBearish } = {}) {
+  const day = Number(dayChangePct);
+  if (!Number.isFinite(day)) return { drivers: [], classification: "UNKNOWN" };
+
+  const drivers = [];
+  const absDay = Math.abs(day);
+  const strengthFor = (magnitude) => (magnitude >= 1.5 ? "HIGH" : magnitude >= 0.5 ? "MEDIUM" : "LOW");
+
+  // Technical/price-action — the day's own real move is always a real
+  // technical fact, ranked by its own magnitude (never a guess).
+  if (absDay >= 0.1) {
+    drivers.push({ id: "TECHNICAL", label: "Price action / technical move", strength: strengthFor(absDay), value: day });
+  }
+
+  // Market-wide vs company-specific classification — real divergence
+  // between the symbol's own move and SPY's, same "compare, don't assume"
+  // discipline as market-context-engine.js's own divergence engine.
+  let classification = "UNKNOWN";
+  if (Number.isFinite(spyChangePct)) {
+    const divergence = day - spyChangePct;
+    classification = Math.abs(divergence) >= 1 ? "COMPANY_SPECIFIC" : "MARKET_WIDE";
+    if (classification === "MARKET_WIDE" && Math.abs(spyChangePct) >= 0.3) {
+      drivers.push({ id: "MARKET", label: `Broad market move (SPY ${spyChangePct >= 0 ? "+" : ""}${spyChangePct}%)`, strength: strengthFor(Math.abs(spyChangePct)), value: spyChangePct });
+    }
+  }
+  if (Number.isFinite(qqqChangePct) && Math.sign(qqqChangePct) === Math.sign(day) && Math.abs(qqqChangePct) >= 0.3 && Math.abs(day - qqqChangePct) < 1) {
+    drivers.push({ id: "NASDAQ", label: `Nasdaq-wide move (QQQ ${qqqChangePct >= 0 ? "+" : ""}${qqqChangePct}%)`, strength: strengthFor(Math.abs(qqqChangePct)), value: qqqChangePct });
+  }
+  if (Number.isFinite(sectorChangePct) && Math.sign(sectorChangePct) === Math.sign(day) && Math.abs(sectorChangePct) >= 0.3) {
+    drivers.push({ id: "SECTOR", label: `Sector-wide move${sectorLabel ? ` (${sectorLabel} ${sectorChangePct >= 0 ? "+" : ""}${sectorChangePct}%)` : ""}`, strength: strengthFor(Math.abs(sectorChangePct)), value: sectorChangePct });
+  }
+
+  // News — only counted as a driver when the real headline tally actually
+  // leans the same direction as the day's move (a bullish tally on a down
+  // day isn't evidence the news caused today's move).
+  const bulls = Number(newsBullish) || 0, bears = Number(newsBearish) || 0;
+  if (bulls + bears > 0) {
+    const newsLean = bulls > bears ? 1 : bears > bulls ? -1 : 0;
+    if (newsLean !== 0 && Math.sign(day) === newsLean) {
+      const margin = Math.abs(bulls - bears);
+      drivers.push({ id: "NEWS", label: `Company news (${bulls} bullish / ${bears} bearish real headlines)`, strength: margin >= 3 ? "HIGH" : margin >= 1 ? "MEDIUM" : "LOW", value: null });
+    }
+  }
+
+  const rank = { HIGH: 0, MEDIUM: 1, LOW: 2 };
+  drivers.sort((a, b) => rank[a.strength] - rank[b.strength]);
+  return { drivers, classification };
+}

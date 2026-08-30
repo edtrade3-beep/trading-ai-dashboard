@@ -1,3 +1,5 @@
+import { computeKeyLevels } from "./market-helpers.js";
+
 // Lightweight-Charts candlestick chart with MA50/150/200, Bollinger Bands,
 // pivot/stop/target price lines, base-low line, AI-target line, and
 // BUY/EXIT markers, plus an "Overall Rating" derived from trend score + VCP
@@ -446,22 +448,18 @@ export default function TrendChart({ data, C, MONO, SANS, height, vcpOverlayOn }
     // above (which only bracket the current base) — this surfaces the
     // nearest real swing level on each side of the current price, even when
     // it sits outside the current base.
+    // R1-R3/S1-S3 (Trade Desk redesign Phase 1, §12) — real top-3 swing
+    // highs/lows on each side of price, nearest first. Was a single
+    // nearest RESISTANCE/SUPPORT line; computeKeyLevels (market-helpers.js)
+    // now shares this exact real swing-detection with the new Key Levels
+    // card in CommandSearchPanel.jsx so both surfaces agree. pl()'s own
+    // ~3.5%-gap dedup naturally collapses a level into the PIVOT/BASE LOW/
+    // T-target lines above when they sit close together — R1/S1 most often
+    // affected since they're nearest to price.
     if (curPrice != null) {
-      const W = 3, highs = bars.map(b => b.high), lows = bars.map(b => b.low);
-      const swingHighs = [], swingLows = [];
-      for (let i = W; i < n - W; i++) {
-        let isHigh = true, isLow = true;
-        for (let j = i - W; j <= i + W; j++) {
-          if (highs[j] > highs[i]) isHigh = false;
-          if (lows[j] < lows[i]) isLow = false;
-        }
-        if (isHigh) swingHighs.push(highs[i]);
-        if (isLow) swingLows.push(lows[i]);
-      }
-      const resistance = swingHighs.filter(h => h > curPrice).sort((a, b) => a - b)[0];
-      const support = swingLows.filter(l => l < curPrice).sort((a, b) => b - a)[0];
-      if (resistance) pl(Math.round(resistance * 100) / 100, "#8b5cf6", "RESISTANCE", LS.Dotted ?? 1);
-      if (support) pl(Math.round(support * 100) / 100, "#8b5cf6", "SUPPORT", LS.Dotted ?? 1);
+      const { resistance, support } = computeKeyLevels(bars, curPrice);
+      resistance.forEach((r, i) => pl(Math.round(r * 100) / 100, "#8b5cf6", `R${i + 1}`, LS.Dotted ?? 1));
+      support.forEach((s, i) => pl(Math.round(s * 100) / 100, "#8b5cf6", `S${i + 1}`, LS.Dotted ?? 1));
     }
     // BUY = most recent reclaim of the rising 50-day MA; EXIT = first close back below it.
     const ma50s = data.series.ma50 || []; let buyIdx = -1;
@@ -543,7 +541,7 @@ export default function TrendChart({ data, C, MONO, SANS, height, vcpOverlayOn }
     ["🟠 AI TARGET", "Projected upside based on the trend/base quality."],
     ["🔵 9 EMA / 🩷 21 EMA", "Fast trend-following averages — same real formula as the Trade Checklist's 9/21 EMA pass/fail checks, drawn as a full line here."],
     ["🟡 20D VWAP", "Real 20-day rolling volume-weighted average price — not intraday VWAP (this chart's bars are daily), same real definition the Trade Checklist uses."],
-    ["🟣 SUPPORT / RESISTANCE", "Nearest real swing high/low on each side of price — broader than PIVOT/BASE LOW, which only bracket the current base."],
+    ["🟣 R1-R3 / S1-S3", "Real top-3 swing highs/lows on each side of price (nearest first) — broader than PIVOT/BASE LOW, which only bracket the current base. Same real computation as the Key Levels card."],
     ["🟪 VCP ZIGZAG / C1 C2 C3…", "Real swing high→low sequence forming the base (vcpBreakoutEngine's own detection) — each circle marks one real contraction leg with its real % depth. Progressively smaller (e.g. C1 -18% → C2 -11% → C3 -6%) is the real tightening pattern this setup needs."],
     ["🔵 20 MA", "20-day simple moving average — the shortest of this chart's 3 MAs (20/50/200)."],
     ["🟪 VCP PIVOT / BASE HIGH / BASE LOW", "The VCP engine's own real pivot and whole-base range — a separate real computation from PIVOT/BASE LOW above, which come from the Minervini trend-template's own swing detection. The two usually sit close together; shown separately when they genuinely differ. Only visible when VCP overlay is ON."],

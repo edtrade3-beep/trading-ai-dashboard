@@ -17,6 +17,8 @@ import MarketTerminalTab from "./MarketTerminalTab.jsx";
 import LightBoxTab from "./LightBoxTab.jsx";
 import OptionsIntelligencePanel from "./OptionsIntelligencePanel.jsx";
 import MarketContextPanel from "./MarketContextPanel.jsx";
+import InstitutionalFlowCard from "./InstitutionalFlowCard.jsx";
+import MovementIntelligenceCard from "./MovementIntelligenceCard.jsx";
 
 // TradeDeskTab — one unified trading screen (2026-08-25, explicit user
 // request/mockup: top status strip, Discover-search | Chart | Cortex
@@ -81,6 +83,36 @@ import MarketContextPanel from "./MarketContextPanel.jsx";
 // "ALERTS is red" as a bearish signal. Fixed hex (not theme-swapped) since
 // mid-saturation hues at this lightness hold up against both the light
 // and dark surface colors.
+// TD — Trade Desk's own fixed dark "trading terminal" palette (redesign
+// Phase 1, explicit user mockup + user's own answer "Trade Desk only" when
+// asked whether the new dark theme should apply app-wide). Deliberately a
+// STANDALONE object, not derived from the shared `C` prop (theme.js's
+// THEME_LIGHT/THEME_DARK) — the mockup is dark regardless of the app's own
+// light/dark toggle, and spreading a possibly-light `C` into this object
+// would fight the fixed dark ground it's built around. Same key names as
+// theme.js's real THEME_* objects (bg/surface/card/border/text/etc, plus
+// the same green/red/amber semantic hexes theme.js's own dark palette
+// already uses) so every child component that reads `C.foo` works
+// unmodified when handed `TD` instead of the real `C` — only the values
+// change, never the shape. `theme.js` itself is untouched: every other
+// tab keeps using the real `C` exactly as before.
+const TD = {
+  bg: "#0a0e14", surface: "#0d121a", card: "#11161f", cardHover: "#161c27",
+  border: "#232c3a", borderLit: "#2f3b4d",
+  text: "#e7ecf3", textSec: "#aab4c4", textDim: "#7a8699",
+  accent: "#38bdf8", accentGlow: "rgba(56,189,248,0.20)",
+  green: "#2ec27e", greenBg: "rgba(46,194,126,0.12)", greenLight: "#8fd9ae",
+  red: "#e05c6a", redBg: "rgba(224,92,106,0.12)", redLight: "#eb98a0",
+  amber: "#f0a830", amberBg: "rgba(240,168,48,0.13)",
+  gold: "#d6ac47", goldBg: "rgba(214,172,71,0.14)",
+  // Purple "AI intelligence" accent (§1 of the spec: "Purple for AI
+  // intelligence") — a new token, distinct from `accent` (routine
+  // info/navigation, now cyan) and from the real green/red/amber status
+  // system. Used only for Cortex/AI-verdict chrome, never a bull/bear read.
+  purple: "#a78bfa", purpleBg: "rgba(167,139,250,0.14)",
+  shadow: "0 1px 3px rgba(0,0,0,0.40), 0 1px 2px rgba(0,0,0,0.30)",
+};
+
 const DOCK_MODULES = [
   { key: "discover", label: "DISCOVER", color: "#6366f1" },
   { key: "scanlist", label: "FULL SCAN", color: "#2563eb" },
@@ -231,17 +263,23 @@ export default function TradeDeskTab({
 
   const [chart, setChart] = useState(null);
   const [loadingChart, setLoadingChart] = useState(false);
+  // Candle timeframe (Trade Desk redesign Phase 1, §6) — same real
+  // &interval= param + supported-granularity set (5m/15m/30m/1h/1d/1wk) as
+  // MarketTerminalTab.jsx's own chartTf/setTf; Trade Desk's ChartPane
+  // previously had no picker at all (always daily). "1d" default matches
+  // the existing behavior for anyone who never touches the new picker.
+  const [chartTf, setChartTf] = useState("1d");
   useEffect(() => {
     if (!symbol) return;
     let cancelled = false;
     setLoadingChart(true);
-    fetch(`/api/market/trend-template?symbol=${encodeURIComponent(symbol)}`)
+    fetch(`/api/market/trend-template?symbol=${encodeURIComponent(symbol)}&interval=${encodeURIComponent(chartTf)}`)
       .then((r) => r.json())
       .then((d) => { if (!cancelled && !d.error) setChart(d); })
       .catch(() => {})
       .finally(() => { if (!cancelled) setLoadingChart(false); });
     return () => { cancelled = true; };
-  }, [symbol]);
+  }, [symbol, chartTf]);
 
   // Real VIX index quote (not the VIXY ETF proxy the app-wide macroData
   // poll carries — see market-helpers.js's computeRegime, which already
@@ -343,6 +381,18 @@ export default function TradeDeskTab({
 
   const pill = { fontFamily: MONO, fontSize: 11, display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap" };
 
+  // Ticker search lifted into the top header bar (Trade Desk redesign
+  // Phase 1, §2) — same real selectSymbol() this file already uses for
+  // every other symbol-jump path (Opportunity Inbox rows, Light Box
+  // handoff, mobile search view); CommandSearchPanel's own internal search
+  // box is hidden (hideSearch below) rather than duplicated, so there is
+  // still exactly one real search code path, just one new entry point.
+  const [topQuery, setTopQuery] = useState("");
+  const submitTopSearch = () => {
+    const s = topQuery.trim().toUpperCase().replace(/[^A-Z.]/g, "");
+    if (s) { selectSymbol(s); setTopQuery(""); }
+  };
+
   const dockBody = (
     <>
       {dockModule === "discover" && (
@@ -383,15 +433,11 @@ export default function TradeDeskTab({
       )}
       {dockModule === "alerts" && <AlertsTab {...(alertsProps || {})} C={C} MONO={MONO} setActiveTab={setActiveTab} />}
       {dockModule === "options" && (
-        <div>
-          {/* Options Intelligence (Phase 2, 2026-08-26) — real IV Rank/
-              HV/skew/gamma/flow consolidated from previously-scattered
-              real routes, keyed to Trade Desk's own selected symbol.
-              OptionsChainTab below is unchanged — this is additive, not
-              a replacement for the raw chain. */}
-          <OptionsIntelligencePanel symbol={symbol} C={C} MONO={MONO} SANS={SANS} />
-          <OptionsChainTab C={C} MONO={MONO} SANS={SANS} defaultSymbol={symbol} onOpenTerminal={selectSymbol} />
-        </div>
+        // Options Intelligence promoted out of this dock module (Trade Desk
+        // redesign Phase 1, §13 — "always visible", not one click deep) —
+        // now mounted in the main Workspace Grid below the core zone. This
+        // dock module is the raw options chain only now, unchanged.
+        <OptionsChainTab C={C} MONO={MONO} SANS={SANS} defaultSymbol={symbol} onOpenTerminal={selectSymbol} />
       )}
       {dockModule === "news" && <NewsTab {...(newsProps || {})} C={C} MONO={MONO} setActiveTab={setActiveTab} />}
       {dockModule === "scanner" && <ScannerTab {...(scannerProps || {})} C={C} MONO={MONO} setActiveTab={setActiveTab} />}
@@ -423,19 +469,40 @@ export default function TradeDeskTab({
           (exactly like the first pass), and the dock (below) is a plain
           sibling OUTSIDE it — never competing for the same space, free to
           add its own height and let the page scroll further when open. */}
-      <div ref={rootRef} style={{ display: "flex", flexDirection: "column", height: rootHeight ? `${rootHeight}px` : "80vh" }}>
-        {/* Top status strip — real regime/SPY/QQQ/VIX/cash/risk/autopilot */}
-        <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "8px 12px", borderBottom: `1px solid ${C.border}`, flexWrap: "wrap", background: C.card }}>
-          <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: C.text }}>AM TRADING</span>
-          <span style={pill}><span style={{ color: C.textDim }}>REGIME</span> <b style={{ color: regime.color }}>{regime.label}</b></span>
-          <span style={pill}><span style={{ color: C.textDim }}>SPY</span> <b style={{ color: chgColor(chg(spy)) }}>{spy ? `${chg(spy) > 0 ? "+" : ""}${chg(spy).toFixed(2)}%` : "—"}</b></span>
-          <span style={pill}><span style={{ color: C.textDim }}>QQQ</span> <b style={{ color: chgColor(chg(qqq)) }}>{qqq ? `${chg(qqq) > 0 ? "+" : ""}${chg(qqq).toFixed(2)}%` : "—"}</b></span>
-          <span style={pill}><span style={{ color: C.textDim }}>VIX</span> <b style={{ color: C.text }}>{vixQuote?.price != null ? Number(vixQuote.price).toFixed(1) : "—"}</b></span>
-          <span style={pill}><span style={{ color: C.textDim }}>CASH</span> <b style={{ color: C.text }}>{account?.cash != null ? `$${Math.round(Number(account.cash)).toLocaleString()}` : "—"}</b></span>
-          <span style={pill}><span style={{ color: C.textDim }}>RISK</span> <b style={{ color: chgColor(riskRead.pl) }}>{riskRead.count} pos · {riskRead.pl >= 0 ? "+" : ""}${Math.round(riskRead.pl).toLocaleString()}</b></span>
-          <span style={{ ...pill, marginLeft: "auto" }}>
+      <div ref={rootRef} style={{ display: "flex", flexDirection: "column", height: rootHeight ? `${rootHeight}px` : "80vh", background: TD.bg }}>
+        {/* Top header (Trade Desk redesign Phase 1, §2) — wordmark+tagline
+            left, real ticker search center, real SPY/QQQ/VIX + regime +
+            autopilot pills right. Fixed dark TD palette regardless of the
+            app's own light/dark toggle (see TD's own comment above). */}
+        <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "10px 14px", borderBottom: `1px solid ${TD.border}`, flexWrap: "wrap", background: TD.card }}>
+          <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.1 }}>
+            <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: TD.text, letterSpacing: 0.4 }}>AM TRADING</span>
+            <span style={{ fontFamily: SANS, fontSize: 8.5, fontWeight: 700, color: TD.textDim, letterSpacing: 1 }}>AI POWERED · DATA DRIVEN</span>
+          </div>
+          <div style={{ display: "flex", gap: 6, flex: "1 1 260px", maxWidth: 340 }}>
+            <input
+              value={topQuery}
+              onChange={(e) => setTopQuery(e.target.value.toUpperCase())}
+              onKeyDown={(e) => { if (e.key === "Enter") submitTopSearch(); }}
+              placeholder="🔍 Search ticker… TSLA, AMD, NVDA"
+              style={{ flex: 1, minWidth: 0, border: `1px solid ${TD.border}`, background: TD.surface, color: TD.text, borderRadius: 6, padding: "6px 10px", fontFamily: MONO, fontSize: 12, outline: "none" }}
+            />
+            <button onClick={submitTopSearch} style={{ border: "none", background: TD.accent, color: "#08131c", borderRadius: 6, padding: "0 12px", fontFamily: MONO, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>GO</button>
+          </div>
+          {discoverProps?.marketSession && (
+            <span style={{ ...pill, marginLeft: "auto" }}>
+              <b style={{ color: TD.accent }}>{String(discoverProps.marketSession).replace(/_/g, " ")}</b>
+            </span>
+          )}
+          <span style={discoverProps?.marketSession ? pill : { ...pill, marginLeft: "auto" }}><span style={{ color: TD.textDim }}>REGIME</span> <b style={{ color: regime.color }}>{regime.label}</b></span>
+          <span style={pill}><span style={{ color: TD.textDim }}>SPY</span> <b style={{ color: chgColor(chg(spy)) }}>{spy ? `${chg(spy) > 0 ? "+" : ""}${chg(spy).toFixed(2)}%` : "—"}</b></span>
+          <span style={pill}><span style={{ color: TD.textDim }}>QQQ</span> <b style={{ color: chgColor(chg(qqq)) }}>{qqq ? `${chg(qqq) > 0 ? "+" : ""}${chg(qqq).toFixed(2)}%` : "—"}</b></span>
+          <span style={pill}><span style={{ color: TD.textDim }}>VIX</span> <b style={{ color: TD.text }}>{vixQuote?.price != null ? Number(vixQuote.price).toFixed(1) : "—"}</b></span>
+          <span style={pill}><span style={{ color: TD.textDim }}>CASH</span> <b style={{ color: TD.text }}>{account?.cash != null ? `$${Math.round(Number(account.cash)).toLocaleString()}` : "—"}</b></span>
+          <span style={pill}><span style={{ color: TD.textDim }}>RISK</span> <b style={{ color: chgColor(riskRead.pl) }}>{riskRead.count} pos · {riskRead.pl >= 0 ? "+" : ""}${Math.round(riskRead.pl).toLocaleString()}</b></span>
+          <span style={pill}>
             <span>{autopilotStatus?.mode === "on" ? "🟢" : "🔴"}</span>
-            <span style={{ color: C.textDim }}>Autopilot</span>
+            <span style={{ color: TD.textDim }}>Autopilot</span>
           </span>
         </div>
 
@@ -443,22 +510,37 @@ export default function TradeDeskTab({
             force the fixed-column grid on a narrow screen (ScanTerminalHub's
             own history is the reason this is a deliberate, up-front choice). */}
         {isMobile ? (
-          <MobileTradeDeskBody symbol={symbol} selectSymbol={selectSymbol} chart={chart} symbolQuote={symbolQuote} applyLightboxHandoff={applyLightboxHandoff} dayTradeHandoff={dayTradeHandoff} loadingChart={loadingChart} vcpOn={vcpOn} setVcpOn={setVcpOn} setActiveTab={setActiveTab} C={C} MONO={MONO} SANS={SANS} />
+          <MobileTradeDeskBody symbol={symbol} selectSymbol={selectSymbol} chart={chart} symbolQuote={symbolQuote} applyLightboxHandoff={applyLightboxHandoff} dayTradeHandoff={dayTradeHandoff} loadingChart={loadingChart} vcpOn={vcpOn} setVcpOn={setVcpOn} setActiveTab={setActiveTab} macroData={macroData} C={TD} MONO={MONO} SANS={SANS} />
         ) : (
           <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "220px 1fr 280px" }}>
-            <div style={{ borderRight: `1px solid ${C.border}`, minHeight: 0, overflow: "hidden" }}>
-              <CommandSearchPanel symbol={symbol} onSelectSymbol={selectSymbol} onOpenDaytrade={applyLightboxHandoff} chart={chart} symbolQuote={symbolQuote} C={C} MONO={MONO} SANS={SANS} />
+            <div style={{ borderRight: `1px solid ${TD.border}`, minHeight: 0, overflow: "hidden", background: TD.bg }}>
+              <CommandSearchPanel symbol={symbol} onSelectSymbol={selectSymbol} onOpenDaytrade={applyLightboxHandoff} chart={chart} symbolQuote={symbolQuote} C={TD} MONO={MONO} SANS={SANS} hideSearch />
             </div>
-            <ChartPane symbol={symbol} chart={chart} loadingChart={loadingChart} vcpOn={vcpOn} setVcpOn={setVcpOn} C={C} MONO={MONO} SANS={SANS} />
+            <ChartPane symbol={symbol} chart={chart} loadingChart={loadingChart} vcpOn={vcpOn} setVcpOn={setVcpOn} C={TD} MONO={MONO} SANS={SANS} chartTf={chartTf} setChartTf={setChartTf} />
             {/* Right column (2026-08-27) — Market Context moved to its own
                 real top-level section above the core zone, so this column
                 is Sniper (CortexMiniPanel) alone now, taking the full
                 real height instead of sharing it with a collapsed strip. */}
-            <div style={{ borderLeft: `1px solid ${C.border}`, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-              <CortexMiniPanel symbol={symbol} onSelectSymbol={selectSymbol} setActiveTab={setActiveTab} dayTradeHandoff={dayTradeHandoff} C={C} MONO={MONO} SANS={SANS} />
+            <div style={{ borderLeft: `1px solid ${TD.border}`, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column", background: TD.bg }}>
+              <CortexMiniPanel symbol={symbol} onSelectSymbol={selectSymbol} setActiveTab={setActiveTab} dayTradeHandoff={dayTradeHandoff} macroData={macroData} C={TD} MONO={MONO} SANS={SANS} />
             </div>
           </div>
         )}
+      </div>
+
+      {/* Workspace Grid (Trade Desk redesign Phase 1) — a plain sibling
+          BELOW the fixed-height core zone and ABOVE the bottom dock, same
+          "own bounded box, never a flex child of the fixed-height core
+          zone" rule MarketContextPanel's own mount point above already
+          documents (the reason that rule exists: ChartPane's own
+          ref-measurement effect can runaway-grow if a variable-height
+          sibling is folded into that same fixed budget). Each card here is
+          self-sized and real-data-only; none of them invent a number the
+          rest of the app doesn't already compute. */}
+      <div style={{ padding: "10px 12px", display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(280px, 1fr))", gap: 10, background: TD.bg, borderTop: `1px solid ${TD.border}` }}>
+        <MovementIntelligenceCard symbol={symbol} chart={chart} macroData={macroData} sectorData={sectorData} C={TD} MONO={MONO} SANS={SANS} />
+        <InstitutionalFlowCard symbol={symbol} C={TD} MONO={MONO} SANS={SANS} />
+        <OptionsIntelligencePanel symbol={symbol} C={TD} MONO={MONO} SANS={SANS} />
       </div>
 
       {/* Bottom dock — 10 modules, one shared panel, only the selected one
@@ -507,7 +589,9 @@ export default function TradeDeskTab({
 // tick, which is the exact "chart torn down/recreated on every pixel of a
 // drag-resize" bug TrendChart.jsx's own header comment already documents
 // avoiding for its own "fill" mode.
-function ChartPane({ symbol, chart, loadingChart, vcpOn, setVcpOn, C, MONO, SANS }) {
+const CHART_TF_OPTIONS = [["5m", "5m"], ["15m", "15m"], ["30m", "30m"], ["1h", "1H"], ["1d", "1D"], ["1wk", "1W"]];
+
+function ChartPane({ symbol, chart, loadingChart, vcpOn, setVcpOn, C, MONO, SANS, chartTf, setChartTf }) {
   const wrapRef = useRef(null);
   const [chartHeight, setChartHeight] = useState(480);
   useEffect(() => {
@@ -534,7 +618,21 @@ function ChartPane({ symbol, chart, loadingChart, vcpOn, setVcpOn, C, MONO, SANS
 
   return (
     <div style={{ minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-      <div style={{ padding: "8px 10px 0", display: "flex", justifyContent: "flex-end" }}>
+      <div style={{ padding: "8px 10px 0", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+        {/* Candle timeframe (Trade Desk redesign Phase 1, §6) — the real
+            supported set only (5m/15m/30m/1H/1D/1W, same as
+            MarketTerminalTab.jsx's own picker); never labeled 1m/4H since
+            those granularities don't exist server-side. */}
+        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+          {CHART_TF_OPTIONS.map(([id, lbl]) => (
+            <button key={id} onClick={() => setChartTf(id)} disabled={loadingChart}
+              style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 800, padding: "4px 9px", borderRadius: 6, cursor: loadingChart ? "default" : "pointer",
+                border: `1px solid ${chartTf === id ? C.accent : C.border}`, background: chartTf === id ? `${C.accent}18` : "transparent",
+                color: chartTf === id ? C.accent : C.textDim, opacity: loadingChart ? 0.6 : 1 }}>
+              {lbl}
+            </button>
+          ))}
+        </div>
         <button
           onClick={() => setVcpOn((v) => !v)}
           title="Toggle the real VCP contraction/pivot/volume-dry-up overlay"
@@ -560,7 +658,7 @@ function ChartPane({ symbol, chart, loadingChart, vcpOn, setVcpOn, C, MONO, SANS
   );
 }
 
-function MobileTradeDeskBody({ symbol, selectSymbol, chart, symbolQuote, applyLightboxHandoff, dayTradeHandoff, loadingChart, vcpOn, setVcpOn, setActiveTab, C, MONO, SANS }) {
+function MobileTradeDeskBody({ symbol, selectSymbol, chart, symbolQuote, applyLightboxHandoff, dayTradeHandoff, loadingChart, vcpOn, setVcpOn, setActiveTab, macroData, C, MONO, SANS }) {
   const [view, setView] = useState("chart");
   return (
     <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
@@ -598,7 +696,7 @@ function MobileTradeDeskBody({ symbol, selectSymbol, chart, symbolQuote, applyLi
             )}
           </div>
         )}
-        {view === "cortex" && <CortexMiniPanel symbol={symbol} onSelectSymbol={selectSymbol} setActiveTab={setActiveTab} dayTradeHandoff={dayTradeHandoff} C={C} MONO={MONO} SANS={SANS} />}
+        {view === "cortex" && <CortexMiniPanel symbol={symbol} onSelectSymbol={selectSymbol} setActiveTab={setActiveTab} dayTradeHandoff={dayTradeHandoff} macroData={macroData} C={C} MONO={MONO} SANS={SANS} />}
       </div>
     </div>
   );

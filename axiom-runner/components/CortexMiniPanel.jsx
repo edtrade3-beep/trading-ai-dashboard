@@ -5,6 +5,7 @@ import { parseCortexQuery } from "./cortex-engine.js";
 import WhyBreakdownPanel from "./WhyBreakdownPanel.jsx";
 import EdgeTimelineSparkline from "./EdgeTimelineSparkline.jsx";
 import { DAYTRADE_STATE_LABEL, DAYTRADE_STATE_COLOR, EDGE_MONITOR_META } from "./ActivePositionsCard.jsx";
+import { computeAiTradeScore } from "./market-helpers.js";
 
 // CortexMiniPanel — Command Center's right column (2026-08-25, explicit
 // user request: unified one-screen layout, "ask anything" + "AI VERDICT"
@@ -42,7 +43,144 @@ function riskLevelFor(opp) {
 }
 const RISK_LEVEL_COLOR = { LOW: "#0d9465", MODERATE: "#d6a312", HIGH: "#c8282a" };
 
-export default function CortexMiniPanel({ symbol, onSelectSymbol, setActiveTab, dayTradeHandoff, C, MONO, SANS }) {
+// Score Breakdown (Trade Desk redesign Phase 1, §8 — "AI Score Engine"
+// transparent bucket breakdown). Zero new scoring: am-core-engine.js's own
+// computeCoreScore already returns these exact 11 real weighted buckets
+// (opp.breakdown, already flowing through opportunity-engine.js's
+// computeOpportunity into row.opportunity — confirmed via code read, no
+// server change needed) — this only renders what was already computed and
+// already reaching the client, unused until now. Max points per bucket
+// match computeCoreScore's own real weights (am-core-engine.js) exactly;
+// keep in sync if that engine's weights ever change.
+const SCORE_BUCKET_META = {
+  regime: { label: "MARKET REGIME", max: 14 },
+  trend: { label: "TREND", max: 14 },
+  structure: { label: "STRUCTURE", max: 11 },
+  momentum: { label: "MOMENTUM", max: 7 },
+  volume: { label: "VOLUME", max: 9 },
+  relativeStrength: { label: "RELATIVE STRENGTH", max: 9 },
+  setupQuality: { label: "VCP SETUP", max: 9 },
+  entryQuality: { label: "ENTRY QUALITY", max: 9 },
+  sector: { label: "SECTOR", max: 8 },
+  liquidity: { label: "LIQUIDITY", max: 5 },
+  catalyst: { label: "CATALYST", max: 5 },
+};
+function ScoreBreakdown({ opp, overrideReason, C, MONO, SANS }) {
+  const [open, setOpen] = useState(false);
+  if (!opp || !opp.breakdown) return null;
+  return (
+    <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${C.border}`, textAlign: "left" }}>
+      <button onClick={() => setOpen((v) => !v)} style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", background: "transparent", border: "none", cursor: "pointer", padding: 0, fontFamily: MONO, fontSize: 9.5, fontWeight: 800, color: C.textDim, letterSpacing: 0.5 }}>
+        <span>SCORE BREAKDOWN — {opp.score}/100</span>
+        <span>{open ? "▾" : "▸"}</span>
+      </button>
+      {open && (
+        <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 4 }}>
+          {Object.entries(SCORE_BUCKET_META).map(([key, meta]) => {
+            const v = Number(opp.breakdown[key]);
+            if (!Number.isFinite(v)) return null;
+            const pct = Math.max(0, Math.min(100, (v / meta.max) * 100));
+            const barColor = pct >= 70 ? "#0d9465" : pct >= 40 ? "#d6a312" : "#c8282a";
+            return (
+              <div key={key}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 9.5, color: C.textSec, marginBottom: 2 }}>
+                  <span>{meta.label}</span>
+                  <span>{v.toFixed(1)}/{meta.max}</span>
+                </div>
+                <div style={{ height: 4, borderRadius: 2, background: C.border, overflow: "hidden" }}>
+                  <div style={{ width: `${pct}%`, height: "100%", background: barColor }} />
+                </div>
+              </div>
+            );
+          })}
+          {/* classifyCoreVerdict's real hard-gate override reason (§8: "the
+              system must explain the override" — e.g. a high raw score
+              still forced to AVOID by a broken 4H structure). Same real
+              text already shown above the TIER/WIN/EV row as coreReason —
+              repeated here, next to the buckets, so the override is legible
+              in the same place as the numbers it's overriding. */}
+          {overrideReason && (
+            <div style={{ marginTop: 2, fontFamily: SANS, fontSize: 10, color: C.textDim, fontStyle: "italic" }}>
+              Override: {overrideReason}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Final Decision + Relative Strength card (Trade Desk redesign Phase 1,
+// §17 + §22-23). Two real reads only — never a fabricated 5-way BUY/CALL/
+// HOLD/PUT/SELL probability grid (per the redesign plan's own explicit
+// scope decision: this app has exactly 2 independently-computed real
+// leans for a symbol, not 5):
+//   1. Stock-side bias — the SAME real verdict/score/probability already
+//      shown in the AI VERDICT card above (verdictMeta/opp), repeated here
+//      only as a compact one-line summary, never recomputed.
+//   2. Options-side lean — computeAiTradeScore (market-helpers.js, the
+//      same real function MarketTerminalTab.jsx's "AI Trade Engine" button
+//      uses) called with only `row` (this panel's own already-fetched
+//      trend-screen row) — trend/momentum/volume/RS/structure are real;
+//      options-flow/dark-pool/news/gamma/liquidity honestly degrade to
+//      that function's own neutral midpoint since this compact panel
+//      doesn't fetch those per-symbol feeds. Disclosed below, not hidden.
+// RS: analysis.row.rsRating (real, already on every trend-screen row) plus
+// a real day%-vs-SPY/QQQ comparison from macroData (already polled
+// app-wide) — no new fetch.
+function FinalDecisionAndRS({ analysis, opp, macroData, C, MONO, SANS }) {
+  const row = analysis.row;
+  const aiTrade = row ? computeAiTradeScore({ row }) : null;
+  const rsRating = Number(row?.rsRating);
+  const dayPct = Number(row?.dayChangePct);
+  const findMacro = (sym) => (macroData || []).find((m) => (m.symbol || "").toUpperCase() === sym);
+  const spyPct = Number(findMacro("SPY")?.changesPercentage);
+  const qqqPct = Number(findMacro("QQQ")?.changesPercentage);
+  const vs = (benchPct, label) => {
+    if (!Number.isFinite(dayPct) || !Number.isFinite(benchPct)) return null;
+    const diff = dayPct - benchPct;
+    const word = diff > 0.15 ? "STRONG" : diff < -0.15 ? "WEAK" : "IN LINE";
+    const color = diff > 0.15 ? "#0d9465" : diff < -0.15 ? "#c8282a" : C.textDim;
+    return <span key={label}><span style={{ color: C.textDim }}>{label} </span><b style={{ color }}>{word}</b></span>;
+  };
+  if (!Number.isFinite(rsRating) && !aiTrade) return null;
+  return (
+    <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 12px", marginBottom: 12 }}>
+      <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.6, marginBottom: 6 }}>FINAL DECISION</div>
+      {opp?.verdict && (
+        <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11, marginBottom: 4 }}>
+          <span style={{ color: C.textDim }}>STOCK</span>
+          <b style={{ color: CORE_VERDICT_META[opp.verdict]?.color || C.text }}>{CORE_VERDICT_META[opp.verdict]?.label || opp.verdict}</b>
+        </div>
+      )}
+      {aiTrade && (
+        <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11, marginBottom: 4 }}>
+          <span style={{ color: C.textDim }}>OPTIONS LEAN</span>
+          <b style={{ color: aiTrade.recommendation.color }}>{aiTrade.recommendation.label}</b>
+        </div>
+      )}
+      {aiTrade && (
+        <div style={{ fontFamily: SANS, fontSize: 9.5, color: C.textDim, fontStyle: "italic", marginBottom: Number.isFinite(rsRating) ? 8 : 0 }}>
+          Options lean uses real trend/momentum/volume/RS/structure only — no per-symbol options-flow/dark-pool/news/gamma fetch in this compact view (those default to a neutral midpoint).
+        </div>
+      )}
+      {Number.isFinite(rsRating) && (
+        <div style={{ paddingTop: 8, borderTop: `1px solid ${C.border}` }}>
+          <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11, marginBottom: 4 }}>
+            <span style={{ color: C.textDim }}>RS RATING</span>
+            <b style={{ color: rsRating >= 70 ? "#0d9465" : rsRating <= 30 ? "#c8282a" : C.text }}>{rsRating}/99</b>
+          </div>
+          <div style={{ display: "flex", gap: 12, fontFamily: MONO, fontSize: 10.5 }}>
+            {vs(spyPct, "vs SPY")}
+            {vs(qqqPct, "vs QQQ")}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function CortexMiniPanel({ symbol, onSelectSymbol, setActiveTab, dayTradeHandoff, macroData, C, MONO, SANS }) {
   const [query, setQuery] = useState("");
   const [analysis, setAnalysis] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -271,6 +409,7 @@ export default function CortexMiniPanel({ symbol, onSelectSymbol, setActiveTab, 
                 </div>
               );
             })()}
+            {opp && <ScoreBreakdown opp={opp} overrideReason={analysis.row.coreReason} C={C} MONO={MONO} SANS={SANS} />}
           </div>
         )}
 
@@ -311,6 +450,8 @@ export default function CortexMiniPanel({ symbol, onSelectSymbol, setActiveTab, 
             No real verdict available for {analysis.symbol} right now.
           </div>
         )}
+
+        {analysis && <FinalDecisionAndRS analysis={analysis} opp={opp} macroData={macroData} C={C} MONO={MONO} SANS={SANS} />}
 
         {analysis && (
           <div style={{ marginBottom: 12 }}>
