@@ -85,12 +85,55 @@ function classifyOpportunityTier({ verdict, entryStage, antiChaseBand, structura
     return structurallyInvalid ? "INVALIDATED" : "WAIT";
   }
   if (chaseBlocked) return "EXTENDED";
+  // Real bug fix (Autopilot goal audit, 2026-08-30): entry-engine.js's own
+  // "EARLY" entryStage (computeEntryPlan) carries a real, non-null
+  // entryPrice — a genuinely executable setup, same as BREAKOUT/RETEST/
+  // CONFIRMATION — but was missing from this check, so an EARLY_BUY-
+  // verdict, EARLY-stage row (exactly the "caught it before it became
+  // obvious" case the platform's own stated goal cares most about) fell
+  // through to the final `return "WAIT"` below and was indistinguishable
+  // from a setup that genuinely isn't ready yet. Included now.
   if ((verdict === "EARLY_BUY" || verdict === "BUY") &&
-      (entryStage === "BREAKOUT" || entryStage === "RETEST" || entryStage === "CONFIRMATION")) {
+      (entryStage === "EARLY" || entryStage === "BREAKOUT" || entryStage === "RETEST" || entryStage === "CONFIRMATION")) {
     return "ACTIONABLE";
   }
   if (verdict === "WATCH") return "DEVELOPING";
   return "WAIT";
+}
+
+// Unified EARLY/DEVELOPING/CONFIRMED/LATE/FAILED/EXIT display vocabulary
+// (Autopilot goal spec, 2026-08-30) — a pure translation layer over the
+// two real classifiers that already exist (classifyOpportunityTier above,
+// for pre-entry candidates; position-decision-engine.js's computePositionState,
+// for open positions), NOT a merge of the two functions themselves. Each
+// keeps its own real vocabulary for its own existing consumers (tiers.
+// actionable/.../invalidated groupings, HARD_EXIT/TAKE_PARTIAL/TRAIL/
+// WARNING/HOLD position-management branches) — nothing about how either
+// one is COMPUTED changes here. This only gives a caller that wants one
+// consistent label spanning both pre- and post-entry (e.g. a single
+// Autopilot activity/opportunity feed) a real, honest way to display that,
+// instead of two different vocabularies bleeding into one UI.
+function toOpportunityStage({ tier, entryStage } = {}) {
+  if (tier === "ACTIONABLE") return entryStage === "EARLY" ? "EARLY" : "CONFIRMED";
+  if (tier === "DEVELOPING") return "DEVELOPING";
+  if (tier === "WAIT") return "DEVELOPING"; // not yet actionable, not dead — same real meaning as DEVELOPING in this vocabulary
+  if (tier === "EXTENDED") return "LATE";
+  if (tier === "INVALIDATED") return "FAILED";
+  return null; // honest null — never guess a stage for an unrecognized/missing tier
+}
+
+// Same translation for an OPEN position's real state (position-decision-
+// engine.js's computePositionState) — the vocabulary's one EXIT value.
+// HOLD/WARNING/TRAIL/TAKE_PARTIAL are all "still an active, managed
+// position" in this coarser 6-value vocabulary — WARNING/TRAIL/
+// TAKE_PARTIAL keep their own real distinct meaning wherever
+// computePositionState's own output is already shown directly; this is
+// only for a caller that wants the SAME 6-value label used for pre-entry
+// opportunities to also cover open positions.
+function toOpportunityStageFromPosition(positionState) {
+  if (positionState === "HARD_EXIT" || positionState === "EXIT") return "EXIT";
+  if (positionState === "TAKE_PARTIAL" || positionState === "TRAIL" || positionState === "WARNING" || positionState === "HOLD") return "CONFIRMED";
+  return null;
 }
 
 // Options-vs-structure cross-check (spec section 13's explicit non-
@@ -287,6 +330,10 @@ function computeOpportunity({ symbol, row, regime, marketRegime, sectorInfo = nu
     verdict: deep.verdict,
     verdictReason: deep.reason,
     tier,
+    // Unified EARLY/DEVELOPING/CONFIRMED/LATE/FAILED display label (see
+    // toOpportunityStage above) — additive, `tier` stays the real field
+    // every existing consumer already groups/filters on.
+    stage: toOpportunityStage({ tier, entryStage: entryPlan.stage }),
     score: coreScore.score,
     breakdown: coreScore.breakdown,
     reasons: coreScore.reasons,
@@ -317,5 +364,5 @@ function computeOpportunity({ symbol, row, regime, marketRegime, sectorInfo = nu
 
 module.exports = {
   computeOpportunity, computeExpectedValue, classifyOpportunityTier, checkOptionsConfirmsStructure,
-  buildMarketFingerprint, computeCounterfactualEv,
+  buildMarketFingerprint, computeCounterfactualEv, toOpportunityStage, toOpportunityStageFromPosition,
 };

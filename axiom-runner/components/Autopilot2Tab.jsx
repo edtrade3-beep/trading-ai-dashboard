@@ -155,6 +155,15 @@ export default function Autopilot2Tab({ C, MONO, SANS }) {
         {best ? (
           <div style={{ display: "flex", gap: 20, rowGap: 8, flexWrap: "wrap", alignItems: "baseline" }}>
             <span style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: C.accent }}>{best.symbol}</span>
+            {best.stage && (
+              <span title="EARLY = just clearing entry criteria, before it's obvious. CONFIRMED = fully confirmed breakout/retest."
+                style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: 0.5,
+                  color: best.stage === "EARLY" ? "#0d9465" : C.accent,
+                  background: `${best.stage === "EARLY" ? "#0d9465" : C.accent}18`,
+                  border: `1px solid ${best.stage === "EARLY" ? "#0d9465" : C.accent}55`, borderRadius: 4, padding: "2px 7px" }}>
+                {best.stage}
+              </span>
+            )}
             {stat("TRADE QUALITY", best.score)}
             {stat("PROBABILITY", best.probability != null ? `${best.probability}%` : "insufficient data")}
             {stat("EXPECTED R", Number.isFinite(best.expectedValue) ? `${best.expectedValue >= 0 ? "+" : ""}${best.expectedValue}%` : "—")}

@@ -3,7 +3,7 @@
 // test/am-core-engine.test.js / test/entry-engine.test.js. Run:
 // node test/opportunity-engine.test.js (or npm test).
 const assert = require("node:assert");
-const { computeOpportunity, computeExpectedValue, classifyOpportunityTier, checkOptionsConfirmsStructure, buildMarketFingerprint, computeCounterfactualEv } = require("../src/opportunity-engine");
+const { computeOpportunity, computeExpectedValue, classifyOpportunityTier, checkOptionsConfirmsStructure, buildMarketFingerprint, computeCounterfactualEv, toOpportunityStage, toOpportunityStageFromPosition } = require("../src/opportunity-engine");
 
 let passed = 0;
 function ok(name, fn) { try { fn(); passed++; console.log(`  ✓ ${name}`); } catch (e) { console.error(`  ✗ ${name}\n    ${e.message}`); process.exitCode = 1; } }
@@ -59,6 +59,48 @@ ok("AVOID_LONG with a real structural cause (broken structure/critical flag/bear
 });
 ok("AVOID_LONG purely from the entry-score floor (structure otherwise intact) -> WAIT, not INVALIDATED — a real gap found against live data (93% of the scan universe was mislabeled dead before this split)", () => {
   assert.strictEqual(classifyOpportunityTier({ verdict: "AVOID_LONG", entryStage: "NONE", antiChaseBand: "NORMAL", structurallyInvalid: false }), "WAIT");
+});
+ok("real bug fix (Autopilot goal audit, 2026-08-30): BUY/EARLY_BUY + entryStage EARLY (a real, executable early entry, per entry-engine.js) now -> ACTIONABLE, not silently dropped to WAIT", () => {
+  assert.strictEqual(classifyOpportunityTier({ verdict: "EARLY_BUY", entryStage: "EARLY", antiChaseBand: "NORMAL" }), "ACTIONABLE");
+  assert.strictEqual(classifyOpportunityTier({ verdict: "BUY", entryStage: "EARLY", antiChaseBand: "NORMAL" }), "ACTIONABLE");
+});
+
+console.log("\nChecking toOpportunityStage / toOpportunityStageFromPosition — the unified EARLY/DEVELOPING/CONFIRMED/LATE/FAILED/EXIT display vocabulary (Autopilot goal spec)…");
+ok("ACTIONABLE + entryStage EARLY -> EARLY (distinct from a fully-confirmed entry)", () => {
+  assert.strictEqual(toOpportunityStage({ tier: "ACTIONABLE", entryStage: "EARLY" }), "EARLY");
+});
+ok("ACTIONABLE + a confirmed entry stage -> CONFIRMED", () => {
+  assert.strictEqual(toOpportunityStage({ tier: "ACTIONABLE", entryStage: "BREAKOUT" }), "CONFIRMED");
+  assert.strictEqual(toOpportunityStage({ tier: "ACTIONABLE", entryStage: "RETEST" }), "CONFIRMED");
+  assert.strictEqual(toOpportunityStage({ tier: "ACTIONABLE", entryStage: "CONFIRMATION" }), "CONFIRMED");
+});
+ok("DEVELOPING and WAIT both real, honest \"not yet actionable\" states -> DEVELOPING", () => {
+  assert.strictEqual(toOpportunityStage({ tier: "DEVELOPING" }), "DEVELOPING");
+  assert.strictEqual(toOpportunityStage({ tier: "WAIT" }), "DEVELOPING");
+});
+ok("EXTENDED (too far above breakout to chase) -> LATE", () => {
+  assert.strictEqual(toOpportunityStage({ tier: "EXTENDED" }), "LATE");
+});
+ok("INVALIDATED (genuinely broken/bearish thesis) -> FAILED", () => {
+  assert.strictEqual(toOpportunityStage({ tier: "INVALIDATED" }), "FAILED");
+});
+ok("an unrecognized/missing tier -> honest null, never a guessed stage", () => {
+  assert.strictEqual(toOpportunityStage({ tier: undefined }), null);
+  assert.strictEqual(toOpportunityStage({}), null);
+});
+ok("an open position's HARD_EXIT/EXIT state -> EXIT", () => {
+  assert.strictEqual(toOpportunityStageFromPosition("HARD_EXIT"), "EXIT");
+  assert.strictEqual(toOpportunityStageFromPosition("EXIT"), "EXIT");
+});
+ok("an open position still being actively managed (TAKE_PARTIAL/TRAIL/WARNING/HOLD) -> CONFIRMED", () => {
+  assert.strictEqual(toOpportunityStageFromPosition("TAKE_PARTIAL"), "CONFIRMED");
+  assert.strictEqual(toOpportunityStageFromPosition("TRAIL"), "CONFIRMED");
+  assert.strictEqual(toOpportunityStageFromPosition("WARNING"), "CONFIRMED");
+  assert.strictEqual(toOpportunityStageFromPosition("HOLD"), "CONFIRMED");
+});
+ok("an unrecognized/missing position state -> honest null", () => {
+  assert.strictEqual(toOpportunityStageFromPosition(null), null);
+  assert.strictEqual(toOpportunityStageFromPosition("SOMETHING_NEW"), null);
 });
 
 console.log("\nChecking checkOptionsConfirmsStructure — the spec's explicit non-negotiable, options never auto-read bullish…");
