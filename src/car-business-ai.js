@@ -40,7 +40,6 @@
 "use strict";
 
 const { callAnthropicWithSearch } = require("./anthropic");
-const { getMode } = require("./credit-saver-mode");
 const { saveCoachOutput, loadCoachLog } = require("./ai-coach-store");
 const { loadHistory, getMostRecentEntry, appendSnapshot, etDateStr } = require("./car-business-store");
 const { loadInventory } = require("./inventory-store");
@@ -76,9 +75,19 @@ Finally write: topOpportunity (one specific real opportunity), biggestRisk (one 
 Never invent a fact, price, or regulation. If you found nothing genuinely material in a domain, say so rather than padding with routine content. Never give legal advice as certainty — flag anything requiring professional/legal review explicitly in the relevant section's summary. Return JSON ONLY, no text outside it:
 {"marketSections":[{"category":"...","classification":"...","summary":"...","dataQuality":"...","sources":["..."]}],"inventoryScores":[{"vin":"...","score":0-100,"classification":"...","reason":"...","expectedGross":0,"expectedDaysToSell":0,"action":"..."}],"opportunities":[{"headline":"...","classification":"...","whyNow":"...","buyPrice":"...","targetRetail":"...","expectedGross":"...","expectedDaysToTurn":"...","customer":"...","leadSource":"...","risk":"LOW|MEDIUM|HIGH","confidence":0-100,"priorHeadline":"..." or null,"status":"NEW|STRENGTHENED|WEAKENED|INVALIDATED|UNCHANGED"}],"dimensions":[{"dimension":"...","state":"...","whyItMatters":"..."}],"topOpportunity":"...","biggestRisk":"...","nextAction":"...","dailySummary":"..."}`;
 
+// Capped at 25 (2026-08-30 fix, live-tested against this dealership's real
+// 525-vehicle lot) — a real first attempt at 60 vehicles timed out against
+// callAnthropicWithSearch's 120s default: scoring that many real VINs
+// individually is a lot of real output JSON on top of the search rounds
+// themselves, and command-center-ai.js's own header comment already
+// documents that more work (search OR output) makes timeout more likely,
+// not a strictly better answer. 25/run, highest-price first (real dollars
+// at risk first) — every real vehicle still gets scored over successive
+// daily runs, just not all 525 in one call.
 function summarizeInventory(inventory) {
   if (!Array.isArray(inventory) || !inventory.length) return "no real inventory on file";
-  return inventory.slice(0, 60).map((v) => `${v.vin} — ${v.year} ${v.make} ${v.model} ${v.trim || ""} · ${v.mileage?.toLocaleString?.() ?? v.mileage} mi · $${v.price} · ${v.condition}`).join("\n");
+  const top = [...inventory].sort((a, b) => (Number(b.price) || 0) - (Number(a.price) || 0)).slice(0, 25);
+  return top.map((v) => `${v.vin} — ${v.year} ${v.make} ${v.model} ${v.trim || ""} · ${v.mileage?.toLocaleString?.() ?? v.mileage} mi · $${v.price} · ${v.condition}`).join("\n");
 }
 
 function summarizeLeads(leadsData) {
@@ -136,13 +145,16 @@ Search for real, current automotive market/credit/regulatory information now and
   let parsed = null;
   let aiError = null;
   try {
-    // maxSearches capped at 3 (2 in saver mode) — same real, hard-learned
-    // limit research-intel-ai.js applies (search rounds eat the same
-    // token budget as the final JSON; more searches makes timeout MORE
-    // likely, not a strictly better answer).
+    // maxSearches capped at 2 (2026-08-30 fix, live-tested against this
+    // dealership's real inventory — a real first attempt at maxSearches:3
+    // timed out). This call's real output is already heavier than
+    // research-intel-ai.js's (up to 25 individually-scored real vehicles
+    // on top of market sections + opportunities + dimensions), so it gets
+    // LESS search budget than that file's 3, not the same, to leave real
+    // headroom for the larger JSON response within the same 120s default.
     const raw = await callAnthropicWithSearch(prompt + "\n\n" + SYSTEM, KEY(), {
       model: "claude-sonnet-4-6", maxTokens: 8000,
-      maxSearches: getMode() === "saver" ? 2 : 3,
+      maxSearches: 2,
       feature: "car-business",
     });
     const m = (raw || "").match(/\{[\s\S]*\}/);
