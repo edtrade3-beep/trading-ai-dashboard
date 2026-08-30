@@ -155,8 +155,17 @@ Search for real, current automotive market/credit/regulatory information now and
     // curl run that the server's OWN internal timeout was firing (a clean
     // JSON error response came back, not a raw connection drop), so this is
     // safe headroom, not fighting an external proxy limit.
+    // maxTokens raised 8000 -> 13000 (2026-08-30, third live fix) — the
+    // timeout fixes above worked (no more "Anthropic API timeout"), but the
+    // next live run failed to PARSE: "Expected ',' or ']' after array
+    // element" ~25.7k characters in, consistent with the real response
+    // being cut off mid-JSON right around the old 8000-token ceiling (15
+    // individually-scored vehicles + market sections + opportunities +
+    // dimensions is a genuinely large structured response). Root-caused to
+    // truncation, not a formatting bug — the fix is more real room to
+    // finish, not a JSON-repair hack.
     const raw = await callAnthropicWithSearch(prompt + "\n\n" + SYSTEM, KEY(), {
-      model: "claude-sonnet-4-6", maxTokens: 8000,
+      model: "claude-sonnet-4-6", maxTokens: 13000,
       maxSearches: 2, timeout: 170000,
       feature: "car-business",
     });
