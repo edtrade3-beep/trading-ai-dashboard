@@ -36,8 +36,19 @@ export default function TrendSetupPanel({ data, C, MONO, SANS }) {
   }, [data?.symbol, su?.entry]);
   if (!data || !data.setup) return null;
   const passN = Number(data.score) || 0;
-  const vColor = su.verdict === "GO" ? "#0d9465" : su.verdict === "WAIT" ? "#d6a312" : "#c8282a";
+  // ONE ENGINE: su.verdict is this route's own real but independent
+  // GO/WAIT/AVOID heuristic (passCount/breakout-based, predates
+  // am-core-engine.js) — kept for callers that don't request the canonical
+  // read. When the caller passed &withDecision=1 and data.coreVerdict came
+  // back, that's the real am-core-engine.js verdict (same one Trade Desk/
+  // Cortex/the Scanner already gate on) and takes priority, so this panel
+  // never shows a "Buy candidate" the rest of the app would call AVOID_LONG
+  // for the same symbol at the same moment.
+  const CORE_TO_DISPLAY = { EARLY_BUY: "GO", BUY: "GO", WATCH: "WAIT", WAIT: "WAIT", AVOID_LONG: "AVOID" };
+  const displayVerdict = data.coreVerdict ? (CORE_TO_DISPLAY[data.coreVerdict] || "WAIT") : su.verdict;
+  const vColor = displayVerdict === "GO" ? "#0d9465" : displayVerdict === "WAIT" ? "#d6a312" : "#c8282a";
   const bl = (() => {
+    if (data.coreVerdict) return data.coreReason || `${passN}/8 — ${su.status}.`;
     // GO covers two real, distinct server-side cases (routes/market.js) that
     // used to share one hardcoded "it's breaking out. Enter above $X" line —
     // wrong when price has already cleared the pivot without volume
@@ -66,7 +77,7 @@ export default function TrendSetupPanel({ data, C, MONO, SANS }) {
     <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
       <div style={{ fontFamily: SANS, fontSize: 13, fontWeight: 600, color: C.text, lineHeight: 1.5,
         background: `${vColor}12`, border: `1px solid ${vColor}55`, borderLeft: `3px solid ${vColor}`, borderRadius: 8, padding: "9px 13px" }}>
-        <b style={{ color: vColor }}>{su.verdict} · {data.stage}:</b> {bl}
+        <b style={{ color: vColor }}>{displayVerdict} · {data.stage}:</b> {bl}
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         {/* Auto-armed on load (see the useEffect above) — this button is

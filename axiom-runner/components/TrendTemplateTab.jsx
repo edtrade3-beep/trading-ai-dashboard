@@ -1,6 +1,13 @@
 import { NUM } from "./theme.js";
 import TrendChart from "./TrendChart.jsx";
 
+// ONE ENGINE: maps the real am-core-engine.js verdict (EARLY_BUY/BUY/
+// WATCH/WAIT/AVOID_LONG) onto this tab's own GO/WAIT/AVOID display
+// vocabulary, so the canonical verdict (when present) can override the
+// route's own independent legacy heuristic instead of showing a
+// contradicting "buy candidate" call for the same symbol.
+const CORE_TO_DISPLAY = { EARLY_BUY: "GO", BUY: "GO", WATCH: "WAIT", WAIT: "WAIT", AVOID_LONG: "AVOID" };
+
 export default function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
   const [sym, setSym]   = React.useState("ARM");
   const [data, setData] = React.useState(null);
@@ -20,7 +27,7 @@ export default function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
     setRowOpen(symbol);
     if (!rowData[symbol]) {
       setRowLoading(symbol);
-      fetch("/api/market/trend-template?symbol=" + encodeURIComponent(symbol))
+      fetch("/api/market/trend-template?symbol=" + encodeURIComponent(symbol) + "&withDecision=1")
         .then(r => r.json())
         .then(d => { if (!d.error) setRowData(prev => ({ ...prev, [symbol]: d })); })
         .catch(() => {})
@@ -95,7 +102,7 @@ export default function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
     const symbol = (s || sym || "ARM").trim().toUpperCase();
     if (!symbol) return;
     if (!silent) { setLoading(true); setErr(null); }
-    fetch("/api/market/trend-template?symbol=" + encodeURIComponent(symbol))
+    fetch("/api/market/trend-template?symbol=" + encodeURIComponent(symbol) + "&withDecision=1")
       .then(r => r.json())
       .then(d => { if (d.error) { if (!silent) { setErr(d.error); setData(null); } } else { setData(d); } })
       .catch(e => { if (!silent) { setErr(e.message); setData(null); } })
@@ -343,10 +350,20 @@ export default function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
                                 <TrendChart data={rd} C={C} MONO={MONO} SANS={SANS} height={360} />
                               </div>
                               <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, padding: 12 }}>
-                                {(() => { const vc = rd.setup.verdict === "GO" ? C.green : rd.setup.verdict === "AVOID" ? C.red : "#d6a312";
-                                  return <div style={{ display: "inline-block", padding: "3px 12px", borderRadius: 6, fontFamily: MONO, fontSize: 14, fontWeight: 900,
-                                    border: `1px solid ${vc}`, background: `${vc}1e`, color: vc, marginBottom: 6 }} title={rd.setup.verdictReason}>{rd.setup.verdict}</div>; })()}
-                                <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, marginBottom: 6 }}>{rd.setup.verdictReason}</div>
+                                {(() => {
+                                  // ONE ENGINE: prefer the real am-core-engine.js verdict
+                                  // (rd.coreVerdict, from this route's &withDecision=1) over
+                                  // rd.setup.verdict's own independent passCount/breakout
+                                  // heuristic — same priority TrendSetupPanel gives it.
+                                  const rdVerdict = rd.coreVerdict ? (CORE_TO_DISPLAY[rd.coreVerdict] || "WAIT") : rd.setup.verdict;
+                                  const rdReason = rd.coreVerdict ? (rd.coreReason || rd.setup.verdictReason) : rd.setup.verdictReason;
+                                  const vc = rdVerdict === "GO" ? C.green : rdVerdict === "AVOID" ? C.red : "#d6a312";
+                                  return <>
+                                    <div style={{ display: "inline-block", padding: "3px 12px", borderRadius: 6, fontFamily: MONO, fontSize: 14, fontWeight: 900,
+                                      border: `1px solid ${vc}`, background: `${vc}1e`, color: vc, marginBottom: 6 }} title={rdReason}>{rdVerdict}</div>
+                                    <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, marginBottom: 6 }}>{rdReason}</div>
+                                  </>;
+                                })()}
                                 {rd.setup.breakout && (() => { const st = rd.setup.breakout.state;
                                   const col = st === "CONFIRMED" ? C.green : st === "BREAKOUT_ACTIVE" ? C.accent : st === "SETUP_READY" ? "#d6a312" : st === "FAILED" ? C.red : C.textDim;
                                   return <div style={{ display: "inline-block", padding: "2px 9px", borderRadius: 5, fontFamily: MONO, fontSize: 10.5, fontWeight: 800,
@@ -472,14 +489,22 @@ export default function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
         );
         // Plain-English bottom line — turns the 8 checks + verdict into one sentence.
         const passN = Number(data.score) || 0;
+        // ONE ENGINE: prefer the real am-core-engine.js verdict (data.coreVerdict,
+        // from &withDecision=1) over su.verdict's own independent
+        // passCount/breakout heuristic — same priority TrendSetupPanel gives it,
+        // so this tab never shows a "buy candidate" the rest of the app would
+        // call AVOID_LONG for the same symbol at the same moment.
+        const displayVerdict = data.coreVerdict ? (CORE_TO_DISPLAY[data.coreVerdict] || "WAIT") : su.verdict;
+        const displayReason = data.coreVerdict ? (data.coreReason || su.verdictReason) : su.verdictReason;
         const bl = (() => {
+          if (data.coreVerdict) return displayReason || `${passN}/8 — ${su.status}.`;
           if (su.verdict === "GO") return `Buy candidate — ${passN}/8 trend checks pass and it's breaking out. Enter above the ${su.entry} pivot with a stop at ${su.stop}.`;
           if (su.verdict === "WAIT" && passN >= 6) return `Strong trend (${passN}/8) but not at a buy point yet — wait for a break above the ${su.entry} pivot on volume before buying.`;
           if (/Stage\s*4/i.test(data.stage || "")) return `Downtrend — ${8 - passN} of 8 trend checks failing (price below its key moving averages). Not a buy; wait for it to reclaim the averages and rebuild a base.`;
           if (passN <= 5) return `Not in gear — only ${passN}/8 trend checks pass. Avoid until the trend re-aligns (price back above the 50/150/200-day MAs).`;
           return su.verdictReason || `${passN}/8 — ${su.status}.`;
         })();
-        const blColor = su.verdict === "GO" ? C.green : su.verdict === "AVOID" ? C.red : "#d6a312";
+        const blColor = displayVerdict === "GO" ? C.green : displayVerdict === "AVOID" ? C.red : "#d6a312";
         return (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <div style={{ fontFamily: SANS, fontSize: 13, fontWeight: 600, color: C.text, lineHeight: 1.5,
@@ -488,9 +513,9 @@ export default function TrendTemplateTab({ C, MONO, SANS, watchlistSymbols }) {
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
               <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text }}>🎯 TRADE SETUP</div>
-              {(() => { const vc = su.verdict === "GO" ? C.green : su.verdict === "AVOID" ? C.red : "#d6a312";
+              {(() => { const vc = displayVerdict === "GO" ? C.green : displayVerdict === "AVOID" ? C.red : "#d6a312";
                 return <div style={{ padding: "4px 12px", borderRadius: 6, fontFamily: MONO, fontSize: 13, fontWeight: 900,
-                  border: `1px solid ${vc}`, background: `${vc}1e`, color: vc }} title={su.verdictReason}>{su.verdict}</div>; })()}
+                  border: `1px solid ${vc}`, background: `${vc}1e`, color: vc }} title={displayReason}>{displayVerdict}</div>; })()}
               {su.breakout && (() => { const st = su.breakout.state;
                 const col = st === "CONFIRMED" ? C.green : st === "BREAKOUT_ACTIVE" ? C.accent : st === "SETUP_READY" ? "#d6a312" : st === "FAILED" ? C.red : C.textDim;
                 return <div style={{ padding: "4px 10px", borderRadius: 6, fontFamily: MONO, fontSize: 11, fontWeight: 800,

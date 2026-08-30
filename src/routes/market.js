@@ -2122,6 +2122,42 @@ async function handleMarket(req, res, requestUrl) {
     const interval = (searchParams.get("interval") || "1d").trim();
     try {
       const payload = await buildTrendTemplate(symbol, { interval });
+      // Same opt-in canonical-verdict attachment as /api/market/trend-screen's
+      // withDecision=1 (One Engine consolidation) — this route's own
+      // payload.setup.verdict is a real but independent GO/WAIT/AVOID
+      // heuristic (passCount/breakout-based, predates am-core-engine.js) that
+      // TrendSetupPanel/TrendTemplateTab display directly as a colored "buy
+      // candidate" call. Left as-is for backward compatibility (other
+      // callers of this route are unaffected, zero extra cost when not
+      // requested), but any caller that opts in gets the real canonical
+      // verdict (coreVerdict/coreCriticalFlags/coreReason) attached
+      // additively so the UI can defer to it instead of the legacy field —
+      // interval only swaps the displayed candles (see the comment at the
+      // interval-swap block below), setup/verdict always come from the real
+      // daily computation, so this attaches safely regardless of `interval`.
+      if (searchParams.get("withDecision") === "1") {
+        try {
+          const { computeRegime, regimeToEntryVocabulary } = require("../trade-planner-scoring");
+          const { computeOpportunity } = require("../opportunity-engine");
+          const [macroRows, trackReport, screenRows] = await Promise.all([
+            fetchMarketQuotes(["SPY", "QQQ", "VIXY"], resolveProviderKeys(searchParams)).catch(() => []),
+            _getTrackReportCached(),
+            screenTrendTemplate([symbol]).catch(() => []),
+          ]);
+          const row = screenRows[0];
+          if (row && !row.error) {
+            const regime = computeRegime(Array.isArray(macroRows) ? macroRows : []);
+            const marketRegime = regimeToEntryVocabulary(regime.label);
+            const opp = computeOpportunity({ symbol, row, regime, marketRegime, trackReport, optionsFlow: null });
+            if (opp) {
+              payload.coreVerdict = opp.verdict;
+              payload.coreCriticalFlags = opp.criticalFlags;
+              payload.coreReason = opp.verdictReason;
+              payload.opportunity = opp;
+            }
+          }
+        } catch { /* best-effort additive enrichment — payload stays fully valid without it */ }
+      }
       return writeJson(res, 200, payload);
     } catch (err) {
       return writeJson(res, 502, { error: err instanceof Error ? err.message : "Trend Template failed." });

@@ -32,7 +32,7 @@ export default function DayTradeTab({ C, MONO, SANS, onDeepDive }) {
   useEffect(() => {
     if (!sel) { setAnalysis(null); return; }
     setAnalysis(null);
-    fetch("/api/market/trend-template?symbol=" + encodeURIComponent(sel))
+    fetch("/api/market/trend-template?symbol=" + encodeURIComponent(sel) + "&withDecision=1")
       .then(r => r.json()).then(d => { if (d && !d.error) setAnalysis(d); }).catch(() => {});
   }, [sel]);
 
