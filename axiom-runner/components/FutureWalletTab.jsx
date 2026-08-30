@@ -30,6 +30,19 @@ const fmtBig = (v) => {
   return v.toFixed(0);
 };
 
+// BTC + HPC Deep Scan, folded into Future Wallet as a filter toggle
+// (2026-08-30, explicit user request: "i want btc+hpc inside future
+// wallet as a sub tab use same set up same engine as future wallet") —
+// same real universe src/btc-hpc-scan.js's HPC_MINER_UNIVERSE used,
+// server-seeded into fw_universe (src/future-wallet-universe.js) so these
+// 12 tickers flow through the exact same real quant/technical/potential/
+// agent pipeline as every other Future Wallet candidate. A ticker-
+// membership filter, not a sector filter — these real companies land in
+// whatever real FMP sector/industry they actually report (some read
+// "Financial Services," some "Technology"), which this deliberately
+// doesn't override.
+const BTC_HPC_TICKERS = new Set(["IREN", "WULF", "CORZ", "CIFR", "RIOT", "MARA", "CLSK", "HUT", "BITF", "HIVE", "APLD", "BTBT"]);
+
 export default function FutureWalletTab({ C, MONO, SANS }) {
   const [universe, setUniverse] = useState(null);
   const [quant, setQuant] = useState([]);
@@ -60,6 +73,7 @@ export default function FutureWalletTab({ C, MONO, SANS }) {
 
   const [search, setSearch] = useState(horseHandoff || "");
   const [sectorFilter, setSectorFilter] = useState("ALL");
+  const [btcHpcOnly, setBtcHpcOnly] = useState(false);
   const [showAll, setShowAll] = useState(!!horseHandoff); // real handoff may land on a non-US symbol; only default true when arriving via handoff — preserves the normal US-only default otherwise
   const [expanded, setExpanded] = useState(horseHandoff || null);
   const [runningFor, setRunningFor] = useState(null);
@@ -105,11 +119,11 @@ export default function FutureWalletTab({ C, MONO, SANS }) {
   const filtered = useMemo(() => {
     const q = search.trim().toUpperCase();
     return rows
-      .filter(r => showAll || r.country === "US")
-      .filter(r => sectorFilter === "ALL" || r.sector === sectorFilter)
+      .filter(r => btcHpcOnly ? BTC_HPC_TICKERS.has(r.ticker) : (showAll || r.country === "US"))
+      .filter(r => btcHpcOnly || sectorFilter === "ALL" || r.sector === sectorFilter)
       .filter(r => !q || r.ticker.toUpperCase().includes(q) || (r.company || "").toUpperCase().includes(q))
       .sort((a, b) => (Number(b.potential?.future_potential_score) || -1) - (Number(a.potential?.future_potential_score) || -1));
-  }, [rows, showAll, sectorFilter, search]);
+  }, [rows, showAll, sectorFilter, btcHpcOnly, search]);
 
   const runDeepResearch = (ticker) => {
     setRunningFor(ticker);
@@ -144,7 +158,9 @@ export default function FutureWalletTab({ C, MONO, SANS }) {
         <div>
           <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.text }}>💰 FUTURE WALLET</div>
           <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 2 }}>
-            {loading ? "Loading real candidate data…" : `${filtered.length} of ${universe ? universe.length : 0} real candidates · sorted by Future Potential Score`}
+            {loading ? "Loading real candidate data…" : btcHpcOnly
+              ? `${filtered.length} of ${BTC_HPC_TICKERS.size} real BTC-mining/HPC-hosting candidates · sorted by Future Potential Score`
+              : `${filtered.length} of ${universe ? universe.length : 0} real candidates · sorted by Future Potential Score`}
           </div>
         </div>
         <button onClick={loadAll} disabled={loading}
@@ -164,17 +180,25 @@ export default function FutureWalletTab({ C, MONO, SANS }) {
         <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10, flexWrap: "wrap" }}>
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Search ticker or company…"
             style={{ flex: "1 1 220px", fontFamily: MONO, fontSize: 13, padding: "7px 12px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.card, color: C.text }} />
-          <button onClick={() => setShowAll(v => !v)}
-            style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "6px 10px", borderRadius: 7, cursor: "pointer",
+          <button onClick={() => setShowAll(v => !v)} disabled={btcHpcOnly}
+            style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "6px 10px", borderRadius: 7, cursor: btcHpcOnly ? "default" : "pointer", opacity: btcHpcOnly ? 0.4 : 1,
               border: `1px solid ${showAll ? C.accent : C.border}`, background: showAll ? `${C.accent}18` : "transparent", color: showAll ? C.accent : C.textDim }}>
             {showAll ? `✓ Showing all (incl. ${nonUsCount} non-US)` : `🇺🇸 US only — show all →`}
           </button>
+          <button onClick={() => { setBtcHpcOnly(v => !v); setSectorFilter("ALL"); }}
+            title="The real BTC-mining/HPC-hosting pivot universe (IREN/WULF/CORZ/CIFR/RIOT/MARA/CLSK/HUT/BITF/HIVE/APLD/BTBT), same engine as every other candidate here"
+            style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "6px 10px", borderRadius: 7, cursor: "pointer",
+              border: `1px solid ${btcHpcOnly ? "#f7931a" : C.border}`, background: btcHpcOnly ? "#f7931a22" : "transparent", color: btcHpcOnly ? "#f7931a" : C.textDim }}>
+            {btcHpcOnly ? "✓ 🪙 BTC + HPC — back to all →" : "🪙 BTC + HPC"}
+          </button>
         </div>
 
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
-          {chip(sectorFilter === "ALL", () => setSectorFilter("ALL"), "ALL")}
-          {sectors.map(s => chip(sectorFilter === s, () => setSectorFilter(s), s))}
-        </div>
+        {!btcHpcOnly && (
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
+            {chip(sectorFilter === "ALL", () => setSectorFilter("ALL"), "ALL")}
+            {sectors.map(s => chip(sectorFilter === s, () => setSectorFilter(s), s))}
+          </div>
+        )}
 
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" }}>
           <div style={{ display: "grid", gridTemplateColumns: "70px 1fr 140px 110px 100px 40px", gap: 8, padding: "8px 14px", background: C.surface, borderBottom: `1px solid ${C.border}`, fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: 0.4 }}>

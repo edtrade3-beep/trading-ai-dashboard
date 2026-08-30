@@ -120,12 +120,16 @@ export const SIDEBAR_ITEMS = [
   // standalone tool, not a sub-view of an existing tab.
   { id: "photobanners", label: "Photo Banners", icon: "🎨", tab: "photobanners" },
 
-  // BTC + HPC Deep Scan — real BTC regime + a ranked scan of the real
-  // BTC-mining/HPC-hosting pivot universe (IREN/WULF/CORZ/CIFR/RIOT),
-  // explicit user request (2026-08-20). Given its own row, same reasoning
-  // as Light Box/Future Wallet above — a genuinely new standalone
-  // analytical surface, not a sub-view of an existing tab.
-  { id: "btc-hpc",   label: "BTC + HPC",   icon: "₿",  tab: "btc-hpc" },
+  // BTC + HPC Deep Scan dropped from the rail (2026-08-30, explicit user
+  // request: "i want btc+hpc inside future wallet as a sub tab use same
+  // set up same engine as future wallet"). The real BTC-mining/HPC-hosting
+  // pivot universe (12 tickers) is now folded directly into Future
+  // Wallet's own real universe/quant/technical/potential/agent pipeline —
+  // a "🪙 BTC + HPC" filter toggle inside FutureWalletTab.jsx, not a
+  // second engine. BtcHpcScanCard.jsx and its real /api/market/btc-hpc-
+  // scan|deep routes are left on disk, unreferenced (same "leave the file,
+  // drop the front door" treatment prior merges in this file used) — the
+  // BTCHPC/HPC command-palette aliases now point at Future Wallet instead.
 
   // Research — macro/valuation/AI-capex research report, explicit user
   // request (2026-08-30: "put it inside platform in research tab") after a

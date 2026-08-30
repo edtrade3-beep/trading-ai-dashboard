@@ -187,7 +187,6 @@ import DayTradeConsoleTab from "./components/DayTradeConsoleTab.jsx";
 import FutureWalletTab from "./components/FutureWalletTab.jsx";
 import ResearchTab from "./components/ResearchTab.jsx";
 import PhotoBannerTab from "./components/PhotoBannerTab.jsx";
-import BtcHpcScanCard from "./components/BtcHpcScanCard.jsx";
 
 // Attach the API token (if the user set one) to every same-origin /api request,
 // so money-moving routes work when server-side API_AUTH_TOKEN auth is enabled.
@@ -4193,10 +4192,11 @@ export default function App() {
       // row, this is the redundant one-keystroke path every sidebar tab gets.
       FUTUREWALLET: "futurewallet",
       WALLET: "futurewallet",
-      // BTC + HPC Deep Scan (2026-08-20) — also has a real Sidebar.jsx row,
-      // this is the redundant one-keystroke path every sidebar tab gets.
-      BTCHPC: "btc-hpc",
-      HPC: "btc-hpc",
+      // BTC + HPC Deep Scan (2026-08-20) — folded into Future Wallet as a
+      // sub-tab (2026-08-30, see Sidebar.jsx's comment); these aliases now
+      // point there instead of the retired standalone destination.
+      BTCHPC: "futurewallet",
+      HPC: "futurewallet",
       // Research Desk (2026-08-30) — also has a real Sidebar.jsx row, this
       // is the redundant one-keystroke path every sidebar tab gets.
       RESEARCH: "research",
@@ -7369,7 +7369,9 @@ export default function App() {
       )}
       {activeTab === "futurewallet" && <FutureWalletTab C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "photobanners" && <PhotoBannerTab C={C} MONO={MONO} SANS={SANS} />}
-      {activeTab === "btc-hpc" && <BtcHpcScanCard C={C} MONO={MONO} SANS={SANS} />}
+      {/* BTC + HPC Deep Scan retired as a standalone destination (2026-08-30)
+          — folded into Future Wallet's "🪙 BTC + HPC" filter toggle instead.
+          BtcHpcScanCard.jsx stays on disk, unreferenced (see Sidebar.jsx). */}
       {activeTab === "research" && <ResearchTab C={C} MONO={MONO} SANS={SANS} />}
       {/* SETTINGS — composite sidebar destination (institutional redesign,
           2026-07-29) folding Coach/Learn/Quran/account-risk settings into

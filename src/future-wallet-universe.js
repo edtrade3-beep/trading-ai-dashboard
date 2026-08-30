@@ -33,6 +33,14 @@ const CORE_SEED_UNIVERSE = [
   "LLY","UNH","ISRG","REGN","VRTX",
   "DELL","MARA","RIOT","RKLB","ASTS","IONQ","SOUN","CLSK","CIFR","WULF","IREN","RDDT",
   "PYPL","DIS","KO","PEP","MCD","IBM",
+  // BTC + HPC Deep Scan folded into Future Wallet as a sub-tab (2026-08-30,
+  // explicit user request: "i want btc+hpc inside future wallet as a sub
+  // tab use same set up same engine as future wallet") — the remaining 6
+  // of the real BTC-mining/HPC-hosting pivot universe (src/btc-hpc-scan.js's
+  // HPC_MINER_UNIVERSE) not already covered above (MARA/RIOT/CLSK/CIFR/
+  // WULF/IREN were already seeded). Real, liquid, listed tickers, same
+  // universe the standalone BTC+HPC tab used — not a new/invented list.
+  "CORZ","HUT","BITF","HIVE","APLD","BTBT",
 ];
 
 // Broadened 2026-08-26: the mega-cap-heavy CORE_SEED_UNIVERSE above has
