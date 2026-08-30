@@ -1164,6 +1164,27 @@ export function computePrediction(q, trend, opts = {}) {
   if (chg > 3)       { score += 10; why.push("Strong momentum today"); }
   else if (chg < -3) { score -= 10; why.push("Heavy selling today"); }
 
+  // Real hard-gate alignment with am-core-engine.js's classifyCoreVerdict
+  // (One Engine consolidation, Phase 2.3 — audit finding: this function's
+  // own momentum/proximity/volume points had NO real anti-chase awareness
+  // and only a soft -30 Stage-4 penalty, not a hard override, so a Stage-4
+  // or too-extended-to-chase stock with strong recent volume could still
+  // numerically score BULLISH here while the canonical engine correctly
+  // hard-gates it to AVOID_LONG — a real, user-visible contradiction).
+  // computePrediction answers a genuinely different real question (a price
+  // TARGET projection, which classifyCoreVerdict doesn't compute at all),
+  // so it's kept as its own function rather than retired — but its
+  // directional label must never contradict a real hard gate the same way
+  // computeAPlusScore's own 2026-08-26 fix already capped ITS score.
+  const stage4 = trend ? /^Stage\s*4/i.test(String(trend.stage || "")) : false;
+  const abovePivotPct = trend ? Number(trend.abovePivotPct) : NaN;
+  const chaseBand = Number.isFinite(abovePivotPct) ? computeAntiChase(abovePivotPct).band : null;
+  const chaseBlocked = chaseBand === "EXTENDED" || chaseBand === "DO_NOT_CHASE";
+  if (stage4 || chaseBlocked) {
+    score = Math.min(score, -20);
+    if (chaseBlocked && !why.some((w) => /extend|chase/i.test(w))) why.unshift("Too extended above the breakout to chase (real anti-chase gate)");
+  }
+
   const dayRange = (Number(q?.dayHigh || 0) - Number(q?.dayLow || 0));
   const atrPct = px > 0 && dayRange > 0 ? (dayRange / px) : 0.025;
   const conf = Math.min(90, 50 + Math.abs(score) / 2);

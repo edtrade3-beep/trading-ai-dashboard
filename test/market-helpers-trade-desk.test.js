@@ -10,7 +10,7 @@ let passed = 0;
 function ok(name, fn) { try { fn(); passed++; console.log(`  ✓ ${name}`); } catch (e) { console.error(`  ✗ ${name}\n    ${e.message}`); process.exitCode = 1; } }
 
 (async () => {
-  const { computeKeyLevels, rankMoveDrivers, classifyMtfAlignment } = await import("../axiom-runner/components/market-helpers.js");
+  const { computeKeyLevels, rankMoveDrivers, classifyMtfAlignment, computePrediction } = await import("../axiom-runner/components/market-helpers.js");
 
   console.log("Checking computeKeyLevels — real top-3 swing-high/low resistance/support…");
 
@@ -117,6 +117,37 @@ function ok(name, fn) { try { fn(); passed++; console.log(`  ✓ ${name}`); } ca
     assert.strictEqual(r.confirmCount, 2);
     assert.strictEqual(r.conflictCount, 1);
     assert.strictEqual(r.knownCount, 3);
+  });
+
+  console.log("Checking computePrediction — real hard-gate alignment with classifyCoreVerdict (One Engine consolidation, Phase 2.3)…");
+
+  const Q = { price: 100, changesPercentage: 1, dayHigh: 102, dayLow: 99 };
+
+  ok("a genuinely strong, non-gated setup can read BULLISH", () => {
+    const r = computePrediction(Q, { stage: "Stage 2 — Uptrend", pctFromHigh: -2, volRatio: 2, abovePivotPct: 1 });
+    assert.strictEqual(r.dir, "BULLISH");
+  });
+
+  ok("regression: Stage 4 forces a real BEARISH read even with otherwise-bullish momentum/volume inputs", () => {
+    const r = computePrediction(Q, { stage: "Stage 4 — Declining", pctFromHigh: -2, volRatio: 2 });
+    assert.strictEqual(r.dir, "BEARISH");
+  });
+
+  ok("regression: real anti-chase EXTENDED/DO_NOT_CHASE forces a real BEARISH read even with otherwise-bullish inputs", () => {
+    const r1 = computePrediction(Q, { stage: "Stage 2 — Uptrend", pctFromHigh: -2, volRatio: 2, abovePivotPct: 6 });
+    assert.strictEqual(r1.dir, "BEARISH");
+    const r2 = computePrediction(Q, { stage: "Stage 2 — Uptrend", pctFromHigh: -2, volRatio: 2, abovePivotPct: 12 });
+    assert.strictEqual(r2.dir, "BEARISH");
+  });
+
+  ok("no real anti-chase data available (abovePivotPct missing) never fabricates a gate", () => {
+    const r = computePrediction(Q, { stage: "Stage 2 — Uptrend", pctFromHigh: -2, volRatio: 2 });
+    assert.strictEqual(r.dir, "BULLISH");
+  });
+
+  ok("the real gate reason is disclosed first in `why` when it fires", () => {
+    const r = computePrediction(Q, { stage: "Stage 4 — Declining", pctFromHigh: -2, volRatio: 2 });
+    assert.match(r.why[0], /stage 4/i);
   });
 
   console.log(`\n${passed} checks passed.`);
