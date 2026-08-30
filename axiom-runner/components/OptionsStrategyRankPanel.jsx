@@ -35,7 +35,7 @@ export default function OptionsStrategyRankPanel({ symbol, marketBias, C, MONO, 
 
   return (
     <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 14px", background: C.card }}>
-      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: 0.6, marginBottom: 8 }}>🧮 OPTIONS STRATEGY RANKING — {symbol}</div>
+      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: 0.6, marginBottom: 8 }}>🧮 OPTIONS STRATEGY RANKING — WHY THIS TRADE? — {symbol}</div>
       {loading && <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>Ranking real strategies off the live chain…</div>}
       {!loading && data && data.reason && <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>{data.reason}</div>}
       {!loading && data && !data.reason && !data.ranked.length && (
@@ -96,6 +96,58 @@ export default function OptionsStrategyRankPanel({ symbol, marketBias, C, MONO, 
                     {s.construction.maxLoss != null && <span style={{ color: C.textDim }}>Max Loss <b style={{ color: C.red }}>${s.construction.maxLoss}</b></span>}
                     <span style={{ color: C.textDim }}>Liquidity <b style={{ color: C.text }}>{s.liquidity ?? "—"}/100</b></span>
                   </div>
+
+                  {/* WHY THIS TRADE? — real narrative over the exact same
+                      real fields shown above, never fabricated (Central
+                      Opportunity & Options Engine goal, 2026-08-30). */}
+                  {s.explanation && (
+                    <div style={{ marginTop: 10, paddingTop: 8, borderTop: `1px solid ${C.border}` }}>
+                      {s.explanation.whyThis?.length > 0 && (
+                        <div style={{ marginBottom: 8 }}>
+                          <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 3 }}>WHY THIS TRADE</div>
+                          <ul style={{ margin: 0, paddingLeft: 16, fontFamily: SANS, fontSize: 11, color: C.textSec, lineHeight: 1.6 }}>
+                            {s.explanation.whyThis.map((b, bi) => <li key={bi}>{b}</li>)}
+                          </ul>
+                        </div>
+                      )}
+                      {s.explanation.marketConditionRequired && (
+                        <div style={{ marginBottom: 8, fontFamily: SANS, fontSize: 11, color: C.textSec }}>
+                          <b style={{ color: C.textDim, fontFamily: MONO, fontSize: 9, letterSpacing: 0.5 }}>REQUIRES: </b>{s.explanation.marketConditionRequired}
+                        </div>
+                      )}
+                      <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 8, fontFamily: SANS, fontSize: 11 }}>
+                        <div><span style={{ color: C.textDim }}>Max risk: </span><span style={{ color: C.text }}>{s.explanation.maxRisk}</span></div>
+                        <div><span style={{ color: C.textDim }}>Profit potential: </span><span style={{ color: C.text }}>{s.explanation.profitPotential}</span></div>
+                      </div>
+                      {(s.explanation.ivImpact || s.explanation.thetaImpact) && (
+                        <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 8, fontFamily: SANS, fontSize: 10.5, color: C.textDim }}>
+                          {s.explanation.ivImpact && <span><b style={{ color: C.textSec }}>{s.explanation.ivImpact.stance}</b> — {s.explanation.ivImpact.note}</span>}
+                        </div>
+                      )}
+                      {s.explanation.thetaImpact && (
+                        <div style={{ marginBottom: 8, fontFamily: SANS, fontSize: 10.5, color: C.textDim }}>
+                          <b style={{ color: C.textSec }}>{s.explanation.thetaImpact.stance}</b> — {s.explanation.thetaImpact.note}
+                        </div>
+                      )}
+                      {s.explanation.invalidation && (
+                        <div style={{ marginBottom: 8, fontFamily: SANS, fontSize: 11, color: C.textSec }}>
+                          <b style={{ color: C.red, fontFamily: MONO, fontSize: 9, letterSpacing: 0.5 }}>INVALIDATED IF: </b>{s.explanation.invalidation}
+                        </div>
+                      )}
+                      {s.explanation.whyNotAlternatives?.length > 0 && (
+                        <div style={{ marginBottom: 8 }}>
+                          <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 3 }}>WHY NOT THE ALTERNATIVES</div>
+                          <ul style={{ margin: 0, paddingLeft: 16, fontFamily: SANS, fontSize: 11, color: C.textSec, lineHeight: 1.6 }}>
+                            {s.explanation.whyNotAlternatives.map((a, ai) => <li key={ai}>{a.whyNot}</li>)}
+                          </ul>
+                        </div>
+                      )}
+                      <div style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim }}>
+                        Options Confidence: <b style={{ color: s.explanation.optionsConfidence >= 85 ? C.green : s.explanation.optionsConfidence >= 50 ? C.amber : C.red }}>{s.explanation.optionsConfidence}/100</b>
+                        {s.explanation.dataQualityNotes?.length > 0 && <span> — {s.explanation.dataQualityNotes.join("; ")}</span>}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

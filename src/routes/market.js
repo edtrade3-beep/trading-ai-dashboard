@@ -5121,7 +5121,25 @@ Explain this.`;
         return writeJson(res, 200, { ok: true, symbol, underlying, ranked: [], unavailable: [], best: null, reason: "No real options chain available for this symbol right now." });
       }
       const { ranked, unavailable, best } = rankAllStrategies({ calls, puts, underlying, bias, character });
-      return writeJson(res, 200, { ok: true, symbol, underlying, bias, character, ranked, unavailable, best, source, generatedAt: new Date().toISOString() });
+
+      // "WHY THIS TRADE?" (Central Opportunity & Options Engine goal,
+      // 2026-08-30) — real per-symbol technical context (breakout/volume/
+      // RS), cheap and best-effort (screenTrendTemplate reuses this
+      // route's own already-cached bars — no new real network cost beyond
+      // the first call for this symbol today), attached to every ranked
+      // structure's real explanation. A failed/degraded technical fetch
+      // just means those specific bullets are honestly omitted below
+      // (whyThisAndNow only cites fields it actually receives) — it never
+      // blocks the real options-only explanation from returning.
+      let technicals = null;
+      try {
+        const [row] = await screenTrendTemplate([symbol]);
+        if (row && !row.error) technicals = { breakoutConfirmed: row.breakoutConfirmed, volRatio: row.volRatio, rsRating: row.rsRating };
+      } catch {}
+      const { explainStrategy } = require("../strategy-explain");
+      const explained = ranked.map((s) => ({ ...s, explanation: explainStrategy(s, ranked, { bias, character, technicals }) }));
+
+      return writeJson(res, 200, { ok: true, symbol, underlying, bias, character, ranked: explained, unavailable, best: explained[0] || null, source, generatedAt: new Date().toISOString() });
     } catch (err) {
       return writeJson(res, 502, { ok: false, error: err instanceof Error ? err.message : "Strategy ranking failed." });
     }

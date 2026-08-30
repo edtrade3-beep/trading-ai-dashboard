@@ -147,7 +147,17 @@ function buildLegs(strategy, { calls, puts, underlying } = {}) {
     const legs = [leg("SELL", "call", shortCall), leg("BUY", "call", longCallC), leg("SELL", "put", shortPut), leg("BUY", "put", longPutC)];
     const gate = liquidityGate(legs);
     if (gate) return gate;
-    const netCredit = round2((shortCall.premium - longCallC.premium) + (shortPut.premium - longPutC.premium));
+    // Real bug fix (2026-08-30, found via strategy-explain.js's new "why"
+    // narrative surfacing a live "$—" maxProfit on a real Iron Condor):
+    // this used shortCall/longCallC/shortPut/longPutC — the RAW pre-leg()
+    // contract objects, which never had a `.premium` field (only leg()
+    // adds it via midPremium) — so `.premium` was always undefined here,
+    // netCredit/maxProfit/maxLoss silently round2()'d to null on every
+    // real Iron Condor ever constructed, even though `available: true`
+    // was still returned. Fixed to read the real premium off the
+    // already-built `legs` array (same real objects the caller receives).
+    const [legShortCall, legLongCall, legShortPut, legLongPut] = legs;
+    const netCredit = round2((legShortCall.premium - legLongCall.premium) + (legShortPut.premium - legLongPut.premium));
     const callWidth = round2(longCallC.strike - shortCall.strike);
     const putWidth = round2(shortPut.strike - longPutC.strike);
     const maxLoss = round2(Math.max(callWidth, putWidth) - netCredit);

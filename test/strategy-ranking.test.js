@@ -122,5 +122,24 @@ ok("a structure the real chain can't support is reported in `unavailable`, never
   assert.ok(r.unavailable.some((u) => u.strategy === "Iron Condor"));
 });
 
+ok("real bug fix regression (2026-08-30): Iron Condor's netCredit/maxProfit/maxLoss are real finite numbers, never null, when the real chain can build it — buildLegs used to read .premium off the raw pre-leg() contract objects (which never had that field), silently round2()-ing every real Iron Condor's risk numbers to null while still reporting available:true", () => {
+  const calls = [
+    contract({ strike: 105, bid: 2.8, ask: 3.2, delta: 0.20 }),
+    contract({ strike: 110, bid: 1.3, ask: 1.7, delta: 0.10 }),
+  ];
+  const puts = [
+    contract({ strike: 95, bid: 2.8, ask: 3.2, delta: -0.20 }),
+    contract({ strike: 90, bid: 1.3, ask: 1.7, delta: -0.10 }),
+  ];
+  const c = buildLegs("Iron Condor", { calls, puts, underlying: 100 });
+  assert.strictEqual(c.available, true, "this real chain has both wings available on both sides — must build");
+  assert.ok(Number.isFinite(c.netCredit), `netCredit must be a real finite number, got ${c.netCredit}`);
+  assert.ok(Number.isFinite(c.maxProfit), `maxProfit must be a real finite number, got ${c.maxProfit}`);
+  assert.ok(Number.isFinite(c.maxLoss), `maxLoss must be a real finite number, got ${c.maxLoss}`);
+  // Real hand-computed check: netCredit = (short call premium - long call premium) + (short put premium - long put premium)
+  // = (3.0 - 1.5) + (3.0 - 1.5) = 3.0
+  assert.strictEqual(c.netCredit, 3.0);
+});
+
 console.log(`\n${passed} checks passed.`);
 if (process.exitCode) console.error("STRATEGY-RANKING TEST FAILED"); else console.log("STRATEGY-RANKING TEST OK");
