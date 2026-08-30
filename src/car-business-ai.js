@@ -46,6 +46,7 @@ const { callAnthropicWithSearch } = require("./anthropic");
 const { saveCoachOutput, loadCoachLog } = require("./ai-coach-store");
 const { loadHistory, getMostRecentEntry, appendSnapshot, etDateStr } = require("./car-business-store");
 const { loadInventory } = require("./inventory-store");
+const { loadDealerInfo } = require("./car-business-dealer-info-store");
 const { sendTelegramMessage, isConfigured: telegramConfigured } = require("./telegram");
 const { shouldSendAlert } = require("./telegram-bot");
 const { PORT } = require("./config");
@@ -416,16 +417,17 @@ async function buildFacebookStrategy() {
   const invSummary = topInventory.length
     ? topInventory.map((v) => `${v.vin} — ${v.year} ${v.make} ${v.model} ${v.trim || ""} · ${v.mileage?.toLocaleString?.() ?? v.mileage} mi · $${v.price} · ${v.condition}`).join("\n")
     : "no real inventory on file";
+  const dealer = loadDealerInfo();
 
   const system = `You are the FACEBOOK LEAD GENERATION STRATEGY layer of a real, independent used-car dealership's Car Business Intelligence system. Your job: build a real, current, actionable strategy for posting on Facebook (Marketplace + Facebook Page/groups) to generate as many real qualified leads as possible.
 
 Search real, current sources now for what actually works for used-car dealers on Facebook Marketplace and Facebook Pages in 2026 — posting cadence, the Facebook algorithm's real current ranking factors, photo/video best practices, Facebook Shops/Catalog inventory sync, boosted posts vs organic reach, local buy/sell groups, Reels/video content, response-time impact on lead quality, and price-transparency norms.
 
-You are given this dealership's REAL current top inventory and REAL CRM lead/stage data below — use the real lead data to diagnose what's actually happening today (e.g. if leads are low, say so plainly and connect it to a real gap in the strategy below, don't give generic advice disconnected from their real numbers).
+You are given this dealership's REAL current top inventory, REAL CRM lead/stage data, and REAL dealer contact info/preferences below — use the real lead data to diagnose what's actually happening today (e.g. if leads are low, say so plainly and connect it to a real gap in the strategy below, don't give generic advice disconnected from their real numbers). When you reference local groups/search terms, use the dealer's real city (from the real address given), never a generic "[Your City]" placeholder. Respect the dealer's real contact-method and title-language rules in every piece of guidance that touches them.
 
-Produce: postingCadence (a real, specific recommendation — how many posts/day, spread across Marketplace vs Page vs groups), bestTimes (real research-grounded best days/times to post), contentPillars (5-8 real content types proven to generate leads — e.g. "walk-around video," "price-drop announcement," "financing spotlight," "testimonial/delivery photo," "before/after detail," each one real and specific, not generic), photoGuidance (real best practices: count, order, angles, lighting), paidBoostGuidance (real guidance on when/how much to boost, targeting radius/audience), responseSpeedGuidance (real guidance on speed-to-lead, referencing that this dealership already has an AI auto-reply/Messenger system in place — build on that real capability, don't recommend duplicating it), weeklyActionPlan (4-6 real, concrete, specific action items for this week).
+Produce: postingCadence (a real, specific recommendation — how many posts/day, spread across Marketplace vs Page vs groups), bestTimes (real research-grounded best days/times to post), contentPillars (5-8 real content types proven to generate leads — e.g. "walk-around video," "price-drop announcement," "financing spotlight," "testimonial/delivery photo," "before/after detail," each one real and specific, not generic), photoGuidance (real best practices: count, order, angles, lighting), paidBoostGuidance (real guidance on when/how much to boost, targeting radius/audience), responseSpeedGuidance (real guidance on speed-to-lead, referencing that this dealership already has an AI auto-reply/Messenger system in place — build on that real capability, don't recommend duplicating it), weeklyActionPlan (4-6 real, concrete, specific action items for this week, using the real dealer name/city where natural).
 
-Using the REAL top inventory given, write a Facebook post plan for EACH real vehicle (by its real VIN — never invent a VIN, never plan a post for a vehicle not in the list given): headline, priceDisplay (how to present the price — e.g. "$28,900 or $412/mo"), descriptionOutline (the real structure/key points the post description should hit for this specific real vehicle), cta (the real call-to-action), hashtags (5-8 real, relevant tags).
+Using the REAL top inventory given, write a Facebook post plan for EACH real vehicle (by its real VIN — never invent a VIN, never plan a post for a vehicle not in the list given): headline, priceDisplay (how to present the price — e.g. "$28,900 or $412/mo"), descriptionOutline (the real structure/key points the post description should hit for this specific real vehicle — apply the dealer's real title-language and financing-phrasing rules where relevant), cta (the real call-to-action — must match the dealer's real contact-method rule, e.g. never tell a buyer to text if texting isn't an allowed contact method), hashtags (5-8 real, relevant tags).
 
 Never invent a fact, statistic, or VIN. Ground every specific claim (algorithm behavior, engagement stats) in what you actually found — if you can't find a genuinely current real source for a claim, phrase it as general strategic guidance, not a fabricated statistic. Return JSON ONLY:
 {"postingCadence":"...","bestTimes":"...","contentPillars":["...","..."],"photoGuidance":"...","paidBoostGuidance":"...","responseSpeedGuidance":"...","weeklyActionPlan":["...","..."],"perVehiclePostPlans":[{"vin":"...","headline":"...","priceDisplay":"...","descriptionOutline":"...","cta":"...","hashtags":["...","..."]}],"sources":["..."]}`;
@@ -434,6 +436,14 @@ Never invent a fact, statistic, or VIN. Ground every specific claim (algorithm b
 ${invSummary}
 
 THIS DEALERSHIP'S REAL CRM LEAD DATA: ${leads.length} real leads on file · by stage: ${Object.entries(byStage).map(([k, v]) => `${k}=${v}`).join(", ") || "none"} · ${hot} marked hot. (Facebook Messenger is this dealership's only channel with real tracked lead data today.)
+
+THIS DEALERSHIP'S REAL CONTACT INFO & RULES (use exactly, never invent different values):
+Name: ${dealer.name}
+Address: ${dealer.address}
+Phone: ${dealer.phone}
+Contact method rule: ${dealer.contactMethod}
+Title-language rule: ${dealer.titleNote}
+Financing-language guidance: ${dealer.financingNote}
 
 Search for real, current Facebook Marketplace/Page strategy information now and return the JSON.`;
 
@@ -471,6 +481,7 @@ async function buildFacebookAd(details) {
   ].filter(Boolean).join(" · ");
   const features = String(details?.features || "").trim();
   const notes = String(details?.notes || "").trim();
+  const dealer = loadDealerInfo();
 
   const system = `You are the FACEBOOK AD MAKER layer of a real, independent used-car dealership's Car Business Intelligence system. The user will give you real details about ONE vehicle they want to advertise — these are exactly what they typed in, not independently verified against any inventory system, so never claim to have confirmed them against real records.
 
@@ -480,12 +491,28 @@ Also produce fullAdText: one single ready-to-copy-paste block combining the head
 
 If you can find real, current comps for this specific vehicle via search, use them to strengthen the ad's positioning (e.g. "priced below comparable local listings") in positioningNote — otherwise leave positioningNote null rather than inventing a comp number you didn't find. Include vehicleSummary: a one-line echo of the vehicle so the user can confirm you understood it correctly.
 
+Use this dealership's REAL contact info and content rules — apply them exactly, never fall back to a placeholder like "[YOUR PHONE NUMBER]" or "[YOUR LOT ADDRESS]":
+Dealer name: ${dealer.name}
+Address: ${dealer.address}
+Phone: ${dealer.phone}
+Contact method rule: ${dealer.contactMethod} — the call to action and any "where to post"/location step must only reference calling or messaging on Facebook; never suggest texting/SMS, and never leave a placeholder number.
+Title-language rule: ${dealer.titleNote}
+Financing-language guidance: ${dealer.financingNote} — weave real, attractive financing language into the description/CTA when it fits naturally (don't force it if the vehicle/notes don't call for it).
+
 Never invent a fact about this vehicle beyond what's given. Return JSON ONLY:
 {"vehicleSummary":"...","steps":[{"title":"...","instructions":"..."}],"fullAdText":"...","hashtags":["..."],"positioningNote":"..." or null,"sources":["..."]}`;
 
   const prompt = `VEHICLE DETAILS (exactly as the user entered them — not independently verified):
 ${line}
 ${features ? `Features/options: ${features}\n` : ""}${notes ? `Additional notes: ${notes}\n` : ""}
+THIS DEALERSHIP'S REAL CONTACT INFO & RULES (use exactly, never invent different values or leave placeholders):
+Name: ${dealer.name}
+Address: ${dealer.address}
+Phone: ${dealer.phone}
+Contact method rule: ${dealer.contactMethod}
+Title-language rule: ${dealer.titleNote}
+Financing-language guidance: ${dealer.financingNote}
+
 Search for real, current comps on this vehicle if useful for positioning, then build the step-by-step ad and return the JSON.`;
 
   const result = await runCall(prompt, system, { model: "claude-sonnet-4-6", maxTokens: 4000, maxSearches: 2, timeout: 200000, feature: "car-business-ad-maker" });

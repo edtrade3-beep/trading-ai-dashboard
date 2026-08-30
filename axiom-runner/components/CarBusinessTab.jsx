@@ -494,6 +494,101 @@ function FacebookStrategyTool({ C, MONO, SANS, inventory }) {
   );
 }
 
+// Dealer Info settings — real business name/address/phone + content rules
+// (explicit user request, 2026-08-30: real Dixie Motors contact details,
+// "only call or pm in facebook," never "title in hand," attractive
+// financing language). Feeds directly into the Facebook Strategy + Ad
+// Maker prompts server-side — editing this form here changes what those
+// two tools generate, without a code deploy.
+const DEALER_INFO_FIELDS = [
+  { key: "name", label: "Dealer Name", placeholder: "Dixie Motors" },
+  { key: "address", label: "Address", placeholder: "6416 Dixie Highway, Fairfield, OH 45014" },
+  { key: "phone", label: "Phone", placeholder: "513-874-4999" },
+];
+const DEALER_INFO_TEXT_FIELDS = [
+  { key: "contactMethod", label: "Contact Method Rule", placeholder: "Call or Facebook Message only — never suggest texting/SMS." },
+  { key: "titleNote", label: "Title Language Rule", placeholder: "Say \"clean title\" when true — never \"title in hand.\"" },
+  { key: "financingNote", label: "Financing Language Guidance", placeholder: "Attractive, compliant financing phrasing to use in ad copy." },
+];
+
+function DealerInfoTool({ C, MONO, SANS }) {
+  const [info, setInfo] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState(null);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/car-business/dealer-info").then((r) => r.json())
+      .then((d) => { if (d.ok) setInfo(d.dealerInfo); else setError(d.error || "Could not load dealer info."); })
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const set = (key) => (e) => setInfo((f) => ({ ...f, [key]: e.target.value }));
+
+  const save = () => {
+    setSaving(true); setError(null); setSaved(false);
+    fetch("/api/car-business/dealer-info", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(info),
+    }).then((r) => r.json())
+      .then((d) => { if (d.ok) { setInfo(d.dealerInfo); setSaved(true); setTimeout(() => setSaved(false), 2000); } else setError(d.error || "Could not save dealer info."); })
+      .catch((e) => setError(e.message))
+      .finally(() => setSaving(false));
+  };
+
+  return (
+    <Section C={C} MONO={MONO} SANS={SANS} title="🏢 Dealer Info" subtitle="Your real contact details and content rules — used by the Facebook Strategy and Ad Maker below so generated copy never uses placeholders.">
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "14px 16px" }}>
+        {loading && <div style={{ fontSize: 12.5, color: C.textDim }}>Loading…</div>}
+        {!loading && info && (
+          <>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }} onClick={() => setOpen((o) => !o)}>
+              <div style={{ fontSize: 12.5, color: C.text }}>
+                <b>{info.name}</b> · {info.address} · {info.phone}
+              </div>
+              <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>{open ? "Hide ▲" : "Edit ▼"}</div>
+            </div>
+
+            {open && (
+              <div style={{ marginTop: 12 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10, marginBottom: 10 }}>
+                  {DEALER_INFO_FIELDS.map((f) => (
+                    <div key={f.key}>
+                      <div style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 700, color: C.textDim, marginBottom: 3 }}>{f.label}</div>
+                      <input value={info[f.key] || ""} onChange={set(f.key)} placeholder={f.placeholder} style={{
+                        width: "100%", fontFamily: SANS, fontSize: 12.5, padding: "7px 9px", borderRadius: 6,
+                        border: `1px solid ${C.border}`, background: C.surface, color: C.text, boxSizing: "border-box",
+                      }} />
+                    </div>
+                  ))}
+                </div>
+                {DEALER_INFO_TEXT_FIELDS.map((f) => (
+                  <div key={f.key} style={{ marginBottom: 10 }}>
+                    <div style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 700, color: C.textDim, marginBottom: 3 }}>{f.label}</div>
+                    <textarea value={info[f.key] || ""} onChange={set(f.key)} placeholder={f.placeholder} rows={2} style={{
+                      width: "100%", fontFamily: SANS, fontSize: 12.5, padding: "7px 9px", borderRadius: 6,
+                      border: `1px solid ${C.border}`, background: C.surface, color: C.text, boxSizing: "border-box", resize: "vertical",
+                    }} />
+                  </div>
+                ))}
+                <button onClick={save} disabled={saving} style={{
+                  fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "8px 14px", borderRadius: 8,
+                  border: `1px solid ${C.accent}`, background: saving ? C.card : (saved ? C.green : C.accent), color: saving ? C.accent : "#fff",
+                  cursor: saving ? "default" : "pointer",
+                }}>{saving ? "Saving…" : saved ? "✓ Saved" : "Save"}</button>
+              </div>
+            )}
+          </>
+        )}
+        {error && <div style={{ fontSize: 12.5, color: C.red, marginTop: 8 }}>{error}</div>}
+      </div>
+    </Section>
+  );
+}
+
 const AD_FORM_FIELDS = [
   { key: "year", label: "Year", placeholder: "2021", required: true },
   { key: "make", label: "Make", placeholder: "Toyota", required: true },
@@ -682,6 +777,7 @@ export default function CarBusinessTab({ C, MONO, SANS }) {
       </div>
 
       <RepricingTool C={C} MONO={MONO} SANS={SANS} />
+      <DealerInfoTool C={C} MONO={MONO} SANS={SANS} />
       <FacebookStrategyTool C={C} MONO={MONO} SANS={SANS} inventory={inventory} />
       <AdMakerTool C={C} MONO={MONO} SANS={SANS} />
 

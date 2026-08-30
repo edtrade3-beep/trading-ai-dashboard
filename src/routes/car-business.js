@@ -7,6 +7,7 @@
 const { writeJson, readRequestBody } = require("../utils");
 const { loadCoachLog } = require("../ai-coach-store");
 const { buildCarBusinessIntel, analyzeRepricing, buildFacebookStrategy, buildFacebookAd } = require("../car-business-ai");
+const { loadDealerInfo, saveDealerInfo } = require("../car-business-dealer-info-store");
 
 async function handleCarBusiness(req, res, requestUrl) {
   const { pathname } = requestUrl;
@@ -86,6 +87,27 @@ async function handleCarBusiness(req, res, requestUrl) {
       return writeJson(res, 200, result);
     } catch (e) {
       return writeJson(res, 200, { ok: false, error: "Could not build the ad.", debug: e.message });
+    }
+  }
+
+  // Dealer Info settings — real business name/address/phone/contact-method/
+  // title-language/financing-language preferences used to ground the
+  // Facebook Strategy + Ad Maker prompts (explicit user request, 2026-08-30:
+  // real Dixie Motors contact details + "only call or pm in facebook",
+  // never "title in hand", attractive financing language). GET returns the
+  // real seeded/saved values; POST saves an edit from the settings form.
+  if (pathname === "/api/car-business/dealer-info" && req.method === "GET") {
+    return writeJson(res, 200, { ok: true, dealerInfo: loadDealerInfo() });
+  }
+
+  if (pathname === "/api/car-business/dealer-info" && req.method === "POST") {
+    try {
+      const raw = await readRequestBody(req);
+      const body = raw ? JSON.parse(raw) : {};
+      const saved = saveDealerInfo(body);
+      return writeJson(res, 200, { ok: true, dealerInfo: saved });
+    } catch (e) {
+      return writeJson(res, 200, { ok: false, error: "Could not save dealer info.", debug: e.message });
     }
   }
 
