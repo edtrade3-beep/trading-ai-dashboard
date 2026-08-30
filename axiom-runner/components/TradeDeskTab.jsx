@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { computeRegime } from "./market-helpers.js";
+import { computeRegime, SCAN_UNIVERSE } from "./market-helpers.js";
 import TrendChart from "./TrendChart.jsx";
 import CommandSearchPanel, { TickerHeader } from "./CommandSearchPanel.jsx";
 import CortexMiniPanel from "./CortexMiniPanel.jsx";
@@ -390,10 +390,28 @@ export default function TradeDeskTab({
   // box is hidden (hideSearch below) rather than duplicated, so there is
   // still exactly one real search code path, just one new entry point.
   const [topQuery, setTopQuery] = useState("");
-  const submitTopSearch = () => {
-    const s = topQuery.trim().toUpperCase().replace(/[^A-Z.]/g, "");
-    if (s) { selectSymbol(s); setTopQuery(""); }
+  const [suggestOpen, setSuggestOpen] = useState(false);
+  const submitTopSearch = (raw) => {
+    const s = (raw ?? topQuery).trim().toUpperCase().replace(/[^A-Z.]/g, "");
+    if (s) { selectSymbol(s); setTopQuery(""); setSuggestOpen(false); }
   };
+  // Ticker search autocomplete (Trade Desk redesign Phase 2, §2) — local,
+  // zero-fetch prefix match over the user's own real watchlist +
+  // market-helpers.js's real SCAN_UNIVERSE (the same ~100-symbol real
+  // universe the rest of this app already scans/ranks) — no external
+  // symbol-lookup API/dataset exists in this codebase, so this is honestly
+  // scoped to "symbols this app already knows about," not the full market.
+  // Watchlist matches are real, user-curated, and surface first.
+  const topSuggestions = useMemo(() => {
+    const q = topQuery.trim().toUpperCase();
+    if (!q) return [];
+    const inWatchlist = (watchlistSymbols || []).filter((s) => s.toUpperCase().startsWith(q));
+    const inUniverse = SCAN_UNIVERSE.filter((s) => s.startsWith(q) && !inWatchlist.some((w) => w.toUpperCase() === s));
+    return [
+      ...inWatchlist.map((s) => ({ symbol: s.toUpperCase(), source: "watchlist" })),
+      ...inUniverse.map((s) => ({ symbol: s, source: "universe" })),
+    ].slice(0, 8);
+  }, [topQuery, watchlistSymbols]);
 
   const dockBody = (
     <>
@@ -481,15 +499,31 @@ export default function TradeDeskTab({
             <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: TD.text, letterSpacing: 0.4 }}>AM TRADING</span>
             <span style={{ fontFamily: SANS, fontSize: 8.5, fontWeight: 700, color: TD.textDim, letterSpacing: 1 }}>AI POWERED · DATA DRIVEN</span>
           </div>
-          <div style={{ display: "flex", gap: 6, flex: "1 1 260px", maxWidth: 340 }}>
+          <div style={{ position: "relative", display: "flex", gap: 6, flex: "1 1 260px", maxWidth: 340 }}>
             <input
               value={topQuery}
-              onChange={(e) => setTopQuery(e.target.value.toUpperCase())}
-              onKeyDown={(e) => { if (e.key === "Enter") submitTopSearch(); }}
+              onChange={(e) => { setTopQuery(e.target.value.toUpperCase()); setSuggestOpen(true); }}
+              onFocus={() => setSuggestOpen(true)}
+              onBlur={() => setTimeout(() => setSuggestOpen(false), 120)}
+              onKeyDown={(e) => { if (e.key === "Enter") submitTopSearch(); if (e.key === "Escape") setSuggestOpen(false); }}
               placeholder="🔍 Search ticker… TSLA, AMD, NVDA"
               style={{ flex: 1, minWidth: 0, border: `1px solid ${TD.border}`, background: TD.surface, color: TD.text, borderRadius: 6, padding: "6px 10px", fontFamily: MONO, fontSize: 12, outline: "none" }}
             />
-            <button onClick={submitTopSearch} style={{ border: "none", background: TD.accent, color: "#08131c", borderRadius: 6, padding: "0 12px", fontFamily: MONO, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>GO</button>
+            <button onClick={() => submitTopSearch()} style={{ border: "none", background: TD.accent, color: "#08131c", borderRadius: 6, padding: "0 12px", fontFamily: MONO, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>GO</button>
+            {suggestOpen && topSuggestions.length > 0 && (
+              <div style={{ position: "absolute", top: "100%", left: 0, right: 0, marginTop: 4, background: TD.card, border: `1px solid ${TD.border}`, borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,0.35)", zIndex: 20, overflow: "hidden" }}>
+                {topSuggestions.map((s) => (
+                  <button
+                    key={s.symbol}
+                    onMouseDown={(e) => { e.preventDefault(); submitTopSearch(s.symbol); }}
+                    style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 10px", border: "none", background: "transparent", color: TD.text, cursor: "pointer", fontFamily: MONO, fontSize: 12 }}
+                  >
+                    <b>{s.symbol}</b>
+                    {s.source === "watchlist" && <span style={{ fontSize: 9, fontWeight: 800, color: TD.accent, letterSpacing: 0.5 }}>WATCHLIST</span>}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           {discoverProps?.marketSession && (
             <span style={{ ...pill, marginLeft: "auto" }}>
