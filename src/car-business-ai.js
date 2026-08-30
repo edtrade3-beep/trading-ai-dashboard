@@ -164,9 +164,18 @@ Search for real, current automotive market/credit/regulatory information now and
     // dimensions is a genuinely large structured response). Root-caused to
     // truncation, not a formatting bug — the fix is more real room to
     // finish, not a JSON-repair hack.
+    // timeout raised again, 170s -> 280s (2026-08-30, fourth live fix) —
+    // 13000 tokens stopped the truncation, but the next live run went back
+    // to timing out: generating that much real structured output (search +
+    // 15 scored vehicles + sections + opportunities) genuinely takes longer
+    // than 170s end to end. Nothing time-sensitive waits on this — the
+    // daily 6:05pm ET job doesn't care about a few extra minutes, and the
+    // one interactive caller (the tab's Refresh button) already shows a
+    // real "Researching…" loading state — so generous headroom here is the
+    // honest fix over shrinking the real ask further.
     const raw = await callAnthropicWithSearch(prompt + "\n\n" + SYSTEM, KEY(), {
       model: "claude-sonnet-4-6", maxTokens: 13000,
-      maxSearches: 2, timeout: 170000,
+      maxSearches: 2, timeout: 280000,
       feature: "car-business",
     });
     const m = (raw || "").match(/\{[\s\S]*\}/);
