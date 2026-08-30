@@ -3098,7 +3098,7 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
   // per-request bespoke query.
   if (pathname === "/api/market/btc-hpc-scan" && req.method === "GET") {
     try {
-      const { HPC_MINER_UNIVERSE, computeBtcRegime } = require("../btc-hpc-scan");
+      const { HPC_MINER_UNIVERSE, HPC_MINER_NAMES, HPC_MINER_SECTOR, computeBtcRegime } = require("../btc-hpc-scan");
       const { computeEntryPlan } = require("../entry-engine");
       const { computeCoreScore, classifyCoreVerdict, CORE_VERDICT_META } = require("../am-core-engine");
       const { computeRegime, computeAPlusScore } = require("../trade-planner-scoring");
@@ -3150,8 +3150,10 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
           const meta = CORE_VERDICT_META[deep.verdict] || {};
           const decision = { decision: deep.verdict, reason: deep.reason, icon: meta.icon, color: meta.color };
           return {
-            symbol: r.symbol, price: r.price, grade: institutionalLetterGrade(aplus.score), score: aplus.score,
+            symbol: r.symbol, company: HPC_MINER_NAMES[r.symbol] || r.symbol, sector: HPC_MINER_SECTOR,
+            price: r.price, grade: institutionalLetterGrade(aplus.score), score: aplus.score,
             passCount: r.passCount, stage: r.stage, pivot: r.pivot, entryPrice: entryPlan.entryPrice,
+            vcpStatus: r.vcpVerdict || null,
             decision: decision.decision, decisionIcon: decision.icon, decisionColor: decision.color, decisionReason: decision.reason,
           };
         }).sort((a, b) => (b.score || 0) - (a.score || 0));

@@ -21,6 +21,19 @@ function round2(n) { return Number.isFinite(n) ? Math.round(n * 100) / 100 : nul
 // tickers — not a padded or invented list.
 const HPC_MINER_UNIVERSE = ["IREN", "WULF", "CORZ", "CIFR", "RIOT", "MARA", "CLSK", "HUT", "BITF", "HIVE", "APLD", "BTBT"];
 
+// Real, static company names for the universe above — same "hardcode the
+// real fixed metadata, don't fetch/derive it" treatment as the ticker
+// list itself. Table-display metadata only (Future Wallet parity,
+// 2026-08-30 explicit user request: "i want btc hpc deep scan just like
+// future wallet"), never fed into any score.
+const HPC_MINER_NAMES = {
+  IREN: "Iris Energy Limited", WULF: "TeraWulf Inc.", CORZ: "Core Scientific, Inc.",
+  CIFR: "Cipher Mining Inc.", RIOT: "Riot Platforms, Inc.", MARA: "MARA Holdings, Inc.",
+  CLSK: "CleanSpark, Inc.", HUT: "Hut 8 Corp.", BITF: "Bitfarms Ltd.",
+  HIVE: "HIVE Digital Technologies Ltd.", APLD: "Applied Digital Corporation", BTBT: "Bit Digital, Inc.",
+};
+const HPC_MINER_SECTOR = "Bitcoin Mining / HPC Hosting";
+
 // BTC Regime — real trend/VWAP/momentum off real BTC-USD daily bars (same
 // real formulas already used elsewhere in this codebase: SMA-based trend,
 // volume-weighted VWAP, weighted momentum — not a new indicator family).
@@ -62,4 +75,4 @@ function computeBtcRegime(bars) {
 // the withDecision=1 trend-screen enrichment, and 5 alert files) all now
 // call am-core-engine.js's classifyCoreVerdict directly instead, the same
 // verdict engine driving the Workspace Decision banner and Scanner grade.
-module.exports = { HPC_MINER_UNIVERSE, computeBtcRegime };
+module.exports = { HPC_MINER_UNIVERSE, HPC_MINER_NAMES, HPC_MINER_SECTOR, computeBtcRegime };

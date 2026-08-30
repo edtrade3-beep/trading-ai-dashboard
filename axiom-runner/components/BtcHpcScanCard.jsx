@@ -19,6 +19,16 @@ import { DECISION_LABELS } from "./btc-hpc-scan.js";
 function pct(v, digits = 1) { return Number.isFinite(v) ? `${v >= 0 ? "+" : ""}${(v * (Math.abs(v) < 3 ? 100 : 1)).toFixed(digits)}%` : "—"; }
 function dollars(v) { return Number.isFinite(v) ? `$${v >= 1e9 ? (v / 1e9).toFixed(2) + "B" : v >= 1e6 ? (v / 1e6).toFixed(1) + "M" : v.toLocaleString()}` : "—"; }
 
+// Same real score bands as FutureWalletTab.jsx's SCORE_COLOR/SCORE_DOT
+// (2026-08-30, "just like future wallet" — one consistent score-color
+// vocabulary across both ranked-scan tables, not two invented ones).
+const SCORE_COLOR = (v) => !Number.isFinite(v) ? null : v >= 65 ? "#0d9465" : v >= 45 ? "#d6a312" : "#c8282a";
+const SCORE_DOT = (col) => col === "#0d9465" ? "🟢" : col === "#d6a312" ? "🟡" : col === "#c8282a" ? "🔴" : "⚪";
+// Real vcpVerdict vocabulary (daytrade-console-engine.js/entry-engine.js's
+// own real values) — never invented labels.
+const VCP_COLOR = (v) => v === "A+ SETUP" ? "#0d9465" : v === "WATCHLIST" ? "#0d9465" : v === "WEAK SETUP" ? "#d6a312" : v === "INVALID VCP" ? "#c8282a" : null;
+const VCP_DOT = (col) => col === "#0d9465" ? "🟢" : col === "#d6a312" ? "🟡" : col === "#c8282a" ? "🔴" : "⚪";
+
 function Section({ title, C, MONO, children }) {
   return (
     <div style={{ marginTop: 14 }}>
@@ -65,7 +75,7 @@ export default function BtcHpcScanCard({ C, MONO, SANS }) {
   }, [selected]);
 
   return (
-    <div style={{ padding: "16px 20px", maxWidth: 760, margin: "0 auto" }}>
+    <div style={{ padding: "16px 20px", maxWidth: 960, margin: "0 auto" }}>
       <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.text, marginBottom: 4 }}>₿ BTC + HPC DEEP SCAN</div>
       <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginBottom: 14 }}>Real scan over IREN · WULF · CORZ · CIFR · RIOT — reuses the same engines as the rest of the platform, nothing fabricated.</div>
 
@@ -90,26 +100,55 @@ export default function BtcHpcScanCard({ C, MONO, SANS }) {
             </div>
           </div>
 
-          {/* Top Rotation */}
+          {/* Top Rotation — real ranked table (Future Wallet parity, 2026-08-30
+              explicit user request: "i want btc hpc deep scan just like
+              future wallet"). Same columns/score-color vocabulary as
+              FutureWalletTab.jsx's table: TICKER / COMPANY / SCORE / TECH-VCP /
+              PRICE, already server-sorted by real A+ score, highest first. */}
           <Section title="TOP ROTATION" C={C} MONO={MONO}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              {scan.rotation.map((r, i) => (
-                <button key={r.symbol} onClick={() => setSelected(r.symbol)}
-                  style={{
-                    display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%",
-                    fontFamily: MONO, fontSize: 12.5, padding: "8px 10px", borderRadius: 8, cursor: "pointer",
-                    border: `1px solid ${selected === r.symbol ? r.decisionColor : C.border}`,
-                    background: selected === r.symbol ? `${r.decisionColor}12` : C.card, textAlign: "left",
-                  }}>
-                  <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ color: C.textDim, width: 14 }}>{i + 1}.</span>
-                    <b style={{ color: C.text }}>{r.symbol}</b>
-                    <span style={{ fontSize: 10.5, fontWeight: 800, color: C.textDim, border: `1px solid ${C.border}`, borderRadius: 4, padding: "1px 5px" }}>{r.grade}</span>
-                  </span>
-                  <span style={{ color: r.decisionColor, fontWeight: 800 }}>{r.decisionIcon} {DECISION_LABELS[r.decision] || r.decision}</span>
-                </button>
-              ))}
+            <div style={{ overflowX: "auto", border: `1px solid ${C.border}`, borderRadius: 8 }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: MONO, fontSize: 12, minWidth: 480 }}>
+                <thead>
+                  <tr>
+                    {["TICKER", "COMPANY / SECTOR", "SCORE", "TECH / VCP", "PRICE"].map((h) => (
+                      <th key={h} style={{ textAlign: "left", fontSize: 9.5, letterSpacing: 0.4, color: C.textDim, background: C.card, padding: "7px 10px", borderBottom: `1px solid ${C.border}` }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {scan.rotation.map((r, i) => {
+                    const scoreColor = SCORE_COLOR(r.score);
+                    const vcpColor = VCP_COLOR(r.vcpStatus);
+                    const isSelected = selected === r.symbol;
+                    return (
+                      <tr key={r.symbol} onClick={() => setSelected(r.symbol)}
+                        style={{ cursor: "pointer", background: isSelected ? `${r.decisionColor}14` : "transparent" }}>
+                        <td style={{ padding: "8px 10px", borderBottom: i < scan.rotation.length - 1 ? `1px solid ${C.border}` : "none", fontWeight: 800, color: isSelected ? r.decisionColor : C.text }}>{r.symbol}</td>
+                        <td style={{ padding: "8px 10px", borderBottom: i < scan.rotation.length - 1 ? `1px solid ${C.border}` : "none", color: C.textSec, fontFamily: SANS, fontSize: 11.5 }}>
+                          <div>{r.company}</div>
+                          <div style={{ fontSize: 10, color: C.textDim }}>{r.sector}</div>
+                        </td>
+                        <td style={{ padding: "8px 10px", borderBottom: i < scan.rotation.length - 1 ? `1px solid ${C.border}` : "none" }}>
+                          {Number.isFinite(r.score) ? <span style={{ color: scoreColor, fontWeight: 800 }}>{SCORE_DOT(scoreColor)} {r.score}</span> : "—"}
+                        </td>
+                        <td style={{ padding: "8px 10px", borderBottom: i < scan.rotation.length - 1 ? `1px solid ${C.border}` : "none" }}>
+                          {r.vcpStatus ? <span style={{ color: vcpColor, fontWeight: 700, fontSize: 11 }}>{VCP_DOT(vcpColor)} {r.vcpStatus}</span> : <span style={{ color: C.textDim }}>—</span>}
+                        </td>
+                        <td style={{ padding: "8px 10px", borderBottom: i < scan.rotation.length - 1 ? `1px solid ${C.border}` : "none", color: C.text }}>{Number.isFinite(r.price) ? `$${r.price}` : "—"}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
+            {selected && (() => {
+              const sel = scan.rotation.find((r) => r.symbol === selected);
+              return sel ? (
+                <div style={{ marginTop: 8, fontFamily: MONO, fontSize: 11.5, color: sel.decisionColor, fontWeight: 800 }}>
+                  {sel.decisionIcon} {selected} — {DECISION_LABELS[sel.decision] || sel.decision}
+                </div>
+              ) : null;
+            })()}
           </Section>
 
           {deepState === "loading" && <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 14 }}>Loading {selected}…</div>}
