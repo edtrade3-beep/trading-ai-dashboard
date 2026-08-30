@@ -32,6 +32,7 @@ export default function Autopilot2Tab({ C, MONO, SANS }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [confirmingReset, setConfirmingReset] = useState(false);
+  const [missed, setMissed] = useState(null);
 
   const load = useCallback(() => {
     fetch("/api/autopilot2/status").then(r => r.json()).then(d => {
@@ -44,6 +45,10 @@ export default function Autopilot2Tab({ C, MONO, SANS }) {
     const t = setInterval(load, 30_000); // real refresh — same status the engine itself just updated on its own tick
     return () => clearInterval(t);
   }, [load]);
+
+  useEffect(() => {
+    fetch("/api/autopilot2/missed-opportunities").then(r => r.json()).then(setMissed).catch(() => setMissed(null));
+  }, []);
 
   const runAction = async (path, body) => {
     setLoading(true);
@@ -108,6 +113,16 @@ export default function Autopilot2Tab({ C, MONO, SANS }) {
         </div>
         <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 3 }}>
           A real internal $100,000 simulated paper account — stocks + long calls, no real orders ever. No puts, spreads, or crypto yet. {data.state?.reason ? `(${data.state.reason})` : ""}
+        </div>
+      </div>
+
+      {/* How it trades — a plain-English brief, not marketing copy. Every
+          step named here is a real function this engine actually calls,
+          in this order, every tick (src/autopilot2-engine.js). */}
+      <div style={{ padding: "12px 16px", background: `${C.accent}0a`, border: `1px solid ${C.accent}33`, borderRadius: 12 }}>
+        <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.accent, letterSpacing: 0.5, marginBottom: 6 }}>HOW IT TRADES</div>
+        <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, lineHeight: 1.6 }}>
+          Every 5 minutes during market hours: <b>scans</b> the real scan universe through the platform's one canonical engine (am-core-engine.js) → <b>scores</b> and ranks real candidates by expected value, probability, and risk → <b>checks risk</b> (position/sector/portfolio-risk limits, daily/weekly/drawdown breakers — risk always wins, a blocked trade never fires) → <b>enters</b> the best real candidate as a stock or a long call, sized to the risk limit → <b>manages</b> every open position each tick (stop, trail, partial profit, or exit) using that same one verdict engine → <b>exits</b> on a hard stop, invalidated thesis, or (for calls) an approaching expiration. Trades that get skipped are logged with the real reason, and revisited later to see what actually happened (Missed Opportunities). Outside market hours, or with no real candidate that clears every gate, it correctly does nothing — an empty account isn't a bug, it's the risk rules working.
         </div>
       </div>
 
@@ -224,6 +239,31 @@ export default function Autopilot2Tab({ C, MONO, SANS }) {
           </div>
         ) : (
           <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>No activity logged yet.</div>
+        )}
+      </div>
+
+      {/* Missed opportunities — real forward-outcome tracking for candidates
+          this engine detected but did NOT enter (risk/sizing gates). See
+          src/missed-opportunity-tracker.js. Observability only — never
+          feeds back into the entry decision. */}
+      <div style={{ padding: "14px 16px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 12 }}>
+        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 8 }}>MISSED OPPORTUNITIES — WHAT SKIPPED TRADES DID AFTERWARD</div>
+        {missed?.available ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>
+              {missed.resolvedCount} of {missed.totalRecordsChecked} rejected candidates from {missed.daysAgo}+ real days ago, checked against today's real price:
+            </div>
+            {Object.entries(missed.categories || {}).map(([cat, d]) => (
+              <div key={cat} style={{ display: "flex", gap: 12, alignItems: "baseline", fontFamily: MONO, fontSize: 11 }}>
+                <span style={{ color: C.textDim, minWidth: 140 }}>{cat}</span>
+                <span style={{ color: C.text }}>{d.count} skipped</span>
+                <span style={{ color: d.avgForwardReturnPct >= 0 ? C.green : C.red }}>{fmtPct(d.avgForwardReturnPct)} avg</span>
+                <span style={{ color: C.textDim }}>{d.wouldHaveGainedRate}% would have gained</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>{missed?.reason || "Loading…"}</div>
         )}
       </div>
 
