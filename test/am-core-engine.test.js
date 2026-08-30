@@ -35,13 +35,24 @@ ok("no real inputs at all -> an honest low-mid score from documented neutral def
   const r = computeCoreScore({});
   assert.ok(r.score > 0 && r.score < 60, `expected a modest honest-default score, got ${r.score}`);
 });
-ok("breakdown sums to the total score, all 11 named categories present (sector added Phase 2)", () => {
+ok("breakdown sums to the total score, all 12 named categories present (optionsConfirmation added Central Opportunity & Options Engine goal, 2026-08-30)", () => {
   const r = computeCoreScore(STRONG_INPUT);
   const sum = Object.values(r.breakdown).reduce((a, b) => a + b, 0);
   assert.strictEqual(Math.round(sum), r.score);
-  for (const k of ["regime", "trend", "structure", "momentum", "volume", "relativeStrength", "setupQuality", "entryQuality", "sector", "liquidity", "catalyst"]) {
+  for (const k of ["regime", "trend", "structure", "momentum", "optionsConfirmation", "volume", "relativeStrength", "setupQuality", "entryQuality", "sector", "liquidity", "catalyst"]) {
     assert.ok(k in r.breakdown, `missing breakdown category: ${k}`);
   }
+});
+ok("the 12 real bucket ceilings sum to exactly 100 — every real point accounted for, none double-counted", () => {
+  const allMax = computeCoreScore({
+    passCount: 8, rsRating: 99, momentum: 10, volRatio: 10,
+    regime: { score: 100 }, vcpScore: 100, riskPct: 1, dollarVolume: 10e9,
+    antiChase: { band: "NORMAL" }, epsGrowth: 100,
+    optionsFlow: { callNotional: 1, putNotional: 0 },
+    adx: { strength: "Strong", direction: "Bullish" }, smc: { bos: { type: "BULL_BOS" } },
+    sectorInfo: { rank: 1, of: 11 },
+  });
+  assert.strictEqual(allMax.score, 100);
 });
 ok("score is always clamped 0-100 even with out-of-range inputs", () => {
   const r = computeCoreScore({ ...STRONG_INPUT, regime: { score: 999 }, volRatio: 50 });
@@ -51,7 +62,7 @@ ok("real sector rank #1 of 11 scores near the sector bucket's max; unranked degr
   const ranked = computeCoreScore({ ...STRONG_INPUT, sectorInfo: { rank: 1, of: 11 } });
   const unranked = computeCoreScore({ ...STRONG_INPUT, sectorInfo: undefined });
   assert.ok(ranked.breakdown.sector > unranked.breakdown.sector, "a real #1 sector rank must score higher than an honest unranked default");
-  assert.strictEqual(unranked.breakdown.sector, 4, "unranked default should be the documented mid-point (half of the 8pt bucket)");
+  assert.strictEqual(unranked.breakdown.sector, 3.5, "unranked default should be the documented mid-point (half of the 7pt bucket)");
 });
 
 console.log("\nChecking computeCoreScore's real antiChase band names — regression for the 2026-08-26 'unify the swing/entry-decision verdict' bug fix…");
@@ -71,6 +82,25 @@ ok("regression: the invented band names 'IDEAL'/'ACCEPTABLE'/'STRETCHED' (the re
   const invented = computeCoreScore({ ...STRONG_INPUT, antiChase: { band: "IDEAL" } }).breakdown.entryQuality;
   const unavailable = computeCoreScore({ ...STRONG_INPUT, antiChase: undefined }).breakdown.entryQuality;
   assert.strictEqual(invented, unavailable, "an unrecognized band name must fall through to the same honest 'unavailable' default, never accidentally scored as real");
+});
+
+console.log("\nChecking optionsConfirmation — its own real 10pt bucket (Central Opportunity & Options Engine goal, 2026-08-30, promoted out of a shared Catalyst bucket)…");
+ok("real, heavily call-weighted flow scores near the bucket's real 10pt max", () => {
+  const r = computeCoreScore({ ...STRONG_INPUT, optionsFlow: { callNotional: 900_000, putNotional: 100_000 } });
+  assert.ok(r.breakdown.optionsConfirmation >= 8, `expected a high real score for 90% call-weighted flow, got ${r.breakdown.optionsConfirmation}`);
+});
+ok("real, heavily put-weighted flow scores near the bucket's real floor", () => {
+  const r = computeCoreScore({ ...STRONG_INPUT, optionsFlow: { callNotional: 100_000, putNotional: 900_000 } });
+  assert.ok(r.breakdown.optionsConfirmation <= 2, `expected a low real score for 90% put-weighted flow, got ${r.breakdown.optionsConfirmation}`);
+});
+ok("no real options flow data -> the honest 5pt midpoint, never a fabricated confirmation either direction", () => {
+  const r = computeCoreScore({ ...STRONG_INPUT, optionsFlow: undefined });
+  assert.strictEqual(r.breakdown.optionsConfirmation, 5);
+});
+ok("this bucket alone can meaningfully move the total score — confirms it carries its own real 10pt weight, not the old ~2.5pt shared fraction", () => {
+  const bullishFlow = computeCoreScore({ ...STRONG_INPUT, optionsFlow: { callNotional: 950_000, putNotional: 50_000 } }).score;
+  const bearishFlow = computeCoreScore({ ...STRONG_INPUT, optionsFlow: { callNotional: 50_000, putNotional: 950_000 } }).score;
+  assert.ok(bullishFlow - bearishFlow >= 7, `expected at least a real ~8-9pt swing between heavily call- vs put-weighted flow, got ${bullishFlow - bearishFlow}`);
 });
 
 console.log("\nChecking AM_CORE_SETUP — the one canonical threshold config…");

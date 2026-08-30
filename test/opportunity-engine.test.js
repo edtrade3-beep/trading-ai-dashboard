@@ -176,9 +176,17 @@ ok("regression (live prod bug, 2026-08-25, AMD): EV uses row.entry (the pivot-re
   // band-name mismatch bug — see am-core-engine.js), landing this row's
   // real score at ~79. The fix correctly credits NOT_YET_BROKEN_OUT as
   // real evidence of a clean, non-extended setup, moving the accurate
-  // score to 82 — bucket "80-100", not "60-79". Same real winRate/count,
-  // just the honest bucket for this row's now-correct score.
-  const trackReport = { horizons: { d20: { buckets: { "80-100": { winRate: 33, count: 27 } } } } };
+  // score to 82 — bucket "80-100".
+  // Bucket key updated AGAIN 2026-08-30 (Central Opportunity & Options
+  // Engine goal — computeCoreScore reweighted to add a real, dedicated
+  // Options Confirmation bucket, trimming 1pt each off several other
+  // buckets to fund it). This row has no real optionsFlow data, so it
+  // defaults to that new bucket's honest 5pt neutral midpoint rather than
+  // inheriting what the trimmed buckets used to contribute — the real,
+  // accurate score for this exact row is now 78.5, bucket "60-79", not
+  // "80-100". Same real winRate/count, just the honest bucket for this
+  // row's now-correct score.
+  const trackReport = { horizons: { d20: { buckets: { "60-79": { winRate: 33, count: 27 } } } } };
   const o = computeOpportunity({ symbol: "AMD", row, regime: REGIME, marketRegime: "RISK_ON", trackReport });
   assert.ok(o, "expected a real Opportunity Object");
   assert.strictEqual(o.entry, 561.47, "entry must be the real pivot-relative reference (row.entry), not the current price");

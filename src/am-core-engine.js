@@ -53,24 +53,43 @@ function clampRound(n, max) {
 // gime + computeAntiChase + smc-engine.js, same real sources the 3
 // existing scores already read). No new fetches.
 function computeCoreScore(input = {}) {
-  // 1. Market Regime — 14pts (blend of computeAPlusScore's 20pt weight
+  // Central Opportunity & Options Engine goal (2026-08-30) — options
+  // confirmation was previously folded into a shared 5pt Catalyst bucket
+  // alongside EPS growth (worth at most ~2.5pts of 100 in practice), far
+  // below what real options-flow data (this platform already computes
+  // real call/put notional skew, confirmed live in the Options Strategy
+  // Ranking work) deserves. Given a dedicated 10pt bucket below —
+  // matching the goal's own suggested weight — funded by trimming 1pt
+  // each off Regime/Trend/Structure/Volume/RelativeStrength/
+  // SetupQuality/EntryQuality/Sector and 2pts off Catalyst (EPS-only
+  // now that options flow has its own real bucket). Direction and
+  // Timing/Earliness are deliberately NOT separate scored buckets here
+  // (validated, not blindly matched to any suggested weighting) — wrong
+  // direction and overextended entries are real HARD GATES in
+  // classifyCoreVerdict below (force AVOID_LONG regardless of score),
+  // stricter than a soft scoring weight a strong score elsewhere could
+  // outweigh.
+  //
+  // 1. Market Regime — 13pts (blend of computeAPlusScore's 20pt weight
   // and institutional-scoring.js's 10pt weight for the identical real
   // regime.score input; trimmed from 15 to make room for the new sector
-  // bucket added this phase).
+  // bucket added an earlier phase, then 14->13 this phase for Options
+  // Confirmation).
   const regimeScore = Number(input.regime?.score);
-  const regimePts = Number.isFinite(regimeScore) ? clampRound((regimeScore / 100) * 14, 14) : 7;
+  const regimePts = Number.isFinite(regimeScore) ? clampRound((regimeScore / 100) * 13, 13) : 6.5;
 
-  // 2. Trend — 14pts (passCount/8, the exact real input both institu-
+  // 2. Trend — 13pts (passCount/8, the exact real input both institu-
   // tional-scoring.js and stockQualityBreakdown separately compute the
-  // identical 20pt formula for — trimmed to 14 to make room in the new
-  // 11-bucket split, not a re-derivation of the underlying signal).
+  // identical 20pt formula for — trimmed to 14 to make room in the
+  // 11-bucket split, then 14->13 this phase for Options Confirmation).
   const passCount = Number(input.passCount);
-  const trendPts = Number.isFinite(passCount) ? clampRound((passCount / 8) * 14, 14) : 7;
+  const trendPts = Number.isFinite(passCount) ? clampRound((passCount / 8) * 13, 13) : 6.5;
 
-  // 3. Structure — 11pts (ADX + SMC combined; institutional-scoring.js
+  // 3. Structure — 10pts (ADX + SMC combined; institutional-scoring.js
   // weighted these 15+15=30 separately, roughly-halved-and-trimmed here
   // since both are real "is the higher-timeframe structure intact"
-  // signals, not two independent dimensions in the new bucketing).
+  // signals, not two independent dimensions in the new bucketing; then
+  // 11->10 this phase for Options Confirmation).
   const adx = input.adx;
   let adxPts = 5.5;
   if (adx) {
@@ -86,33 +105,36 @@ function computeCoreScore(input = {}) {
   else if (smc?.choch?.type === "CHOCH_BEAR") smcPts = 2;
   else if (smc?.nearestOB?.type === "BULL_OB") smcPts = 3.5;
   else if (smc?.nearestOB?.type === "BEAR_OB") smcPts = 2;
-  const structurePts = clampRound(adxPts + smcPts, 11);
+  // Scaled 11pts -> 10pts (proportional, same relative ADX/SMC weighting
+  // preserved, not a re-derivation of either sub-signal).
+  const structurePts = clampRound((adxPts + smcPts) * (10 / 11), 10);
 
   // 4. Momentum — 7pts (real weighted return, stockQualityBreakdown's
   // own real momentum formula's normalization, trimmed from 10).
   const momentum = Number(input.momentum);
   const momentumPts = Number.isFinite(momentum) ? clampRound(Math.max(0, Math.min(1, (momentum + 0.1) / 0.5)) * 7, 7) : 3.5;
 
-  // 5. Volume — 9pts (real volRatio vs the 50-day average; blend of
+  // 5. Volume — 8pts (real volRatio vs the 50-day average; blend of
   // computeAPlusScore's 10pt and stockQualityBreakdown's 15pt weight for
-  // the identical real input).
+  // the identical real input; 9->8 this phase for Options Confirmation).
   const volRatio = Number(input.volRatio);
-  const volumePts = Number.isFinite(volRatio) ? clampRound(Math.max(0, Math.min(1, volRatio / 2)) * 9, 9) : 4.5;
+  const volumePts = Number.isFinite(volRatio) ? clampRound(Math.max(0, Math.min(1, volRatio / 2)) * 8, 8) : 4;
 
-  // 6. Relative Strength — 9pts (real RS rating, stockQualityBreak-
-  // down's own real input, trimmed from 15).
+  // 6. Relative Strength — 8pts (real RS rating, stockQualityBreak-
+  // down's own real input, trimmed from 15, then 9->8 this phase).
   const rsRating = Number(input.rsRating);
-  const rsPts = Number.isFinite(rsRating) ? clampRound((Math.max(1, Math.min(99, rsRating)) / 99) * 9, 9) : 4.5;
+  const rsPts = Number.isFinite(rsRating) ? clampRound((Math.max(1, Math.min(99, rsRating)) / 99) * 8, 8) : 4;
 
-  // 7. Setup Quality — 9pts (real VCP Setup Score from vcpReport(),
-  // computeAPlusScore's own real input, trimmed from 15).
+  // 7. Setup Quality — 8pts (real VCP Setup Score from vcpReport(),
+  // computeAPlusScore's own real input, trimmed from 15, then 9->8 this
+  // phase).
   const vcpScoreRaw = Number(input.vcpScore);
-  const setupQualityPts = Number.isFinite(vcpScoreRaw) ? clampRound((vcpScoreRaw / 100) * 9, 9) : 4.5;
+  const setupQualityPts = Number.isFinite(vcpScoreRaw) ? clampRound((vcpScoreRaw / 100) * 8, 8) : 4;
 
-  // 8. Entry Quality — 9pts (real anti-chase/pivot-distance read + real
+  // 8. Entry Quality — 8pts (real anti-chase/pivot-distance read + real
   // risk% stop distance, combined; computeAPlusScore weighted these
   // 15+20=35 separately — heavily trimmed here since Entry Quality is
-  // one bucket in the new split, not two).
+  // one bucket in the new split, not two; then 9->8 this phase).
   //
   // Real bug fix (2026-08-26, "unify the swing/entry-decision verdict"):
   // this used to check band names "IDEAL"/"ACCEPTABLE"/"STRETCHED" — names
@@ -122,43 +144,51 @@ function computeCoreScore(input = {}) {
   // silently fell through to the generic 2.25 "unavailable" default —
   // chase risk was barely being scored at all.
   const antiChaseBand = input.antiChase?.band;
-  const entryDistPts = antiChaseBand === "NOT_YET_BROKEN_OUT" || antiChaseBand === "NORMAL" ? 4.5
-    : antiChaseBand === "CAUTION" ? 3
-    : antiChaseBand === "EXTENDED" ? 1.5
+  const entryDistPts = antiChaseBand === "NOT_YET_BROKEN_OUT" || antiChaseBand === "NORMAL" ? 4
+    : antiChaseBand === "CAUTION" ? 2.67
+    : antiChaseBand === "EXTENDED" ? 1.33
     : antiChaseBand === "DO_NOT_CHASE" ? 0
-    : 2.25;
+    : 2;
   const riskPct = Number(input.riskPct);
-  const riskDistPts = Number.isFinite(riskPct) && riskPct > 0 ? Math.max(0, Math.min(1, (10 - riskPct) / 7)) * 4.5 : 2.25;
-  const entryQualityPts = clampRound(entryDistPts + riskDistPts, 9);
+  const riskDistPts = Number.isFinite(riskPct) && riskPct > 0 ? Math.max(0, Math.min(1, (10 - riskPct) / 7)) * 4 : 2;
+  const entryQualityPts = clampRound(entryDistPts + riskDistPts, 8);
 
-  // 9. Sector — 8pts (real sector-ETF rank, institutional-scoring.js's
+  // 9. Sector — 7pts (real sector-ETF rank, institutional-scoring.js's
   // own real formula for the identical real input — was entirely
   // MISSING from Phase 1 despite both consumer pages already having real
-  // sectorInfo on hand; added this phase rather than silently continuing
-  // to drop a real, already-available signal).
+  // sectorInfo on hand; added an earlier phase, then 8->7 this phase).
   const sectorRank = Number(input.sectorInfo?.rank);
   const sectorOf = Number(input.sectorInfo?.of) || 11;
-  const sectorPts = Number.isFinite(sectorRank) && sectorRank > 0 ? clampRound(((sectorOf - sectorRank + 1) / sectorOf) * 8, 8) : 4;
+  const sectorPts = Number.isFinite(sectorRank) && sectorRank > 0 ? clampRound(((sectorOf - sectorRank + 1) / sectorOf) * 7, 7) : 3.5;
 
   // 10. Liquidity — 5pts (real dollar volume, stockQualityBreakdown's
   // own real formula, unchanged weight — already a sensibly small bucket).
   const dollarVolume = Number(input.dollarVolume);
   const liquidityPts = Number.isFinite(dollarVolume) && dollarVolume > 0 ? clampRound(Math.max(0, Math.min(1, dollarVolume / 1e9)) * 5, 5) : 3;
 
-  // 11. Catalyst — 5pts (real EPS growth + real options call/put flow
-  // ratio, combined; institutional-scoring.js/stockQualityBreakdown
-  // weighted EPS growth 15/10 separately and options flow 15 separately
-  // — heavily trimmed since Catalyst is one small bucket here, not three).
+  // 11. Catalyst — 3pts, EPS growth ONLY now (real options call/put flow
+  // moved to its own dedicated bucket below — it was previously folded
+  // in here at effectively half of a 5pt bucket, worth at most ~2.5pts
+  // of 100, which badly undersold how much real signal this platform's
+  // options-flow data actually carries).
   const epsGrowth = Number(input.epsGrowth);
-  const epsPts = Number.isFinite(epsGrowth) ? Math.max(0, Math.min(1, (epsGrowth + 10) / 30)) * 2.5 : 1.25;
+  const catalystPts = Number.isFinite(epsGrowth) ? clampRound(Math.max(0, Math.min(1, (epsGrowth + 10) / 30)) * 3, 3) : 1.5;
+
+  // 12. Options Confirmation — 10pts (NEW, Central Opportunity & Options
+  // Engine goal, 2026-08-30 — "Options confirmation: 10%"). Same real
+  // call/put notional skew formula this bucket used to share a fraction
+  // of Catalyst with (zero new signal, just its own proper weight now).
+  // Honestly degrades to the neutral midpoint when no real options flow
+  // data is available, same discipline as every other bucket here —
+  // never fabricated confirmation from missing data.
   const callN = Number(input.optionsFlow?.callNotional), putN = Number(input.optionsFlow?.putNotional);
   const flowTotal = (Number.isFinite(callN) ? callN : 0) + (Number.isFinite(putN) ? putN : 0);
   const flowRatio = flowTotal > 0 ? callN / flowTotal : null;
-  const flowPts = flowRatio != null ? Math.max(0, Math.min(1, flowRatio)) * 2.5 : 1.25;
-  const catalystPts = clampRound(epsPts + flowPts, 5);
+  const optionsConfirmationPts = flowRatio != null ? clampRound(Math.max(0, Math.min(1, flowRatio)) * 10, 10) : 5;
 
   const breakdown = {
     regime: regimePts, trend: trendPts, structure: structurePts, momentum: momentumPts,
+    optionsConfirmation: optionsConfirmationPts,
     volume: volumePts, relativeStrength: rsPts, setupQuality: setupQualityPts,
     entryQuality: entryQualityPts, sector: sectorPts, liquidity: liquidityPts, catalyst: catalystPts,
   };
@@ -172,6 +202,7 @@ function computeCoreScore(input = {}) {
     Number.isFinite(rsRating) ? `RS Rating ${rsRating}` : "RS Rating unavailable",
     Number.isFinite(vcpScoreRaw) ? `VCP Setup Score ${vcpScoreRaw}/100` : "No real VCP base detected",
     Number.isFinite(sectorRank) ? `Sector rank #${sectorRank}/${sectorOf} today` : "Sector rank unavailable",
+    flowRatio != null ? `Real options flow ${Math.round(flowRatio * 100)}% call-weighted` : "Options flow data unavailable",
   ];
 
   return { score, breakdown, reasons };
