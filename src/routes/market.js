@@ -370,8 +370,18 @@ const ECON_EVENT_TAGS = [
   { match: /\bPPI\b/i, tag: "PPI" },
   { match: /Retail Sales/i, tag: "RETAIL" }, { match: /\bGDP\b/i, tag: "GDP" },
 ];
+// Real bug found live (2026-08-30, while verifying the new forward
+// /api/market/econ-calendar route): this was still on FMP's legacy
+// `/api/v3/economic_calendar` path — every OTHER FMP call in this
+// codebase (src/providers/fmp.js's quote/income-statement/analyst-
+// estimates/earnings/news) had already been migrated to FMP's current
+// `/stable/` API, this one endpoint was missed. The old v3 path returns
+// empty on FMP's current plan, which this function's own honest `r.ok ?
+// ... : []` degrade silently absorbed as "no real events" — real code,
+// wrong URL, not a fabrication, but worth fixing now that a real feature
+// actually depends on getting results back.
 async function fetchEconCalendar(fmpKey, from, to) {
-  const url = `https://financialmodelingprep.com/api/v3/economic_calendar?from=${from}&to=${to}&apikey=${encodeURIComponent(fmpKey)}`;
+  const url = `https://financialmodelingprep.com/stable/economic-calendar?from=${from}&to=${to}&apikey=${encodeURIComponent(fmpKey)}`;
   return withTimeout(fetch(url).then((r) => (r.ok ? r.json() : [])), 12000, []);
 }
 function classifyEconEvents(raw) {
