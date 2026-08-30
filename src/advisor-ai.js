@@ -331,7 +331,13 @@ async function buildAdvisorBrief() {
   const [macroRows, sectorRows, screen, insider, cot, shortChg, news, positions, riskSnap] = await Promise.all([
     getJson("/api/market/quote?symbols=SPY,QQQ,IWM,VIXY,UUP,GLD,USO,TLT,HYG,IBIT"),
     getJson(`/api/market/quote?symbols=${SECTOR_ETFS.map(s => s.symbol).join(",")}`),
-    getJson(`/api/market/trend-screen?symbols=${SCAN_UNIVERSE.join(",")}`),
+    // withDecision=1 (One Engine consolidation, Phase 2.8) — attaches the
+    // real am-core-engine.js coreVerdict/coreCriticalFlags to every row, so
+    // the LLM's own actionPlan judgment can be hard-validated against the
+    // canonical engine below instead of originating an independent
+    // BUY_NOW/ACCUMULATE call the platform's own engine would gate to
+    // AVOID_LONG for the same symbol at the same moment.
+    getJson(`/api/market/trend-screen?symbols=${SCAN_UNIVERSE.join(",")}&withDecision=1`),
     getJson("/api/scanner/insider"),
     getJson("/api/cot/status"),
     getJson("/api/market/short-changes"),
@@ -563,8 +569,14 @@ async function buildAdvisorBrief() {
     if (f.recommendationKey) bits.push(`analyst: ${f.recommendationKey}${Number.isFinite(f.numberOfAnalystOpinions) ? ` (${f.numberOfAnalystOpinions} analysts)` : ""}`);
     return bits.length ? ` [${bits.join(", ")}]` : "";
   };
+  // Real Core Verdict disclosed per setup (One Engine consolidation, Phase
+  // 2.8) — coreVerdict/coreCriticalFlags now come through on every row via
+  // the withDecision=1 fetch above. Shown explicitly so the model can
+  // avoid the contradiction itself, not just get silently overridden after
+  // the fact by the real server-side enforcement in the actionPlan mapper
+  // below.
   const setupLines = ranked.map(r =>
-    `${r.symbol}: A+ ${r.aplus.score}/100, ${r.next.action} (${r.next.reason}), RS ${r.rsRating}, ${r.passCount}/8 trend template, stage "${(r.stage || "").replace(/ —.*/, "")}", entry $${r.entry} stop $${r.stop} target $${r.target2}, ${r.atBuyPoint ? "AT buy point" : "not yet at buy point"}.${fundSnippet(r.fund)}`
+    `${r.symbol}: A+ ${r.aplus.score}/100, ${r.next.action} (${r.next.reason}), Core Verdict: ${r.coreVerdict || "unavailable"}${r.coreCriticalFlags ? ` (${r.coreCriticalFlags} critical flag${r.coreCriticalFlags === 1 ? "" : "s"})` : ""}, RS ${r.rsRating}, ${r.passCount}/8 trend template, stage "${(r.stage || "").replace(/ —.*/, "")}", entry $${r.entry} stop $${r.stop} target $${r.target2}, ${r.atBuyPoint ? "AT buy point" : "not yet at buy point"}.${fundSnippet(r.fund)}`
   ).join("\n");
 
   // Same real insider/COT/short-interest synthesis smart-money-brief already
@@ -600,6 +612,7 @@ Hard rules:
 - The 5-year section is an explicitly thematic, web-search-informed thesis, not a scored trade. Tickers there may come from the real list OR be well-known real public companies in that theme (label which is which is not needed — just don't invent obscure/fake tickers).
 - Be willing to disagree with the obvious read of the data if the evidence supports it. State uncertainty explicitly rather than projecting false confidence.
 - actionPlan's "action" must be one of: BUY_NOW, ACCUMULATE, BUY_ON_PULLBACK, WAIT, WATCH, AVOID, REDUCE, SELL. REDUCE/SELL are ONLY valid for a symbol that appears in CURRENT PORTFOLIO below — never say REDUCE or SELL about a name that isn't a real, currently-held position (the platform will silently drop it if you do). For a held position, REDUCE/SELL should reflect its real state shown in CURRENT PORTFOLIO (e.g. real unrealized loss, real concentration weight) alongside the setup data, not a generic call.
+- Each setup line shows this platform's own real "Core Verdict" (the one centralized decision engine every other page/alert uses). If a symbol's Core Verdict is AVOID_LONG, you must NOT call BUY_NOW/ACCUMULATE/BUY_ON_PULLBACK for it — call WAIT, WATCH, or AVOID instead. The platform will otherwise override your call to AVOID and disclose it, so respecting this yourself keeps your own reasoning honest rather than silently corrected after the fact.
 - Return ONLY valid JSON, no markdown fences, no commentary before or after. Every "why"/"reason" string is plain prose, one sentence, no markdown.
 
 Return exactly this JSON shape:
@@ -726,6 +739,21 @@ Return the JSON now.`;
       const row = rankedMap.get(symbol);
       if (!row) return null;
       if (!["BUY_NOW", "ACCUMULATE", "BUY_ON_PULLBACK", "WAIT", "WATCH", "AVOID"].includes(action)) return null;
+      // Real hard-gate enforcement, not just a prompt instruction (One
+      // Engine consolidation, Phase 2.8 — audit finding: the LLM freely
+      // picks this action from ranked setup data alone, with no
+      // requirement it agree with am-core-engine.js's own classifyCoreVerdict
+      // for the same symbol; a real AVOID_LONG-gated name — critical red
+      // flag, Stage 4, or too extended to chase — could still get a
+      // BUY_NOW/ACCUMULATE/BUY_ON_PULLBACK call here). Same "never trust
+      // the AI output blindly, validate/correct it server-side" discipline
+      // this file already applies to REDUCE/SELL-must-be-a-real-holding
+      // above — this is the bullish-side equivalent. Never silently drops
+      // the row; downgrades to the real canonical verdict and discloses why.
+      const bullishActions = new Set(["BUY_NOW", "ACCUMULATE", "BUY_ON_PULLBACK"]);
+      if (row.coreVerdict === "AVOID_LONG" && bullishActions.has(action)) {
+        return { symbol: row.symbol, action: "AVOID", reason: row.coreReason || "Core Verdict gates this real setup — not a valid long right now.", score: row.aplus.score, confidence: row.confidence || null, held: heldMap.has(row.symbol), overriddenFrom: action };
+      }
       return { symbol: row.symbol, action, reason, score: row.aplus.score, confidence: row.confidence || null, held: heldMap.has(row.symbol) };
     }).filter(Boolean).slice(0, 12);
 
