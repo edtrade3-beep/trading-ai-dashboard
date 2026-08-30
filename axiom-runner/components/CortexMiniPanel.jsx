@@ -444,10 +444,28 @@ export default function CortexMiniPanel({ symbol, onSelectSymbol, setActiveTab, 
               // a real, distinct read from the verdict above it (a WATCH
               // verdict extended past the anti-chase band still reads
               // EXTENDED here, for example).
-              <div style={{ display: "flex", justifyContent: "center", gap: 12, marginTop: 8, paddingTop: 8, borderTop: `1px solid ${verdictMeta.color}33`, fontFamily: MONO, fontSize: 10.5 }}>
+              <div style={{ display: "flex", justifyContent: "center", gap: 12, marginTop: 8, paddingTop: 8, borderTop: `1px solid ${verdictMeta.color}33`, fontFamily: MONO, fontSize: 10.5, flexWrap: "wrap" }}>
+                {/* STAGE (Central Opportunity & Options Engine goal,
+                    2026-08-30) — the real EARLY/DEVELOPING/CONFIRMED/LATE/
+                    FAILED/EXIT label (opp.stage, opportunity-engine.js's
+                    toOpportunityStage) was already computed and flowing
+                    through this exact opp object, just never rendered
+                    here. Distinct from TIER (ACTIONABLE/DEVELOPING/WAIT/
+                    EXTENDED/INVALIDATED) — this is the coarser, spec-
+                    named vocabulary. */}
+                {opp.stage && <span style={{ color: C.textDim }}>STAGE <b style={{ color: opp.stage === "EARLY" ? "#0d9465" : opp.stage === "LATE" || opp.stage === "FAILED" ? "#c8282a" : C.text }}>{opp.stage}</b></span>}
                 <span style={{ color: C.textDim }}>TIER <b style={{ color: C.text }}>{opp.tier}</b></span>
                 <span style={{ color: C.textDim }}>WIN <b style={{ color: C.text }}>{opp.probability != null ? `${opp.probability}%` : "—"}</b></span>
                 <span style={{ color: C.textDim }}>EV <b style={{ color: opp.expectedValue > 0 ? "#0d9465" : opp.expectedValue < 0 ? "#c8282a" : C.text }}>{opp.expectedValue != null ? `${opp.expectedValue > 0 ? "+" : ""}${opp.expectedValue}%` : "—"}</b></span>
+                {/* Expected R:R (goal section 13) — real, computed from
+                    the same real entry/stop/target the Trade Plan block
+                    below already shows, not a new number. */}
+                {(() => {
+                  const entry = opp.executableEntry ?? opp.entry;
+                  if (!Number.isFinite(entry) || !Number.isFinite(opp.stop) || !Number.isFinite(opp.target) || entry <= opp.stop) return null;
+                  const rr = (opp.target - entry) / (entry - opp.stop);
+                  return <span style={{ color: C.textDim }}>R:R <b style={{ color: C.text }}>{rr.toFixed(1)}:1</b></span>;
+                })()}
               </div>
             )}
             {opp && <EdgeTimelineSparkline symbol={analysis.symbol} C={C} MONO={MONO} SANS={SANS} />}
@@ -492,6 +510,12 @@ export default function CortexMiniPanel({ symbol, onSelectSymbol, setActiveTab, 
               <span><span style={{ color: C.textDim }}>Entry</span> <b style={{ color: C.text }}>${(opp.executableEntry ?? opp.entry).toFixed(2)}</b></span>
               <span><span style={{ color: C.textDim }}>Stop</span> <b style={{ color: "#c8282a" }}>${opp.stop.toFixed(2)}</b></span>
               <span><span style={{ color: C.textDim }}>Target</span> <b style={{ color: "#0d9465" }}>${opp.target.toFixed(2)}</b></span>
+            </div>
+            {/* Invalidation (goal section 13, "what could invalidate it")
+                — the real stop price already shown above, restated as a
+                plain-English condition. Not a new number. */}
+            <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginBottom: 8 }}>
+              <b style={{ color: "#c8282a" }}>Invalidated if:</b> price closes back below ${opp.stop.toFixed(2)} — the real stop this plan is built on.
             </div>
             <button
               onClick={() => {
