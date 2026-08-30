@@ -110,6 +110,41 @@ function ScoreBreakdown({ opp, overrideReason, C, MONO, SANS }) {
   );
 }
 
+// "What Changed?" (Trade Desk redesign Phase 2, spec §20). opp.whatChanged
+// is a real diff against this exact symbol's own last-recorded real
+// score/verdict (opportunity-snapshot-store.js, server-side, gated to a
+// real prior reading at least 5 real minutes old — never a fabricated
+// same-visit diff). Only renders when the real change is large enough to
+// matter (verdict changed, or score moved >=3 real points) — a 0.4-point
+// wobble isn't a real "AI Update," it's noise.
+function AiUpdateBanner({ whatChanged, currentScore, currentVerdict, C, MONO, SANS }) {
+  if (!whatChanged) return null;
+  const meaningfulScoreMove = Number.isFinite(whatChanged.scoreChange) && Math.abs(whatChanged.scoreChange) >= 3;
+  if (!whatChanged.verdictChanged && !meaningfulScoreMove) return null;
+  const up = Number(whatChanged.scoreChange) > 0;
+  return (
+    <div style={{ border: `1px solid ${C.amber}66`, background: `${C.amber}14`, borderRadius: 10, padding: "10px 12px", marginBottom: 12 }}>
+      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.amber, letterSpacing: 0.5, marginBottom: 4 }}>⚡ AI UPDATE</div>
+      {Number.isFinite(whatChanged.scoreChange) && (
+        <div style={{ fontFamily: MONO, fontSize: 12, color: C.text, marginBottom: 2 }}>
+          Score {whatChanged.previousScore} → {currentScore} <b style={{ color: up ? "#0d9465" : "#c8282a" }}>({up ? "+" : ""}{whatChanged.scoreChange})</b>
+        </div>
+      )}
+      {whatChanged.verdictChanged && (
+        <div style={{ fontFamily: MONO, fontSize: 12, color: C.text, marginBottom: 2 }}>
+          Verdict {CORE_VERDICT_META[whatChanged.previousVerdict]?.label || whatChanged.previousVerdict} → {CORE_VERDICT_META[currentVerdict]?.label || currentVerdict}
+        </div>
+      )}
+      {whatChanged.biggestMover && (
+        <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textSec }}>
+          Driven by: {SCORE_BUCKET_META[whatChanged.biggestMover.bucket]?.label || whatChanged.biggestMover.bucket} ({whatChanged.biggestMover.delta > 0 ? "+" : ""}{whatChanged.biggestMover.delta})
+        </div>
+      )}
+      <div style={{ fontFamily: SANS, fontSize: 9.5, color: C.textDim, marginTop: 3, fontStyle: "italic" }}>vs. your last real look, {whatChanged.ageMinutes} min ago</div>
+    </div>
+  );
+}
+
 // Final Decision + Relative Strength card (Trade Desk redesign Phase 1,
 // §17 + §22-23). Two real reads only — never a fabricated 5-way BUY/CALL/
 // HOLD/PUT/SELL probability grid (per the redesign plan's own explicit
@@ -369,6 +404,7 @@ export default function CortexMiniPanel({ symbol, onSelectSymbol, setActiveTab, 
             )}
           </div>
         )}
+        {opp && <AiUpdateBanner whatChanged={opp.whatChanged} currentScore={opp.score} currentVerdict={opp.verdict} C={C} MONO={MONO} SANS={SANS} />}
         {analysis && verdictMeta && (
           <div style={{ border: `1px solid ${verdictMeta.color}55`, background: `${verdictMeta.color}12`, borderRadius: 10, padding: 14, textAlign: "center", marginBottom: 12 }}>
             <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.6 }}>AI VERDICT — {analysis.symbol}</div>

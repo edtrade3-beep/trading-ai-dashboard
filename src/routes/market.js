@@ -2863,6 +2863,30 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
             row.coreReason = opp.verdictReason;
             row.opportunity = opp;
           }
+
+          // "What Changed?" (Trade Desk redesign Phase 2, spec §20) — real
+          // diff against this symbol's own last-recorded real score/verdict.
+          // Same <=5-symbol real safety cap as the options-flow cross-check
+          // above and for the identical reason: this route's OTHER real
+          // callers (BestOppNotifier/AutoPilotEngine) pass 100+ symbols on a
+          // 5-15 min polling cadence, and persisting a snapshot for the
+          // entire scan universe on every one of those ticks would grow
+          // opportunity-snapshot-store.js's file far beyond its real intent
+          // (a handful of symbols a person actually deep-dives).
+          // CortexMiniPanel's real single-symbol lookup is the caller this
+          // is for.
+          if (results.length <= 5) {
+            try {
+              const { checkAndRecordSnapshots } = require("../opportunity-snapshot-store");
+              const readings = results.filter((r) => r.opportunity).map((r) => ({ symbol: r.symbol, score: r.opportunity.score, verdict: r.opportunity.verdict, breakdown: r.opportunity.breakdown }));
+              if (readings.length) {
+                const diffs = checkAndRecordSnapshots(readings);
+                for (const row of results) {
+                  if (row.opportunity) row.opportunity.whatChanged = diffs.get(row.symbol) || null;
+                }
+              }
+            } catch { /* snapshot diffing is additive-only — never breaks the base scan response */ }
+          }
         } catch { /* enrichment is additive-only — a failure here must not break the base scan response */ }
       }
       return writeJson(res, 200, { count: results.length, results });
