@@ -48,7 +48,14 @@ function normalizeVehicle(raw) {
   return {
     vin: vin || `GEN-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`.toUpperCase(),
     year,
-    make: make.charAt(0).toUpperCase() + make.slice(1).toLowerCase().replace(/\b\w/g, c => c.toUpperCase()),
+    // Real bug fix (2026-08-30, surfaced by the CSV Repricing Analysis
+    // feature returning "FOrd"/"JEep") — the old version concatenated
+    // charAt(0).toUpperCase() with ITS OWN already-recapitalized
+    // slice(1), double-processing the first word (e.g. "Ford" ->
+    // "F" + "Ord" -> "FOrd"). One real title-case pass over the whole
+    // lowered string, correctly handling multi-word/hyphenated makes too
+    // (e.g. "land rover" -> "Land Rover", "mercedes-benz" -> "Mercedes-Benz").
+    make: make.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()),
     model: model.charAt(0).toUpperCase() + model.slice(1),
     trim,
     mileage,
