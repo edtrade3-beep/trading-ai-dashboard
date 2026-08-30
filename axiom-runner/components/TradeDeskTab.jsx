@@ -22,6 +22,7 @@ import MovementIntelligenceCard from "./MovementIntelligenceCard.jsx";
 import MultiTimeframePanel from "./MultiTimeframePanel.jsx";
 import CatalystCard from "./CatalystCard.jsx";
 import OptionsStrategyRankPanel from "./OptionsStrategyRankPanel.jsx";
+import MarketContextCard from "./MarketContextCard.jsx";
 
 // TradeDeskTab — one unified trading screen (2026-08-25, explicit user
 // request/mockup: top status strip, Discover-search | Chart | Cortex
@@ -607,6 +608,7 @@ export default function TradeDeskTab({
         <CatalystCard symbol={symbol} C={TD} MONO={MONO} SANS={SANS} />
         <OptionsIntelligencePanel symbol={symbol} C={TD} MONO={MONO} SANS={SANS} />
         <OptionsStrategyRankPanel symbol={symbol} marketBias={marketBias} C={TD} MONO={MONO} SANS={SANS} />
+        <MarketContextCard C={TD} MONO={MONO} SANS={SANS} />
       </div>
 
       {/* Bottom dock — 10 modules, one shared panel, only the selected one
