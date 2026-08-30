@@ -3976,38 +3976,6 @@ Explain this.`;
     return writeJson(res, 200, merged);
   }
 
-  // Real FORWARD economic-release calendar (Trade Desk redesign Phase 2,
-  // correction) — the same real fetchEconCalendar/classifyEconEvents FMP
-  // pipeline /api/market/macro-news already uses, just pointed at a
-  // forward date window and filtered for events that HAVEN'T happened yet
-  // (actual == null, estimate present) instead of macro-news's backward
-  // "already released" filter. This DOES cover real FOMC/CPI/PCE/Jobs/
-  // PMI/PPI/GDP dates (ECON_EVENT_TAGS' own "FED" tag matches "Federal
-  // Funds|FOMC|Interest Rate Decision") — an earlier build of the Catalyst
-  // card said no real forward Fed/econ calendar existed in this codebase;
-  // that was wrong, this route fixes it. Still honestly empty (not an
-  // error) when no FMP key is configured, same disclosed degrade as
-  // macro-news's own release layer.
-  if (pathname === "/api/market/econ-calendar" && req.method === "GET") {
-    const days = Math.max(1, Math.min(30, Number(searchParams.get("days") || 14)));
-    const keys = resolveProviderKeys(searchParams);
-    if (!keys.fmp) return writeJson(res, 200, { ok: true, events: [], reason: "No FMP key configured — real forward economic-calendar data isn't available." });
-    try {
-      const now = new Date();
-      const from = now.toISOString().slice(0, 10);
-      const to = new Date(now.getTime() + days * 86400000).toISOString().slice(0, 10);
-      const rawEvents = await fetchEconCalendar(keys.fmp, from, to);
-      const events = classifyEconEvents(rawEvents)
-        .filter((e) => e.actual == null || e.actual === "")
-        .map((e) => ({ tag: e.tag, event: e.event, date: e.date, impact: e.impact || null, estimate: e.estimate ?? null, previous: e.previous ?? null }))
-        .sort((a, b) => Date.parse(a.date) - Date.parse(b.date))
-        .slice(0, 15);
-      return writeJson(res, 200, { ok: true, events, generatedAt: new Date().toISOString() });
-    } catch (err) {
-      return writeJson(res, 502, { ok: false, error: err instanceof Error ? err.message : "Economic calendar fetch failed.", events: [] });
-    }
-  }
-
   // Manual/on-demand trigger for the market-wide GO/WATCH auto-watchlist
   // scan (2026-07-27, explicit user request to see it run right now rather
   // than wait for market hours + the next real 30-min interval tick).

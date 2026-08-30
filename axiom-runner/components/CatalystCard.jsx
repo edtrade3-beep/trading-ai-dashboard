@@ -4,16 +4,17 @@ import { useEffect, useState } from "react";
 // Two real, independent forward-looking sources:
 //  1. The symbol's own next real earnings date (GET /api/market/next-
 //     earnings, a real Yahoo quote field).
-//  2. Real upcoming US macro/Fed releases — GET /api/market/econ-calendar,
-//     a real forward-looking read of the SAME fetchEconCalendar/
-//     classifyEconEvents FMP pipeline /api/market/macro-news already uses
-//     (ECON_EVENT_TAGS covers FOMC/CPI/PCE/Jobs/PMI/PPI/GDP), just pointed
-//     forward and filtered for events that haven't happened yet instead of
-//     macro-news's backward "already released" filter. An earlier version
-//     of this card said no real forward Fed/econ calendar existed in this
-//     codebase — that was wrong (found on a closer pass); this corrects
-//     it. Still honestly empty (never fabricated) when no FMP key is
-//     configured — the route discloses that directly.
+//  2. Real upcoming US macro/Fed releases — GET /api/market/econ-events, a
+//     REAL, ALREADY-EXISTING route (found on a closer pass, after an
+//     earlier version of this card wrongly claimed no such source existed
+//     and briefly duplicated one under the colliding name
+//     /api/market/econ-calendar — a DIFFERENT pre-existing route
+//     EconCalTab.jsx/MacroEventsWidget.jsx already depend on for their own
+//     hardcoded-placeholder + real-OPEX-date payload; that collision has
+//     been reverted). econ-events uses the same fetchEconCalendar/
+//     classifyEconEvents FMP pipeline, filtered to High-impact/CPI/PCE/
+//     FED/JOBS events. Honestly empty when no FMP key is configured
+//     (`reason: "no-fmp-key"`) — never fabricated.
 export default function CatalystCard({ symbol, C, MONO, SANS }) {
   const [earnings, setEarnings] = useState(null);
   const [econ, setEcon] = useState(null);
@@ -28,14 +29,16 @@ export default function CatalystCard({ symbol, C, MONO, SANS }) {
   }, [symbol]);
 
   // Econ calendar isn't symbol-specific — fetched once, not re-fetched
-  // per symbol change (a real 5-min cache would be reasonable server-side
-  // too, but the FMP call itself is cheap and this component only mounts
-  // once per Trade Desk session anyway).
+  // per symbol change.
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/market/econ-calendar?days=14").then((r) => r.json())
-      .then((d) => { if (!cancelled && d?.ok) setEcon(d); })
-      .catch(() => {});
+    fetch("/api/market/econ-events").then((r) => r.json())
+      .then((d) => {
+        if (cancelled) return;
+        if (d?.ok) setEcon({ events: d.events || [] });
+        else setEcon({ events: [], reason: d?.reason === "no-fmp-key" ? "No FMP key configured — real forward macro-calendar data isn't available." : "Real macro-calendar data unavailable right now." });
+      })
+      .catch(() => { if (!cancelled) setEcon({ events: [], reason: "Real macro-calendar data unavailable right now." }); });
     return () => { cancelled = true; };
   }, []);
 
@@ -66,10 +69,10 @@ export default function CatalystCard({ symbol, C, MONO, SANS }) {
         <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 6 }}>UPCOMING MACRO EVENTS</div>
         {!econ && <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim }}>Loading…</div>}
         {econ && econ.reason && <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim }}>{econ.reason}</div>}
-        {econ && !econ.reason && !econ.events.length && <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim }}>No real US macro releases scheduled in the next 14 days.</div>}
+        {econ && !econ.reason && !econ.events.length && <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim }}>No real high-impact US macro releases scheduled in the next 21 days.</div>}
         {econ && econ.events?.length > 0 && (
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            {econ.events.slice(0, 6).map((e, i) => (
+            {[...econ.events].sort((a, b) => Date.parse(a.date) - Date.parse(b.date)).slice(0, 6).map((e, i) => (
               <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: MONO, fontSize: 10.5 }}>
                 <span style={{ color: C.textDim, width: 42 }}>{new Date(e.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
                 <span style={{ color: e.tag === "FED" ? C.amber : C.text, fontWeight: e.tag === "FED" ? 800 : 500, flex: 1 }}>{e.event}</span>
