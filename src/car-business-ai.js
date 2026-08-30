@@ -52,7 +52,7 @@ const { PORT } = require("./config");
 const {
   BUSINESS_DIMENSIONS, SECTION_CLASSIFICATIONS, OPPORTUNITY_CLASSIFICATIONS, BUY_CLASSIFICATIONS,
   TURN_VERDICTS, DEAD_INVENTORY_ACTIONS, DATA_QUALITIES, RISK_LEVELS, REGULATION_FLAGS, FUTURE_IMPACTS, REPRICE_ACTIONS,
-  sanitizeMarketSections, sanitizeInventoryScores, sanitizeOpportunityCards, sanitizeRepricingResults, sanitizeFacebookStrategy,
+  sanitizeMarketSections, sanitizeInventoryScores, sanitizeOpportunityCards, sanitizeRepricingResults, sanitizeFacebookStrategy, sanitizeFacebookAd,
   sanitizeBuyRecommendations, sanitizeAvoidList, sanitizeCustomerSegments, sanitizeLeadChannels,
   sanitizeFunnelRead, sanitizeFinanceRead, sanitizeRegulationFlags, sanitizeFutureScan,
   sanitizeLocalMarketGap, sanitizeForecast,
@@ -446,4 +446,54 @@ Search for real, current Facebook Marketplace/Page strategy information now and 
   return built;
 }
 
-module.exports = { buildCarBusinessIntel, analyzeRepricing, buildFacebookStrategy };
+// ── Facebook Ad Maker — explicit user request (2026-08-30): "build
+// facebook ad maker i only give details and you make ad also you can make
+// it step by step". A 6th call through the SAME callAnthropicWithSearch
+// chokepoint (still no new engine). Unlike every other Car Business tool,
+// this is NOT grounded in the real /api/inventory list — the user types in
+// whatever vehicle details they want an ad built for (a one-off, something
+// not yet listed, anything), so there is no real VIN to validate against.
+// Real, disclosed distinction: the vehicle DETAILS are exactly what the
+// user typed (never independently verified against inventory), while the
+// AD COPY/positioning is real AI output grounded in real search when
+// available (comps-based positioning language), never fabricated.
+async function buildFacebookAd(details) {
+  if (!KEY()) return { ok: false, error: "ANTHROPIC_API_KEY not set" };
+  const year = String(details?.year || "").trim();
+  const make = String(details?.make || "").trim();
+  const model = String(details?.model || "").trim();
+  if (!year || !make || !model) return { ok: false, error: "Year, make, and model are required." };
+
+  const line = [
+    `${year} ${make} ${model}`, details?.trim && String(details.trim).trim(),
+    details?.mileage && `${details.mileage} miles`, details?.price && `$${details.price}`,
+    details?.condition && `condition: ${details.condition}`,
+  ].filter(Boolean).join(" · ");
+  const features = String(details?.features || "").trim();
+  const notes = String(details?.notes || "").trim();
+
+  const system = `You are the FACEBOOK AD MAKER layer of a real, independent used-car dealership's Car Business Intelligence system. The user will give you real details about ONE vehicle they want to advertise — these are exactly what they typed in, not independently verified against any inventory system, so never claim to have confirmed them against real records.
+
+Build a complete, ready-to-post Facebook Marketplace + Page ad for this vehicle, presented as clear SEQUENTIAL STEPS the user can follow in order (aim for 6-8 real steps: e.g. Photos, Headline, Price Presentation, Full Description, Call To Action, Where To Post, After You Post/response-speed tip — adapt as makes sense for this specific vehicle). For each step, give a real, specific, ready-to-use title and instructions/content — never vague generic advice.
+
+Also produce fullAdText: one single ready-to-copy-paste block combining the headline + price + full description + call to action, formatted exactly as it should be pasted into a Facebook listing. And hashtags: 5-8 real, relevant tags for this specific vehicle.
+
+If you can find real, current comps for this specific vehicle via search, use them to strengthen the ad's positioning (e.g. "priced below comparable local listings") in positioningNote — otherwise leave positioningNote null rather than inventing a comp number you didn't find. Include vehicleSummary: a one-line echo of the vehicle so the user can confirm you understood it correctly.
+
+Never invent a fact about this vehicle beyond what's given. Return JSON ONLY:
+{"vehicleSummary":"...","steps":[{"title":"...","instructions":"..."}],"fullAdText":"...","hashtags":["..."],"positioningNote":"..." or null,"sources":["..."]}`;
+
+  const prompt = `VEHICLE DETAILS (exactly as the user entered them — not independently verified):
+${line}
+${features ? `Features/options: ${features}\n` : ""}${notes ? `Additional notes: ${notes}\n` : ""}
+Search for real, current comps on this vehicle if useful for positioning, then build the step-by-step ad and return the JSON.`;
+
+  const result = await runCall(prompt, system, { model: "claude-sonnet-4-6", maxTokens: 4000, maxSearches: 2, timeout: 200000, feature: "car-business-ad-maker" });
+  if (!result.ok) return { ok: false, error: result.error };
+
+  const ad = sanitizeFacebookAd(result.parsed);
+  if (!ad) return { ok: false, error: "Could not build a real ad from the response — try again." };
+  return { ok: true, ad, generatedAt: Date.now() };
+}
+
+module.exports = { buildCarBusinessIntel, analyzeRepricing, buildFacebookStrategy, buildFacebookAd };

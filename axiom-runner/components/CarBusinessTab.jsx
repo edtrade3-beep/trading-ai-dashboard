@@ -494,6 +494,136 @@ function FacebookStrategyTool({ C, MONO, SANS, inventory }) {
   );
 }
 
+const AD_FORM_FIELDS = [
+  { key: "year", label: "Year", placeholder: "2021", required: true },
+  { key: "make", label: "Make", placeholder: "Toyota", required: true },
+  { key: "model", label: "Model", placeholder: "Tacoma", required: true },
+  { key: "trim", label: "Trim", placeholder: "SR5 4x4" },
+  { key: "mileage", label: "Mileage", placeholder: "38,500" },
+  { key: "price", label: "Asking Price", placeholder: "29,900" },
+  { key: "condition", label: "Condition", placeholder: "Very Good" },
+];
+const AD_FORM_EMPTY = { year: "", make: "", model: "", trim: "", mileage: "", price: "", condition: "", features: "", notes: "" };
+
+function CopyButton({ C, MONO, text }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button onClick={() => { navigator.clipboard?.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); }); }} style={{
+      fontFamily: MONO, fontSize: 10.5, fontWeight: 700, padding: "4px 10px", borderRadius: 6,
+      border: `1px solid ${copied ? C.green : C.border}`, background: copied ? C.greenBg : C.surface, color: copied ? C.green : C.textDim, cursor: "pointer",
+    }}>{copied ? "✓ Copied" : "Copy"}</button>
+  );
+}
+
+// Facebook Ad Maker — explicit user request: "build facebook ad maker i
+// only give details and you make ad also you can make it step by step."
+// A free-form form (NOT tied to the real inventory list — the user can
+// build an ad for any vehicle, on the lot or not) that produces a
+// complete, step-by-step, ready-to-post ad.
+function AdMakerTool({ C, MONO, SANS }) {
+  const [form, setForm] = useState(AD_FORM_EMPTY);
+  const [building, setBuilding] = useState(false);
+  const [ad, setAd] = useState(null);
+  const [error, setError] = useState(null);
+
+  const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
+
+  const build = () => {
+    if (!form.year.trim() || !form.make.trim() || !form.model.trim()) {
+      setError("Year, make, and model are required.");
+      return;
+    }
+    setBuilding(true); setError(null); setAd(null);
+    fetch("/api/car-business/facebook-ad", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form),
+    }).then((r) => r.json())
+      .then((d) => { if (d.ok) setAd(d.ad); else setError(d.error || "Could not build the ad."); })
+      .catch((e) => setError(e.message))
+      .finally(() => setBuilding(false));
+  };
+
+  return (
+    <Section C={C} MONO={MONO} SANS={SANS} title="📝 Facebook Ad Maker" subtitle="Give the details, get a complete, ready-to-post ad — built step by step.">
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "14px 16px", marginBottom: ad || error ? 14 : 0 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10, marginBottom: 10 }}>
+          {AD_FORM_FIELDS.map((f) => (
+            <div key={f.key}>
+              <div style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 700, color: C.textDim, marginBottom: 3 }}>{f.label}{f.required ? " *" : ""}</div>
+              <input value={form[f.key]} onChange={set(f.key)} placeholder={f.placeholder} style={{
+                width: "100%", fontFamily: SANS, fontSize: 12.5, padding: "7px 9px", borderRadius: 6,
+                border: `1px solid ${C.border}`, background: C.surface, color: C.text, boxSizing: "border-box",
+              }} />
+            </div>
+          ))}
+        </div>
+        <div style={{ marginBottom: 10 }}>
+          <div style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 700, color: C.textDim, marginBottom: 3 }}>Features / Options</div>
+          <input value={form.features} onChange={set("features")} placeholder="Leather seats, sunroof, tow package, new tires…" style={{
+            width: "100%", fontFamily: SANS, fontSize: 12.5, padding: "7px 9px", borderRadius: 6,
+            border: `1px solid ${C.border}`, background: C.surface, color: C.text, boxSizing: "border-box",
+          }} />
+        </div>
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 700, color: C.textDim, marginBottom: 3 }}>Anything else worth mentioning?</div>
+          <textarea value={form.notes} onChange={set("notes")} placeholder="One owner, clean Carfax, still under factory warranty…" rows={2} style={{
+            width: "100%", fontFamily: SANS, fontSize: 12.5, padding: "7px 9px", borderRadius: 6,
+            border: `1px solid ${C.border}`, background: C.surface, color: C.text, boxSizing: "border-box", resize: "vertical",
+          }} />
+        </div>
+        <button onClick={build} disabled={building} style={{
+          fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "8px 14px", borderRadius: 8,
+          border: `1px solid ${C.accent}`, background: building ? C.card : C.accent, color: building ? C.accent : "#fff",
+          cursor: building ? "default" : "pointer",
+        }}>{building ? "Building…" : "Build My Ad"}</button>
+        <div style={{ fontSize: 10.5, color: C.textDim, marginTop: 8 }}>Built from exactly the details you enter — not cross-checked against your real inventory records.</div>
+      </div>
+
+      {error && <div style={{ fontSize: 13, color: C.red, background: C.redBg, borderRadius: 8, padding: "10px 14px", marginBottom: 14 }}>{error}</div>}
+
+      {ad && (
+        <>
+          {ad.vehicleSummary && <div style={{ fontSize: 12.5, color: C.textDim, marginBottom: 12 }}>Building an ad for: <b style={{ color: C.text }}>{ad.vehicleSummary}</b></div>}
+
+          {ad.steps?.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
+              {ad.steps.map((s, i) => (
+                <div key={i} style={{ display: "flex", gap: 12, background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 14px" }}>
+                  <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.accent, minWidth: 24 }}>{s.step}</div>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 13, color: C.text, marginBottom: 4 }}>{s.title}</div>
+                    <div style={{ fontSize: 12.5, color: C.textSec, lineHeight: 1.55 }}>{s.instructions}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {ad.fullAdText && (
+            <div style={{ background: C.accentGlow, border: `1px solid ${C.accent}`, borderRadius: 10, padding: "14px 16px", marginBottom: 12 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.accent }}>READY-TO-PASTE AD TEXT</div>
+                <CopyButton C={C} MONO={MONO} text={ad.fullAdText} />
+              </div>
+              <div style={{ fontSize: 13, color: C.text, whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{ad.fullAdText}</div>
+            </div>
+          )}
+
+          {ad.hashtags?.length > 0 && (
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>{ad.hashtags.join(" ")}</div>
+              <CopyButton C={C} MONO={MONO} text={ad.hashtags.join(" ")} />
+            </div>
+          )}
+
+          {ad.positioningNote && <div style={{ fontSize: 12, color: C.textSec, marginBottom: 8 }}><b style={{ color: C.text }}>Positioning:</b> {ad.positioningNote}</div>}
+          {ad.sources?.length > 0 && <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>Sources: {ad.sources.join(" · ")}</div>}
+        </>
+      )}
+    </Section>
+  );
+}
+
 export default function CarBusinessTab({ C, MONO, SANS }) {
   const [intel, setIntel] = useState(null);
   const [inventory, setInventory] = useState([]);
@@ -553,6 +683,7 @@ export default function CarBusinessTab({ C, MONO, SANS }) {
 
       <RepricingTool C={C} MONO={MONO} SANS={SANS} />
       <FacebookStrategyTool C={C} MONO={MONO} SANS={SANS} inventory={inventory} />
+      <AdMakerTool C={C} MONO={MONO} SANS={SANS} />
 
       {loading && <div style={{ fontSize: 13, color: C.textDim }}>Loading Car Business intelligence…</div>}
       {!loading && error && <div style={{ fontSize: 13, color: C.red, background: C.redBg, borderRadius: 8, padding: "10px 14px" }}>{error}</div>}

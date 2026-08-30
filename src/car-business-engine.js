@@ -175,6 +175,35 @@ function sanitizeFacebookStrategy(raw, realVinsSet) {
   };
 }
 
+// Facebook Ad Maker sanitizer (explicit user request, 2026-08-30: "build
+// facebook ad maker i only give details and you make ad also you can make
+// it step by step"). Unlike the other Car Business tools, this is NOT
+// grounded against a real inventory VIN — the user types in whatever
+// vehicle details they want an ad for (could be off the real lot, could be
+// a one-off), so there is no real-VIN set to validate against. The UI is
+// responsible for disclosing "built from the details you entered," not
+// this sanitizer inventing a false verification.
+const AD_STEP_CAP = 10;
+function sanitizeFacebookAd(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  // Filter first, THEN number sequentially — a dropped (title-less) step
+  // must never leave a gap (step 1, 3, 4...) in what the user sees.
+  const steps = (Array.isArray(raw.steps) ? raw.steps : []).slice(0, AD_STEP_CAP).map((s) => {
+    if (!s || typeof s !== "object") return null;
+    const title = String(s.title || "").slice(0, 60);
+    if (!title) return null;
+    return { title, instructions: String(s.instructions || "").slice(0, 500) };
+  }).filter(Boolean).map((s, i) => ({ step: i + 1, ...s }));
+  return {
+    vehicleSummary: String(raw.vehicleSummary || "").slice(0, 160),
+    steps,
+    fullAdText: String(raw.fullAdText || "").slice(0, 1600),
+    hashtags: strList(raw.hashtags, 8, 30),
+    positioningNote: raw.positioningNote ? String(raw.positioningNote).slice(0, 260) : null,
+    sources: strList(raw.sources, 5, 100),
+  };
+}
+
 // Real opportunity-card sanitizer (daily opportunity board) — same shape
 // discipline as research-intel-engine.js's sanitizeCards.
 function sanitizeOpportunityCards(raw) {
@@ -530,7 +559,7 @@ module.exports = {
   BUSINESS_DIMENSIONS, SECTION_CLASSIFICATIONS, OPPORTUNITY_CLASSIFICATIONS, BUY_CLASSIFICATIONS,
   TURN_VERDICTS, DEAD_INVENTORY_ACTIONS, CARD_STATUSES, RISK_LEVELS, DATA_QUALITIES,
   REGULATION_FLAGS, FUTURE_IMPACTS, FINAL_VERDICTS, LEARNING_VERDICTS, MIN_GRADE_AGE_DAYS, REPRICE_ACTIONS,
-  sanitizeMarketSections, sanitizeInventoryScores, sanitizeOpportunityCards, sanitizeRepricingResults, sanitizeFacebookStrategy,
+  sanitizeMarketSections, sanitizeInventoryScores, sanitizeOpportunityCards, sanitizeRepricingResults, sanitizeFacebookStrategy, sanitizeFacebookAd,
   sanitizeBuyRecommendations, sanitizeAvoidList, sanitizeCustomerSegments, sanitizeLeadChannels,
   sanitizeFunnelRead, sanitizeFinanceRead, sanitizeRegulationFlags, sanitizeFutureScan,
   sanitizeLocalMarketGap, sanitizeForecast,

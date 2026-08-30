@@ -7,7 +7,7 @@
 "use strict";
 const assert = require("node:assert");
 const {
-  sanitizeMarketSections, sanitizeInventoryScores, sanitizeOpportunityCards, sanitizeRepricingResults, sanitizeFacebookStrategy,
+  sanitizeMarketSections, sanitizeInventoryScores, sanitizeOpportunityCards, sanitizeRepricingResults, sanitizeFacebookStrategy, sanitizeFacebookAd,
   sanitizeBuyRecommendations, sanitizeAvoidList, sanitizeCustomerSegments, sanitizeLeadChannels,
   sanitizeFunnelRead, sanitizeFinanceRead, sanitizeRegulationFlags, sanitizeFutureScan,
   sanitizeLocalMarketGap, sanitizeForecast,
@@ -179,6 +179,41 @@ ok("more than 8 post plans are capped, contentPillars/weeklyActionPlan bounded",
 });
 ok("a null/malformed raw input returns null, never a fabricated empty strategy object treated as real", () => {
   assert.strictEqual(sanitizeFacebookStrategy(null, STRAT_VINS), null);
+});
+
+console.log("\nChecking sanitizeFacebookAd — bounded, step-numbered, no VIN grounding (user-typed, one-off vehicle)…");
+ok("a well-formed ad round-trips real fields, steps get real sequential numbers", () => {
+  const out = sanitizeFacebookAd({
+    vehicleSummary: "2019 Honda Accord Sport, 42k miles",
+    steps: [{ title: "Photos", instructions: "10+ shots, natural light" }, { title: "Headline", instructions: "Lead with mileage + price" }],
+    fullAdText: "2019 Honda Accord Sport — $17,900...",
+    hashtags: ["#hondaaccord", "#usedcars"],
+    positioningNote: "Priced $800 below 3 comparable local listings",
+    sources: ["cargurus.com"],
+  });
+  assert.strictEqual(out.vehicleSummary, "2019 Honda Accord Sport, 42k miles");
+  assert.strictEqual(out.steps.length, 2);
+  assert.strictEqual(out.steps[0].step, 1);
+  assert.strictEqual(out.steps[1].step, 2);
+  assert.strictEqual(out.steps[0].title, "Photos");
+  assert.strictEqual(out.hashtags.length, 2);
+});
+ok("a step with no title is dropped, not fabricated", () => {
+  const out = sanitizeFacebookAd({ steps: [{ instructions: "no title given" }, { title: "Headline", instructions: "x" }] });
+  assert.strictEqual(out.steps.length, 1);
+  assert.strictEqual(out.steps[0].step, 1, "the surviving step is renumbered from 1, not left at its original index");
+});
+ok("more than 10 steps are capped", () => {
+  const many = Array.from({ length: 15 }, (_, i) => ({ title: `Step ${i}`, instructions: "x" }));
+  assert.ok(sanitizeFacebookAd({ steps: many }).steps.length <= 10);
+});
+ok("no real positioning found -> null, never a fabricated comps claim", () => {
+  const out = sanitizeFacebookAd({ steps: [], positioningNote: null });
+  assert.strictEqual(out.positioningNote, null);
+});
+ok("malformed raw input returns null, never a fabricated empty ad treated as real", () => {
+  assert.strictEqual(sanitizeFacebookAd(null), null);
+  assert.strictEqual(sanitizeFacebookAd("not an object"), null);
 });
 
 console.log("\nChecking sanitizeDimensions — real cross-run diff…");

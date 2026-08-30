@@ -6,7 +6,7 @@
 
 const { writeJson, readRequestBody } = require("../utils");
 const { loadCoachLog } = require("../ai-coach-store");
-const { buildCarBusinessIntel, analyzeRepricing, buildFacebookStrategy } = require("../car-business-ai");
+const { buildCarBusinessIntel, analyzeRepricing, buildFacebookStrategy, buildFacebookAd } = require("../car-business-ai");
 
 async function handleCarBusiness(req, res, requestUrl) {
   const { pathname } = requestUrl;
@@ -68,6 +68,24 @@ async function handleCarBusiness(req, res, requestUrl) {
       return writeJson(res, 200, { ok: true, strategy: built });
     } catch (e) {
       return writeJson(res, 200, { ok: false, error: "Could not generate a Facebook strategy.", debug: e.message });
+    }
+  }
+
+  // Facebook Ad Maker (explicit user request, 2026-08-30: "build facebook
+  // ad maker i only give details and you make ad also you can make it
+  // step by step"). Body: {year,make,model,trim,mileage,price,condition,
+  // features,notes} — free-form details the user typed in, not grounded
+  // in the real inventory list (a one-off tool, ephemeral — no GET/
+  // persistence, same pattern as /reprice).
+  if (pathname === "/api/car-business/facebook-ad" && req.method === "POST") {
+    try {
+      const raw = await readRequestBody(req);
+      const body = raw ? JSON.parse(raw) : {};
+      const result = await buildFacebookAd(body);
+      if (!result.ok) return writeJson(res, 200, { ok: false, error: result.error });
+      return writeJson(res, 200, result);
+    } catch (e) {
+      return writeJson(res, 200, { ok: false, error: "Could not build the ad.", debug: e.message });
     }
   }
 
