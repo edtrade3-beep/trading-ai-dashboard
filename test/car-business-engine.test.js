@@ -7,7 +7,7 @@
 "use strict";
 const assert = require("node:assert");
 const {
-  sanitizeMarketSections, sanitizeInventoryScores, sanitizeOpportunityCards, sanitizeRepricingResults,
+  sanitizeMarketSections, sanitizeInventoryScores, sanitizeOpportunityCards, sanitizeRepricingResults, sanitizeFacebookStrategy,
   sanitizeBuyRecommendations, sanitizeAvoidList, sanitizeCustomerSegments, sanitizeLeadChannels,
   sanitizeFunnelRead, sanitizeFinanceRead, sanitizeRegulationFlags, sanitizeFutureScan,
   sanitizeLocalMarketGap, sanitizeForecast,
@@ -150,6 +150,35 @@ ok("an out-of-enum action honestly degrades to HOLD_PRICE, never a guessed direc
 ok("more than 50 results are capped", () => {
   const many = Array.from({ length: 60 }, () => ({ vin: "1HGCM82633A004352" }));
   assert.ok(sanitizeRepricingResults(many, UPLOADED_VINS).length <= 50);
+});
+
+console.log("\nChecking sanitizeFacebookStrategy — REAL VIN grounding for per-vehicle post plans, strategy text bounded…");
+const STRAT_VINS = new Set(["1HGCM82633A004352", "5FRYD4H45KB012345"]);
+ok("a well-formed strategy round-trips real fields, keeps a real-VIN post plan", () => {
+  const out = sanitizeFacebookStrategy({
+    postingCadence: "3-5 posts/day", bestTimes: "6-9pm weekdays", contentPillars: ["walk-around video", "price drop"],
+    photoGuidance: "12+ photos", paidBoostGuidance: "boost top 3", responseSpeedGuidance: "reply in under 5 min",
+    weeklyActionPlan: ["a", "b"], sources: ["Meta Business Help Center"],
+    perVehiclePostPlans: [{ vin: "1hgcm82633a004352", headline: "2020 Accord — Won't Last!", priceDisplay: "$19,900 or $312/mo", descriptionOutline: "x", cta: "Message now", hashtags: ["#usedcars"] }],
+  }, STRAT_VINS);
+  assert.strictEqual(out.postingCadence, "3-5 posts/day");
+  assert.strictEqual(out.contentPillars.length, 2);
+  assert.strictEqual(out.perVehiclePostPlans.length, 1);
+  assert.strictEqual(out.perVehiclePostPlans[0].vin, "1HGCM82633A004352");
+});
+ok("a post plan for a VIN NOT actually in the real batch is dropped — never plans a post for an invented vehicle", () => {
+  const out = sanitizeFacebookStrategy({ perVehiclePostPlans: [{ vin: "NOTAREALVIN000001", headline: "x" }] }, STRAT_VINS);
+  assert.strictEqual(out.perVehiclePostPlans.length, 0);
+});
+ok("more than 8 post plans are capped, contentPillars/weeklyActionPlan bounded", () => {
+  const many = Array.from({ length: 12 }, () => ({ vin: "1HGCM82633A004352", headline: "x" }));
+  const out = sanitizeFacebookStrategy({ perVehiclePostPlans: many, contentPillars: Array(20).fill("x"), weeklyActionPlan: Array(20).fill("y") }, STRAT_VINS);
+  assert.ok(out.perVehiclePostPlans.length <= 8);
+  assert.ok(out.contentPillars.length <= 8);
+  assert.ok(out.weeklyActionPlan.length <= 6);
+});
+ok("a null/malformed raw input returns null, never a fabricated empty strategy object treated as real", () => {
+  assert.strictEqual(sanitizeFacebookStrategy(null, STRAT_VINS), null);
 });
 
 console.log("\nChecking sanitizeDimensions — real cross-run diff…");

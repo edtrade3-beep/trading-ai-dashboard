@@ -52,7 +52,7 @@ const { PORT } = require("./config");
 const {
   BUSINESS_DIMENSIONS, SECTION_CLASSIFICATIONS, OPPORTUNITY_CLASSIFICATIONS, BUY_CLASSIFICATIONS,
   TURN_VERDICTS, DEAD_INVENTORY_ACTIONS, DATA_QUALITIES, RISK_LEVELS, REGULATION_FLAGS, FUTURE_IMPACTS, REPRICE_ACTIONS,
-  sanitizeMarketSections, sanitizeInventoryScores, sanitizeOpportunityCards, sanitizeRepricingResults,
+  sanitizeMarketSections, sanitizeInventoryScores, sanitizeOpportunityCards, sanitizeRepricingResults, sanitizeFacebookStrategy,
   sanitizeBuyRecommendations, sanitizeAvoidList, sanitizeCustomerSegments, sanitizeLeadChannels,
   sanitizeFunnelRead, sanitizeFinanceRead, sanitizeRegulationFlags, sanitizeFutureScan,
   sanitizeLocalMarketGap, sanitizeForecast,
@@ -382,4 +382,68 @@ Search for real, current supply/demand comps data now and return the JSON.`;
   };
 }
 
-module.exports = { buildCarBusinessIntel, analyzeRepricing };
+// ── Facebook Lead Generation Strategy — explicit user request (2026-08-30):
+// "find strategy to post and get lots of leads from facebook, upgrade car
+// business". A 5th call through the SAME callAnthropicWithSearch
+// chokepoint (still no new engine). Deliberately NOT part of the daily
+// 3-call cycle — a posting playbook is a real strategy document, not a
+// fact that changes day to day the way market prices do, so this runs
+// on-demand (like CSV Repricing) and persists via the same
+// saveCoachOutput/loadCoachLog pattern every other AI feature in this app
+// uses, rather than re-running automatically every 6:05pm cycle for no
+// real new information.
+//
+// Grounded in: the dealership's REAL top inventory (so the per-vehicle
+// post plans are for real units, never invented), REAL CRM lead/stage
+// counts (so the AI can honestly diagnose what's/isn't working today
+// rather than give generic advice), and live search for real, current
+// Facebook Marketplace/Page best practices for used-car dealers. Most of
+// this output is real MARKETING STRATEGY (a playbook), not a verifiable
+// market fact — the system prompt requires the AI to ground every
+// specific claim it can and never present strategy opinion as FACT.
+async function buildFacebookStrategy() {
+  if (!KEY()) return null;
+
+  const inventory = loadInventory() || [];
+  const leadsData = await getJson("/api/dealer/crm/leads");
+  const leads = Array.isArray(leadsData?.leads) ? leadsData.leads : [];
+  const byStage = {};
+  let hot = 0;
+  for (const l of leads) { const s = l.stage || "NEW"; byStage[s] = (byStage[s] || 0) + 1; if (l.hot) hot++; }
+
+  const topInventory = [...inventory].sort((a, b) => (Number(b.price) || 0) - (Number(a.price) || 0)).slice(0, 8);
+  const realVins = new Set(topInventory.map((v) => String(v.vin || "").toUpperCase()));
+  const invSummary = topInventory.length
+    ? topInventory.map((v) => `${v.vin} — ${v.year} ${v.make} ${v.model} ${v.trim || ""} · ${v.mileage?.toLocaleString?.() ?? v.mileage} mi · $${v.price} · ${v.condition}`).join("\n")
+    : "no real inventory on file";
+
+  const system = `You are the FACEBOOK LEAD GENERATION STRATEGY layer of a real, independent used-car dealership's Car Business Intelligence system. Your job: build a real, current, actionable strategy for posting on Facebook (Marketplace + Facebook Page/groups) to generate as many real qualified leads as possible.
+
+Search real, current sources now for what actually works for used-car dealers on Facebook Marketplace and Facebook Pages in 2026 — posting cadence, the Facebook algorithm's real current ranking factors, photo/video best practices, Facebook Shops/Catalog inventory sync, boosted posts vs organic reach, local buy/sell groups, Reels/video content, response-time impact on lead quality, and price-transparency norms.
+
+You are given this dealership's REAL current top inventory and REAL CRM lead/stage data below — use the real lead data to diagnose what's actually happening today (e.g. if leads are low, say so plainly and connect it to a real gap in the strategy below, don't give generic advice disconnected from their real numbers).
+
+Produce: postingCadence (a real, specific recommendation — how many posts/day, spread across Marketplace vs Page vs groups), bestTimes (real research-grounded best days/times to post), contentPillars (5-8 real content types proven to generate leads — e.g. "walk-around video," "price-drop announcement," "financing spotlight," "testimonial/delivery photo," "before/after detail," each one real and specific, not generic), photoGuidance (real best practices: count, order, angles, lighting), paidBoostGuidance (real guidance on when/how much to boost, targeting radius/audience), responseSpeedGuidance (real guidance on speed-to-lead, referencing that this dealership already has an AI auto-reply/Messenger system in place — build on that real capability, don't recommend duplicating it), weeklyActionPlan (4-6 real, concrete, specific action items for this week).
+
+Using the REAL top inventory given, write a Facebook post plan for EACH real vehicle (by its real VIN — never invent a VIN, never plan a post for a vehicle not in the list given): headline, priceDisplay (how to present the price — e.g. "$28,900 or $412/mo"), descriptionOutline (the real structure/key points the post description should hit for this specific real vehicle), cta (the real call-to-action), hashtags (5-8 real, relevant tags).
+
+Never invent a fact, statistic, or VIN. Ground every specific claim (algorithm behavior, engagement stats) in what you actually found — if you can't find a genuinely current real source for a claim, phrase it as general strategic guidance, not a fabricated statistic. Return JSON ONLY:
+{"postingCadence":"...","bestTimes":"...","contentPillars":["...","..."],"photoGuidance":"...","paidBoostGuidance":"...","responseSpeedGuidance":"...","weeklyActionPlan":["...","..."],"perVehiclePostPlans":[{"vin":"...","headline":"...","priceDisplay":"...","descriptionOutline":"...","cta":"...","hashtags":["...","..."]}],"sources":["..."]}`;
+
+  const prompt = `THIS DEALERSHIP'S REAL TOP INVENTORY (write a real post plan for each of these real VINs):
+${invSummary}
+
+THIS DEALERSHIP'S REAL CRM LEAD DATA: ${leads.length} real leads on file · by stage: ${Object.entries(byStage).map(([k, v]) => `${k}=${v}`).join(", ") || "none"} · ${hot} marked hot. (Facebook Messenger is this dealership's only channel with real tracked lead data today.)
+
+Search for real, current Facebook Marketplace/Page strategy information now and return the JSON.`;
+
+  const result = await runCall(prompt, system, { model: "claude-sonnet-4-6", maxTokens: 9000, maxSearches: 2, timeout: 280000, feature: "car-business-facebook" });
+  if (!result.ok) return { ok: false, aiUnavailable: true, aiError: result.error, generatedAt: Date.now() };
+
+  const strategy = sanitizeFacebookStrategy(result.parsed, realVins);
+  const built = { ok: true, strategy, inventoryCount: inventory.length, generatedAt: Date.now() };
+  saveCoachOutput("carBusinessFacebookStrategy", built);
+  return built;
+}
+
+module.exports = { buildCarBusinessIntel, analyzeRepricing, buildFacebookStrategy };

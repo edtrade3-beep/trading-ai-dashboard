@@ -136,6 +136,45 @@ function sanitizeRepricingResults(raw, uploadedVinsSet) {
   }).filter(Boolean);
 }
 
+// Facebook Lead Generation Strategy sanitizer (explicit user request,
+// 2026-08-30: "find strategy to post and get lots of leads from
+// facebook"). perVehiclePostPlans is grounded against whatever real VINs
+// were actually handed to the AI this run (realVinsSet) — same
+// never-invent-a-vehicle discipline as sanitizeInventoryScores/
+// sanitizeRepricingResults. Everything else here is real MARKETING
+// STRATEGY (a playbook, not a verifiable market fact) — dataQuality is
+// pinned to RESEARCH/ANALYSIS by the caller's own prompt instructions,
+// never presented as FACT.
+function sanitizeFacebookStrategy(raw, realVinsSet) {
+  if (!raw || typeof raw !== "object") return null;
+  const known = realVinsSet instanceof Set ? realVinsSet : new Set();
+  const postPlans = (Array.isArray(raw.perVehiclePostPlans) ? raw.perVehiclePostPlans : []).slice(0, 8).map((p) => {
+    if (!p || typeof p !== "object") return null;
+    const vin = String(p.vin || "").toUpperCase().slice(0, 17);
+    if (!vin || !known.has(vin)) return null;
+    return {
+      vin,
+      headline: String(p.headline || "").slice(0, 140),
+      priceDisplay: String(p.priceDisplay || "").slice(0, 80),
+      descriptionOutline: String(p.descriptionOutline || "").slice(0, 400),
+      cta: String(p.cta || "").slice(0, 120),
+      hashtags: strList(p.hashtags, 8, 30),
+    };
+  }).filter(Boolean);
+
+  return {
+    postingCadence: String(raw.postingCadence || "").slice(0, 260),
+    bestTimes: String(raw.bestTimes || "").slice(0, 200),
+    contentPillars: strList(raw.contentPillars, 8, 120),
+    photoGuidance: String(raw.photoGuidance || "").slice(0, 300),
+    paidBoostGuidance: String(raw.paidBoostGuidance || "").slice(0, 300),
+    responseSpeedGuidance: String(raw.responseSpeedGuidance || "").slice(0, 300),
+    weeklyActionPlan: strList(raw.weeklyActionPlan, 6, 200),
+    perVehiclePostPlans: postPlans,
+    sources: strList(raw.sources, 6, 100),
+  };
+}
+
 // Real opportunity-card sanitizer (daily opportunity board) — same shape
 // discipline as research-intel-engine.js's sanitizeCards.
 function sanitizeOpportunityCards(raw) {
@@ -491,7 +530,7 @@ module.exports = {
   BUSINESS_DIMENSIONS, SECTION_CLASSIFICATIONS, OPPORTUNITY_CLASSIFICATIONS, BUY_CLASSIFICATIONS,
   TURN_VERDICTS, DEAD_INVENTORY_ACTIONS, CARD_STATUSES, RISK_LEVELS, DATA_QUALITIES,
   REGULATION_FLAGS, FUTURE_IMPACTS, FINAL_VERDICTS, LEARNING_VERDICTS, MIN_GRADE_AGE_DAYS, REPRICE_ACTIONS,
-  sanitizeMarketSections, sanitizeInventoryScores, sanitizeOpportunityCards, sanitizeRepricingResults,
+  sanitizeMarketSections, sanitizeInventoryScores, sanitizeOpportunityCards, sanitizeRepricingResults, sanitizeFacebookStrategy,
   sanitizeBuyRecommendations, sanitizeAvoidList, sanitizeCustomerSegments, sanitizeLeadChannels,
   sanitizeFunnelRead, sanitizeFinanceRead, sanitizeRegulationFlags, sanitizeFutureScan,
   sanitizeLocalMarketGap, sanitizeForecast,

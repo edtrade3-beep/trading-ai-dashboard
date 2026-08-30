@@ -363,6 +363,137 @@ function RepricingTool({ C, MONO, SANS }) {
   );
 }
 
+// Facebook Lead Generation Strategy — explicit user request: "find
+// strategy to post and get lots of leads from facebook, upgrade car
+// business". Loads the last persisted strategy on mount (GET, same
+// pattern as the main report), with its own Generate/Refresh button —
+// deliberately independent of the daily report, since a posting playbook
+// doesn't need to regenerate every 6:05pm cycle.
+function FacebookStrategyTool({ C, MONO, SANS, inventory }) {
+  const [strategy, setStrategy] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
+  const [error, setError] = useState(null);
+  const invByVin = new Map((inventory || []).map((v) => [String(v.vin || "").toUpperCase(), v]));
+
+  useEffect(() => {
+    fetch("/api/car-business/facebook-strategy").then((r) => r.json())
+      .then((d) => { if (d.ok) setStrategy(d.strategy); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const generate = () => {
+    setGenerating(true); setError(null);
+    fetch("/api/car-business/facebook-strategy/refresh", { method: "POST" }).then((r) => r.json())
+      .then((d) => { if (d.ok) setStrategy(d.strategy); else setError(d.error || "Failed to generate a strategy."); })
+      .catch((e) => setError(e.message))
+      .finally(() => setGenerating(false));
+  };
+
+  const s = strategy?.strategy;
+
+  return (
+    <Section C={C} MONO={MONO} SANS={SANS} title="📲 Facebook Lead Generation Strategy" subtitle="A real, research-grounded posting playbook — what to post, when, and how, to generate more real leads from Facebook.">
+      <div style={{ marginBottom: s || error ? 14 : 0 }}>
+        <button onClick={generate} disabled={generating} style={{
+          fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "8px 14px", borderRadius: 8,
+          border: `1px solid ${C.accent}`, background: generating ? C.card : C.accent, color: generating ? C.accent : "#fff",
+          cursor: generating ? "default" : "pointer",
+        }}>{generating ? "Researching…" : s ? "↻ Regenerate Strategy" : "Generate Strategy"}</button>
+        {strategy?.generatedAt && <span style={{ fontFamily: MONO, fontSize: 10.5, color: C.textDim, marginLeft: 10 }}>Last generated {new Date(strategy.generatedAt).toLocaleString()}</span>}
+      </div>
+
+      {!loading && error && <div style={{ fontSize: 13, color: C.red, background: C.redBg, borderRadius: 8, padding: "10px 14px", marginBottom: 14 }}>{error}</div>}
+      {!loading && !s && !error && (
+        <div style={{ fontSize: 12.5, color: C.textDim, background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 14px" }}>
+          No strategy generated yet. Click "Generate Strategy" for a real, current Facebook posting playbook grounded in your actual inventory and lead data.
+        </div>
+      )}
+
+      {s && (
+        <>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 10, marginBottom: 14 }}>
+            {s.postingCadence && (
+              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 14px" }}>
+                <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.accent, marginBottom: 5 }}>POSTING CADENCE</div>
+                <div style={{ fontSize: 12.5, color: C.text, lineHeight: 1.5 }}>{s.postingCadence}</div>
+              </div>
+            )}
+            {s.bestTimes && (
+              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 14px" }}>
+                <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.accent, marginBottom: 5 }}>BEST TIMES</div>
+                <div style={{ fontSize: 12.5, color: C.text, lineHeight: 1.5 }}>{s.bestTimes}</div>
+              </div>
+            )}
+            {s.photoGuidance && (
+              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 14px" }}>
+                <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.accent, marginBottom: 5 }}>PHOTO GUIDANCE</div>
+                <div style={{ fontSize: 12.5, color: C.text, lineHeight: 1.5 }}>{s.photoGuidance}</div>
+              </div>
+            )}
+            {s.paidBoostGuidance && (
+              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 14px" }}>
+                <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.accent, marginBottom: 5 }}>PAID BOOST</div>
+                <div style={{ fontSize: 12.5, color: C.text, lineHeight: 1.5 }}>{s.paidBoostGuidance}</div>
+              </div>
+            )}
+            {s.responseSpeedGuidance && (
+              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 14px" }}>
+                <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.accent, marginBottom: 5 }}>RESPONSE SPEED</div>
+                <div style={{ fontSize: 12.5, color: C.text, lineHeight: 1.5 }}>{s.responseSpeedGuidance}</div>
+              </div>
+            )}
+          </div>
+
+          {s.contentPillars?.length > 0 && (
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, marginBottom: 6 }}>CONTENT PILLARS</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {s.contentPillars.map((p, i) => (
+                  <span key={i} style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.accent, background: C.accentGlow, borderRadius: 5, padding: "4px 9px" }}>{p}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {s.weeklyActionPlan?.length > 0 && (
+            <div style={{ background: C.greenBg, border: `1px solid ${C.green}`, borderRadius: 10, padding: "12px 14px", marginBottom: 16 }}>
+              <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.green, marginBottom: 8 }}>THIS WEEK</div>
+              <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12.5, color: C.text }}>
+                {s.weeklyActionPlan.map((a, i) => <li key={i} style={{ marginBottom: 4 }}>{a}</li>)}
+              </ul>
+            </div>
+          )}
+
+          {s.perVehiclePostPlans?.length > 0 && (
+            <>
+              <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, marginBottom: 8 }}>PER-VEHICLE POST PLANS — real current inventory</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12, marginBottom: 8 }}>
+                {s.perVehiclePostPlans.map((p, i) => {
+                  const v = invByVin.get(p.vin);
+                  return (
+                    <div key={i} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 14px" }}>
+                      <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 4 }}>{v ? `${v.year} ${v.make} ${v.model} ${v.trim || ""}` : p.vin}</div>
+                      <div style={{ fontWeight: 700, fontSize: 13, color: C.text, marginBottom: 6 }}>{p.headline}</div>
+                      {p.priceDisplay && <div style={{ fontFamily: MONO, fontSize: 11.5, color: C.green, fontWeight: 700, marginBottom: 6 }}>{p.priceDisplay}</div>}
+                      {p.descriptionOutline && <div style={{ fontSize: 12, color: C.textSec, marginBottom: 6, lineHeight: 1.5 }}>{p.descriptionOutline}</div>}
+                      {p.cta && <div style={{ fontSize: 11.5, color: C.accent, fontWeight: 700, marginBottom: 6 }}>{p.cta}</div>}
+                      {p.hashtags?.length > 0 && <div style={{ fontFamily: MONO, fontSize: 10.5, color: C.textDim }}>{p.hashtags.join(" ")}</div>}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          {s.sources?.length > 0 && <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 6 }}>Sources: {s.sources.join(" · ")}</div>}
+        </>
+      )}
+    </Section>
+  );
+}
+
 export default function CarBusinessTab({ C, MONO, SANS }) {
   const [intel, setIntel] = useState(null);
   const [inventory, setInventory] = useState([]);
@@ -421,6 +552,7 @@ export default function CarBusinessTab({ C, MONO, SANS }) {
       </div>
 
       <RepricingTool C={C} MONO={MONO} SANS={SANS} />
+      <FacebookStrategyTool C={C} MONO={MONO} SANS={SANS} inventory={inventory} />
 
       {loading && <div style={{ fontSize: 13, color: C.textDim }}>Loading Car Business intelligence…</div>}
       {!loading && error && <div style={{ fontSize: 13, color: C.red, background: C.redBg, borderRadius: 8, padding: "10px 14px" }}>{error}</div>}

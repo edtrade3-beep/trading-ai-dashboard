@@ -6,7 +6,7 @@
 
 const { writeJson, readRequestBody } = require("../utils");
 const { loadCoachLog } = require("../ai-coach-store");
-const { buildCarBusinessIntel, analyzeRepricing } = require("../car-business-ai");
+const { buildCarBusinessIntel, analyzeRepricing, buildFacebookStrategy } = require("../car-business-ai");
 
 async function handleCarBusiness(req, res, requestUrl) {
   const { pathname } = requestUrl;
@@ -46,6 +46,28 @@ async function handleCarBusiness(req, res, requestUrl) {
       return writeJson(res, 200, result);
     } catch (e) {
       return writeJson(res, 200, { ok: false, error: "Repricing analysis failed.", debug: e.message });
+    }
+  }
+
+  // Facebook Lead Generation Strategy (explicit user request, 2026-08-30:
+  // "find strategy to post and get lots of leads from facebook"). GET
+  // returns the last persisted strategy (same saveCoachOutput/loadCoachLog
+  // pattern as /intel); POST /refresh generates a fresh one on demand —
+  // deliberately not part of the daily 6:05pm cycle, since a posting
+  // playbook doesn't need to regenerate every single day.
+  if (pathname === "/api/car-business/facebook-strategy" && req.method === "GET") {
+    const log = loadCoachLog();
+    return writeJson(res, 200, { ok: true, strategy: log.carBusinessFacebookStrategy || null });
+  }
+
+  if (pathname === "/api/car-business/facebook-strategy/refresh" && req.method === "POST") {
+    try {
+      const built = await buildFacebookStrategy();
+      if (!built) return writeJson(res, 200, { ok: false, error: "Could not generate a Facebook strategy (ANTHROPIC_API_KEY not set)." });
+      if (built.aiUnavailable) return writeJson(res, 200, { ok: false, error: "Facebook strategy AI call failed this run — try again shortly.", debug: built.aiError });
+      return writeJson(res, 200, { ok: true, strategy: built });
+    } catch (e) {
+      return writeJson(res, 200, { ok: false, error: "Could not generate a Facebook strategy.", debug: e.message });
     }
   }
 
