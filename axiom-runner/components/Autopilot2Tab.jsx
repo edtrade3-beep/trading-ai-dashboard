@@ -44,6 +44,16 @@ const VERDICT_COLOR = (C) => ({
 // even crypto") that was actually correct, honest selectivity (an
 // extended BTC + two Stage-4-downtrend coins, both real anti-chase/
 // structure gates working as designed) with zero visibility into why.
+// Verdicts that mean "this could actually enter a trade" vs. ones that
+// mean "sitting out right now" — used to sort the watch grid so anything
+// real actually clear to trade surfaces first instead of being buried
+// among 11 alphabetically-fixed AVOID_LONG cards (2026-08-31, "make it
+// better easier to use": the whole point of this grid is answering "is
+// anything about to trade," and that answer was previously invisible
+// without reading every single card).
+const ACTIONABLE_VERDICTS = new Set(["EARLY_BUY", "BUY", "TAKE_PROFIT"]);
+const VERDICT_RANK = { EARLY_BUY: 0, BUY: 0, TAKE_PROFIT: 0, HOLD: 1, AVOID_LONG: 2, EXIT: 2 };
+
 function CryptoWatch({ C, MONO, SANS }) {
   const [rows, setRows] = useState(null);
   const [error, setError] = useState(null);
@@ -61,19 +71,33 @@ function CryptoWatch({ C, MONO, SANS }) {
     return () => clearInterval(t);
   }, [load]);
 
+  const actionableCount = rows ? rows.filter((r) => !r.error && ACTIONABLE_VERDICTS.has(r.coreVerdict)).length : 0;
+  const sortedRows = rows ? [...rows].sort((a, b) => {
+    const ra = a.error ? 3 : (VERDICT_RANK[a.coreVerdict] ?? 1);
+    const rb = b.error ? 3 : (VERDICT_RANK[b.coreVerdict] ?? 1);
+    return ra - rb;
+  }) : null;
+
   return (
     <div style={{ padding: "14px 16px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 12 }}>
-      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 8 }}>
-        CRYPTO WATCH — scanned unconditionally, 24/7, every 5 min
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: 0.5 }}>
+          CRYPTO WATCH — scanned unconditionally, 24/7, every 5 min
+        </div>
+        {rows && (
+          <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: actionableCount > 0 ? C.green : C.textDim }}>
+            {actionableCount > 0 ? `${actionableCount} of ${rows.length} clear to trade` : `0 of ${rows.length} clear to trade right now`}
+          </div>
+        )}
       </div>
       {error && <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>Couldn't load live crypto scan: {error}</div>}
       {!error && !rows && <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>Loading real crypto scan…</div>}
-      {rows && (
+      {sortedRows && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 8 }}>
-          {rows.map((r) => {
+          {sortedRows.map((r) => {
             const vColor = r.error ? C.textDim : (VERDICT_COLOR(C)[r.coreVerdict] || C.textDim);
             return (
-              <div key={r.symbol} style={{ border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 10px" }}>
+              <div key={r.symbol} style={{ border: `1px solid ${C.border}`, borderLeft: `3px solid ${vColor}`, borderRadius: 8, padding: "8px 10px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
                   <span style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 800, color: C.text }}>{r.symbol.replace("-USD", "")}</span>
                   {!r.error && <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>${r.price?.toLocaleString()}</span>}
@@ -106,6 +130,20 @@ export default function Autopilot2Tab({ C, MONO, SANS }) {
   const [error, setError] = useState(null);
   const [confirmingReset, setConfirmingReset] = useState(false);
   const [missed, setMissed] = useState(null);
+  // "How It Trades" — collapsed to a pill by default (2026-08-31, "make it
+  // better easier to use"): same real-user-driven precedent as the chart's
+  // Trend & Base Rating overlay (collapsed 2026-08-05 because the full
+  // card crowded out the thing people actually came to look at). This
+  // explainer is genuinely useful once, not on every visit — persisted so
+  // a user who wants it open every time only has to say so once.
+  const [showHowItTrades, setShowHowItTrades] = useState(() => {
+    try { return localStorage.getItem("autopilot2_how_it_trades_visible") === "on"; } catch { return false; }
+  });
+  const toggleHowItTrades = () => setShowHowItTrades((v) => {
+    const nv = !v;
+    try { localStorage.setItem("autopilot2_how_it_trades_visible", nv ? "on" : "off"); } catch {}
+    return nv;
+  });
 
   const load = useCallback(() => {
     fetch("/api/autopilot2/status").then(r => r.json()).then(d => {
@@ -191,13 +229,28 @@ export default function Autopilot2Tab({ C, MONO, SANS }) {
 
       {/* How it trades — a plain-English brief, not marketing copy. Every
           step named here is a real function this engine actually calls,
-          in this order, every tick (src/autopilot2-engine.js). */}
-      <div style={{ padding: "12px 16px", background: `${C.accent}0a`, border: `1px solid ${C.accent}33`, borderRadius: 12 }}>
-        <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.accent, letterSpacing: 0.5, marginBottom: 6 }}>HOW IT TRADES</div>
-        <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, lineHeight: 1.6 }}>
-          Every 5 minutes: <b>scans</b> the real scan universe through the platform's one canonical engine (am-core-engine.js) → <b>scores</b> and ranks real candidates by expected value, probability, and risk → <b>checks risk</b> (position/sector/portfolio-risk limits, daily/weekly/drawdown breakers — risk always wins, a blocked trade never fires) → <b>enters</b> the best real candidate as a stock, a long call, or spot crypto, sized to the risk limit → <b>manages</b> every open position each tick (stop, trail, partial profit, or exit) using that same one verdict engine → <b>exits</b> on a hard stop, invalidated thesis, or (for calls) an approaching expiration. Trades that get skipped are logged with the real reason, and revisited later to see what actually happened (Missed Opportunities). Stock/call scanning only runs during market hours (stale quotes outside them); <b>crypto scans unconditionally, 24/7</b>, every single tick. The same real anti-chase and structure gates apply identically to crypto — an extended or downtrending coin is correctly skipped, not a bug. With no real candidate that clears every gate, it correctly does nothing — an empty account isn't a bug, it's the risk rules working.
+          in this order, every tick (src/autopilot2-engine.js). Collapsed
+          to a pill by default; click to expand. */}
+      {showHowItTrades ? (
+        <div style={{ padding: "12px 16px", background: `${C.accent}0a`, border: `1px solid ${C.accent}33`, borderRadius: 12 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
+            <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.accent, letterSpacing: 0.5 }}>HOW IT TRADES</div>
+            <button onClick={toggleHowItTrades} title="Hide this explainer"
+              style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.textDim, background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+              ▴ Hide
+            </button>
+          </div>
+          <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, lineHeight: 1.6 }}>
+            Every 5 minutes: <b>scans</b> the real scan universe through the platform's one canonical engine (am-core-engine.js) → <b>scores</b> and ranks real candidates by expected value, probability, and risk → <b>checks risk</b> (position/sector/portfolio-risk limits, daily/weekly/drawdown breakers — risk always wins, a blocked trade never fires) → <b>enters</b> the best real candidate as a stock, a long call, or spot crypto, sized to the risk limit → <b>manages</b> every open position each tick (stop, trail, partial profit, or exit) using that same one verdict engine → <b>exits</b> on a hard stop, invalidated thesis, or (for calls) an approaching expiration. Trades that get skipped are logged with the real reason, and revisited later to see what actually happened (Missed Opportunities). Stock/call scanning only runs during market hours (stale quotes outside them); <b>crypto scans unconditionally, 24/7</b>, every single tick. The same real anti-chase and structure gates apply identically to crypto — an extended or downtrending coin is correctly skipped, not a bug. With no real candidate that clears every gate, it correctly does nothing — an empty account isn't a bug, it's the risk rules working.
+          </div>
         </div>
-      </div>
+      ) : (
+        <button onClick={toggleHowItTrades} title="Show how this autopilot actually trades, step by step"
+          style={{ alignSelf: "flex-start", display: "flex", alignItems: "center", gap: 6, fontFamily: MONO, fontSize: 11, fontWeight: 700,
+            color: C.accent, background: `${C.accent}0a`, border: `1px solid ${C.accent}33`, borderRadius: 999, padding: "5px 12px", cursor: "pointer" }}>
+          ❓ How it trades <span style={{ color: C.textDim }}>▾</span>
+        </button>
+      )}
 
       <CryptoWatch C={C} MONO={MONO} SANS={SANS} />
 
