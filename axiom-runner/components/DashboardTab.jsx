@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { fetchSharedQuotes } from "./quote-store.js";
 import MonitorSection from "./MonitorSection.jsx";
 import FedInterpreter from "./FedInterpreter.jsx";
 import FedWatchWidget from "./FedWatchWidget.jsx";
@@ -667,7 +668,7 @@ function AiTopOpportunitiesCard({ C, MONO, SANS, fullScan, setActiveTab, setTerm
   const symKey = rows.map(r => r.symbol).join(",");
   useEffect(() => {
     if (!symKey) return;
-    fetch("/api/market/quote?symbols=" + encodeURIComponent(symKey)).then(r => r.json()).then(j => {
+    fetchSharedQuotes(symKey).then(j => {
       const m = {};
       (Array.isArray(j) ? j : []).forEach(q => { if (Number.isFinite(Number(q.changesPercentage))) m[q.symbol] = Number(q.changesPercentage); });
       setChgMap(m);

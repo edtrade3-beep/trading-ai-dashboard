@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { fetchSharedQuotes } from "./quote-store.js";
 import SmartMoneyDecisionPanel from "./SmartMoneyDecisionPanel.jsx";
 import TrendChart from "./TrendChart.jsx";
 import VcpStatusPanel from "./VcpStatusPanel.jsx";
@@ -412,7 +413,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
       for (let i = 0; i < syms.length; i += 40) {
         const chunk = syms.slice(i, i + 40);
         try {
-          const q = await fetch("/api/market/quote?symbols=" + encodeURIComponent(chunk.join(","))).then(r => r.json());
+          const q = await fetchSharedQuotes(chunk.join(","));
           const arr = Array.isArray(q) ? q : (q.quotes || []);
           out.push(...arr.filter(x => typeof x.price === "number")
             .map(x => ({ symbol: String(x.symbol).toUpperCase(), price: x.price, dayPct: Number(x.changesPercentage) || 0, volRatio: null })));

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { computeRegime, SECTOR_ETFS } from "./market-helpers.js";
 import { RH_UNIVERSE, rhScore, rhScreen, rhMarkdown } from "./rhpro-shared.jsx";
+import { fetchSharedQuotes } from "./quote-store.js";
 
 export default function RhProApex({ C, MONO, SANS, macroData, sectorData }) {
   const [report, setReport] = useState(""); const [loading, setLoading] = useState(false); const [err, setErr] = useState(""); const [ranAt, setRanAt] = useState(null); const [phase, setPhase] = useState("");
@@ -12,7 +13,7 @@ export default function RhProApex({ C, MONO, SANS, macroData, sectorData }) {
       const syms = ranked.map(x => x.symbol);
       setPhase("Pulling live quotes + news…");
       const [quotes, news] = await Promise.all([
-        fetch(`/api/market/quote?symbols=${syms.join(",")}`).then(r => r.json()).catch(() => []),
+        fetchSharedQuotes(syms.join(",")).catch(() => []),
         fetch(`/api/market/news?tickers=${syms.slice(0, 6).join(",")}&limit=16`).then(r => r.json()).catch(() => []),
       ]);
       const qm = new Map((Array.isArray(quotes) ? quotes : []).map(q => [String(q.symbol || "").toUpperCase(), q]));

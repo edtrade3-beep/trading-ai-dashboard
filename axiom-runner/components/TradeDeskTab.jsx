@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { computeRegime, computeMarketBias, SCAN_UNIVERSE } from "./market-helpers.js";
+import { fetchSharedQuotes } from "./quote-store.js";
 import TrendChart from "./TrendChart.jsx";
 import CommandSearchPanel, { TickerHeader, pickTopOpportunities } from "./CommandSearchPanel.jsx";
 import CortexMiniPanel from "./CortexMiniPanel.jsx";
@@ -322,7 +323,7 @@ export default function TradeDeskTab({
   const [vixQuote, setVixQuote] = useState(null);
   useEffect(() => {
     let cancelled = false;
-    const load = () => fetch("/api/market/quote?symbols=%5EVIX").then((r) => r.json())
+    const load = () => fetchSharedQuotes("^VIX")
       .then((arr) => { if (!cancelled) setVixQuote((Array.isArray(arr) && arr[0]) || null); })
       .catch(() => {});
     load();
@@ -342,7 +343,7 @@ export default function TradeDeskTab({
   useEffect(() => {
     if (!symbol) return;
     let cancelled = false;
-    fetch(`/api/market/quote?symbols=${encodeURIComponent(symbol)}`).then((r) => r.json())
+    fetchSharedQuotes(symbol)
       .then((arr) => { if (!cancelled) setSymbolQuote((Array.isArray(arr) && arr[0]) || null); })
       .catch(() => {});
     return () => { cancelled = true; };

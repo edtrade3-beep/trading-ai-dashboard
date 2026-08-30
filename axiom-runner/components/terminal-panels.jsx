@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { NUM } from "./theme.js";
+import { fetchSharedQuotes } from "./quote-store.js";
 import { computeRegime, computeAPlusScore, isUnifiedGo, STOCK_TO_SECTOR, SECTOR_ETFS, SCAN_UNIVERSE, computeFundamentalsRead, computeValuationVerdict } from "./market-helpers.js";
 import { computeTradeStats, MIN_TRADES_FOR_EDGE } from "./trading-utils.js";
 
@@ -264,9 +265,9 @@ export function MarketPulseBar({ C, MONO, SANS }) {
     const merge = (d) => { const arr = Array.isArray(d) ? d : (d.quotes || []); setQ(prev => { const m = { ...prev }; arr.forEach(x => m[String(x.symbol).toUpperCase()] = x); return m; }); };
     const load = () => {
       // Fast path: SPY/QQQ/DIA via Alpaca (~0.3s) — show immediately.
-      fetch("/api/market/quote?symbols=SPY,QQQ,DIA").then(r => r.json()).then(merge).catch(() => {});
+      fetchSharedQuotes("SPY,QQQ,DIA").then(merge).catch(() => {});
       // Slow path: ^VIX/BTC go to Yahoo (blocked/slow on Render) — fill in when ready.
-      fetch("/api/market/quote?symbols=^VIX,BTC-USD").then(r => r.json()).then(merge).catch(() => {});
+      fetchSharedQuotes("^VIX,BTC-USD").then(merge).catch(() => {});
     };
     load(); const t = setInterval(load, 60000); return () => clearInterval(t);
   }, []);

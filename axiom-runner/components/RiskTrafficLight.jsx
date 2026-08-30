@@ -1,4 +1,5 @@
 import { riskBuzz, riskVibrate, speakRisk, RISK_SPEAK } from "./monitor-shared.js";
+import { fetchSharedQuotes } from "./quote-store.js";
 
 const RISK_SYMS = ["SPY", "QQQ", "VIXY", "TLT", "UUP", "HYG"];
 export default function RiskTrafficLight({ C, MONO, SANS, macroData }) {
@@ -7,8 +8,8 @@ export default function RiskTrafficLight({ C, MONO, SANS, macroData }) {
   const [fast, setFast] = React.useState(null);
   React.useEffect(() => {
     let alive = true;
-    const load = () => fetch(`/api/market/quote?symbols=${RISK_SYMS.join(",")}`)
-      .then(r => r.json()).then(arr => { if (alive && Array.isArray(arr) && arr.length) setFast(arr); }).catch(() => {});
+    const load = () => fetchSharedQuotes(RISK_SYMS.join(","))
+      .then(arr => { if (alive && Array.isArray(arr) && arr.length) setFast(arr); }).catch(() => {});
     load();
     const t = setInterval(load, 15000); // 15s — fast panic detection
     return () => { alive = false; clearInterval(t); };

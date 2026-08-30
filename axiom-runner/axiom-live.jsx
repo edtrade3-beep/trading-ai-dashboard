@@ -8,6 +8,7 @@ import DayTradeTab from "./components/DayTradeTab.jsx";
 import MarketTerminalTab from "./components/MarketTerminalTab.jsx";
 import AiTradeSessionPanel from "./components/AiTradeSessionPanel.jsx";
 import { computeRegime, computeAPlusScore, STOCK_TO_SECTOR, SECTOR_ETFS, computeFibLevels } from "./components/market-helpers.js";
+import { fetchSharedQuotes } from "./components/quote-store.js";
 import { FIVEX_DATA, FIVEX_REF } from "./components/fivex-data.js";
 import { qUrl, QURAN_RECITERS, SURAH_LIST } from "./components/quran-data.js";
 import QuranTab from "./components/QuranTab.jsx";
@@ -1845,8 +1846,7 @@ export default function App() {
     const ticker = scanExpanded;
     const refresh = async () => {
       try {
-        const r = await fetch(`/api/market/quote?symbols=${encodeURIComponent(ticker)}`);
-        const d = await r.json();
+        const d = await fetchSharedQuotes(ticker);
         const q = Array.isArray(d) ? d[0] : (d?.quotes ? d.quotes[0] : (d?.quote || d));
         if (!q || !q.price) return;
         setScanResults(prev => prev.map(row =>

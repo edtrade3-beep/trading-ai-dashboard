@@ -1,5 +1,6 @@
 import { computeRegime, computeAPlusScore, computeNextAction } from "./market-helpers.js";
 import { computeAtrRiskLevels } from "./atr-risk-engine.js";
+import { fetchSharedQuotes } from "./quote-store.js";
 import AiScoreExplainer, { AplusBadge } from "./AiScoreExplainer.jsx";
 
 export default function TradePlannerTab({ C, MONO, SANS, macroData }) {
@@ -54,8 +55,7 @@ export default function TradePlannerTab({ C, MONO, SANS, macroData }) {
       // elsewhere in this app) has the real value under `changesPercentage`.
       let chg = 0;
       try {
-        const qResp = await fetch(`/api/market/quote?symbols=${encodeURIComponent(sym)}`);
-        const qJson = qResp.ok ? await qResp.json() : [];
+        const qJson = await fetchSharedQuotes(sym);
         chg = Number(qJson?.[0]?.changesPercentage || 0);
       } catch {}
       const closes = bars.map(b => b.c);

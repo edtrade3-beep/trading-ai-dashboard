@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { computeRegime } from "./market-helpers.js";
 import { computeGreenLight } from "./trading-utils.js";
+import { fetchSharedQuotes } from "./quote-store.js";
 
 // ⚡ Quick Trade Engine — Phase 1 floating execution panel. Real Alpaca paper
 // orders through /api/quick-trade/* (src/quick-trade-service.js), gated by
@@ -94,8 +95,8 @@ export default function QuickTradePanel({ C, MONO, SANS, terminalSymbol, setTerm
   useEffect(() => {
     if (!open || !symbol) return;
     let alive = true;
-    const load = () => fetch(`/api/market/quote?symbols=${encodeURIComponent(symbol)}`)
-      .then(r => r.json()).then(d => { if (alive) setQuote(Array.isArray(d) ? (d[0] || null) : null); })
+    const load = () => fetchSharedQuotes(symbol)
+      .then(d => { if (alive) setQuote(Array.isArray(d) ? (d[0] || null) : null); })
       .catch(() => {});
     load();
     const t = setInterval(load, 60000);

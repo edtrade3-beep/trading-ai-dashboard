@@ -1,4 +1,5 @@
 import { formatNum } from "./ui-atoms.jsx";
+import { fetchSharedQuotes } from "./quote-store.js";
 
 // ─── parsePortfolioCSV ────────────────────────────────────────────────────────
 // Handles three formats:
@@ -192,8 +193,7 @@ export default function PortfolioTab({
                             setPasteModal({ rows: parsed, scanning: true });
                             try {
                               const syms = parsed.map(r => r.symbol).join(",");
-                              const res = await fetch(`/api/market/quote?symbols=${syms}`);
-                              const quotes = await res.json();
+                              const quotes = await fetchSharedQuotes(syms);
                               const bySymbol = Object.fromEntries((Array.isArray(quotes) ? quotes : []).map(q => [q.symbol, q]));
                               const enriched = parsed.map(r => ({
                                 ...r,

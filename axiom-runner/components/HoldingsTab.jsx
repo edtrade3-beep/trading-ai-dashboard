@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { computeGreenLight } from "./trading-utils.js";
+import { fetchSharedQuotes } from "./quote-store.js";
 
 // ── MY HOLDINGS — mechanical signal · suggested stop · trend · P&L for positions you own ──
 const HOLDINGS_KEY = "axiom_holdings_v1";
@@ -101,7 +102,7 @@ export default function HoldingsTab({ C, MONO, SANS, macroData }) {
       const stockSyms = holdings.filter(h => !HOLDINGS_CRYPTO.has(h.symbol)).map(h => h.symbol);
       const hasCrypto = holdings.some(h => HOLDINGS_CRYPTO.has(h.symbol));
       Promise.all([
-        stockSyms.length ? fetch(`/api/market/quote?symbols=${stockSyms.join(",")}`).then(r => r.json()).catch(() => []) : Promise.resolve([]),
+        stockSyms.length ? fetchSharedQuotes(stockSyms.join(",")).catch(() => []) : Promise.resolve([]),
         hasCrypto ? fetch("/api/market/crypto").then(r => r.json()).catch(() => null) : Promise.resolve(null),
       ]).then(([stockArr, cryptoJson]) => {
         const m = {};
