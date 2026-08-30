@@ -87,11 +87,12 @@ function summarizeMacro(regimeData) {
   return [
     `Regime ${r.label || r.regime || "n/a"} (${r.score ?? "n/a"}/100)`,
     `Treasury score ${r.treasury?.score ?? "n/a"}`,
-    `Credit score ${r.credit?.score ?? "n/a"} (momentum ${r.credit?.momentum?.trend ?? "n/a"})`,
+    `Credit score ${r.credit?.score ?? "n/a"} (momentum ${r.credit?.momentum?.status ?? "n/a"})`,
     `Liquidity score ${r.liquidity?.score ?? "n/a"}`,
     `Employment score ${r.employment?.score ?? "n/a"}`,
     `Breadth ${r.breadth?.score ?? "n/a"}`,
-    `Top sectors: ${(r.sectorRotation || []).slice(0, 3).map((s) => s.symbol || s.sector).filter(Boolean).join(", ") || "n/a"}`,
+    `Top sectors: ${(r.sectorRotation?.ranked || []).slice(0, 3).map((s) => s.sym).filter(Boolean).join(", ") || "n/a"}`,
+    `Sector rotation bias: ${r.sectorRotation?.rotationBias ?? "n/a"}`,
   ].join(" · ");
 }
 
