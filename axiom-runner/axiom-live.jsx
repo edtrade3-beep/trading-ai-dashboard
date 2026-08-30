@@ -185,6 +185,7 @@ import CotTab from "./components/CotTab.jsx";
 import LightBoxTab from "./components/LightBoxTab.jsx";
 import DayTradeConsoleTab from "./components/DayTradeConsoleTab.jsx";
 import FutureWalletTab from "./components/FutureWalletTab.jsx";
+import ResearchTab from "./components/ResearchTab.jsx";
 import PhotoBannerTab from "./components/PhotoBannerTab.jsx";
 import BtcHpcScanCard from "./components/BtcHpcScanCard.jsx";
 
@@ -4196,6 +4197,10 @@ export default function App() {
       // this is the redundant one-keystroke path every sidebar tab gets.
       BTCHPC: "btc-hpc",
       HPC: "btc-hpc",
+      // Research Desk (2026-08-30) — also has a real Sidebar.jsx row, this
+      // is the redundant one-keystroke path every sidebar tab gets.
+      RESEARCH: "research",
+      MACRORESEARCH: "research",
       // PORTFOLIO/SCANNER repointed 2026-07-29 (institutional redesign) to
       // match what those words now mean in the sidebar — the real Alpaca-
       // backed Portfolio (portfolio-tab) and Sniper Scanner (rhpro-scan),
@@ -7365,6 +7370,7 @@ export default function App() {
       {activeTab === "futurewallet" && <FutureWalletTab C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "photobanners" && <PhotoBannerTab C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "btc-hpc" && <BtcHpcScanCard C={C} MONO={MONO} SANS={SANS} />}
+      {activeTab === "research" && <ResearchTab C={C} MONO={MONO} SANS={SANS} />}
       {/* SETTINGS — composite sidebar destination (institutional redesign,
           2026-07-29) folding Coach/Learn/Quran/account-risk settings into
           one nav item, per the approved plan's "Settings" mapping — Tools

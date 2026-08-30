@@ -127,6 +127,17 @@ export const SIDEBAR_ITEMS = [
   // analytical surface, not a sub-view of an existing tab.
   { id: "btc-hpc",   label: "BTC + HPC",   icon: "₿",  tab: "btc-hpc" },
 
+  // Research — macro/valuation/AI-capex research report, explicit user
+  // request (2026-08-30: "put it inside platform in research tab") after a
+  // 5-stream live-research pass was synthesized into a published artifact.
+  // Given its own row, same reasoning as Future Wallet above — a genuinely
+  // new standalone report surfaced in-app, not a sub-view of an existing
+  // tab. A point-in-time snapshot (ResearchTab.jsx), not a live data
+  // pipeline into am-core-engine.js/opportunity-engine.js — the user
+  // explicitly chose "Research report" over "live platform integration"
+  // when asked.
+  { id: "research",  label: "Research",    icon: "🧭",  tab: "research" },
+
   // Settings — not one of the 7 "question" surfaces (it doesn't answer a
   // daily trading question, it configures the app), kept as a permanent
   // utility row rather than folded into the palette so account/risk/coach
