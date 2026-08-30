@@ -1,26 +1,32 @@
-// Compact, read-only Market Mode indicator for the persistent Top Bar.
-// Deliberately NOT importing RiskTrafficLight.jsx itself: that component
-// owns real side effects (Telegram regime-flip alerts, panic-detector
-// alerts, sound/vibration) tied to its own mount lifecycle, and since this
-// bar is mounted globally on every page, reusing it here would run a
-// second copy of that alerting logic everywhere instead of only where the
-// user opened the full Market Mode & Flow panel (Dashboard → More). This
-// is the same score/light formula, read-only, no fetch of its own — reuses
-// whatever macroData the app already has loaded.
-const RISK_SYMS = ["SPY", "QQQ", "VIXY", "TLT", "UUP", "HYG"];
+// Compact, read-only Market Mode indicator for the persistent Top Bar —
+// visible on every page in the app, which is exactly why this can't run
+// its own independent regime formula (Central Opportunity & Options
+// Engine goal, 2026-08-30: "independent decision engines producing
+// separate conclusions" — this pill used to be the most-visible real
+// example, disagreeing with whatever the canonical engine driving every
+// actual trading verdict elsewhere in the app happened to compute).
+// market-helpers.js's own header on computeMarketBias already discloses
+// this exact duplication (3 independent regime formulas: computeRegime,
+// DashboardTab.jsx's computeRegimeLabel, and this pill's own former
+// SPY/QQQ/VIXY/TLT/UUP/HYG weighted score) but only ever built a
+// confidence-reconciliation layer OVER them, never made one the real
+// source of truth. This pill now defers to computeRegime — the one
+// already wired into am-core-engine.js/opportunity-engine.js's real
+// verdicts via regimeToEntryVocabulary — mapped onto this pill's existing
+// 3-state RISK ON/CAUTION/RISK OFF vocabulary, instead of its own former
+// formula. Deliberately NOT importing RiskTrafficLight.jsx: that
+// component is a genuinely different tool (a fast 15s-poll panic
+// detector with its own real Telegram/sound alerts, clearly labeled as
+// such, not a general market-mode summary) and keeps its own formula —
+// same "ratified second, labeled engine" judgment already made for the
+// day-trade vertical earlier this session, not an oversight.
+import { computeRegime } from "./market-helpers.js";
 
 export default function CompactMarketMode({ C, MONO, macroData, setActiveTab }) {
-  const v = (sym) => Number((macroData || []).find((m) => m.symbol === sym)?.changesPercentage || 0);
   const has = (macroData || []).some((m) => m.symbol === "SPY");
-  const spy = v("SPY"), qqq = v("QQQ"), vixy = v("VIXY"), tlt = v("TLT"), uup = v("UUP"), hyg = v("HYG");
-  let score = 50 + spy * 8 + qqq * 6 - vixy * 3 + tlt * 2 - uup * 3 + hyg * 4;
-  score = Math.max(0, Math.min(100, Math.round(score)));
-  const prevLight = (typeof localStorage !== "undefined" && localStorage.getItem("axiom_risklight")) || "YELLOW";
-  let light;
-  if (!has) light = "—";
-  else if (score >= 65 || (prevLight === "GREEN" && score >= 60)) light = "GREEN";
-  else if (score < 40 || (prevLight === "RED" && score < 45)) light = "RED";
-  else light = "YELLOW";
+  const regime = has ? computeRegime(macroData) : null;
+  const light = !regime ? "—" : regime.label === "GREEN" ? "GREEN" : regime.label === "RED" ? "RED" : "YELLOW";
+  const score = regime?.score ?? null;
   const cfg = {
     GREEN: { c: "#16a34a", icon: "🟢", title: "RISK ON" },
     YELLOW: { c: "#e0982f", icon: "🟡", title: "CAUTION" },
