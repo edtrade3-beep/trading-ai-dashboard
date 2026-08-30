@@ -132,7 +132,6 @@ const DAYTRADE_UNIVERSE = [
   "SPY","QQQ","IWM","SMH","XLE","XLF","ARKK","TQQQ","SQQQ","SOXL",
 ];
 let _dtCache = { key: null, at: 0, rows: null };
-let _fgCache = { at: 0, data: null };   // Fear & Greed (slow — Yahoo-dependent)
 
 // Real intraday momentum scan (Alpaca 15-min bars) — gap %, RVOL, VWAP
 // position, opening-range breakout, 9/21 EMA stack. Extracted from the
@@ -757,32 +756,26 @@ async function fetchFirstAvailableBars(symbols) {
 }
 
 const MACRO_CACHE_TTL_MS = 15 * 60 * 1000;
-let macroCacheValue = null;
-let macroCacheAt = 0;
 
 async function fetchMacroSignals() {
-  const now = Date.now();
-  if (macroCacheValue && now - macroCacheAt < MACRO_CACHE_TTL_MS) {
-    return macroCacheValue;
-  }
-  const [spyBars, qqqBars, vixQuote, dxyQuote, us10yQuote, us2yQuote] = await Promise.all([
-    fetchFirstAvailableBars(MACRO_SYMBOLS.SPY),
-    fetchFirstAvailableBars(MACRO_SYMBOLS.QQQ),
-    fetchFirstAvailableBars(MACRO_SYMBOLS.VIX),
-    fetchFirstAvailableBars(MACRO_SYMBOLS.DXY),
-    fetchFirstAvailableBars(MACRO_SYMBOLS.US10Y),
-    fetchFirstAvailableBars(MACRO_SYMBOLS.US2Y)
-  ]);
-  macroCacheValue = {
-    spyTrend: detectSimpleTrend(spyBars),
-    qqqTrend: detectSimpleTrend(qqqBars),
-    vix: round2(vixQuote.at(-1)?.close ?? 18),
-    dxy: round2(dxyQuote.at(-1)?.close ?? 104),
-    yield10y: normalizeYield(us10yQuote.at(-1)?.close),
-    yield2y: normalizeYield(us2yQuote.at(-1)?.close)
-  };
-  macroCacheAt = now;
-  return macroCacheValue;
+  return cached("macro-signals", MACRO_CACHE_TTL_MS, async () => {
+    const [spyBars, qqqBars, vixQuote, dxyQuote, us10yQuote, us2yQuote] = await Promise.all([
+      fetchFirstAvailableBars(MACRO_SYMBOLS.SPY),
+      fetchFirstAvailableBars(MACRO_SYMBOLS.QQQ),
+      fetchFirstAvailableBars(MACRO_SYMBOLS.VIX),
+      fetchFirstAvailableBars(MACRO_SYMBOLS.DXY),
+      fetchFirstAvailableBars(MACRO_SYMBOLS.US10Y),
+      fetchFirstAvailableBars(MACRO_SYMBOLS.US2Y)
+    ]);
+    return {
+      spyTrend: detectSimpleTrend(spyBars),
+      qqqTrend: detectSimpleTrend(qqqBars),
+      vix: round2(vixQuote.at(-1)?.close ?? 18),
+      dxy: round2(dxyQuote.at(-1)?.close ?? 104),
+      yield10y: normalizeYield(us10yQuote.at(-1)?.close),
+      yield2y: normalizeYield(us2yQuote.at(-1)?.close)
+    };
+  });
 }
 
 async function buildLivePayload(ticker, timeframe, style) {
@@ -2183,22 +2176,21 @@ async function handleMarket(req, res, requestUrl) {
   // Market-implied Fed rate read from 30-day fed funds futures (ZQ). Implied rate = 100 − price.
   // Falling implied rate over recent weeks = market pricing CUTS; rising = HIKES.
   if (pathname === "/api/market/fedwatch" && req.method === "GET") {
-    const _fw = handleMarket._fwCache || (handleMarket._fwCache = { data: null, ts: 0 });
-    if (_fw.data && Date.now() - _fw.ts < 15 * 60 * 1000) return writeJson(res, 200, _fw.data);
     try {
-      const bars = await fetchYahooBars("ZQ=F", "3mo", "1d");
-      const closes = (bars || []).map(b => b.close).filter(v => v > 0);
-      if (closes.length < 5) return writeJson(res, 200, { ok: false, error: "no futures data" });
-      const last = closes[closes.length - 1];
-      const ago = closes[Math.max(0, closes.length - 22)];      // ~1 month ago
-      const impliedRate = round2(100 - last);
-      const prevRate = round2(100 - ago);
-      const delta = round2(impliedRate - prevRate);             // negative = market moved toward cuts
-      const lean = delta <= -0.04 ? "CUTS" : delta >= 0.04 ? "HIKES" : "STEADY";
-      // Rough probability of a 25bp move priced over the month (|delta| toward 0.25 = one cut/hike).
-      const moveProb = Math.max(0, Math.min(100, Math.round(Math.abs(delta) / 0.25 * 100)));
-      const payload = { ok: true, impliedRate, prevRate, delta, lean, moveProb, asOf: new Date().toISOString() };
-      _fw.data = payload; _fw.ts = Date.now();
+      const payload = await cached("fedwatch", 15 * 60 * 1000, async () => {
+        const bars = await fetchYahooBars("ZQ=F", "3mo", "1d");
+        const closes = (bars || []).map(b => b.close).filter(v => v > 0);
+        if (closes.length < 5) throw new Error("no futures data");
+        const last = closes[closes.length - 1];
+        const ago = closes[Math.max(0, closes.length - 22)];      // ~1 month ago
+        const impliedRate = round2(100 - last);
+        const prevRate = round2(100 - ago);
+        const delta = round2(impliedRate - prevRate);             // negative = market moved toward cuts
+        const lean = delta <= -0.04 ? "CUTS" : delta >= 0.04 ? "HIKES" : "STEADY";
+        // Rough probability of a 25bp move priced over the month (|delta| toward 0.25 = one cut/hike).
+        const moveProb = Math.max(0, Math.min(100, Math.round(Math.abs(delta) / 0.25 * 100)));
+        return { ok: true, impliedRate, prevRate, delta, lean, moveProb, asOf: new Date().toISOString() };
+      });
       return writeJson(res, 200, payload);
     } catch (e) { return writeJson(res, 200, { ok: false, error: e instanceof Error ? e.message : "fedwatch failed" }); }
   }
@@ -4346,70 +4338,70 @@ Explain this.`;
 
   // GET /api/market/feargreed
   if (pathname === "/api/market/feargreed" && req.method === "GET") {
-    // Serve from cache (5 min) — this endpoint waits on Yahoo (IP-blocked on
-    // Render → ~12s of timeouts) so recomputing it on every page load is the main
-    // Terminal slowdown. Cache the result so only the first call per 5 min pays it.
-    if (_fgCache.data && (Date.now() - _fgCache.at) < 300000) return writeJson(res, 200, _fgCache.data);
+    // Cached 5 min — this endpoint waits on Yahoo (IP-blocked on Render →
+    // ~12s of timeouts) so recomputing it on every page load is the main
+    // Terminal slowdown. Only the first call per 5 min pays it.
     try {
-      const [spyBars, vixBars, tltBars, hygBars] = await Promise.all([
-        withTimeout(fetchYahooBars("SPY",  "1y",  "1d"), 8000, []),
-        withTimeout(fetchYahooBars("^VIX", "3mo", "1d"), 6000, []),
-        withTimeout(fetchYahooBars("TLT",  "3mo", "1d"), 6000, []),
-        withTimeout(fetchYahooBars("HYG",  "3mo", "1d"), 10000, []),
-      ]);
-      // VIX carries the single heaviest weight (30%) in this composite — if
-      // its fetch genuinely failed (empty bars, distinct from "market's
-      // just calm today"), defaulting to a fabricated vix=20 silently
-      // produced a fake ~71-point GREED-leaning score built on data that
-      // was never actually read, with nothing telling the user it wasn't
-      // real. Fail the whole endpoint honestly instead — the same
-      // treatment the outer catch block already gives any other failure.
-      if (!vixBars.length) return writeJson(res, 422, { error: "VIX data unavailable — can't compute a real Fear & Greed score without it." });
-      const { computeRSI } = require("../indicators");
-      const vix = vixBars.at(-1).close;
-      const vixScore = Math.max(0, Math.min(100, Math.round(100 - ((vix - 10) / 35) * 100)));
-      const spyCloses = spyBars.map(b => b.close);
-      const spyCurrent = spyCloses.at(-1) ?? 0;
-      const spy125 = spyCloses.length >= 125
-        ? spyCloses.slice(-125).reduce((a, b) => a + b, 0) / 125 : spyCurrent;
-      const spyMaDiff = spy125 > 0 ? ((spyCurrent - spy125) / spy125) * 100 : 0;
-      const momentumScore = Math.max(0, Math.min(100, Math.round(50 + spyMaDiff * 8)));
-      const spyRsi = spyCloses.length >= 15 ? computeRSI(spyCloses, 14) : 50;
-      const rsiScore = Math.max(0, Math.min(100, Math.round(spyRsi)));
-      const slice252 = spyCloses.slice(-252);
-      const spy52h = Math.max(...slice252), spy52l = Math.min(...slice252);
-      const rangeScore = spy52h > spy52l
-        ? Math.round(((spyCurrent - spy52l) / (spy52h - spy52l)) * 100) : 50;
-      const tltCloses = tltBars.map(b => b.close);
-      const tlt20 = tltCloses.length >= 20 ? tltCloses.slice(-20).reduce((a,b)=>a+b,0)/20 : (tltCloses.at(-1)??0);
-      const tltCur = tltCloses.at(-1) ?? tlt20;
-      const tltDiff = tlt20 > 0 ? ((tltCur - tlt20) / tlt20) * 100 : 0;
-      const safeHavenScore = Math.max(0, Math.min(100, Math.round(50 - tltDiff * 10)));
-      const hygCloses = hygBars.map(b => b.close);
-      const hyg20 = hygCloses.length >= 20 ? hygCloses.slice(-20).reduce((a,b)=>a+b,0)/20 : (hygCloses.at(-1)??0);
-      const hygCur = hygCloses.at(-1) ?? hyg20;
-      const hygDiff = hyg20 > 0 ? ((hygCur - hyg20) / hyg20) * 100 : 0;
-      const junkScore = Math.max(0, Math.min(100, Math.round(50 + hygDiff * 20)));
-      const composite = Math.round(
-        vixScore*0.30 + momentumScore*0.25 + rsiScore*0.15 +
-        rangeScore*0.15 + safeHavenScore*0.08 + junkScore*0.07
-      );
-      const fgLabel = composite<=25?"EXTREME FEAR":composite<=45?"FEAR":composite<=55?"NEUTRAL":composite<=75?"GREED":"EXTREME GREED";
-      const sign = n => n >= 0 ? "+" : "";
-      const payload = {
-        ok:true, fetchedAt:new Date().toISOString(),
-        score:composite, label:fgLabel, vix:round2(vix),
-        components:[
-          {name:"VIX Level",         score:vixScore,       weight:30, detail:"VIX at " + round2(vix)},
-          {name:"Market Momentum",   score:momentumScore,  weight:25, detail:"SPY " + sign(spyMaDiff) + round2(spyMaDiff) + "% vs 125d MA"},
-          {name:"RSI (14)",          score:rsiScore,       weight:15, detail:"SPY RSI = " + round2(spyRsi)},
-          {name:"52-Week Range",     score:rangeScore,     weight:15, detail:"SPY at " + rangeScore + "% of 52w range"},
-          {name:"Safe Haven Demand", score:safeHavenScore, weight:8,  detail:"TLT " + sign(tltDiff) + round2(tltDiff) + "% (20d)"},
-          {name:"Junk Bond Demand",  score:junkScore,      weight:7,  detail:"HYG " + sign(hygDiff) + round2(hygDiff) + "% (20d)"},
-        ],
-      };
-      _fgCache = { at: Date.now(), data: payload };
-      return writeJson(res, 200, payload);
+      const result = await cached("feargreed", 300000, async () => {
+        const [spyBars, vixBars, tltBars, hygBars] = await Promise.all([
+          withTimeout(fetchYahooBars("SPY",  "1y",  "1d"), 8000, []),
+          withTimeout(fetchYahooBars("^VIX", "3mo", "1d"), 6000, []),
+          withTimeout(fetchYahooBars("TLT",  "3mo", "1d"), 6000, []),
+          withTimeout(fetchYahooBars("HYG",  "3mo", "1d"), 10000, []),
+        ]);
+        // VIX carries the single heaviest weight (30%) in this composite — if
+        // its fetch genuinely failed (empty bars, distinct from "market's
+        // just calm today"), defaulting to a fabricated vix=20 silently
+        // produced a fake ~71-point GREED-leaning score built on data that
+        // was never actually read, with nothing telling the user it wasn't
+        // real. Fail the whole endpoint honestly instead — the same
+        // treatment the outer catch block already gives any other failure.
+        if (!vixBars.length) throw new Error("VIX data unavailable — can't compute a real Fear & Greed score without it.");
+        const { computeRSI } = require("../indicators");
+        const vix = vixBars.at(-1).close;
+        const vixScore = Math.max(0, Math.min(100, Math.round(100 - ((vix - 10) / 35) * 100)));
+        const spyCloses = spyBars.map(b => b.close);
+        const spyCurrent = spyCloses.at(-1) ?? 0;
+        const spy125 = spyCloses.length >= 125
+          ? spyCloses.slice(-125).reduce((a, b) => a + b, 0) / 125 : spyCurrent;
+        const spyMaDiff = spy125 > 0 ? ((spyCurrent - spy125) / spy125) * 100 : 0;
+        const momentumScore = Math.max(0, Math.min(100, Math.round(50 + spyMaDiff * 8)));
+        const spyRsi = spyCloses.length >= 15 ? computeRSI(spyCloses, 14) : 50;
+        const rsiScore = Math.max(0, Math.min(100, Math.round(spyRsi)));
+        const slice252 = spyCloses.slice(-252);
+        const spy52h = Math.max(...slice252), spy52l = Math.min(...slice252);
+        const rangeScore = spy52h > spy52l
+          ? Math.round(((spyCurrent - spy52l) / (spy52h - spy52l)) * 100) : 50;
+        const tltCloses = tltBars.map(b => b.close);
+        const tlt20 = tltCloses.length >= 20 ? tltCloses.slice(-20).reduce((a,b)=>a+b,0)/20 : (tltCloses.at(-1)??0);
+        const tltCur = tltCloses.at(-1) ?? tlt20;
+        const tltDiff = tlt20 > 0 ? ((tltCur - tlt20) / tlt20) * 100 : 0;
+        const safeHavenScore = Math.max(0, Math.min(100, Math.round(50 - tltDiff * 10)));
+        const hygCloses = hygBars.map(b => b.close);
+        const hyg20 = hygCloses.length >= 20 ? hygCloses.slice(-20).reduce((a,b)=>a+b,0)/20 : (hygCloses.at(-1)??0);
+        const hygCur = hygCloses.at(-1) ?? hyg20;
+        const hygDiff = hyg20 > 0 ? ((hygCur - hyg20) / hyg20) * 100 : 0;
+        const junkScore = Math.max(0, Math.min(100, Math.round(50 + hygDiff * 20)));
+        const composite = Math.round(
+          vixScore*0.30 + momentumScore*0.25 + rsiScore*0.15 +
+          rangeScore*0.15 + safeHavenScore*0.08 + junkScore*0.07
+        );
+        const fgLabel = composite<=25?"EXTREME FEAR":composite<=45?"FEAR":composite<=55?"NEUTRAL":composite<=75?"GREED":"EXTREME GREED";
+        const sign = n => n >= 0 ? "+" : "";
+        return {
+          ok:true, fetchedAt:new Date().toISOString(),
+          score:composite, label:fgLabel, vix:round2(vix),
+          components:[
+            {name:"VIX Level",         score:vixScore,       weight:30, detail:"VIX at " + round2(vix)},
+            {name:"Market Momentum",   score:momentumScore,  weight:25, detail:"SPY " + sign(spyMaDiff) + round2(spyMaDiff) + "% vs 125d MA"},
+            {name:"RSI (14)",          score:rsiScore,       weight:15, detail:"SPY RSI = " + round2(spyRsi)},
+            {name:"52-Week Range",     score:rangeScore,     weight:15, detail:"SPY at " + rangeScore + "% of 52w range"},
+            {name:"Safe Haven Demand", score:safeHavenScore, weight:8,  detail:"TLT " + sign(tltDiff) + round2(tltDiff) + "% (20d)"},
+            {name:"Junk Bond Demand",  score:junkScore,      weight:7,  detail:"HYG " + sign(hygDiff) + round2(hygDiff) + "% (20d)"},
+          ],
+        };
+      });
+      return writeJson(res, 200, result);
     } catch(err) {
       return writeJson(res, 422, {error:err?.message||"Fear & Greed fetch failed"});
     }
@@ -6157,50 +6149,49 @@ Explain this.`;
 
   // ── GET /api/market/earnings-calendar ────────────────────────────────────
   if (pathname === "/api/market/earnings-calendar" && req.method === "GET") {
-    const _ec = handleMarket._ecCache || (handleMarket._ecCache = { data: null, ts: 0 });
-    if (_ec.data && Date.now() - _ec.ts < 30 * 60 * 1000) return writeJson(res, 200, _ec.data);
     try {
-      const UNIVERSE = [
-        "NVDA","TSLA","AAPL","META","AMZN","MSFT","AMD","NFLX","COIN","MSTR",
-        "PLTR","SMCI","ARM","HOOD","MARA","CRWD","NET","PANW","ZS","SNOW",
-        "DDOG","UBER","ABNB","DASH","PINS","RDDT","SOFI","UPST","AFRM",
-        "BBAI","SERV","RKLB","ASTS","IONQ","RGTI","OKLO","SMR","CEG","GEV",
-        "SPY","QQQ","IWM","SMH","XLK","IBIT","GLD","GOOGL","AVGO","ORCL",
-      ];
-      const chunks = [];
-      for (let i = 0; i < UNIVERSE.length; i += 20) chunks.push(UNIVERSE.slice(i, i + 20));
-      const settled = await Promise.allSettled(chunks.map(c => fetchYahooQuoteBatch(c)));
-      const quotes  = settled.flatMap(r => r.status === "fulfilled" ? r.value : []);
-      const today   = Date.now();
-      const events  = [];
-      for (const q of quotes) {
-        const sym = String(q.symbol || "").toUpperCase();
-        const earningsTs = Number(
-          (Array.isArray(q.earningsTimestamp) ? q.earningsTimestamp[0] : q.earningsTimestamp) || 0
-        );
-        if (!earningsTs) continue;
-        const earnDate = new Date(earningsTs * 1000);
-        const dte = Math.round((earnDate - today) / 86400000);
-        const price = round2(Number(q.regularMarketPrice || 0));
-        const hi52  = Number(q.fiftyTwoWeekHigh || 0);
-        const lo52  = Number(q.fiftyTwoWeekLow  || 0);
-        // Implied expected move proxy from IV
-        const iv = (hi52 > lo52 && price > 0) ? (hi52 - lo52) / price : 0;
-        const expMove = round2(iv / Math.sqrt(252) * 100);
-        const epsTTM  = round2(Number(q.epsTrailingTwelveMonths || 0));
-        const epsEst  = round2(Number(q.epsForward || 0));
-        events.push({
-          sym, price,
-          date: earnDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" }),
-          dte, expMove,
-          epsTTM, epsEst,
-          timing: q.earningsTimestampStart ? "Pre-Market" : q.earningsTimestampEnd ? "After-Hours" : "TBD",
-          mktCap: round2((Number(q.marketCap) || 0) / 1e9),
-        });
-      }
-      events.sort((a, b) => a.dte - b.dte);
-      const result = { ok: true, events: events.slice(0, 40), scannedAt: new Date().toISOString() };
-      _ec.data = result; _ec.ts = Date.now();
+      const result = await cached("earnings-calendar", 30 * 60 * 1000, async () => {
+        const UNIVERSE = [
+          "NVDA","TSLA","AAPL","META","AMZN","MSFT","AMD","NFLX","COIN","MSTR",
+          "PLTR","SMCI","ARM","HOOD","MARA","CRWD","NET","PANW","ZS","SNOW",
+          "DDOG","UBER","ABNB","DASH","PINS","RDDT","SOFI","UPST","AFRM",
+          "BBAI","SERV","RKLB","ASTS","IONQ","RGTI","OKLO","SMR","CEG","GEV",
+          "SPY","QQQ","IWM","SMH","XLK","IBIT","GLD","GOOGL","AVGO","ORCL",
+        ];
+        const chunks = [];
+        for (let i = 0; i < UNIVERSE.length; i += 20) chunks.push(UNIVERSE.slice(i, i + 20));
+        const settled = await Promise.allSettled(chunks.map(c => fetchYahooQuoteBatch(c)));
+        const quotes  = settled.flatMap(r => r.status === "fulfilled" ? r.value : []);
+        const today   = Date.now();
+        const events  = [];
+        for (const q of quotes) {
+          const sym = String(q.symbol || "").toUpperCase();
+          const earningsTs = Number(
+            (Array.isArray(q.earningsTimestamp) ? q.earningsTimestamp[0] : q.earningsTimestamp) || 0
+          );
+          if (!earningsTs) continue;
+          const earnDate = new Date(earningsTs * 1000);
+          const dte = Math.round((earnDate - today) / 86400000);
+          const price = round2(Number(q.regularMarketPrice || 0));
+          const hi52  = Number(q.fiftyTwoWeekHigh || 0);
+          const lo52  = Number(q.fiftyTwoWeekLow  || 0);
+          // Implied expected move proxy from IV
+          const iv = (hi52 > lo52 && price > 0) ? (hi52 - lo52) / price : 0;
+          const expMove = round2(iv / Math.sqrt(252) * 100);
+          const epsTTM  = round2(Number(q.epsTrailingTwelveMonths || 0));
+          const epsEst  = round2(Number(q.epsForward || 0));
+          events.push({
+            sym, price,
+            date: earnDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" }),
+            dte, expMove,
+            epsTTM, epsEst,
+            timing: q.earningsTimestampStart ? "Pre-Market" : q.earningsTimestampEnd ? "After-Hours" : "TBD",
+            mktCap: round2((Number(q.marketCap) || 0) / 1e9),
+          });
+        }
+        events.sort((a, b) => a.dte - b.dte);
+        return { ok: true, events: events.slice(0, 40), scannedAt: new Date().toISOString() };
+      });
       return writeJson(res, 200, result);
     } catch (e) { return writeJson(res, 502, { ok: false, error: e.message, events: [] }); }
   }
