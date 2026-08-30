@@ -44,6 +44,23 @@ async function handleAutopilot2(req, res, requestUrl) {
     return writeJson(res, 200, { ok: true, state: setState("OFF", "turned off by user") });
   }
 
+  // Real forward-outcome report for candidates Autopilot 2.0 detected but
+  // did NOT enter (Autopilot goal spec, 2026-08-30 — "record why they were
+  // missed and what happened afterward"). ?daysAgo= how many real days
+  // back to require before a record counts as resolvable (default 5).
+  // Honest available:false while the log is too young, same discipline as
+  // /api/market/edge-decay.
+  if (pathname === "/api/autopilot2/missed-opportunities" && req.method === "GET") {
+    try {
+      const { buildMissedOpportunityReport } = require("../missed-opportunity-tracker");
+      const daysAgo = Math.max(1, Math.min(60, Number(requestUrl.searchParams.get("daysAgo")) || 5));
+      const report = await buildMissedOpportunityReport({ daysAgo });
+      return writeJson(res, 200, { ok: true, ...report });
+    } catch (err) {
+      return writeJson(res, 200, { ok: false, error: err instanceof Error ? err.message : "report failed" });
+    }
+  }
+
   // Real destructive reset (spec §31) — requires an explicit {confirm:true}
   // body, never a bare click-through.
   if (pathname === "/api/autopilot2/reset" && req.method === "POST") {

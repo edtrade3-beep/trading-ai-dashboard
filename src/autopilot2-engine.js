@@ -18,6 +18,7 @@ const { getAccountSnapshot, openPosition, closePosition, partialClosePosition, u
 const { chooseExpression } = require("./autopilot2-expression");
 const { loadState, setState, appendActivity } = require("./autopilot2-store");
 const { computePositionState } = require("./position-decision-engine");
+const { recordMissed } = require("./missed-opportunity-tracker");
 
 // Real self-loopback JSON fetch — same established convention this file's
 // own account/expression modules already use to reuse a route's real
@@ -396,6 +397,18 @@ async function tick() {
     if (result.entered) {
       entered++;
       workingSnapshot = await getAccountSnapshot();
+    } else {
+      // Missed-opportunity forward-outcome tracking (Autopilot goal spec,
+      // 2026-08-30) — real symbol/price/verdict/score at the real moment
+      // of rejection, so a later report can honestly show what actually
+      // happened to trades the risk/sizing gates skipped. Observability
+      // only (see missed-opportunity-tracker.js's own header) — recording
+      // this can never itself cause a trade.
+      recordMissed({
+        symbol: opp.symbol, price: opp.price ?? opp.entry, reason: result.reason,
+        verdict: opp.verdict, score: opp.score, tier: opp.tier, expectedValue: opp.expectedValue,
+        source: "autopilot2",
+      });
     }
   }
 
