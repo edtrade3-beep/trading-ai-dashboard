@@ -137,9 +137,16 @@ Search for real, current information now and return the JSON.`;
   let parsed = null;
   let aiError = null;
   try {
+    // maxSearches capped at 3 (2 in saver mode) — command-center-ai.js's own
+    // header comment documents that even 8000 max_tokens still failed at 6
+    // real search rounds (121s runtime, still no valid JSON): search rounds
+    // eat into the same token budget as the final JSON, so more searches
+    // makes truncation/timeout MORE likely, not a strictly-better answer.
+    // Confirmed live here too — 6 searches timed out against
+    // callAnthropicWithSearch's own 120s default before this fix.
     const raw = await callAnthropicWithSearch(prompt + "\n\n" + SYSTEM, KEY(), {
       model: "claude-sonnet-4-6", maxTokens: 8000,
-      maxSearches: getMode() === "saver" ? 3 : 6,
+      maxSearches: getMode() === "saver" ? 2 : 3,
       feature: "research-intel",
     });
     const m = (raw || "").match(/\{[\s\S]*\}/);
