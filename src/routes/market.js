@@ -2925,6 +2925,40 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
         action: d.action, meta: d.meta, reason: d.reason, waitingFor: d.waitingFor,
         passCount: row.passCount ?? null, confidence: row.confidence ?? null,
       }));
+
+      // Real canonical verdict, additive only (One Engine consolidation,
+      // Phase 2.4 — audit finding: Sniper AI's own d.action
+      // (ENTER_LONG/WAIT/NO_CHASE/AVOID, sniper-decision.js) is served here
+      // unwrapped as the display verdict, a genuinely separate real gate
+      // cascade from am-core-engine.js's classifyCoreVerdict. Rather than
+      // changing this route's real sort order or existing action/meta/
+      // reason vocabulary today — several live UI surfaces (Sniper AI tab,
+      // Cortex, Telegram /sniper) render those fields directly and a
+      // vocabulary change is a real, separate migration — this attaches
+      // the SAME real coreVerdict/coreCriticalFlags every other
+      // withDecision=1-enriched route already exposes, so a caller can
+      // cross-check or migrate onto the canonical field without a breaking
+      // change today. Same real per-row computeOpportunity call the
+      // trend-screen route's own enrichment already uses; a failure here
+      // must never break the base Sniper AI response.
+      try {
+        const { computeRegime, regimeToEntryVocabulary } = require("../trade-planner-scoring");
+        const { computeOpportunity } = require("../opportunity-engine");
+        const macroRows = await fetchMarketQuotes(["SPY", "QQQ", "VIXY"], resolveProviderKeys(searchParams)).catch(() => []);
+        const regime = computeRegime(Array.isArray(macroRows) ? macroRows : []);
+        const marketRegime = regimeToEntryVocabulary(regime.label);
+        const rowBySymbol = new Map(rows.filter((r) => !r.error).map((r) => [r.symbol, r]));
+        for (const result of results) {
+          const row = rowBySymbol.get(result.symbol);
+          if (!row) continue;
+          const opp = computeOpportunity({ symbol: result.symbol, row, regime, marketRegime });
+          if (!opp) continue;
+          result.coreVerdict = opp.verdict;
+          result.coreCriticalFlags = opp.criticalFlags;
+          result.coreReason = opp.verdictReason;
+        }
+      } catch { /* canonical-verdict enrichment is additive-only — never breaks the base Sniper AI response */ }
+
       return writeJson(res, 200, { ok: true, counts, results });
     } catch (err) {
       return writeJson(res, 502, { ok: false, error: err instanceof Error ? err.message : "Sniper scan failed." });
