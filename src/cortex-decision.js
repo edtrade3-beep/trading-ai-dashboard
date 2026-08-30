@@ -48,7 +48,15 @@ function computeHeatRisk(row, sniper) {
   return { state: "NEUTRAL_WAIT", label: "NEUTRAL — WAIT", color: "#d6a312", icon: "🟡", reason: sniper?.reason || "No clear real edge either way right now." };
 }
 
-function computeCortexVerdict({ sniper, heat, aplusScore }) {
+function computeCortexVerdict({ sniper, heat, aplusScore, criticalFlags }) {
+  // Real hard-gate alignment with am-core-engine.js's classifyCoreVerdict
+  // (One Engine consolidation, Phase 2.5) — see the identical comment on
+  // the client twin (cortex-engine.js) for the full real-bug context.
+  // `criticalFlags` is optional and additive — existing callers that don't
+  // pass it keep their exact prior behavior.
+  if (Number(criticalFlags) > 0) {
+    return { verdict: "AVOID", icon: "🔴", color: "#c8282a", reason: "A critical real red flag is active — not a valid setup right now." };
+  }
   if (heat?.state === "CLIMACTIC_DANGER" || heat?.state === "WEAK_AVOID") {
     return { verdict: "AVOID", icon: "🔴", color: "#c8282a", reason: heat.reason };
   }

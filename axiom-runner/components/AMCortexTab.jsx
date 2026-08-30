@@ -171,7 +171,7 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
     // data on this same row). Computed once, reused by both.
     const antiChase = computeAntiChase(row.abovePivotPct);
     const heat = computeHeatRisk(row, sniper, antiChase);
-    const verdict = computeCortexVerdict({ sniper, heat, aplusScore: aplus.score });
+    const verdict = computeCortexVerdict({ sniper, heat, aplusScore: aplus.score, criticalFlags: row.coreCriticalFlags });
     const priceToPay = computePriceToPay(row, sniper);
     const evidence = whyEvidence(sniper, aplus);
     const entryType = classifyEntryType(row, aplus.score);

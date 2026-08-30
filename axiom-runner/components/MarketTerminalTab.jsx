@@ -976,7 +976,6 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   // Cortex's heat check too, so it can never again disagree with
   // classifyCoreVerdict's hard gate about the same real chase-distance read.
   const heatD = (symTrend && sniperD) ? computeHeatRisk(symTrend, sniperD, symMtf?.antiChase) : null;
-  const cortexV = (symTrend && sniperD && heatD && aPlusScore) ? computeCortexVerdict({ sniper: sniperD, heat: heatD, aplusScore: aPlusScore.score }) : null;
   const entryTypeDW = (symTrend && aPlusScore) ? classifyEntryType(symTrend, aPlusScore.score) : null;
   const setupScoreDW = symTrend ? computeSetupScore(symTrend) : null;
   // Cortex's 5-verdict vocabulary, bridged into the new WATCH/EARLY/START/
@@ -993,7 +992,6 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
     "OVEREXTENDED": { label: "DO NOT CHASE", icon: "🟠", color: "#e08a1e" },
     "AVOID":        { label: "AVOID",  icon: "🔴", color: "#c8282a" },
   };
-  const dwState = cortexV ? (DW_STATE_MAP[cortexV.verdict] || { label: cortexV.verdict, icon: "⚪", color: C.textDim }) : null;
   // Real 8-state machine's own vocabulary (Phase 3) — distinct from
   // DW_STATE_MAP above, which is a live, any-symbol, instant bridge from
   // Cortex Verdict's 5 states. This is the actual, persisted, debounced,
@@ -1188,6 +1186,20 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
     // time.
     reversalTopRisk: sniperD?.gates?.reversalTopRisk,
   }) : null;
+
+  // criticalFlags reuses the SAME real red-flag critical count the Core
+  // Verdict banner below (coreVerdictDW) already gates on — position-aware
+  // the same way redFlagsDW/exitRedFlagsDW's own consumers already are
+  // (symPosition picks the EXIT taxonomy, otherwise the ENTRY one). One
+  // Engine consolidation Phase 2.5, closing the one real gate Cortex
+  // Verdict was missing (confirmed live-disagreement-capable: a critical
+  // red flag with no Stage-4/overextension could read Cortex BUY ZONE/
+  // WATCH while Core Verdict correctly said AVOID_LONG for the same
+  // symbol at the same moment).
+  const cortexV = (symTrend && sniperD && heatD && aPlusScore)
+    ? computeCortexVerdict({ sniper: sniperD, heat: heatD, aplusScore: aPlusScore.score, criticalFlags: (symPosition ? exitRedFlagsDW : redFlagsDW)?.criticalCount })
+    : null;
+  const dwState = cortexV ? (DW_STATE_MAP[cortexV.verdict] || { label: cortexV.verdict, icon: "⚪", color: C.textDim }) : null;
 
   // "5-Second Rule" simplified decision (2026-08-20, explicit user
   // directive — "the trader should open the Workspace and understand the

@@ -130,7 +130,22 @@ export function computeHeatRisk(row, sniper, antiChase) {
 // ---- Cortex Verdict — one of exactly 5, combining real Sniper action +
 // real Heat Risk state + real A+ Score. Separates "good stock" from "good
 // entry" per the user's explicit instruction. ----
-export function computeCortexVerdict({ sniper, heat, aplusScore }) {
+export function computeCortexVerdict({ sniper, heat, aplusScore, criticalFlags }) {
+  // Real hard-gate alignment with am-core-engine.js's classifyCoreVerdict
+  // (One Engine consolidation, Phase 2.5 — audit finding: this function's
+  // gate cascade covers real Stage-4/anti-chase extension via heat.state,
+  // but had NO awareness of a real critical red flag (red-flag-engine.js),
+  // the one hard gate classifyCoreVerdict checks that this function never
+  // did. Confirmed live: a symbol with a critical red flag but no
+  // Stage-4/overextension could read Cortex Verdict BUY ZONE/WATCH while
+  // the canonical engine correctly says AVOID_LONG for the same symbol at
+  // the same moment. `criticalFlags` is optional and additive — every
+  // existing caller that doesn't pass it keeps its exact prior behavior;
+  // callers that already have real red-flag data (any withDecision=1 row's
+  // coreCriticalFlags) should pass it through.
+  if (Number(criticalFlags) > 0) {
+    return { verdict: "AVOID", icon: "🔴", color: "#c8282a", reason: "A critical real red flag is active — not a valid setup right now." };
+  }
   if (heat?.state === "CLIMACTIC_DANGER" || heat?.state === "WEAK_AVOID") {
     return { verdict: "AVOID", icon: "🔴", color: "#c8282a", reason: heat.reason };
   }

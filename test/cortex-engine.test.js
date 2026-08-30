@@ -14,7 +14,7 @@ let passed = 0;
 function ok(name, fn) { try { fn(); passed++; console.log(`  ✓ ${name}`); } catch (e) { console.error(`  ✗ ${name}\n    ${e.message}`); process.exitCode = 1; } }
 
 (async () => {
-  const { computeHeatRisk } = await import("../axiom-runner/components/cortex-engine.js");
+  const { computeHeatRisk, computeCortexVerdict } = await import("../axiom-runner/components/cortex-engine.js");
 
   console.log("Checking computeHeatRisk — real antiChase-band-driven chase risk (regression, 2026-08-26)…");
 
@@ -60,6 +60,29 @@ function ok(name, fn) { try { fn(); passed++; console.log(`  ✓ ${name}`); } ca
   ok("real HEALTHY_STRENGTH still fires when nothing is extended and sniper says ENTER_LONG", () => {
     const r = computeHeatRisk({ extended: false }, { action: "ENTER_LONG" }, { band: "NORMAL" });
     assert.strictEqual(r.state, "HEALTHY_STRENGTH");
+  });
+
+  console.log("Checking computeCortexVerdict — real critical-red-flag hard gate (One Engine consolidation, Phase 2.5)…");
+
+  ok("regression: a real critical red flag forces AVOID even when sniper+heat would otherwise read BUY ZONE", () => {
+    const r = computeCortexVerdict({ sniper: { action: "ENTER_LONG" }, heat: { state: "HEALTHY_STRENGTH" }, aplusScore: 90, criticalFlags: 1 });
+    assert.strictEqual(r.verdict, "AVOID");
+  });
+
+  ok("no real critical flags (0) never forces AVOID on its own", () => {
+    const r = computeCortexVerdict({ sniper: { action: "ENTER_LONG" }, heat: { state: "HEALTHY_STRENGTH" }, aplusScore: 90, criticalFlags: 0 });
+    assert.strictEqual(r.verdict, "BUY ZONE");
+  });
+
+  ok("criticalFlags omitted entirely (existing callers) -> honest backward-compatible behavior, unaffected", () => {
+    const r = computeCortexVerdict({ sniper: { action: "ENTER_LONG" }, heat: { state: "HEALTHY_STRENGTH" }, aplusScore: 90 });
+    assert.strictEqual(r.verdict, "BUY ZONE");
+  });
+
+  ok("a real critical flag still wins even ahead of the CLIMACTIC_DANGER/heat checks (checked first, matching classifyCoreVerdict's own gate order)", () => {
+    const r = computeCortexVerdict({ sniper: {}, heat: { state: "CLIMACTIC_DANGER", reason: "exhaustion" }, aplusScore: 10, criticalFlags: 2 });
+    assert.strictEqual(r.verdict, "AVOID");
+    assert.doesNotMatch(r.reason, /exhaustion/, "the real critical-flag reason should win, not the heat reason, since it's checked first");
   });
 
   console.log(`\n${passed} checks passed.`);
