@@ -3051,6 +3051,25 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
     }
   }
 
+  // GET /api/market/missed-opportunity-detection?minMoveAbsPct=N — real
+  // detection-latency report (Central Opportunity & Options Engine goal,
+  // 2026-08-30, section 12: "identify what moved, when, whether the
+  // platform detected it, how early, why it missed"). Real, same-session
+  // read off opportunity-timeline-store.js's own already-recorded
+  // score/tier/price samples — no new scan, no new data source. Honest
+  // available:false while too little of today's session has accumulated
+  // real samples yet, same discipline as every other tracker in this app.
+  if (pathname === "/api/market/missed-opportunity-detection" && req.method === "GET") {
+    try {
+      const { buildDetectionLatencyReport } = require("../detection-latency-engine");
+      const minMoveAbsPct = Math.max(1, Math.min(50, Number(searchParams.get("minMoveAbsPct")) || 5));
+      const report = buildDetectionLatencyReport({ minMoveAbsPct });
+      return writeJson(res, 200, { ok: true, ...report });
+    } catch (err) {
+      return writeJson(res, 200, { ok: false, error: err instanceof Error ? err.message : "report failed" });
+    }
+  }
+
   // GET /api/market/btc-hpc-scan — BTC + HPC Deep Scan, Top Rotation
   // (explicit user request, 2026-08-20). Real BTC regime (btc-hpc-scan.js's
   // computeBtcRegime, off real BTC-USD bars) + a ranked scan of the real

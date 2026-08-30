@@ -62,7 +62,15 @@ function recordOpportunitySnapshots(opportunities) {
     const list = store.bySymbol[opp.symbol] || [];
     const last = list[list.length - 1];
     if (last && now - last.ts < MIN_GAP_MS) continue; // real throttle — not enough real time has passed
-    list.push({ ts: now, score: opp.score, tier: opp.tier || null, expectedValue: opp.expectedValue ?? null });
+    // `price` (2026-08-30, Central Opportunity & Options Engine goal) —
+    // real, already on every Opportunity Object, additive. Existing
+    // consumers (computeEdgeVelocity) only ever read `score`, so this is
+    // zero-risk. Enables detection-latency-engine.js's real "how much of
+    // today's move had already happened by the time our own tier called
+    // it actionable" calc — older same-day samples recorded before this
+    // field existed simply have price:undefined, honestly skipped there,
+    // never backfilled with a guess.
+    list.push({ ts: now, score: opp.score, tier: opp.tier || null, expectedValue: opp.expectedValue ?? null, price: Number.isFinite(opp.price) ? opp.price : null });
     if (list.length > MAX_SAMPLES_PER_SYMBOL) list.shift();
     store.bySymbol[opp.symbol] = list;
     changed = true;
