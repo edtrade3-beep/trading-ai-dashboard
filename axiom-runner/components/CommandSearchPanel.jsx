@@ -129,7 +129,16 @@ export function KeyLevelsCard({ chart, C, MONO, SANS }) {
 // this JSX (explicit user request, 2026-08-26, screenshot of the mobile
 // layout: "add in black square area under search" — the empty strip
 // between the Search/Chart/Cortex tabs and the VCP toggle on mobile).
-export function TickerHeader({ symbol, chart, symbolQuote, C, MONO, SANS }) {
+const fmtMarketCap = (v) => {
+  const n = Number(v);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  if (n >= 1e12) return `$${(n / 1e12).toFixed(2)}T`;
+  if (n >= 1e9) return `$${(n / 1e9).toFixed(1)}B`;
+  if (n >= 1e6) return `$${(n / 1e6).toFixed(0)}M`;
+  return `$${n.toLocaleString()}`;
+};
+
+export function TickerHeader({ symbol, chart, symbolQuote, fundamentals, C, MONO, SANS }) {
   if (!symbol) return null;
   const name = symbolQuote?.name && symbolQuote.name !== symbol ? symbolQuote.name : null;
   return (
@@ -160,11 +169,23 @@ export function TickerHeader({ symbol, chart, symbolQuote, C, MONO, SANS }) {
           {Number.isFinite(chart?.volRatio) && <span>RVOL {chart.volRatio}x</span>}
         </div>
       )}
+      {/* Beta + market cap (Trade Desk redesign Phase 2, §3) — real fields
+          from /api/market/fundamentals, only shown when the real provider
+          actually returned them (FMP/stockanalysis.com/Yahoo, in that
+          fallback order) — never a fabricated placeholder when a provider
+          doesn't carry one (Yahoo's own fundamentals honestly return
+          beta: null). */}
+      {(Number.isFinite(fundamentals?.beta) || fmtMarketCap(fundamentals?.marketCap)) && (
+        <div style={{ display: "flex", gap: 10, marginTop: 4, fontFamily: MONO, fontSize: 10, color: C.textDim }}>
+          {fmtMarketCap(fundamentals?.marketCap) && <span>MCAP {fmtMarketCap(fundamentals.marketCap)}</span>}
+          {Number.isFinite(fundamentals?.beta) && <span>BETA {fundamentals.beta.toFixed(2)}</span>}
+        </div>
+      )}
     </div>
   );
 }
 
-export default function CommandSearchPanel({ symbol, onSelectSymbol, onOpenDaytrade, chart, symbolQuote, C, MONO, SANS, hideKeyLevels, hideSearch }) {
+export default function CommandSearchPanel({ symbol, onSelectSymbol, onOpenDaytrade, chart, symbolQuote, fundamentals, C, MONO, SANS, hideKeyLevels, hideSearch }) {
   const [query, setQuery] = useState("");
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -236,7 +257,7 @@ export default function CommandSearchPanel({ symbol, onSelectSymbol, onOpenDaytr
         </div>
       )}
 
-      <TickerHeader symbol={symbol} chart={chart} symbolQuote={symbolQuote} C={C} MONO={MONO} SANS={SANS} />
+      <TickerHeader symbol={symbol} chart={chart} symbolQuote={symbolQuote} fundamentals={fundamentals} C={C} MONO={MONO} SANS={SANS} />
       {!hideKeyLevels && <KeyLevelsCard chart={chart} C={C} MONO={MONO} SANS={SANS} />}
 
       {data?.dataQuality?.stale && (

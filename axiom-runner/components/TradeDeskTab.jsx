@@ -317,6 +317,24 @@ export default function TradeDeskTab({
     return () => { cancelled = true; };
   }, [symbol]);
 
+  // Real beta + market cap for the ticker header (Trade Desk redesign
+  // Phase 2, §3 — "only included if genuinely present on an already-
+  // fetched fundamentals payload; otherwise disclosed as unavailable,
+  // never fabricated"). Same real /api/market/fundamentals route
+  // CortexMiniPanel.jsx already calls for its own WHY panel — a second
+  // small fetch here (not threaded down from Cortex) since the header
+  // renders in the left column, independent of Cortex's own load timing.
+  const [fundamentals, setFundamentals] = useState(null);
+  useEffect(() => {
+    if (!symbol) return;
+    let cancelled = false;
+    setFundamentals(null);
+    fetch(`/api/market/fundamentals?symbol=${encodeURIComponent(symbol)}`).then((r) => r.json())
+      .then((d) => { if (!cancelled && d && !d.error) setFundamentals(d); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [symbol]);
+
   const [account, setAccount] = useState(null);
   useEffect(() => {
     let cancelled = false;
@@ -553,11 +571,11 @@ export default function TradeDeskTab({
             force the fixed-column grid on a narrow screen (ScanTerminalHub's
             own history is the reason this is a deliberate, up-front choice). */}
         {isMobile ? (
-          <MobileTradeDeskBody symbol={symbol} selectSymbol={selectSymbol} chart={chart} symbolQuote={symbolQuote} applyLightboxHandoff={applyLightboxHandoff} dayTradeHandoff={dayTradeHandoff} loadingChart={loadingChart} vcpOn={vcpOn} setVcpOn={setVcpOn} setActiveTab={setActiveTab} macroData={macroData} C={TD} MONO={MONO} SANS={SANS} />
+          <MobileTradeDeskBody symbol={symbol} selectSymbol={selectSymbol} chart={chart} symbolQuote={symbolQuote} fundamentals={fundamentals} applyLightboxHandoff={applyLightboxHandoff} dayTradeHandoff={dayTradeHandoff} loadingChart={loadingChart} vcpOn={vcpOn} setVcpOn={setVcpOn} setActiveTab={setActiveTab} macroData={macroData} C={TD} MONO={MONO} SANS={SANS} />
         ) : (
           <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "220px 1fr 280px" }}>
             <div style={{ borderRight: `1px solid ${TD.border}`, minHeight: 0, overflow: "hidden", background: TD.bg }}>
-              <CommandSearchPanel symbol={symbol} onSelectSymbol={selectSymbol} onOpenDaytrade={applyLightboxHandoff} chart={chart} symbolQuote={symbolQuote} C={TD} MONO={MONO} SANS={SANS} hideSearch />
+              <CommandSearchPanel symbol={symbol} onSelectSymbol={selectSymbol} onOpenDaytrade={applyLightboxHandoff} chart={chart} symbolQuote={symbolQuote} fundamentals={fundamentals} C={TD} MONO={MONO} SANS={SANS} hideSearch />
             </div>
             <ChartPane symbol={symbol} chart={chart} loadingChart={loadingChart} vcpOn={vcpOn} setVcpOn={setVcpOn} C={TD} MONO={MONO} SANS={SANS} chartTf={chartTf} setChartTf={setChartTf} />
             {/* Right column (2026-08-27) — Market Context moved to its own
@@ -704,7 +722,7 @@ function ChartPane({ symbol, chart, loadingChart, vcpOn, setVcpOn, C, MONO, SANS
   );
 }
 
-function MobileTradeDeskBody({ symbol, selectSymbol, chart, symbolQuote, applyLightboxHandoff, dayTradeHandoff, loadingChart, vcpOn, setVcpOn, setActiveTab, macroData, C, MONO, SANS }) {
+function MobileTradeDeskBody({ symbol, selectSymbol, chart, symbolQuote, fundamentals, applyLightboxHandoff, dayTradeHandoff, loadingChart, vcpOn, setVcpOn, setActiveTab, macroData, C, MONO, SANS }) {
   const [view, setView] = useState("chart");
   return (
     <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
@@ -722,7 +740,7 @@ function MobileTradeDeskBody({ symbol, selectSymbol, chart, symbolQuote, applyLi
         {view === "search" && <CommandSearchPanel symbol={symbol} onSelectSymbol={(s) => { selectSymbol(s); setView("chart"); }} onOpenDaytrade={(r) => { applyLightboxHandoff(r); setView("chart"); }} chart={chart} symbolQuote={symbolQuote} C={C} MONO={MONO} SANS={SANS} />}
         {view === "chart" && (
           <div style={{ padding: "8px 10px 10px" }}>
-            <TickerHeader symbol={symbol} chart={chart} symbolQuote={symbolQuote} C={C} MONO={MONO} SANS={SANS} />
+            <TickerHeader symbol={symbol} chart={chart} symbolQuote={symbolQuote} fundamentals={fundamentals} C={C} MONO={MONO} SANS={SANS} />
             <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 6 }}>
               <button
                 onClick={() => setVcpOn((v) => !v)}
