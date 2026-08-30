@@ -25,6 +25,7 @@
 // 6:05 PM ET (server.js), manual Refresh button here for on-demand runs.
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { parseCarfaxText } from "./carfax-parse.js";
 
 const SECTION_COLOR = (C) => ({ STRONG: C.green, NORMAL: C.accent, WEAKENING: C.amber, HIGH_RISK: C.red });
 const SECTION_ICON = { STRONG: "🟢", NORMAL: "🟡", WEAKENING: "🟠", HIGH_RISK: "🔴" };
@@ -615,13 +616,36 @@ function CopyButton({ C, MONO, text }) {
 // A free-form form (NOT tied to the real inventory list — the user can
 // build an ad for any vehicle, on the lot or not) that produces a
 // complete, step-by-step, ready-to-post ad.
+const CARFAX_FIELD_LABELS = {
+  year: "Year", make: "Make", model: "Model", trim: "Trim", mileage: "Mileage", vin: "VIN",
+  ownerCount: "Owner count", accidentFree: "No accidents", accidentCount: "Accident count",
+  titleStatus: "Title status", serviceRecords: "Service records",
+};
+
 function AdMakerTool({ C, MONO, SANS }) {
   const [form, setForm] = useState(AD_FORM_EMPTY);
   const [building, setBuilding] = useState(false);
   const [ad, setAd] = useState(null);
   const [error, setError] = useState(null);
+  const [carfaxText, setCarfaxText] = useState("");
+  const [carfaxResult, setCarfaxResult] = useState(null);
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
+
+  const loadCarfax = () => {
+    const parsed = parseCarfaxText(carfaxText);
+    setCarfaxResult(parsed);
+    if (!parsed.foundFields.length) return;
+    setForm((f) => ({
+      ...f,
+      year: parsed.year != null ? String(parsed.year) : f.year,
+      make: parsed.make || f.make,
+      model: parsed.model || f.model,
+      trim: parsed.trim || f.trim,
+      mileage: parsed.mileage != null ? String(parsed.mileage) : f.mileage,
+      notes: [f.notes, parsed.notesSummary].filter(Boolean).join(f.notes ? "; " : ""),
+    }));
+  };
 
   const build = () => {
     if (!form.year.trim() || !form.make.trim() || !form.model.trim()) {
@@ -640,6 +664,28 @@ function AdMakerTool({ C, MONO, SANS }) {
 
   return (
     <Section C={C} MONO={MONO} SANS={SANS} title="📝 Facebook Ad Maker" subtitle="Give the details, get a complete, ready-to-post ad — built step by step.">
+      <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 14px", marginBottom: 12 }}>
+        <div style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 700, color: C.textDim, marginBottom: 3 }}>Paste a CarFax Report</div>
+        <textarea value={carfaxText} onChange={(e) => setCarfaxText(e.target.value)} placeholder="Paste the CarFax report text here — year/make/model, VIN, mileage, owner count, accident history, and title status will auto-fill below." rows={3} style={{
+          width: "100%", fontFamily: SANS, fontSize: 12, padding: "7px 9px", borderRadius: 6,
+          border: `1px solid ${C.border}`, background: C.card, color: C.text, boxSizing: "border-box", resize: "vertical", marginBottom: 8,
+        }} />
+        <button onClick={loadCarfax} disabled={!carfaxText.trim()} style={{
+          fontFamily: MONO, fontSize: 11.5, fontWeight: 700, padding: "6px 12px", borderRadius: 6,
+          border: `1px solid ${C.border}`, background: C.card, color: carfaxText.trim() ? C.text : C.textDim,
+          cursor: carfaxText.trim() ? "pointer" : "default",
+        }}>⬆ Load From CarFax</button>
+        {carfaxResult && (
+          carfaxResult.foundFields.length > 0 ? (
+            <div style={{ fontSize: 11, color: C.textDim, marginTop: 8 }}>
+              Found: {carfaxResult.foundFields.map((k) => CARFAX_FIELD_LABELS[k] || k).join(", ")} — double-check before building.
+              {carfaxResult.titleWarning && <div style={{ color: C.red, marginTop: 4 }}>⚠ This report does not show a clean title — verify before advertising.</div>}
+            </div>
+          ) : (
+            <div style={{ fontSize: 11, color: C.textDim, marginTop: 8 }}>Couldn't confidently find vehicle details in that text — fill in the fields below by hand.</div>
+          )
+        )}
+      </div>
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "14px 16px", marginBottom: ad || error ? 14 : 0 }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10, marginBottom: 10 }}>
           {AD_FORM_FIELDS.map((f) => (
