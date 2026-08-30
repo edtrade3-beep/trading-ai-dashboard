@@ -7,13 +7,28 @@ import { useState, useEffect, useCallback } from "react";
 // strip entirely rather than showing the same real data twice). Same real
 // GET /api/market/context fetch that panel used, condensed to the grid's
 // own bordered-card visual style.
+//
+// Labeling fix (Central Opportunity & Options Engine goal, 2026-08-30):
+// this card takes no `symbol` prop — market-context-engine.js's
+// classifyTradingEnvironment is 100% cross-asset/macro (2Y, DXY, VIX,
+// SPY/QQQ divergence), never a per-symbol input, and confirmed (grep)
+// never consumed by any real trade-decision path (am-core-engine.js,
+// opportunity-engine.js, autopilot2-engine.js all ignore it) — it is
+// correctly evidence, not a competing verdict, already. But its badge
+// used the exact same words ("DO NOT CHASE", "SHORT FAVORABLE") the
+// real per-symbol chase-risk/verdict system uses, sitting in a Trade
+// Desk grid next to a specific stock's own real AI Verdict — a real,
+// live screenshot this session showed exactly how easy it'd be to read
+// as a call on the ticker being viewed rather than the broad tape. Every
+// label now explicitly says "BROAD MARKET" so it can't be mistaken for
+// a symbol-specific verdict.
 const ENV_META = {
-  LONG_FAVORABLE: { label: "LONG FAVORABLE", color: "#0d9465" },
-  SHORT_FAVORABLE: { label: "SHORT FAVORABLE", color: "#c8282a" },
-  RANGE: { label: "RANGE", color: "#d6a312" },
-  HIGH_VOLATILITY: { label: "HIGH VOLATILITY", color: "#e07b1a" },
-  WAIT: { label: "WAIT", color: "#8a94a6" },
-  DO_NOT_CHASE: { label: "DO NOT CHASE", color: "#c8282a" },
+  LONG_FAVORABLE: { label: "BROAD MARKET: LONG FAVORABLE", color: "#0d9465" },
+  SHORT_FAVORABLE: { label: "BROAD MARKET: SHORT FAVORABLE", color: "#c8282a" },
+  RANGE: { label: "BROAD MARKET: RANGE", color: "#d6a312" },
+  HIGH_VOLATILITY: { label: "BROAD MARKET: HIGH VOLATILITY", color: "#e07b1a" },
+  WAIT: { label: "BROAD MARKET: WAIT", color: "#8a94a6" },
+  DO_NOT_CHASE: { label: "BROAD MARKET: DO NOT CHASE", color: "#c8282a" },
 };
 function fmtChg(v) {
   if (!Number.isFinite(v)) return "—";
@@ -52,7 +67,8 @@ export default function MarketContextCard({ C, MONO, SANS }) {
 
   return (
     <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 14px", background: C.card }}>
-      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: 0.6, marginBottom: 8 }}>🌍 MARKET CONTEXT</div>
+      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: 0.6, marginBottom: 2 }}>🌍 MARKET CONTEXT</div>
+      <div style={{ fontFamily: SANS, fontSize: 9.5, color: C.textDim, marginBottom: 6 }}>Cross-asset macro read (2Y/DXY/VIX/SPY/QQQ) — not a call on the ticker you're viewing. See the AI Verdict above for that.</div>
       {error && !data?.available && <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>Unavailable: {error}</div>}
       {!data && !error && <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>Loading real cross-asset regime…</div>}
       {data?.available && (
