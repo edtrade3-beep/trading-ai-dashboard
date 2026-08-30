@@ -3,9 +3,13 @@ import { useState, useEffect, useCallback } from "react";
 // ADOL22 Autopilot 2.0 — Command Center. A real internal $100k simulated
 // paper account (src/autopilot2-account.js) run by a real autonomous
 // scan->enter->manage->exit loop (src/autopilot2-engine.js) — never a
-// real order, never Alpaca. Stocks + long calls today (0.60-0.85 delta,
-// via src/autopilot2-expression.js); puts, spreads, and crypto are real,
-// disclosed gaps, not silently missing (Autopilot goal audit, 2026-08-30).
+// real order, never Alpaca. Stocks + long calls during market hours, plus
+// real 24/7 spot crypto (BTC/ETH/SOL/XRP/DOGE/ADA/AVAX/LINK/LTC/BCH/DOT,
+// unconditional of market hours) since 2026-08-30. Puts and spreads are
+// real, disclosed gaps, not silently missing (Autopilot goal audit,
+// 2026-08-30). The "No puts, spreads, or crypto yet" line that used to be
+// here was stale after crypto shipped and was the direct cause of a real
+// user-reported "not working, not even crypto" bug report — fixed same day.
 //
 // Deliberately no manual Buy/Sell anywhere on this page (spec §31) — the
 // only controls are the 5 the spec lists. This is a monitoring surface,
@@ -22,6 +26,75 @@ function fmtMoney(n) {
   const sign = n < 0 ? "-" : "";
   return `${sign}$${Math.abs(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
+// Same real universe as src/autopilot2-engine.js's CRYPTO_UNIVERSE — kept
+// as a small client-side literal (that file is server-only, requires
+// Node's ./config) rather than imported, same "duplicate the fixed list,
+// not the engine" precedent as btc-hpc-scan.js's own client twin.
+const CRYPTO_WATCH_SYMBOLS = ["BTC-USD", "ETH-USD", "SOL-USD", "XRP-USD", "DOGE-USD", "ADA-USD", "AVAX-USD", "LINK-USD", "LTC-USD", "BCH-USD", "DOT-USD"];
+const VERDICT_COLOR = (C) => ({
+  EARLY_BUY: C.green, BUY: C.green, AVOID_LONG: C.red, HOLD: C.accent, EXIT: C.red, TAKE_PROFIT: C.green,
+});
+
+// Real-time visibility into WHY crypto is or isn't trading right now — the
+// exact same real trend-screen data src/autopilot2-engine.js's
+// fetchCryptoCandidates() scans every 5 minutes (GET /api/market/
+// trend-screen, no second engine), so "the account is empty" is never
+// indistinguishable from "the engine is broken." Added 2026-08-30 as the
+// direct fix for a real user report ("still autopilot 2.0 not working not
+// even crypto") that was actually correct, honest selectivity (an
+// extended BTC + two Stage-4-downtrend coins, both real anti-chase/
+// structure gates working as designed) with zero visibility into why.
+function CryptoWatch({ C, MONO, SANS }) {
+  const [rows, setRows] = useState(null);
+  const [error, setError] = useState(null);
+
+  const load = useCallback(() => {
+    fetch(`/api/market/trend-screen?symbols=${CRYPTO_WATCH_SYMBOLS.join(",")}&withDecision=1`)
+      .then((r) => r.json())
+      .then((d) => { if (Array.isArray(d.results)) { setRows(d.results); setError(null); } else setError("no real data returned"); })
+      .catch((e) => setError(e.message));
+  }, []);
+
+  useEffect(() => {
+    load();
+    const t = setInterval(load, 60_000);
+    return () => clearInterval(t);
+  }, [load]);
+
+  return (
+    <div style={{ padding: "14px 16px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 12 }}>
+      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 8 }}>
+        CRYPTO WATCH — scanned unconditionally, 24/7, every 5 min
+      </div>
+      {error && <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>Couldn't load live crypto scan: {error}</div>}
+      {!error && !rows && <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>Loading real crypto scan…</div>}
+      {rows && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 8 }}>
+          {rows.map((r) => {
+            const vColor = r.error ? C.textDim : (VERDICT_COLOR(C)[r.coreVerdict] || C.textDim);
+            return (
+              <div key={r.symbol} style={{ border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 10px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                  <span style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 800, color: C.text }}>{r.symbol.replace("-USD", "")}</span>
+                  {!r.error && <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>${r.price?.toLocaleString()}</span>}
+                </div>
+                {r.error ? (
+                  <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, marginTop: 3 }}>Unavailable: {r.error}</div>
+                ) : (
+                  <>
+                    <div style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 800, color: vColor, marginTop: 3 }}>{r.coreVerdict || "—"}</div>
+                    <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, marginTop: 2 }}>{r.coreReason || r.stage}</div>
+                  </>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function fmtPct(n, digits = 1) {
   if (!Number.isFinite(n)) return "—";
   return `${n >= 0 ? "+" : ""}${n.toFixed(digits)}%`;
@@ -112,7 +185,7 @@ export default function Autopilot2Tab({ C, MONO, SANS }) {
           </span>
         </div>
         <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 3 }}>
-          A real internal $100,000 simulated paper account — stocks + long calls, no real orders ever. No puts, spreads, or crypto yet. {data.state?.reason ? `(${data.state.reason})` : ""}
+          A real internal $100,000 simulated paper account — stocks + long calls (market hours) and real 24/7 spot crypto, no real orders ever. No puts or spreads yet. {data.state?.reason ? `(${data.state.reason})` : ""}
         </div>
       </div>
 
@@ -122,9 +195,11 @@ export default function Autopilot2Tab({ C, MONO, SANS }) {
       <div style={{ padding: "12px 16px", background: `${C.accent}0a`, border: `1px solid ${C.accent}33`, borderRadius: 12 }}>
         <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.accent, letterSpacing: 0.5, marginBottom: 6 }}>HOW IT TRADES</div>
         <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, lineHeight: 1.6 }}>
-          Every 5 minutes during market hours: <b>scans</b> the real scan universe through the platform's one canonical engine (am-core-engine.js) → <b>scores</b> and ranks real candidates by expected value, probability, and risk → <b>checks risk</b> (position/sector/portfolio-risk limits, daily/weekly/drawdown breakers — risk always wins, a blocked trade never fires) → <b>enters</b> the best real candidate as a stock or a long call, sized to the risk limit → <b>manages</b> every open position each tick (stop, trail, partial profit, or exit) using that same one verdict engine → <b>exits</b> on a hard stop, invalidated thesis, or (for calls) an approaching expiration. Trades that get skipped are logged with the real reason, and revisited later to see what actually happened (Missed Opportunities). Outside market hours, or with no real candidate that clears every gate, it correctly does nothing — an empty account isn't a bug, it's the risk rules working.
+          Every 5 minutes: <b>scans</b> the real scan universe through the platform's one canonical engine (am-core-engine.js) → <b>scores</b> and ranks real candidates by expected value, probability, and risk → <b>checks risk</b> (position/sector/portfolio-risk limits, daily/weekly/drawdown breakers — risk always wins, a blocked trade never fires) → <b>enters</b> the best real candidate as a stock, a long call, or spot crypto, sized to the risk limit → <b>manages</b> every open position each tick (stop, trail, partial profit, or exit) using that same one verdict engine → <b>exits</b> on a hard stop, invalidated thesis, or (for calls) an approaching expiration. Trades that get skipped are logged with the real reason, and revisited later to see what actually happened (Missed Opportunities). Stock/call scanning only runs during market hours (stale quotes outside them); <b>crypto scans unconditionally, 24/7</b>, every single tick. The same real anti-chase and structure gates apply identically to crypto — an extended or downtrending coin is correctly skipped, not a bug. With no real candidate that clears every gate, it correctly does nothing — an empty account isn't a bug, it's the risk rules working.
         </div>
       </div>
+
+      <CryptoWatch C={C} MONO={MONO} SANS={SANS} />
 
       <div style={{ display: "flex", gap: 24, rowGap: 12, flexWrap: "wrap", padding: "14px 16px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 12 }}>
         {stat("PAPER EQUITY", fmtMoney(acct.equity))}

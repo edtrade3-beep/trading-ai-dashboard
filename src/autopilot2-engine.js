@@ -272,7 +272,21 @@ async function fetchLightBoxCandidates() {
 // sizing (sizeCryptoEntry) and no market-hours gate (tick() below) — this
 // function's OWN output shape is identical to a stock candidate, so it
 // flows through the exact same tryEnter risk gating.
-const CRYPTO_UNIVERSE = ["BTC-USD", "ETH-USD", "SOL-USD"];
+// Expanded 2026-08-30 (explicit user feedback: "still autopilot 2.0 not
+// working not even crypto" -> diagnosed live: BTC/ETH/SOL were the ONLY
+// candidates, and on the real day this was checked BTC was extended above
+// its own real pivot (a genuine, disclosed anti-chase hard gate — never
+// bypassed, applies identically to stocks) while ETH/SOL were in real
+// Stage 4 downtrends — a real, narrow-universe drought, not a bug. Real
+// fix: widen the real, liquid crypto surface area so a genuine qualifying
+// setup has more chances to appear, WITHOUT touching any real risk gate
+// (extended/Stage-4/critical-flag blocks stay identical for every symbol
+// here). Each of these 8 additions was verified live against this app's
+// own real quote provider before being added (2 other real major coins —
+// UNI-USD, MATIC-USD — were tried and dropped: no real Yahoo chart data
+// available for either, so they'd only ever error out, not silently
+// misprice).
+const CRYPTO_UNIVERSE = ["BTC-USD", "ETH-USD", "SOL-USD", "XRP-USD", "DOGE-USD", "ADA-USD", "AVAX-USD", "LINK-USD", "LTC-USD", "BCH-USD", "DOT-USD"];
 async function fetchCryptoCandidates() {
   try {
     const { screenTrendTemplate, fetchMarketQuotes } = require("./routes/market");
