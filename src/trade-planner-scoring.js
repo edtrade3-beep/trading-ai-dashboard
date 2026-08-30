@@ -118,16 +118,59 @@ function computeAPlusScore(row, regime) {
   return { score, reasons, cautions, breakdown: { regimePts, entryPts, breakoutPts, volPts, riskPts, supportPts, vcpPts }, passCount };
 }
 
+// CORE_VERDICT_TO_NEXT_ACTION — One Engine consolidation, Phase 2.2. Maps
+// am-core-engine.js's real classifyCoreVerdict output onto this function's
+// own legacy {action,color,reason} vocabulary. classifyCoreVerdict never
+// returns a position-management state (HOLD/TAKE_PROFIT/EXIT) for a
+// no-position screening call — those only fire when hasPosition is true,
+// which none of this function's real callers ever pass — so only the 5
+// real no-position verdicts need a mapping here.
+const CORE_VERDICT_TO_NEXT_ACTION = {
+  EARLY_BUY: { action: "BUY", color: "#0d9465" },
+  BUY: { action: "BUY", color: "#0d9465" },
+  WATCH: { action: "WATCH", color: "#d6a312" },
+  WAIT: { action: "WAIT", color: "#94a3b8" },
+  AVOID_LONG: { action: "AVOID", color: "#c8282a" },
+};
+
 function computeNextAction(row) {
+  // Real bug found in the One Engine audit (2026-08-30): this function
+  // hand-copied its own gate cascade (anti-chase, Stage 4) to stay aligned
+  // with am-core-engine.js's classifyCoreVerdict, which is exactly the
+  // "two independently-maintained implementations of the same real gates
+  // can silently drift apart" risk the audit flagged. Several real callers
+  // (e.g. RhProScanner.jsx/routes/market.js) already compute a real
+  // row.coreVerdict (via classifyCoreVerdict, with the FULL real context —
+  // entryPlan/redFlags/regime/sector — this function was never given)
+  // alongside their own computeNextAction(row) call. Wherever that real
+  // verdict is already present, use it directly — one real gate cascade,
+  // not two — instead of re-deriving a possibly-different answer from a
+  // narrower slice of the same row. The reason string is regenerated in
+  // this function's own established phrasing (not row.coreReason verbatim)
+  // so every existing caller's UI copy stays exactly as it was.
+  if (row?.coreVerdict && CORE_VERDICT_TO_NEXT_ACTION[row.coreVerdict]) {
+    const mapped = CORE_VERDICT_TO_NEXT_ACTION[row.coreVerdict];
+    const stage4 = /Stage\s*4/i.test(String(row?.stage || ""));
+    const antiChaseBand = Number.isFinite(Number(row?.abovePivotPct)) ? computeAntiChase(Number(row.abovePivotPct)).band : null;
+    const chaseBlocked = antiChaseBand === "EXTENDED" || antiChaseBand === "DO_NOT_CHASE";
+    let reason;
+    if (mapped.action === "AVOID") reason = chaseBlocked ? "Too extended above the breakout to chase — do not buy here." : stage4 ? "Stage 4 downtrend — do not buy." : "Core Verdict gates this — not a valid long setup right now.";
+    else if (mapped.action === "BUY") reason = "At buy point with volume confirmation.";
+    else if (mapped.action === "WATCH") reason = row?.atBuyPoint ? "At the pivot, but volume hasn't confirmed yet — wait for it or size down." : "Near the buy zone, building strength — not a trigger yet.";
+    else reason = "Not yet actionable — no clean entry right now.";
+    return { action: mapped.action, color: mapped.color, reason };
+  }
+
+  // Honest fallback — same real hard-gated logic as before, used only when
+  // a caller genuinely doesn't have a real coreVerdict computed alongside
+  // this row (a lighter-weight trend-template-only fetch, no
+  // regime/sector/entryPlan context available to run the full canonical
+  // cascade). Kept in sync with classifyCoreVerdict's own gate ORDER
+  // (anti-chase and Stage 4 checked before any bullish read can win) —
+  // not a second competing formula, a narrower-context echo of the same
+  // real rule.
   const stage = String(row?.stage || "");
   const isGo = row?.verdict === "GO" || (row?.atBuyPoint && row?.volConfirmed);
-  // Real bug fix (2026-08-26, "Trade Desk Tier 3a"): this hard-gated Stage
-  // 4 already, but had zero real anti-chase awareness — a stock too
-  // extended to chase (the exact contradiction classifyCoreVerdict's own
-  // hard gate was just fixed for) could still read BUY/BREAKOUT here.
-  // Checked BEFORE the isGo branch so it can never be overridden by a
-  // real breakout/volume confirmation the same way classifyCoreVerdict's
-  // own cascade orders its hard gates first.
   const antiChaseBand = Number.isFinite(Number(row?.abovePivotPct)) ? computeAntiChase(Number(row.abovePivotPct)).band : null;
   if (antiChaseBand === "EXTENDED" || antiChaseBand === "DO_NOT_CHASE") {
     return { action: "AVOID", color: "#c8282a", reason: "Too extended above the breakout to chase — do not buy here." };

@@ -69,5 +69,23 @@ ok("no real anti-chase data available (abovePivotPct missing) never fabricates a
   assert.strictEqual(r.action, "BUY");
 });
 
+console.log("Checking computeNextAction — defers to a real row.coreVerdict when present (One Engine consolidation, Phase 2.2)…");
+ok("a real coreVerdict AVOID_LONG wins even when the row's own lighter-weight fields would otherwise read BUY", () => {
+  const r = computeNextAction({ ...STRONG_ROW, coreVerdict: "AVOID_LONG" });
+  assert.strictEqual(r.action, "AVOID");
+});
+ok("a real coreVerdict EARLY_BUY maps to BUY, not a separate label", () => {
+  const r = computeNextAction({ ...STRONG_ROW, coreVerdict: "EARLY_BUY" });
+  assert.strictEqual(r.action, "BUY");
+});
+ok("a real coreVerdict WATCH maps to WATCH", () => {
+  const r = computeNextAction({ ...STRONG_ROW, coreVerdict: "WATCH", actionable: true });
+  assert.strictEqual(r.action, "WATCH");
+});
+ok("an unrecognized/position-only coreVerdict (e.g. HOLD) is honestly ignored, falls back to the real gate cascade", () => {
+  const r = computeNextAction({ ...STRONG_ROW, coreVerdict: "HOLD" });
+  assert.strictEqual(r.action, "BUY"); // falls through to the same real fallback as no coreVerdict at all
+});
+
 console.log(`\n${passed} checks passed.`);
 console.log("TRADE-PLANNER-SCORING TEST OK");
