@@ -4950,6 +4950,55 @@ Explain this.`;
   // Yahoo-fallback, single nearest expiry) — the strategy-selector.js
   // leg-construction math never touches score internals, only real
   // strike/premium/delta/pop/liquidity fields this same chain already has.
+  // fetchRankedChainForStrategy — the real nearest-expiry chain fetch +
+  // rankContracts pass shared by /api/market/strategy and
+  // /api/market/strategy-rank (extracted, 2026-08-29, so the ranking
+  // engine's own new route doesn't duplicate this real Polygon/Yahoo
+  // fetch — same real data, same real ranking, one route builds one
+  // structure from it and the other builds all of them).
+  async function fetchRankedChainForStrategy(symbol) {
+    const polyKey = process.env.POLYGON_API_KEY || "";
+    let underlying = 0, calls = [], puts = [];
+
+    if (polyKey) {
+      const PH = { "Accept": "application/json" };
+      const snapRes = await withTimeout(
+        fetch(`https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers/${symbol}?apiKey=${polyKey}`, { headers: PH }),
+        8000, null
+      );
+      const snapJson = snapRes?.ok ? await snapRes.json().catch(() => ({})) : {};
+      underlying = round2(snapJson?.ticker?.lastTrade?.p || snapJson?.ticker?.day?.c || snapJson?.ticker?.prevDay?.c || 0);
+
+      const contractsUrl = `https://api.polygon.io/v3/snapshot/options/${symbol}?limit=250&sort=expiration_date&apiKey=${polyKey}`;
+      const contractsRes = await withTimeout(fetch(contractsUrl, { headers: PH }), 12000, null);
+      if (contractsRes?.ok) {
+        const contractsJson = await contractsRes.json().catch(() => ({}));
+        const results = contractsJson?.results || [];
+        const expiryDates = [...new Set(results.map(r => r.details?.expiration_date).filter(Boolean))].sort();
+        const nearestExpiry = expiryDates[0];
+        const forExpiry = results.filter(r => r.details?.expiration_date === nearestExpiry);
+        const mapP = (r) => {
+          const d = r.details || {}, day = r.day || {}, greeks = r.greeks || {};
+          return {
+            contractSymbol: d.ticker || r.ticker || "", strike: round2(d.strike_price || 0),
+            lastPrice: round2(day.last_price || day.close || 0), bid: round2(r.last_quote?.bid || 0), ask: round2(r.last_quote?.ask || 0),
+            volume: Number(day.volume) || 0, openInterest: Number(r.open_interest) || 0,
+            iv: round2((r.implied_volatility || 0) * 100), expiry: d.expiration_date || nearestExpiry,
+            delta: greeks.delta != null ? round2(greeks.delta) : null,
+          };
+        };
+        calls = rankContracts(forExpiry.filter(r => r.details?.contract_type === "call").map(mapP), { underlying, isCall: true });
+        puts = rankContracts(forExpiry.filter(r => r.details?.contract_type === "put").map(mapP), { underlying, isCall: false });
+      }
+    } else {
+      const chain = await fetchYahooOptionsChain(symbol, null);
+      underlying = chain.underlying;
+      calls = rankContracts(chain.calls, { underlying, isCall: true });
+      puts = rankContracts(chain.puts, { underlying, isCall: false });
+    }
+    return { underlying, calls, puts, source: polyKey ? "polygon" : "yahoo" };
+  }
+
   if (pathname === "/api/market/strategy" && req.method === "GET") {
     const symbol = (searchParams.get("symbol") || "").trim().toUpperCase();
     if (!symbol) return writeJson(res, 400, { error: "symbol required" });
@@ -4967,51 +5016,41 @@ Explain this.`;
     }
 
     try {
-      const polyKey = process.env.POLYGON_API_KEY || "";
-      let underlying = 0, calls = [], puts = [];
-
-      if (polyKey) {
-        const PH = { "Accept": "application/json" };
-        const snapRes = await withTimeout(
-          fetch(`https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers/${symbol}?apiKey=${polyKey}`, { headers: PH }),
-          8000, null
-        );
-        const snapJson = snapRes?.ok ? await snapRes.json().catch(() => ({})) : {};
-        underlying = round2(snapJson?.ticker?.lastTrade?.p || snapJson?.ticker?.day?.c || snapJson?.ticker?.prevDay?.c || 0);
-
-        const contractsUrl = `https://api.polygon.io/v3/snapshot/options/${symbol}?limit=250&sort=expiration_date&apiKey=${polyKey}`;
-        const contractsRes = await withTimeout(fetch(contractsUrl, { headers: PH }), 12000, null);
-        if (contractsRes?.ok) {
-          const contractsJson = await contractsRes.json().catch(() => ({}));
-          const results = contractsJson?.results || [];
-          const expiryDates = [...new Set(results.map(r => r.details?.expiration_date).filter(Boolean))].sort();
-          const nearestExpiry = expiryDates[0];
-          const forExpiry = results.filter(r => r.details?.expiration_date === nearestExpiry);
-          const mapP = (r) => {
-            const d = r.details || {}, day = r.day || {}, greeks = r.greeks || {};
-            return {
-              contractSymbol: d.ticker || r.ticker || "", strike: round2(d.strike_price || 0),
-              lastPrice: round2(day.last_price || day.close || 0), bid: round2(r.last_quote?.bid || 0), ask: round2(r.last_quote?.ask || 0),
-              volume: Number(day.volume) || 0, openInterest: Number(r.open_interest) || 0,
-              iv: round2((r.implied_volatility || 0) * 100), expiry: d.expiration_date || nearestExpiry,
-              delta: greeks.delta != null ? round2(greeks.delta) : null,
-            };
-          };
-          calls = rankContracts(forExpiry.filter(r => r.details?.contract_type === "call").map(mapP), { underlying, isCall: true });
-          puts = rankContracts(forExpiry.filter(r => r.details?.contract_type === "put").map(mapP), { underlying, isCall: false });
-        }
-      } else {
-        const chain = await fetchYahooOptionsChain(symbol, null);
-        underlying = chain.underlying;
-        calls = rankContracts(chain.calls, { underlying, isCall: true });
-        puts = rankContracts(chain.puts, { underlying, isCall: false });
-      }
-
+      const { underlying, calls, puts, source } = await fetchRankedChainForStrategy(symbol);
       const construction = buildLegs(pick.strategy, { calls, puts, underlying });
-      return writeJson(res, 200, { ok: true, symbol, underlying, ivRank, ...pick, construction, source: polyKey ? "polygon" : "yahoo", generatedAt: new Date().toISOString() });
+      return writeJson(res, 200, { ok: true, symbol, underlying, ivRank, ...pick, construction, source, generatedAt: new Date().toISOString() });
     } catch (err) {
       console.error("[market/strategy] error:", err?.message);
       return writeJson(res, 502, { error: "Strategy data unavailable: " + err?.message });
+    }
+  }
+
+  // Options Strategy Ranking Engine (Trade Desk redesign Phase 2, spec
+  // §15) — evaluates EVERY real structure strategy-selector.js can build
+  // real legs for (Long Calls/Puts, Bull Call/Bear Put Spread, Iron
+  // Condor) off the SAME real chain /api/market/strategy uses, and ranks
+  // them by strategy-ranking.js's own real composite (POP/risk-reward/
+  // liquidity/directional alignment) instead of returning only the single
+  // deterministic bias-driven pick. bias/character are optional here
+  // (unlike /api/market/strategy) — alignment scoring honestly degrades to
+  // neutral (50) when omitted, since a real ranked comparison is still
+  // meaningful without a bias input; the raw POP/liquidity/risk-reward
+  // numbers don't depend on it.
+  if (pathname === "/api/market/strategy-rank" && req.method === "GET") {
+    const symbol = (searchParams.get("symbol") || "").trim().toUpperCase();
+    if (!symbol) return writeJson(res, 400, { ok: false, error: "symbol required" });
+    const bias = searchParams.get("bias") || null;
+    const character = searchParams.get("character") || null;
+    try {
+      const { rankAllStrategies } = require("../strategy-ranking");
+      const { underlying, calls, puts, source } = await fetchRankedChainForStrategy(symbol);
+      if (!(underlying > 0) || (!calls.length && !puts.length)) {
+        return writeJson(res, 200, { ok: true, symbol, underlying, ranked: [], unavailable: [], best: null, reason: "No real options chain available for this symbol right now." });
+      }
+      const { ranked, unavailable, best } = rankAllStrategies({ calls, puts, underlying, bias, character });
+      return writeJson(res, 200, { ok: true, symbol, underlying, bias, character, ranked, unavailable, best, source, generatedAt: new Date().toISOString() });
+    } catch (err) {
+      return writeJson(res, 502, { ok: false, error: err instanceof Error ? err.message : "Strategy ranking failed." });
     }
   }
 

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { computeRegime, SCAN_UNIVERSE } from "./market-helpers.js";
+import { computeRegime, computeMarketBias, SCAN_UNIVERSE } from "./market-helpers.js";
 import TrendChart from "./TrendChart.jsx";
 import CommandSearchPanel, { TickerHeader } from "./CommandSearchPanel.jsx";
 import CortexMiniPanel from "./CortexMiniPanel.jsx";
@@ -21,6 +21,7 @@ import InstitutionalFlowCard from "./InstitutionalFlowCard.jsx";
 import MovementIntelligenceCard from "./MovementIntelligenceCard.jsx";
 import MultiTimeframePanel from "./MultiTimeframePanel.jsx";
 import CatalystCard from "./CatalystCard.jsx";
+import OptionsStrategyRankPanel from "./OptionsStrategyRankPanel.jsx";
 
 // TradeDeskTab — one unified trading screen (2026-08-25, explicit user
 // request/mockup: top status strip, Discover-search | Chart | Cortex
@@ -340,6 +341,12 @@ export default function TradeDeskTab({
     const augmented = vixQuote ? [...(macroData || []), { ...vixQuote, symbol: "VIX" }] : (macroData || []);
     return computeRegime(augmented);
   }, [macroData, vixQuote]);
+  // Real market bias/character (same computeMarketBias input
+  // MarketTerminalTab.jsx's own StrategySelectorCard already uses) — feeds
+  // the new Options Strategy Ranking panel's real directional-alignment
+  // score. distData comes through the same discoverProps bag Trade Desk's
+  // dock already threads to MarketTerminalTab, no new prop.
+  const marketBias = useMemo(() => computeMarketBias({ macroData, distData: discoverProps?.distData }), [macroData, discoverProps?.distData]);
 
   const find = (sym) => (macroData || []).find((m) => (m.symbol || "").toUpperCase() === sym);
   const spy = find("SPY"), qqq = find("QQQ");
@@ -579,6 +586,7 @@ export default function TradeDeskTab({
         <InstitutionalFlowCard symbol={symbol} C={TD} MONO={MONO} SANS={SANS} />
         <CatalystCard symbol={symbol} C={TD} MONO={MONO} SANS={SANS} />
         <OptionsIntelligencePanel symbol={symbol} C={TD} MONO={MONO} SANS={SANS} />
+        <OptionsStrategyRankPanel symbol={symbol} marketBias={marketBias} C={TD} MONO={MONO} SANS={SANS} />
       </div>
 
       {/* Bottom dock — 10 modules, one shared panel, only the selected one

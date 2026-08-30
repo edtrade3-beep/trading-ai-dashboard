@@ -80,6 +80,12 @@ function leg(action, type, c) {
   return {
     action, type, strike: c.strike, expiry: c.expiry, contractSymbol: c.contractSymbol,
     premium: midPremium(c), delta: c.delta ?? null, pop: c.pop ?? null, liquidityScore: c.liquidityScore ?? null,
+    // iv/dte — real fields already computed by rankContracts (options-math.js)
+    // on every ranked contract `c`; previously dropped here. Added for
+    // strategy-ranking.js's own real breakeven-based POP calc (Trade Desk
+    // redesign Phase 2, options strategy ranking engine) — additive only,
+    // every existing consumer of leg() ignores unknown fields.
+    iv: c.iv ?? null, dte: c.dte ?? null,
   };
 }
 
