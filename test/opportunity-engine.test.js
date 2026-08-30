@@ -3,7 +3,7 @@
 // test/am-core-engine.test.js / test/entry-engine.test.js. Run:
 // node test/opportunity-engine.test.js (or npm test).
 const assert = require("node:assert");
-const { computeOpportunity, computeExpectedValue, classifyOpportunityTier, checkOptionsConfirmsStructure, buildMarketFingerprint, computeCounterfactualEv, toOpportunityStage, toOpportunityStageFromPosition } = require("../src/opportunity-engine");
+const { computeOpportunity, computeExpectedValue, classifyOpportunityTier, checkOptionsConfirmsStructure, buildMarketFingerprint, computeCounterfactualEv, toOpportunityStage, toOpportunityStageFromPosition, toHighLevelVerdict } = require("../src/opportunity-engine");
 
 let passed = 0;
 function ok(name, fn) { try { fn(); passed++; console.log(`  ✓ ${name}`); } catch (e) { console.error(`  ✗ ${name}\n    ${e.message}`); process.exitCode = 1; } }
@@ -282,6 +282,37 @@ ok("a row with a scan error returns null, never a partial/garbage Opportunity Ob
 });
 ok("a missing row returns null", () => {
   assert.strictEqual(computeOpportunity({ symbol: "TEST", row: null, regime: REGIME, marketRegime: "RISK_ON" }), null);
+});
+
+console.log("\nChecking toHighLevelVerdict — the real LONG/SHORT/WAIT/NO_TRADE/EXIT display vocabulary (Central Opportunity & Options Engine goal, 2026-08-30)…");
+ok("EARLY_BUY/BUY/HOLD -> LONG", () => {
+  assert.strictEqual(toHighLevelVerdict("EARLY_BUY"), "LONG");
+  assert.strictEqual(toHighLevelVerdict("BUY"), "LONG");
+  assert.strictEqual(toHighLevelVerdict("HOLD"), "LONG");
+});
+ok("WATCH/WAIT -> WAIT", () => {
+  assert.strictEqual(toHighLevelVerdict("WATCH"), "WAIT");
+  assert.strictEqual(toHighLevelVerdict("WAIT"), "WAIT");
+});
+ok("AVOID_LONG -> NO_TRADE, never a fabricated SHORT — this platform has no real short-side verdict engine to back one", () => {
+  assert.strictEqual(toHighLevelVerdict("AVOID_LONG"), "NO_TRADE");
+});
+ok("EXIT/TAKE_PROFIT -> EXIT", () => {
+  assert.strictEqual(toHighLevelVerdict("EXIT"), "EXIT");
+  assert.strictEqual(toHighLevelVerdict("TAKE_PROFIT"), "EXIT");
+});
+ok("SHORT is never produced by this function for any real input — honest, matches classifyCoreVerdict's own disclosed limitation", () => {
+  const ALL_REAL_VERDICTS = ["EARLY_BUY", "BUY", "WATCH", "WAIT", "AVOID_LONG", "EXIT", "TAKE_PROFIT", "HOLD"];
+  ALL_REAL_VERDICTS.forEach((v) => assert.notStrictEqual(toHighLevelVerdict(v), "SHORT"));
+});
+ok("an unrecognized/missing verdict -> honest null, never a guessed label", () => {
+  assert.strictEqual(toHighLevelVerdict(undefined), null);
+  assert.strictEqual(toHighLevelVerdict("SOMETHING_NEW"), null);
+});
+ok("computeOpportunity attaches the real highLevelVerdict additively, verdict field unchanged", () => {
+  const o = computeOpportunity({ symbol: "TEST", row: baseRow(), regime: REGIME, marketRegime: "RISK_ON" });
+  assert.ok(["EARLY_BUY", "BUY"].includes(o.verdict), `expected a real BUY-family verdict, got ${o.verdict}`);
+  assert.strictEqual(o.highLevelVerdict, "LONG");
 });
 
 console.log(`\n${passed} checks passed.`);

@@ -136,6 +136,34 @@ function toOpportunityStageFromPosition(positionState) {
   return null;
 }
 
+// High-level LONG/SHORT/WAIT/NO_TRADE/EXIT display vocabulary (Central
+// Opportunity & Options Engine goal, 2026-08-30: "The central engine must
+// produce ONE final verdict. Allowed high-level verdicts: LONG / SHORT /
+// WAIT / NO TRADE / EXIT"). A pure translation over
+// am-core-engine.js's classifyCoreVerdict output — that function's own
+// real vocabulary (EARLY_BUY/BUY/WATCH/WAIT/AVOID_LONG pre-entry,
+// EXIT/TAKE_PROFIT/HOLD in-position) is untouched and stays the field
+// every existing consumer reads; this only gives a caller that wants the
+// coarser 5-value label a real, honest way to show it.
+//
+// SHORT is deliberately never returned here. classifyCoreVerdict itself
+// returns null for input.direction === "SHORT" (its own header: "this
+// app's real short-side signal maturity hasn't been audited with the
+// same rigor the long-side engines got"). Faking a SHORT label off a
+// bearish dailyBias/AVOID_LONG read would be exactly the kind of
+// invented conclusion this goal explicitly prohibits ("never invent
+// data... a competing decision engine") — so a genuinely bearish setup
+// honestly reads NO_TRADE, same as any other real reason a long isn't
+// valid right now, not a fabricated SHORT call this platform has no real
+// execution/risk engine to back.
+function toHighLevelVerdict(coreVerdict) {
+  if (coreVerdict === "EARLY_BUY" || coreVerdict === "BUY" || coreVerdict === "HOLD") return "LONG";
+  if (coreVerdict === "WATCH" || coreVerdict === "WAIT") return "WAIT";
+  if (coreVerdict === "AVOID_LONG") return "NO_TRADE";
+  if (coreVerdict === "EXIT" || coreVerdict === "TAKE_PROFIT") return "EXIT";
+  return null; // honest null for an unrecognized/missing verdict — never a guessed label
+}
+
 // Options-vs-structure cross-check (spec section 13's explicit non-
 // negotiable: "Never automatically interpret unusual call activity as
 // bullish... determine whether options activity confirms or contradicts
@@ -329,6 +357,10 @@ function computeOpportunity({ symbol, row, regime, marketRegime, sectorInfo = nu
     regime: regime?.label || null,
     verdict: deep.verdict,
     verdictReason: deep.reason,
+    // High-level LONG/WAIT/NO_TRADE/EXIT display label (see
+    // toHighLevelVerdict above) — additive, `verdict` stays the real
+    // am-core-engine.js field every existing consumer reads.
+    highLevelVerdict: toHighLevelVerdict(deep.verdict),
     tier,
     // Unified EARLY/DEVELOPING/CONFIRMED/LATE/FAILED display label (see
     // toOpportunityStage above) — additive, `tier` stays the real field
@@ -365,4 +397,5 @@ function computeOpportunity({ symbol, row, regime, marketRegime, sectorInfo = nu
 module.exports = {
   computeOpportunity, computeExpectedValue, classifyOpportunityTier, checkOptionsConfirmsStructure,
   buildMarketFingerprint, computeCounterfactualEv, toOpportunityStage, toOpportunityStageFromPosition,
+  toHighLevelVerdict,
 };
