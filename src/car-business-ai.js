@@ -1,42 +1,45 @@
-// car-business-ai.js — Car Business Intelligence layer (2026-08-30,
-// explicit user goal: "CAR BUSINESS... Help me become significantly more
-// successful and profitable in the car business over the next 24 months...
-// DO NOT MIX IT WITH THE TRADING ENGINE. DO NOT CREATE DUPLICATE AI
-// ENGINES. Use the existing central architecture/data infrastructure where
-// possible.").
+// car-business-ai.js — Car Business Intelligence layer.
 //
-// Same real architecture as research-intel-ai.js/command-center-ai.js —
-// the exact callAnthropicWithSearch chokepoint, the same shouldSendAlert
-// Telegram gate, the same file-based daily-snapshot-diff pattern. Reused
-// wholesale, not reinvented, for the third time this session because it
-// keeps proving out.
+// Upgraded 2026-08-30 (explicit user /goal: "upgrade CAR BUSINESS... into a
+// dealership PROFIT + INTELLIGENCE SYSTEM... DO NOT create another AI
+// engine. Use the existing central engine, data layer, research system,
+// inventory data and decision architecture.") from a single monolithic
+// call into 3 real, right-sized calls — all through the exact SAME
+// callAnthropicWithSearch chokepoint (never a new engine), run in parallel
+// (Promise.all — none depends on another's output, so parallel is strictly
+// faster wall-clock than sequential for the same real cost). The prior
+// single-call version needed 4 rounds of live fixes (timeout ->
+// truncation -> timeout again -> final tuning) just to reliably finish;
+// adding this upgrade's much larger real ask (buy recommendations, local
+// market gap, customer segments, lead channels, funnel, finance,
+// regulation, future scan, forecast) to that same one call would have
+// guaranteed the same failure mode, worse. Splitting by real grounding-
+// data similarity (same lesson future-wallet-universe.js's own BATCH_SIZE
+// fix already taught this codebase) is the honest fix, not another
+// timeout tweak.
 //
-// What's genuinely new: an AUTOMOTIVE decision system, kept fully separate
-// from the trading engine's vocabulary/scoring (no am-core-engine.js, no
-// opportunity-engine.js reuse — a car lot and a stock aren't the same
-// asset). What's explicitly REUSED, not duplicated, per the user's own
-// instruction: this app's REAL, already-built dealer backend —
+// Same real architecture as research-intel-ai.js/command-center-ai.js in
+// every call — the same shouldSendAlert Telegram gate, the same file-based
+// daily-snapshot-diff pattern. What's genuinely new: an AUTOMOTIVE decision
+// system, kept fully separate from the trading engine's vocabulary/scoring
+// (no am-core-engine.js, no opportunity-engine.js — a car lot and a stock
+// aren't the same asset). What's explicitly REUSED, not duplicated:
 // - src/inventory-store.js's loadInventory() — the dealer's actual real
-//   current lot (VIN/year/make/model/trim/mileage/price/condition),
-//   never an invented vehicle list. Every inventory score this file
-//   produces is grounded in and validated against this real list
-//   (car-business-engine.js's sanitizeInventoryScores rejects any VIN
-//   that isn't actually on the real lot).
-// - src/dealership/fb-hub.js's real CRM (GET /api/dealer/crm/leads) —
-//   real lead/stage/hot-lead counts, not fabricated funnel numbers.
-// - this app's own real macro data (GET /api/market/macro-regime) — Fed
-//   funds/yield-curve/treasury/credit scores already computed server-side,
-//   genuinely relevant to auto-loan affordability, reused rather than
-//   re-fetched.
-// - src/dealership/routes.js's real Deal Finder pattern (VIN decode +
-//   callAnthropicWithSearch) — this file's own search-grounded research
-//   follows the same real-data-only discipline that route already proved
-//   out, just widened from one VIN to the whole real lot + the broader
-//   market.
+//   current lot, including real soldPrice/soldAt/createdAt fields, which
+//   the new Learning System (car-business-engine.js's gradeLearningHistory)
+//   uses for real predicted-vs-actual grading — never fabricated outcomes.
+// - src/dealership/fb-hub.js's real CRM (GET /api/dealer/crm/leads) — real
+//   lead/stage counts, computed here in JS (never AI-invented), handed to
+//   the AI only for interpretation (which real stage is the biggest leak).
+// - this app's own real macro data (GET /api/market/macro-regime).
+// - The Command Center (§14) and ONE FINAL VERDICT are NOT a 4th AI call —
+//   car-business-engine.js's computeCommandCenter/computeFinalVerdict are
+//   real, disclosed formulas over the 3 calls' already-sanitized real
+//   output, same "formula with visible inputs" discipline
+//   command-center-ai.js's own computeCommandScore already established.
 //
 // Produces RESEARCH/EVIDENCE + a real, disclosed business verdict — no
-// verdict here ever touches the trading engine, and nothing in
-// am-core-engine.js/opportunity-engine.js is read or written by this file.
+// verdict here ever touches the trading engine.
 "use strict";
 
 const { callAnthropicWithSearch } = require("./anthropic");
@@ -47,9 +50,14 @@ const { sendTelegramMessage, isConfigured: telegramConfigured } = require("./tel
 const { shouldSendAlert } = require("./telegram-bot");
 const { PORT } = require("./config");
 const {
-  BUSINESS_DIMENSIONS, SECTION_CLASSIFICATIONS, OPPORTUNITY_CLASSIFICATIONS, BUY_CLASSIFICATIONS, DATA_QUALITIES,
-  sanitizeMarketSections, sanitizeInventoryScores, sanitizeOpportunityCards, sanitizeDimensions, dimensionsToSnapshot,
-  computeNotificationTriggers,
+  BUSINESS_DIMENSIONS, SECTION_CLASSIFICATIONS, OPPORTUNITY_CLASSIFICATIONS, BUY_CLASSIFICATIONS,
+  TURN_VERDICTS, DEAD_INVENTORY_ACTIONS, DATA_QUALITIES, RISK_LEVELS, REGULATION_FLAGS, FUTURE_IMPACTS,
+  sanitizeMarketSections, sanitizeInventoryScores, sanitizeOpportunityCards,
+  sanitizeBuyRecommendations, sanitizeAvoidList, sanitizeCustomerSegments, sanitizeLeadChannels,
+  sanitizeFunnelRead, sanitizeFinanceRead, sanitizeRegulationFlags, sanitizeFutureScan,
+  sanitizeLocalMarketGap, sanitizeForecast,
+  sanitizeDimensions, dimensionsToSnapshot, computeNotificationTriggers,
+  computeCommandCenter, gradeLearningHistory,
 } = require("./car-business-engine");
 
 const KEY = () => (process.env.ANTHROPIC_API_KEY || "").trim();
@@ -58,43 +66,27 @@ async function getJson(path) {
   try { const r = await fetch(`${BASE()}${path}`); return await r.json(); } catch { return null; }
 }
 
-const SYSTEM = `You are the CAR BUSINESS INTELLIGENCE layer for a real, independent used-car dealership — an automotive-business decision system, completely separate from any stock/options trading logic. Your job is to help this dealership become significantly more profitable over the next 24 months by answering: what to buy, what price to pay, what price to sell for, how fast it should sell, who the customer is, how to generate leads, and how to get customers through the door.
+// Real, fixed lead-channel list (spec §8) — the AI comments on each within
+// this bounded set rather than inventing an open-ended list. Only channels
+// this app actually has a real tracked-lead pipeline for (currently just
+// Facebook, via fb-hub.js's CRM/Messenger webhook) get hasRealData:true —
+// computed in JS from the real CRM data below, never AI-claimed.
+const LEAD_CHANNELS = ["Facebook Marketplace", "Facebook", "Instagram", "Google", "TikTok", "YouTube", "Website / SEO", "Google Business Profile", "SMS", "Email", "Referrals", "Repeat customers"];
+const REAL_TRACKED_CHANNELS = ["facebook", "facebook marketplace"]; // fb-hub.js's CRM is Facebook-Messenger-sourced only, honestly
 
-You are given this dealership's REAL current inventory (real VINs/year/make/model/trim/mileage/price/condition) and REAL current CRM lead data below — treat both as ground truth. Search real, current sources now (auction/wholesale data, manufacturer incentive news, NADA/Manheim-type industry reporting, Federal Reserve auto-loan/APR data, CFPB/FTC/NHTSA regulatory news, local market conditions) across these domains: AUTO MARKET (new vehicles, used vehicles, wholesale/auctions, inventory/days-supply, depreciation, EV/hybrid/ICE, trucks/SUVs/sedans/luxury/economy), AUTO LOANS/CREDIT (Fed rates, auto APR, subprime lending, delinquencies/defaults/repossessions, consumer debt, employment), and FTC/REGULATION (FTC, CFPB, NHTSA, state dealer rules, advertising/financing rules, EV policy, tariffs).
-
-For each AUTO MARKET category you cover, classify it: STRONG, NORMAL, WEAKENING, or HIGH_RISK, with a short summary and dataQuality (one of: ${DATA_QUALITIES.join("/")}).
-
-Using the REAL inventory list given to you, score EVERY real vehicle on the lot (by its real VIN — never invent a VIN, never score a vehicle not in the list given): score 0-100, classification (one of: ${BUY_CLASSIFICATIONS.join("/")} — this classifies whether the dealership should acquire MORE like this one, not the vehicle's condition), reason, expectedGross (a real dollar estimate given real market comps you find), expectedDaysToSell, and action (a short specific recommendation: e.g. "price competitively now," "hold for spring demand," "consider wholesaling — weak local demand").
-
-Identify real, current business opportunities (new-lead-worthy market conditions, pricing gaps, underpriced acquisition categories, financing program changes, seasonal windows) as OPPORTUNITY CARDS: headline, classification (one of: ${OPPORTUNITY_CLASSIFICATIONS.join("/")}), whyNow, buyPrice, targetRetail, expectedGross, expectedDaysToTurn, customer (who should this be marketed to), leadSource (best channel: Facebook Marketplace/Facebook/Instagram/Google/TikTok/YouTube/website/SMS/email/referral/trade-in campaign), risk (LOW/MEDIUM/HIGH), confidence (0-100). You are also given YESTERDAY'S opportunity cards below — if a finding today is a real continuation of one, set priorHeadline to that exact prior headline and status to STRENGTHENED/WEAKENED/INVALIDATED/UNCHANGED as appropriate; if genuinely new, status "NEW."
-
-Evaluate these SEVEN fixed business dimensions using the real data given to you — for each, your honest current state as a short label (e.g. auto-market: "BULLISH"/"NEUTRAL"/"BEARISH"; credit-environment: "EASING"/"NORMAL"/"TIGHT"; used-market: "STRONG"/"NORMAL"/"WEAK"; new-market: "STRONG"/"NORMAL"/"WEAK"; inventory-stance: "BUY"/"SELECTIVE"/"REDUCE"; pricing-direction: "RAISING"/"STABLE"/"FALLING"; dealer-environment: "IMPROVING"/"STABLE"/"DETERIORATING") plus a one-sentence whyItMatters for each: ${BUSINESS_DIMENSIONS.join(", ")}.
-
-Finally write: topOpportunity (one specific real opportunity), biggestRisk (one specific real risk), nextAction (one specific, concrete action the dealership should take this week), and dailySummary (2-4 sentences directly answering "what should we buy, what should we avoid, and what should we do right now").
-
-Never invent a fact, price, or regulation. If you found nothing genuinely material in a domain, say so rather than padding with routine content. Never give legal advice as certainty — flag anything requiring professional/legal review explicitly in the relevant section's summary. Return JSON ONLY, no text outside it:
-{"marketSections":[{"category":"...","classification":"...","summary":"...","dataQuality":"...","sources":["..."]}],"inventoryScores":[{"vin":"...","score":0-100,"classification":"...","reason":"...","expectedGross":0,"expectedDaysToSell":0,"action":"..."}],"opportunities":[{"headline":"...","classification":"...","whyNow":"...","buyPrice":"...","targetRetail":"...","expectedGross":"...","expectedDaysToTurn":"...","customer":"...","leadSource":"...","risk":"LOW|MEDIUM|HIGH","confidence":0-100,"priorHeadline":"..." or null,"status":"NEW|STRENGTHENED|WEAKENED|INVALIDATED|UNCHANGED"}],"dimensions":[{"dimension":"...","state":"...","whyItMatters":"..."}],"topOpportunity":"...","biggestRisk":"...","nextAction":"...","dailySummary":"..."}`;
-
-// Capped at 15 (2026-08-30, second live fix against this dealership's real
-// 525-vehicle lot — 60 timed out, then 25 still timed out even at
-// maxSearches:2). Scoring that many real VINs individually is a lot of
-// real output JSON on top of the search rounds themselves. 15/run,
-// highest-price first (real dollars at risk first) — every real vehicle
-// still gets scored over successive daily runs, just not all 525 in one
-// call.
-function summarizeInventory(inventory) {
-  if (!Array.isArray(inventory) || !inventory.length) return "no real inventory on file";
-  const top = [...inventory].sort((a, b) => (Number(b.price) || 0) - (Number(a.price) || 0)).slice(0, 15);
-  return top.map((v) => `${v.vin} — ${v.year} ${v.make} ${v.model} ${v.trim || ""} · ${v.mileage?.toLocaleString?.() ?? v.mileage} mi · $${v.price} · ${v.condition}`).join("\n");
-}
-
-function summarizeLeads(leadsData) {
+// Shared, already-fetched context every call reuses — one real fetch each,
+// not per-call.
+async function loadSharedContext() {
+  const inventory = loadInventory() || [];
+  const [leadsData, regimeData] = await Promise.all([
+    getJson("/api/dealer/crm/leads"),
+    getJson("/api/market/macro-regime"),
+  ]);
   const leads = Array.isArray(leadsData?.leads) ? leadsData.leads : [];
-  if (!leads.length) return "no real CRM leads on file";
   const byStage = {};
   let hot = 0;
   for (const l of leads) { const s = l.stage || "NEW"; byStage[s] = (byStage[s] || 0) + 1; if (l.hot) hot++; }
-  return `${leads.length} real leads on file · by stage: ${Object.entries(byStage).map(([k, v]) => `${k}=${v}`).join(", ")} · ${hot} marked hot`;
+  return { inventory, leads, byStage, hotCount: hot, regimeData };
 }
 
 function summarizeMacro(regimeData) {
@@ -107,120 +99,216 @@ function summarizeMacro(regimeData) {
     `Employment score ${r.employment?.score ?? "n/a"} (relevant to consumer affordability)`,
   ].join(" · ");
 }
-
-function summarizePrior(items, label) {
+function summarizePrior(items) {
   if (!Array.isArray(items) || !items.length) return "none (first real run, or none stored)";
   return items.map((c) => `- ${c.headline}${c.classification ? ` [${c.classification}]` : ""}`).join("\n");
+}
+async function runCall(prompt, system, opts) {
+  try {
+    const raw = await callAnthropicWithSearch(prompt + "\n\n" + system, KEY(), opts);
+    const m = (raw || "").match(/\{[\s\S]*\}/);
+    return { ok: true, parsed: JSON.parse(m ? m[0] : raw) };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── CALL 1 — INVENTORY & OPERATIONS (§1 Radar, §5 Days-to-Turn, §6 Dead
+// Inventory, plus the daily topOpportunity/biggestRisk/nextAction/summary)
+// ─────────────────────────────────────────────────────────────────────────
+// Capped at 15 real vehicles, highest-price first (2026-08-30, live-fixed
+// against this dealership's real 525-vehicle lot — see git history for the
+// 4 rounds of timeout/truncation fixes this exact number and the
+// timeout/maxTokens below survived).
+function summarizeInventoryForScoring(inventory) {
+  if (!inventory.length) return "no real inventory on file";
+  const top = [...inventory].sort((a, b) => (Number(b.price) || 0) - (Number(a.price) || 0)).slice(0, 15);
+  return top.map((v) => {
+    const daysOnLot = Number.isFinite(Number(v.createdAt)) ? Math.round((Date.now() - Number(v.createdAt)) / 86_400_000) : null;
+    return `${v.vin} — ${v.year} ${v.make} ${v.model} ${v.trim || ""} · ${v.mileage?.toLocaleString?.() ?? v.mileage} mi · $${v.price} · ${v.condition}${daysOnLot != null ? ` · ${daysOnLot}d on real lot` : ""}`;
+  }).join("\n");
+}
+
+function buildInventoryCall(ctx, prior) {
+  const system = `You are the INVENTORY & OPERATIONS layer of a real, independent used-car dealership's Car Business Intelligence system — completely separate from any stock/options trading logic. Score the dealership's REAL current inventory and read the real business dimensions.
+
+You are given the dealership's REAL current top-priced inventory (real VINs/year/make/model/trim/mileage/price/condition/real days-on-lot) below — never invent a VIN, never score a vehicle not in the list given. Search real, current sources for real comps/demand data on these specific vehicles.
+
+For EVERY real vehicle given, score 0-100 and classify (one of: ${BUY_CLASSIFICATIONS.join("/")} — UNDERPRICED_OPPORTUNITY means you found real evidence this specific unit is priced below real comparable market value; this classifies whether the dealership should acquire MORE like this one, not a condition rating), reason, expectedGross (real dollar estimate from real comps), expectedDaysToSell, turnVerdict (one of: ${TURN_VERDICTS.join("/")} — FAST_TURN ~7-14 real days, NORMAL ~14-30, SLOW ~30-45, EXIT_RISK 45-60+), deadInventoryAction (one of: ${DEAD_INVENTORY_ACTIONS.join("/")} — ONLY set this when the real days-on-lot + real weakening demand signal genuinely support it; leave null for a healthy, normally-aging unit), and action (a short specific real recommendation).
+
+Evaluate these SEVEN fixed business dimensions using real current data — for each, your honest current state as a short label (auto-market: "BULLISH"/"NEUTRAL"/"BEARISH"; credit-environment: "EASING"/"NORMAL"/"TIGHT"; used-market: "STRONG"/"NORMAL"/"WEAK"; new-market: "STRONG"/"NORMAL"/"WEAK"; inventory-stance: "BUY"/"SELECTIVE"/"REDUCE"; pricing-direction: "RAISING"/"STABLE"/"FALLING"; dealer-environment: "IMPROVING"/"STABLE"/"DETERIORATING") plus a one-sentence whyItMatters for each: ${BUSINESS_DIMENSIONS.join(", ")}.
+
+Finally write: topOpportunity (one specific real opportunity on THIS lot), biggestRisk (one specific real operational risk), nextAction (one specific, concrete action this week), dailySummary (2-4 sentences: what to buy, what to avoid, what to do right now).
+
+Never invent a fact, price, or VIN. Return JSON ONLY:
+{"inventoryScores":[{"vin":"...","score":0-100,"classification":"...","reason":"...","expectedGross":0,"expectedDaysToSell":0,"turnVerdict":"...","deadInventoryAction":"..." or null,"action":"..."}],"dimensions":[{"dimension":"...","state":"...","whyItMatters":"..."}],"topOpportunity":"...","biggestRisk":"...","nextAction":"...","dailySummary":"..."}`;
+
+  const prompt = `THIS DEALERSHIP'S REAL CURRENT TOP-PRICED INVENTORY (score every one of these real VINs):
+${summarizeInventoryForScoring(ctx.inventory)}
+
+YESTERDAY'S REAL BUSINESS DIMENSION STATES: ${BUSINESS_DIMENSIONS.map((d) => `${d}=${prior.dimensions[d] || "not yet tracked"}`).join(", ")}
+
+REAL MACRO/CREDIT CONTEXT (already computed — reuse, don't re-derive): ${summarizeMacro(ctx.regimeData)}
+
+Search for real, current comps/demand data now and return the JSON.`;
+
+  return runCall(prompt, system, { model: "claude-sonnet-4-6", maxTokens: 10000, maxSearches: 2, timeout: 280000, feature: "car-business-inventory" });
+}
+
+// ── CALL 2 — ACQUISITION & OPPORTUNITY (§2/§3 Buy Tomorrow + Buy-Price
+// Engine, §4 Local Market Gap, §12 Future Scanner, opportunity board)
+// ─────────────────────────────────────────────────────────────────────────
+function buildAcquisitionCall(ctx, prior) {
+  const invSummary = ctx.inventory.length
+    ? `Currently stocks ${ctx.inventory.length} real vehicles, top categories by count: ${Object.entries(
+        ctx.inventory.reduce((m, v) => { const k = `${v.make} ${v.model}`; m[k] = (m[k] || 0) + 1; return m; }, {})
+      ).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, v]) => `${k}(${v})`).join(", ")}`
+    : "no real inventory on file";
+
+  const system = `You are the ACQUISITION & OPPORTUNITY layer of a real, independent used-car dealership's Car Business Intelligence system. Your job: tell the dealership exactly what to go BUY tomorrow (at auction, wholesale, or via trade-in) — not what's already on the lot.
+
+You are given a real summary of the dealership's current stock (for context, so you don't recommend duplicating an already-full category) below. Search real, current auction/wholesale/retail comps data now.
+
+Produce TOP 10 VEHICLES TO LOOK FOR TOMORROW: vehicle (e.g. "2021-2022 Toyota Tacoma SR5"), year, mileageRange, trim, targetBuy (real $ estimate), maxBuy (real $ ceiling), expectedRetail, expectedGross, expectedDaysToTurn, competition (real local competitive read), demandScore (0-100), financingDifficulty (${RISK_LEVELS.join("/")}), repairRisk (${RISK_LEVELS.join("/")}), confidence (0-100), whyNow. Never recommend a vehicle solely because it's cheap — optimize for real expected gross x real turn speed x real financeability.
+
+Also produce TOP 10 VEHICLES TO AVOID right now: vehicle, reason.
+
+Identify real, current business opportunities (pricing gaps, underpriced acquisition categories, financing program changes, seasonal windows) as OPPORTUNITY CARDS: headline, classification (${OPPORTUNITY_CLASSIFICATIONS.join("/")}), whyNow, buyPrice, targetRetail, expectedGross, expectedDaysToTurn, customer, leadSource, risk (${RISK_LEVELS.join("/")}), confidence (0-100). You are given YESTERDAY'S opportunity cards — if a finding today continues one, set priorHeadline to that exact prior headline and status to STRENGTHENED/WEAKENED/INVALIDATED/UNCHANGED; if genuinely new, status "NEW."
+
+Research the LOCAL competitive market (real dealer listings, real local pricing/inventory patterns) and answer: what are customers looking for that local dealers are NOT stocking? Return as localMarketGap: {summary, underservedSegments:[...], sources:[...]}.
+
+Research real emerging automotive technology (AI dealerships/sales/pricing/appraisal, digital retail, EV/hybrid/ICE shifts, autonomous vehicles, robotics, battery tech, new financing models, dealer consolidation, direct-to-consumer) as futureScan: [{technology, impact (${FUTURE_IMPACTS.join("/")}), summary}] — technologies that could create OR destroy dealership profit.
+
+Never invent a fact or price. Return JSON ONLY:
+{"buyRecommendations":[{"vehicle":"...","year":"...","mileageRange":"...","trim":"...","targetBuy":"...","maxBuy":"...","expectedRetail":"...","expectedGross":"...","expectedDaysToTurn":"...","competition":"...","demandScore":0-100,"financingDifficulty":"...","repairRisk":"...","confidence":0-100,"whyNow":"..."}],"avoidList":[{"vehicle":"...","reason":"..."}],"opportunities":[{"headline":"...","classification":"...","whyNow":"...","buyPrice":"...","targetRetail":"...","expectedGross":"...","expectedDaysToTurn":"...","customer":"...","leadSource":"...","risk":"...","confidence":0-100,"priorHeadline":null,"status":"..."}],"localMarketGap":{"summary":"...","underservedSegments":["..."],"sources":["..."]},"futureScan":[{"technology":"...","impact":"...","summary":"..."}]}`;
+
+  const prompt = `THIS DEALERSHIP'S REAL CURRENT STOCK (context only — don't re-recommend what's already well-stocked): ${invSummary}
+
+YESTERDAY'S REAL OPPORTUNITY CARDS (match today's findings for status continuation; don't repeat with no new information):
+${summarizePrior(prior.opportunities)}
+
+Search for real, current auction/wholesale/local-market/technology information now and return the JSON.`;
+
+  return runCall(prompt, system, { model: "claude-sonnet-4-6", maxTokens: 10000, maxSearches: 2, timeout: 280000, feature: "car-business-acquisition" });
+}
+
+// ── CALL 3 — MARKET, CUSTOMER, CREDIT & REGULATION (§7 Customer Intel,
+// §8 Lead Engine, §9 Funnel, §10 Finance, §11 FTC/Regulation, §13 Forecast,
+// plus AUTO MARKET sections)
+// ─────────────────────────────────────────────────────────────────────────
+function buildMarketCustomerCall(ctx) {
+  const stageLines = Object.entries(ctx.byStage).map(([k, v]) => `${k}=${v}`).join(", ") || "no real leads on file";
+
+  const system = `You are the MARKET, CUSTOMER & CREDIT layer of a real, independent used-car dealership's Car Business Intelligence system.
+
+Search real, current sources now across: AUTO MARKET (new vehicles, used vehicles, wholesale/auctions, inventory/days-supply, depreciation, EV/hybrid/ICE), AUTO LOANS/CREDIT (Fed rates, auto APR, subprime lending, delinquencies/defaults/repossessions, consumer debt, employment), and FTC/REGULATION (FTC, CFPB, NHTSA, state dealer rules, advertising/financing rules).
+
+For each AUTO MARKET category you cover, classify it (one of: ${SECTION_CLASSIFICATIONS.join("/")}) with a summary and dataQuality (one of: ${DATA_QUALITIES.join("/")}).
+
+Identify the dealership's most profitable customer segments (first-time buyers, credit-challenged, ITIN, low-down-payment, cash buyers, families, commuters, students, truck/SUV/luxury/EV/hybrid buyers, trade-in customers — pick the 5-6 real most relevant ones): segment, wants, priceRange, paymentRange, downPayment, creditProfile, commonObjection, bestVehicle, bestChannel.
+
+You are given this dealership's REAL lead-channel list and REAL current lead/stage counts (Facebook is the only channel with real tracked lead data — everything else below is real market research about that channel's typical performance for used-car dealers, NOT this dealership's own measured numbers; be explicit about that distinction in each channel's notes). For each of these exact channels, give: channel (must match exactly), leadCount (ONLY for Facebook, using the real count given — omit/null for every other channel since no real data exists), notes. Channels: ${LEAD_CHANNELS.join(", ")}.
+
+Using the REAL lead-stage counts given, identify the biggest real conversion leak in the funnel (view→message→response→phone→appointment→show→test drive→credit application→deal→delivery) and the top 3 real actions to increase appointments/shows/closings: funnelRead: {biggestLeak, topActions:[...]}.
+
+Write a real finance/consumer-stress read: financeRead: {summary (connect real rates→payments→affordability→demand→inventory→defaults), verdict (EASING/NORMAL/TIGHT), sources}.
+
+Flag real FTC/CFPB/NHTSA/state regulatory developments: regulationFlags: [{flag (${REGULATION_FLAGS.join("/")}), summary, source}]. Never recommend deceptive or illegal practices; flag anything needing professional/legal review explicitly.
+
+Give a compact 24-month forecast: forecast: {baseCase (one real paragraph), bullCase (one sentence), bearCase (one sentence)}.
+
+Never invent a fact, price, or regulation. Return JSON ONLY:
+{"marketSections":[{"category":"...","classification":"...","summary":"...","dataQuality":"...","sources":["..."]}],"customerSegments":[{"segment":"...","wants":"...","priceRange":"...","paymentRange":"...","downPayment":"...","creditProfile":"...","commonObjection":"...","bestVehicle":"...","bestChannel":"..."}],"leadChannels":[{"channel":"...","leadCount":0,"notes":"..."}],"funnelRead":{"biggestLeak":"...","topActions":["...","...","..."]},"financeRead":{"summary":"...","verdict":"...","sources":["..."]},"regulationFlags":[{"flag":"...","summary":"...","source":"..."}],"forecast":{"baseCase":"...","bullCase":"...","bearCase":"..."}}`;
+
+  const prompt = `THIS DEALERSHIP'S REAL CRM LEAD DATA: ${ctx.leads.length} real leads on file · by stage: ${stageLines} · ${ctx.hotCount} marked hot.
+
+REAL MACRO/CREDIT CONTEXT (already computed — reuse, don't re-derive): ${summarizeMacro(ctx.regimeData)}
+
+Search for real, current market/credit/regulatory information now and return the JSON.`;
+
+  return runCall(prompt, system, { model: "claude-sonnet-4-6", maxTokens: 10000, maxSearches: 2, timeout: 280000, feature: "car-business-market" });
 }
 
 async function buildCarBusinessIntel() {
   if (!KEY()) return null;
 
-  const inventory = loadInventory() || [];
-  const [leadsData, regimeData] = await Promise.all([
-    getJson("/api/dealer/crm/leads"),
-    getJson("/api/market/macro-regime"),
+  const ctx = await loadSharedContext();
+  const prevEntry = getMostRecentEntry();
+  const prior = { opportunities: prevEntry?.opportunities || [], dimensions: prevEntry?.dimensions || {} };
+
+  const [r1, r2, r3] = await Promise.all([
+    buildInventoryCall(ctx, prior),
+    buildAcquisitionCall(ctx, prior),
+    buildMarketCustomerCall(ctx),
   ]);
 
-  const prevEntry = getMostRecentEntry();
-  const priorOpportunities = prevEntry?.opportunities || [];
-  const priorDimensions = prevEntry?.dimensions || {};
-
-  const prompt = `THIS DEALERSHIP'S REAL CURRENT INVENTORY (score every one of these real VINs — never invent a VIN):
-${summarizeInventory(inventory)}
-
-THIS DEALERSHIP'S REAL CRM LEAD DATA: ${summarizeLeads(leadsData)}
-
-REAL MACRO/CREDIT CONTEXT (already computed by this platform — reuse, don't re-derive): ${summarizeMacro(regimeData)}
-
-YESTERDAY'S REAL OPPORTUNITY CARDS (match today's findings against these for status continuation; do not repeat with no new information):
-${summarizePrior(priorOpportunities)}
-
-YESTERDAY'S REAL BUSINESS DIMENSION STATES: ${BUSINESS_DIMENSIONS.map((d) => `${d}=${priorDimensions[d] || "not yet tracked"}`).join(", ")}
-
-Search for real, current automotive market/credit/regulatory information now and return the JSON.`;
-
-  let parsed = null;
-  let aiError = null;
-  try {
-    // maxSearches:2 + an explicit 170s timeout (2026-08-30, second live fix
-    // against this dealership's real 525-vehicle lot — maxSearches:3 at the
-    // 120s default timed out, and maxSearches:2 at the same 120s default
-    // STILL timed out). Real cause: this call's own output (up to 25
-    // individually-scored real vehicles, each with 6 fields, plus market
-    // sections/opportunities/dimensions) is heavier than
-    // research-intel-ai.js's, so the fix here is real time budget, not just
-    // fewer searches — callAnthropicWithSearch's own `timeout` option
-    // (default 120000ms) is raised to 170000ms, confirmed against a live
-    // curl run that the server's OWN internal timeout was firing (a clean
-    // JSON error response came back, not a raw connection drop), so this is
-    // safe headroom, not fighting an external proxy limit.
-    // maxTokens raised 8000 -> 13000 (2026-08-30, third live fix) — the
-    // timeout fixes above worked (no more "Anthropic API timeout"), but the
-    // next live run failed to PARSE: "Expected ',' or ']' after array
-    // element" ~25.7k characters in, consistent with the real response
-    // being cut off mid-JSON right around the old 8000-token ceiling (15
-    // individually-scored vehicles + market sections + opportunities +
-    // dimensions is a genuinely large structured response). Root-caused to
-    // truncation, not a formatting bug — the fix is more real room to
-    // finish, not a JSON-repair hack.
-    // timeout raised again, 170s -> 280s (2026-08-30, fourth live fix) —
-    // 13000 tokens stopped the truncation, but the next live run went back
-    // to timing out: generating that much real structured output (search +
-    // 15 scored vehicles + sections + opportunities) genuinely takes longer
-    // than 170s end to end. Nothing time-sensitive waits on this — the
-    // daily 6:05pm ET job doesn't care about a few extra minutes, and the
-    // one interactive caller (the tab's Refresh button) already shows a
-    // real "Researching…" loading state — so generous headroom here is the
-    // honest fix over shrinking the real ask further.
-    const raw = await callAnthropicWithSearch(prompt + "\n\n" + SYSTEM, KEY(), {
-      model: "claude-sonnet-4-6", maxTokens: 13000,
-      maxSearches: 2, timeout: 280000,
-      feature: "car-business",
-    });
-    const m = (raw || "").match(/\{[\s\S]*\}/);
-    parsed = JSON.parse(m ? m[0] : raw);
-  } catch (e) {
-    aiError = e.message;
-    console.warn("[Car Business] AI generation unavailable:", aiError);
+  // Real, disclosed partial-failure handling — if the whole thing failed
+  // (all 3 calls errored), report honest unavailability. If SOME calls
+  // succeeded, build from what's real rather than discarding everything
+  // (same "real data always builds, AI enrichment layers on top" principle
+  // command-center-ai.js's own buildCommandCenter already established).
+  if (!r1.ok && !r2.ok && !r3.ok) {
+    return { ok: false, aiUnavailable: true, aiError: [r1.error, r2.error, r3.error].filter(Boolean).join(" · "), generatedAt: Date.now() };
   }
-  if (!parsed) return { ok: false, aiUnavailable: true, aiError, generatedAt: Date.now() };
 
-  const realVins = inventory.map((v) => v.vin);
-  const marketSections = sanitizeMarketSections(parsed.marketSections);
-  const inventoryScores = sanitizeInventoryScores(parsed.inventoryScores, realVins);
-  const opportunities = sanitizeOpportunityCards(parsed.opportunities);
-  const dimensions = sanitizeDimensions(parsed.dimensions, priorDimensions);
+  const inventoryByVin = new Map(ctx.inventory.map((v) => [String(v.vin || "").toUpperCase(), v]));
+  const inventoryScores = r1.ok ? sanitizeInventoryScores(r1.parsed.inventoryScores, inventoryByVin) : [];
+  const dimensions = r1.ok ? sanitizeDimensions(r1.parsed.dimensions, prior.dimensions) : [];
+  const topOpportunity = r1.ok ? String(r1.parsed.topOpportunity || "").slice(0, 260) : "";
+  const biggestRisk = r1.ok ? String(r1.parsed.biggestRisk || "").slice(0, 260) : "";
+  const nextAction = r1.ok ? String(r1.parsed.nextAction || "").slice(0, 260) : "";
+  const dailySummary = r1.ok ? String(r1.parsed.dailySummary || "").slice(0, 600) : "";
+
+  const buyRecommendations = r2.ok ? sanitizeBuyRecommendations(r2.parsed.buyRecommendations) : [];
+  const avoidList = r2.ok ? sanitizeAvoidList(r2.parsed.avoidList) : [];
+  const opportunities = r2.ok ? sanitizeOpportunityCards(r2.parsed.opportunities) : [];
+  const localMarketGap = r2.ok ? sanitizeLocalMarketGap(r2.parsed.localMarketGap) : null;
+  const futureScan = r2.ok ? sanitizeFutureScan(r2.parsed.futureScan) : [];
+
+  const marketSections = r3.ok ? sanitizeMarketSections(r3.parsed.marketSections) : [];
+  const customerSegments = r3.ok ? sanitizeCustomerSegments(r3.parsed.customerSegments) : [];
+  const leadChannels = r3.ok ? sanitizeLeadChannels(r3.parsed.leadChannels, REAL_TRACKED_CHANNELS) : [];
+  const funnelRead = r3.ok ? sanitizeFunnelRead(r3.parsed.funnelRead) : null;
+  const financeRead = r3.ok ? sanitizeFinanceRead(r3.parsed.financeRead) : null;
+  const regulationFlags = r3.ok ? sanitizeRegulationFlags(r3.parsed.regulationFlags) : [];
+  const forecast = r3.ok ? sanitizeForecast(r3.parsed.forecast) : null;
+
   const dimensionsSnapshot = dimensionsToSnapshot(dimensions);
-
-  const topOpportunity = String(parsed.topOpportunity || "").slice(0, 260);
-  const biggestRisk = String(parsed.biggestRisk || "").slice(0, 260);
-  const nextAction = String(parsed.nextAction || "").slice(0, 260);
-  const dailySummary = String(parsed.dailySummary || "").slice(0, 600);
-
   const triggers = computeNotificationTriggers({ dimensions, opportunities, inventoryScores });
+  const commandCenter = computeCommandCenter({ dimensions, opportunities, buyRecommendations, inventoryScores, customerSegments, leadChannels, futureScan, forecast, biggestRisk });
+
+  // §15 Learning System — real predicted-vs-actual grading over PAST
+  // stored snapshots (never this run's own fresh predictions, which have
+  // had zero real time to resolve) against the current real inventory.
+  let learningHistory = [];
+  try { learningHistory = gradeLearningHistory(loadHistory(), ctx.inventory); } catch { /* non-fatal — learning panel just stays empty this run */ }
 
   const built = {
     ok: true,
     marketSections, inventoryScores, opportunities, dimensions,
-    topOpportunity, biggestRisk, nextAction, dailySummary, triggers,
-    inventoryCount: inventory.length,
+    buyRecommendations, avoidList, localMarketGap, futureScan,
+    customerSegments, leadChannels, funnelRead, financeRead, regulationFlags, forecast,
+    topOpportunity, biggestRisk, nextAction, dailySummary,
+    commandCenter, learningHistory, triggers,
+    partialFailures: [!r1.ok && "inventory", !r2.ok && "acquisition", !r3.ok && "market"].filter(Boolean),
+    inventoryCount: ctx.inventory.length,
     priorAt: prevEntry?.at || null,
     generatedAt: Date.now(),
   };
 
   saveCoachOutput("carBusinessIntel", built);
-  try { appendSnapshot({ opportunities, dimensions: dimensionsSnapshot }); } catch { /* non-fatal — tomorrow just won't have a diff */ }
+  // Real per-VIN predictions persisted into the daily snapshot (not just
+  // opportunities/dimensions as before) — this is what tomorrow's Learning
+  // System grading pass will compare against real outcomes.
+  try { appendSnapshot({ opportunities, dimensions: dimensionsSnapshot, inventoryScores }); } catch { /* non-fatal — tomorrow just won't have a diff */ }
 
   // Notification logic — reuses the existing shouldSendAlert gate, never a
-  // new alert system. "regime-change" for business-dimension shifts
-  // (matches that category's existing meaning); "breaking-news" for new
-  // opportunities and strong-lot-vehicle finds.
+  // new alert system.
   if (telegramConfigured() && triggers.length) {
     for (const t of triggers.slice(0, 5)) {
       const category = t.kind === "BUSINESS_SHIFT" ? "regime-change" : "breaking-news";
       if (!shouldSendAlert({ category })) continue;
-      const label = { BUSINESS_SHIFT: "🚨 CAR BUSINESS SHIFT", OPPORTUNITY_INVALIDATED: "❌ OPPORTUNITY INVALIDATED", NEW_OPPORTUNITY: "💰 NEW CAR BUSINESS OPPORTUNITY", STRONG_LOT_VEHICLE: "🔥 STRONG LOT VEHICLE" }[t.kind] || t.kind;
+      const label = { BUSINESS_SHIFT: "🚨 CAR BUSINESS SHIFT", OPPORTUNITY_INVALIDATED: "❌ OPPORTUNITY INVALIDATED", NEW_OPPORTUNITY: "💰 NEW CAR BUSINESS OPPORTUNITY", STRONG_LOT_VEHICLE: "🔥 STRONG LOT VEHICLE", DEAD_INVENTORY_ACTION: "⚠️ DEAD INVENTORY ACTION" }[t.kind] || t.kind;
       const msg = `${label}\n\n${t.detail}${t.whyItMatters ? `\n\n${t.whyItMatters}` : ""}`;
       await sendTelegramMessage(msg).catch(() => {});
     }
