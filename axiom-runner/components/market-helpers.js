@@ -1591,3 +1591,50 @@ export function rankMoveDrivers({ dayChangePct, spyChangePct, qqqChangePct, sect
   drivers.sort((a, b) => rank[a.strength] - rank[b.strength]);
   return { drivers, classification };
 }
+
+// classifyMtfAlignment — Multi-Timeframe Confirmation (Trade Desk redesign
+// Phase 2, spec §10). Capped to the real timeframes this app actually
+// computes — 1D (daily bias, already derived elsewhere from
+// stage+passCount), 4H (mtf-swing-engine.js's real SWING_SETUP state), 1H
+// (mtf-early-engine.js's real RSI-trend direction), 15M (day-trade-calc.js's
+// real classifyEntryTrigger status) — NOT the spec's own 1m/5m rows, since
+// no real sub-5-minute bar source exists anywhere in this codebase
+// (confirmed before building this). Each timeframe is read in its own
+// native real vocabulary (never forced into a uniform Trend/Momentum
+// column set an engine doesn't actually produce) and classified only as
+// CONFIRMS / CONFLICTS / NEUTRAL relative to the real daily bias — honestly
+// null when that timeframe's own real data isn't available.
+export function classifyMtfAlignment({ dailyBias, swing4hState, early1hDirection, entry15mStatus }) {
+  const rows = [];
+  const bias = dailyBias === "BULLISH" || dailyBias === "BEARISH" ? dailyBias : null;
+
+  rows.push({ tf: "1D", read: dailyBias || null, alignment: bias ? "REFERENCE" : null });
+
+  if (swing4hState) {
+    const bullish4h = swing4hState === "STRONG" || swing4hState === "DEVELOPING";
+    const bearish4h = swing4hState === "WEAK" || swing4hState === "BROKEN";
+    rows.push({
+      tf: "4H", read: swing4hState,
+      alignment: !bias ? "NEUTRAL" : (bias === "BULLISH" ? (bullish4h ? "CONFIRMS" : bearish4h ? "CONFLICTS" : "NEUTRAL") : (bearish4h ? "CONFIRMS" : bullish4h ? "CONFLICTS" : "NEUTRAL")),
+    });
+  } else rows.push({ tf: "4H", read: null, alignment: null });
+
+  if (early1hDirection) {
+    rows.push({
+      tf: "1H", read: early1hDirection,
+      alignment: !bias || early1hDirection === "flat" ? "NEUTRAL" : (bias === "BULLISH" ? (early1hDirection === "up" ? "CONFIRMS" : "CONFLICTS") : (early1hDirection === "down" ? "CONFIRMS" : "CONFLICTS")),
+    });
+  } else rows.push({ tf: "1H", read: null, alignment: null });
+
+  if (entry15mStatus) {
+    rows.push({
+      tf: "15M", read: entry15mStatus,
+      alignment: entry15mStatus === "CONFIRMED" ? "CONFIRMS" : entry15mStatus === "INVALIDATED" ? "CONFLICTS" : "NEUTRAL",
+    });
+  } else rows.push({ tf: "15M", read: null, alignment: null });
+
+  const known = rows.filter((r) => r.alignment && r.alignment !== "REFERENCE");
+  const confirmCount = known.filter((r) => r.alignment === "CONFIRMS").length;
+  const conflictCount = known.filter((r) => r.alignment === "CONFLICTS").length;
+  return { rows, confirmCount, conflictCount, knownCount: known.length };
+}

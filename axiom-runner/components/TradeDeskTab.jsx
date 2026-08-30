@@ -19,6 +19,7 @@ import OptionsIntelligencePanel from "./OptionsIntelligencePanel.jsx";
 import MarketContextPanel from "./MarketContextPanel.jsx";
 import InstitutionalFlowCard from "./InstitutionalFlowCard.jsx";
 import MovementIntelligenceCard from "./MovementIntelligenceCard.jsx";
+import MultiTimeframePanel from "./MultiTimeframePanel.jsx";
 
 // TradeDeskTab — one unified trading screen (2026-08-25, explicit user
 // request/mockup: top status strip, Discover-search | Chart | Cortex
@@ -539,6 +540,7 @@ export default function TradeDeskTab({
           rest of the app doesn't already compute. */}
       <div style={{ padding: "10px 12px", display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(280px, 1fr))", gap: 10, background: TD.bg, borderTop: `1px solid ${TD.border}` }}>
         <MovementIntelligenceCard symbol={symbol} chart={chart} macroData={macroData} sectorData={sectorData} C={TD} MONO={MONO} SANS={SANS} />
+        <MultiTimeframePanel symbol={symbol} chart={chart} C={TD} MONO={MONO} SANS={SANS} />
         <InstitutionalFlowCard symbol={symbol} C={TD} MONO={MONO} SANS={SANS} />
         <OptionsIntelligencePanel symbol={symbol} C={TD} MONO={MONO} SANS={SANS} />
       </div>

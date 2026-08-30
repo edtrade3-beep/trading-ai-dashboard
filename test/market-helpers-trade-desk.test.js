@@ -10,7 +10,7 @@ let passed = 0;
 function ok(name, fn) { try { fn(); passed++; console.log(`  ✓ ${name}`); } catch (e) { console.error(`  ✗ ${name}\n    ${e.message}`); process.exitCode = 1; } }
 
 (async () => {
-  const { computeKeyLevels, rankMoveDrivers } = await import("../axiom-runner/components/market-helpers.js");
+  const { computeKeyLevels, rankMoveDrivers, classifyMtfAlignment } = await import("../axiom-runner/components/market-helpers.js");
 
   console.log("Checking computeKeyLevels — real top-3 swing-high/low resistance/support…");
 
@@ -76,6 +76,47 @@ function ok(name, fn) { try { fn(); passed++; console.log(`  ✓ ${name}`); } ca
   ok("a genuinely quiet symbol with no real distinguishing signal returns an empty driver list — never forced", () => {
     const r = rankMoveDrivers({ dayChangePct: 0.02, spyChangePct: 0.01, qqqChangePct: 0.01, sectorChangePct: 0.01 });
     assert.deepStrictEqual(r.drivers, []);
+  });
+
+  console.log("Checking classifyMtfAlignment — real 1D/4H/1H/15M confirmation, capped to real timeframes only (spec §10)…");
+
+  ok("a real STRONG 4H swing confirms a real BULLISH daily bias", () => {
+    const r = classifyMtfAlignment({ dailyBias: "BULLISH", swing4hState: "STRONG", early1hDirection: null, entry15mStatus: null });
+    assert.strictEqual(r.rows.find((x) => x.tf === "4H").alignment, "CONFIRMS");
+  });
+
+  ok("a real BROKEN 4H swing conflicts with a real BULLISH daily bias", () => {
+    const r = classifyMtfAlignment({ dailyBias: "BULLISH", swing4hState: "BROKEN", early1hDirection: null, entry15mStatus: null });
+    assert.strictEqual(r.rows.find((x) => x.tf === "4H").alignment, "CONFLICTS");
+  });
+
+  ok("a real down 1H RSI trend confirms a real BEARISH daily bias", () => {
+    const r = classifyMtfAlignment({ dailyBias: "BEARISH", swing4hState: null, early1hDirection: "down", entry15mStatus: null });
+    assert.strictEqual(r.rows.find((x) => x.tf === "1H").alignment, "CONFIRMS");
+  });
+
+  ok("a real INVALIDATED 15M entry trigger always conflicts, regardless of bias", () => {
+    const r = classifyMtfAlignment({ dailyBias: "BULLISH", swing4hState: null, early1hDirection: null, entry15mStatus: "INVALIDATED" });
+    assert.strictEqual(r.rows.find((x) => x.tf === "15M").alignment, "CONFLICTS");
+  });
+
+  ok("no real daily bias (NEUTRAL) -> every other timeframe reads NEUTRAL, never forced into confirm/conflict", () => {
+    const r = classifyMtfAlignment({ dailyBias: "NEUTRAL", swing4hState: "STRONG", early1hDirection: "up", entry15mStatus: "APPROACHING" });
+    assert.strictEqual(r.rows.find((x) => x.tf === "4H").alignment, "NEUTRAL");
+    assert.strictEqual(r.rows.find((x) => x.tf === "1H").alignment, "NEUTRAL");
+  });
+
+  ok("a timeframe with no real data at all is honestly null, never guessed, and excluded from the confirm count", () => {
+    const r = classifyMtfAlignment({ dailyBias: "BULLISH", swing4hState: null, early1hDirection: "up", entry15mStatus: null });
+    assert.strictEqual(r.rows.find((x) => x.tf === "4H").alignment, null);
+    assert.strictEqual(r.knownCount, 1); // only the real 1H read counts
+  });
+
+  ok("real counts: 2 of 3 known timeframes confirming is reported honestly, not rounded up/down", () => {
+    const r = classifyMtfAlignment({ dailyBias: "BULLISH", swing4hState: "STRONG", early1hDirection: "up", entry15mStatus: "INVALIDATED" });
+    assert.strictEqual(r.confirmCount, 2);
+    assert.strictEqual(r.conflictCount, 1);
+    assert.strictEqual(r.knownCount, 3);
   });
 
   console.log(`\n${passed} checks passed.`);
