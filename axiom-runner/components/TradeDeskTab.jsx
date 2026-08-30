@@ -183,6 +183,25 @@ export default function TradeDeskTab({
     return () => { cancelled = true; };
   }, []);
 
+  // Live re-sync to the real global symbol (One Engine consolidation,
+  // Phase 2.1 — confirmed live bug via audit: this file's own local
+  // `symbol` state previously only ever read `terminalSymbol` once, at
+  // mount. If Trade Desk was already open and the user then jumped
+  // symbols through an always-mounted widget outside this tab's own
+  // remount cycle — e.g. the floating chart-search FAB, which calls
+  // `setTerminalSymbol` directly without touching this file's own
+  // `selectSymbol` — `terminalSymbol` (and `mterminal_load_sym`) would
+  // update but this component's chart/fundamentals/quote panels stayed
+  // frozen on the old symbol. Same real re-sync pattern
+  // QuickTradePanel.jsx's own `symbolInput` effect already uses
+  // correctly. Guarded on `terminalSymbol !== symbol` so this never
+  // fights `selectSymbol` (which already sets both in the same tick,
+  // making them equal by the time this effect re-runs) or fires before
+  // a real explicit terminalSymbol exists.
+  useEffect(() => {
+    if (terminalSymbol && terminalSymbol !== symbol) setSymbol(terminalSymbol);
+  }, [terminalSymbol]);
+
   // Real root-level height fix (2026-08-25, "fix chart in trade desk make
   // it fit designated section"; revised same day, 2nd pass, after a live
   // screenshot showed the chart's own price-line labels — AI TARGET/

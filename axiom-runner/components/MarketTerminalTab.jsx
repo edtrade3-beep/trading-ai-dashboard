@@ -280,7 +280,7 @@ import { NUM } from "./theme.js";
 // which dock module is open — the TECHNICAL section's own 720px chart
 // (TradingView embed or self-rendered TrendChart w/ VCP overlay) plus its
 // timeframe/VCP/Rating toggle row were pure duplication there.
-export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData, distData, onDeepDive, setActiveTab, preMktMovers, marketSession, isMobile, hideChart }) {
+export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData, distData, onDeepDive, setActiveTab, preMktMovers, marketSession, isMobile, hideChart, terminalSymbol }) {
   const [lb, setLb] = useState(null);
   // Real pre-market session auto-default (2026-08-04, "also add pre market
   // movers") — marketSession is axiom-live.jsx's own already-computed
@@ -461,6 +461,23 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
     loadSym(pending || "NVDA");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Live re-sync to the real global symbol (One Engine consolidation,
+  // Phase 2.1 — confirmed live bug via audit: this file previously took
+  // NO terminalSymbol prop at all and only ever read the real symbol once,
+  // from the mterminal_load_sym handoff at mount. The standalone top-level
+  // mount of this component (axiom-live.jsx's own "mterminal" tab, not the
+  // key={symbol}-remounted embeds inside ScanTerminalHub.jsx/TradeDeskTab.jsx
+  // — those two remount cleanly on a real symbol change and don't need
+  // this) never re-read an always-mounted widget's later symbol change
+  // (e.g. the floating chart-search FAB calling setTerminalSymbol directly)
+  // while this tab was already open — chart/fundamentals/everything stayed
+  // frozen on the old symbol. `terminalSymbol` is undefined at the two
+  // key-remounted call sites, so this effect is a real no-op there.
+  useEffect(() => {
+    if (terminalSymbol && terminalSymbol !== sym) loadSym(terminalSymbol);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [terminalSymbol]);
 
   // Live refresh — silently re-pull the loaded symbol every 45s (no spinner, keeps
   // chart zoom) so price + setup stay current during the session.
