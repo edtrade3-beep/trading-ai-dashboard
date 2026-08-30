@@ -75,18 +75,16 @@ Finally write: topOpportunity (one specific real opportunity), biggestRisk (one 
 Never invent a fact, price, or regulation. If you found nothing genuinely material in a domain, say so rather than padding with routine content. Never give legal advice as certainty — flag anything requiring professional/legal review explicitly in the relevant section's summary. Return JSON ONLY, no text outside it:
 {"marketSections":[{"category":"...","classification":"...","summary":"...","dataQuality":"...","sources":["..."]}],"inventoryScores":[{"vin":"...","score":0-100,"classification":"...","reason":"...","expectedGross":0,"expectedDaysToSell":0,"action":"..."}],"opportunities":[{"headline":"...","classification":"...","whyNow":"...","buyPrice":"...","targetRetail":"...","expectedGross":"...","expectedDaysToTurn":"...","customer":"...","leadSource":"...","risk":"LOW|MEDIUM|HIGH","confidence":0-100,"priorHeadline":"..." or null,"status":"NEW|STRENGTHENED|WEAKENED|INVALIDATED|UNCHANGED"}],"dimensions":[{"dimension":"...","state":"...","whyItMatters":"..."}],"topOpportunity":"...","biggestRisk":"...","nextAction":"...","dailySummary":"..."}`;
 
-// Capped at 25 (2026-08-30 fix, live-tested against this dealership's real
-// 525-vehicle lot) — a real first attempt at 60 vehicles timed out against
-// callAnthropicWithSearch's 120s default: scoring that many real VINs
-// individually is a lot of real output JSON on top of the search rounds
-// themselves, and command-center-ai.js's own header comment already
-// documents that more work (search OR output) makes timeout more likely,
-// not a strictly better answer. 25/run, highest-price first (real dollars
-// at risk first) — every real vehicle still gets scored over successive
-// daily runs, just not all 525 in one call.
+// Capped at 15 (2026-08-30, second live fix against this dealership's real
+// 525-vehicle lot — 60 timed out, then 25 still timed out even at
+// maxSearches:2). Scoring that many real VINs individually is a lot of
+// real output JSON on top of the search rounds themselves. 15/run,
+// highest-price first (real dollars at risk first) — every real vehicle
+// still gets scored over successive daily runs, just not all 525 in one
+// call.
 function summarizeInventory(inventory) {
   if (!Array.isArray(inventory) || !inventory.length) return "no real inventory on file";
-  const top = [...inventory].sort((a, b) => (Number(b.price) || 0) - (Number(a.price) || 0)).slice(0, 25);
+  const top = [...inventory].sort((a, b) => (Number(b.price) || 0) - (Number(a.price) || 0)).slice(0, 15);
   return top.map((v) => `${v.vin} — ${v.year} ${v.make} ${v.model} ${v.trim || ""} · ${v.mileage?.toLocaleString?.() ?? v.mileage} mi · $${v.price} · ${v.condition}`).join("\n");
 }
 
@@ -145,16 +143,21 @@ Search for real, current automotive market/credit/regulatory information now and
   let parsed = null;
   let aiError = null;
   try {
-    // maxSearches capped at 2 (2026-08-30 fix, live-tested against this
-    // dealership's real inventory — a real first attempt at maxSearches:3
-    // timed out). This call's real output is already heavier than
-    // research-intel-ai.js's (up to 25 individually-scored real vehicles
-    // on top of market sections + opportunities + dimensions), so it gets
-    // LESS search budget than that file's 3, not the same, to leave real
-    // headroom for the larger JSON response within the same 120s default.
+    // maxSearches:2 + an explicit 170s timeout (2026-08-30, second live fix
+    // against this dealership's real 525-vehicle lot — maxSearches:3 at the
+    // 120s default timed out, and maxSearches:2 at the same 120s default
+    // STILL timed out). Real cause: this call's own output (up to 25
+    // individually-scored real vehicles, each with 6 fields, plus market
+    // sections/opportunities/dimensions) is heavier than
+    // research-intel-ai.js's, so the fix here is real time budget, not just
+    // fewer searches — callAnthropicWithSearch's own `timeout` option
+    // (default 120000ms) is raised to 170000ms, confirmed against a live
+    // curl run that the server's OWN internal timeout was firing (a clean
+    // JSON error response came back, not a raw connection drop), so this is
+    // safe headroom, not fighting an external proxy limit.
     const raw = await callAnthropicWithSearch(prompt + "\n\n" + SYSTEM, KEY(), {
       model: "claude-sonnet-4-6", maxTokens: 8000,
-      maxSearches: 2,
+      maxSearches: 2, timeout: 170000,
       feature: "car-business",
     });
     const m = (raw || "").match(/\{[\s\S]*\}/);
