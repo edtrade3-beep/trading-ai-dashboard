@@ -274,8 +274,20 @@ export default function CortexMiniPanel({ symbol, onSelectSymbol, setActiveTab, 
     if (!symbol) return;
     let cancelled = false;
     reqRef.current = symbol;
-    setLoading(true); setError(null); setNotice(null);
-    (async () => {
+
+    // loadAnalysis(silent) — extracted so the same real fetch can run both
+    // on symbol change (loading spinner, real errors surfaced) and on a
+    // periodic silent re-poll (Trade Desk redesign Phase 2, "What
+    // Changed?" follow-up: opportunity-snapshot-store.js's own real diff
+    // only has something new to show once a genuinely later real look
+    // happens — previously that meant the user had to manually reselect
+    // the symbol; this lets it surface on its own while they keep looking
+    // at the same one). Silent mode never touches loading/error state —
+    // a background refresh failing quietly is correct; it must not fight
+    // whatever the user is currently looking at with a flicker or a
+    // spurious error banner.
+    const loadAnalysis = async (silent) => {
+      if (!silent) { setLoading(true); setError(null); setNotice(null); }
       try {
         const [screenJ, fundJ, newsJ] = await Promise.all([
           fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(symbol)}&withDecision=1&withOptions=1`).then((r) => r.json()),
@@ -284,16 +296,22 @@ export default function CortexMiniPanel({ symbol, onSelectSymbol, setActiveTab, 
         ]);
         if (cancelled || reqRef.current !== symbol) return;
         const row = (screenJ.results || [])[0];
-        if (!row || row.error) { setError(`No real market data available for ${symbol}.`); setAnalysis(null); return; }
+        if (!row || row.error) { if (!silent) { setError(`No real market data available for ${symbol}.`); setAnalysis(null); } return; }
         const sniper = computeSniperDecision(row);
         setAnalysis({ symbol, row, sniper, fundamentals: fundJ && !fundJ.error ? fundJ : null, news: newsJ });
       } catch (e) {
-        if (!cancelled) { setError(e.message); setAnalysis(null); }
+        if (!cancelled && !silent) { setError(e.message); setAnalysis(null); }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled && !silent) setLoading(false);
       }
-    })();
-    return () => { cancelled = true; };
+    };
+
+    loadAnalysis(false);
+    // Matches opportunity-snapshot-store.js's own real MIN_AGE_MS (5 min)
+    // — polling faster would never surface a new real diff anyway (the
+    // server-side gate ignores anything younger than that).
+    const iv = setInterval(() => loadAnalysis(true), 5 * 60_000);
+    return () => { cancelled = true; clearInterval(iv); };
   }, [symbol]);
 
   const submit = () => {
