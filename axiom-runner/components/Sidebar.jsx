@@ -151,6 +151,20 @@ export const SIDEBAR_ITEMS = [
   // duplicating it; no am-core-engine.js/opportunity-engine.js involved.
   { id: "carbusiness", label: "Car Business", icon: "🚗", tab: "carbusiness" },
 
+  // Dealership — the real, already-built operational dealer portal
+  // (inventory management, AI CRM inbox, photo tools, price beater —
+  // src/dealership/routes.js/fb-hub.js) has existed since before this
+  // session but was only ever reachable via a direct URL (/dealer),
+  // never a sidebar row. Explicit user request (2026-08-30: "Add
+  // dealership tab under new tab"), placed directly under Car Business
+  // since the two are closely related (Car Business is the AI research/
+  // strategy layer, this is the day-to-day operational tool it reasons
+  // about). A genuinely separate app/bundle (client/dealer/index.html,
+  // not part of this React app) — real full-page navigation via `href`,
+  // opened in a new tab so the trading platform's own session/state
+  // isn't lost, same convention as any real cross-app link.
+  { id: "dealership", label: "Dealership", icon: "🏪", href: "/dealer" },
+
   // Settings — not one of the 7 "question" surfaces (it doesn't answer a
   // daily trading question, it configures the app), kept as a permanent
   // utility row rather than folded into the palette so account/risk/coach
@@ -202,35 +216,43 @@ export default function Sidebar({ C, MONO, SANS, activeTab, setActiveTab, topOff
           <span style={{ fontSize: 14 }}>{collapsed ? "»" : "«"}</span>
         </button>
         {SIDEBAR_ITEMS.map((item) => {
-          const isActive = activeTab === item.tab || (item.alsoActive || []).includes(activeTab);
+          // href items (e.g. "Dealership") are a real, separate app/bundle
+          // outside this React SPA — a genuine full-page navigation
+          // (rendered as <a>, opened in a new tab so this app's own
+          // session/state isn't lost), never setActiveTab. Never "active"
+          // by definition — activeTab has no route it could ever match.
+          const isExternal = !!item.href;
+          const isActive = !isExternal && (activeTab === item.tab || (item.alsoActive || []).includes(activeTab));
           // Moved from the now-removed "discover" row (2026-08-25) — same
           // real count (scanner rows scoring >=70), now surfaced on Trade
           // Desk since that's where Discover itself moved to.
           const badgeCount = item.id === "trade-desk" ? scannerBadge : null;
+          const Tag = isExternal ? "a" : "button";
           return (
-            <button key={item.id}
-              onClick={() => setActiveTab(item.tab)}
+            <Tag key={item.id}
+              {...(isExternal ? { href: item.href, target: "_blank", rel: "noopener noreferrer" } : { onClick: () => setActiveTab(item.tab) })}
               title={collapsed ? item.label : undefined}
               style={{
                 width: "100%", display: "flex", alignItems: "center", gap: 10,
                 justifyContent: collapsed ? "center" : "flex-start",
-                border: "none", textAlign: "left", cursor: "pointer",
+                border: "none", textAlign: "left", cursor: "pointer", textDecoration: "none",
                 background: isActive ? `${C.accent}18` : "transparent",
                 color: isActive ? C.accent : C.textSec,
                 borderRadius: 8, padding: collapsed ? "9px 0" : "9px 10px", marginBottom: 2,
                 fontFamily: SANS, fontSize: 13, fontWeight: isActive ? 700 : 500,
-                position: "relative",
+                position: "relative", boxSizing: "border-box",
               }}
             >
               <span style={{ fontSize: 16, width: 20, textAlign: "center", flexShrink: 0 }}>{item.icon}</span>
               {!collapsed && <span style={{ flex: 1 }}>{item.label}</span>}
+              {!collapsed && isExternal ? <span style={{ fontSize: 11, color: C.textDim }}>↗</span> : null}
               {!collapsed && badgeCount ? (
                 <span style={{ background: C.green, color: "#fff", borderRadius: 10, padding: "2px 6px", fontFamily: MONO, fontSize: 10, fontWeight: 800 }}>{badgeCount}</span>
               ) : null}
               {collapsed && badgeCount ? (
                 <span style={{ position: "absolute", top: 4, right: 4, width: 7, height: 7, borderRadius: "50%", background: C.green }} />
               ) : null}
-            </button>
+            </Tag>
           );
         })}
       </div>
