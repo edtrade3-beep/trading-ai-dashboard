@@ -485,7 +485,14 @@ async function cmdDeep(args) {
       `🏦 ACCUMULATION / DISTRIBUTION`,
       institutionLines,
       ``,
-      `🧠 VERDICT`,
+      // Relabeled from "VERDICT" (One Engine consolidation, Phase 2.7 —
+      // found while auditing day-trade-vertical labeling: this section is
+      // its own small rule-based RSI/RVOL/52-week-position/EMA-stack
+      // composite (`t.composite`, computed just above), genuinely separate
+      // from am-core-engine.js's classifyCoreVerdict — the platform's one
+      // real trading verdict. "VERDICT" implied it was that authoritative
+      // read; it isn't, so it shouldn't share that word.
+      `🧠 QUICK TECHNICAL READ`,
       projLines.join(" ") || "Insufficient data for projection.",
       ...tradeBlock,
     ].join("\n");
@@ -523,7 +530,13 @@ async function cmdCortex(args) {
     const base = process.env.RENDER_EXTERNAL_URL || `http://localhost:${process.env.PORT || 3000}`;
 
     const [screenRes, fvRes, fundRes, macroRes, darkPoolRes, optionsFlowRes, insiderRes, shortInterestRes, trackRes, socialRes] = await Promise.allSettled([
-      withTimeout(fetch(`${base}/api/market/trend-screen?symbols=${encodeURIComponent(symbol)}`).then(r => r.json()), 15_000, null),
+      // &withDecision=1 (One Engine consolidation, Phase 2.7) — attaches
+      // real coreCriticalFlags so computeCortexVerdict below can use the
+      // same real critical-red-flag hard gate Phase 2.5 already wired into
+      // the web app's AMCortexTab.jsx/MarketTerminalTab.jsx, keeping
+      // Telegram's /cortex consistent with the app instead of missing the
+      // one gate they now both have.
+      withTimeout(fetch(`${base}/api/market/trend-screen?symbols=${encodeURIComponent(symbol)}&withDecision=1`).then(r => r.json()), 15_000, null),
       withTimeout(fetch(`${base}/api/scanner/future-value?symbol=${encodeURIComponent(symbol)}`).then(r => r.json()).catch(() => null), 15_000, null),
       withTimeout(fetch(`${base}/api/market/fundamentals?symbol=${encodeURIComponent(symbol)}`).then(r => r.json()).catch(() => null), 10_000, null),
       withTimeout(fetch(`${base}/api/market/quote?symbols=SPY,QQQ,VIX`).then(r => r.json()).catch(() => []), 10_000, []),
@@ -559,7 +572,7 @@ async function cmdCortex(args) {
     // the web app does when sector data hasn't loaded yet.
     const grade = computeInstitutionalGrade(row, row.technicals, regime, null, null);
     const heat = computeHeatRisk(row, sniper);
-    const verdict = computeCortexVerdict({ sniper, heat, aplusScore: aplus.score });
+    const verdict = computeCortexVerdict({ sniper, heat, aplusScore: aplus.score, criticalFlags: row.coreCriticalFlags });
     const priceToPay = computePriceToPay(row, sniper);
     const buyPrice = summarizeBuyPrice(priceToPay, verdict, sniper, aplus.score);
     const evidence = whyEvidence(sniper, aplus);
