@@ -200,7 +200,7 @@ async function getAccountSnapshot() {
 // Real, instant simulated fill — refuses (never fabricates) if there's no
 // real current quote, insufficient real cash, or a duplicate open position
 // in the same symbol (spec §38: "Never duplicate trades").
-async function openPosition({ symbol, qty, stop, target, riskDollars, opportunitySnapshot }) {
+async function openPosition({ symbol, qty, stop, target, riskDollars, opportunitySnapshot, assetType = "STOCK" }) {
   symbol = String(symbol || "").trim().toUpperCase();
   if (!symbol || !(qty > 0)) return { ok: false, error: "invalid symbol/qty" };
   const account = loadAccount();
@@ -216,7 +216,13 @@ async function openPosition({ symbol, qty, stop, target, riskDollars, opportunit
   if (cost > account.cash) return { ok: false, error: `insufficient real cash — need $${cost.toFixed(2)}, have $${account.cash.toFixed(2)}` };
 
   const position = {
-    id: `${symbol}-${Date.now()}`, assetType: "STOCK", symbol, qty, entryPrice, entryAt: new Date().toISOString(),
+    // assetType "CRYPTO" (2026-08-30) shares this exact same STOCK-shaped
+    // position record and mark-to-market path (getAccountSnapshot's
+    // pricedStocks branch, below) — the arithmetic (currentPrice * qty) is
+    // asset-agnostic and correct for a fractional crypto qty too; only the
+    // label differs, for the UI and for callers that need to branch on it
+    // (partialClosePosition's fractional-vs-whole-unit rounding).
+    id: `${symbol}-${Date.now()}`, assetType, symbol, qty, entryPrice, entryAt: new Date().toISOString(),
     stop, target, lastKnownPrice: entryPrice,
     riskDollars: riskDollars ?? Math.max(0, (entryPrice - stop) * qty),
     opportunitySnapshot: opportunitySnapshot || null,
@@ -327,6 +333,20 @@ async function closePosition(id, { exitPrice, reason } = {}) {
   return { ok: true, closedTrade };
 }
 
+// Real partial-close quantity, extracted for direct unit testing (no
+// network/file I/O). CRYPTO (2026-08-30): real fractional qty —
+// Math.floor to a whole unit would either sell 0 (silently no-op a real
+// partial-close) or, worse, force-floor-then-max(1,...) into selling a
+// whole 1 unit when the real held qty is a small fraction (e.g. 0.05
+// BTC) — a real oversell bug. Rounds to the same real precision used at
+// entry instead; every other assetType keeps the original whole-unit
+// floor unchanged.
+function computePartialCloseQty(position, fraction) {
+  return position.assetType === "CRYPTO"
+    ? Math.floor(position.qty * fraction * 10 ** 6) / 10 ** 6
+    : Math.max(1, Math.floor(position.qty * fraction));
+}
+
 // Partial close (spec §23 profit management) — sells a real fraction of
 // the position at a real current quote, books real partial realized P&L,
 // leaves the remainder open with its original stop/target untouched.
@@ -335,8 +355,8 @@ async function partialClosePosition(id, { fraction = 0.5, reason } = {}) {
   const idx = account.openPositions.findIndex((p) => p.id === id);
   if (idx === -1) return { ok: false, error: `no open position with id ${id}` };
   const position = account.openPositions[idx];
-  const sellQty = Math.max(1, Math.floor(position.qty * fraction));
-  if (sellQty >= position.qty) return closePosition(id, { reason });
+  const sellQty = computePartialCloseQty(position, fraction);
+  if (!(sellQty > 0) || sellQty >= position.qty) return closePosition(id, { reason });
 
   const [quote] = await fetchQuoteBatchWithFallback([position.symbol]).catch(() => []);
   const fillPrice = realFillPrice(quote, "SELL");
@@ -377,5 +397,5 @@ module.exports = {
   loadAccount, saveAccount, getAccountSnapshot,
   openPosition, closePosition, partialClosePosition, updateStop, resetAccount,
   openOptionPosition, closeOptionPosition, fetchOptionsChain,
-  realFillPrice,
+  realFillPrice, computePartialCloseQty,
 };

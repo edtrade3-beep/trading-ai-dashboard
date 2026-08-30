@@ -10,7 +10,7 @@
 // Run: node test/autopilot2-account.test.js (or npm test).
 "use strict";
 const assert = require("node:assert");
-const { realFillPrice, STARTING_CAPITAL } = require("../src/autopilot2-account");
+const { realFillPrice, STARTING_CAPITAL, computePartialCloseQty } = require("../src/autopilot2-account");
 
 let passed = 0;
 function ok(name, fn) { try { fn(); passed++; console.log(`  ✓ ${name}`); } catch (e) { console.error(`  ✗ ${name}\n    ${e.message}`); process.exitCode = 1; } }
@@ -43,6 +43,24 @@ ok("a zero/invalid real bid is ignored, not fabricated into a fill", () => {
 ok("no real quote at all returns honest null, never a guessed price", () => {
   assert.strictEqual(realFillPrice(null, "BUY"), null);
   assert.strictEqual(realFillPrice({ regularMarketPrice: 0 }, "BUY"), null);
+});
+
+console.log("\nChecking computePartialCloseQty — real fractional crypto qty vs. real whole-unit stock/call qty (2026-08-30)…");
+ok("a STOCK position floors to a real whole share, minimum 1", () => {
+  assert.strictEqual(computePartialCloseQty({ assetType: "STOCK", qty: 10 }, 0.5), 5);
+  assert.strictEqual(computePartialCloseQty({ assetType: "STOCK", qty: 1 }, 0.5), 1, "must never round a real 1-share position down to 0");
+});
+ok("a real CRYPTO position keeps its real fractional precision — the bug this replaces: Math.max(1, Math.floor(...)) would have force-sold a WHOLE unit here", () => {
+  const qty = computePartialCloseQty({ assetType: "CRYPTO", qty: 0.05 }, 0.5);
+  assert.strictEqual(qty, 0.025);
+  assert.ok(qty < 1, "must never force-round a real fractional crypto position up to a whole unit — that would oversell the real position");
+});
+ok("a real CRYPTO position rounds to 6 decimal places, not a raw float", () => {
+  const qty = computePartialCloseQty({ assetType: "CRYPTO", qty: 0.1333335 }, 0.5);
+  assert.strictEqual(qty, Math.floor(qty * 1e6) / 1e6);
+});
+ok("a CALL position (not CRYPTO) keeps the real whole-contract floor", () => {
+  assert.strictEqual(computePartialCloseQty({ assetType: "CALL", qty: 4 }, 0.5), 2);
 });
 
 console.log(`\n${passed} checks passed.`);

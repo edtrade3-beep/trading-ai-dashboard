@@ -176,6 +176,25 @@ function sizeEntry({ equity, cash, entry, stop, riskPct = RISK_PCT_PER_TRADE, ma
   return { qty: Math.max(0, qty), riskPerShare };
 }
 
+// Crypto sizing (2026-08-30) — same real risk-%-based formula as sizeEntry,
+// but real crypto trades in FRACTIONAL units (a whole-BTC floor at
+// ~$100k+/coin would round every real entry to 0 and silently block crypto
+// forever, or force an absurdly oversized 1-coin position on a cheaper
+// pair). Rounds to 6 decimal places — standard real crypto precision, not
+// an arbitrary guess — instead of Math.floor to a whole unit. Same $ risk
+// cap and max-name-% cap as stocks, unchanged.
+const CRYPTO_QTY_PRECISION = 6;
+function sizeCryptoEntry({ equity, cash, entry, stop, riskPct = RISK_PCT_PER_TRADE, maxTradeRiskDollars = MAX_TRADE_RISK_DOLLARS, maxNamePct = MAX_NAME_PCT }) {
+  if (!(entry > 0) || !(stop > 0) || !(entry > stop)) return { qty: 0, reason: "no real valid entry/stop" };
+  const riskPerShare = entry - stop;
+  const riskBudget = Math.min(equity * (riskPct / 100), maxTradeRiskDollars);
+  let qty = riskBudget / riskPerShare;
+  qty = Math.min(qty, (cash || 0) / entry);
+  qty = Math.min(qty, (equity * (maxNamePct / 100)) / entry);
+  qty = Math.floor(Math.max(0, qty) * 10 ** CRYPTO_QTY_PRECISION) / 10 ** CRYPTO_QTY_PRECISION;
+  return { qty, riskPerShare };
+}
+
 // Pure CALL sizing (spec §17 applied to options — same real risk budget a
 // stock trade would get, since a long call's own real max loss is the
 // full premium paid). Real, disclosed v1 simplification: risk-% and the
@@ -241,6 +260,47 @@ async function fetchLightBoxCandidates() {
     }));
 }
 
+// Real crypto candidates (explicit user request, 2026-08-30: "make it 24/7
+// trade because of crypto") — SAME canonical engine as stocks
+// (screenTrendTemplate -> computeOpportunity -> am-core-engine.js), fed a
+// small, real, liquid crypto universe instead of the stock scan universe.
+// Zero new scoring logic: crypto has real, continuous daily closes (no
+// "market closed" gaps to confuse a 150/200-day MA the way an illiquid
+// stock might), so the same Minervini-template-based engine that already
+// scores stocks scores these honestly. What crypto genuinely needs
+// differently is handled at the call site instead: fractional position
+// sizing (sizeCryptoEntry) and no market-hours gate (tick() below) — this
+// function's OWN output shape is identical to a stock candidate, so it
+// flows through the exact same tryEnter risk gating.
+const CRYPTO_UNIVERSE = ["BTC-USD", "ETH-USD", "SOL-USD"];
+async function fetchCryptoCandidates() {
+  try {
+    const { screenTrendTemplate, fetchMarketQuotes } = require("./routes/market");
+    const { computeRegime, regimeToEntryVocabulary } = require("./trade-planner-scoring");
+    const { computeOpportunity } = require("./opportunity-engine");
+    const { resolveProviderKeys } = require("./config");
+
+    const [rows, macroQuotes] = await Promise.all([
+      screenTrendTemplate(CRYPTO_UNIVERSE),
+      fetchMarketQuotes(["SPY", "QQQ", "VIXY"], resolveProviderKeys(new URLSearchParams())).catch(() => []),
+    ]);
+    const regime = computeRegime(Array.isArray(macroQuotes) ? macroQuotes : []);
+    const marketRegime = regimeToEntryVocabulary(regime.label);
+
+    const opportunities = (rows || [])
+      .filter((row) => !row.error)
+      .map((row) => computeOpportunity({ symbol: row.symbol, row, regime, marketRegime, trackReport: null }))
+      .filter(Boolean)
+      .map((opp) => ({ ...opp, assetClass: "CRYPTO" }));
+
+    return opportunities
+      .filter((o) => (o.verdict === "EARLY_BUY" || o.verdict === "BUY") && (o.criticalFlags ?? 0) === 0)
+      .sort((a, b) => (b.verdict === a.verdict ? (b.expectedValue ?? -Infinity) - (a.expectedValue ?? -Infinity) : (a.verdict === "EARLY_BUY" ? -1 : 1)));
+  } catch {
+    return []; // honest empty list on any real failure — never a fabricated candidate
+  }
+}
+
 // Real validate+size+enter for one candidate opportunity against the
 // current real account snapshot. Returns a real reason string either way
 // — a rejection is a logged, disclosed outcome (spec §25), never silent.
@@ -259,6 +319,26 @@ async function tryEnter(opp, snapshot) {
   const openRiskDollars = snapshot.openPositions.reduce((s, p) => s + Math.max(0, Number(p.riskDollars) || 0), 0);
   const openRiskPctNow = snapshot.equity > 0 ? (openRiskDollars / snapshot.equity) * 100 : 100;
   if (openRiskPctNow >= MAX_OPEN_RISK_PCT) return { entered: false, reason: `portfolio open-risk ceiling (${MAX_OPEN_RISK_PCT}%) reached (currently ${openRiskPctNow.toFixed(1)}%)` };
+
+  // Crypto (2026-08-30) — spot only, v1. Skips the Expression Engine
+  // entirely: chooseExpression would call fetchOptionsChain, and this
+  // app's options-chain route has no real crypto contract data behind
+  // it — a wasted real network call that would just fall back to STOCK
+  // shape anyway. Real fractional sizing (sizeCryptoEntry, see above) and
+  // a distinct assetType so the account/UI can label it correctly.
+  if (opp.assetClass === "CRYPTO") {
+    const { qty, riskPerShare, reason: sizeReason } = sizeCryptoEntry({ equity: snapshot.equity, cash: snapshot.cash, entry: opp.entry, stop: opp.stop });
+    if (sizeReason) return { entered: false, reason: sizeReason };
+    if (!(qty > 0)) return { entered: false, reason: "sized to 0 (below minimum real fractional size) under current real risk limits" };
+
+    const result = await openPosition({
+      symbol: opp.symbol, qty, stop: opp.stop, target: opp.target, assetType: "CRYPTO",
+      riskDollars: qty * riskPerShare,
+      opportunitySnapshot: { score: opp.score, verdict: opp.verdict, verdictReason: opp.verdictReason, tier: opp.tier, probability: opp.probability, expectedValue: opp.expectedValue, reasons: opp.reasons, expression: "spot crypto" },
+    });
+    if (!result.ok) return { entered: false, reason: result.error };
+    return { entered: true, reason: `spot crypto — real entry: score ${opp.score}, EV ${opp.expectedValue ?? "n/a"}, ${qty} @ $${result.position.entryPrice.toFixed(2)}` };
+  }
 
   const expr = await chooseExpression(opp);
 
@@ -303,7 +383,17 @@ async function tick() {
   // existing emergency-stop.js philosophy: a halt blocks new risk, it
   // never abandons real open positions to an unmanaged fate.
   if (autopilotState.state === "OFF") return { ran: false, reason: "autopilot is OFF" };
-  if (!isMarketHoursET()) return { ran: false, reason: "outside market hours" };
+  // Real 24/7 operation (2026-08-30, explicit user request: "make it 24/7
+  // trade because of crypto") — used to be a blanket `if
+  // (!isMarketHoursET()) return` here, which meant a held CRYPTO position
+  // never got managed (stop/target checked) on evenings/weekends either,
+  // not just that no new stock trade could open. Crypto genuinely trades
+  // 24/7; stocks/calls genuinely don't. Health check, position management,
+  // and risk breakers below now run every tick regardless of market
+  // hours — real capital protection doesn't pause just because crypto
+  // markets don't close. `marketOpen` is used further below to gate ONLY
+  // the stock/Light Box candidate scan+entry, not crypto's.
+  const marketOpen = isMarketHoursET();
 
   const snapshot = await getAccountSnapshot();
   const health = checkAccountHealth({ equity: snapshot.equity, cash: snapshot.cash });
@@ -337,53 +427,66 @@ async function tick() {
     return { ran: true, entered: 0, reason: `new entries blocked (state=${autopilotState.state}${emergencyActive ? ", Emergency Stop active" : ""})` };
   }
 
-  const { computeAllOpportunities } = require("./routes/market");
-  const scan = await computeAllOpportunities().catch((e) => ({ error: String(e && e.message || e) }));
-  if (scan.error) {
-    setState("SAFE_MODE", `opportunity scan failed: ${scan.error}`);
-    appendActivity({ type: "SAFE_MODE", reason: `opportunity scan failed: ${scan.error}` });
-    return { ran: true, entered: 0, reason: "scan failed — SAFE_MODE" };
+  // Stock/Light Box candidates — real quotes outside market hours are
+  // stale/wide, so this whole source stays gated to marketOpen, unchanged
+  // from before. Crypto (below) is sourced unconditionally instead.
+  let opportunityCandidates = [];
+  let lightBoxCandidates = [];
+  if (marketOpen) {
+    const { computeAllOpportunities } = require("./routes/market");
+    const scan = await computeAllOpportunities().catch((e) => ({ error: String(e && e.message || e) }));
+    if (scan.error) {
+      setState("SAFE_MODE", `opportunity scan failed: ${scan.error}`);
+      appendActivity({ type: "SAFE_MODE", reason: `opportunity scan failed: ${scan.error}` });
+      return { ran: true, entered: 0, reason: "scan failed — SAFE_MODE" };
+    }
+    if (scan.dataQuality?.stale) {
+      setState("SAFE_MODE", `market data is stale (${scan.dataQuality.ageMinutes}m old)`);
+      appendActivity({ type: "SAFE_MODE", reason: `stale market data (${scan.dataQuality.ageMinutes}m old)` });
+      return { ran: true, entered: 0, reason: "stale data — SAFE_MODE" };
+    }
+
+    // Candidate pool (2026-08-27, explicit user request: "i just want to see
+    // at least 5 trades," corrected after checking against the real,
+    // already-trading server-autopilot.js/"Green Light" system: that
+    // engine's real entry gate is simply `coreCriticalFlags === 0 &&
+    // (coreVerdict === "EARLY_BUY" || coreVerdict === "BUY")` — the Core
+    // Verdict is ALREADY fully hard-gated internally (structure, anti-
+    // chase, red flags, Stage 4, entry-score floor — am-core-engine.js's
+    // own cascade), no separate entry-timing-stage requirement. The
+    // Opportunity Engine's ACTIONABLE tier adds ONE MORE real requirement on
+    // top (the symbol must also be at a precise BREAKOUT/RETEST/
+    // CONFIRMATION stage) — a real, much narrower bar, which is why it can
+    // legitimately sit at 0 for hours while the proven system next to it is
+    // actively trading. Real, disclosed fix: source candidates by the SAME
+    // real verdict gate the already-trading system uses (opp.verdict, from
+    // the exact same classifyCoreVerdict, across every real scanned
+    // symbol regardless of tier bucket) rather than requiring the
+    // Opportunity Engine's additional timing filter. Every other real gate
+    // (risk sizing, sector cap, open-risk ceiling, duplicate protection)
+    // is completely unchanged.
+    const allOpportunities = Object.values(scan.tiers).flat();
+    opportunityCandidates = allOpportunities
+      .filter((o) => (o.verdict === "EARLY_BUY" || o.verdict === "BUY") && (o.criticalFlags ?? 0) === 0)
+      .sort((a, b) => (b.verdict === a.verdict ? (b.expectedValue ?? -Infinity) - (a.expectedValue ?? -Infinity) : (a.verdict === "EARLY_BUY" ? -1 : 1)));
+
+    // Light Box (2026-08-27) — a real, complementary, more real-time source
+    // (see fetchLightBoxCandidates' own header comment). Appended after the
+    // Opportunity Engine's own candidates, deduped by symbol — a symbol
+    // already surfaced by the stricter Opportunity Engine read keeps that
+    // read, never double-counted or overridden by the Light Box one.
+    lightBoxCandidates = (await fetchLightBoxCandidates().catch(() => []))
+      .filter((lb) => !opportunityCandidates.some((o) => o.symbol === lb.symbol));
+    lightBoxCandidates.sort((a, b) => (b.expectedValue ?? -Infinity) - (a.expectedValue ?? -Infinity));
   }
-  if (scan.dataQuality?.stale) {
-    setState("SAFE_MODE", `market data is stale (${scan.dataQuality.ageMinutes}m old)`);
-    appendActivity({ type: "SAFE_MODE", reason: `stale market data (${scan.dataQuality.ageMinutes}m old)` });
-    return { ran: true, entered: 0, reason: "stale data — SAFE_MODE" };
-  }
 
-  // Candidate pool (2026-08-27, explicit user request: "i just want to see
-  // at least 5 trades," corrected after checking against the real,
-  // already-trading server-autopilot.js/"Green Light" system: that
-  // engine's real entry gate is simply `coreCriticalFlags === 0 &&
-  // (coreVerdict === "EARLY_BUY" || coreVerdict === "BUY")` — the Core
-  // Verdict is ALREADY fully hard-gated internally (structure, anti-
-  // chase, red flags, Stage 4, entry-score floor — am-core-engine.js's
-  // own cascade), no separate entry-timing-stage requirement. The
-  // Opportunity Engine's ACTIONABLE tier adds ONE MORE real requirement on
-  // top (the symbol must also be at a precise BREAKOUT/RETEST/
-  // CONFIRMATION stage) — a real, much narrower bar, which is why it can
-  // legitimately sit at 0 for hours while the proven system next to it is
-  // actively trading. Real, disclosed fix: source candidates by the SAME
-  // real verdict gate the already-trading system uses (opp.verdict, from
-  // the exact same classifyCoreVerdict, across every real scanned
-  // symbol regardless of tier bucket) rather than requiring the
-  // Opportunity Engine's additional timing filter. Every other real gate
-  // (risk sizing, sector cap, open-risk ceiling, duplicate protection)
-  // is completely unchanged.
-  const allOpportunities = Object.values(scan.tiers).flat();
-  const opportunityCandidates = allOpportunities
-    .filter((o) => (o.verdict === "EARLY_BUY" || o.verdict === "BUY") && (o.criticalFlags ?? 0) === 0)
-    .sort((a, b) => (b.verdict === a.verdict ? (b.expectedValue ?? -Infinity) - (a.expectedValue ?? -Infinity) : (a.verdict === "EARLY_BUY" ? -1 : 1)));
+  // Crypto (2026-08-30) — unconditional, real 24/7 candidate source. See
+  // fetchCryptoCandidates' own header for why this reuses the identical
+  // canonical engine rather than a new scorer.
+  const cryptoCandidates = (await fetchCryptoCandidates())
+    .filter((c) => !opportunityCandidates.some((o) => o.symbol === c.symbol));
 
-  // Light Box (2026-08-27) — a real, complementary, more real-time source
-  // (see fetchLightBoxCandidates' own header comment). Appended after the
-  // Opportunity Engine's own candidates, deduped by symbol — a symbol
-  // already surfaced by the stricter Opportunity Engine read keeps that
-  // read, never double-counted or overridden by the Light Box one.
-  const lightBoxCandidates = (await fetchLightBoxCandidates().catch(() => []))
-    .filter((lb) => !opportunityCandidates.some((o) => o.symbol === lb.symbol))
-    .sort((a, b) => (b.expectedValue ?? -Infinity) - (a.expectedValue ?? -Infinity));
-
-  const candidates = [...opportunityCandidates, ...lightBoxCandidates];
+  const candidates = [...opportunityCandidates, ...lightBoxCandidates, ...cryptoCandidates];
   let entered = 0;
   let workingSnapshot = freshSnapshot;
   for (const opp of candidates) {
@@ -392,6 +495,8 @@ async function tick() {
     const result = await tryEnter(opp, workingSnapshot);
     const verdictNote = opp.tier === "LIGHTBOX"
       ? " [source: Light Box real CONFIRMED entry trigger]"
+      : opp.assetClass === "CRYPTO"
+      ? ` [24/7 crypto, Core Verdict ${opp.verdict}, real Opportunity tier ${opp.tier}]`
       : ` [Core Verdict ${opp.verdict}, real Opportunity tier ${opp.tier}]`;
     appendActivity({ type: result.entered ? "ENTER" : "REJECT", symbol: opp.symbol, reason: `${result.reason}${verdictNote}` });
     if (result.entered) {
@@ -412,7 +517,15 @@ async function tick() {
     }
   }
 
-  return { ran: true, entered, candidatesConsidered: candidates.length, opportunityCandidates: opportunityCandidates.length, lightBoxCandidates: lightBoxCandidates.length };
+  return {
+    ran: true, entered, marketOpen, candidatesConsidered: candidates.length,
+    opportunityCandidates: opportunityCandidates.length, lightBoxCandidates: lightBoxCandidates.length,
+    cryptoCandidates: cryptoCandidates.length,
+  };
 }
 
-module.exports = { tick, sizeEntry, sizeOptionEntry, fetchLightBoxCandidates, RISK_PCT_PER_TRADE, MAX_TRADE_RISK_DOLLARS, MAX_OPEN_POSITIONS, MAX_PER_SECTOR, MAX_OPEN_RISK_PCT, CALL_DTE_EXIT_FLOOR };
+module.exports = {
+  tick, sizeEntry, sizeOptionEntry, sizeCryptoEntry, fetchLightBoxCandidates, fetchCryptoCandidates,
+  CRYPTO_UNIVERSE, RISK_PCT_PER_TRADE, MAX_TRADE_RISK_DOLLARS, MAX_OPEN_POSITIONS, MAX_PER_SECTOR,
+  MAX_OPEN_RISK_PCT, CALL_DTE_EXIT_FLOOR,
+};

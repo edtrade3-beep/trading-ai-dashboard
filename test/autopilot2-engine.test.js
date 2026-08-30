@@ -9,7 +9,7 @@
 // Run: node test/autopilot2-engine.test.js (or npm test).
 "use strict";
 const assert = require("node:assert");
-const { sizeEntry, RISK_PCT_PER_TRADE, MAX_TRADE_RISK_DOLLARS } = require("../src/autopilot2-engine");
+const { sizeEntry, sizeCryptoEntry, CRYPTO_UNIVERSE, RISK_PCT_PER_TRADE, MAX_TRADE_RISK_DOLLARS } = require("../src/autopilot2-engine");
 
 let passed = 0;
 function ok(name, fn) { try { fn(); passed++; console.log(`  ✓ ${name}`); } catch (e) { console.error(`  ✗ ${name}\n    ${e.message}`); process.exitCode = 1; } }
@@ -54,6 +54,34 @@ ok("a real setup that risks less than $500 at the % sizing is never artificially
   // risk, already well under the $500 cap — the cap must not bind here.
   const { qty } = sizeEntry({ equity: 10_000, cash: 10_000, entry: 50, stop: 45 });
   assert.strictEqual(qty, 10);
+});
+
+console.log("\nChecking sizeCryptoEntry — real risk-% sizing with real fractional units (2026-08-30, \"make it 24/7 trade because of crypto\")…");
+ok("a real BTC-priced entry (~$78,750) sizes to a real fraction of a coin, never floored to 0", () => {
+  const { qty } = sizeCryptoEntry({ equity: 100_000, cash: 100_000, entry: 78_750, stop: 75_000 });
+  assert.ok(qty > 0, `expected a real positive fractional qty, got ${qty}`);
+  assert.ok(qty < 1, `expected LESS than one whole coin at this risk budget, got ${qty}`);
+});
+ok("the real risk-%-based dollar amount actually spent matches the disclosed risk budget (0.5% of equity / risk-per-unit), not a whole-unit rounding artifact", () => {
+  // 0.5% of 100k = $500 risk / $3750 risk-per-unit = 0.133333... coin
+  const { qty, riskPerShare } = sizeCryptoEntry({ equity: 100_000, cash: 100_000, entry: 78_750, stop: 75_000 });
+  assert.strictEqual(riskPerShare, 3750);
+  assert.strictEqual(Math.round(qty * riskPerShare), 500);
+});
+ok("rounds to real 6-decimal crypto precision, not a raw float", () => {
+  const { qty } = sizeCryptoEntry({ equity: 100_000, cash: 100_000, entry: 78_750, stop: 75_000 });
+  assert.strictEqual(qty, Math.floor(qty * 1e6) / 1e6);
+});
+ok("insufficient real cash caps the real fractional qty accordingly, never goes negative", () => {
+  const { qty } = sizeCryptoEntry({ equity: 100_000, cash: 100, entry: 78_750, stop: 75_000 });
+  assert.ok(qty >= 0 && qty * 78_750 <= 100.000001, `expected qty capped to real available cash, got ${qty}`);
+});
+ok("no real valid entry/stop -> honest 0, same discipline as sizeEntry", () => {
+  assert.strictEqual(sizeCryptoEntry({ equity: 100_000, cash: 100_000, entry: 100, stop: 110 }).qty, 0);
+});
+ok("a small, real, disclosed crypto universe — not silently expanded or empty", () => {
+  assert.ok(Array.isArray(CRYPTO_UNIVERSE) && CRYPTO_UNIVERSE.length > 0);
+  assert.ok(CRYPTO_UNIVERSE.includes("BTC-USD"));
 });
 
 console.log(`\n${passed} checks passed.`);
