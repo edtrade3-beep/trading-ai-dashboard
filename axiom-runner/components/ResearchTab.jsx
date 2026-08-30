@@ -1,21 +1,22 @@
-// ResearchTab.jsx — new (2026-08-30, explicit user request: "put it inside
-// platform in research tab"). Surfaces the macro/valuation/AI-capex research
-// report (5 parallel live-research streams, synthesized once) inside the
-// app itself, same "explicit standalone request -> real sidebar row"
-// precedent as Future Wallet/BTC+HPC (see Sidebar.jsx comments) — not a
-// live-scoring engine, not wired into am-core-engine.js/opportunity-engine.js.
-// The user explicitly chose "Research report" over "live platform
-// integration" when asked (AskUserQuestion, 2026-08-30), so this is
-// intentionally a point-in-time snapshot, not a new data pipeline. Content
-// mirrors the published artifact (macro-research-report.html) but rebuilt
-// as real JSX against this app's shared theme tokens (C/MONO/SANS) instead
-// of an iframed static HTML file, so it reads consistently with every other
-// tab and respects the user's light/dark theme choice.
+// ResearchTab.jsx
+// ── LIVE SECTION (2026-08-30, "/upgrade-search" spec: "UPGRADE THE EXISTING
+// SEARCH/RESEARCH TAB. DO NOT CREATE A SEPARATE RESEARCH ENGINE.") ─────────
+// The top of this tab is now a live feed over src/research-intel-ai.js —
+// real web-search-grounded findings (reusing the same callAnthropicWithSearch
+// chokepoint Command Center already uses), refreshed daily (server.js
+// 8:35 ET slot) plus on-demand via the Refresh button below, GET/POST
+// /api/research/intel[/refresh]. This produces RESEARCH/EVIDENCE only — no
+// verdict, no entry/stop/target — the existing central engine
+// (am-core-engine.js/opportunity-engine.js) is untouched and still owns the
+// trading decision.
 //
-// Every figure below carries a confidence tag (REAL / DERIVED / SCENARIO /
-// UNAVAILABLE) exactly as researched — nothing here was upgraded to "real"
-// for presentation, and every gap the research passes hit is listed as a
-// gap in section 9, not silently dropped.
+// ── STATIC SECTION (2026-08-30, original build) ────────────────────────────
+// Below the live feed, the original one-time-synthesized macro/valuation/
+// AI-capex report (5 parallel research streams) stays as a collapsed, dated
+// reference — nothing from the original build was deleted, just demoted
+// now that the live system above is the primary surface.
+
+import { useState, useEffect, useCallback } from "react";
 
 const AS_OF = "Aug 28–30, 2026";
 
@@ -76,6 +77,211 @@ function VerdictCard({ C, MONO, SANS, accent, badge, headline, rows }) {
         ))}
       </div>
     </div>
+  );
+}
+
+// ── Live Research Intelligence components ──────────────────────────────
+const STATUS_STYLE = (C) => ({
+  NEW: { bg: C.accentGlow, fg: C.accent, label: "NEW" },
+  STRENGTHENED: { bg: C.greenBg, fg: C.green, label: "STRENGTHENED" },
+  WEAKENED: { bg: C.amberBg, fg: C.amber, label: "WEAKENED" },
+  INVALIDATED: { bg: C.redBg, fg: C.red, label: "INVALIDATED" },
+  UNCHANGED: { bg: C.card, fg: C.textDim, label: "UNCHANGED" },
+});
+function StatusBadge({ C, MONO, status }) {
+  const s = STATUS_STYLE(C)[status] || STATUS_STYLE(C).NEW;
+  return (
+    <span style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 800, letterSpacing: 0.4, padding: "2px 7px", borderRadius: 4, background: s.bg, color: s.fg, whiteSpace: "nowrap" }}>{s.label}</span>
+  );
+}
+
+const CLASS_META = {
+  EARLY_OPPORTUNITY: { icon: "🟢", label: "EARLY OPPORTUNITY" },
+  DEVELOPING: { icon: "🟢", label: "DEVELOPING" },
+  CONFIRMED: { icon: "🟡", label: "CONFIRMED" },
+  CROWDED: { icon: "🟠", label: "CROWDED" },
+  LATE_DO_NOT_CHASE: { icon: "🔴", label: "LATE / DO NOT CHASE" },
+  NEGATIVE_CATALYST: { icon: "🔴", label: "NEGATIVE CATALYST" },
+};
+
+function RiskChip({ C, MONO, risk }) {
+  if (!risk) return null;
+  const fg = risk === "HIGH" ? C.red : risk === "MEDIUM" ? C.amber : C.green;
+  const bg = risk === "HIGH" ? C.redBg : risk === "MEDIUM" ? C.amberBg : C.greenBg;
+  return <span style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 800, padding: "2px 7px", borderRadius: 4, background: bg, color: fg }}>{risk} RISK</span>;
+}
+
+function ScoreDial({ C, MONO, label, value }) {
+  return (
+    <div style={{ textAlign: "center" }}>
+      <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 800, color: C.text, fontVariantNumeric: "tabular-nums" }}>{Number.isFinite(value) ? value : "—"}</div>
+      <div style={{ fontFamily: MONO, fontSize: 9, textTransform: "uppercase", letterSpacing: 0.4, color: C.textDim }}>{label}</div>
+    </div>
+  );
+}
+
+function ResearchCardView({ C, MONO, SANS, card }) {
+  const meta = CLASS_META[card.classification] || CLASS_META.DEVELOPING;
+  return (
+    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "14px 16px 12px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, marginBottom: 8 }}>
+        <div style={{ fontWeight: 700, fontSize: 13.5, color: C.text, lineHeight: 1.35 }}>{meta.icon} {card.headline}</div>
+        <StatusBadge C={C} MONO={MONO} status={card.status} />
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
+        <span style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 700, letterSpacing: 0.4, color: C.textDim, textTransform: "uppercase" }}>{card.category}</span>
+        <span style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 700, color: C.textDim }}>· {meta.label}</span>
+        {card.dataQuality && <span style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim }}>· {card.dataQuality}</span>}
+        {card.policyStatus && <span style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim }}>· policy: {card.policyStatus}</span>}
+      </div>
+      {card.whatChanged && <div style={{ fontSize: 12.5, color: C.textSec, marginBottom: 6 }}><b style={{ color: C.text }}>What changed:</b> {card.whatChanged}</div>}
+      {card.whyItMatters && <div style={{ fontSize: 12.5, color: C.textSec, marginBottom: 6 }}><b style={{ color: C.text }}>Why it matters:</b> {card.whyItMatters}</div>}
+      {card.marketExpectation && <div style={{ fontSize: 12.5, color: C.textSec, marginBottom: 6 }}><b style={{ color: C.text }}>Market expects:</b> {card.marketExpectation}</div>}
+      {card.mispriced && <div style={{ fontSize: 12.5, color: C.textSec, marginBottom: 6 }}><b style={{ color: C.text }}>May be mispriced:</b> {card.mispriced}</div>}
+      {(card.beneficiaries?.length || card.losers?.length) ? (
+        <div style={{ fontSize: 12.5, color: C.textSec, marginBottom: 6 }}>
+          {card.beneficiaries?.length ? <><b style={{ color: C.green }}>Beneficiaries:</b> {card.beneficiaries.join(", ")}  </> : null}
+          {card.losers?.length ? <><b style={{ color: C.red }}>Losers:</b> {card.losers.join(", ")}</> : null}
+        </div>
+      ) : null}
+      <div style={{ display: "flex", gap: 18, alignItems: "center", margin: "10px 0" }}>
+        <ScoreDial C={C} MONO={MONO} label="Opportunity" value={card.opportunity} />
+        <ScoreDial C={C} MONO={MONO} label="Confidence" value={card.confidence} />
+        <RiskChip C={C} MONO={MONO} risk={card.risk} />
+        {card.timing && <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>⏱ {card.timing}</span>}
+      </div>
+      {card.confirms && <div style={{ fontSize: 11.5, color: C.textDim, marginBottom: 3 }}><b>Confirms:</b> {card.confirms}</div>}
+      {card.invalidates && <div style={{ fontSize: 11.5, color: C.textDim, marginBottom: 3 }}><b>Invalidates:</b> {card.invalidates}</div>}
+      {card.sources?.length ? <div style={{ fontSize: 10.5, color: C.textDim, marginTop: 8, borderTop: `1px dashed ${C.border}`, paddingTop: 6 }}>Sources: {card.sources.join(" · ")}</div> : null}
+    </div>
+  );
+}
+
+function TechCardView({ C, MONO, SANS, t }) {
+  return (
+    <div style={{ background: C.card, border: `1px solid ${C.accent}55`, borderRadius: 10, padding: "14px 16px 12px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, marginBottom: 8 }}>
+        <div style={{ fontWeight: 700, fontSize: 13.5, color: C.text }}>🔬 {t.technology}</div>
+        <StatusBadge C={C} MONO={MONO} status={t.status} />
+      </div>
+      <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 8 }}>{t.maturity} · adoption: {t.adoptionTimeline || "—"}</div>
+      {t.problemSolved && <div style={{ fontSize: 12.5, color: C.textSec, marginBottom: 6 }}><b style={{ color: C.text }}>Solves:</b> {t.problemSolved}</div>}
+      {t.whyNow && <div style={{ fontSize: 12.5, color: C.textSec, marginBottom: 6 }}><b style={{ color: C.text }}>Why now:</b> {t.whyNow}</div>}
+      {t.marketSize && <div style={{ fontSize: 12.5, color: C.textSec, marginBottom: 6 }}><b style={{ color: C.text }}>Market size:</b> {t.marketSize}</div>}
+      {t.publicCompanies?.length ? <div style={{ fontSize: 12, color: C.textSec, marginBottom: 6 }}><b style={{ color: C.text }}>Public companies:</b> {t.publicCompanies.join(", ")}</div> : null}
+      {t.supplyChain?.length ? <div style={{ fontSize: 12, color: C.textSec, marginBottom: 6 }}><b style={{ color: C.text }}>Supply chain:</b> {t.supplyChain.join(", ")}</div> : null}
+      {(t.winners?.length || t.losers?.length) ? (
+        <div style={{ fontSize: 12.5, color: C.textSec, marginBottom: 6 }}>
+          {t.winners?.length ? <><b style={{ color: C.green }}>Winners:</b> {t.winners.join(", ")}  </> : null}
+          {t.losers?.length ? <><b style={{ color: C.red }}>Losers:</b> {t.losers.join(", ")}</> : null}
+        </div>
+      ) : null}
+      {t.risks?.length ? <div style={{ fontSize: 11.5, color: C.textDim, marginBottom: 4 }}><b>Risks:</b> {t.risks.join("; ")}</div> : null}
+      {t.sources?.length ? <div style={{ fontSize: 10.5, color: C.textDim, marginTop: 8, borderTop: `1px dashed ${C.border}`, paddingTop: 6 }}>Sources: {t.sources.join(" · ")}</div> : null}
+    </div>
+  );
+}
+
+function NarrativeShiftBanner({ C, MONO, SANS, shift }) {
+  return (
+    <div style={{ background: C.amberBg, border: `1.5px solid ${C.amber}`, borderRadius: 10, padding: "12px 16px", marginBottom: 10 }}>
+      <div style={{ fontFamily: MONO, fontWeight: 800, fontSize: 12, color: C.amber, marginBottom: 6 }}>🚨 NARRATIVE SHIFT — {shift.dimension}</div>
+      <div style={{ fontSize: 13.5, fontWeight: 700, color: C.text, marginBottom: 4 }}>{shift.priorState} → {shift.state}</div>
+      {shift.whyItMatters && <div style={{ fontSize: 12.5, color: C.textSec }}>{shift.whyItMatters}</div>}
+    </div>
+  );
+}
+
+function LiveIntel({ C, MONO, SANS }) {
+  const [intel, setIntel] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(null);
+  const [showUnchanged, setShowUnchanged] = useState(false);
+
+  const load = useCallback(() => {
+    setLoading(true); setError(null);
+    fetch("/api/research/intel").then((r) => r.json())
+      .then((d) => { if (d.ok) setIntel(d.intel); else setError(d.error || "Failed to load research."); })
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  const refresh = () => {
+    setRefreshing(true); setError(null);
+    fetch("/api/research/intel/refresh", { method: "POST" }).then((r) => r.json())
+      .then((d) => { if (d.ok) setIntel(d.intel); else setError(d.error || "Refresh failed."); })
+      .catch((e) => setError(e.message))
+      .finally(() => setRefreshing(false));
+  };
+
+  const shifts = (intel?.narrativeShifts || []).filter((s) => s.shifted);
+  const cards = intel?.cards || [];
+  const visibleCards = showUnchanged ? cards : cards.filter((c) => c.status !== "UNCHANGED");
+  const unchangedCount = cards.length - cards.filter((c) => c.status !== "UNCHANGED").length;
+  const tech = intel?.techDiscoveries || [];
+
+  return (
+    <section style={{ marginBottom: 40 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
+        <div>
+          <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: 0.5, textTransform: "uppercase", color: C.accent, fontWeight: 700, marginBottom: 6 }}>Live · Early Intelligence Layer</div>
+          <h2 style={{ fontFamily: SANS, fontWeight: 800, fontSize: 20, margin: 0, color: C.text }}>What's changing before the crowd sees it</h2>
+        </div>
+        <button onClick={refresh} disabled={refreshing} style={{
+          fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "8px 14px", borderRadius: 8,
+          border: `1px solid ${C.accent}`, background: refreshing ? C.card : C.accent, color: refreshing ? C.accent : "#fff",
+          cursor: refreshing ? "default" : "pointer", whiteSpace: "nowrap",
+        }}>{refreshing ? "Researching…" : "↻ Refresh Research"}</button>
+      </div>
+
+      {loading && <div style={{ fontSize: 13, color: C.textDim }}>Loading research intelligence…</div>}
+      {!loading && error && <div style={{ fontSize: 13, color: C.red, background: C.redBg, borderRadius: 8, padding: "10px 14px" }}>{error}</div>}
+      {!loading && !error && !intel && (
+        <div style={{ fontSize: 13, color: C.textDim, background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "16px 18px" }}>
+          No research generated yet. This runs automatically once a day (8:35 AM ET), or click "Refresh Research" to generate one now.
+          {" "}Requires <code>ANTHROPIC_API_KEY</code> to be configured.
+        </div>
+      )}
+
+      {!loading && intel && (
+        <>
+          {intel.dailyQuestion && (
+            <div style={{ background: C.accentGlow, border: `1px solid ${C.accent}`, borderRadius: 10, padding: "14px 18px", marginBottom: 16, fontSize: 13.5, color: C.text, lineHeight: 1.6 }}>
+              <b style={{ color: C.accent }}>Today's question — where's the opportunity before the crowd:</b> {intel.dailyQuestion}
+            </div>
+          )}
+
+          {shifts.map((s, i) => <NarrativeShiftBanner key={i} C={C} MONO={MONO} SANS={SANS} shift={s} />)}
+
+          {visibleCards.length > 0 && (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 12, marginBottom: unchangedCount ? 8 : 20 }}>
+              {visibleCards.map((c, i) => <ResearchCardView key={i} C={C} MONO={MONO} SANS={SANS} card={c} />)}
+            </div>
+          )}
+          {!visibleCards.length && !unchangedCount && <div style={{ fontSize: 12.5, color: C.textDim, marginBottom: 16 }}>No material findings in the last run.</div>}
+          {unchangedCount > 0 && (
+            <button onClick={() => setShowUnchanged((v) => !v)} style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, background: "none", border: "none", cursor: "pointer", padding: "4px 0 20px", textDecoration: "underline" }}>
+              {showUnchanged ? "Hide" : "Show"} {unchangedCount} unchanged item{unchangedCount === 1 ? "" : "s"} from before
+            </button>
+          )}
+
+          {tech.length > 0 && (
+            <>
+              <h3 style={{ fontFamily: SANS, fontWeight: 700, fontSize: 15, margin: "8px 0 12px", color: C.text }}>Emerging Technology Watch</h3>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 12, marginBottom: 8 }}>
+                {tech.map((t, i) => <TechCardView key={i} C={C} MONO={MONO} SANS={SANS} t={t} />)}
+              </div>
+            </>
+          )}
+
+          <div style={{ fontFamily: MONO, fontSize: 10.5, color: C.textDim, marginTop: 14 }}>
+            {intel.generatedAt ? `Generated ${new Date(intel.generatedAt).toLocaleString()}` : ""}{intel.priorAt ? ` · previous run ${new Date(intel.priorAt).toLocaleString()}` : ""}
+          </div>
+        </>
+      )}
+    </section>
   );
 }
 
@@ -144,8 +350,18 @@ const GAPS = [
 
 export default function ResearchTab({ C, MONO, SANS }) {
   const tagKind = (k) => k;
+  const [showStatic, setShowStatic] = useState(false);
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "24px 20px 80px", fontFamily: SANS, color: C.text }}>
+      <LiveIntel C={C} MONO={MONO} SANS={SANS} />
+
+      <button onClick={() => setShowStatic((v) => !v)} style={{
+        fontFamily: MONO, fontSize: 11.5, color: C.textDim, background: "none", border: `1px solid ${C.border}`,
+        borderRadius: 8, padding: "8px 14px", cursor: "pointer", marginBottom: showStatic ? 20 : 40,
+      }}>{showStatic ? "▾" : "▸"} {showStatic ? "Hide" : "Show"} previous manual snapshot report (Aug 28–30, 2026)</button>
+
+      {showStatic && (
+      <>
       <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: 0.5, textTransform: "uppercase", color: C.accent, fontWeight: 700, marginBottom: 10 }}>
         Research Desk
       </div>
@@ -430,6 +646,8 @@ export default function ResearchTab({ C, MONO, SANS }) {
         Reflects data available at time of research; known gaps are disclosed above, not filled with estimates.
         Re-run before the Sep 16, 2026 FOMC decision.
       </div>
+      </>
+      )}
     </div>
   );
 }

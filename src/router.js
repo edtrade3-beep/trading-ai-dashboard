@@ -34,6 +34,7 @@ const handleCOT     = require("./routes/cot");
 const { handleAutoExec } = require("./routes/autoexec");
 const { handleAiHub } = require("./routes/ai-hub");
 const { handleCommandCenter } = require("./routes/command-center");
+const { handleResearchIntel } = require("./routes/research-intel");
 const { handlePaperPositions } = require("./routes/paper-positions");
 const { handleLiquidations } = require("./routes/liquidations");
 const { handleMonitorExtras } = require("./routes/monitor-extras");
@@ -184,6 +185,10 @@ async function handleRequest(req, res) {
 
     if (pathname.startsWith("/api/command-center")) {
       return await handleCommandCenter(req, res, requestUrl);
+    }
+
+    if (pathname.startsWith("/api/research/intel")) {
+      return await handleResearchIntel(req, res, requestUrl);
     }
 
     if (pathname.startsWith("/api/paper-positions")) {
