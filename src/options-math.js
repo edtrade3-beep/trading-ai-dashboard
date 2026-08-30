@@ -44,6 +44,30 @@ function probabilityOfProfit({ delta, iv, strike, underlying, dte, isCall } = {}
   return null;
 }
 
+// Estimated delta — real Black-Scholes N(d1), used ONLY as a fallback when
+// a provider doesn't supply a real delta field (2026-08-30 fix: Yahoo's
+// free chain, used by GET /api/market/options whenever POLYGON_API_KEY
+// isn't configured — see providers/yahoo.js — always returns delta:null,
+// which silently meant autopilot2-expression.js's chooseExpression could
+// NEVER select CALL in that deployment: every real bullish opportunity
+// fell back to STOCK regardless of how good the real option looked, with
+// no visible error). Same r=0 simplification probabilityOfProfit's own
+// d1/d2 calc above already uses, for internal consistency. Returns null
+// (never a placeholder) when the real inputs it needs aren't present.
+function estimateDelta({ iv, strike, underlying, dte, isCall } = {}) {
+  if (
+    !Number.isFinite(iv) || iv <= 0 ||
+    !Number.isFinite(strike) || strike <= 0 ||
+    !Number.isFinite(underlying) || underlying <= 0 ||
+    !Number.isFinite(dte) || dte <= 0
+  ) return null;
+  const sigma = iv / 100;
+  const t = dte / 365;
+  const d1 = (Math.log(underlying / strike) + 0.5 * sigma * sigma * t) / (sigma * Math.sqrt(t));
+  const delta = isCall ? normCdf(d1) : normCdf(d1) - 1;
+  return Math.round(delta * 1000) / 1000;
+}
+
 // Expected 1-standard-deviation move over the contract's remaining life:
 // IV × sqrt(DTE/365) × underlying. Real inputs only.
 function expectedMove({ iv, underlying, dte } = {}) {
@@ -272,7 +296,7 @@ function interpretFlowRow(row) {
 }
 
 module.exports = {
-  normCdf, probabilityOfProfit, expectedMove, spreadPct, liquidityScore,
+  normCdf, probabilityOfProfit, estimateDelta, expectedMove, spreadPct, liquidityScore,
   dteFromExpiry, expectedValue, rankContracts, gammaSqueezeProbability, ivCrushRisk, assignmentRisk,
   interpretFlowRow,
 };

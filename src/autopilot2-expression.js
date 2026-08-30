@@ -11,7 +11,7 @@
 // See the plan for the full scoping rationale.
 "use strict";
 const { fetchOptionsChain } = require("./autopilot2-account");
-const { rankContracts, spreadPct } = require("./options-math");
+const { rankContracts, spreadPct, estimateDelta, dteFromExpiry } = require("./options-math");
 const { MIN_LIQUIDITY } = require("./strategy-selector");
 
 // Real, disclosed, deliberate defaults — not derived, adjustable later.
@@ -48,7 +48,28 @@ function decideFromChain(opportunity, chain, expiry) {
   }
 
   const underlying = Number(chain.underlying) || Number(opportunity.price) || null;
-  const realCalls = chain.calls.filter((c) => Number.isFinite(c.delta) && c.delta >= DELTA_MIN && c.delta <= DELTA_MAX);
+
+  // Real delta estimation fallback (2026-08-30 fix) — without a
+  // POLYGON_API_KEY, GET /api/market/options falls back to Yahoo's free
+  // chain, which always returns delta:null (no greeks in Yahoo's v7 chain
+  // — see providers/yahoo.js). That silently meant CALL could never be
+  // selected in that deployment: every real bullish opportunity fell back
+  // to STOCK regardless of how good the real option looked, with no
+  // visible error — Autopilot 2.0's options leg was dead code in
+  // production. A provider-real delta is always preferred; only contracts
+  // with delta:null but real iv/strike get an ESTIMATED delta
+  // (options-math.js's estimateDelta, real Black-Scholes N(d1) off real
+  // iv/strike/underlying/dte) — explicitly tagged deltaSource so this is
+  // never confused with a provider-real greek downstream (position
+  // records, UI).
+  const withDelta = chain.calls.map((c) => {
+    if (Number.isFinite(c.delta)) return { ...c, deltaSource: "provider" };
+    const dte = c.dte != null ? c.dte : dteFromExpiry(c.expiry);
+    const est = estimateDelta({ iv: c.iv, strike: c.strike, underlying, dte, isCall: true });
+    return est != null ? { ...c, delta: est, deltaSource: "estimated" } : { ...c, deltaSource: null };
+  });
+
+  const realCalls = withDelta.filter((c) => Number.isFinite(c.delta) && c.delta >= DELTA_MIN && c.delta <= DELTA_MAX);
   if (!realCalls.length) {
     return { expression: "STOCK", reason: `no real call in the ${DELTA_MIN}-${DELTA_MAX} delta band for this expiry — expressing as stock` };
   }
@@ -70,7 +91,7 @@ function decideFromChain(opportunity, chain, expiry) {
 
   return {
     expression: "CALL",
-    reason: `real call selected: strike $${top.strike}, ${top.dte}d to ${expiry}, POP ${top.pop ?? "n/a"}%, liquidity ${top.liquidityScore}/100`,
+    reason: `real call selected: strike $${top.strike}, ${top.dte}d to ${expiry}, POP ${top.pop ?? "n/a"}%, liquidity ${top.liquidityScore}/100${top.deltaSource === "estimated" ? ` (delta ${top.delta} estimated via Black-Scholes — no provider greeks available)` : ""}`,
     contract: { ...top, symbol, expiry, underlyingAtEntry: underlying },
   };
 }

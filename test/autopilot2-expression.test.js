@@ -56,6 +56,33 @@ ok("a real contract with no real ask price refuses rather than fabricates an ent
   const r = decideFromChain(OPP, { underlying: 200, calls: [liquidCall({ ask: 0 })] }, "2026-10-16");
   assert.strictEqual(r.expression, "STOCK");
 });
+ok("a real provider-supplied delta is tagged deltaSource:provider, never re-estimated", () => {
+  const r = decideFromChain(OPP, { underlying: 200, calls: [liquidCall()] }, "2026-10-16");
+  assert.strictEqual(r.expression, "CALL");
+  assert.strictEqual(r.contract.deltaSource, "provider");
+});
+
+console.log("\nChecking the real Black-Scholes delta-estimation fallback (2026-08-30 fix — Yahoo's free chain has no real greeks, delta:null, which previously meant CALL could never be selected without a POLYGON_API_KEY)…");
+// Same shape providers/yahoo.js's fetchYahooOptionsChain actually returns:
+// delta explicitly null, but real iv/strike/expiry present.
+function yahooShapedCall(overrides = {}) {
+  return { contractSymbol: "AAPL240119C00200000", strike: 195, delta: null, bid: 9.8, ask: 10.0, openInterest: 3000, volume: 1500, iv: 30, dte: 30, expiry: "2026-10-16", ...overrides };
+}
+ok("a real Yahoo-shaped chain (delta:null, real iv/strike) still selects CALL via the estimated delta", () => {
+  const r = decideFromChain(OPP, { underlying: 200, calls: [yahooShapedCall()] }, "2026-10-16");
+  assert.strictEqual(r.expression, "CALL", r.reason);
+  assert.strictEqual(r.contract.deltaSource, "estimated");
+  assert.ok(r.contract.delta >= DELTA_MIN && r.contract.delta <= DELTA_MAX, `estimated delta ${r.contract.delta} should land in-band for a real $195 strike vs $200 underlying`);
+  assert.match(r.reason, /estimated via Black-Scholes/);
+});
+ok("a Yahoo-shaped deep OTM call (delta:null) estimates a real LOW delta and is correctly excluded, not forced into range", () => {
+  const r = decideFromChain(OPP, { underlying: 200, calls: [yahooShapedCall({ strike: 260 })] }, "2026-10-16");
+  assert.strictEqual(r.expression, "STOCK");
+});
+ok("delta:null AND no real iv (nothing to estimate from) honestly falls back to STOCK, never a guessed delta", () => {
+  const r = decideFromChain(OPP, { underlying: 200, calls: [yahooShapedCall({ iv: null })] }, "2026-10-16");
+  assert.strictEqual(r.expression, "STOCK");
+});
 
 console.log("Checking sizeOptionEntry — real contract-count sizing, same real risk budget as a stock trade…");
 ok("real risk budget / (premium x 100) determines contract count", () => {
