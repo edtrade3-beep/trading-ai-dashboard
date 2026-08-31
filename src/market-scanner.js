@@ -147,21 +147,31 @@ const STATE_PATH = path.join(ROOT, "data", "scanner-state.json");
 // restarts don't re-send it.
 const summarySent = new Map(); // signature → timestamp
 const SUMMARY_DEDUP_MS = 4 * 3600_000; // don't repeat an identical summary within 4h
-// SUMMARY_SLOT_MINUTES 15 -> 60 (2026-08-31, explicit user report: "im
-// getting spammed with telegram notification" + a real pasted "15-MIN
-// SCAN" message). The dedup above only blocks an EXACT repeat of the
-// same top-2 buy/sell symbol SET within 4h — across a real 298-symbol
-// universe, a different symbol rotates into the fire-level top-2 often
-// enough that a "new" (and therefore real, non-deduped) summary could
-// fire on every single 15-minute wall-clock slot all day, ~26 times on
-// a full trading day. Real, disclosed, configurable default (same
-// pattern as autopilot2-engine.js's own risk constants) — widening the
-// delivery cadence only changes how often a summary is SENT, not the
-// underlying scan/signal logic (still runs on its own real cycle,
-// unaffected) or FIRE_BUY_SCORE/FIRE_SELL_SCORE's real quality bar.
-const SUMMARY_SLOT_MINUTES = Number(process.env.SCANNER_SUMMARY_INTERVAL_MIN) || 60;
-const SUMMARY_SLOT_MS = SUMMARY_SLOT_MINUTES * 60_000; // interval summary fires at most once per this wall-clock slot
-let lastSummarySlot   = -1;             // Math.floor(now / SUMMARY_SLOT_MS) of the last interval summary
+// SUMMARY_ANCHOR_TIMES_ET (2026-08-31, two-part explicit user follow-up:
+// first "im getting spammed with telegram notification Can you minimise
+// alerts" — was hourly (SUMMARY_SLOT_MINUTES) for one deploy — then "I
+// want to make sure i get less notification possible", scoped via
+// AskUserQuestion to "a few times a day" (market open/midday/close),
+// this scan summary only. The dedup above only blocks an EXACT repeat of
+// the same top-2 buy/sell symbol SET within 4h — across a real
+// 298-symbol universe, a different symbol rotates into the fire-level
+// top-2 often enough that even an hourly rolling interval could still
+// fire ~6 real times on a trading day. Fixed real ET clock-time anchors
+// (not a repeating interval) cap it at 3 real chances to fire per day,
+// regardless of how many different symbols rotate through the top-2.
+// Applies to the weekend crypto-scan path too — there's no real "market
+// open/close" on a weekend, but 3 fixed daily anchors still satisfies "a
+// few times a day" there, and a second weekend-only schedule wasn't part
+// of what was asked for. Env override kept for real, disclosed
+// configurability (same pattern as autopilot2-engine.js's risk
+// constants) — SCANNER_SUMMARY_ANCHORS_ET, comma-separated "HH:MM" ET.
+const SUMMARY_ANCHOR_TIMES_ET = (process.env.SCANNER_SUMMARY_ANCHORS_ET || "09:35,12:30,15:55")
+  .split(",").map((s) => s.trim()).filter(Boolean);
+function etTimeToMinutes(hhmm) {
+  const [h, m] = hhmm.split(":").map(Number);
+  return h * 60 + m;
+}
+let lastSummarySlot = null; // "YYYY-M-D:anchorIndex" of the last interval summary sent
 function summaryAlreadySent(sig) {
   const ts = summarySent.get(sig);
   return !!ts && (Date.now() - ts) < SUMMARY_DEDUP_MS;
@@ -216,7 +226,7 @@ function loadScannerState() {
     for (const [k, ts] of (s.summarySent || [])) {
       if (typeof ts === "number" && ts > sumCutoff) summarySent.set(k, ts);
     }
-    if (typeof s.lastSummarySlot === "number") lastSummarySlot = s.lastSummarySlot;
+    if (typeof s.lastSummarySlot === "string") lastSummarySlot = s.lastSummarySlot;
     if (s.lastMacroRegime)   lastMacroRegime    = s.lastMacroRegime;
     if (s.lastMacroAlertedAt) lastMacroAlertedAt = s.lastMacroAlertedAt;
   } catch {}
@@ -1024,16 +1034,26 @@ async function runScan(options = {}) {
         const hasFireBuy  = buys.some(h  => h.composite >= FIRE_BUY_SCORE);
         const hasFireSell = sells.some(h => h.composite <= FIRE_SELL_SCORE);
         const sigB = summarySignature(buys, sells);
-        // Wall-clock gate: at most ONE interval summary per SUMMARY_SLOT_MINUTES
-        // slot, and only within the first 6 min of a slot so a process restart
-        // can't fire one off-cadence. Restart-proof — no reliance on an elapsed
-        // timer that resets to zero on boot.
-        const nowMs   = Date.now();
-        const slot    = Math.floor(nowMs / SUMMARY_SLOT_MS);
-        const etMin   = parseInt(new Date(nowMs).toLocaleString("en-US", { timeZone: "America/New_York", minute: "numeric" }), 10);
-        const onSlot = (etMin % SUMMARY_SLOT_MINUTES) < 6;
+        // Wall-clock gate: at most ONE interval summary per real ET calendar
+        // day PER anchor in SUMMARY_ANCHOR_TIMES_ET, only within the first 6
+        // min after an anchor so a process restart can't fire one off-cadence.
+        // Restart-proof — no reliance on an elapsed timer that resets to zero
+        // on boot; the slot key (day + anchor index) makes a re-fire for the
+        // same anchor on the same day impossible even across a restart.
+        const nowMs    = Date.now();
+        const nowDate  = new Date(nowMs);
+        const etParts  = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(nowDate);
+        const etGet    = (t) => etParts.find((p) => p.type === t)?.value;
+        const etDayKey = `${etGet("year")}-${etGet("month")}-${etGet("day")}`;
+        const etMinTotal = Number(etGet("hour")) * 60 + Number(etGet("minute"));
+        const anchorIdx = SUMMARY_ANCHOR_TIMES_ET.findIndex((a) => {
+          const am = etTimeToMinutes(a);
+          return etMinTotal >= am && etMinTotal < am + 6;
+        });
+        const onAnchor = anchorIdx !== -1;
+        const slot = `${etDayKey}:${anchorIdx}`;
         if ((buys.length || sells.length) && (hasFireBuy || hasFireSell) &&
-            onSlot && slot !== lastSummarySlot && !summaryAlreadySent(sigB)) {
+            onAnchor && slot !== lastSummarySlot && !summaryAlreadySent(sigB)) {
           lastSummarySlot = slot;
           markSummarySent(sigB);
           const time = new Date().toLocaleTimeString("en-US", {
@@ -1042,7 +1062,7 @@ async function runScan(options = {}) {
 
           let msg = weekend
             ? `🪙 WEEKEND CRYPTO SCAN  •  ${symbolsScanned} symbols\n`
-            : `📊 ${SUMMARY_SLOT_MINUTES}-MIN SCAN  •  ${symbolsScanned} symbols\n`;
+            : `📊 SCAN SUMMARY  •  ${symbolsScanned} symbols\n`;
           msg    += `⏰ ${time} ET\n`;
           msg    += `━━━━━━━━━━━━━━━━━━━━━━━━\n`;
 
