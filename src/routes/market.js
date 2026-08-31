@@ -3721,15 +3721,23 @@ Explain this.`;
   if (pathname === "/api/market/seasonality" && req.method === "GET") {
     const symbol = (searchParams.get("symbol") || "SPY").trim().toUpperCase();
     const now = new Date();
-    const monthIndex = Math.max(0, Math.min(11, Number(searchParams.get("month") ?? now.getUTCMonth())));
+    const currentMonth = now.getUTCMonth();
     try {
-      const { computeMonthlySeasonality, classifyCycleYear } = require("../spy-seasonality-engine");
+      // computeAllMonthsSeasonality (2026-08-31, "MAKE IT MORE DETAILED
+      // MONTHLY") — returns all 12 real months from the SAME one real bars
+      // fetch, so the full-year detail view costs one real network call,
+      // not twelve. `month`/`years`/`stats` at the top level are kept for
+      // backward compatibility (currentMonth's own real data, unchanged
+      // shape) alongside the new `months` array.
+      const { computeAllMonthsSeasonality, classifyCycleYear } = require("../spy-seasonality-engine");
       const bars = await fetchYahooBarsLong(symbol, "20y", "1d");
-      const { years, stats } = computeMonthlySeasonality(bars, monthIndex);
+      const months = computeAllMonthsSeasonality(bars);
+      const current = months[currentMonth];
       return writeJson(res, 200, {
-        ok: true, symbol, month: monthIndex,
+        ok: true, symbol, month: currentMonth,
         currentYear: now.getUTCFullYear(), currentYearCycleType: classifyCycleYear(now.getUTCFullYear()),
-        years, stats, generatedAt: new Date().toISOString(),
+        years: current.years, stats: current.stats, months,
+        generatedAt: new Date().toISOString(),
       });
     } catch (e) {
       return writeJson(res, 200, { ok: false, error: "Could not compute real seasonality.", debug: e.message });

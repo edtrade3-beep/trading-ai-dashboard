@@ -3,7 +3,7 @@
 // synthetic-input, zero-network.
 "use strict";
 const assert = require("node:assert");
-const { CYCLE_TYPES, classifyCycleYear, computeMonthlySeasonality } = require("../src/spy-seasonality-engine");
+const { CYCLE_TYPES, classifyCycleYear, computeMonthlySeasonality, computeAllMonthsSeasonality } = require("../src/spy-seasonality-engine");
 
 let passed = 0;
 function ok(name, fn) { try { fn(); passed++; console.log(`  ✓ ${name}`); } catch (e) { console.error(`  ✗ ${name}\n    ${e.message}`); process.exitCode = 1; } }
@@ -82,6 +82,32 @@ ok("real stats honestly null out on zero real years, never a fabricated 0", () =
   const { stats } = computeMonthlySeasonality([], 8);
   assert.strictEqual(stats.avg, null);
   assert.strictEqual(stats.winRate, null);
+});
+
+console.log("\nChecking computeAllMonthsSeasonality — real per-month breakdown, one real fetch reused 12 ways…");
+ok("returns exactly 12 real months, in calendar order", () => {
+  const bars = [
+    { time: ts(2021, 7, 31), close: 100 }, { time: ts(2021, 8, 30), close: 110 },
+    { time: ts(2022, 7, 31), close: 100 }, { time: ts(2022, 8, 30), close: 90 },
+  ];
+  const months = computeAllMonthsSeasonality(bars);
+  assert.strictEqual(months.length, 12);
+  assert.deepStrictEqual(months.map((m) => m.month), Array.from({ length: 12 }, (_, i) => i));
+});
+ok("each real month's stats match calling computeMonthlySeasonality directly for that month", () => {
+  const bars = [
+    { time: ts(2021, 7, 31), close: 100 }, { time: ts(2021, 8, 30), close: 110 },
+    { time: ts(2022, 7, 31), close: 100 }, { time: ts(2022, 8, 30), close: 90 },
+  ];
+  const months = computeAllMonthsSeasonality(bars);
+  const direct = computeMonthlySeasonality(bars, 8);
+  assert.deepStrictEqual(months[8], { month: 8, years: direct.years, stats: direct.stats });
+});
+ok("a real month with no data on file honestly has zero years, not fabricated", () => {
+  const bars = [{ time: ts(2021, 7, 31), close: 100 }, { time: ts(2021, 8, 30), close: 110 }];
+  const months = computeAllMonthsSeasonality(bars);
+  assert.strictEqual(months[0].years.length, 0); // January never appears in this fixture
+  assert.strictEqual(months[0].stats.avg, null);
 });
 
 console.log(`\n${passed} checks passed.`);

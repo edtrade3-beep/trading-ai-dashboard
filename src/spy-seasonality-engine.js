@@ -100,4 +100,17 @@ function computeStats(years) {
   };
 }
 
-module.exports = { CYCLE_TYPES, classifyCycleYear, computeMonthlySeasonality };
+// All 12 months at once (2026-08-31, explicit user request after seeing
+// the single-month chart: "MAKE IT MORE DETAILED MONTHLY") — reuses the
+// SAME already-fetched real bars for every month rather than re-fetching,
+// so the full-year view costs one real network call, not twelve.
+function computeAllMonthsSeasonality(bars) {
+  const months = [];
+  for (let m = 0; m < 12; m++) {
+    const { years, stats } = computeMonthlySeasonality(bars, m);
+    months.push({ month: m, years, stats });
+  }
+  return months;
+}
+
+module.exports = { CYCLE_TYPES, classifyCycleYear, computeMonthlySeasonality, computeAllMonthsSeasonality };
