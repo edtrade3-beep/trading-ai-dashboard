@@ -13,7 +13,7 @@ const {
   normalizeYield, aggregateBars
 } = require("../indicators");
 const {
-  fetchYahooQuotes, fetchYahooQuoteBatch, fetchYahooBars,
+  fetchYahooQuotes, fetchYahooQuoteBatch, fetchYahooBars, fetchYahooBarsExtended, sessionForBar,
   fetchYahooNews, fetchYahooFundamentals,
   fetchYahooOptionsFlowForSymbol, fetchEstimatedOptionsFlow, fetchYahooOptionsChain,
   fetchYahooShortInterest,
@@ -870,21 +870,38 @@ function ttSmaSeries(values, period) {
 // The Minervini scoring below always runs on real daily bars regardless of
 // this pick — the rating/pivot/stop/target reflect the daily swing thesis
 // no matter which candle granularity you're currently looking at.
+// Intraday intervals switched from Alpaca to Yahoo-with-extended-hours
+// (2026-08-31, explicit user request: "In chart add pre market and
+// aftermarket"). Alpaca's own extended_hours param is confirmed broken/
+// removed by Alpaca as of 2026-08-17 (see alpaca-data.js's own header —
+// a real prior production incident from exactly this feature), so
+// regular-session-only Alpaca can't grow real extended-hours candles no
+// matter what's passed here. range values below are each live-verified
+// directly against Yahoo's real chart endpoint (2026-08-31, with
+// includePrePost=true) before use — 5m/15m/30m all confirmed real,
+// populated responses at "1mo" (30m confirmed to real-fail, HTTP 422, at
+// "3mo" — "1mo" stays safely inside the real working range); 1h/"6mo"
+// matches the real bar count the old Alpaca range already returned, no
+// regression there.
 const TT_INTERVAL_MAP = {
-  "5m":  { provider: "alpaca", range: "5d",  tf: "5m" },
-  "15m": { provider: "alpaca", range: "1mo", tf: "15m" },
-  "30m": { provider: "alpaca", range: "3mo", tf: "30m" },
-  "1h":  { provider: "alpaca", range: "6mo", tf: "60m" },
+  "5m":  { provider: "yahoo-extended", range: "1mo", tf: "5m" },
+  "15m": { provider: "yahoo-extended", range: "1mo", tf: "15m" },
+  "30m": { provider: "yahoo-extended", range: "1mo", tf: "30m" },
+  "1h":  { provider: "yahoo-extended", range: "6mo", tf: "60m" },
   "1wk": { provider: "yahoo",  range: "5y",  tf: "1wk" },
 };
 async function fetchIntervalBars(symbol, interval) {
   const cfg = TT_INTERVAL_MAP[interval];
   if (!cfg) return null;
   try {
-    if (cfg.provider === "alpaca") {
-      const { fetchAlpacaBars } = require("../providers/alpaca-data");
-      const bars = await fetchAlpacaBars(symbol, cfg.range, cfg.tf);
-      return Array.isArray(bars) && bars.length >= 20 ? bars : null;
+    if (cfg.provider === "yahoo-extended") {
+      const bars = await fetchYahooBarsExtended(symbol, cfg.range, cfg.tf);
+      if (!Array.isArray(bars) || bars.length < 20) return null;
+      // Real session tag per bar (PRE/REGULAR/POST) — additive, so
+      // TrendChart.jsx can render extended-hours candles distinctly
+      // without the caller needing to re-derive session from raw
+      // timestamps itself.
+      return bars.map((b) => ({ ...b, session: sessionForBar(b.time) }));
     }
     const bars = await fetchYahooBars(symbol, cfg.range, cfg.tf);
     return Array.isArray(bars) && bars.length >= 20 ? bars : null;
@@ -1738,6 +1755,10 @@ async function _buildTrendTemplate(symbol, opts = {}) {
       result.bars = altBars.map((b) => ({
         time: b.time, open: round2(b.open), high: round2(b.high), low: round2(b.low),
         close: round2(b.close), volume: Math.round(b.volume || 0),
+        // Real PRE/REGULAR/POST session tag (2026-08-31, extended-hours
+        // chart) — undefined for non-intraday intervals (1wk), where
+        // TrendChart.jsx's own falsy check already skips the dimming.
+        session: b.session,
       }));
       result.series = {
         ma50: ttSmaSeries(altCloses, 50).map((v) => (v == null ? null : round2(v))),

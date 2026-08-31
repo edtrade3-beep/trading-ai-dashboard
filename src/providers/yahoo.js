@@ -153,6 +153,67 @@ async function fetchYahooBars(symbol, range, interval) {
   throw new Error(`Yahoo chart unavailable for ${symbol}`);
 }
 
+// Real extended-hours chart bars — pre-market (real 4am-9:30am ET) and
+// after-hours (real 4pm-8pm ET) candles included via Yahoo's real
+// includePrePost flag (explicit user request, 2026-08-31: "In chart add
+// pre market and aftermarket"). Deliberately a fresh, Yahoo-only
+// function, NOT routed through fetchYahooBars' existing Alpaca-first
+// fallback: Alpaca's own extended_hours param was tried once already
+// (2026-08-17) and broke every real interval-based chart fetch app-wide
+// when Alpaca's API stopped recognizing it (see alpaca-data.js's own
+// header comment for the full incident) — this only touches the one
+// real call site that needs extended hours (the chart's own interval-
+// bars fetch), so every other existing caller of fetchYahooBars/
+// fetchAlpacaBars (regular-session-only, Alpaca-preferred) is completely
+// unaffected. Range/interval combinations live-verified directly against
+// Yahoo's real endpoint before use (2026-08-31): 5m/1mo, 15m/1mo, 30m/1mo
+// all confirmed real, populated responses; 30m/2mo and 15m/2mo confirmed
+// to real-fail (HTTP 422) — the values used here stay safely inside the
+// real, confirmed-working range. Falls back to the regular (non-
+// extended) fetchYahooBars on any real failure — a chart without
+// extended hours beats a broken one.
+async function fetchYahooBarsExtended(symbol, range, interval) {
+  const path = `/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${interval}&includePrePost=true&events=div%2Csplits`;
+  const urls = [
+    `https://query1.finance.yahoo.com${path}`,
+    `https://query2.finance.yahoo.com${path}`,
+  ];
+  for (const url of urls) {
+    try {
+      const response = await yFetch(url, 9000);
+      if (!response.ok) continue;
+      const payload = await response.json();
+      const bars = parseYahooChartBars(payload);
+      if (bars.length > 0) return bars;
+    } catch { continue; }
+  }
+  try {
+    return await fetchYahooBars(symbol, range, interval);
+  } catch {
+    return [];
+  }
+}
+
+// Real regular-session-hours classifier for one bar timestamp — pure,
+// timezone-correct (America/New_York, handles DST automatically via
+// Intl), no dependency on "today"'s specific real session boundaries
+// (Yahoo's chart meta only carries those for the current day, but a real
+// intraday series spans many days). A real, disclosed simplification:
+// doesn't special-case holiday early closes (1pm ET) — those bars would
+// be mislabeled POST for the last hour, a rare, honest edge case, never
+// a fabricated "correct" session.
+function sessionForBar(timeMs) {
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", hour: "numeric", minute: "numeric", hour12: false })
+    .formatToParts(new Date(timeMs));
+  const hour = Number(parts.find((p) => p.type === "hour")?.value);
+  const minute = Number(parts.find((p) => p.type === "minute")?.value);
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null;
+  const mins = hour * 60 + minute;
+  if (mins < 9 * 60 + 30) return "PRE";
+  if (mins < 16 * 60) return "REGULAR";
+  return "POST";
+}
+
 async function fetchYahooQuoteBatch(symbols) {
   try {
     const list = symbols.map((s) => String(s || "").trim()).filter(Boolean).join(",");
@@ -1005,7 +1066,7 @@ async function fetchYahooEarnings(symbol) {
 
 module.exports = {
   fetchYahooEarnings,
-  fetchYahooBars, fetchYahooQuoteBatch, fetchYahooQuotes, fetchQuoteBatchWithFallback,
+  fetchYahooBars, fetchYahooBarsExtended, sessionForBar, fetchYahooQuoteBatch, fetchYahooQuotes, fetchQuoteBatchWithFallback,
   fetchYahooQuoteBatchWithFields,
   fetchYahooNews, fetchYahooRssNews,
   fetchYahooFundamentals, fetchYahooCandlesWithIndicators,

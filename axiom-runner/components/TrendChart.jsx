@@ -281,7 +281,18 @@ export default function TrendChart({ data, C, MONO, SANS, height, vcpOverlayOn }
     // Lightweight Charts just repeats the date across every bar in a day).
     chart.applyOptions({ timeScale: { timeVisible: !!isIntraday, secondsVisible: false } });
     const bars = data.bars, n = bars.length;
-    s.candle.setData(bars.map(b => ({ time: toTime(b.time), open: b.open, high: b.high, low: b.low, close: b.close })));
+    // Pre/post-market candles (2026-08-31, explicit user request: "In
+    // chart add pre market and aftermarket") — real session tag from the
+    // server (b.session, undefined for non-intraday intervals like 1wk,
+    // where this is a no-op). Same real up/down hue, dimmed, so extended-
+    // hours bars are visible without competing with the real official
+    // regular-session candles.
+    s.candle.setData(bars.map(b => {
+      const base = { time: toTime(b.time), open: b.open, high: b.high, low: b.low, close: b.close };
+      if (!b.session || b.session === "REGULAR") return base;
+      const dim = (b.close >= b.open ? C.green : C.red) + "66";
+      return { ...base, color: dim, borderColor: dim, wickColor: dim };
+    }));
     // Volume dry-up (2026-08-24, VCP Visual Analysis Layer) — bars inside
     // the real detected base (from vcp.points[0].i, the same real base-
     // start index the price-line/marker logic below already uses) get a
