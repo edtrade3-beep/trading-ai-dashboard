@@ -144,9 +144,22 @@ Search for real, current information now and return the JSON.`;
     // makes truncation/timeout MORE likely, not a strictly-better answer.
     // Confirmed live here too — 6 searches timed out against
     // callAnthropicWithSearch's own 120s default before this fix.
+    //
+    // Real timeout raised 120s -> 280s (2026-08-31, live production
+    // failure: "Research AI call failed this run" surfaced to the user
+    // with no other real error) — this call never overrode
+    // callAnthropicWithSearch's 120s default despite its own comment
+    // above already documenting a confirmed real timeout at that value;
+    // every OTHER AI call in this app that hit the same real 120s-is-
+    // too-tight failure this session (Car Business, Command Center) was
+    // already fixed by raising to 280000ms — this call had the same
+    // disclosed risk but was never given the same fix. A manual retry
+    // right after the reported failure succeeded on the first try,
+    // consistent with a transient timeout, not a broken call.
     const raw = await callAnthropicWithSearch(prompt + "\n\n" + SYSTEM, KEY(), {
       model: "claude-sonnet-4-6", maxTokens: 8000,
       maxSearches: getMode() === "saver" ? 2 : 3,
+      timeout: 280000,
       feature: "research-intel",
     });
     const m = (raw || "").match(/\{[\s\S]*\}/);
