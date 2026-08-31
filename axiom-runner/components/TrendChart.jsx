@@ -73,6 +73,17 @@ export default function TrendChart({ data, C, MONO, SANS, height, vcpOverlayOn }
     if (el.parentElement) el.parentElement.style.height = h + "px";
   };
   const [showInfo, setShowInfo] = React.useState(false);
+  // Persisted (2026-08-31, "IN CHART MAKES ALL TECHNICALS TOOLS ON AND
+  // OFF") — same localStorage-toggle convention this codebase already uses
+  // elsewhere (e.g. Autopilot2Tab.jsx's "how it trades" pill).
+  const [showTechnicals, setShowTechnicals] = React.useState(() => {
+    try { return localStorage.getItem("trendchart_technicals_visible") !== "off"; } catch { return true; }
+  });
+  const toggleTechnicals = () => setShowTechnicals((v) => {
+    const nv = !v;
+    try { localStorage.setItem("trendchart_technicals_visible", nv ? "on" : "off"); } catch {}
+    return nv;
+  });
   // Lightweight Charts needs a plain Unix-seconds timestamp (UTCTimestamp)
   // for anything with intraday precision — the {year,month,day} BusinessDay
   // form only carries date resolution, so every 5m/15m/30m/1h bar within the
@@ -514,6 +525,23 @@ export default function TrendChart({ data, C, MONO, SANS, height, vcpOverlayOn }
     if (symRef.current !== viewKey) { chart.timeScale().fitContent(); symRef.current = viewKey; }
   }, [data, C, vcpOverlayOn]);
 
+  // Master technicals on/off (2026-08-31, explicit user request: "IN CHART
+  // MAKES ALL TECHNICALS TOOLS ON AND OFF") — every one of these series was
+  // always-on with no way to hide any of it (MA20/50/150/200, Bollinger
+  // Bands, EMA9/21, 20D VWAP). One toggle, not nine — candle/volume/VCP
+  // zigzag are left alone (VCP has its own dedicated Trend & Base Rating
+  // toggle already; candles+volume are the base chart, not "technicals").
+  // Runs after every data refresh too (not just on toggle) since a symbol/
+  // interval change recreates the series fresh at their library default
+  // (visible: true), which would otherwise silently un-hide everything.
+  React.useEffect(() => {
+    const s = seriesRef.current;
+    if (!s) return;
+    [s.ma20, s.ma50, s.ma150, s.ma200, s.bbU, s.bbL, s.ema9, s.ema21, s.vwap20].forEach((series) => {
+      series?.applyOptions({ visible: showTechnicals });
+    });
+  }, [showTechnicals, data]);
+
   if (typeof window !== "undefined" && !window.LightweightCharts) {
     return <div style={{ height: H, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: SANS, fontSize: 12, color: C.textDim }}>Loading interactive chart…</div>;
   }
@@ -628,6 +656,16 @@ export default function TrendChart({ data, C, MONO, SANS, height, vcpOverlayOn }
           )}
         </div>
       )}
+      {/* Master technicals on/off — top-right, mirrors the top-left rating
+          card's corner so neither collides with the right price axis. */}
+      <button onClick={toggleTechnicals} title={showTechnicals ? "Hide MA/Bollinger/EMA/VWAP overlays" : "Show MA/Bollinger/EMA/VWAP overlays"}
+        style={{ position: "absolute", top: 10, right: 12, zIndex: 5, fontFamily: MONO, fontSize: 9.5, fontWeight: 800,
+          letterSpacing: 0.3, padding: "5px 10px", borderRadius: 8, cursor: "pointer",
+          background: showTechnicals ? (C.card || "#fff") : (C.accent || "#2563eb"),
+          color: showTechnicals ? (C.textDim || "#888") : "#fff",
+          border: `1px solid ${showTechnicals ? C.border : C.accent}`, boxShadow: "0 2px 10px rgba(0,0,0,0.18)" }}>
+        {showTechnicals ? "📈 TECHNICALS ON" : "📈 TECHNICALS OFF"}
+      </button>
     </div>
   );
 }

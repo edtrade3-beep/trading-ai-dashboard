@@ -13,6 +13,13 @@
 // "Curbline's market specifically"). Same real GET/POST-refresh shape as
 // MarketWrapTab.jsx's LiveWrap — src/curbline-intel-ai.js is the one real
 // AI chokepoint, this only renders what it returns.
+//
+// Money Ideas (below Curbline Intel) is a second, deliberately separate
+// daily 8:45 AM ET scan (explicit same-day follow-up: "ALSO I WANT
+// CURBLINE FOR IDEAS TO MAKE MONEY AWAY FROM CARF BUISNESS AND TRADING")
+// — real AI-powered money-making ideas that are NOT car-dealership
+// marketing and NOT trading/investing. src/money-ideas-ai.js is its own
+// real AI chokepoint, same shape, zero overlap with Curbline Intel.
 
 import { useState, useEffect, useCallback } from "react";
 
@@ -201,6 +208,117 @@ function LiveIntel({ C, MONO, SANS }) {
   );
 }
 
+const DIFFICULTY_COLOR = (C) => ({ LOW: C.green, MEDIUM: C.amber, HIGH: C.red });
+function IdeaCard({ C, MONO, SANS, i }) {
+  const dColor = DIFFICULTY_COLOR(C)[i.difficulty] || C.textDim;
+  return (
+    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 14px", minWidth: 0, overflow: "hidden" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+        <div style={{ fontFamily: SANS, fontWeight: 700, fontSize: 13.5, color: C.text, lineHeight: 1.4, overflowWrap: "break-word" }}>{i.idea}</div>
+        <span style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 800, color: dColor, whiteSpace: "nowrap", flexShrink: 0 }}>{i.difficulty}</span>
+      </div>
+      {i.whyNow && <div style={{ fontSize: 11.5, color: C.textSec, marginTop: 6, lineHeight: 1.55, overflowWrap: "break-word" }}>{i.whyNow}</div>}
+      {i.howToStart && (
+        <div style={{ fontSize: 11.5, color: C.textDim, marginTop: 6, lineHeight: 1.55, overflowWrap: "break-word" }}>
+          <b style={{ color: C.textSec }}>First step:</b> {i.howToStart}
+        </div>
+      )}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginTop: 8, gap: 8 }}>
+        {i.realExample && <div style={{ fontSize: 10.5, color: C.textDim, fontStyle: "italic", overflowWrap: "break-word" }}>{i.realExample}</div>}
+        {i.timeToFirstDollar && <div style={{ fontFamily: MONO, fontSize: 10, color: C.accent, whiteSpace: "nowrap", flexShrink: 0, marginLeft: "auto" }}>{i.timeToFirstDollar}</div>}
+      </div>
+    </div>
+  );
+}
+
+function MoneyIdeasSection({ C, MONO, SANS }) {
+  const [ideas, setIdeas] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(null);
+
+  const load = useCallback(() => {
+    setLoading(true); setError(null);
+    fetch("/api/money-ideas").then((r) => r.json())
+      .then((d) => { if (d.ok) setIdeas(d.ideas); else setError(d.error || "Failed to load Money Ideas."); })
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  const refresh = () => {
+    setRefreshing(true); setError(null);
+    fetch("/api/money-ideas/refresh", { method: "POST" }).then((r) => r.json())
+      .then((d) => { if (d.ok) setIdeas(d.ideas); else setError(d.error || "Refresh failed."); })
+      .catch((e) => setError(e.message))
+      .finally(() => setRefreshing(false));
+  };
+
+  return (
+    <Section C={C} SANS={SANS} title="Money Ideas" tag="Daily · 8:45 AM ET, away from cars & trading">
+      <div style={{ fontSize: 12.5, color: C.textSec, marginBottom: 12, maxWidth: 640 }}>
+        Deliberately separate from Curbline's own dealer-market research above — real, current AI-powered ways
+        to make money that aren't car-dealership marketing or trading/investing (both already covered elsewhere
+        in this app).
+      </div>
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+        <button onClick={refresh} disabled={refreshing} style={{
+          fontFamily: MONO, fontSize: 11.5, fontWeight: 700, padding: "7px 13px", borderRadius: 7,
+          border: `1px solid ${C.accent}`, background: refreshing ? C.card : C.accent, color: refreshing ? C.accent : "#fff",
+          cursor: refreshing ? "default" : "pointer", whiteSpace: "nowrap",
+        }}>{refreshing ? "Scanning…" : "↻ Refresh"}</button>
+      </div>
+
+      {loading && <div style={{ fontSize: 13, color: C.textDim }}>Loading Money Ideas…</div>}
+      {!loading && error && <div style={{ fontSize: 13, color: C.red, background: `${C.red}18`, borderRadius: 8, padding: "10px 14px" }}>{error}</div>}
+      {!loading && !error && !ideas && (
+        <div style={{ fontSize: 13, color: C.textDim, background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "16px 18px" }}>
+          No scan generated yet. This runs automatically once a day (8:45 AM ET), or click "Refresh" to generate one now.
+          {" "}Requires <code>ANTHROPIC_API_KEY</code> to be configured.
+        </div>
+      )}
+
+      {!loading && ideas && (
+        <>
+          {ideas.ideas?.length > 0 && (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 10, marginBottom: 16 }}>
+              {ideas.ideas.map((i, idx) => <IdeaCard key={idx} C={C} MONO={MONO} SANS={SANS} i={i} />)}
+            </div>
+          )}
+          {!ideas.ideas?.length && <div style={{ fontSize: 12.5, color: C.textDim, marginBottom: 16 }}>No real ideas surfaced this run.</div>}
+
+          {ideas.trends?.length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 8, textTransform: "uppercase" }}>Real trends found</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {ideas.trends.map((t, i) => (
+                  <div key={i} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px" }}>
+                    <div style={{ fontFamily: SANS, fontWeight: 700, fontSize: 12.5, color: C.text, overflowWrap: "break-word" }}>{t.trend}</div>
+                    {t.note && <div style={{ fontSize: 11.5, color: C.textSec, marginTop: 4, lineHeight: 1.5, overflowWrap: "break-word" }}>{t.note}</div>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {ideas.watchFor?.length > 0 && (
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 16px", marginBottom: 4 }}>
+              <div style={{ fontFamily: MONO, fontSize: 9.5, textTransform: "uppercase", letterSpacing: 0.4, color: C.textDim, marginBottom: 6 }}>Watch for next scan</div>
+              <ul style={{ margin: 0, paddingLeft: 18 }}>
+                {ideas.watchFor.map((w, i) => <li key={i} style={{ fontSize: 11.5, color: C.textSec, marginBottom: 3 }}>{w}</li>)}
+              </ul>
+            </div>
+          )}
+
+          <div style={{ fontFamily: MONO, fontSize: 10.5, color: C.textDim, marginTop: 4 }}>
+            {ideas.generatedAt ? `Generated ${new Date(ideas.generatedAt).toLocaleString()}` : ""}
+          </div>
+        </>
+      )}
+    </Section>
+  );
+}
+
 export default function CurblineTab({ C, MONO, SANS }) {
   const mailBody = encodeURIComponent("Dealership name:\nState/city:\nApprox. inventory size:");
   const mailHref = `mailto:ed.dixiemotors@gmail.com?subject=${encodeURIComponent("Curbline AI — early access")}&body=${mailBody}`;
@@ -220,6 +338,8 @@ export default function CurblineTab({ C, MONO, SANS }) {
       </p>
 
       <LiveIntel C={C} MONO={MONO} SANS={SANS} />
+
+      <MoneyIdeasSection C={C} MONO={MONO} SANS={SANS} />
 
       <Section C={C} SANS={SANS} title="A real example" tag="Same tool used on Car Business's Ad Maker">
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>

@@ -40,13 +40,25 @@ const CALL_DTE_EXIT_FLOOR = Number(process.env.AUTOPILOT2_CALL_DTE_FLOOR) || 5;
 const RISK_PCT_PER_TRADE = Number(process.env.AUTOPILOT2_RISK_PCT) || 0.5;
 const MAX_TRADE_RISK_DOLLARS = Number(process.env.AUTOPILOT2_MAX_TRADE_RISK) || 500;
 const MAX_NAME_PCT = Number(process.env.AUTOPILOT2_MAX_NAME_PCT) || 20;
-const MAX_OPEN_POSITIONS = Number(process.env.AUTOPILOT2_MAX_POSITIONS) || 12;
+// MAX_OPEN_POSITIONS 12->16 and MAX_ENTRIES_PER_TICK 3->5 (2026-08-31,
+// explicit user request: "MAKE IT MORE FLEXIBLE MORE TRADES", right after
+// the long-only change above roughly halved the real candidate pool by
+// removing every bearish/short candidate). Both are pure FREQUENCY
+// levers, not risk levers — every real hard risk gate is untouched:
+// RISK_PCT_PER_TRADE/MAX_TRADE_RISK_DOLLARS (per-trade risk) and
+// MAX_OPEN_RISK_PCT (portfolio-wide open-risk ceiling, checked in
+// tryEnter) already cap total real dollars at risk regardless of how many
+// positions are open — more, smaller-risk-each concurrent positions
+// doesn't raise total exposure, it just lets more real gate-cleared
+// candidates actually take a slot instead of being turned away by a
+// position-count ceiling that had nothing to do with risk.
+const MAX_OPEN_POSITIONS = Number(process.env.AUTOPILOT2_MAX_POSITIONS) || 16;
 const MAX_PER_SECTOR = Number(process.env.AUTOPILOT2_MAX_SECTOR) || 3;
 const MAX_OPEN_RISK_PCT = Number(process.env.AUTOPILOT2_MAX_OPEN_RISK) || 6;
 const DAILY_LOSS_PCT = Number(process.env.AUTOPILOT2_DAILY_LOSS_PCT) || 2;
 const WEEKLY_LOSS_PCT = Number(process.env.AUTOPILOT2_WEEKLY_LOSS_PCT) || 5;
 const TOTAL_DRAWDOWN_PCT = Number(process.env.AUTOPILOT2_DRAWDOWN_PCT) || 15;
-const MAX_ENTRIES_PER_TICK = 3;
+const MAX_ENTRIES_PER_TICK = 5;
 
 // Fresh real verdict for an already-open position (management, not entry)
 // — reruns the exact same real pipeline computeAllOpportunities used at

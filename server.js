@@ -60,6 +60,7 @@ const { buildCommandCenter } = require("./src/command-center-ai");
 const { buildResearchIntel } = require("./src/research-intel-ai");
 const { buildMarketWrap } = require("./src/market-wrap-ai");
 const { buildCurblineIntel } = require("./src/curbline-intel-ai");
+const { buildMoneyIdeas } = require("./src/money-ideas-ai");
 const { buildCarBusinessIntel } = require("./src/car-business-ai");
 const { runPredictionTracker } = require("./src/prediction-tracker");
 const { revertMisgradedXIntelShorts } = require("./src/predictions-store");
@@ -200,7 +201,7 @@ server.listen(PORT, HOST, () => {
 
   // AI Morning Game Plan (~9:40 AM ET) + AI Trade Coach (~4:15 PM ET) — weekdays, server-side.
   // Autopilot recap (~4:05 PM ET) — what the Alpaca paper autopilot did today.
-  let _gpSent = null, _coachSent = null, _recapAP = null, _weeklySent = null, _monthlyReview = null, _mrvPaper = null, _mrvSummary = null, _apexSent = null, _ceoSent = null, _aplusSnapshot = null, _cmdCenterSent = null, _ivSnapshot = null, _edgeDecaySnapshot = null, _researchIntelSent = null, _carBusinessSent = null, _marketWrapSent = null, _curblineIntelSent = null;
+  let _gpSent = null, _coachSent = null, _recapAP = null, _weeklySent = null, _monthlyReview = null, _mrvPaper = null, _mrvSummary = null, _apexSent = null, _ceoSent = null, _aplusSnapshot = null, _cmdCenterSent = null, _ivSnapshot = null, _edgeDecaySnapshot = null, _researchIntelSent = null, _carBusinessSent = null, _marketWrapSent = null, _curblineIntelSent = null, _moneyIdeasSent = null;
   setInterval(() => {
     const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
     const h = et.getHours(), m = et.getMinutes(), day = et.getDay();
@@ -239,6 +240,12 @@ server.listen(PORT, HOST, () => {
     // Command Center so it can reuse the same freshly-warmed macro-regime
     // cache (20-min TTL, routes/market.js) instead of a cold recompute.
     if (h === 8 && m >= 35 && m < 41 && _researchIntelSent !== today) { _researchIntelSent = today; buildResearchIntel().catch(() => {}); }
+    // Money Ideas 8:45 ET — explicit user request, 2026-08-31: "ALSO I
+    // WANT CURBLINE FOR IDEAS TO MAKE MONEY AWAY FROM CARF BUISNESS AND
+    // TRADING". A real, free gap in this block (Research Intel ends 8:41,
+    // Morning Game Plan doesn't start until 9:40) — 4 min after Research
+    // Intel, same ~5-10 min stagger discipline as every other job here.
+    if (h === 8 && m >= 45 && m < 51 && _moneyIdeasSent !== today) { _moneyIdeasSent = today; buildMoneyIdeas().catch(() => {}); }
     if (h === 9 && m >= 40 && m < 46 && _gpSent !== today) { _gpSent = today; runMorningGamePlan().catch(() => {}); }
     if (h === 16 && m >= 5 && m < 11 && _recapAP !== today) { _recapAP = today; runAutopilotRecap().catch(() => {}); }
     if (h === 16 && m >= 15 && m < 21 && _coachSent !== today) { _coachSent = today; runTradeCoach().catch(() => {}); }
