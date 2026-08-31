@@ -5,9 +5,12 @@ import { useState, useEffect, useCallback } from "react";
 // scan->enter->manage->exit loop (src/autopilot2-engine.js) — never a
 // real order, never Alpaca. Stocks + long calls during market hours, plus
 // real 24/7 spot crypto (BTC/ETH/SOL/XRP/DOGE/ADA/AVAX/LINK/LTC/BCH/DOT,
-// unconditional of market hours) since 2026-08-30. Puts and spreads are
-// real, disclosed gaps, not silently missing (Autopilot goal audit,
-// 2026-08-30). The "No puts, spreads, or crypto yet" line that used to be
+// unconditional of market hours) since 2026-08-30 — long only. Shorts,
+// puts, and spreads are real, disclosed gaps, not silently missing
+// (shorts/puts were briefly live 2026-08-31 for bidirectional trading,
+// then explicitly turned back off same day per user request: "REMOVE
+// SHORTS FROM AUTOPILOT 2.0 ANLY CRYPTO AND STOCK AND STOCKS OPTIONS
+// LONG"). The "No puts, spreads, or crypto yet" line that used to be
 // here was stale after crypto shipped and was the direct cause of a real
 // user-reported "not working, not even crypto" bug report — fixed same day.
 //
@@ -31,14 +34,12 @@ function fmtMoney(n) {
 // Node's ./config) rather than imported, same "duplicate the fixed list,
 // not the engine" precedent as btc-hpc-scan.js's own client twin.
 const CRYPTO_WATCH_SYMBOLS = ["BTC-USD", "ETH-USD", "SOL-USD", "XRP-USD", "DOGE-USD", "ADA-USD", "AVAX-USD", "LINK-USD", "LTC-USD", "BCH-USD", "DOT-USD"];
-// EARLY_SHORT/SHORT (2026-08-31, bidirectional trading) reuse the same
-// red hex as AVOID_LONG (universal finance convention: red = bearish
-// direction) — the accompanying 🔻 icon in the card body (below) is what
-// keeps "actionable short" from reading the same as "blocked long," same
-// disambiguation choice as am-core-engine.js's BEARISH_VERDICT_META.
+// EARLY_SHORT/SHORT entries removed (2026-08-31, "REMOVE SHORTS FROM
+// AUTOPILOT 2.0") — this panel is long-only display now, matching what
+// autopilot2-engine.js will actually act on; see ACTIONABLE_VERDICTS
+// below for the same change.
 const VERDICT_COLOR = (C) => ({
   EARLY_BUY: C.green, BUY: C.green, AVOID_LONG: C.red, HOLD: C.accent, EXIT: C.red, TAKE_PROFIT: C.green,
-  EARLY_SHORT: C.red, SHORT: C.red,
 });
 
 // Real-time visibility into WHY crypto is or isn't trading right now — the
@@ -57,8 +58,15 @@ const VERDICT_COLOR = (C) => ({
 // better easier to use": the whole point of this grid is answering "is
 // anything about to trade," and that answer was previously invisible
 // without reading every single card).
-const ACTIONABLE_VERDICTS = new Set(["EARLY_BUY", "BUY", "TAKE_PROFIT", "EARLY_SHORT", "SHORT"]);
-const VERDICT_RANK = { EARLY_BUY: 0, BUY: 0, TAKE_PROFIT: 0, EARLY_SHORT: 0, SHORT: 0, HOLD: 1, AVOID_LONG: 2, EXIT: 2 };
+// EARLY_SHORT/SHORT removed from "actionable" (2026-08-31, explicit user
+// request: "REMOVE SHORTS FROM AUTOPILOT 2.0 ANLY CRYPTO AND STOCK AND
+// STOCKS OPTIONS LONG") — autopilot2-engine.js no longer opens a new
+// short-simulated crypto position on any verdict, so counting/coloring a
+// SHORT read as "clear to trade" here would be actively misleading about
+// what this engine will actually do. displayVerdict below now only ever
+// reads the long-side coreVerdict.
+const ACTIONABLE_VERDICTS = new Set(["EARLY_BUY", "BUY", "TAKE_PROFIT"]);
+const VERDICT_RANK = { EARLY_BUY: 0, BUY: 0, TAKE_PROFIT: 0, HOLD: 1, AVOID_LONG: 2, EXIT: 2 };
 
 function CryptoWatch({ C, MONO, SANS }) {
   const [rows, setRows] = useState(null);
@@ -86,8 +94,6 @@ function CryptoWatch({ C, MONO, SANS }) {
   // preference, not a real ranking of which direction is "better."
   const displayVerdict = (r) => {
     if (r.error) return { verdict: null, reason: null, bearish: false };
-    if (ACTIONABLE_VERDICTS.has(r.coreVerdict)) return { verdict: r.coreVerdict, reason: r.coreReason || r.stage, bearish: false };
-    if (ACTIONABLE_VERDICTS.has(r.bearishVerdict)) return { verdict: r.bearishVerdict, reason: r.bearishReason, bearish: true };
     return { verdict: r.coreVerdict, reason: r.coreReason || r.stage, bearish: false };
   };
 
@@ -134,6 +140,100 @@ function CryptoWatch({ C, MONO, SANS }) {
               </div>
             );
           })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Real-time visibility into the STOCK side of the same scan — explicit
+// user report (2026-08-31, screenshot of the Crypto Watch grid: "I ONLY
+// SEE CRYPTO LIST"). Autopilot 2.0 has always also scanned/traded stocks
+// (this file's own header comment says so), but this tab never surfaced
+// that scan the way CryptoWatch does for crypto, so "the account is
+// stock-empty" was indistinguishable from "stocks aren't being scanned
+// at all" — the exact same class of visibility bug CryptoWatch's own
+// header comment describes fixing for crypto on 2026-08-30.
+//
+// Reuses GET /api/market/opportunities — the real, already-existing
+// Opportunity Engine route (src/routes/market.js's computeAllOpportunities)
+// that autopilot2-engine.js's own tick() calls for its real stock
+// candidate pool. Zero new scan/scoring logic, same "one real engine"
+// discipline as CryptoWatch. Polled every 5 minutes, not 60s — this is a
+// real ~100-symbol quote scan (heavier than crypto's 11), and Autopilot
+// 2.0's own tick only re-scans stocks that often anyway.
+//
+// Long-only display (2026-08-31, "REMOVE SHORTS FROM AUTOPILOT 2.0") —
+// only EARLY_BUY/BUY/near-miss-WATCH-with-executableEntry are shown,
+// matching autopilot2-engine.js's own isBullishCandidate gate exactly
+// (BUY/EARLY_BUY always actionable; a WATCH only counts with a real
+// executableEntry) so "clear to trade" here means the same thing it
+// means to the actual engine.
+const STOCK_ACTIONABLE_VERDICTS = new Set(["EARLY_BUY", "BUY"]);
+function isStockActionable(o) {
+  return STOCK_ACTIONABLE_VERDICTS.has(o.verdict) || (o.verdict === "WATCH" && o.executableEntry != null);
+}
+
+function StockWatch({ C, MONO, SANS }) {
+  const [tiers, setTiers] = useState(null);
+  const [dataQuality, setDataQuality] = useState(null);
+  const [error, setError] = useState(null);
+
+  const load = useCallback(() => {
+    fetch("/api/market/opportunities").then((r) => r.json())
+      .then((d) => {
+        if (d.ok) { setTiers(d.tiers); setDataQuality(d.dataQuality); setError(null); }
+        else setError("no real data returned");
+      })
+      .catch((e) => setError(e.message));
+  }, []);
+
+  useEffect(() => {
+    load();
+    const t = setInterval(load, 5 * 60_000);
+    return () => clearInterval(t);
+  }, [load]);
+
+  const all = tiers ? Object.values(tiers).flat() : null;
+  const actionable = all
+    ? [...all.filter(isStockActionable)].sort((a, b) => (b.score ?? -Infinity) - (a.score ?? -Infinity))
+    : null;
+  const stale = !!dataQuality?.stale;
+
+  return (
+    <div style={{ padding: "14px 16px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 12 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: 0.5 }}>
+          STOCK WATCH — same real Opportunity Engine scan Autopilot 2.0 trades off, market hours only, long only
+        </div>
+        {all && (
+          <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: actionable.length > 0 ? C.green : C.textDim }}>
+            {actionable.length} of {all.length} clear to trade right now
+          </div>
+        )}
+      </div>
+      {error && <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>Couldn't load live stock scan: {error}</div>}
+      {!error && !all && <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>Loading real stock scan…</div>}
+      {all && stale && (
+        <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>
+          Market data is stale ({dataQuality.ageMinutes}m old) — new stock/call entries pause when this happens (same real gate as SAFE_MODE), same as Autopilot 2.0 itself. Crypto above is unaffected — it scans 24/7.
+        </div>
+      )}
+      {all && !stale && actionable.length === 0 && (
+        <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>Scanned {all.length} real symbols — none clear every gate right now. An empty list here is the risk rules working, not a bug.</div>
+      )}
+      {all && !stale && actionable.length > 0 && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 8 }}>
+          {actionable.map((o) => (
+            <div key={o.symbol} style={{ border: `1px solid ${C.border}`, borderLeft: `3px solid ${C.green}`, borderRadius: 8, padding: "8px 10px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                <span style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 800, color: C.text }}>{o.symbol}</span>
+                {Number.isFinite(o.price) && <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>${o.price.toLocaleString()}</span>}
+              </div>
+              <div style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 800, color: C.green, marginTop: 3 }}>{o.verdict}</div>
+              {o.verdictReason && <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, marginTop: 2 }}>{o.verdictReason}</div>}
+            </div>
+          ))}
         </div>
       )}
     </div>
@@ -244,7 +344,7 @@ export default function Autopilot2Tab({ C, MONO, SANS }) {
           </span>
         </div>
         <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 3 }}>
-          A real internal $100,000 simulated paper account — trades both directions: stocks/calls/puts (market hours) and real 24/7 spot crypto, long or short-simulated, no real orders ever. No spreads yet, and no real margin/borrow modeled on shorts (paper-only simplification). {data.state?.reason ? `(${data.state.reason})` : ""}
+          A real internal $100,000 simulated paper account — long only: stocks, calls (market hours), and real 24/7 spot crypto, no real orders ever. Shorts and puts are disabled by request; no spreads yet. {data.state?.reason ? `(${data.state.reason})` : ""}
         </div>
       </div>
 
@@ -262,7 +362,7 @@ export default function Autopilot2Tab({ C, MONO, SANS }) {
             </button>
           </div>
           <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, lineHeight: 1.6 }}>
-            Every 5 minutes: <b>scans</b> the real scan universe — plus your real Trade Desk watchlist, so the stocks you personally track get a shot too — through the platform's one canonical engine (am-core-engine.js) → <b>scores</b> and ranks real candidates, both bullish and bearish, by expected value, probability, and risk → <b>checks risk</b> (position/sector/portfolio-risk limits, daily/weekly/drawdown breakers — risk always wins, a blocked trade never fires) → <b>enters</b> the best real candidate as a stock, a short, a call, a put, or spot crypto (long or short-simulated), sized to the risk limit → <b>manages</b> every open position each tick (stop, trail, partial profit, or exit) using that same one verdict engine → <b>exits</b> on a hard stop, invalidated thesis, or (for options) an approaching expiration. Trades that get skipped are logged with the real reason, and revisited later to see what actually happened (Missed Opportunities). Stock/watchlist/call/put scanning only runs during market hours (stale quotes outside them); <b>crypto scans unconditionally, 24/7</b>, every single tick. The same real anti-chase and structure gates apply identically to crypto — an extended or downtrending coin is correctly skipped, not a bug. With no real candidate that clears every gate, it correctly does nothing — an empty account isn't a bug, it's the risk rules working.
+            Every 5 minutes: <b>scans</b> the real scan universe — plus your real Trade Desk watchlist, so the stocks you personally track get a shot too — through the platform's one canonical engine (am-core-engine.js) → <b>scores</b> and ranks real bullish candidates by expected value, probability, and risk → <b>checks risk</b> (position/sector/portfolio-risk limits, daily/weekly/drawdown breakers — risk always wins, a blocked trade never fires) → <b>enters</b> the best real candidate as a stock, a call, or spot crypto, sized to the risk limit — <b>long only</b> (shorts and puts are disabled) → <b>manages</b> every open position each tick (stop, trail, partial profit, or exit) using that same one verdict engine → <b>exits</b> on a hard stop, invalidated thesis, or (for options) an approaching expiration. Trades that get skipped are logged with the real reason, and revisited later to see what actually happened (Missed Opportunities). Stock/watchlist/call scanning only runs during market hours (stale quotes outside them); <b>crypto scans unconditionally, 24/7</b>, every single tick. The same real anti-chase and structure gates apply identically to crypto — an extended or downtrending coin is correctly skipped, not a bug. With no real candidate that clears every gate, it correctly does nothing — an empty account isn't a bug, it's the risk rules working.
           </div>
         </div>
       ) : (
@@ -273,6 +373,7 @@ export default function Autopilot2Tab({ C, MONO, SANS }) {
         </button>
       )}
 
+      <StockWatch C={C} MONO={MONO} SANS={SANS} />
       <CryptoWatch C={C} MONO={MONO} SANS={SANS} />
 
       <div style={{ display: "flex", gap: 24, rowGap: 12, flexWrap: "wrap", padding: "14px 16px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 12 }}>
