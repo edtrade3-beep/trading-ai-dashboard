@@ -147,7 +147,20 @@ const STATE_PATH = path.join(ROOT, "data", "scanner-state.json");
 // restarts don't re-send it.
 const summarySent = new Map(); // signature → timestamp
 const SUMMARY_DEDUP_MS = 4 * 3600_000; // don't repeat an identical summary within 4h
-const SUMMARY_SLOT_MS = 15 * 60_000;    // interval summary fires at most once per 15-min wall-clock slot
+// SUMMARY_SLOT_MINUTES 15 -> 60 (2026-08-31, explicit user report: "im
+// getting spammed with telegram notification" + a real pasted "15-MIN
+// SCAN" message). The dedup above only blocks an EXACT repeat of the
+// same top-2 buy/sell symbol SET within 4h — across a real 298-symbol
+// universe, a different symbol rotates into the fire-level top-2 often
+// enough that a "new" (and therefore real, non-deduped) summary could
+// fire on every single 15-minute wall-clock slot all day, ~26 times on
+// a full trading day. Real, disclosed, configurable default (same
+// pattern as autopilot2-engine.js's own risk constants) — widening the
+// delivery cadence only changes how often a summary is SENT, not the
+// underlying scan/signal logic (still runs on its own real cycle,
+// unaffected) or FIRE_BUY_SCORE/FIRE_SELL_SCORE's real quality bar.
+const SUMMARY_SLOT_MINUTES = Number(process.env.SCANNER_SUMMARY_INTERVAL_MIN) || 60;
+const SUMMARY_SLOT_MS = SUMMARY_SLOT_MINUTES * 60_000; // interval summary fires at most once per this wall-clock slot
 let lastSummarySlot   = -1;             // Math.floor(now / SUMMARY_SLOT_MS) of the last interval summary
 function summaryAlreadySent(sig) {
   const ts = summarySent.get(sig);
@@ -1011,16 +1024,16 @@ async function runScan(options = {}) {
         const hasFireBuy  = buys.some(h  => h.composite >= FIRE_BUY_SCORE);
         const hasFireSell = sells.some(h => h.composite <= FIRE_SELL_SCORE);
         const sigB = summarySignature(buys, sells);
-        // Wall-clock gate: at most ONE interval summary per 15-min slot
-        // (:00/:15/:30/:45), and only within the first 6 min of a slot so a
-        // process restart can't fire one off-cadence. Restart-proof — no reliance
-        // on an elapsed timer that resets to zero on boot.
+        // Wall-clock gate: at most ONE interval summary per SUMMARY_SLOT_MINUTES
+        // slot, and only within the first 6 min of a slot so a process restart
+        // can't fire one off-cadence. Restart-proof — no reliance on an elapsed
+        // timer that resets to zero on boot.
         const nowMs   = Date.now();
         const slot    = Math.floor(nowMs / SUMMARY_SLOT_MS);
         const etMin   = parseInt(new Date(nowMs).toLocaleString("en-US", { timeZone: "America/New_York", minute: "numeric" }), 10);
-        const onQuarter = (etMin % 15) < 6;
+        const onSlot = (etMin % SUMMARY_SLOT_MINUTES) < 6;
         if ((buys.length || sells.length) && (hasFireBuy || hasFireSell) &&
-            onQuarter && slot !== lastSummarySlot && !summaryAlreadySent(sigB)) {
+            onSlot && slot !== lastSummarySlot && !summaryAlreadySent(sigB)) {
           lastSummarySlot = slot;
           markSummarySent(sigB);
           const time = new Date().toLocaleTimeString("en-US", {
@@ -1029,7 +1042,7 @@ async function runScan(options = {}) {
 
           let msg = weekend
             ? `🪙 WEEKEND CRYPTO SCAN  •  ${symbolsScanned} symbols\n`
-            : `📊 15-MIN SCAN  •  ${symbolsScanned} symbols\n`;
+            : `📊 ${SUMMARY_SLOT_MINUTES}-MIN SCAN  •  ${symbolsScanned} symbols\n`;
           msg    += `⏰ ${time} ET\n`;
           msg    += `━━━━━━━━━━━━━━━━━━━━━━━━\n`;
 
