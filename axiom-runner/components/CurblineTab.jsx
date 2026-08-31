@@ -61,16 +61,14 @@ function SpecRow({ C, MONO, SANS, label, title, body }) {
 
 function CompetitorRow({ C, MONO, SANS, c }) {
   return (
-    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
-        <span style={{ fontFamily: SANS, fontWeight: 700, fontSize: 13, color: C.text }}>{c.name}</span>
-        {c.pricingNote && <span style={{ fontFamily: MONO, fontSize: 10.5, color: C.textDim, whiteSpace: "nowrap" }}>{c.pricingNote}</span>}
-      </div>
-      {c.whatTheyDo && <div style={{ fontSize: 11.5, color: C.textSec, marginTop: 4, lineHeight: 1.5 }}>{c.whatTheyDo}</div>}
+    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px", minWidth: 0, overflow: "hidden" }}>
+      <div style={{ fontFamily: SANS, fontWeight: 700, fontSize: 13, color: C.text, lineHeight: 1.4, overflowWrap: "break-word" }}>{c.name}</div>
+      {c.pricingNote && <div style={{ fontFamily: MONO, fontSize: 10.5, color: C.textDim, marginTop: 3, lineHeight: 1.5, overflowWrap: "break-word" }}>{c.pricingNote}</div>}
+      {c.whatTheyDo && <div style={{ fontSize: 11.5, color: C.textSec, marginTop: 6, lineHeight: 1.5, overflowWrap: "break-word" }}>{c.whatTheyDo}</div>}
       {(c.strength || c.weakness) && (
         <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 2 }}>
-          {c.strength && <div style={{ fontSize: 11, color: C.green }}>+ {c.strength}</div>}
-          {c.weakness && <div style={{ fontSize: 11, color: C.red }}>− {c.weakness}</div>}
+          {c.strength && <div style={{ fontSize: 11, color: C.green, lineHeight: 1.5, overflowWrap: "break-word" }}>+ {c.strength}</div>}
+          {c.weakness && <div style={{ fontSize: 11, color: C.red, lineHeight: 1.5, overflowWrap: "break-word" }}>− {c.weakness}</div>}
         </div>
       )}
     </div>
