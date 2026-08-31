@@ -162,6 +162,14 @@ export const SIDEBAR_ITEMS = [
   // duplicating it; no am-core-engine.js/opportunity-engine.js involved.
   { id: "carbusiness", label: "Car Business", icon: "🚗", tab: "carbusiness" },
 
+  // Curbline — concept preview for a productized version of Car
+  // Business's Facebook Ad Maker, sold to other independent dealers.
+  // Explicit user request (2026-08-31: "Project making money from home
+  // using ai" -> "a new AI-powered side business" -> "TAB INSIDE MY
+  // PLATFORM"). Static pitch page only — no multi-tenant backend exists
+  // yet, so this never calls an API; the CTA is an honest mailto: link.
+  { id: "curbline", label: "Curbline", icon: "📣", tab: "curbline" },
+
   // Dealership — the real, already-built operational dealer portal
   // (inventory management, AI CRM inbox, photo tools, price beater —
   // src/dealership/routes.js/fb-hub.js) has existed since before this

@@ -188,6 +188,7 @@ import FutureWalletTab from "./components/FutureWalletTab.jsx";
 import ResearchTab from "./components/ResearchTab.jsx";
 import MarketWrapTab from "./components/MarketWrapTab.jsx";
 import CarBusinessTab from "./components/CarBusinessTab.jsx";
+import CurblineTab from "./components/CurblineTab.jsx";
 import PhotoBannerTab from "./components/PhotoBannerTab.jsx";
 
 // Attach the API token (if the user set one) to every same-origin /api request,
@@ -7382,6 +7383,7 @@ export default function App() {
       {activeTab === "research" && <ResearchTab C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "marketwrap" && <MarketWrapTab C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "carbusiness" && <CarBusinessTab C={C} MONO={MONO} SANS={SANS} />}
+      {activeTab === "curbline" && <CurblineTab C={C} MONO={MONO} SANS={SANS} />}
       {/* SETTINGS — composite sidebar destination (institutional redesign,
           2026-07-29) folding Coach/Learn/Quran/account-risk settings into
           one nav item, per the approved plan's "Settings" mapping — Tools
