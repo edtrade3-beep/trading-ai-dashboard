@@ -432,6 +432,27 @@ export default function TradeDeskTab({
   // TrendChart on this same toggle), so here it's simply flipping the
   // real vcpOverlayOn prop.
   const [vcpOn, setVcpOn] = useState(false);
+  // Simple/Full view mode (2026-08-31, explicit user request: "I WANT
+  // TRADE DESK JUST LOOK AT AND TRADE EASY ANY IDEAS" -> agreed to build
+  // a reduced default view). Trade Desk otherwise always renders the
+  // 7-card Workspace Grid plus a 10-module bottom dock below the core
+  // zone — genuinely useful for a power user scanning everything at
+  // once, but a lot to land on for "just look and trade." Simple (the
+  // new default) keeps the core zone only — header, search/opportunities,
+  // chart, AI verdict (Cortex) — and hides the Workspace Grid + dock
+  // entirely; Full is exactly today's unchanged behavior, one click away.
+  // Persisted per-browser, same localStorage-toggle convention this
+  // codebase already uses elsewhere (e.g. Autopilot2Tab.jsx's "how it
+  // trades" pill).
+  const [viewMode, setViewMode] = useState(() => {
+    try { return localStorage.getItem("tradedesk_view_mode") === "full" ? "full" : "simple"; } catch { return "simple"; }
+  });
+  const toggleViewMode = () => setViewMode((v) => {
+    const nv = v === "simple" ? "full" : "simple";
+    if (nv === "simple") setDockModule(null); // no dock row to close it from in Simple
+    try { localStorage.setItem("tradedesk_view_mode", nv); } catch {}
+    return nv;
+  });
   // Market Context promoted to a real top-level section above the core
   // zone (Phase 1, 2026-08-27) — replaces the old collapsed right-column
   // sub-panel (2026-08-26) now that it's the primary "top-level brain"
@@ -589,6 +610,11 @@ export default function TradeDeskTab({
             <span>{autopilotStatus?.mode === "on" ? "🟢" : "🔴"}</span>
             <span style={{ color: TD.textDim }}>Autopilot</span>
           </span>
+          <button onClick={toggleViewMode} title={viewMode === "simple" ? "Show the full workspace grid + tool dock" : "Hide the extra grid + dock, just chart and verdict"}
+            style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 800, padding: "5px 10px", borderRadius: 999, cursor: "pointer",
+              border: `1px solid ${TD.accent}`, background: viewMode === "full" ? `${TD.accent}22` : "transparent", color: TD.accent }}>
+            {viewMode === "simple" ? "⚡ Simple" : "🧰 Full"}
+          </button>
         </div>
 
         {/* Middle: 3-pane on desktop, stacked segmented view on mobile — never
@@ -624,44 +650,53 @@ export default function TradeDeskTab({
           to that area") from its own full-width top-level strip; that
           MarketContextPanel.jsx mount is retired, MarketContextCard.jsx
           below is now the only real Market Context surface in Trade Desk. */}
-      <div style={{ padding: "10px 12px", display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(280px, 1fr))", gap: 10, background: TD.bg, borderTop: `1px solid ${TD.border}` }}>
-        <MovementIntelligenceCard symbol={symbol} chart={chart} macroData={macroData} sectorData={sectorData} C={TD} MONO={MONO} SANS={SANS} />
-        <MultiTimeframePanel symbol={symbol} chart={chart} C={TD} MONO={MONO} SANS={SANS} />
-        <InstitutionalFlowCard symbol={symbol} C={TD} MONO={MONO} SANS={SANS} />
-        <CatalystCard symbol={symbol} C={TD} MONO={MONO} SANS={SANS} />
-        <OptionsIntelligencePanel symbol={symbol} C={TD} MONO={MONO} SANS={SANS} />
-        <OptionsStrategyRankPanel symbol={symbol} marketBias={marketBias} C={TD} MONO={MONO} SANS={SANS} />
-        <MarketContextCard C={TD} MONO={MONO} SANS={SANS} />
-      </div>
+      {viewMode === "full" && (
+        <div style={{ padding: "10px 12px", display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(280px, 1fr))", gap: 10, background: TD.bg, borderTop: `1px solid ${TD.border}` }}>
+          <MovementIntelligenceCard symbol={symbol} chart={chart} macroData={macroData} sectorData={sectorData} C={TD} MONO={MONO} SANS={SANS} />
+          <MultiTimeframePanel symbol={symbol} chart={chart} C={TD} MONO={MONO} SANS={SANS} />
+          <InstitutionalFlowCard symbol={symbol} C={TD} MONO={MONO} SANS={SANS} />
+          <CatalystCard symbol={symbol} C={TD} MONO={MONO} SANS={SANS} />
+          <OptionsIntelligencePanel symbol={symbol} C={TD} MONO={MONO} SANS={SANS} />
+          <OptionsStrategyRankPanel symbol={symbol} marketBias={marketBias} C={TD} MONO={MONO} SANS={SANS} />
+          <MarketContextCard C={TD} MONO={MONO} SANS={SANS} />
+        </div>
+      )}
 
       {/* Bottom dock — 10 modules, one shared panel, only the selected one
           mounts. A plain sibling of the core zone above, not inside it —
           opening a module adds real page height/scroll instead of
-          squeezing the chart. */}
-      <div style={{ borderTop: `1px solid ${C.border}` }}>
-        <div style={{ display: "flex", overflowX: "auto" }}>
-          {DOCK_MODULES.map((m) => (
-            <button
-              key={m.key}
-              onClick={() => openDockModule(m.key)}
-              style={{
-                flex: isMobile ? "0 0 auto" : 1, padding: "8px 10px", border: "none",
-                borderBottom: dockModule === m.key ? `2px solid ${m.color}` : "2px solid transparent",
-                background: dockModule === m.key ? `${m.color}1a` : "transparent",
-                color: m.color, opacity: dockModule === m.key ? 1 : 0.8,
-                fontFamily: MONO, fontSize: 10.5, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap",
-              }}
-            >
-              {m.label}
-            </button>
-          ))}
-        </div>
-        {dockModule && (
-          <div style={{ maxHeight: isMobile ? "60vh" : "42vh", overflowY: "auto", borderTop: `1px solid ${C.border}` }}>
-            {dockBody}
+          squeezing the chart. Gated behind Full view (2026-08-31, "I WANT
+          TRADE DESK JUST LOOK AT AND TRADE EASY") — Simple keeps only the
+          core zone above (header, search/opportunities, chart, AI
+          verdict). Switching back to Simple with a dock module open would
+          otherwise leave it mounted with nothing to open it from again,
+          so it's explicitly closed on the way out. */}
+      {viewMode === "full" && (
+        <div style={{ borderTop: `1px solid ${C.border}` }}>
+          <div style={{ display: "flex", overflowX: "auto" }}>
+            {DOCK_MODULES.map((m) => (
+              <button
+                key={m.key}
+                onClick={() => openDockModule(m.key)}
+                style={{
+                  flex: isMobile ? "0 0 auto" : 1, padding: "8px 10px", border: "none",
+                  borderBottom: dockModule === m.key ? `2px solid ${m.color}` : "2px solid transparent",
+                  background: dockModule === m.key ? `${m.color}1a` : "transparent",
+                  color: m.color, opacity: dockModule === m.key ? 1 : 0.8,
+                  fontFamily: MONO, fontSize: 10.5, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap",
+                }}
+              >
+                {m.label}
+              </button>
+            ))}
           </div>
-        )}
-      </div>
+          {dockModule && (
+            <div style={{ maxHeight: isMobile ? "60vh" : "42vh", overflowY: "auto", borderTop: `1px solid ${C.border}` }}>
+              {dockBody}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
