@@ -9,7 +9,7 @@
 // Run: node test/autopilot2-engine.test.js (or npm test).
 "use strict";
 const assert = require("node:assert");
-const { sizeEntry, sizeCryptoEntry, CRYPTO_UNIVERSE, RISK_PCT_PER_TRADE, MAX_TRADE_RISK_DOLLARS } = require("../src/autopilot2-engine");
+const { sizeEntry, sizeCryptoEntry, CRYPTO_UNIVERSE, RISK_PCT_PER_TRADE, MAX_TRADE_RISK_DOLLARS, isBullishCandidate, isBearishCandidate, BULLISH_RANK, BEARISH_RANK } = require("../src/autopilot2-engine");
 
 let passed = 0;
 function ok(name, fn) { try { fn(); passed++; console.log(`  ✓ ${name}`); } catch (e) { console.error(`  ✗ ${name}\n    ${e.message}`); process.exitCode = 1; } }
@@ -114,6 +114,58 @@ ok("sizeCryptoEntry SHORT: real fractional short-simulated sizing, same stop-val
 ok("sizeCryptoEntry SHORT: a long-shaped stop (below entry) is rejected", () => {
   const { qty } = sizeCryptoEntry({ equity: 100_000, cash: 100_000, entry: 78_750, stop: 75_000, direction: "SHORT" });
   assert.strictEqual(qty, 0, "stop below entry is a LONG-shaped stop, invalid for a real short");
+});
+
+console.log("\nChecking isBullishCandidate/isBearishCandidate — real near-miss WATCH inclusion, widening the opportunity pool (2026-08-31, \"make $1000/day... best setup\")…");
+ok("EARLY_BUY/BUY are always actionable, regardless of executableEntry", () => {
+  assert.strictEqual(isBullishCandidate({ verdict: "EARLY_BUY" }), true);
+  assert.strictEqual(isBullishCandidate({ verdict: "BUY", executableEntry: null }), true);
+});
+ok("a real WATCH verdict WITH a real executable entry is now accepted — the actual widening", () => {
+  assert.strictEqual(isBullishCandidate({ verdict: "WATCH", executableEntry: 123.45 }), true);
+});
+ok("a real WATCH verdict with NO real executable entry is still rejected — a WATCH with nothing to trade can never become tradeable just by relaxing the bar", () => {
+  assert.strictEqual(isBullishCandidate({ verdict: "WATCH", executableEntry: null }), false);
+  assert.strictEqual(isBullishCandidate({ verdict: "WATCH" }), false);
+});
+ok("AVOID_LONG/WAIT are never accepted — this only widens the SOFT score bar, hard gates (already baked into the verdict) are untouched", () => {
+  assert.strictEqual(isBullishCandidate({ verdict: "AVOID_LONG", executableEntry: 100 }), false);
+  assert.strictEqual(isBullishCandidate({ verdict: "WAIT", executableEntry: 100 }), false);
+});
+ok("EARLY_SHORT/SHORT are always actionable", () => {
+  assert.strictEqual(isBearishCandidate({ bearishVerdict: "EARLY_SHORT" }), true);
+  assert.strictEqual(isBearishCandidate({ bearishVerdict: "SHORT" }), true);
+});
+ok("a real WATCH_SHORT with a real bearishEntry is accepted — the bearish mirror of the widening", () => {
+  assert.strictEqual(isBearishCandidate({ bearishVerdict: "WATCH_SHORT", bearishEntry: 88.5 }), true);
+});
+ok("a real WATCH_SHORT with no real bearishEntry is rejected", () => {
+  assert.strictEqual(isBearishCandidate({ bearishVerdict: "WATCH_SHORT", bearishEntry: null }), false);
+});
+ok("AVOID_SHORT is never accepted", () => {
+  assert.strictEqual(isBearishCandidate({ bearishVerdict: "AVOID_SHORT", bearishEntry: 100 }), false);
+});
+ok("BULLISH_RANK/BEARISH_RANK real ordering puts EARLY_ before plain, and both before the new WATCH near-miss tier", () => {
+  assert.ok(BULLISH_RANK.EARLY_BUY < BULLISH_RANK.BUY && BULLISH_RANK.BUY < BULLISH_RANK.WATCH);
+  assert.ok(BEARISH_RANK.EARLY_SHORT < BEARISH_RANK.SHORT && BEARISH_RANK.SHORT < BEARISH_RANK.WATCH_SHORT);
+});
+
+console.log("\nChecking the widened CRYPTO_UNIVERSE (2026-08-31, real trade-frequency fix)…");
+ok("real, live-verified additions are present (TRX/ATOM/NEAR/ETC/XLM/FIL/OP/ICP)", () => {
+  for (const s of ["TRX-USD", "ATOM-USD", "NEAR-USD", "ETC-USD", "XLM-USD", "FIL-USD", "OP-USD", "ICP-USD"]) {
+    assert.ok(CRYPTO_UNIVERSE.includes(s), `expected ${s} in the widened universe`);
+  }
+});
+ok("symbols with a real confirmed $0-pricing data-quality gap are deliberately excluded, not silently traded", () => {
+  assert.ok(!CRYPTO_UNIVERSE.includes("SHIB-USD"));
+  assert.ok(!CRYPTO_UNIVERSE.includes("ARB-USD"));
+  assert.ok(!CRYPTO_UNIVERSE.includes("APT-USD"), "no real Yahoo chart data for this symbol");
+});
+ok("the original 11-symbol universe is still fully intact — purely additive", () => {
+  for (const s of ["BTC-USD", "ETH-USD", "SOL-USD", "XRP-USD", "DOGE-USD", "ADA-USD", "AVAX-USD", "LINK-USD", "LTC-USD", "BCH-USD", "DOT-USD"]) {
+    assert.ok(CRYPTO_UNIVERSE.includes(s));
+  }
+  assert.strictEqual(CRYPTO_UNIVERSE.length, 19);
 });
 
 console.log(`\n${passed} checks passed.`);

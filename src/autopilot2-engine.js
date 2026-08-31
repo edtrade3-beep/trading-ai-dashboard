@@ -315,9 +315,47 @@ async function fetchLightBoxCandidates() {
 // UNI-USD, MATIC-USD — were tried and dropped: no real Yahoo chart data
 // available for either, so they'd only ever error out, not silently
 // misprice).
-const CRYPTO_UNIVERSE = ["BTC-USD", "ETH-USD", "SOL-USD", "XRP-USD", "DOGE-USD", "ADA-USD", "AVAX-USD", "LINK-USD", "LTC-USD", "BCH-USD", "DOT-USD"];
+//
+// Expanded again 2026-08-31 (explicit user goal: "make $1000/day... best
+// setup" — real trade FREQUENCY, not selectivity, diagnosed as the actual
+// bottleneck: the scheduler was confirmed healthy via a real manual tick
+// trigger, it was just finding zero real candidates in a genuinely quiet
+// market across the original 11-symbol universe). Each addition verified
+// live against this app's own real quote provider first — APT-USD errored
+// (no real Yahoo chart data), and both ARB-USD/SHIB-USD were dropped after
+// live verification showed their real price rounds to exactly $0
+// throughout this app's whole pipeline (pivot/entry/stop all real $0) —
+// a genuine data-quality gap for those two specific symbols, not silently
+// traded through.
+const CRYPTO_UNIVERSE = [
+  "BTC-USD", "ETH-USD", "SOL-USD", "XRP-USD", "DOGE-USD", "ADA-USD", "AVAX-USD", "LINK-USD", "LTC-USD", "BCH-USD", "DOT-USD",
+  "TRX-USD", "ATOM-USD", "NEAR-USD", "ETC-USD", "XLM-USD", "FIL-USD", "OP-USD", "ICP-USD",
+];
 
+// Near-miss inclusion (2026-08-31, "widen Autopilot 2.0's opportunity
+// pool" — real trade FREQUENCY was diagnosed as the actual bottleneck,
+// not strategy quality; the scheduler itself was confirmed healthy via a
+// real manual tick trigger). This loosens a SOFT, selectivity-only bar —
+// no hard risk gate changes here at all. A WATCH/WATCH_SHORT verdict
+// still cleared every one of classifyCoreVerdict's/classifyBearishVerdict's
+// real hard gates (structure, anti-chase, red flags, Stage-4/dailyBias,
+// entry-score floor) — it only missed the BUY/SHORT score threshold. It's
+// only accepted here when it ALSO carries a real executable entry price
+// (executableEntry/bearishEntry) — a WATCH with no real entry literally
+// cannot be traded, so this can never turn an unreal setup real, only
+// widen which REAL, gate-cleared setups get a chance. Position sizing,
+// stops, sector caps, portfolio open-risk ceiling, and the daily/weekly/
+// drawdown breakers are completely untouched by this.
+const BULLISH_ACTIONABLE = new Set(["EARLY_BUY", "BUY"]);
+const BULLISH_RANK = { EARLY_BUY: 0, BUY: 1, WATCH: 2 };
+function isBullishCandidate(o) {
+  return BULLISH_ACTIONABLE.has(o.verdict) || (o.verdict === "WATCH" && o.executableEntry != null);
+}
 const BEARISH_ACTIONABLE = new Set(["EARLY_SHORT", "SHORT"]);
+const BEARISH_RANK = { EARLY_SHORT: 0, SHORT: 1, WATCH_SHORT: 2 };
+function isBearishCandidate(o) {
+  return BEARISH_ACTIONABLE.has(o.bearishVerdict) || (o.bearishVerdict === "WATCH_SHORT" && o.bearishEntry != null);
+}
 // Reshapes an already-computed real opportunity's bearish fields
 // (opportunity-engine.js's additive bearishVerdict/bearishScore/
 // bearishStop/bearishTarget/bearishEntry) into the same candidate shape
@@ -337,9 +375,9 @@ function toBearishCandidate(opp, assetClass) {
 }
 function bearishCandidatesFrom(opportunities, bullishCandidates, assetClass) {
   return opportunities
-    .filter((o) => BEARISH_ACTIONABLE.has(o.bearishVerdict) && !bullishCandidates.some((b) => b.symbol === o.symbol))
+    .filter((o) => isBearishCandidate(o) && !bullishCandidates.some((b) => b.symbol === o.symbol))
     .map((o) => toBearishCandidate(o, assetClass))
-    .sort((a, b) => (b.verdict === a.verdict ? (b.score ?? -Infinity) - (a.score ?? -Infinity) : (a.verdict === "EARLY_SHORT" ? -1 : 1)));
+    .sort((a, b) => (BEARISH_RANK[a.verdict] - BEARISH_RANK[b.verdict]) || ((b.score ?? -Infinity) - (a.score ?? -Infinity)));
 }
 
 async function fetchCryptoCandidates() {
@@ -363,8 +401,8 @@ async function fetchCryptoCandidates() {
       .map((opp) => ({ ...opp, assetClass: "CRYPTO" }));
 
     const bullish = opportunities
-      .filter((o) => (o.verdict === "EARLY_BUY" || o.verdict === "BUY") && (o.criticalFlags ?? 0) === 0)
-      .sort((a, b) => (b.verdict === a.verdict ? (b.expectedValue ?? -Infinity) - (a.expectedValue ?? -Infinity) : (a.verdict === "EARLY_BUY" ? -1 : 1)));
+      .filter((o) => isBullishCandidate(o) && (o.criticalFlags ?? 0) === 0)
+      .sort((a, b) => (BULLISH_RANK[a.verdict] - BULLISH_RANK[b.verdict]) || ((b.expectedValue ?? -Infinity) - (a.expectedValue ?? -Infinity)));
 
     // Bearish (2026-08-31) — same real "short-simulated" account as long
     // spot crypto (autopilot2-account.js), no real borrow mechanism
@@ -554,8 +592,8 @@ async function tick() {
     // is completely unchanged.
     const allOpportunities = Object.values(scan.tiers).flat();
     const bullishStockCandidates = allOpportunities
-      .filter((o) => (o.verdict === "EARLY_BUY" || o.verdict === "BUY") && (o.criticalFlags ?? 0) === 0)
-      .sort((a, b) => (b.verdict === a.verdict ? (b.expectedValue ?? -Infinity) - (a.expectedValue ?? -Infinity) : (a.verdict === "EARLY_BUY" ? -1 : 1)));
+      .filter((o) => isBullishCandidate(o) && (o.criticalFlags ?? 0) === 0)
+      .sort((a, b) => (BULLISH_RANK[a.verdict] - BULLISH_RANK[b.verdict]) || ((b.expectedValue ?? -Infinity) - (a.expectedValue ?? -Infinity)));
     // Bearish stock candidates (2026-08-31, bidirectional trading) — same
     // real scan, additive branch (see toBearishCandidate/
     // bearishCandidatesFrom above).
@@ -620,4 +658,5 @@ module.exports = {
   tick, sizeEntry, sizeOptionEntry, sizeCryptoEntry, fetchLightBoxCandidates, fetchCryptoCandidates,
   CRYPTO_UNIVERSE, RISK_PCT_PER_TRADE, MAX_TRADE_RISK_DOLLARS, MAX_OPEN_POSITIONS, MAX_PER_SECTOR,
   MAX_OPEN_RISK_PCT, CALL_DTE_EXIT_FLOOR,
+  isBullishCandidate, isBearishCandidate, BULLISH_RANK, BEARISH_RANK,
 };
