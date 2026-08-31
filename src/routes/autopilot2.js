@@ -47,7 +47,21 @@ async function handleAutopilot2(req, res, requestUrl) {
           }
         }
       } catch { bestOpportunity = null; } // honest omission — status still returns the real account either way
-      return writeJson(res, 200, { ok: true, state, account, activity: recentActivity(50), bestOpportunity });
+
+      // Real job heartbeat (2026-08-31) — surfaces whether the scheduled
+      // 5-min tick job (server.js's registerJob) has actually run
+      // recently and succeeded, not just whether the state is RUNNING.
+      // "RUNNING" only means new entries are allowed when the tick DOES
+      // fire — it says nothing about whether the tick itself is actually
+      // executing on schedule. Real, disclosed visibility instead of
+      // silently assuming the scheduler is healthy.
+      let heartbeat = null;
+      try {
+        const { loadHeartbeats } = require("../job-heartbeat");
+        heartbeat = loadHeartbeats()["ADOL22 Autopilot 2.0"] || null;
+      } catch { heartbeat = null; }
+
+      return writeJson(res, 200, { ok: true, state, account, activity: recentActivity(50), bestOpportunity, heartbeat });
     } catch (err) {
       return writeJson(res, 200, { ok: false, error: err instanceof Error ? err.message : "status failed" });
     }
@@ -80,6 +94,21 @@ async function handleAutopilot2(req, res, requestUrl) {
       return writeJson(res, 200, { ok: true, ...report });
     } catch (err) {
       return writeJson(res, 200, { ok: false, error: err instanceof Error ? err.message : "report failed" });
+    }
+  }
+
+  // Real manual tick trigger (2026-08-31, diagnostic) — invokes the exact
+  // same real tick() the scheduled 5-min job calls, so a real run can be
+  // observed and its real result inspected directly, instead of waiting
+  // up to 5 real minutes and hoping the scheduled run logged something.
+  // Same real risk gates apply — this can never bypass them, it just
+  // runs them on demand.
+  if (pathname === "/api/autopilot2/tick-now" && req.method === "POST") {
+    try {
+      const result = await require("../autopilot2-engine").tick();
+      return writeJson(res, 200, { ok: true, result });
+    } catch (err) {
+      return writeJson(res, 200, { ok: false, error: err instanceof Error ? err.message : "tick failed" });
     }
   }
 
