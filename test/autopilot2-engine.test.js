@@ -9,7 +9,7 @@
 // Run: node test/autopilot2-engine.test.js (or npm test).
 "use strict";
 const assert = require("node:assert");
-const { sizeEntry, sizeCryptoEntry, CRYPTO_UNIVERSE, RISK_PCT_PER_TRADE, MAX_TRADE_RISK_DOLLARS, isBullishCandidate, isBearishCandidate, BULLISH_RANK, BEARISH_RANK } = require("../src/autopilot2-engine");
+const { sizeEntry, sizeCryptoEntry, CRYPTO_UNIVERSE, RISK_PCT_PER_TRADE, MAX_TRADE_RISK_DOLLARS, isBullishCandidate, isBearishCandidate, BULLISH_RANK, BEARISH_RANK, symbolsToScan } = require("../src/autopilot2-engine");
 
 let passed = 0;
 function ok(name, fn) { try { fn(); passed++; console.log(`  ✓ ${name}`); } catch (e) { console.error(`  ✗ ${name}\n    ${e.message}`); process.exitCode = 1; } }
@@ -166,6 +166,32 @@ ok("the original 11-symbol universe is still fully intact — purely additive", 
     assert.ok(CRYPTO_UNIVERSE.includes(s));
   }
   assert.strictEqual(CRYPTO_UNIVERSE.length, 19);
+});
+
+console.log("\nChecking symbolsToScan — real Trade Desk watchlist dedup logic (2026-08-31, \"trade desk will be also money makers\")…");
+ok("a real watchlist symbol not in SCAN_UNIVERSE and not already scanned is included", () => {
+  const r = symbolsToScan(["ZZZZ"], ["AAPL", "MSFT"], new Set(["TSLA"]));
+  assert.deepStrictEqual(r, ["ZZZZ"]);
+});
+ok("a watchlist symbol already in SCAN_UNIVERSE is excluded — never a redundant duplicate scan", () => {
+  const r = symbolsToScan(["AAPL", "ZZZZ"], ["AAPL", "MSFT"], new Set());
+  assert.deepStrictEqual(r, ["ZZZZ"]);
+});
+ok("a watchlist symbol already scanned this same tick is excluded too", () => {
+  const r = symbolsToScan(["TSLA", "ZZZZ"], ["AAPL"], new Set(["TSLA"]));
+  assert.deepStrictEqual(r, ["ZZZZ"]);
+});
+ok("duplicate watchlist symbols are deduped", () => {
+  const r = symbolsToScan(["ZZZZ", "ZZZZ", "YYYY"], [], new Set());
+  assert.deepStrictEqual(r, ["ZZZZ", "YYYY"]);
+});
+ok("an empty real watchlist returns an empty real list, never fabricated symbols", () => {
+  assert.deepStrictEqual(symbolsToScan([], ["AAPL"], new Set()), []);
+  assert.deepStrictEqual(symbolsToScan(null, ["AAPL"], new Set()), []);
+});
+ok("alreadyScanned accepts a plain array too, not just a Set", () => {
+  const r = symbolsToScan(["TSLA", "ZZZZ"], [], ["TSLA"]);
+  assert.deepStrictEqual(r, ["ZZZZ"]);
 });
 
 console.log(`\n${passed} checks passed.`);

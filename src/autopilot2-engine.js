@@ -415,6 +415,71 @@ async function fetchCryptoCandidates() {
   }
 }
 
+// Pure dedup logic, extracted for direct unit testing (2026-08-31,
+// explicit user request: "trade desk will be also money makers" ->
+// clarified via research that Trade Desk has no distinct scoring engine
+// of its own — its AI Verdict/score/Trade Plan are the exact same
+// canonical am-core-engine.js/opportunity-engine.js pipeline this file
+// already trades off of. The one real, distinct thing Trade Desk is
+// connected to is the user's own real watchlist (edited via
+// RhProWatchlists.jsx, mounted in Trade Desk's dock) — narrower than
+// this file's default ~100-symbol SCAN_UNIVERSE and not currently
+// scanned by Autopilot 2.0 at all. Real fix: scan it too, same one
+// engine, no new scoring). Only the real GAP needs a fresh scan — a
+// symbol already covered by SCAN_UNIVERSE or already scanned this same
+// tick would just be a wasted duplicate real fetch.
+function symbolsToScan(watchlistSymbols, scanUniverse, alreadyScanned) {
+  const universe = new Set(scanUniverse || []);
+  const scanned = alreadyScanned instanceof Set ? alreadyScanned : new Set(alreadyScanned || []);
+  return [...new Set(watchlistSymbols || [])].filter((s) => !universe.has(s) && !scanned.has(s));
+}
+
+// Real Trade Desk watchlist candidate source — reuses the exact same
+// real loadWatchlist() 15+ other server-side files already call this
+// same way (watchlist-sniper-alerts.js is the closest precedent: union
+// watchlist ∪ SCAN_UNIVERSE), and the exact same real screenTrendTemplate
+// -> computeOpportunity -> isBullishCandidate/isBearishCandidate pipeline
+// fetchCryptoCandidates above already uses — zero new scoring logic,
+// just a different, real, user-curated symbol set. `alreadyScannedSymbols`
+// is the real symbol set tick()'s own SCAN_UNIVERSE pass already covered
+// this tick, so this never re-fetches/re-scores a symbol twice.
+async function fetchWatchlistCandidates(alreadyScannedSymbols) {
+  try {
+    const { loadWatchlist } = require("./routes/watchlist");
+    const { SCAN_UNIVERSE } = require("./advisor-ai");
+    const { symbols: watchlistSymbols } = loadWatchlist();
+    const extraSymbols = symbolsToScan(watchlistSymbols, SCAN_UNIVERSE, alreadyScannedSymbols);
+    if (!extraSymbols.length) return { bullish: [], bearish: [] };
+
+    const { screenTrendTemplate, fetchMarketQuotes } = require("./routes/market");
+    const { computeRegime, regimeToEntryVocabulary } = require("./trade-planner-scoring");
+    const { computeOpportunity } = require("./opportunity-engine");
+    const { resolveProviderKeys } = require("./config");
+
+    const [rows, macroQuotes] = await Promise.all([
+      screenTrendTemplate(extraSymbols),
+      fetchMarketQuotes(["SPY", "QQQ", "VIXY"], resolveProviderKeys(new URLSearchParams())).catch(() => []),
+    ]);
+    const regime = computeRegime(Array.isArray(macroQuotes) ? macroQuotes : []);
+    const marketRegime = regimeToEntryVocabulary(regime.label);
+
+    const opportunities = (rows || [])
+      .filter((row) => !row.error)
+      .map((row) => computeOpportunity({ symbol: row.symbol, row, regime, marketRegime, trackReport: null }))
+      .filter(Boolean)
+      .map((opp) => ({ ...opp, fromWatchlist: true }));
+
+    const bullish = opportunities
+      .filter((o) => isBullishCandidate(o) && (o.criticalFlags ?? 0) === 0)
+      .sort((a, b) => (BULLISH_RANK[a.verdict] - BULLISH_RANK[b.verdict]) || ((b.expectedValue ?? -Infinity) - (a.expectedValue ?? -Infinity)));
+    const bearish = bearishCandidatesFrom(opportunities, bullish, undefined).map((c) => ({ ...c, fromWatchlist: true }));
+
+    return { bullish, bearish };
+  } catch {
+    return { bullish: [], bearish: [] }; // honest empty result on any real failure — never a fabricated candidate
+  }
+}
+
 // Real validate+size+enter for one candidate opportunity against the
 // current real account snapshot. Returns a real reason string either way
 // — a rejection is a logged, disclosed outcome (spec §25), never silent.
@@ -557,6 +622,7 @@ async function tick() {
   // from before. Crypto (below) is sourced unconditionally instead.
   let opportunityCandidates = [];
   let lightBoxCandidates = [];
+  let watchlistCandidates = { bullish: [], bearish: [] };
   if (marketOpen) {
     const { computeAllOpportunities } = require("./routes/market");
     const scan = await computeAllOpportunities().catch((e) => ({ error: String(e && e.message || e) }));
@@ -598,7 +664,18 @@ async function tick() {
     // real scan, additive branch (see toBearishCandidate/
     // bearishCandidatesFrom above).
     const bearishStockCandidates = bearishCandidatesFrom(allOpportunities, bullishStockCandidates, undefined);
-    opportunityCandidates = [...bullishStockCandidates, ...bearishStockCandidates];
+
+    // Trade Desk watchlist (2026-08-31, explicit user request: "trade
+    // desk will be also money makers") — the real, user-curated symbol
+    // set Trade Desk's own dock lets the user edit (RhProWatchlists.jsx),
+    // scanned through this SAME real engine for whatever real symbols
+    // aren't already covered by the SCAN_UNIVERSE pass above. See
+    // fetchWatchlistCandidates' own header for why this isn't a second
+    // scoring engine.
+    const scannedSymbols = new Set(allOpportunities.map((o) => o.symbol));
+    watchlistCandidates = await fetchWatchlistCandidates(scannedSymbols);
+
+    opportunityCandidates = [...bullishStockCandidates, ...watchlistCandidates.bullish, ...bearishStockCandidates, ...watchlistCandidates.bearish];
 
     // Light Box (2026-08-27) — a real, complementary, more real-time source
     // (see fetchLightBoxCandidates' own header comment). Appended after the
@@ -627,6 +704,8 @@ async function tick() {
       ? " [source: Light Box real CONFIRMED entry trigger]"
       : opp.assetClass === "CRYPTO"
       ? ` [24/7 crypto, Core Verdict ${opp.verdict}, real Opportunity tier ${opp.tier}]`
+      : opp.fromWatchlist
+      ? ` [from your Trade Desk watchlist, Core Verdict ${opp.verdict}, real Opportunity tier ${opp.tier}]`
       : ` [Core Verdict ${opp.verdict}, real Opportunity tier ${opp.tier}]`;
     appendActivity({ type: result.entered ? "ENTER" : "REJECT", symbol: opp.symbol, reason: `${result.reason}${verdictNote}` });
     if (result.entered) {
@@ -651,11 +730,13 @@ async function tick() {
     ran: true, entered, marketOpen, candidatesConsidered: candidates.length,
     opportunityCandidates: opportunityCandidates.length, lightBoxCandidates: lightBoxCandidates.length,
     cryptoCandidates: cryptoCandidates.length,
+    watchlistCandidates: watchlistCandidates.bullish.length + watchlistCandidates.bearish.length,
   };
 }
 
 module.exports = {
   tick, sizeEntry, sizeOptionEntry, sizeCryptoEntry, fetchLightBoxCandidates, fetchCryptoCandidates,
+  fetchWatchlistCandidates, symbolsToScan,
   CRYPTO_UNIVERSE, RISK_PCT_PER_TRADE, MAX_TRADE_RISK_DOLLARS, MAX_OPEN_POSITIONS, MAX_PER_SECTOR,
   MAX_OPEN_RISK_PCT, CALL_DTE_EXIT_FLOOR,
   isBullishCandidate, isBearishCandidate, BULLISH_RANK, BEARISH_RANK,
