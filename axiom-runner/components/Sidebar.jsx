@@ -142,6 +142,17 @@ export const SIDEBAR_ITEMS = [
   // when asked.
   { id: "research",  label: "Research",    icon: "🧭",  tab: "research" },
 
+  // Market Wrap — daily 4:30 PM ET end-of-day deep scan (explicit user
+  // request, 2026-08-31: "i also want to do research about stock
+  // markets update daily at 4:30 pm i want deep scan deep analysis what
+  // stocks moving up or down what big news what big events how healthy
+  // is spy and qqq and other ETF and also sectors what next move").
+  // Given its own row for the same reason Research got one — a genuinely
+  // distinct daily report, not a sub-view of Research (that one runs
+  // pre-market at 8:35 AM and hunts early opportunities; this one runs
+  // after close and recaps the real session that just happened).
+  { id: "marketwrap", label: "Market Wrap", icon: "📰",  tab: "marketwrap" },
+
   // Car Business — a completely separate automotive-business decision
   // system, explicit user /goal (2026-08-30: "Create a NEW standalone
   // CAR BUSINESS tab... DO NOT MIX IT WITH THE TRADING ENGINE."). Given

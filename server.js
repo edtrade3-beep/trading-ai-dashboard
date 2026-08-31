@@ -58,6 +58,7 @@ const { runMorningGamePlan, runTradeCoach, runWeeklyReview, runMonthlyDeepReview
 const { runCeoRecommendation } = require("./src/ceo-ai");
 const { buildCommandCenter } = require("./src/command-center-ai");
 const { buildResearchIntel } = require("./src/research-intel-ai");
+const { buildMarketWrap } = require("./src/market-wrap-ai");
 const { buildCarBusinessIntel } = require("./src/car-business-ai");
 const { runPredictionTracker } = require("./src/prediction-tracker");
 const { revertMisgradedXIntelShorts } = require("./src/predictions-store");
@@ -198,7 +199,7 @@ server.listen(PORT, HOST, () => {
 
   // AI Morning Game Plan (~9:40 AM ET) + AI Trade Coach (~4:15 PM ET) — weekdays, server-side.
   // Autopilot recap (~4:05 PM ET) — what the Alpaca paper autopilot did today.
-  let _gpSent = null, _coachSent = null, _recapAP = null, _weeklySent = null, _monthlyReview = null, _mrvPaper = null, _mrvSummary = null, _apexSent = null, _ceoSent = null, _aplusSnapshot = null, _cmdCenterSent = null, _ivSnapshot = null, _edgeDecaySnapshot = null, _researchIntelSent = null, _carBusinessSent = null;
+  let _gpSent = null, _coachSent = null, _recapAP = null, _weeklySent = null, _monthlyReview = null, _mrvPaper = null, _mrvSummary = null, _apexSent = null, _ceoSent = null, _aplusSnapshot = null, _cmdCenterSent = null, _ivSnapshot = null, _edgeDecaySnapshot = null, _researchIntelSent = null, _carBusinessSent = null, _marketWrapSent = null;
   setInterval(() => {
     const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
     const h = et.getHours(), m = et.getMinutes(), day = et.getDay();
@@ -232,6 +233,15 @@ server.listen(PORT, HOST, () => {
     if (h === 9 && m >= 40 && m < 46 && _gpSent !== today) { _gpSent = today; runMorningGamePlan().catch(() => {}); }
     if (h === 16 && m >= 5 && m < 11 && _recapAP !== today) { _recapAP = today; runAutopilotRecap().catch(() => {}); }
     if (h === 16 && m >= 15 && m < 21 && _coachSent !== today) { _coachSent = today; runTradeCoach().catch(() => {}); }
+    // Market Wrap ~4:33 PM ET — explicit user request, 2026-08-31: "i also
+    // want to do research about stock markets update daily at 4:30 pm i
+    // want deep scan deep analysis...". Real 3-min stagger off the 16:30
+    // Weekly Review slot (Friday-only) and the 16:35 Monthly Deep Review
+    // slot (1st-of-month-only) — same "~5-10 min gap between every AI job"
+    // discipline this block already follows; 16:33-16:39 never overlaps
+    // any of the every-weekday jobs' own windows (5-11/15-21/20-26/25-31/
+    // 40-46), only the two rare date-gated ones on their specific days.
+    if (h === 16 && m >= 33 && m < 39 && _marketWrapSent !== today) { _marketWrapSent = today; buildMarketWrap().catch(() => {}); }
     // Weekly review — Friday (day 5) ~4:30 PM ET
     if (day === 5 && h === 16 && m >= 30 && m < 36 && _weeklySent !== today) { _weeklySent = today; runWeeklyReview().catch(() => {}); }
     // Monthly Deep Review (Fable) — 1st of the month ~4:35 PM ET
