@@ -127,6 +127,17 @@ async function handleAutopilot2(req, res, requestUrl) {
     return writeJson(res, 200, { ok: true });
   }
 
+  // Real historical backtest of the exact real Autopilot 2.0 entry engine
+  // (explicit user request, 2026-08-31: "you tell me i want to make money
+  // trading" -> agreed on "a real backtest of Autopilot 2.0's exact
+  // engine"). Delegated to its own file (routes/autopilot2-backtest.js),
+  // same one-file-per-feature split every other src/routes/*.js follows —
+  // this route still lives under /api/autopilot2/ so it's reached before
+  // the router's own catch-all prefix match for this whole namespace.
+  if (pathname === "/api/autopilot2/backtest" && req.method === "GET") {
+    return await require("./autopilot2-backtest").handleAutopilot2Backtest(req, res, requestUrl);
+  }
+
   return null; // not handled — let the router fall through
 }
 

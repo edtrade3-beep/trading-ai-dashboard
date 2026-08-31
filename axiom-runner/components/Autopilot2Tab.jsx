@@ -245,6 +245,105 @@ function fmtPct(n, digits = 1) {
   return `${n >= 0 ? "+" : ""}${n.toFixed(digits)}%`;
 }
 
+// Real historical backtest of Autopilot 2.0's exact entry engine
+// (explicit user request, 2026-08-31: "you tell me i want to make money
+// trading" -> agreed on "a real backtest of Autopilot 2.0's exact
+// engine"). GET /api/autopilot2/backtest reuses the SAME real
+// computeOpportunity/isBullishCandidate/sizeEntry/risk-guardrail
+// functions the live engine calls (src/autopilot2-backtest.js) — this
+// component only renders what that real endpoint returns. On-demand only
+// (no auto-run) — it's a real, compute-heavy historical replay (10-30s
+// for the default 15-symbol/1-year run), not something to fire silently.
+function BacktestStat({ C, MONO, label, value, tone }) {
+  const color = tone === "bad" ? C.red : tone === "good" ? C.green : C.text;
+  return (
+    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 12px", minWidth: 120 }}>
+      <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim, letterSpacing: 0.5, marginBottom: 4 }}>{label}</div>
+      <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color, fontVariantNumeric: "tabular-nums" }}>{value}</div>
+    </div>
+  );
+}
+
+function BacktestSection({ C, MONO, SANS }) {
+  const [years, setYears] = useState(1);
+  const [result, setResult] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const run = () => {
+    setLoading(true); setError(null);
+    fetch(`/api/autopilot2/backtest?years=${years}`).then((r) => r.json())
+      .then((d) => { if (d.ok) setResult(d); else setError(d.error || "Backtest failed."); })
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  };
+
+  const s = result?.stats;
+
+  return (
+    <div style={{ padding: "14px 16px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 12 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 10, flexWrap: "wrap" }}>
+        <div>
+          <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 3 }}>BACKTEST — DOES THIS ENGINE ACTUALLY HAVE AN EDGE?</div>
+          <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.textDim, maxWidth: 480 }}>
+            Real historical replay of this exact entry engine (long stock only) against 15 real symbols. Not a live trade, not a guarantee — a real, honest read of what this engine's real logic would have done.
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <select value={years} onChange={(e) => setYears(Number(e.target.value))} disabled={loading}
+            style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "7px 8px", borderRadius: 7, border: `1px solid ${C.border}`, background: C.bg, color: C.text }}>
+            <option value={1}>1 year</option>
+            <option value={2}>2 years</option>
+            <option value={3}>3 years</option>
+          </select>
+          <button onClick={run} disabled={loading} style={{
+            fontFamily: MONO, fontSize: 11.5, fontWeight: 700, padding: "7px 14px", borderRadius: 7,
+            border: `1px solid ${C.accent}`, background: loading ? C.card : C.accent, color: loading ? C.accent : "#fff",
+            cursor: loading ? "default" : "pointer", whiteSpace: "nowrap",
+          }}>{loading ? "Running… (~10-30s)" : "▶ Run Backtest"}</button>
+        </div>
+      </div>
+
+      {error && <div style={{ fontSize: 12.5, color: C.red, background: `${C.red}18`, borderRadius: 8, padding: "8px 12px" }}>{error}</div>}
+
+      {result && (
+        <>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
+            <BacktestStat C={C} MONO={MONO} label="TOTAL RETURN" value={fmtPct(s?.totalReturnPct)} tone={s?.totalReturnPct >= 0 ? "good" : "bad"} />
+            <BacktestStat C={C} MONO={MONO} label="WIN RATE" value={s?.winRate != null ? `${s.winRate}%` : "—"} />
+            <BacktestStat C={C} MONO={MONO} label="TRADES" value={s?.count ?? 0} />
+            <BacktestStat C={C} MONO={MONO} label="PROFIT FACTOR" value={s?.profitFactor != null ? s.profitFactor : (s?.profitFactorNote ? "n/a*" : "—")} />
+            <BacktestStat C={C} MONO={MONO} label="MAX DRAWDOWN" value={fmtPct(s?.maxDrawdownPct)} tone="bad" />
+            <BacktestStat C={C} MONO={MONO} label="AVG HOLD" value={s?.avgHoldingDays != null ? `${s.avgHoldingDays}d` : "—"} />
+          </div>
+
+          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 10 }}>
+            {fmtMoney(result.startingEquity)} → {fmtMoney(result.finalEquity)} over {result.tradingDaysSimulated} real trading days
+            {" "}({result.symbolsUsed} symbols{result.skipped?.length ? `, ${result.skipped.length} skipped for insufficient history` : ""}).
+            {s?.profitFactorNote ? ` *${s.profitFactorNote}` : ""}
+          </div>
+
+          {result.trades?.length > 0 && (
+            <div style={{ maxHeight: 220, overflowY: "auto", border: `1px solid ${C.border}`, borderRadius: 8 }}>
+              {result.trades.slice().reverse().map((t, i) => (
+                <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "6px 10px", borderTop: i ? `1px solid ${C.border}` : "none", fontFamily: MONO, fontSize: 11 }}>
+                  <span style={{ fontWeight: 800, color: C.text, minWidth: 50 }}>{t.symbol}</span>
+                  <span style={{ color: C.textDim }}>${t.entry} → ${t.exit}</span>
+                  <span style={{ color: t.pnl >= 0 ? C.green : C.red, minWidth: 70, textAlign: "right" }}>{t.pnl >= 0 ? "+" : ""}${t.pnl}</span>
+                  <span style={{ color: C.textDim, minWidth: 50 }}>{t.holdingDays}d</span>
+                  <span style={{ color: t.reason === "TARGET" ? C.green : C.red, fontSize: 9.5 }}>{t.reason}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {!result.trades?.length && <div style={{ fontSize: 12, color: C.textDim }}>No real trades fired in this window — honestly none, not hidden.</div>}
+        </>
+      )}
+      {!result && !loading && !error && <div style={{ fontSize: 12, color: C.textDim }}>Not run yet — click "Run Backtest" for a real historical read.</div>}
+    </div>
+  );
+}
+
 export default function Autopilot2Tab({ C, MONO, SANS }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -528,6 +627,8 @@ export default function Autopilot2Tab({ C, MONO, SANS }) {
           <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>{missed?.reason || "Loading…"}</div>
         )}
       </div>
+
+      <BacktestSection C={C} MONO={MONO} SANS={SANS} />
 
       {/* System status */}
       <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, display: "flex", gap: 16, flexWrap: "wrap" }}>
