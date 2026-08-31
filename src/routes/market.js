@@ -3699,6 +3699,36 @@ Explain this.`;
     });
   }
 
+  // Seasonality — real historical monthly-return read for Market Wrap's
+  // "what might happen this month" chart (explicit user request,
+  // 2026-08-31, shared NDR-style S&P 500 Cycle Composite reference
+  // charts). Deliberately NOT a synthetic composite curve like the
+  // reference charts — a real, directly-computed read of what the real
+  // symbol actually returned in each real year on file for the given
+  // month, bucketed by the real 4-year US presidential election cycle
+  // (src/spy-seasonality-engine.js, pure/unit-tested). range=20y at
+  // interval=1d is a live-verified real Yahoo combination (2026-08-31) —
+  // range=max silently downgrades to monthly bars server-side, which
+  // would make a monthly-return calc meaningless; 20y keeps true daily
+  // resolution and covers 5 full real instances of every cycle-year type.
+  if (pathname === "/api/market/seasonality" && req.method === "GET") {
+    const symbol = (searchParams.get("symbol") || "SPY").trim().toUpperCase();
+    const now = new Date();
+    const monthIndex = Math.max(0, Math.min(11, Number(searchParams.get("month") ?? now.getUTCMonth())));
+    try {
+      const { computeMonthlySeasonality, classifyCycleYear } = require("../spy-seasonality-engine");
+      const bars = await fetchYahooBars(symbol, "20y", "1d");
+      const { years, stats } = computeMonthlySeasonality(bars, monthIndex);
+      return writeJson(res, 200, {
+        ok: true, symbol, month: monthIndex,
+        currentYear: now.getUTCFullYear(), currentYearCycleType: classifyCycleYear(now.getUTCFullYear()),
+        years, stats, generatedAt: new Date().toISOString(),
+      });
+    } catch (e) {
+      return writeJson(res, 200, { ok: false, error: "Could not compute real seasonality.", debug: e.message });
+    }
+  }
+
   // Day Trade Console — single-symbol 15-min intraday decision page
   // (explicit user request, 2026-08-18). Real data only: reuses
   // fetchDayTradeScanRows for the VWAP/OR/RVOL/EMA-stack base signal,

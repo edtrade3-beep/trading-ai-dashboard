@@ -9,6 +9,9 @@
 // (movers' price/%, sector %/status, SPY/QQQ health) is real, straight
 // from src/market-wrap-ai.js's already-sanitized, real-grounded output —
 // this component only renders it.
+//
+// SeasonalityChart (below LiveWrap) is a second, independent real-data
+// section — see its own header comment further down for the full story.
 
 import { useState, useEffect, useCallback } from "react";
 
@@ -216,10 +219,109 @@ function LiveWrap({ C, MONO, SANS }) {
   );
 }
 
+// SPY Seasonality (2026-08-31, explicit user request — shared two
+// NDR-style S&P 500 Cycle Composite reference charts: "ADD HISTORICAL
+// CHART IN MARKET WRAP EXPECTATION PREDICTION SPY HISTORY IN THE CURRENT
+// MONT WHAT MIGHT HAPPEND FOR EXAMPLE IN SEP MARKET SELL OFF IN SEPT IN
+// ELECTION YEAR"). Deliberately NOT a fabricated composite curve like the
+// reference — GET /api/market/seasonality returns a real, directly-
+// computed read (src/spy-seasonality-engine.js) of what SPY actually
+// returned in each real year on file for the current month, bucketed by
+// the real 4-year US presidential cycle. This component only renders
+// what that real endpoint returns; no AI involved anywhere in this chart.
+const CYCLE_LABEL = {
+  PRESIDENTIAL: "Presidential Election Year", POST_ELECTION: "Post-Election Year",
+  MIDTERM: "Midterm Election Year", PRE_ELECTION: "Pre-Election Year",
+};
+const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+function SeasonalityBar({ C, MONO, y, maxAbs, halfH, highlight }) {
+  const color = y.returnPct >= 0 ? C.green : C.red;
+  const barH = maxAbs > 0 ? Math.max(2, (Math.abs(y.returnPct) / maxAbs) * halfH) : 2;
+  const barStyle = { width: 18, background: color, opacity: highlight ? 1 : 0.55, boxShadow: highlight ? `0 0 0 2px ${color}` : "none" };
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: 1, minWidth: 30 }}>
+      <div style={{ height: halfH, display: "flex", alignItems: "flex-end", justifyContent: "center", width: "100%" }}>
+        {y.returnPct >= 0 && (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+            <div style={{ fontFamily: MONO, fontSize: 9, color, fontWeight: 700, marginBottom: 2 }}>+{y.returnPct}%</div>
+            <div style={{ ...barStyle, height: barH, borderRadius: "3px 3px 0 0" }} />
+          </div>
+        )}
+      </div>
+      <div style={{ width: "100%", height: 1, background: C.border, flexShrink: 0 }} />
+      <div style={{ height: halfH, display: "flex", alignItems: "flex-start", justifyContent: "center", width: "100%" }}>
+        {y.returnPct < 0 && (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+            <div style={{ ...barStyle, height: barH, borderRadius: "0 0 3px 3px" }} />
+            <div style={{ fontFamily: MONO, fontSize: 9, color, fontWeight: 700, marginTop: 2 }}>{y.returnPct}%</div>
+          </div>
+        )}
+      </div>
+      <div style={{ fontFamily: MONO, fontSize: 9.5, color: highlight ? C.text : C.textDim, fontWeight: highlight ? 800 : 500, marginTop: 4 }}>{y.year}</div>
+    </div>
+  );
+}
+
+function SeasonalityChart({ C, MONO, SANS }) {
+  const [data, setData] = useState(null);
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/market/seasonality?symbol=SPY").then((r) => r.json())
+      .then((d) => { if (d.ok) setData(d); else setError(d.error || "Failed to load seasonality."); })
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const maxAbs = data?.years?.length ? Math.max(1, ...data.years.map((y) => Math.abs(y.returnPct))) : 1;
+  const halfH = 70;
+  const currentTypeStats = data ? data.stats.byCycleType[data.currentYearCycleType] : null;
+  const cycleLabel = data ? CYCLE_LABEL[data.currentYearCycleType] : "";
+
+  return (
+    <Section C={C} MONO={MONO} SANS={SANS} title="SPY Seasonality"
+      subtitle={data ? `Real historical ${MONTH_NAMES[data.month]} returns, ${data.years[0]?.year || ""}–${data.years[data.years.length - 1]?.year || ""} — not a guaranteed prediction, a real read of what actually happened in years on file.` : undefined}>
+      {loading && <div style={{ fontSize: 13, color: C.textDim }}>Loading real historical seasonality…</div>}
+      {!loading && error && <div style={{ fontSize: 13, color: C.red, background: C.redBg, borderRadius: 8, padding: "10px 14px" }}>{error}</div>}
+      {!loading && data && data.years.length === 0 && (
+        <div style={{ fontSize: 13, color: C.textDim }}>No real historical data available for this month yet.</div>
+      )}
+      {!loading && data && data.years.length > 0 && (
+        <>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10, marginBottom: 16 }}>
+            <StatTile C={C} MONO={MONO} label={`Avg ${MONTH_NAMES[data.month]} return (${data.stats.count}yr)`}
+              value={data.stats.avg != null ? `${data.stats.avg >= 0 ? "+" : ""}${data.stats.avg}%` : "—"}
+              tone={data.stats.avg == null ? null : data.stats.avg >= 0 ? "good" : "bad"} />
+            <StatTile C={C} MONO={MONO} label="Win rate" value={data.stats.winRate != null ? `${data.stats.winRate}%` : "—"} />
+            <StatTile C={C} MONO={MONO} label={`${data.currentYear} is a ${cycleLabel}`}
+              value={currentTypeStats?.avg != null ? `${currentTypeStats.avg >= 0 ? "+" : ""}${currentTypeStats.avg}% avg` : "n/a"}
+              detail={currentTypeStats?.count ? `${currentTypeStats.count} real prior ${cycleLabel.toLowerCase()}${currentTypeStats.count === 1 ? "" : "s"} on file` : "no real prior years of this type on file"}
+              tone={currentTypeStats?.avg == null ? null : currentTypeStats.avg >= 0 ? "good" : "bad"} />
+          </div>
+
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "16px 14px 10px", overflowX: "auto" }}>
+            <div style={{ display: "flex", alignItems: "flex-end", gap: 4, minWidth: data.years.length * 40 }}>
+              {data.years.map((y) => (
+                <SeasonalityBar key={y.year} C={C} MONO={MONO} y={y} maxAbs={maxAbs} halfH={halfH} highlight={y.cycleType === data.currentYearCycleType} />
+              ))}
+            </div>
+            <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 10, textAlign: "center" }}>
+              Highlighted bars = real {cycleLabel.toLowerCase()}s — same real cycle position as {data.currentYear}
+            </div>
+          </div>
+        </>
+      )}
+    </Section>
+  );
+}
+
 export default function MarketWrapTab({ C, MONO, SANS }) {
   return (
     <div style={{ maxWidth: 1100, margin: "0 auto", padding: "24px 20px 80px", fontFamily: SANS, color: C.text }}>
       <LiveWrap C={C} MONO={MONO} SANS={SANS} />
+      <SeasonalityChart C={C} MONO={MONO} SANS={SANS} />
     </div>
   );
 }
