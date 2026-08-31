@@ -251,6 +251,7 @@ async function handleRequest(req, res) {
 
     if (pathname === "/api/market/futures" ||
         pathname === "/api/market/premarket-movers" ||
+        pathname === "/api/market/aftermarket-movers" ||
         pathname === "/api/market/event-countdowns" ||
         pathname === "/api/market/fomc-calendar" ||
         pathname === "/api/market/live-quote") {

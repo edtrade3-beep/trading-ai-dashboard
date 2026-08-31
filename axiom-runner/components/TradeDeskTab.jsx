@@ -23,6 +23,7 @@ import MultiTimeframePanel from "./MultiTimeframePanel.jsx";
 import CatalystCard from "./CatalystCard.jsx";
 import OptionsStrategyRankPanel from "./OptionsStrategyRankPanel.jsx";
 import MarketContextCard from "./MarketContextCard.jsx";
+import ExtendedHoursMovers from "./ExtendedHoursMovers.jsx";
 
 // TradeDeskTab — one unified trading screen (2026-08-25, explicit user
 // request/mockup: top status strip, Discover-search | Chart | Cortex
@@ -650,6 +651,15 @@ export default function TradeDeskTab({
           to that area") from its own full-width top-level strip; that
           MarketContextPanel.jsx mount is retired, MarketContextCard.jsx
           below is now the only real Market Context surface in Trade Desk. */}
+      {/* Pre/After-Market Movers — real opportunities, plain sibling (2026-08-31,
+          explicit user request: "trade desk needs to be for opportunities
+          not just non need data"). Deliberately NOT gated behind Full view
+          — the whole point is this is a core "look at and trade" signal,
+          not a buried power-user tool. */}
+      <div style={{ padding: "10px 12px 0", background: TD.bg }}>
+        <ExtendedHoursMovers C={TD} MONO={MONO} SANS={SANS} onSelectSymbol={selectSymbol} />
+      </div>
+
       {viewMode === "full" && (
         <div style={{ padding: "10px 12px", display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(280px, 1fr))", gap: 10, background: TD.bg, borderTop: `1px solid ${TD.border}` }}>
           <MovementIntelligenceCard symbol={symbol} chart={chart} macroData={macroData} sectorData={sectorData} C={TD} MONO={MONO} SANS={SANS} />

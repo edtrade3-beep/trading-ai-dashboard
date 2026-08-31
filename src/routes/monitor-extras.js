@@ -1,7 +1,9 @@
-// Monitor extras: Futures, Pre-Market Movers, Event Countdowns
+// Monitor extras: Futures, Pre-Market Movers, After-Market Movers, Event Countdowns
 // All use Yahoo Finance (already in the platform) — no new dependencies
 
-const { fetchJsonSafe, withTimeout, writeJson } = require("../utils");
+const { fetchJsonSafe, withTimeout, writeJson, round2 } = require("../utils");
+const { fetchYahooQuoteBatch } = require("../providers/yahoo");
+const { SCAN_UNIVERSE } = require("../advisor-ai");
 
 const CACHE = {};
 const TTL   = 4 * 60 * 1000; // 4 min
@@ -31,13 +33,50 @@ async function fetchFutures() {
   });
 }
 
-// ── Pre-Market Movers — uses v8 chart API (reliable on server) ───────────────
-const PM_UNIVERSE = [
-  "NVDA","TSLA","AAPL","META","AMZN","GOOGL","MSFT","AMD","NFLX","COIN",
-  "SMCI","PLTR","MSTR","RIVN","SOFI","MARA","RIOT","HOOD","RBLX","UPST",
-  "AFRM","DKNG","CRWD","NET","BBAI","SOUN","RGTI","IONQ","ACHR",
-  "IBIT","SPY","QQQ","IWM","ASTS","RKLB","OKLO","SMR","HIMS","SNAP",
-];
+// ── Pre-Market / After-Market Movers — real session-aware detection ─────────
+// Fixed (2026-08-31, explicit user request: "i need the system to detect pre
+// market mover aftermarket movers"). This used to compare meta.regularMarketPrice
+// (v8 chart API) against yesterday's close — live-verified this DOESN'T carry
+// real extended-hours movement at all; during a real live after-hours check
+// (2026-08-31) meta.regularMarketPrice matched the regular-session close
+// exactly, with zero real pre/post fields on that endpoint. Real extended-hours
+// price movement lives on Yahoo's v7 quote endpoint instead — marketState
+// ("PRE"/"POST"/"POSTPOST"/"REGULAR"/"CLOSED") plus preMarketChangePercent/
+// postMarketChangePercent — already parsed by fetchYahooQuoteBatch elsewhere
+// in this codebase (providers/yahoo.js's fetchYahooQuotes), just never reused
+// here. Also widened from a fixed 38-symbol list to the real ~100-symbol
+// SCAN_UNIVERSE this app already scans everywhere else — a small hardcoded
+// list can't "detect" a mover outside itself by definition.
+const MOVERS_MIN_ABS_CHG = 0.5;
+const MOVERS_MAX_RESULTS = 15;
+const SESSION_FIELDS = {
+  PRE:  { states: ["PRE", "PREPRE"], pctField: "preMarketChangePercent", priceField: "preMarketPrice" },
+  POST: { states: ["POST", "POSTPOST"], pctField: "postMarketChangePercent", priceField: "postMarketPrice" },
+};
+
+function extractSessionMovers(quotes, session) {
+  const cfg = SESSION_FIELDS[session];
+  if (!cfg) return [];
+  return quotes
+    .filter((q) => cfg.states.includes(q.marketState) && Number.isFinite(q[cfg.pctField]) && Math.abs(q[cfg.pctField]) >= MOVERS_MIN_ABS_CHG && Number.isFinite(q[cfg.priceField]) && q[cfg.priceField] > 0)
+    .map((q) => ({ sym: q.symbol, price: round2(q[cfg.priceField]), chg: round2(q[cfg.pctField]), regularPrice: round2(Number(q.regularMarketPrice) || 0) }))
+    .sort((a, b) => Math.abs(b.chg) - Math.abs(a.chg))
+    .slice(0, MOVERS_MAX_RESULTS);
+}
+
+async function fetchSessionMovers(session) {
+  return cached(`${session}MktMoversV2`, TTL, async () => {
+    const CHUNK = 30; // real batch size — keeps each v7 quote URL reasonably sized
+    const all = [];
+    for (let i = 0; i < SCAN_UNIVERSE.length; i += CHUNK) {
+      try {
+        const rows = await fetchYahooQuoteBatch(SCAN_UNIVERSE.slice(i, i + CHUNK));
+        all.push(...rows);
+      } catch { /* one real batch failing shouldn't drop the whole real scan */ }
+    }
+    return extractSessionMovers(all, session);
+  });
+}
 
 function fetchChartQuote(sym) {
   const https = require("https");
@@ -62,21 +101,6 @@ function fetchChartQuote(sym) {
   });
 }
 
-async function fetchPreMarketMovers() {
-  return cached("preMktMovers", TTL, async () => {
-    // Fetch in batches of 8 concurrently to avoid rate limits
-    const BATCH = 8;
-    const results = [];
-    for (let i = 0; i < PM_UNIVERSE.length; i += BATCH) {
-      const batch = await Promise.all(PM_UNIVERSE.slice(i, i + BATCH).map(fetchChartQuote));
-      results.push(...batch);
-    }
-    return results
-      .filter(r => Math.abs(r.chg) >= 0.5 && r.price > 0)
-      .sort((a, b) => Math.abs(b.chg) - Math.abs(a.chg))
-      .slice(0, 10);
-  });
-}
 
 // ── Event Countdowns ──────────────────────────────────────────────────────────
 // Key macro events — updated manually each quarter
@@ -147,7 +171,18 @@ async function handleMonitorExtras(req, res, pathname, requestUrl) {
   }
   if (pathname === "/api/market/premarket-movers") {
     try {
-      const movers = await fetchPreMarketMovers();
+      const movers = await fetchSessionMovers("PRE");
+      return writeJson(res, 200, { ok: true, movers });
+    } catch (e) {
+      return writeJson(res, 200, { ok: false, movers: [], error: e.message });
+    }
+  }
+  // After-Market Movers (2026-08-31, explicit user request, same fetch as
+  // above just the real POST/POSTPOST session — no consumer existed for
+  // this before; it's a genuinely new capability, not fixing a broken one.
+  if (pathname === "/api/market/aftermarket-movers") {
+    try {
+      const movers = await fetchSessionMovers("POST");
       return writeJson(res, 200, { ok: true, movers });
     } catch (e) {
       return writeJson(res, 200, { ok: false, movers: [], error: e.message });
@@ -181,4 +216,4 @@ async function handleMonitorExtras(req, res, pathname, requestUrl) {
   return null;
 }
 
-module.exports = { handleMonitorExtras };
+module.exports = { handleMonitorExtras, extractSessionMovers };
