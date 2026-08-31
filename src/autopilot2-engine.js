@@ -404,12 +404,22 @@ async function fetchCryptoCandidates() {
       .filter((o) => isBullishCandidate(o) && (o.criticalFlags ?? 0) === 0)
       .sort((a, b) => (BULLISH_RANK[a.verdict] - BULLISH_RANK[b.verdict]) || ((b.expectedValue ?? -Infinity) - (a.expectedValue ?? -Infinity)));
 
-    // Bearish (2026-08-31) — same real "short-simulated" account as long
-    // spot crypto (autopilot2-account.js), no real borrow mechanism
-    // either way, both disclosed the same way.
-    const bearish = bearishCandidatesFrom(opportunities, bullish, "CRYPTO");
-
-    return [...bullish, ...bearish];
+    // Bearish/short candidates removed from the tradable pool (2026-08-31,
+    // explicit user request: "REMOVE SHORTS FROM AUTOPILOT 2.0 ANLY CRYPTO
+    // AND STOCK AND STOCKS OPTIONS LONG"). No new short-simulated crypto
+    // position opens going forward — long spot only. isBearishCandidate/
+    // bearishCandidatesFrom/toBearishCandidate/BEARISH_RANK below are
+    // deliberately left defined rather than deleted, unreferenced by this
+    // file's own entry pipeline now — same "leave the file, drop the
+    // front door" precedent this codebase already uses elsewhere for a
+    // reversible feature removal (see Sidebar.jsx's scan|deep routes
+    // comment), and isBearishCandidate/BEARISH_RANK remain real, directly
+    // tested pure classifiers independent of whether tick() calls them.
+    // This does NOT touch how any short crypto position opened before
+    // this change gets managed — managePositions()'s own direction-aware
+    // close/stop logic reads a stored position's `direction` field
+    // directly, not these candidate-shaping functions, and is unchanged.
+    return bullish;
   } catch {
     return []; // honest empty list on any real failure — never a fabricated candidate
   }
@@ -472,9 +482,11 @@ async function fetchWatchlistCandidates(alreadyScannedSymbols) {
     const bullish = opportunities
       .filter((o) => isBullishCandidate(o) && (o.criticalFlags ?? 0) === 0)
       .sort((a, b) => (BULLISH_RANK[a.verdict] - BULLISH_RANK[b.verdict]) || ((b.expectedValue ?? -Infinity) - (a.expectedValue ?? -Infinity)));
-    const bearish = bearishCandidatesFrom(opportunities, bullish, undefined).map((c) => ({ ...c, fromWatchlist: true }));
-
-    return { bullish, bearish };
+    // bearish removed (2026-08-31, "REMOVE SHORTS FROM AUTOPILOT 2.0") —
+    // see fetchCryptoCandidates' matching header for why the classifier
+    // functions themselves stay intact. `bearish: []` kept in the return
+    // shape since tick() still reads watchlistCandidates.bearish.length.
+    return { bullish, bearish: [] };
   } catch {
     return { bullish: [], bearish: [] }; // honest empty result on any real failure — never a fabricated candidate
   }
@@ -660,10 +672,15 @@ async function tick() {
     const bullishStockCandidates = allOpportunities
       .filter((o) => isBullishCandidate(o) && (o.criticalFlags ?? 0) === 0)
       .sort((a, b) => (BULLISH_RANK[a.verdict] - BULLISH_RANK[b.verdict]) || ((b.expectedValue ?? -Infinity) - (a.expectedValue ?? -Infinity)));
-    // Bearish stock candidates (2026-08-31, bidirectional trading) — same
-    // real scan, additive branch (see toBearishCandidate/
-    // bearishCandidatesFrom above).
-    const bearishStockCandidates = bearishCandidatesFrom(allOpportunities, bullishStockCandidates, undefined);
+    // Bearish stock candidates removed (2026-08-31, "REMOVE SHORTS FROM
+    // AUTOPILOT 2.0 ANLY CRYPTO AND STOCK AND STOCKS OPTIONS LONG") — see
+    // fetchCryptoCandidates' matching header. Since opp.direction is only
+    // ever "SHORT" for a candidate built by toBearishCandidate, and this
+    // was the last of the three real call sites that fed one into
+    // tryEnter, chooseExpression() below now never receives direction
+    // "SHORT" for a NEW entry either — PUT/SHORT_STOCK expression
+    // selection is dead going forward without touching
+    // autopilot2-expression.js at all.
 
     // Trade Desk watchlist (2026-08-31, explicit user request: "trade
     // desk will be also money makers") — the real, user-curated symbol
@@ -675,7 +692,7 @@ async function tick() {
     const scannedSymbols = new Set(allOpportunities.map((o) => o.symbol));
     watchlistCandidates = await fetchWatchlistCandidates(scannedSymbols);
 
-    opportunityCandidates = [...bullishStockCandidates, ...watchlistCandidates.bullish, ...bearishStockCandidates, ...watchlistCandidates.bearish];
+    opportunityCandidates = [...bullishStockCandidates, ...watchlistCandidates.bullish];
 
     // Light Box (2026-08-27) — a real, complementary, more real-time source
     // (see fetchLightBoxCandidates' own header comment). Appended after the
