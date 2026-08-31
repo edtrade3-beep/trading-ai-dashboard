@@ -36,6 +36,7 @@ const { handleAiHub } = require("./routes/ai-hub");
 const { handleCommandCenter } = require("./routes/command-center");
 const { handleResearchIntel } = require("./routes/research-intel");
 const { handleMarketWrap } = require("./routes/market-wrap");
+const { handleCurblineIntel } = require("./routes/curbline-intel");
 const { handleCarBusiness } = require("./routes/car-business");
 const { handlePaperPositions } = require("./routes/paper-positions");
 const { handleLiquidations } = require("./routes/liquidations");
@@ -195,6 +196,10 @@ async function handleRequest(req, res) {
 
     if (pathname.startsWith("/api/market-wrap")) {
       return await handleMarketWrap(req, res, requestUrl);
+    }
+
+    if (pathname.startsWith("/api/curbline-intel")) {
+      return await handleCurblineIntel(req, res, requestUrl);
     }
 
     if (pathname.startsWith("/api/car-business/")) {

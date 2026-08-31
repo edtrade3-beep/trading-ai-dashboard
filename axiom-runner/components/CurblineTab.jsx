@@ -2,9 +2,19 @@
 // (2026-08-31: "Project making money from home using ai" -> chose "a new
 // AI-powered side business" -> "TAB INSIDE MY PLATFORM"). This is a static
 // concept/pitch page for a productized version of Car Business's Facebook
-// Ad Maker, sold to other independent dealers. Not wired to any backend —
-// there is no multi-tenant auth/billing built yet, so nothing here calls an
-// API. The CTA is an honest mailto: link, never a fake signup form.
+// Ad Maker, sold to other independent dealers. The pitch content itself is
+// not wired to any backend — there is no multi-tenant auth/billing built
+// yet — and the CTA is an honest mailto: link, never a fake signup form.
+//
+// The Curbline Intel section below IS live: a daily 8:30 AM ET deep-scan
+// of the actual dealer-marketing-SaaS market (explicit follow-up request,
+// same day: "I WANT LIKE IDEAS BUISNESS SIDE UPDATE 8:30 EVERY MORNING
+// DEEP SCAN DEEP ANALYSIS", scope narrowed via AskUserQuestion to
+// "Curbline's market specifically"). Same real GET/POST-refresh shape as
+// MarketWrapTab.jsx's LiveWrap — src/curbline-intel-ai.js is the one real
+// AI chokepoint, this only renders what it returns.
+
+import { useState, useEffect, useCallback } from "react";
 
 function Section({ C, SANS, title, tag, children }) {
   return (
@@ -49,6 +59,150 @@ function SpecRow({ C, MONO, SANS, label, title, body }) {
   );
 }
 
+function CompetitorRow({ C, MONO, SANS, c }) {
+  return (
+    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+        <span style={{ fontFamily: SANS, fontWeight: 700, fontSize: 13, color: C.text }}>{c.name}</span>
+        {c.pricingNote && <span style={{ fontFamily: MONO, fontSize: 10.5, color: C.textDim, whiteSpace: "nowrap" }}>{c.pricingNote}</span>}
+      </div>
+      {c.whatTheyDo && <div style={{ fontSize: 11.5, color: C.textSec, marginTop: 4, lineHeight: 1.5 }}>{c.whatTheyDo}</div>}
+      {(c.strength || c.weakness) && (
+        <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 2 }}>
+          {c.strength && <div style={{ fontSize: 11, color: C.green }}>+ {c.strength}</div>}
+          {c.weakness && <div style={{ fontSize: 11, color: C.red }}>− {c.weakness}</div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function IdeaRow({ C, SANS, label, reason, tone }) {
+  return (
+    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderLeft: `3px solid ${tone}`, borderRadius: 8, padding: "10px 12px" }}>
+      <div style={{ fontFamily: SANS, fontWeight: 700, fontSize: 12.5, color: C.text }}>{label}</div>
+      {reason && <div style={{ fontSize: 11.5, color: C.textSec, marginTop: 4, lineHeight: 1.5 }}>{reason}</div>}
+    </div>
+  );
+}
+
+function LiveIntel({ C, MONO, SANS }) {
+  const [intel, setIntel] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(null);
+
+  const load = useCallback(() => {
+    setLoading(true); setError(null);
+    fetch("/api/curbline-intel").then((r) => r.json())
+      .then((d) => { if (d.ok) setIntel(d.intel); else setError(d.error || "Failed to load Curbline Intel."); })
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  const refresh = () => {
+    setRefreshing(true); setError(null);
+    fetch("/api/curbline-intel/refresh", { method: "POST" }).then((r) => r.json())
+      .then((d) => { if (d.ok) setIntel(d.intel); else setError(d.error || "Refresh failed."); })
+      .catch((e) => setError(e.message))
+      .finally(() => setRefreshing(false));
+  };
+
+  return (
+    <Section C={C} SANS={SANS} title="Curbline Intel" tag="Daily · 8:30 AM ET market scan">
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+        <button onClick={refresh} disabled={refreshing} style={{
+          fontFamily: MONO, fontSize: 11.5, fontWeight: 700, padding: "7px 13px", borderRadius: 7,
+          border: `1px solid ${C.accent}`, background: refreshing ? C.card : C.accent, color: refreshing ? C.accent : "#fff",
+          cursor: refreshing ? "default" : "pointer", whiteSpace: "nowrap",
+        }}>{refreshing ? "Scanning…" : "↻ Refresh"}</button>
+      </div>
+
+      {loading && <div style={{ fontSize: 13, color: C.textDim }}>Loading Curbline Intel…</div>}
+      {!loading && error && <div style={{ fontSize: 13, color: C.red, background: `${C.red}18`, borderRadius: 8, padding: "10px 14px" }}>{error}</div>}
+      {!loading && !error && !intel && (
+        <div style={{ fontSize: 13, color: C.textDim, background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "16px 18px" }}>
+          No scan generated yet. This runs automatically once a day (8:30 AM ET), or click "Refresh" to generate one now.
+          {" "}Requires <code>ANTHROPIC_API_KEY</code> to be configured.
+        </div>
+      )}
+
+      {!loading && intel && (
+        <>
+          {intel.marketSummary && (
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "14px 16px", marginBottom: 16, fontSize: 13, color: C.text, lineHeight: 1.6 }}>
+              {intel.marketSummary}
+            </div>
+          )}
+
+          {intel.competitors?.length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 8, textTransform: "uppercase" }}>Real competitors found</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 10 }}>
+                {intel.competitors.map((c, i) => <CompetitorRow key={i} C={C} MONO={MONO} SANS={SANS} c={c} />)}
+              </div>
+            </div>
+          )}
+
+          {(intel.dealerAdSpend?.note || intel.pricingRecommendation?.note) && (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 10, marginBottom: 16 }}>
+              {intel.dealerAdSpend?.note && (
+                <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 14px" }}>
+                  <div style={{ fontFamily: MONO, fontSize: 9.5, textTransform: "uppercase", letterSpacing: 0.4, color: C.textDim, marginBottom: 6 }}>Real dealer ad spend</div>
+                  {intel.dealerAdSpend.typicalMonthlyRange && <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 5 }}>{intel.dealerAdSpend.typicalMonthlyRange}</div>}
+                  <div style={{ fontSize: 11.5, color: C.textSec, lineHeight: 1.55 }}>{intel.dealerAdSpend.note}</div>
+                </div>
+              )}
+              {intel.pricingRecommendation?.note && (
+                <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 14px" }}>
+                  <div style={{ fontFamily: MONO, fontSize: 9.5, textTransform: "uppercase", letterSpacing: 0.4, color: C.textDim, marginBottom: 6 }}>$99/mo positioning</div>
+                  {intel.pricingRecommendation.suggestedPrice && <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 700, color: C.accent, marginBottom: 5 }}>{intel.pricingRecommendation.suggestedPrice}</div>}
+                  <div style={{ fontSize: 11.5, color: C.textSec, lineHeight: 1.55 }}>{intel.pricingRecommendation.note}</div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {(intel.opportunities?.length > 0 || intel.risks?.length > 0) && (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16, marginBottom: 16 }}>
+              {intel.opportunities?.length > 0 && (
+                <div>
+                  <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.green, letterSpacing: 0.5, marginBottom: 8 }}>OPPORTUNITIES</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {intel.opportunities.map((o, i) => <IdeaRow key={i} C={C} SANS={SANS} label={o.idea} reason={o.reason} tone={C.green} />)}
+                  </div>
+                </div>
+              )}
+              {intel.risks?.length > 0 && (
+                <div>
+                  <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.red, letterSpacing: 0.5, marginBottom: 8 }}>RISKS</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {intel.risks.map((r, i) => <IdeaRow key={i} C={C} SANS={SANS} label={r.risk} reason={r.reason} tone={C.red} />)}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {intel.watchFor?.length > 0 && (
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 16px", marginBottom: 4 }}>
+              <div style={{ fontFamily: MONO, fontSize: 9.5, textTransform: "uppercase", letterSpacing: 0.4, color: C.textDim, marginBottom: 6 }}>Watch for next scan</div>
+              <ul style={{ margin: 0, paddingLeft: 18 }}>
+                {intel.watchFor.map((w, i) => <li key={i} style={{ fontSize: 11.5, color: C.textSec, marginBottom: 3 }}>{w}</li>)}
+              </ul>
+            </div>
+          )}
+
+          <div style={{ fontFamily: MONO, fontSize: 10.5, color: C.textDim, marginTop: 4 }}>
+            {intel.generatedAt ? `Generated ${new Date(intel.generatedAt).toLocaleString()}` : ""}
+          </div>
+        </>
+      )}
+    </Section>
+  );
+}
+
 export default function CurblineTab({ C, MONO, SANS }) {
   const mailBody = encodeURIComponent("Dealership name:\nState/city:\nApprox. inventory size:");
   const mailHref = `mailto:ed.dixiemotors@gmail.com?subject=${encodeURIComponent("Curbline AI — early access")}&body=${mailBody}`;
@@ -66,6 +220,8 @@ export default function CurblineTab({ C, MONO, SANS }) {
         info, not a fill-in-the-blank template. A productized version of Car Business's Facebook Ad Maker,
         built out of Dixie Motors' own internal tools, for other independent dealers to use on their own lots.
       </p>
+
+      <LiveIntel C={C} MONO={MONO} SANS={SANS} />
 
       <Section C={C} SANS={SANS} title="A real example" tag="Same tool used on Car Business's Ad Maker">
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>

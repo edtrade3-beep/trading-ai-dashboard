@@ -59,6 +59,7 @@ const { runCeoRecommendation } = require("./src/ceo-ai");
 const { buildCommandCenter } = require("./src/command-center-ai");
 const { buildResearchIntel } = require("./src/research-intel-ai");
 const { buildMarketWrap } = require("./src/market-wrap-ai");
+const { buildCurblineIntel } = require("./src/curbline-intel-ai");
 const { buildCarBusinessIntel } = require("./src/car-business-ai");
 const { runPredictionTracker } = require("./src/prediction-tracker");
 const { revertMisgradedXIntelShorts } = require("./src/predictions-store");
@@ -199,7 +200,7 @@ server.listen(PORT, HOST, () => {
 
   // AI Morning Game Plan (~9:40 AM ET) + AI Trade Coach (~4:15 PM ET) — weekdays, server-side.
   // Autopilot recap (~4:05 PM ET) — what the Alpaca paper autopilot did today.
-  let _gpSent = null, _coachSent = null, _recapAP = null, _weeklySent = null, _monthlyReview = null, _mrvPaper = null, _mrvSummary = null, _apexSent = null, _ceoSent = null, _aplusSnapshot = null, _cmdCenterSent = null, _ivSnapshot = null, _edgeDecaySnapshot = null, _researchIntelSent = null, _carBusinessSent = null, _marketWrapSent = null;
+  let _gpSent = null, _coachSent = null, _recapAP = null, _weeklySent = null, _monthlyReview = null, _mrvPaper = null, _mrvSummary = null, _apexSent = null, _ceoSent = null, _aplusSnapshot = null, _cmdCenterSent = null, _ivSnapshot = null, _edgeDecaySnapshot = null, _researchIntelSent = null, _carBusinessSent = null, _marketWrapSent = null, _curblineIntelSent = null;
   setInterval(() => {
     const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
     const h = et.getHours(), m = et.getMinutes(), day = et.getDay();
@@ -225,6 +226,14 @@ server.listen(PORT, HOST, () => {
     // force a same-day dependency; buildCommandCenter() safely no-ops if no
     // ADVISOR brief exists at all yet).
     if (h === 8 && m >= 20 && m < 26 && _cmdCenterSent !== today) { _cmdCenterSent = today; buildCommandCenter().catch(() => {}); }
+    // Curbline Intel 8:30 ET — explicit user request, 2026-08-31: "I WANT
+    // LIKE IDEAS BUISNESS SIDE UPDATE 8:30 EVERY MORNING DEEP SCAN DEEP
+    // ANALYSIS", scope narrowed via AskUserQuestion to "Curbline's market
+    // specifically". Sits in the one real gap this block had left between
+    // Command Center (8:20-8:26) and Research Intel (8:35-8:41) — the
+    // user asked for 8:30 specifically and this window doesn't overlap
+    // either neighbor.
+    if (h === 8 && m >= 30 && m < 36 && _curblineIntelSent !== today) { _curblineIntelSent = today; buildCurblineIntel().catch(() => {}); }
     // Research Intelligence 8:35 ET — the Search/Research tab's daily
     // refresh (spec: "refresh the research every 24 hours"), 15 min after
     // Command Center so it can reuse the same freshly-warmed macro-regime
