@@ -771,6 +771,14 @@ export default function CarBusinessTab({ C, MONO, SANS }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  // Sub-tab split (explicit user request, 2026-08-31: "in car business
+  // move Facebook in other tab under car business and keep car business
+  // research clean") — Facebook Strategy/Ad Maker/Dealer Info (all three
+  // are specifically Facebook-marketing tools, Dealer Info exists only
+  // to feed the other two) move to their own sub-tab, out of the main
+  // research view. Repricing (CSV inventory analysis) stays in the main
+  // view — it's real inventory/pricing research, not a Facebook tool.
+  const [subTab, setSubTab] = useState("research");
 
   const load = useCallback(() => {
     setLoading(true); setError(null);
@@ -822,14 +830,32 @@ export default function CarBusinessTab({ C, MONO, SANS }) {
         }}>{refreshing ? "Researching…" : "↻ Refresh"}</button>
       </div>
 
-      <RepricingTool C={C} MONO={MONO} SANS={SANS} />
-      <DealerInfoTool C={C} MONO={MONO} SANS={SANS} />
-      <FacebookStrategyTool C={C} MONO={MONO} SANS={SANS} inventory={inventory} />
-      <AdMakerTool C={C} MONO={MONO} SANS={SANS} />
+      <div style={{ display: "flex", gap: 6, marginBottom: 20, borderBottom: `1px solid ${C.border}` }}>
+        {[
+          { id: "research", label: "📊 Research" },
+          { id: "facebook", label: "📘 Facebook" },
+        ].map((t) => (
+          <button key={t.id} onClick={() => setSubTab(t.id)} style={{
+            fontFamily: MONO, fontSize: 12.5, fontWeight: 700, padding: "9px 16px", cursor: "pointer",
+            background: "none", border: "none", borderBottom: `2px solid ${subTab === t.id ? C.accent : "transparent"}`,
+            color: subTab === t.id ? C.accent : C.textDim, marginBottom: -1,
+          }}>{t.label}</button>
+        ))}
+      </div>
 
-      {loading && <div style={{ fontSize: 13, color: C.textDim }}>Loading Car Business intelligence…</div>}
-      {!loading && error && <div style={{ fontSize: 13, color: C.red, background: C.redBg, borderRadius: 8, padding: "10px 14px" }}>{error}</div>}
-      {!loading && !error && !intel && (
+      {subTab === "facebook" && (
+        <>
+          <DealerInfoTool C={C} MONO={MONO} SANS={SANS} />
+          <FacebookStrategyTool C={C} MONO={MONO} SANS={SANS} inventory={inventory} />
+          <AdMakerTool C={C} MONO={MONO} SANS={SANS} />
+        </>
+      )}
+
+      {subTab === "research" && <RepricingTool C={C} MONO={MONO} SANS={SANS} />}
+
+      {subTab === "research" && loading && <div style={{ fontSize: 13, color: C.textDim }}>Loading Car Business intelligence…</div>}
+      {subTab === "research" && !loading && error && <div style={{ fontSize: 13, color: C.red, background: C.redBg, borderRadius: 8, padding: "10px 14px" }}>{error}</div>}
+      {subTab === "research" && !loading && !error && !intel && (
         <div style={{ fontSize: 13, color: C.textDim, background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "16px 18px" }}>
           No report generated yet. This runs automatically once a day (6:05 PM ET), or click "Refresh" to generate one now.
           {" "}Requires <code>ANTHROPIC_API_KEY</code> to be configured.
@@ -837,7 +863,7 @@ export default function CarBusinessTab({ C, MONO, SANS }) {
         </div>
       )}
 
-      {!loading && intel && (
+      {subTab === "research" && !loading && intel && (
         <>
           {intel.partialFailures?.length > 0 && (
             <div style={{ fontSize: 12.5, color: C.amber, background: C.amberBg, borderRadius: 8, padding: "10px 14px", marginBottom: 16 }}>
