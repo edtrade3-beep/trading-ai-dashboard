@@ -680,7 +680,7 @@ export default function TradeDeskTab({
 // tick, which is the exact "chart torn down/recreated on every pixel of a
 // drag-resize" bug TrendChart.jsx's own header comment already documents
 // avoiding for its own "fill" mode.
-const CHART_TF_OPTIONS = [["5m", "5m"], ["15m", "15m"], ["30m", "30m"], ["1h", "1H"], ["1d", "1D"], ["1wk", "1W"]];
+const CHART_TF_OPTIONS = [["5m", "5m"], ["15m", "15m"], ["1h", "1H"], ["4h", "4H"], ["1d", "1D"], ["1wk", "1W"]];
 
 function ChartPane({ symbol, chart, loadingChart, vcpOn, setVcpOn, C, MONO, SANS, chartTf, setChartTf }) {
   const wrapRef = useRef(null);

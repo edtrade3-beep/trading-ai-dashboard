@@ -345,16 +345,37 @@ function WatchlistCard({ C, MONO, SANS, watchlistData, sigData, setTerminalSymbo
 // ── Row 2: big chart panel — reuses TrendChart.jsx (same component shared ──
 // by DayTradeTab/MarketTerminalTab/TrendTemplateTab), fed by the same
 // /api/market/trend-template endpoint they already use.
+// Timeframe buttons (2026-08-31, explicit user request: "IN CHART I NEED
+// 5 MIN 15 MIN 1 HOUR 4 HOURS 1 DAY 1 WEEK") — this card had NO interval
+// control at all before, always the default daily bars. Same real
+// TT_INTERVAL_MAP-backed /api/market/trend-template?interval= param
+// TradeDeskTab.jsx/MarketTerminalTab.jsx's own timeframe buttons already
+// use, not a new fetch pipeline.
+const DASH_CHART_TF_OPTIONS = [["5m", "5m"], ["15m", "15m"], ["1h", "1H"], ["4h", "4H"], ["1d", "1D"], ["1wk", "1W"]];
+
 function DashboardChartCard({ C, MONO, SANS, symbol }) {
   const [data, setData] = useState(null);
+  const [tf, setTf] = useState("1d");
   useEffect(() => {
     let alive = true;
-    fetch("/api/market/trend-template?symbol=" + encodeURIComponent(symbol))
+    setData(null);
+    const qs = tf === "1d" ? "" : `&interval=${encodeURIComponent(tf)}`;
+    fetch("/api/market/trend-template?symbol=" + encodeURIComponent(symbol) + qs)
       .then(r => r.json()).then(d => { if (alive && d && !d.error) setData(d); }).catch(() => {});
     return () => { alive = false; };
-  }, [symbol]);
+  }, [symbol, tf]);
   return (
     <Card C={C} title={`CHART — ${symbol}`} style={{ flex: "3 1 560px", minWidth: 420 }}>
+      <div style={{ display: "flex", gap: 4, marginBottom: 8, flexWrap: "wrap" }}>
+        {DASH_CHART_TF_OPTIONS.map(([id, lbl]) => (
+          <button key={id} onClick={() => setTf(id)}
+            style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "5px 12px", borderRadius: 7, cursor: "pointer",
+              border: `1px solid ${tf === id ? C.accent : C.border}`, background: tf === id ? `${C.accent}18` : "transparent",
+              color: tf === id ? C.accent : C.textDim }}>
+            {lbl}
+          </button>
+        ))}
+      </div>
       {data ? <TrendChart data={data} C={C} MONO={MONO} SANS={SANS} height={340} />
         : <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, padding: 40, textAlign: "center" }}>Loading chart…</div>}
     </Card>

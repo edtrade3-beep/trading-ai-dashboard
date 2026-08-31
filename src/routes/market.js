@@ -882,12 +882,23 @@ function ttSmaSeries(values, period) {
 // populated responses at "1mo" (30m confirmed to real-fail, HTTP 422, at
 // "3mo" — "1mo" stays safely inside the real working range); 1h/"6mo"
 // matches the real bar count the old Alpaca range already returned, no
-// regression there.
+// regression there. "30m" stays defined even though the chart UI buttons
+// (TradeDeskTab.jsx/MarketTerminalTab.jsx) no longer expose it (explicit
+// user request, 2026-08-31: "IN CHART I NEED 5 MIN 15 MIN 1 HOUR 4 HOURS
+// 1 DAY 1 WEEK" — swapped 30m out for 4h) — same "leave the file, drop
+// the front door" precedent this codebase already uses for reversible UI
+// changes; the real endpoint still honestly serves it if ever called
+// directly. "4h" is a genuinely real, live-verified Yahoo interval
+// (2026-08-31: interval=4h returns real 4-hour bars directly — Yahoo's
+// own valid-interval list confirms it; "240m" is NOT valid despite that
+// being the literal minute count, a real gotcha caught by testing before
+// use) at range="6mo" (635 real bars for SPY, live-verified).
 const TT_INTERVAL_MAP = {
   "5m":  { provider: "yahoo-extended", range: "1mo", tf: "5m" },
   "15m": { provider: "yahoo-extended", range: "1mo", tf: "15m" },
   "30m": { provider: "yahoo-extended", range: "1mo", tf: "30m" },
   "1h":  { provider: "yahoo-extended", range: "6mo", tf: "60m" },
+  "4h":  { provider: "yahoo-extended", range: "6mo", tf: "4h" },
   "1wk": { provider: "yahoo",  range: "5y",  tf: "1wk" },
 };
 async function fetchIntervalBars(symbol, interval) {

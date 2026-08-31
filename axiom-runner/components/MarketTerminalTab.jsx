@@ -372,7 +372,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   // TerminalWorkspace, real intraday ticks instead of the 45s-polled daily
   // bar TrendChart canvas.
   const tvTheme = (C.bg && /^#0|^#1/i.test(C.bg)) ? "dark" : "light";
-  const TV_INTERVAL = { "5m": "5", "15m": "15", "30m": "30", "1h": "60", "1d": "D", "1wk": "W" };
+  const TV_INTERVAL = { "5m": "5", "15m": "15", "1h": "60", "4h": "240", "1d": "D", "1wk": "W" };
   const [sortBy, setSortBy] = useState("bucket");  // movers sort
   const [source, setSource] = useState("movers");  // movers | watchlist
   const [wlRows, setWlRows] = useState(null);
@@ -2776,7 +2776,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             see the "Rating reflects the daily setup" note on the chart
             for anything other than 1D. */}
         <div style={{ display: "flex", gap: 4, marginBottom: 8, flexWrap: "wrap" }}>
-          {[["5m", "5m"], ["15m", "15m"], ["30m", "30m"], ["1h", "1H"], ["1d", "1D"], ["1wk", "1W"]].map(([id, lbl]) => (
+          {[["5m", "5m"], ["15m", "15m"], ["1h", "1H"], ["4h", "4H"], ["1d", "1D"], ["1wk", "1W"]].map(([id, lbl]) => (
             <button key={id} onClick={() => setTf(id)} disabled={loadingChart}
               style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "5px 12px", borderRadius: 7, cursor: loadingChart ? "default" : "pointer",
                 border: `1px solid ${chartTf === id ? C.accent : C.border}`, background: chartTf === id ? `${C.accent}18` : "transparent",
