@@ -194,6 +194,38 @@ async function fetchYahooBarsExtended(symbol, range, interval) {
   }
 }
 
+// Real Yahoo-only, long-history fetch (2026-08-31, spy-seasonality-engine.js)
+// — deliberately bypasses fetchYahooBars' Alpaca-first preference. Root
+// cause this exists: fetching a multi-year real range (e.g. "20y") through
+// fetchYahooBars silently hit Alpaca first when Alpaca keys are configured
+// (true in production), and alpaca-data.js's own DAYS map has no entry
+// for ranges beyond "5y" — an unrecognized range silently fell back to
+// its 375-day default there, so production got back only ~1 real year of
+// bars instead of 20 with ZERO error surfaced (Alpaca returned SOME real
+// bars, so fetchYahooBars' `if (a && a.length > 0) return a;` accepted
+// the truncated result and never reached Yahoo at all). Confirmed live:
+// this route returned 20 real years locally (no Alpaca keys set there)
+// but only 1 in production before this fix. No Alpaca fallback here on
+// purpose — an honest empty/short real result beats a silently
+// wrong-range one from a provider that doesn't actually support it.
+async function fetchYahooBarsLong(symbol, range, interval) {
+  const path = `/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${interval}&includePrePost=false&events=div%2Csplits`;
+  const urls = [
+    `https://query1.finance.yahoo.com${path}`,
+    `https://query2.finance.yahoo.com${path}`,
+  ];
+  for (const url of urls) {
+    try {
+      const response = await yFetch(url, 9000);
+      if (!response.ok) continue;
+      const payload = await response.json();
+      const bars = parseYahooChartBars(payload);
+      if (bars.length > 0) return bars;
+    } catch { continue; }
+  }
+  return [];
+}
+
 // Real regular-session-hours classifier for one bar timestamp — pure,
 // timezone-correct (America/New_York, handles DST automatically via
 // Intl), no dependency on "today"'s specific real session boundaries
@@ -1066,7 +1098,7 @@ async function fetchYahooEarnings(symbol) {
 
 module.exports = {
   fetchYahooEarnings,
-  fetchYahooBars, fetchYahooBarsExtended, sessionForBar, fetchYahooQuoteBatch, fetchYahooQuotes, fetchQuoteBatchWithFallback,
+  fetchYahooBars, fetchYahooBarsExtended, fetchYahooBarsLong, sessionForBar, fetchYahooQuoteBatch, fetchYahooQuotes, fetchQuoteBatchWithFallback,
   fetchYahooQuoteBatchWithFields,
   fetchYahooNews, fetchYahooRssNews,
   fetchYahooFundamentals, fetchYahooCandlesWithIndicators,

@@ -13,7 +13,7 @@ const {
   normalizeYield, aggregateBars
 } = require("../indicators");
 const {
-  fetchYahooQuotes, fetchYahooQuoteBatch, fetchYahooBars, fetchYahooBarsExtended, sessionForBar,
+  fetchYahooQuotes, fetchYahooQuoteBatch, fetchYahooBars, fetchYahooBarsExtended, fetchYahooBarsLong, sessionForBar,
   fetchYahooNews, fetchYahooFundamentals,
   fetchYahooOptionsFlowForSymbol, fetchEstimatedOptionsFlow, fetchYahooOptionsChain,
   fetchYahooShortInterest,
@@ -3711,13 +3711,20 @@ Explain this.`;
   // range=max silently downgrades to monthly bars server-side, which
   // would make a monthly-return calc meaningless; 20y keeps true daily
   // resolution and covers 5 full real instances of every cycle-year type.
+  // Uses fetchYahooBarsLong, NOT fetchYahooBars — the latter tries Alpaca
+  // first when Alpaca keys are configured (true in production), and
+  // alpaca-data.js's own DAYS map has no "20y" entry, so it silently fell
+  // back to ~1 real year instead of erroring (confirmed live: 20 real
+  // years locally with no Alpaca keys set, only 1 in production before
+  // this fix). fetchYahooBarsLong is Yahoo-only, no silent wrong-range
+  // fallback.
   if (pathname === "/api/market/seasonality" && req.method === "GET") {
     const symbol = (searchParams.get("symbol") || "SPY").trim().toUpperCase();
     const now = new Date();
     const monthIndex = Math.max(0, Math.min(11, Number(searchParams.get("month") ?? now.getUTCMonth())));
     try {
       const { computeMonthlySeasonality, classifyCycleYear } = require("../spy-seasonality-engine");
-      const bars = await fetchYahooBars(symbol, "20y", "1d");
+      const bars = await fetchYahooBarsLong(symbol, "20y", "1d");
       const { years, stats } = computeMonthlySeasonality(bars, monthIndex);
       return writeJson(res, 200, {
         ok: true, symbol, month: monthIndex,
