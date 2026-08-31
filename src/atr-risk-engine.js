@@ -35,8 +35,14 @@ const ATR_DEFAULTS = {
 // bars: real OHLC bars ({high, low, close}, any timeframe — ATR is a
 // bar-count period, not a calendar period, so this works on daily, 4H,
 // or 1H bars unchanged). price: current real price to anchor levels off.
+// opts.direction ("LONG"|"SHORT", default LONG, added 2026-08-31 for
+// Autopilot 2.0's bidirectional trading) mirrors every level: a SHORT's
+// stop sits ABOVE price and its targets sit BELOW — same ATR distance,
+// opposite side, matching risk-guardrails.js's sizePositionByRisk's own
+// existing direction convention.
 function computeAtrRiskLevels(bars, price, opts = {}) {
   const o = { ...ATR_DEFAULTS, ...opts };
+  const isShort = o.direction === "SHORT";
   if (!Array.isArray(bars) || bars.length < o.atrPeriod + 1 || !Number.isFinite(price) || price <= 0) {
     return { atr: null, stop: null, target1: null, target2: null, target3: null, trailingStop: null, riskPerShare: null, dataInsufficient: true };
   }
@@ -44,12 +50,12 @@ function computeAtrRiskLevels(bars, price, opts = {}) {
   if (!Number.isFinite(atrVal) || atrVal <= 0) {
     return { atr: null, stop: null, target1: null, target2: null, target3: null, trailingStop: null, riskPerShare: null, dataInsufficient: true };
   }
-  const stop = round2(price - o.stopMult * atrVal);
-  const riskPerShare = round2(price - stop);
-  const target1 = round2(price + o.target1R * riskPerShare);
-  const target2 = round2(price + o.target2R * riskPerShare);
-  const target3 = round2(price + o.target3R * riskPerShare);
-  const trailingStop = round2(price - o.trailingMult * atrVal);
+  const stop = round2(isShort ? price + o.stopMult * atrVal : price - o.stopMult * atrVal);
+  const riskPerShare = round2(isShort ? stop - price : price - stop);
+  const target1 = round2(isShort ? price - o.target1R * riskPerShare : price + o.target1R * riskPerShare);
+  const target2 = round2(isShort ? price - o.target2R * riskPerShare : price + o.target2R * riskPerShare);
+  const target3 = round2(isShort ? price - o.target3R * riskPerShare : price + o.target3R * riskPerShare);
+  const trailingStop = round2(isShort ? price + o.trailingMult * atrVal : price - o.trailingMult * atrVal);
   return { atr: round2(atrVal), stop, target1, target2, target3, trailingStop, riskPerShare, dataInsufficient: false };
 }
 
@@ -62,22 +68,31 @@ function computeAtrRiskLevels(bars, price, opts = {}) {
 // exists, configurable rather than hardcoded as universal truth.
 const ANTI_CHASE_DEFAULTS = { normalMax: 3, cautionMax: 5, extendedMax: 8 };
 
+// opts.direction ("LONG"|"SHORT", default LONG, added 2026-08-31) — for a
+// SHORT, extensionPct is the same kind of already-computed positive
+// magnitude (how far past the breakdown level, in the unfavorable-to-
+// chase direction) the caller must supply, just measured below a real
+// breakdown level instead of above a real breakout — this function only
+// reflects that in its band name/labels, it does not compute or flip any
+// sign itself.
 function computeAntiChase(extensionPct, opts = {}) {
   const o = { ...ANTI_CHASE_DEFAULTS, ...opts };
+  const isShort = o.direction === "SHORT";
+  const rel = isShort ? "below the breakdown" : "above the breakout";
   if (!Number.isFinite(extensionPct)) return { band: null, label: null, extensionPct: null };
   if (extensionPct <= 0) {
-    return { band: "NOT_YET_BROKEN_OUT", label: "Price hasn't reached the breakout level yet — no chase risk.", extensionPct: round2(extensionPct) };
+    return { band: isShort ? "NOT_YET_BROKEN_DOWN" : "NOT_YET_BROKEN_OUT", label: isShort ? "Price hasn't reached the breakdown level yet — no chase risk." : "Price hasn't reached the breakout level yet — no chase risk.", extensionPct: round2(extensionPct) };
   }
   if (extensionPct <= o.normalMax) {
-    return { band: "NORMAL", label: `Normal — ${extensionPct.toFixed(1)}% above the breakout`, extensionPct: round2(extensionPct) };
+    return { band: "NORMAL", label: `Normal — ${extensionPct.toFixed(1)}% ${rel}`, extensionPct: round2(extensionPct) };
   }
   if (extensionPct <= o.cautionMax) {
-    return { band: "CAUTION", label: `Caution — ${extensionPct.toFixed(1)}% above the breakout`, extensionPct: round2(extensionPct), waitingFor: "A pullback toward the breakout level, or continued consolidation." };
+    return { band: "CAUTION", label: `Caution — ${extensionPct.toFixed(1)}% ${rel}`, extensionPct: round2(extensionPct), waitingFor: isShort ? "A bounce toward the breakdown level, or continued consolidation." : "A pullback toward the breakout level, or continued consolidation." };
   }
   if (extensionPct <= o.extendedMax) {
-    return { band: "EXTENDED", label: `Extended — ${extensionPct.toFixed(1)}% above the breakout`, extensionPct: round2(extensionPct), waitingFor: "A real pullback or retest before adding — this is already a stretched entry." };
+    return { band: "EXTENDED", label: `Extended — ${extensionPct.toFixed(1)}% ${rel}`, extensionPct: round2(extensionPct), waitingFor: isShort ? "A real bounce or retest before adding — this is already a stretched entry." : "A real pullback or retest before adding — this is already a stretched entry." };
   }
-  return { band: "DO_NOT_CHASE", label: `Do not chase — ${extensionPct.toFixed(1)}% above the breakout`, extensionPct: round2(extensionPct), waitingFor: "A pullback, retest, or a fresh base — this entry is too extended to chase now." };
+  return { band: "DO_NOT_CHASE", label: `Do not chase — ${extensionPct.toFixed(1)}% ${rel}`, extensionPct: round2(extensionPct), waitingFor: isShort ? "A bounce, retest, or a fresh breakdown — this entry is too extended to chase now." : "A pullback, retest, or a fresh base — this entry is too extended to chase now." };
 }
 
 module.exports = { computeAtrRiskLevels, computeAntiChase, ATR_DEFAULTS, ANTI_CHASE_DEFAULTS };

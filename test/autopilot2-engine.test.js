@@ -84,5 +84,37 @@ ok("a small, real, disclosed crypto universe — not silently expanded or empty"
   assert.ok(CRYPTO_UNIVERSE.includes("BTC-USD"));
 });
 
+console.log("\nChecking sizeEntry/sizeCryptoEntry with direction:\"SHORT\" (2026-08-31, bidirectional trading)…");
+ok("sizeEntry SHORT: a real stop ABOVE entry is valid (mirrors lightbox-autopilot-execute.js's own stopValid convention)", () => {
+  const { qty, riskPerShare } = sizeEntry({ equity: 100_000, cash: 100_000, entry: 100, stop: 105, direction: "SHORT" });
+  assert.strictEqual(riskPerShare, 5);
+  assert.ok(qty > 0);
+});
+ok("sizeEntry SHORT: a stop BELOW entry (a real long-shaped stop) is rejected as invalid for a short", () => {
+  const { qty, reason } = sizeEntry({ equity: 100_000, cash: 100_000, entry: 100, stop: 95, direction: "SHORT" });
+  assert.strictEqual(qty, 0);
+  assert.ok(reason);
+});
+ok("sizeEntry SHORT sizes identically to the equivalent LONG risk-per-share (symmetric risk math)", () => {
+  const short = sizeEntry({ equity: 100_000, cash: 100_000, entry: 100, stop: 105, direction: "SHORT" });
+  const long = sizeEntry({ equity: 100_000, cash: 100_000, entry: 100, stop: 95 });
+  assert.strictEqual(short.qty, long.qty);
+  assert.strictEqual(short.riskPerShare, long.riskPerShare);
+});
+ok("sizeEntry with no direction defaults to LONG — full backward compatibility", () => {
+  const withoutDirection = sizeEntry({ equity: 100_000, cash: 100_000, entry: 100, stop: 95 });
+  const explicitLong = sizeEntry({ equity: 100_000, cash: 100_000, entry: 100, stop: 95, direction: "LONG" });
+  assert.deepStrictEqual(withoutDirection, explicitLong);
+});
+ok("sizeCryptoEntry SHORT: real fractional short-simulated sizing, same stop-validity convention as sizeEntry", () => {
+  const { qty, riskPerShare } = sizeCryptoEntry({ equity: 100_000, cash: 100_000, entry: 78_750, stop: 82_500, direction: "SHORT" });
+  assert.strictEqual(riskPerShare, 3750);
+  assert.ok(qty > 0 && qty < 1);
+});
+ok("sizeCryptoEntry SHORT: a long-shaped stop (below entry) is rejected", () => {
+  const { qty } = sizeCryptoEntry({ equity: 100_000, cash: 100_000, entry: 78_750, stop: 75_000, direction: "SHORT" });
+  assert.strictEqual(qty, 0, "stop below entry is a LONG-shaped stop, invalid for a real short");
+});
+
 console.log(`\n${passed} checks passed.`);
 if (process.exitCode) console.error("AUTOPILOT2-ENGINE TEST FAILED"); else console.log("AUTOPILOT2-ENGINE TEST OK");

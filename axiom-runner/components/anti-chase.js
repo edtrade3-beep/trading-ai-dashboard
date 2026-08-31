@@ -18,22 +18,27 @@ function round2(n) { return Number.isFinite(n) ? Math.round(n * 100) / 100 : nul
 
 const ANTI_CHASE_DEFAULTS = { normalMax: 3, cautionMax: 5, extendedMax: 8 };
 
+// opts.direction ("LONG"|"SHORT", default LONG, added 2026-08-31 for
+// Autopilot 2.0's bidirectional trading) — see src/atr-risk-engine.js for
+// the full rationale.
 export function computeAntiChase(extensionPct, opts = {}) {
   const o = { ...ANTI_CHASE_DEFAULTS, ...opts };
+  const isShort = o.direction === "SHORT";
+  const rel = isShort ? "below the breakdown" : "above the breakout";
   if (!Number.isFinite(extensionPct)) return { band: null, label: null, extensionPct: null };
   if (extensionPct <= 0) {
-    return { band: "NOT_YET_BROKEN_OUT", label: "Price hasn't reached the breakout level yet — no chase risk.", extensionPct: round2(extensionPct) };
+    return { band: isShort ? "NOT_YET_BROKEN_DOWN" : "NOT_YET_BROKEN_OUT", label: isShort ? "Price hasn't reached the breakdown level yet — no chase risk." : "Price hasn't reached the breakout level yet — no chase risk.", extensionPct: round2(extensionPct) };
   }
   if (extensionPct <= o.normalMax) {
-    return { band: "NORMAL", label: `Normal — ${extensionPct.toFixed(1)}% above the breakout`, extensionPct: round2(extensionPct) };
+    return { band: "NORMAL", label: `Normal — ${extensionPct.toFixed(1)}% ${rel}`, extensionPct: round2(extensionPct) };
   }
   if (extensionPct <= o.cautionMax) {
-    return { band: "CAUTION", label: `Caution — ${extensionPct.toFixed(1)}% above the breakout`, extensionPct: round2(extensionPct), waitingFor: "A pullback toward the breakout level, or continued consolidation." };
+    return { band: "CAUTION", label: `Caution — ${extensionPct.toFixed(1)}% ${rel}`, extensionPct: round2(extensionPct), waitingFor: isShort ? "A bounce toward the breakdown level, or continued consolidation." : "A pullback toward the breakout level, or continued consolidation." };
   }
   if (extensionPct <= o.extendedMax) {
-    return { band: "EXTENDED", label: `Extended — ${extensionPct.toFixed(1)}% above the breakout`, extensionPct: round2(extensionPct), waitingFor: "A real pullback or retest before adding — this is already a stretched entry." };
+    return { band: "EXTENDED", label: `Extended — ${extensionPct.toFixed(1)}% ${rel}`, extensionPct: round2(extensionPct), waitingFor: isShort ? "A real bounce or retest before adding — this is already a stretched entry." : "A real pullback or retest before adding — this is already a stretched entry." };
   }
-  return { band: "DO_NOT_CHASE", label: `Do not chase — ${extensionPct.toFixed(1)}% above the breakout`, extensionPct: round2(extensionPct), waitingFor: "A pullback, retest, or a fresh base — this entry is too extended to chase now." };
+  return { band: "DO_NOT_CHASE", label: `Do not chase — ${extensionPct.toFixed(1)}% ${rel}`, extensionPct: round2(extensionPct), waitingFor: isShort ? "A bounce, retest, or a fresh breakdown — this entry is too extended to chase now." : "A pullback, retest, or a fresh base — this entry is too extended to chase now." };
 }
 
 export { ANTI_CHASE_DEFAULTS };

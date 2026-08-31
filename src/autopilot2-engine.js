@@ -90,16 +90,22 @@ async function freshMixedVerdict(symbol) {
 // of whether a fresh verdict is even available.
 async function managePositions(snapshot) {
   for (const pos of snapshot.openPositions) {
-    if (pos.assetType === "CALL") { await manageCallPosition(pos); continue; }
+    if (pos.assetType === "CALL" || pos.assetType === "PUT") { await manageOptionPosition(pos); continue; }
 
+    // direction "short" (2026-08-31) — computePositionState's own `side`
+    // param already fully supports this (position-decision-engine.js,
+    // zero changes needed there); a short's stop-breach direction and
+    // R-multiple both flip, mirroring autopilot2-account.js's own
+    // closePosition/updateStop conventions exactly.
+    const isShort = pos.direction === "short";
     const gainPct = pos.unrealizedPnlPct;
-    const riskPerShare = pos.entryPrice - pos.stop;
-    const rNow = riskPerShare > 0 ? (pos.currentPrice - pos.entryPrice) / riskPerShare : null;
-    const rTarget = (riskPerShare > 0 && pos.target > 0) ? (pos.target - pos.entryPrice) / riskPerShare : null;
+    const riskPerShare = isShort ? pos.stop - pos.entryPrice : pos.entryPrice - pos.stop;
+    const rNow = riskPerShare > 0 ? (isShort ? (pos.entryPrice - pos.currentPrice) / riskPerShare : (pos.currentPrice - pos.entryPrice) / riskPerShare) : null;
+    const rTarget = (riskPerShare > 0 && pos.target > 0) ? (isShort ? (pos.entryPrice - pos.target) / riskPerShare : (pos.target - pos.entryPrice) / riskPerShare) : null;
     const { verdict: mixedVerdict, reason: mixedReason } = await freshMixedVerdict(pos.symbol);
 
     const decision = computePositionState({
-      side: "long", gainPct, mixedVerdict, mixedReason, rNow, rTarget,
+      side: isShort ? "short" : "long", gainPct, mixedVerdict, mixedReason, rNow, rTarget,
       currentPrice: pos.currentPrice, stopPrice: pos.stop,
     });
 
@@ -110,9 +116,10 @@ async function managePositions(snapshot) {
       const result = await partialClosePosition(pos.id, { fraction: 0.5, reason: "TAKE_PARTIAL" });
       appendActivity({ type: "TAKE_PARTIAL", symbol: pos.symbol, reason: decision.reason, realizedPnl: result.realizedPnl ?? null });
     } else if (decision.state === "TRAIL") {
-      // Real trail: raise the stop halfway toward current price — a real,
-      // disclosed, conservative ratchet (never below the original stop,
-      // enforced by updateStop itself), not a fabricated "optimal" trail.
+      // Real trail: tighten the stop halfway toward current price — a
+      // real, disclosed, conservative ratchet (never loosened, enforced
+      // by updateStop itself), not a fabricated "optimal" trail. For a
+      // short this moves the stop DOWN toward price; for a long, UP.
       const newStop = pos.stop + (pos.currentPrice - pos.stop) * 0.5;
       const result = updateStop(pos.id, newStop);
       if (result.ok) appendActivity({ type: "TRAIL", symbol: pos.symbol, reason: decision.reason, newStop });
@@ -121,12 +128,20 @@ async function managePositions(snapshot) {
   }
 }
 
-// Real CALL management — same fresh-verdict thesis check as a stock (off
-// the real underlying), but real premium-based gain/R-multiple (a call's
-// real max loss is the full premium paid, not a share-price stop
-// distance), plus a real, unconditional DTE floor exit independent of
-// thesis (spec §22 applied to the real risk unique to options: time).
-async function manageCallPosition(pos) {
+// Real CALL/PUT management — same fresh-verdict thesis check as a stock
+// (off the real underlying), but real premium-based gain/R-multiple (a
+// long option's real max loss is the full premium paid, not a
+// share-price stop distance), plus a real, unconditional DTE floor exit
+// independent of thesis (spec §22 applied to the real risk unique to
+// options: time). Generalized 2026-08-31 (bidirectional trading) from
+// manageCallPosition — a long PUT's thesis is bearish (it wants the
+// underlying to fall), so `side: "short"` is the semantically correct
+// value to pass to computePositionState here, matching
+// position-decision-engine.js's own documented convention ("side" means
+// which market direction this position wants, not asset ownership
+// direction).
+async function manageOptionPosition(pos) {
+  const isPut = pos.assetType === "PUT";
   if (Number.isFinite(pos.dte) && pos.dte <= CALL_DTE_EXIT_FLOOR) {
     const result = await closeOptionPosition(pos.id, { reason: "DTE_FLOOR" });
     appendActivity({ type: "EXIT", symbol: pos.symbol, reason: `real DTE floor reached (${pos.dte}d <= ${CALL_DTE_EXIT_FLOOR}d) — closing ahead of real expiration risk`, realizedPnl: result.closedTrade?.realizedPnl ?? null });
@@ -137,11 +152,11 @@ async function manageCallPosition(pos) {
   const rNow = pos.riskDollars > 0 ? pos.unrealizedPnl / pos.riskDollars : null;
   const { verdict: mixedVerdict, reason: mixedReason } = await freshMixedVerdict(pos.symbol);
 
-  // No real per-position stop PRICE concept for a long call (the real max
-  // loss is the premium itself, already reflected via rNow) — the hard-
-  // stop-breach branch inside computePositionState is skipped by omitting
-  // currentPrice/stopPrice, never faked with a stock-style level.
-  const decision = computePositionState({ side: "long", gainPct, mixedVerdict, mixedReason, rNow, rTarget: 1 });
+  // No real per-position stop PRICE concept for a long option (the real
+  // max loss is the premium itself, already reflected via rNow) — the
+  // hard-stop-breach branch inside computePositionState is skipped by
+  // omitting currentPrice/stopPrice, never faked with a stock-style level.
+  const decision = computePositionState({ side: isPut ? "short" : "long", gainPct, mixedVerdict, mixedReason, rNow, rTarget: 1 });
 
   if (decision.state === "EXIT") {
     const result = await closeOptionPosition(pos.id, { reason: "EXIT" });
@@ -149,7 +164,7 @@ async function manageCallPosition(pos) {
   } else if (decision.state === "TAKE_PARTIAL" && pos.qty > 1) {
     // Real partial: close half the real contracts at the real current bid.
     const chain = await require("./autopilot2-account").fetchOptionsChain(pos.symbol, pos.expiry).catch(() => null);
-    const contract = chain?.calls?.find((c) => c.contractSymbol === pos.contractSymbol);
+    const contract = (isPut ? chain?.puts : chain?.calls)?.find((c) => c.contractSymbol === pos.contractSymbol);
     if (Number(contract?.bid) > 0) {
       // No partial-close helper for options yet (v1 scope) — a full close
       // is the honest fallback rather than a fabricated partial fill.
@@ -167,10 +182,17 @@ async function manageCallPosition(pos) {
 // math alone would allow (spec §17's explicit "0.5% per trade... Maximum
 // default risk: $500" — sizePositionByRisk only knows %, this adds the $
 // ceiling on top).
-function sizeEntry({ equity, cash, entry, stop, riskPct = RISK_PCT_PER_TRADE, maxTradeRiskDollars = MAX_TRADE_RISK_DOLLARS, maxNamePct = MAX_NAME_PCT }) {
-  if (!(entry > 0) || !(stop > 0) || !(entry > stop)) return { qty: 0, reason: "no real valid entry/stop" };
-  const pctQty = sizePositionByRisk({ equity, riskPct, entry, stop, availCash: cash, maxNamePct });
-  const riskPerShare = entry - stop;
+// direction "SHORT" (2026-08-31, bidirectional trading) — mirrors
+// lightbox-autopilot-execute.js's existing real stopValid pattern: a
+// short's real stop sits ABOVE entry, so the validity check and risk-per-
+// share direction both flip. sizePositionByRisk (risk-guardrails.js)
+// already has its own `direction` param for exactly this.
+function sizeEntry({ equity, cash, entry, stop, riskPct = RISK_PCT_PER_TRADE, maxTradeRiskDollars = MAX_TRADE_RISK_DOLLARS, maxNamePct = MAX_NAME_PCT, direction = "LONG" }) {
+  const isShort = direction === "SHORT";
+  const stopValid = isShort ? (stop > 0 && stop > entry) : (stop > 0 && entry > stop);
+  if (!(entry > 0) || !stopValid) return { qty: 0, reason: "no real valid entry/stop" };
+  const pctQty = sizePositionByRisk({ equity, riskPct, entry, stop, availCash: cash, maxNamePct, direction: isShort ? "SHORT" : "LONG" });
+  const riskPerShare = isShort ? stop - entry : entry - stop;
   const dollarCappedQty = riskPerShare > 0 ? Math.floor(maxTradeRiskDollars / riskPerShare) : 0;
   const qty = Math.min(pctQty, dollarCappedQty);
   return { qty: Math.max(0, qty), riskPerShare };
@@ -183,10 +205,17 @@ function sizeEntry({ equity, cash, entry, stop, riskPct = RISK_PCT_PER_TRADE, ma
 // pair). Rounds to 6 decimal places — standard real crypto precision, not
 // an arbitrary guess — instead of Math.floor to a whole unit. Same $ risk
 // cap and max-name-% cap as stocks, unchanged.
+// direction "SHORT" (2026-08-31, bidirectional trading) — same real
+// short-simulated mechanics as sizeEntry, applied to fractional crypto
+// qty. A short-simulated crypto position is disclosed as paper-only
+// (autopilot2-account.js) same as short stock — no real spot-crypto
+// borrow mechanism exists anywhere, real or simulated beyond this.
 const CRYPTO_QTY_PRECISION = 6;
-function sizeCryptoEntry({ equity, cash, entry, stop, riskPct = RISK_PCT_PER_TRADE, maxTradeRiskDollars = MAX_TRADE_RISK_DOLLARS, maxNamePct = MAX_NAME_PCT }) {
-  if (!(entry > 0) || !(stop > 0) || !(entry > stop)) return { qty: 0, reason: "no real valid entry/stop" };
-  const riskPerShare = entry - stop;
+function sizeCryptoEntry({ equity, cash, entry, stop, riskPct = RISK_PCT_PER_TRADE, maxTradeRiskDollars = MAX_TRADE_RISK_DOLLARS, maxNamePct = MAX_NAME_PCT, direction = "LONG" }) {
+  const isShort = direction === "SHORT";
+  const stopValid = isShort ? (stop > 0 && stop > entry) : (stop > 0 && entry > stop);
+  if (!(entry > 0) || !stopValid) return { qty: 0, reason: "no real valid entry/stop" };
+  const riskPerShare = isShort ? stop - entry : entry - stop;
   const riskBudget = Math.min(equity * (riskPct / 100), maxTradeRiskDollars);
   let qty = riskBudget / riskPerShare;
   qty = Math.min(qty, (cash || 0) / entry);
@@ -287,6 +316,32 @@ async function fetchLightBoxCandidates() {
 // available for either, so they'd only ever error out, not silently
 // misprice).
 const CRYPTO_UNIVERSE = ["BTC-USD", "ETH-USD", "SOL-USD", "XRP-USD", "DOGE-USD", "ADA-USD", "AVAX-USD", "LINK-USD", "LTC-USD", "BCH-USD", "DOT-USD"];
+
+const BEARISH_ACTIONABLE = new Set(["EARLY_SHORT", "SHORT"]);
+// Reshapes an already-computed real opportunity's bearish fields
+// (opportunity-engine.js's additive bearishVerdict/bearishScore/
+// bearishStop/bearishTarget/bearishEntry) into the same candidate shape
+// tryEnter already consumes for the long side — one real scan, one real
+// engine, an additive branch (2026-08-31, bidirectional trading). A
+// symbol already qualifying long keeps its long candidate only — never
+// both directions on the same symbol in one tick, an undecided signal
+// tryEnter's own duplicate-symbol guard would reject the second half of
+// anyway.
+function toBearishCandidate(opp, assetClass) {
+  return {
+    symbol: opp.symbol, price: opp.price, entry: opp.bearishEntry, stop: opp.bearishStop, target: opp.bearishTarget,
+    score: opp.bearishScore, verdict: opp.bearishVerdict, verdictReason: opp.bearishVerdictReason,
+    tier: "BEARISH", probability: null, expectedValue: null, reasons: [],
+    direction: "SHORT", assetClass, criticalFlags: 0,
+  };
+}
+function bearishCandidatesFrom(opportunities, bullishCandidates, assetClass) {
+  return opportunities
+    .filter((o) => BEARISH_ACTIONABLE.has(o.bearishVerdict) && !bullishCandidates.some((b) => b.symbol === o.symbol))
+    .map((o) => toBearishCandidate(o, assetClass))
+    .sort((a, b) => (b.verdict === a.verdict ? (b.score ?? -Infinity) - (a.score ?? -Infinity) : (a.verdict === "EARLY_SHORT" ? -1 : 1)));
+}
+
 async function fetchCryptoCandidates() {
   try {
     const { screenTrendTemplate, fetchMarketQuotes } = require("./routes/market");
@@ -307,9 +362,16 @@ async function fetchCryptoCandidates() {
       .filter(Boolean)
       .map((opp) => ({ ...opp, assetClass: "CRYPTO" }));
 
-    return opportunities
+    const bullish = opportunities
       .filter((o) => (o.verdict === "EARLY_BUY" || o.verdict === "BUY") && (o.criticalFlags ?? 0) === 0)
       .sort((a, b) => (b.verdict === a.verdict ? (b.expectedValue ?? -Infinity) - (a.expectedValue ?? -Infinity) : (a.verdict === "EARLY_BUY" ? -1 : 1)));
+
+    // Bearish (2026-08-31) — same real "short-simulated" account as long
+    // spot crypto (autopilot2-account.js), no real borrow mechanism
+    // either way, both disclosed the same way.
+    const bearish = bearishCandidatesFrom(opportunities, bullish, "CRYPTO");
+
+    return [...bullish, ...bearish];
   } catch {
     return []; // honest empty list on any real failure — never a fabricated candidate
   }
@@ -334,29 +396,38 @@ async function tryEnter(opp, snapshot) {
   const openRiskPctNow = snapshot.equity > 0 ? (openRiskDollars / snapshot.equity) * 100 : 100;
   if (openRiskPctNow >= MAX_OPEN_RISK_PCT) return { entered: false, reason: `portfolio open-risk ceiling (${MAX_OPEN_RISK_PCT}%) reached (currently ${openRiskPctNow.toFixed(1)}%)` };
 
-  // Crypto (2026-08-30) — spot only, v1. Skips the Expression Engine
-  // entirely: chooseExpression would call fetchOptionsChain, and this
-  // app's options-chain route has no real crypto contract data behind
-  // it — a wasted real network call that would just fall back to STOCK
-  // shape anyway. Real fractional sizing (sizeCryptoEntry, see above) and
-  // a distinct assetType so the account/UI can label it correctly.
+  // direction (2026-08-31, bidirectional trading) — a candidate carries
+  // direction: "SHORT" only when it came from toBearishCandidate/
+  // bearishCandidatesFrom above; every existing long candidate has no
+  // direction field at all, defaulting to LONG here exactly like before.
+  const direction = opp.direction === "SHORT" ? "SHORT" : "LONG";
+  const isShort = direction === "SHORT";
+
+  // Crypto (2026-08-30, extended 2026-08-31 for short-simulated crypto) —
+  // spot only, v1. Skips the Expression Engine entirely: chooseExpression
+  // would call fetchOptionsChain, and this app's options-chain route has
+  // no real crypto contract data behind it — a wasted real network call
+  // that would just fall back to STOCK shape anyway. Real fractional
+  // sizing (sizeCryptoEntry, see above) and a distinct assetType so the
+  // account/UI can label it correctly.
   if (opp.assetClass === "CRYPTO") {
-    const { qty, riskPerShare, reason: sizeReason } = sizeCryptoEntry({ equity: snapshot.equity, cash: snapshot.cash, entry: opp.entry, stop: opp.stop });
+    const { qty, riskPerShare, reason: sizeReason } = sizeCryptoEntry({ equity: snapshot.equity, cash: snapshot.cash, entry: opp.entry, stop: opp.stop, direction });
     if (sizeReason) return { entered: false, reason: sizeReason };
     if (!(qty > 0)) return { entered: false, reason: "sized to 0 (below minimum real fractional size) under current real risk limits" };
 
+    const expression = isShort ? "short-simulated spot crypto" : "spot crypto";
     const result = await openPosition({
-      symbol: opp.symbol, qty, stop: opp.stop, target: opp.target, assetType: "CRYPTO",
+      symbol: opp.symbol, qty, stop: opp.stop, target: opp.target, assetType: "CRYPTO", direction: isShort ? "short" : "long",
       riskDollars: qty * riskPerShare,
-      opportunitySnapshot: { score: opp.score, verdict: opp.verdict, verdictReason: opp.verdictReason, tier: opp.tier, probability: opp.probability, expectedValue: opp.expectedValue, reasons: opp.reasons, expression: "spot crypto" },
+      opportunitySnapshot: { score: opp.score, verdict: opp.verdict, verdictReason: opp.verdictReason, tier: opp.tier, probability: opp.probability, expectedValue: opp.expectedValue, reasons: opp.reasons, expression },
     });
     if (!result.ok) return { entered: false, reason: result.error };
-    return { entered: true, reason: `spot crypto — real entry: score ${opp.score}, EV ${opp.expectedValue ?? "n/a"}, ${qty} @ $${result.position.entryPrice.toFixed(2)}` };
+    return { entered: true, reason: `${expression} — real entry: score ${opp.score}, EV ${opp.expectedValue ?? "n/a"}, ${qty} @ $${result.position.entryPrice.toFixed(2)}` };
   }
 
-  const expr = await chooseExpression(opp);
+  const expr = await chooseExpression(opp, direction);
 
-  if (expr.expression === "CALL") {
+  if (expr.expression === "CALL" || expr.expression === "PUT") {
     const contract = expr.contract;
     const { qty, riskDollars, reason: sizeReason } = sizeOptionEntry({ equity: snapshot.equity, cash: snapshot.cash, entryPremium: contract.ask });
     if (sizeReason) return { entered: false, reason: `${expr.reason} — but ${sizeReason}` };
@@ -365,6 +436,7 @@ async function tryEnter(opp, snapshot) {
     const result = await openOptionPosition({
       symbol: opp.symbol, strike: contract.strike, expiry: contract.expiry, contractSymbol: contract.contractSymbol,
       qty, entryPremium: contract.ask, underlyingAtEntry: contract.underlyingAtEntry,
+      optionType: expr.expression === "PUT" ? "put" : "call",
       opportunitySnapshot: { score: opp.score, verdict: opp.verdict, verdictReason: opp.verdictReason, tier: opp.tier, probability: opp.probability, expectedValue: opp.expectedValue, reasons: opp.reasons, expression: expr.reason },
     });
     if (!result.ok) return { entered: false, reason: result.error };
@@ -373,13 +445,14 @@ async function tryEnter(opp, snapshot) {
 
   if (expr.expression === "NO_TRADE") return { entered: false, reason: expr.reason };
 
-  // STOCK — either the Expression Engine chose it, or it fell back to it.
-  const { qty, riskPerShare, reason: sizeReason } = sizeEntry({ equity: snapshot.equity, cash: snapshot.cash, entry: opp.entry, stop: opp.stop });
+  // STOCK or SHORT_STOCK — either the Expression Engine chose it, or it
+  // fell back to it.
+  const { qty, riskPerShare, reason: sizeReason } = sizeEntry({ equity: snapshot.equity, cash: snapshot.cash, entry: opp.entry, stop: opp.stop, direction });
   if (sizeReason) return { entered: false, reason: sizeReason };
-  if (!(qty > 0)) return { entered: false, reason: "sized to 0 shares under current real risk limits" };
+  if (!(qty > 0)) return { entered: false, reason: `sized to 0 ${isShort ? "shares to short" : "shares"} under current real risk limits` };
 
   const result = await openPosition({
-    symbol: opp.symbol, qty, stop: opp.stop, target: opp.target,
+    symbol: opp.symbol, qty, stop: opp.stop, target: opp.target, direction: isShort ? "short" : "long",
     riskDollars: qty * riskPerShare,
     opportunitySnapshot: { score: opp.score, verdict: opp.verdict, verdictReason: opp.verdictReason, tier: opp.tier, probability: opp.probability, expectedValue: opp.expectedValue, reasons: opp.reasons, expression: expr.reason },
   });
@@ -480,9 +553,14 @@ async function tick() {
     // (risk sizing, sector cap, open-risk ceiling, duplicate protection)
     // is completely unchanged.
     const allOpportunities = Object.values(scan.tiers).flat();
-    opportunityCandidates = allOpportunities
+    const bullishStockCandidates = allOpportunities
       .filter((o) => (o.verdict === "EARLY_BUY" || o.verdict === "BUY") && (o.criticalFlags ?? 0) === 0)
       .sort((a, b) => (b.verdict === a.verdict ? (b.expectedValue ?? -Infinity) - (a.expectedValue ?? -Infinity) : (a.verdict === "EARLY_BUY" ? -1 : 1)));
+    // Bearish stock candidates (2026-08-31, bidirectional trading) — same
+    // real scan, additive branch (see toBearishCandidate/
+    // bearishCandidatesFrom above).
+    const bearishStockCandidates = bearishCandidatesFrom(allOpportunities, bullishStockCandidates, undefined);
+    opportunityCandidates = [...bullishStockCandidates, ...bearishStockCandidates];
 
     // Light Box (2026-08-27) — a real, complementary, more real-time source
     // (see fetchLightBoxCandidates' own header comment). Appended after the

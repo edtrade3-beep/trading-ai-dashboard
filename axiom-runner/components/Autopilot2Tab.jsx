@@ -31,8 +31,14 @@ function fmtMoney(n) {
 // Node's ./config) rather than imported, same "duplicate the fixed list,
 // not the engine" precedent as btc-hpc-scan.js's own client twin.
 const CRYPTO_WATCH_SYMBOLS = ["BTC-USD", "ETH-USD", "SOL-USD", "XRP-USD", "DOGE-USD", "ADA-USD", "AVAX-USD", "LINK-USD", "LTC-USD", "BCH-USD", "DOT-USD"];
+// EARLY_SHORT/SHORT (2026-08-31, bidirectional trading) reuse the same
+// red hex as AVOID_LONG (universal finance convention: red = bearish
+// direction) — the accompanying 🔻 icon in the card body (below) is what
+// keeps "actionable short" from reading the same as "blocked long," same
+// disambiguation choice as am-core-engine.js's BEARISH_VERDICT_META.
 const VERDICT_COLOR = (C) => ({
   EARLY_BUY: C.green, BUY: C.green, AVOID_LONG: C.red, HOLD: C.accent, EXIT: C.red, TAKE_PROFIT: C.green,
+  EARLY_SHORT: C.red, SHORT: C.red,
 });
 
 // Real-time visibility into WHY crypto is or isn't trading right now — the
@@ -51,8 +57,8 @@ const VERDICT_COLOR = (C) => ({
 // better easier to use": the whole point of this grid is answering "is
 // anything about to trade," and that answer was previously invisible
 // without reading every single card).
-const ACTIONABLE_VERDICTS = new Set(["EARLY_BUY", "BUY", "TAKE_PROFIT"]);
-const VERDICT_RANK = { EARLY_BUY: 0, BUY: 0, TAKE_PROFIT: 0, HOLD: 1, AVOID_LONG: 2, EXIT: 2 };
+const ACTIONABLE_VERDICTS = new Set(["EARLY_BUY", "BUY", "TAKE_PROFIT", "EARLY_SHORT", "SHORT"]);
+const VERDICT_RANK = { EARLY_BUY: 0, BUY: 0, TAKE_PROFIT: 0, EARLY_SHORT: 0, SHORT: 0, HOLD: 1, AVOID_LONG: 2, EXIT: 2 };
 
 function CryptoWatch({ C, MONO, SANS }) {
   const [rows, setRows] = useState(null);
@@ -71,10 +77,24 @@ function CryptoWatch({ C, MONO, SANS }) {
     return () => clearInterval(t);
   }, [load]);
 
-  const actionableCount = rows ? rows.filter((r) => !r.error && ACTIONABLE_VERDICTS.has(r.coreVerdict)).length : 0;
+  // Picks whichever real read (long or bearish) is actually actionable
+  // for display, per row — a symbol can carry both a coreVerdict and a
+  // bearishVerdict (2026-08-31, bidirectional trading), and they're
+  // rarely both actionable at once given their opposite structural
+  // requirements. Long is checked first only because it's the
+  // longer-established, more heavily-tested read; this is a display
+  // preference, not a real ranking of which direction is "better."
+  const displayVerdict = (r) => {
+    if (r.error) return { verdict: null, reason: null, bearish: false };
+    if (ACTIONABLE_VERDICTS.has(r.coreVerdict)) return { verdict: r.coreVerdict, reason: r.coreReason || r.stage, bearish: false };
+    if (ACTIONABLE_VERDICTS.has(r.bearishVerdict)) return { verdict: r.bearishVerdict, reason: r.bearishReason, bearish: true };
+    return { verdict: r.coreVerdict, reason: r.coreReason || r.stage, bearish: false };
+  };
+
+  const actionableCount = rows ? rows.filter((r) => !r.error && ACTIONABLE_VERDICTS.has(displayVerdict(r).verdict)).length : 0;
   const sortedRows = rows ? [...rows].sort((a, b) => {
-    const ra = a.error ? 3 : (VERDICT_RANK[a.coreVerdict] ?? 1);
-    const rb = b.error ? 3 : (VERDICT_RANK[b.coreVerdict] ?? 1);
+    const ra = a.error ? 3 : (VERDICT_RANK[displayVerdict(a).verdict] ?? 1);
+    const rb = b.error ? 3 : (VERDICT_RANK[displayVerdict(b).verdict] ?? 1);
     return ra - rb;
   }) : null;
 
@@ -95,7 +115,8 @@ function CryptoWatch({ C, MONO, SANS }) {
       {sortedRows && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 8 }}>
           {sortedRows.map((r) => {
-            const vColor = r.error ? C.textDim : (VERDICT_COLOR(C)[r.coreVerdict] || C.textDim);
+            const dv = displayVerdict(r);
+            const vColor = r.error ? C.textDim : (VERDICT_COLOR(C)[dv.verdict] || C.textDim);
             return (
               <div key={r.symbol} style={{ border: `1px solid ${C.border}`, borderLeft: `3px solid ${vColor}`, borderRadius: 8, padding: "8px 10px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
@@ -106,8 +127,8 @@ function CryptoWatch({ C, MONO, SANS }) {
                   <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, marginTop: 3 }}>Unavailable: {r.error}</div>
                 ) : (
                   <>
-                    <div style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 800, color: vColor, marginTop: 3 }}>{r.coreVerdict || "—"}</div>
-                    <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, marginTop: 2 }}>{r.coreReason || r.stage}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 800, color: vColor, marginTop: 3 }}>{dv.bearish ? "🔻 " : ""}{dv.verdict || "—"}</div>
+                    <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, marginTop: 2 }}>{dv.reason}</div>
                   </>
                 )}
               </div>
@@ -223,7 +244,7 @@ export default function Autopilot2Tab({ C, MONO, SANS }) {
           </span>
         </div>
         <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 3 }}>
-          A real internal $100,000 simulated paper account — stocks + long calls (market hours) and real 24/7 spot crypto, no real orders ever. No puts or spreads yet. {data.state?.reason ? `(${data.state.reason})` : ""}
+          A real internal $100,000 simulated paper account — trades both directions: stocks/calls/puts (market hours) and real 24/7 spot crypto, long or short-simulated, no real orders ever. No spreads yet, and no real margin/borrow modeled on shorts (paper-only simplification). {data.state?.reason ? `(${data.state.reason})` : ""}
         </div>
       </div>
 
@@ -298,6 +319,11 @@ export default function Autopilot2Tab({ C, MONO, SANS }) {
         {best ? (
           <div style={{ display: "flex", gap: 20, rowGap: 8, flexWrap: "wrap", alignItems: "baseline" }}>
             <span style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: C.accent }}>{best.symbol}</span>
+            {best.direction === "SHORT" && (
+              <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.red, background: `${C.red}18`, border: `1px solid ${C.red}55`, borderRadius: 4, padding: "2px 7px" }}>
+                🔻 SHORT
+              </span>
+            )}
             {best.stage && (
               <span title="EARLY = just clearing entry criteria, before it's obvious. CONFIRMED = fully confirmed breakout/retest."
                 style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: 0.5,
@@ -326,16 +352,23 @@ export default function Autopilot2Tab({ C, MONO, SANS }) {
             {acct.openPositions.map(p => (
               <div key={p.id} style={{ display: "flex", gap: 16, alignItems: "baseline", flexWrap: "wrap", padding: "6px 0", borderTop: `1px solid ${C.border}` }}>
                 <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text, minWidth: 60 }}>{p.symbol}</span>
-                {p.assetType === "CALL" ? (
+                {p.assetType === "CALL" || p.assetType === "PUT" ? (
                   <>
-                    <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.accent, background: `${C.accent}18`, borderRadius: 4, padding: "1px 6px" }}>CALL</span>
+                    <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: p.assetType === "PUT" ? C.red : C.accent, background: `${p.assetType === "PUT" ? C.red : C.accent}18`, borderRadius: 4, padding: "1px 6px" }}>
+                      {p.assetType === "PUT" ? "🔻 PUT" : "CALL"}
+                    </span>
                     <span style={{ fontFamily: MONO, fontSize: 12, color: C.textSec }}>{p.qty} ct ${p.strike} strike @ ${p.entryPrice?.toFixed(2)}</span>
                   </>
                 ) : (
-                  <span style={{ fontFamily: MONO, fontSize: 12, color: C.textSec }}>{p.qty} sh @ ${p.entryPrice?.toFixed(2)}</span>
+                  <>
+                    {p.direction === "short" && (
+                      <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.red, background: `${C.red}18`, borderRadius: 4, padding: "1px 6px" }}>🔻 SHORT</span>
+                    )}
+                    <span style={{ fontFamily: MONO, fontSize: 12, color: C.textSec }}>{p.qty} sh @ ${p.entryPrice?.toFixed(2)}</span>
+                  </>
                 )}
                 <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: p.unrealizedPnl >= 0 ? C.green : C.red }}>{fmtMoney(p.unrealizedPnl)} ({fmtPct(p.unrealizedPnlPct)})</span>
-                {p.assetType === "CALL" ? (
+                {p.assetType === "CALL" || p.assetType === "PUT" ? (
                   <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>exp {p.expiry}{Number.isFinite(p.dte) ? ` (${p.dte}d)` : ""}</span>
                 ) : (
                   <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>stop ${p.stop?.toFixed(2)} · target ${p.target?.toFixed(2)}</span>

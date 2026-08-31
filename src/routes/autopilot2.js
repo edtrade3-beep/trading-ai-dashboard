@@ -24,6 +24,28 @@ async function handleAutopilot2(req, res, requestUrl) {
         const heldSymbols = new Set(account.openPositions.map((p) => p.symbol));
         const candidates = (scan.tiers?.actionable || []).filter((o) => !heldSymbols.has(o.symbol));
         bestOpportunity = candidates.sort((a, b) => (b.expectedValue ?? -Infinity) - (a.expectedValue ?? -Infinity))[0] || null;
+
+        // Bearish fallback (2026-08-31, bidirectional trading) — only
+        // surfaced when there's no real long ACTIONABLE candidate this
+        // tick, never competing pound-for-pound against the long side's
+        // EV-based ranking above: expectedValue isn't computed for the
+        // bearish read yet (see opportunity-engine.js's v1 disclosure),
+        // so an EV-vs-score cross-scale ranking would misrepresent
+        // quality rather than honestly compare it. Ranked by the real
+        // bearish score instead (same 0-100 scale both directions share).
+        if (!bestOpportunity) {
+          const allOpps = Object.values(scan.tiers || {}).flat();
+          const shortCandidates = allOpps.filter((o) =>
+            (o.bearishVerdict === "EARLY_SHORT" || o.bearishVerdict === "SHORT") && !heldSymbols.has(o.symbol));
+          const bestShort = shortCandidates.sort((a, b) => (b.bearishScore ?? -Infinity) - (a.bearishScore ?? -Infinity))[0];
+          if (bestShort) {
+            bestOpportunity = {
+              symbol: bestShort.symbol, direction: "SHORT", verdict: bestShort.bearishVerdict,
+              verdictReason: bestShort.bearishVerdictReason, score: bestShort.bearishScore,
+              stage: null, probability: null, expectedValue: null, chaseRisk: null,
+            };
+          }
+        }
       } catch { bestOpportunity = null; } // honest omission — status still returns the real account either way
       return writeJson(res, 200, { ok: true, state, account, activity: recentActivity(50), bestOpportunity });
     } catch (err) {

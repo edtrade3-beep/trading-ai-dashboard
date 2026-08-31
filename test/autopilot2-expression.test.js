@@ -100,5 +100,58 @@ ok("no real premium is honestly rejected, never a fabricated size", () => {
   assert.ok(reason);
 });
 
+console.log("\nChecking decideFromChain with direction:\"SHORT\" — real SHORT_STOCK/PUT decision (2026-08-31, bidirectional trading)…");
+// A real, liquid, in-band PUT — negative delta (Black-Scholes), same real
+// liquidity/spread shape as liquidCall above.
+function liquidPut(overrides = {}) {
+  return { contractSymbol: "AAPL240119P00200000", strike: 200, delta: -0.70, bid: 9.8, ask: 10.0, openInterest: 3000, volume: 1500, iv: 30, expiry: "2026-10-16", ...overrides };
+}
+ok("no real chain at all -> SHORT_STOCK (not STOCK) for a SHORT direction", () => {
+  const r = decideFromChain(OPP, null, null, "SHORT");
+  assert.strictEqual(r.expression, "SHORT_STOCK");
+});
+ok("a real chain with zero puts -> SHORT_STOCK", () => {
+  const r = decideFromChain(OPP, { underlying: 200, puts: [] }, "2026-10-16", "SHORT");
+  assert.strictEqual(r.expression, "SHORT_STOCK");
+});
+ok("a chain with only calls (no puts array) -> SHORT_STOCK, never mistakenly reads the calls array for a short", () => {
+  const r = decideFromChain(OPP, { underlying: 200, calls: [liquidCall()] }, "2026-10-16", "SHORT");
+  assert.strictEqual(r.expression, "SHORT_STOCK");
+});
+ok(`no real put inside the ${DELTA_MIN}-${DELTA_MAX} abs-delta band -> SHORT_STOCK`, () => {
+  const r = decideFromChain(OPP, { underlying: 200, puts: [liquidPut({ delta: -0.20 })] }, "2026-10-16", "SHORT");
+  assert.strictEqual(r.expression, "SHORT_STOCK");
+});
+ok("a real liquid, tight-spread, in-band put -> PUT, with the real contract attached", () => {
+  const r = decideFromChain(OPP, { underlying: 200, puts: [liquidPut()] }, "2026-10-16", "SHORT");
+  assert.strictEqual(r.expression, "PUT");
+  assert.strictEqual(r.contract.contractSymbol, "AAPL240119P00200000");
+  assert.strictEqual(r.contract.delta, -0.70, "a real put's negative delta is preserved, not made positive");
+});
+ok("Good Stock / Bad Option applies identically to puts: liquidity below the floor -> SHORT_STOCK", () => {
+  const r = decideFromChain(OPP, { underlying: 200, puts: [liquidPut({ bid: 5, ask: 15, openInterest: 1, volume: 0 })] }, "2026-10-16", "SHORT");
+  assert.strictEqual(r.expression, "SHORT_STOCK");
+  assert.match(r.reason, /Good Stock \/ Bad Option/);
+});
+ok("a real put with no real ask price refuses rather than fabricates an entry premium", () => {
+  const r = decideFromChain(OPP, { underlying: 200, puts: [liquidPut({ ask: 0 })] }, "2026-10-16", "SHORT");
+  assert.strictEqual(r.expression, "SHORT_STOCK");
+});
+ok("a Yahoo-shaped put (delta:null, real iv/strike) estimates a real NEGATIVE delta via Black-Scholes, still correctly selected", () => {
+  // Note: unlike calls, a put's delta magnitude isn't symmetric around the
+  // underlying at a mirrored strike distance (Black-Scholes' log(S/K) term
+  // isn't reflection-symmetric) — $10 ITM (strike 210 vs $200 underlying)
+  // is what actually lands in the real 0.6-0.85 abs-delta band here, real
+  // math verified by hand, not a fabricated/rounded number.
+  const r = decideFromChain(OPP, { underlying: 200, puts: [{ contractSymbol: "AAPL240119P00210000", strike: 210, delta: null, bid: 9.8, ask: 10.0, openInterest: 3000, volume: 1500, iv: 30, dte: 30, expiry: "2026-10-16" }] }, "2026-10-16", "SHORT");
+  assert.strictEqual(r.expression, "PUT", r.reason);
+  assert.strictEqual(r.contract.deltaSource, "estimated");
+  assert.ok(r.contract.delta < 0, `estimated put delta should be real and negative, got ${r.contract.delta}`);
+});
+ok("direction defaults to LONG when omitted — full backward compatibility, unaffected by the SHORT branch existing", () => {
+  const r = decideFromChain(OPP, { underlying: 200, calls: [liquidCall()] }, "2026-10-16");
+  assert.strictEqual(r.expression, "CALL");
+});
+
 console.log(`\n${passed} checks passed.`);
 if (process.exitCode) console.error("AUTOPILOT2-EXPRESSION TEST FAILED"); else console.log("AUTOPILOT2-EXPRESSION TEST OK");

@@ -2915,6 +2915,13 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
             row.coreVerdict = opp.verdict;
             row.coreCriticalFlags = opp.criticalFlags;
             row.coreReason = opp.verdictReason;
+            // Bearish shortcuts (2026-08-31, bidirectional trading) —
+            // same additive-shortcut convention as coreVerdict/coreReason
+            // above, mirroring opp.bearishVerdict/opp.bearishVerdictReason
+            // (opportunity-engine.js) so callers like Autopilot 2.0's
+            // Crypto Watch don't need to reach into row.opportunity.
+            row.bearishVerdict = opp.bearishVerdict;
+            row.bearishReason = opp.bearishVerdictReason;
             row.opportunity = opp;
           }
 

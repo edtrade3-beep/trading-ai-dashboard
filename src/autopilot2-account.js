@@ -48,6 +48,46 @@ function etDateStr(d = new Date()) {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(d);
 }
 
+// Pure long/short stock-or-crypto mark-to-market math, extracted for
+// direct unit testing (2026-08-31, bidirectional trading) — same "test
+// the pure helper, not the file/network-wrapped orchestration" convention
+// this file's own computePartialCloseQty already established. See the
+// module header comment for the real double-entry rationale (a short's
+// posValue is a real liability, negative, so the existing top-level
+// `equity = cash + marketValue` formula nets out correctly against the
+// real short-sale proceeds credited at entry).
+function priceStockPosition(position, currentPrice) {
+  const isShort = position.direction === "short";
+  const posValue = isShort ? -(currentPrice * position.qty) : currentPrice * position.qty;
+  const unrealizedPnl = isShort ? (position.entryPrice - currentPrice) * position.qty : (currentPrice - position.entryPrice) * position.qty;
+  const unrealizedPnlPct = position.entryPrice > 0
+    ? (isShort ? ((position.entryPrice - currentPrice) / position.entryPrice) * 100 : ((currentPrice / position.entryPrice) - 1) * 100)
+    : null;
+  return { posValue, unrealizedPnl, unrealizedPnlPct };
+}
+
+// Pure long/short close financials — a short covers by BUYING (cash
+// debited, not credited) with the P&L/R-multiple sign flipped, the exact
+// mirror of a long's real sell-to-close. `qty` defaults to the full
+// position (closePosition) but also serves partialClosePosition with a
+// smaller real qty.
+function closeFinancials(position, fillPrice, qty = position.qty) {
+  const isShort = position.direction === "short";
+  const grossCash = fillPrice * qty;
+  const realizedPnl = isShort ? (position.entryPrice - fillPrice) * qty : (fillPrice - position.entryPrice) * qty;
+  const riskPerShare = isShort ? position.stop - position.entryPrice : position.entryPrice - position.stop;
+  const rMultiple = riskPerShare > 0
+    ? (isShort ? (position.entryPrice - fillPrice) / riskPerShare : (fillPrice - position.entryPrice) / riskPerShare)
+    : null;
+  return { cashDelta: isShort ? -grossCash : grossCash, realizedPnl, riskPerShare, rMultiple };
+}
+
+// Pure direction-aware "is this a real tightening of the stop" check —
+// a long's stop can only ever rise, a short's can only ever fall.
+function isStopTighter(position, newStop) {
+  return position.direction === "short" ? newStop < position.stop : newStop > position.stop;
+}
+
 function freshAccount() {
   const now = new Date().toISOString();
   return {
@@ -115,8 +155,8 @@ async function getAccountSnapshot() {
   const account = loadAccount();
   const { sectorOf } = require("./risk-guardrails");
 
-  const stockPositions = account.openPositions.filter((p) => p.assetType !== "CALL");
-  const optionPositions = account.openPositions.filter((p) => p.assetType === "CALL");
+  const stockPositions = account.openPositions.filter((p) => p.assetType !== "CALL" && p.assetType !== "PUT");
+  const optionPositions = account.openPositions.filter((p) => p.assetType === "CALL" || p.assetType === "PUT");
 
   const stockSymbols = stockPositions.map((p) => p.symbol);
   const quotes = stockSymbols.length ? await fetchQuoteBatchWithFallback(stockSymbols).catch(() => []) : [];
@@ -142,18 +182,22 @@ async function getAccountSnapshot() {
     const currentPrice = Number.isFinite(livePrice) && livePrice > 0 ? livePrice : p.lastKnownPrice;
     if (!(Number.isFinite(livePrice) && livePrice > 0)) stalePricing.push(p.symbol);
     else p.lastKnownPrice = livePrice; // persist the freshest real price we actually saw
-    const posValue = currentPrice * p.qty;
-    const posUnrealized = (currentPrice - p.entryPrice) * p.qty;
+    // A short's position value is a real LIABILITY (what it would cost to
+    // buy back right now), not an asset — negative here so the existing
+    // `equity = cash + marketValue` formula nets out correctly against
+    // the real short-sale proceeds already credited to cash at entry
+    // (openPosition, above). See priceStockPosition for the real formula.
+    const { posValue, unrealizedPnl: posUnrealized, unrealizedPnlPct } = priceStockPosition(p, currentPrice);
     marketValue += posValue;
     unrealizedPnl += posUnrealized;
     const sector = sectorOf(p.symbol) || "OTHER";
-    sectorExposure[sector] = (sectorExposure[sector] || 0) + posValue;
-    return { ...p, currentPrice, unrealizedPnl: posUnrealized, unrealizedPnlPct: p.entryPrice > 0 ? ((currentPrice / p.entryPrice) - 1) * 100 : null };
+    sectorExposure[sector] = (sectorExposure[sector] || 0) + Math.abs(posValue);
+    return { ...p, currentPrice, unrealizedPnl: posUnrealized, unrealizedPnlPct };
   });
 
   const pricedOptions = optionPositions.map((p) => {
     const chain = chainByKey.get(`${p.symbol}|${p.expiry}`);
-    const contract = chain?.calls?.find((c) => c.contractSymbol === p.contractSymbol);
+    const contract = (p.optionType === "put" ? chain?.puts : chain?.calls)?.find((c) => c.contractSymbol === p.contractSymbol);
     const liveBid = Number(contract?.bid);
     const currentPrice = Number.isFinite(liveBid) && liveBid > 0 ? liveBid : p.lastKnownPrice;
     if (!(Number.isFinite(liveBid) && liveBid > 0)) stalePricing.push(p.contractSymbol);
@@ -200,20 +244,37 @@ async function getAccountSnapshot() {
 // Real, instant simulated fill — refuses (never fabricates) if there's no
 // real current quote, insufficient real cash, or a duplicate open position
 // in the same symbol (spec §38: "Never duplicate trades").
-async function openPosition({ symbol, qty, stop, target, riskDollars, opportunitySnapshot, assetType = "STOCK" }) {
+//
+// direction "short" (2026-08-31, bidirectional trading) — a real, simple,
+// double-entry-consistent short-sale simulation: fills at the real bid
+// (selling short), CREDITS cash with the real proceeds instead of
+// debiting it. Mark-to-market (getAccountSnapshot, below) treats a
+// short's position value as a real liability (negative), which makes the
+// existing top-level `equity = cash + marketValue` formula net out to
+// exactly `cash_before + unrealizedPnl` with zero other formula changes —
+// verified by hand. No margin/borrow modeling — this is a paper-only
+// account, disclosed real simplification, same "label it, don't silently
+// invent it" discipline as this file's CALL-position premium-vs-notional
+// comment above. A hard stop is still mandatory (the caller always
+// supplies one) — the one real guard against a short's theoretically
+// unlimited loss in this simulator.
+async function openPosition({ symbol, qty, stop, target, riskDollars, opportunitySnapshot, assetType = "STOCK", direction = "long" }) {
   symbol = String(symbol || "").trim().toUpperCase();
   if (!symbol || !(qty > 0)) return { ok: false, error: "invalid symbol/qty" };
   const account = loadAccount();
   if (account.openPositions.some((p) => p.symbol === symbol)) {
     return { ok: false, error: `already holding an open position in ${symbol} — duplicate entry blocked` };
   }
+  const isShort = direction === "short";
 
   const [quote] = await fetchQuoteBatchWithFallback([symbol]).catch(() => []);
-  const entryPrice = realFillPrice(quote, "BUY");
+  const entryPrice = realFillPrice(quote, isShort ? "SELL" : "BUY");
   if (!(entryPrice > 0)) return { ok: false, error: `no real current quote available for ${symbol} — refusing to fabricate a fill` };
 
-  const cost = entryPrice * qty;
-  if (cost > account.cash) return { ok: false, error: `insufficient real cash — need $${cost.toFixed(2)}, have $${account.cash.toFixed(2)}` };
+  const proceedsOrCost = entryPrice * qty;
+  if (!isShort && proceedsOrCost > account.cash) {
+    return { ok: false, error: `insufficient real cash — need $${proceedsOrCost.toFixed(2)}, have $${account.cash.toFixed(2)}` };
+  }
 
   const position = {
     // assetType "CRYPTO" (2026-08-30) shares this exact same STOCK-shaped
@@ -223,11 +284,11 @@ async function openPosition({ symbol, qty, stop, target, riskDollars, opportunit
     // label differs, for the UI and for callers that need to branch on it
     // (partialClosePosition's fractional-vs-whole-unit rounding).
     id: `${symbol}-${Date.now()}`, assetType, symbol, qty, entryPrice, entryAt: new Date().toISOString(),
-    stop, target, lastKnownPrice: entryPrice,
-    riskDollars: riskDollars ?? Math.max(0, (entryPrice - stop) * qty),
+    direction, stop, target, lastKnownPrice: entryPrice,
+    riskDollars: riskDollars ?? Math.max(0, isShort ? (stop - entryPrice) * qty : (entryPrice - stop) * qty),
     opportunitySnapshot: opportunitySnapshot || null,
   };
-  account.cash -= cost;
+  account.cash += isShort ? proceedsOrCost : -proceedsOrCost;
   account.openPositions.push(position);
   saveAccount(account);
   return { ok: true, position };
@@ -240,7 +301,15 @@ async function openPosition({ symbol, qty, stop, target, riskDollars, opportunit
 // just picked this exact real contract off a live chain a moment ago.
 // Real cash debit = premium x contracts x 100 (the real standard US
 // equity option multiplier).
-async function openOptionPosition({ symbol, strike, expiry, contractSymbol, qty, entryPremium, underlyingAtEntry, opportunitySnapshot }) {
+// optionType "put" (2026-08-31, bidirectional trading) — a long PUT's
+// real math is identical to a long CALL's here: full premium debited on
+// entry (max loss), same premium-delta P&L in getAccountSnapshot (a
+// put's premium already rises when the stock falls — no sign flip
+// needed, unlike short stock). The only real difference is which side of
+// the real chain (chain.puts vs chain.calls) getAccountSnapshot/
+// closeOptionPosition re-match against — assetType carries that (PUT vs
+// CALL) since it's already the field every position-type branch keys off.
+async function openOptionPosition({ symbol, strike, expiry, contractSymbol, qty, entryPremium, underlyingAtEntry, opportunitySnapshot, optionType = "call" }) {
   symbol = String(symbol || "").trim().toUpperCase();
   if (!symbol || !(qty > 0) || !(entryPremium > 0) || !contractSymbol) return { ok: false, error: "invalid option fill inputs" };
   const account = loadAccount();
@@ -250,13 +319,14 @@ async function openOptionPosition({ symbol, strike, expiry, contractSymbol, qty,
   const cost = entryPremium * qty * CONTRACT_MULTIPLIER;
   if (cost > account.cash) return { ok: false, error: `insufficient real cash — need $${cost.toFixed(2)}, have $${account.cash.toFixed(2)}` };
 
+  const isPut = optionType === "put";
   const position = {
-    id: `${contractSymbol}-${Date.now()}`, assetType: "CALL", symbol, optionType: "call",
+    id: `${contractSymbol}-${Date.now()}`, assetType: isPut ? "PUT" : "CALL", symbol, optionType: isPut ? "put" : "call",
     strike, expiry, contractSymbol, contractMultiplier: CONTRACT_MULTIPLIER, qty,
     entryPrice: entryPremium, // same field name as stocks — everything downstream (P&L math) treats it uniformly
     underlyingAtEntry: underlyingAtEntry ?? null,
     entryAt: new Date().toISOString(), lastKnownPrice: entryPremium,
-    riskDollars: cost, // a long call's real max loss is the full real premium paid
+    riskDollars: cost, // a long call/put's real max loss is the full real premium paid
     opportunitySnapshot: opportunitySnapshot || null,
   };
   account.cash -= cost;
@@ -281,7 +351,7 @@ async function closeOptionPosition(id, { exitPremium, reason } = {}) {
   let fillPremium = Number(exitPremium);
   if (!(fillPremium > 0)) {
     const chain = await fetchOptionsChain(position.symbol, position.expiry);
-    const contract = chain?.calls?.find((c) => c.contractSymbol === position.contractSymbol);
+    const contract = (position.optionType === "put" ? chain?.puts : chain?.calls)?.find((c) => c.contractSymbol === position.contractSymbol);
     fillPremium = Number(contract?.bid) > 0 ? Number(contract.bid) : null;
   }
   if (!(fillPremium > 0)) return { ok: false, error: `no real current quote available for ${position.contractSymbol} — refusing to fabricate an exit fill` };
@@ -304,26 +374,28 @@ async function closeOptionPosition(id, { exitPremium, reason } = {}) {
 // Full close — real P&L off the real entry fill, real R-multiple off the
 // original real stop distance. `exitPrice` lets a caller that already has
 // a fresh real quote in hand skip a second fetch; otherwise fetches one.
+// direction "short" (2026-08-31): covers by BUYING (fills at the real
+// ask, not the bid), debits cash instead of crediting it, and flips the
+// P&L/R-multiple sign — the exact mirror of openPosition's short-entry
+// mechanics above.
 async function closePosition(id, { exitPrice, reason } = {}) {
   const account = loadAccount();
   const idx = account.openPositions.findIndex((p) => p.id === id);
   if (idx === -1) return { ok: false, error: `no open position with id ${id}` };
   const position = account.openPositions[idx];
+  const isShort = position.direction === "short";
 
   let fillPrice = Number(exitPrice);
   if (!(fillPrice > 0)) {
     const [quote] = await fetchQuoteBatchWithFallback([position.symbol]).catch(() => []);
-    fillPrice = realFillPrice(quote, "SELL");
+    fillPrice = realFillPrice(quote, isShort ? "BUY" : "SELL");
   }
   if (!(fillPrice > 0)) return { ok: false, error: `no real current quote available for ${position.symbol} — refusing to fabricate an exit fill` };
 
-  const proceeds = fillPrice * position.qty;
-  const realizedPnl = (fillPrice - position.entryPrice) * position.qty;
-  const riskPerShare = position.entryPrice - position.stop;
-  const rMultiple = riskPerShare > 0 ? (fillPrice - position.entryPrice) / riskPerShare : null;
+  const { cashDelta, realizedPnl, rMultiple } = closeFinancials(position, fillPrice);
   const holdingMinutes = Math.round((Date.now() - new Date(position.entryAt).getTime()) / 60000);
 
-  account.cash += proceeds;
+  account.cash += cashDelta;
   account.realizedPnl += realizedPnl;
   account.openPositions.splice(idx, 1);
   const closedTrade = { ...position, exitPrice: fillPrice, exitAt: new Date().toISOString(), exitReason: reason || "MANUAL", realizedPnl, rMultiple, holdingMinutes };
@@ -355,30 +427,33 @@ async function partialClosePosition(id, { fraction = 0.5, reason } = {}) {
   const idx = account.openPositions.findIndex((p) => p.id === id);
   if (idx === -1) return { ok: false, error: `no open position with id ${id}` };
   const position = account.openPositions[idx];
+  const isShort = position.direction === "short";
   const sellQty = computePartialCloseQty(position, fraction);
   if (!(sellQty > 0) || sellQty >= position.qty) return closePosition(id, { reason });
 
   const [quote] = await fetchQuoteBatchWithFallback([position.symbol]).catch(() => []);
-  const fillPrice = realFillPrice(quote, "SELL");
+  const fillPrice = realFillPrice(quote, isShort ? "BUY" : "SELL");
   if (!(fillPrice > 0)) return { ok: false, error: `no real current quote available for ${position.symbol} — refusing to fabricate a fill` };
 
-  const proceeds = fillPrice * sellQty;
-  const realizedPnl = (fillPrice - position.entryPrice) * sellQty;
-  account.cash += proceeds;
+  const { cashDelta, realizedPnl } = closeFinancials(position, fillPrice, sellQty);
+  account.cash += cashDelta;
   account.realizedPnl += realizedPnl;
   position.qty -= sellQty;
   saveAccount(account);
   return { ok: true, soldQty: sellQty, fillPrice, realizedPnl, remainingQty: position.qty };
 }
 
-// Real stop-trail (spec §14/§19 TRAIL) — raises (never lowers) a real
-// open position's stop to lock in real gains. Silently no-ops a lower
-// value so a stale/late call can never loosen risk.
+// Real stop-trail (spec §14/§19 TRAIL) — tightens (never loosens) a real
+// open position's stop to lock in real gains. Silently no-ops a looser
+// value so a stale/late call can never loosen risk. Direction-aware
+// (2026-08-31): a long's stop can only ever RISE; a short's stop
+// (sitting above entry) can only ever FALL — "tighter" means "closer to
+// the real current price" in both cases.
 function updateStop(id, newStop) {
   const account = loadAccount();
   const position = account.openPositions.find((p) => p.id === id);
   if (!position) return { ok: false, error: `no open position with id ${id}` };
-  if (!(newStop > position.stop)) return { ok: false, error: "new stop is not tighter than the current real stop — ignored" };
+  if (!isStopTighter(position, newStop)) return { ok: false, error: "new stop is not tighter than the current real stop — ignored" };
   position.stop = newStop;
   saveAccount(account);
   return { ok: true, stop: newStop };
@@ -398,4 +473,5 @@ module.exports = {
   openPosition, closePosition, partialClosePosition, updateStop, resetAccount,
   openOptionPosition, closeOptionPosition, fetchOptionsChain,
   realFillPrice, computePartialCloseQty,
+  priceStockPosition, closeFinancials, isStopTighter,
 };

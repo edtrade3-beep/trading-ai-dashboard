@@ -24,7 +24,7 @@
 
 const { computeEntryPlan } = require("./entry-engine");
 const { computeRedFlags } = require("./red-flag-engine");
-const { computeCoreScore, classifyCoreVerdict } = require("./am-core-engine");
+const { computeCoreScore, classifyCoreVerdict, computeBearishScore, classifyBearishVerdict } = require("./am-core-engine");
 const { computeAPlusScore } = require("./trade-planner-scoring");
 const { buildEvFromRow } = require("./watchlist-setup-alerts");
 const { winProbFor } = require("./institutional-scoring");
@@ -281,6 +281,33 @@ function computeCounterfactualEv({ tier, probability, entryPlan, spreadPct, live
   };
 }
 
+// Real, honest, disclosed bearish stop/target — added 2026-08-31
+// (bidirectional trading, "trade up and down"). There is no bearish
+// counterpart to entry-engine.js's pivot/contractionLow machinery in this
+// codebase (that module is long-only, and computeOpportunity takes no raw
+// bars/ATR input to compute one independently — it stays a pure,
+// fetch-free function per its own header). Rather than invent a new
+// structural-level detector or thread raw bars through 13+ existing
+// callers, this reuses the SAME real `row.pivot` the long side already
+// keys its own stop/target off, applying the real, standard technical
+// convention that a broken support level becomes overhead resistance —
+// the pivot becomes the short's real stop (a small 0.5% buffer above it,
+// same "don't sit exactly on the level" logic most real stop placement
+// uses), with target1/target2 as the same 1R/2R convention
+// buildEvFromRow already uses for the long side. Only returns real levels
+// when price has actually broken below the real pivot — otherwise
+// honestly null, never fabricated.
+function buildBearishLevels(row) {
+  const price = Number(row?.price), pivot = Number(row?.pivot);
+  if (!Number.isFinite(price) || !Number.isFinite(pivot) || !(price < pivot)) {
+    return { stop: null, target1: null, target2: null };
+  }
+  const stop = round2(pivot * 1.005);
+  const risk = round2(stop - price);
+  if (!(risk > 0)) return { stop: null, target1: null, target2: null };
+  return { stop, target1: round2(price - risk), target2: round2(price - 2 * risk) };
+}
+
 // The one standardized Opportunity Object (spec section 32). `row` is a
 // real screenTrendTemplate/screenWatchlistCached row, `regime` is
 // computeRegime's real output, `marketRegime` is
@@ -311,6 +338,27 @@ function computeOpportunity({ symbol, row, regime, marketRegime, sectorInfo = nu
     hasPosition: false,
   });
   if (!deep) return null; // SHORT direction or otherwise unclassifiable — honest null, never a guess
+
+  // Bearish read — additive, computed off the exact same real inputs
+  // already gathered above for the long side, one scan not a second one
+  // (bidirectional trading, 2026-08-31). See am-core-engine.js's
+  // computeBearishScore/classifyBearishVerdict for the full v1-gap
+  // disclosure: no dedicated bearish red-flag set and no real "extension
+  // below breakdown" magnitude data exist yet in this codebase, so those
+  // two gates simply don't fire this phase (bearishExtension/entryScore
+  // left undefined) rather than being approximated with a wrong or
+  // fabricated number.
+  const bearishScore = computeBearishScore({
+    passCount: row.passCount, rsRating: row.rsRating, momentum: row.momentum,
+    stage: row.stage, volRatio: row.volRatio, regime, sectorInfo,
+    adx, smc: row.smc, epsGrowth: row.epsGrowth,
+    riskPct: row.riskPct, optionsFlow, dollarVolume: row.dollarVolume,
+  });
+  const bearishLevels = buildBearishLevels(row);
+  const bearishDeep = classifyBearishVerdict({
+    score: bearishScore.score, smc: row.smc, stage: row.stage, dailyBias: ev.dailyBias,
+    hasPosition: false, hasRealEntry: bearishLevels.stop != null && bearishLevels.target1 != null,
+  });
 
   const winProb = trackReport ? winProbFor(trackReport, coreScore.score) : null;
   const probability = winProb?.winRate != null ? round2(winProb.winRate) : null;
@@ -391,6 +439,15 @@ function computeOpportunity({ symbol, row, regime, marketRegime, sectorInfo = nu
     counterfactual,
     criticalFlags: redFlagResult.criticalCount,
     redFlags: redFlagResult.flags,
+    // Bearish fields — additive, `verdict`/`stop`/`target` above stay the
+    // real long-side fields every existing consumer already reads.
+    bearishVerdict: bearishDeep?.verdict ?? null,
+    bearishVerdictReason: bearishDeep?.reason ?? null,
+    bearishScore: bearishScore.score,
+    bearishEntry: bearishLevels.stop != null ? (row.price ?? null) : null,
+    bearishStop: bearishLevels.stop,
+    bearishTarget: bearishLevels.target1,
+    bearishTarget2: bearishLevels.target2,
   };
 }
 

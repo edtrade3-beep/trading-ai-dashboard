@@ -39,12 +39,27 @@ function pickExpiry(expiryDates) {
 
 // Pure decision core, extracted for direct unit testing with synthetic
 // chain data (no network) — given an already-fetched real chain (or
-// null), decide STOCK/CALL/NO_TRADE. chooseExpression below is the thin
-// impure wrapper that fetches the real chain and calls this.
-function decideFromChain(opportunity, chain, expiry) {
+// null), decide STOCK/CALL/NO_TRADE (LONG) or SHORT_STOCK/PUT (SHORT).
+// chooseExpression below is the thin impure wrapper that fetches the real
+// chain and calls this.
+//
+// Generalized 2026-08-31 (bidirectional trading, "trade up and down") —
+// direction defaults to "LONG" so every existing caller (which never
+// passed a direction) is fully unaffected. For "SHORT", this evaluates
+// chain.puts instead of chain.calls (already real and ranked — see
+// GET /api/market/options) and checks Math.abs(delta) against the SAME
+// DELTA_MIN/DELTA_MAX band, since a real put delta is negative
+// (Black-Scholes) but represents the identical "how deep ITM" concept.
+function decideFromChain(opportunity, chain, expiry, direction = "LONG") {
   const symbol = opportunity?.symbol;
-  if (!chain || !Array.isArray(chain.calls)) {
-    return { expression: "STOCK", reason: "no real option chain available for this symbol — expressing as stock" };
+  const isShort = direction === "SHORT";
+  const stockExpression = isShort ? "SHORT_STOCK" : "STOCK";
+  const stockLabel = isShort ? "short stock" : "stock";
+  const optionExpression = isShort ? "PUT" : "CALL";
+  const contractsKey = isShort ? "puts" : "calls";
+
+  if (!chain || !Array.isArray(chain[contractsKey])) {
+    return { expression: stockExpression, reason: `no real option chain available for this symbol — expressing as ${stockLabel}` };
   }
 
   const underlying = Number(chain.underlying) || Number(opportunity.price) || null;
@@ -58,53 +73,55 @@ function decideFromChain(opportunity, chain, expiry) {
   // visible error — Autopilot 2.0's options leg was dead code in
   // production. A provider-real delta is always preferred; only contracts
   // with delta:null but real iv/strike get an ESTIMATED delta
-  // (options-math.js's estimateDelta, real Black-Scholes N(d1) off real
-  // iv/strike/underlying/dte) — explicitly tagged deltaSource so this is
-  // never confused with a provider-real greek downstream (position
-  // records, UI).
-  const withDelta = chain.calls.map((c) => {
+  // (options-math.js's estimateDelta, real Black-Scholes N(d1)/N(d1)-1 off
+  // real iv/strike/underlying/dte — already correctly signed for puts)
+  // — explicitly tagged deltaSource so this is never confused with a
+  // provider-real greek downstream (position records, UI).
+  const withDelta = chain[contractsKey].map((c) => {
     if (Number.isFinite(c.delta)) return { ...c, deltaSource: "provider" };
     const dte = c.dte != null ? c.dte : dteFromExpiry(c.expiry);
-    const est = estimateDelta({ iv: c.iv, strike: c.strike, underlying, dte, isCall: true });
+    const est = estimateDelta({ iv: c.iv, strike: c.strike, underlying, dte, isCall: !isShort });
     return est != null ? { ...c, delta: est, deltaSource: "estimated" } : { ...c, deltaSource: null };
   });
 
-  const realCalls = withDelta.filter((c) => Number.isFinite(c.delta) && c.delta >= DELTA_MIN && c.delta <= DELTA_MAX);
-  if (!realCalls.length) {
-    return { expression: "STOCK", reason: `no real call in the ${DELTA_MIN}-${DELTA_MAX} delta band for this expiry — expressing as stock` };
+  const realContracts = withDelta.filter((c) => Number.isFinite(c.delta) && Math.abs(c.delta) >= DELTA_MIN && Math.abs(c.delta) <= DELTA_MAX);
+  if (!realContracts.length) {
+    return { expression: stockExpression, reason: `no real ${optionExpression.toLowerCase()} in the ${DELTA_MIN}-${DELTA_MAX} delta band for this expiry — expressing as ${stockLabel}` };
   }
 
-  const ranked = rankContracts(realCalls, { underlying, isCall: true, aiTradeScore: opportunity.score });
+  const ranked = rankContracts(realContracts, { underlying, isCall: !isShort, aiTradeScore: opportunity.score });
   const top = ranked[0];
-  if (!top) return { expression: "STOCK", reason: "real contract ranking produced nothing — expressing as stock" };
+  if (!top) return { expression: stockExpression, reason: `real contract ranking produced nothing — expressing as ${stockLabel}` };
 
   const realSpreadPct = spreadPct({ bid: top.bid, ask: top.ask });
   if (top.liquidityScore < MIN_LIQUIDITY) {
-    return { expression: "STOCK", reason: `Good Stock / Bad Option: top real contract liquidity ${top.liquidityScore}/100 is below the real ${MIN_LIQUIDITY} floor — expressing as stock instead` };
+    return { expression: stockExpression, reason: `Good Stock / Bad Option: top real contract liquidity ${top.liquidityScore}/100 is below the real ${MIN_LIQUIDITY} floor — expressing as ${stockLabel} instead` };
   }
   if (realSpreadPct != null && realSpreadPct > MAX_SPREAD_PCT) {
-    return { expression: "STOCK", reason: `Good Stock / Bad Option: real bid/ask spread ${realSpreadPct}% exceeds the ${MAX_SPREAD_PCT}% ceiling — expressing as stock instead` };
+    return { expression: stockExpression, reason: `Good Stock / Bad Option: real bid/ask spread ${realSpreadPct}% exceeds the ${MAX_SPREAD_PCT}% ceiling — expressing as ${stockLabel} instead` };
   }
   if (!(top.ask > 0)) {
-    return { expression: "STOCK", reason: "no real ask price on the top contract — refusing to fabricate an entry premium" };
+    return { expression: stockExpression, reason: "no real ask price on the top contract — refusing to fabricate an entry premium" };
   }
 
   return {
-    expression: "CALL",
-    reason: `real call selected: strike $${top.strike}, ${top.dte}d to ${expiry}, POP ${top.pop ?? "n/a"}%, liquidity ${top.liquidityScore}/100${top.deltaSource === "estimated" ? ` (delta ${top.delta} estimated via Black-Scholes — no provider greeks available)` : ""}`,
+    expression: optionExpression,
+    reason: `real ${optionExpression.toLowerCase()} selected: strike $${top.strike}, ${top.dte}d to ${expiry}, POP ${top.pop ?? "n/a"}%, liquidity ${top.liquidityScore}/100${top.deltaSource === "estimated" ? ` (delta ${top.delta} estimated via Black-Scholes — no provider greeks available)` : ""}`,
     contract: { ...top, symbol, expiry, underlyingAtEntry: underlying },
   };
 }
 
-// The one real decision: STOCK, CALL, or NO_TRADE — always with a real
-// disclosed reason, never a silent default.
-async function chooseExpression(opportunity) {
+// The one real decision: STOCK/CALL/NO_TRADE (LONG) or SHORT_STOCK/PUT
+// (SHORT) — always with a real disclosed reason, never a silent default.
+async function chooseExpression(opportunity, direction = "LONG") {
   const symbol = opportunity?.symbol;
   if (!symbol) return { expression: "NO_TRADE", reason: "no real symbol on this opportunity" };
+  const isShort = direction === "SHORT";
+  const stockExpression = isShort ? "SHORT_STOCK" : "STOCK";
 
   const firstChain = await fetchOptionsChain(symbol).catch(() => null);
   if (!firstChain || !Array.isArray(firstChain.expiryDates) || !firstChain.expiryDates.length) {
-    return { expression: "STOCK", reason: "no real option chain available for this symbol — expressing as stock" };
+    return { expression: stockExpression, reason: `no real option chain available for this symbol — expressing as ${isShort ? "short stock" : "stock"}` };
   }
 
   const expiry = pickExpiry(firstChain.expiryDates);
@@ -112,7 +129,7 @@ async function chooseExpression(opportunity) {
     ? firstChain
     : (await fetchOptionsChain(symbol, expiry).catch(() => null)) || firstChain;
 
-  return decideFromChain(opportunity, chain, expiry);
+  return decideFromChain(opportunity, chain, expiry, direction);
 }
 
 module.exports = { chooseExpression, decideFromChain, pickExpiry, TARGET_DTE_MIN, TARGET_DTE_MAX, DELTA_MIN, DELTA_MAX, MAX_SPREAD_PCT };
