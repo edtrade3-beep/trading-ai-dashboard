@@ -7,6 +7,7 @@ const { writeJson } = require("../utils");
 const { loadCoachLog } = require("../ai-coach-store");
 const { buildCommandCenter } = require("../command-center-ai");
 const { getTrackRecord } = require("../predictions-store");
+const { acquireRefreshLock } = require("../refresh-cooldown");
 
 async function handleCommandCenter(req, res, requestUrl) {
   const { pathname } = requestUrl;
@@ -17,6 +18,9 @@ async function handleCommandCenter(req, res, requestUrl) {
   }
 
   if (pathname === "/api/command-center/refresh" && req.method === "POST") {
+    // Cost-control cooldown (2026-09-01 audit) — see refresh-cooldown.js.
+    const lock = acquireRefreshLock("command-center", 15000);
+    if (!lock.ok) return writeJson(res, 429, { ok: false, error: `Already refreshing (or refreshed too recently) — try again in ${Math.ceil(lock.retryAfterMs / 1000)}s.` });
     try {
       // buildCommandCenter() no longer throws on an AI failure — real data
       // (regime, trade cards with real price levels, portfolio risk, CEO
@@ -29,7 +33,7 @@ async function handleCommandCenter(req, res, requestUrl) {
       return writeJson(res, 200, { ok: true, brief: built });
     } catch (e) {
       return writeJson(res, 200, { ok: false, error: "Could not generate a Command Center report.", debug: e.message });
-    }
+    } finally { lock.release(); }
   }
 
   if (pathname === "/api/command-center/track-record" && req.method === "GET") {

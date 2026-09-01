@@ -54,6 +54,15 @@ async function runWeeklyAgentSwarm() {
   if (!symbols.length) return { ok: true, skipped: "no real Horse candidates clear the wealth-score bar yet — run the daily refresh first" };
 
   const result = await runAgentSwarm({ symbols, apiKey: ANTHROPIC_API_KEY });
+
+  // Real Telegram summary (2026-09-01 platform audit) — this job previously
+  // ran a real 60-call agent swarm and never told anyone what it found.
+  // Best-effort: a notification failure never fails the real analysis run.
+  try {
+    const { sendWeeklySwarmSummary } = require("./future-wallet-alerts");
+    await sendWeeklySwarmSummary(result);
+  } catch { /* best-effort, same isolation as sendHorseAlerts */ }
+
   return { ok: true, candidates: symbols, ...result };
 }
 

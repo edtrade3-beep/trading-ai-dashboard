@@ -8,6 +8,7 @@ const { writeJson, readRequestBody } = require("../utils");
 const { loadCoachLog } = require("../ai-coach-store");
 const { buildCarBusinessIntel, analyzeRepricing, buildFacebookStrategy, buildFacebookAd } = require("../car-business-ai");
 const { loadDealerInfo, saveDealerInfo } = require("../car-business-dealer-info-store");
+const { acquireRefreshLock } = require("../refresh-cooldown");
 
 async function handleCarBusiness(req, res, requestUrl) {
   const { pathname } = requestUrl;
@@ -18,6 +19,9 @@ async function handleCarBusiness(req, res, requestUrl) {
   }
 
   if (pathname === "/api/car-business/intel/refresh" && req.method === "POST") {
+    // Cost-control cooldown (2026-09-01 audit) — see refresh-cooldown.js.
+    const lock = acquireRefreshLock("car-business-intel", 15000);
+    if (!lock.ok) return writeJson(res, 429, { ok: false, error: `Already refreshing (or refreshed too recently) — try again in ${Math.ceil(lock.retryAfterMs / 1000)}s.` });
     try {
       const built = await buildCarBusinessIntel();
       if (!built) return writeJson(res, 200, { ok: false, error: "Could not generate a Car Business report (ANTHROPIC_API_KEY not set)." });
@@ -25,7 +29,7 @@ async function handleCarBusiness(req, res, requestUrl) {
       return writeJson(res, 200, { ok: true, intel: built });
     } catch (e) {
       return writeJson(res, 200, { ok: false, error: "Could not generate a Car Business report.", debug: e.message });
-    }
+    } finally { lock.release(); }
   }
 
   // POST /api/car-business/reprice — CSV Repricing Analysis (explicit user
@@ -36,6 +40,9 @@ async function handleCarBusiness(req, res, requestUrl) {
   // is re-validated server-side via the same real normalizeVehicle used
   // by the dealer portal's own CSV import.
   if (pathname === "/api/car-business/reprice" && req.method === "POST") {
+    // Cost-control cooldown (2026-09-01 audit) — see refresh-cooldown.js.
+    const lock = acquireRefreshLock("car-business-reprice", 15000);
+    if (!lock.ok) return writeJson(res, 429, { ok: false, error: `Already running (or ran too recently) — try again in ${Math.ceil(lock.retryAfterMs / 1000)}s.` });
     try {
       const raw = await readRequestBody(req);
       const body = raw ? JSON.parse(raw) : {};
@@ -47,7 +54,7 @@ async function handleCarBusiness(req, res, requestUrl) {
       return writeJson(res, 200, result);
     } catch (e) {
       return writeJson(res, 200, { ok: false, error: "Repricing analysis failed.", debug: e.message });
-    }
+    } finally { lock.release(); }
   }
 
   // Facebook Lead Generation Strategy (explicit user request, 2026-08-30:
@@ -62,6 +69,9 @@ async function handleCarBusiness(req, res, requestUrl) {
   }
 
   if (pathname === "/api/car-business/facebook-strategy/refresh" && req.method === "POST") {
+    // Cost-control cooldown (2026-09-01 audit) — see refresh-cooldown.js.
+    const lock = acquireRefreshLock("car-business-facebook-strategy", 15000);
+    if (!lock.ok) return writeJson(res, 429, { ok: false, error: `Already refreshing (or refreshed too recently) — try again in ${Math.ceil(lock.retryAfterMs / 1000)}s.` });
     try {
       const built = await buildFacebookStrategy();
       if (!built) return writeJson(res, 200, { ok: false, error: "Could not generate a Facebook strategy (ANTHROPIC_API_KEY not set)." });
@@ -69,7 +79,7 @@ async function handleCarBusiness(req, res, requestUrl) {
       return writeJson(res, 200, { ok: true, strategy: built });
     } catch (e) {
       return writeJson(res, 200, { ok: false, error: "Could not generate a Facebook strategy.", debug: e.message });
-    }
+    } finally { lock.release(); }
   }
 
   // Facebook Ad Maker (explicit user request, 2026-08-30: "build facebook
@@ -79,6 +89,9 @@ async function handleCarBusiness(req, res, requestUrl) {
   // in the real inventory list (a one-off tool, ephemeral — no GET/
   // persistence, same pattern as /reprice).
   if (pathname === "/api/car-business/facebook-ad" && req.method === "POST") {
+    // Cost-control cooldown (2026-09-01 audit) — see refresh-cooldown.js.
+    const lock = acquireRefreshLock("car-business-facebook-ad", 15000);
+    if (!lock.ok) return writeJson(res, 429, { ok: false, error: `Already running (or ran too recently) — try again in ${Math.ceil(lock.retryAfterMs / 1000)}s.` });
     try {
       const raw = await readRequestBody(req);
       const body = raw ? JSON.parse(raw) : {};
@@ -87,7 +100,7 @@ async function handleCarBusiness(req, res, requestUrl) {
       return writeJson(res, 200, result);
     } catch (e) {
       return writeJson(res, 200, { ok: false, error: "Could not build the ad.", debug: e.message });
-    }
+    } finally { lock.release(); }
   }
 
   // Dealer Info settings — real business name/address/phone/contact-method/

@@ -6,6 +6,7 @@
 const { writeJson } = require("../utils");
 const { loadCoachLog } = require("../ai-coach-store");
 const { buildResearchIntel } = require("../research-intel-ai");
+const { acquireRefreshLock } = require("../refresh-cooldown");
 
 async function handleResearchIntel(req, res, requestUrl) {
   const { pathname } = requestUrl;
@@ -16,6 +17,11 @@ async function handleResearchIntel(req, res, requestUrl) {
   }
 
   if (pathname === "/api/research/intel/refresh" && req.method === "POST") {
+    // Cost-control cooldown (2026-09-01 audit) — a real, expensive
+    // Anthropic call, previously refusable via double-click/retry with
+    // zero protection. See refresh-cooldown.js's own header for why.
+    const lock = acquireRefreshLock("research-intel", 15000);
+    if (!lock.ok) return writeJson(res, 429, { ok: false, error: `Already refreshing (or refreshed too recently) — try again in ${Math.ceil(lock.retryAfterMs / 1000)}s.` });
     try {
       const built = await buildResearchIntel();
       if (!built) return writeJson(res, 200, { ok: false, error: "Could not generate a research report (ANTHROPIC_API_KEY not set)." });
@@ -23,7 +29,7 @@ async function handleResearchIntel(req, res, requestUrl) {
       return writeJson(res, 200, { ok: true, intel: built });
     } catch (e) {
       return writeJson(res, 200, { ok: false, error: "Could not generate a research report.", debug: e.message });
-    }
+    } finally { lock.release(); }
   }
 
   return writeJson(res, 404, { error: "Not found" });

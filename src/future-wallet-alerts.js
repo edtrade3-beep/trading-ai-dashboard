@@ -74,4 +74,64 @@ async function sendHorseAlerts(results) {
   return { sent, checked };
 }
 
-module.exports = { STAGE_ORDER, SCORE_JUMP_THRESHOLD, classifyTransition, formatAlert, sendHorseAlerts };
+// Weekly agent-swarm summary (2026-09-01 platform audit) — the weekly
+// deep-dive job (future-wallet-weekly-agents-job.js) ran 6 agents against
+// the top real Horse candidates and, until now, the results only ever
+// landed in fw_agent_analysis with no notification — every other
+// consequential Future Wallet job (this file's own sendHorseAlerts) tells
+// you what it found; this one silently finished. Real, disclosed
+// aggregation only: averages each symbol's own real per-agent scores
+// (nulls/failures excluded, never treated as 0), surfaces the top N by
+// that real average, and quotes each agent's own real verdict phrase —
+// never a synthesized label the agents didn't actually produce.
+const SWARM_TOP_N = 3;
+
+function summarizeSwarmResults(results) {
+  const bySymbol = new Map();
+  for (const r of results || []) {
+    if (!r.ok || r.score == null) continue; // honest exclusion — a null/failed score never counts as 0
+    if (!bySymbol.has(r.symbol)) bySymbol.set(r.symbol, []);
+    bySymbol.get(r.symbol).push(r);
+  }
+  const summaries = [...bySymbol.entries()].map(([symbol, agentResults]) => {
+    const avgScore = agentResults.reduce((s, r) => s + r.score, 0) / agentResults.length;
+    return { symbol, avgScore, agentCount: agentResults.length, agentResults };
+  });
+  summaries.sort((a, b) => b.avgScore - a.avgScore);
+  return summaries;
+}
+
+function formatSwarmAlert(swarmResult, summaries) {
+  const top = summaries.slice(0, SWARM_TOP_N);
+  const lines = [
+    "🐎 WEEKLY HORSE AGENT SWARM", "",
+    `${swarmResult.succeeded}/${swarmResult.totalCalls} real agent calls succeeded across ${(swarmResult.candidates || []).length} candidates.`,
+  ];
+  if (top.length) {
+    lines.push("", "TOP BY AVG AGENT SCORE:");
+    for (const s of top) {
+      lines.push(`${s.symbol}: ${Math.round(s.avgScore)}/100 (${s.agentCount} agent${s.agentCount === 1 ? "" : "s"})`);
+    }
+  } else {
+    lines.push("", "No candidate cleared a real, non-null score from any agent this run.");
+  }
+  return lines.join("\n");
+}
+
+// Best-effort, isolated the same way sendHorseAlerts is — a Telegram
+// failure here never fails the weekly job itself.
+async function sendWeeklySwarmSummary(swarmResult) {
+  const { sendTelegramMessage } = require("./telegram");
+  const summaries = summarizeSwarmResults(swarmResult.results);
+  try {
+    const res = await sendTelegramMessage(formatSwarmAlert(swarmResult, summaries));
+    return { sent: Boolean(res && res.ok), topSymbols: summaries.slice(0, SWARM_TOP_N).map((s) => s.symbol) };
+  } catch {
+    return { sent: false, topSymbols: summaries.slice(0, SWARM_TOP_N).map((s) => s.symbol) };
+  }
+}
+
+module.exports = {
+  STAGE_ORDER, SCORE_JUMP_THRESHOLD, classifyTransition, formatAlert, sendHorseAlerts,
+  SWARM_TOP_N, summarizeSwarmResults, formatSwarmAlert, sendWeeklySwarmSummary,
+};
