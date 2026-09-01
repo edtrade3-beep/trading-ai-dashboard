@@ -136,7 +136,7 @@ export default function ActivePositionsCard({ C, MONO, SANS, setTerminalSymbol, 
                       </span>
                     )}
                     {p.edgeMonitor && EDGE_MONITOR_META[p.edgeMonitor.status] && (
-                      <span title={`Entry score ${p.edgeMonitor.entryScore} -> now ${p.edgeMonitor.currentScore} (${p.edgeMonitor.delta > 0 ? "+" : ""}${p.edgeMonitor.delta}) — is the original thesis still working?`}
+                      <span title={`Entry score ${p.edgeMonitor.entryScore} -> now ${p.edgeMonitor.currentScore} (${p.edgeMonitor.delta > 0 ? "+" : ""}${p.edgeMonitor.delta}) — is the original thesis still working?${p.edgeMonitor.entryReason ? `\n\nAt entry: ${p.edgeMonitor.entryReason}` : ""}${p.edgeMonitor.currentReason ? `\nNow: ${p.edgeMonitor.currentReason}` : ""}`}
                         style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: EDGE_MONITOR_META[p.edgeMonitor.status].color,
                           border: `1px solid ${EDGE_MONITOR_META[p.edgeMonitor.status].color}`, borderRadius: 4, padding: "1px 5px" }}>
                         {EDGE_MONITOR_META[p.edgeMonitor.status].icon} {EDGE_MONITOR_META[p.edgeMonitor.status].label}

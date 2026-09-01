@@ -47,7 +47,12 @@ async function captureEntrySnapshot(symbol) {
     if (!opp) return null;
 
     const store = loadStore();
-    store[symbol] = { ts: Date.now(), score: opp.score, tier: opp.tier, expectedValue: opp.expectedValue };
+    // verdictReason (/goal Phase 11 audit, 2026-09-01) — the real,
+    // already-computed plain-English reason for the entry tier/score,
+    // persisted alongside the numbers so a later "what changed" read can
+    // show WHY the thesis looked good at entry, not just what the score
+    // was. Free: opp.verdictReason was already sitting right here.
+    store[symbol] = { ts: Date.now(), score: opp.score, tier: opp.tier, expectedValue: opp.expectedValue, verdictReason: opp.verdictReason };
     saveStore(store);
     return store[symbol];
   } catch {

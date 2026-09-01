@@ -324,6 +324,13 @@ async function handleAlpaca(req, res, requestUrl) {
             pos.edgeMonitor = {
               ...classifyEdgeChange({ entryScore: snapshot.score, entryTier: snapshot.tier, currentScore: opp.score, currentTier: opp.tier }),
               entrySnapshotAt: snapshot.ts,
+              // "What changed" (/goal Phase 11 audit, 2026-09-01) — the real
+              // entry-time reason (persisted in the snapshot, older
+              // snapshots captured before this honestly read undefined) next
+              // to today's real reason, so a delta reads as plain English
+              // ("thesis was X, now it's Y"), not just a numeric drift.
+              entryReason: snapshot.verdictReason ?? null,
+              currentReason: opp.verdictReason ?? null,
             };
           }
         }
