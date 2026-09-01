@@ -5,6 +5,7 @@ import { STOCK_TO_SECTOR, computeRegime, computeAPlusScore } from "./market-help
 import { computeSniperDecision } from "./sniper-decision.js";
 import { computeHeatRisk, computeCortexVerdict } from "./cortex-engine.js";
 import { computeAntiChase } from "./anti-chase.js";
+import { CORE_VERDICT_META } from "./am-core-engine.js";
 
 // Real Cortex Verdict per symbol — replaces this file's own separate
 // composite-score thresholds (sig/sig2/qs, 72/55/40 cutoffs on
@@ -36,6 +37,21 @@ const verdictLabelColor = (v) => !v ? [null, C.textDim]
   : v.verdict === "OVEREXTENDED" ? [v.verdict, "#e08a1e"]
   : [v.verdict, "#c8282a"];
 
+// Real, primary badge for a row/pill in this file — prefers the real
+// am-core-engine.js Master Verdict (same engine as Autopilot 2.0/most
+// alerts, coreVerdict on trendRow once withDecision=1 loads) and only
+// falls back to the Cortex-derived read while it hasn't loaded yet,
+// never reverting once real Core Engine data is present. Same real fix
+// SmartScanTab.jsx already applied (2026-08-23) for its own row badge —
+// this file's watchlist/chart-header/Top-Setups badges were the one
+// remaining spot still showing the unlabeled Cortex-derived verdict on
+// its own (audit fix #4, 2026-08-31).
+function primaryVerdictFor(trendRow, regime) {
+  const coreMeta = trendRow?.coreVerdict ? CORE_VERDICT_META[trendRow.coreVerdict] : null;
+  if (coreMeta) return [coreMeta.label, coreMeta.color];
+  return verdictLabelColor(cortexVerdictFor(trendRow, regime));
+}
+
 export default function TerminalWorkspace({
   watchlistData, macroData, sectorData, newsData, alerts,
   selectedSymbol, onSelectSymbol, timeframe, onTimeframeChange,
@@ -56,7 +72,11 @@ export default function TerminalWorkspace({
   const wlSymsKey = [...new Set((watchlistData || []).map(q => q.symbol).filter(Boolean))].sort().join(",");
   useEffect(() => {
     if (!wlSymsKey) return;
-    fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(wlSymsKey)}`)
+    // withDecision=1 (audit fix #4, 2026-08-31) — attaches the real
+    // am-core-engine.js coreVerdict per row, same real pipeline every
+    // other Master-Verdict-driven badge in this app already reads, so
+    // primaryVerdictFor above can prefer it over the Cortex-derived read.
+    fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(wlSymsKey)}&withDecision=1`)
       .then(r => r.json())
       .then(j => {
         const map = {};
@@ -339,7 +359,7 @@ export default function TerminalWorkspace({
   const scores2 = computeScores(selected, trendMap[selected.symbol]);
   const regime = computeRegime(macroData);
   // ── Chart indicators state ────────────────────────────────────────────────
-  const [sig2, sigCol2] = verdictLabelColor(cortexVerdictFor(trendMap[selected.symbol], regime));
+  const [sig2, sigCol2] = primaryVerdictFor(trendMap[selected.symbol], regime);
   const chg2 = Number(selected.changesPercentage || 0);
   const px2  = Number(selected.price || 0);
   const ma50v = Number(selected.priceAvg50 || 0);
@@ -382,7 +402,7 @@ export default function TerminalWorkspace({
               const up = chgPct >= 0;
               const active = q.symbol === selected.symbol;
               const scores = computeScores(q, trendMap[q.symbol]);
-              const [sig, sigColor] = verdictLabelColor(cortexVerdictFor(trendMap[q.symbol], regime));
+              const [sig, sigColor] = primaryVerdictFor(trendMap[q.symbol], regime);
               const rvol = q.avgVolume > 0 ? q.volume / q.avgVolume : 0;
               const isPreMarket = marketSession === "PREMARKET";
               const isPostMarket = marketSession === "AFTERMARKET";
@@ -577,7 +597,7 @@ export default function TerminalWorkspace({
               <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.08em", padding: "10px 0 4px" }}>TOP SETUPS</div>
               {terminalRankRows.slice(0, 6).map(q => {
                 const qc = Number(q.changesPercentage || 0);
-                const [qs, qcol] = verdictLabelColor(cortexVerdictFor(trendMap[q.symbol], regime));
+                const [qs, qcol] = primaryVerdictFor(trendMap[q.symbol], regime);
                 return (
                   <div key={q.symbol} onClick={() => onSelectSymbol(q.symbol)}
                     style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 0", borderBottom: `1px solid ${C.border}22`, cursor: "pointer" }}>
