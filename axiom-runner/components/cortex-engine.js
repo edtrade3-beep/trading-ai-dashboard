@@ -130,7 +130,7 @@ export function computeHeatRisk(row, sniper, antiChase) {
 // ---- Cortex Verdict — one of exactly 5, combining real Sniper action +
 // real Heat Risk state + real A+ Score. Separates "good stock" from "good
 // entry" per the user's explicit instruction. ----
-export function computeCortexVerdict({ sniper, heat, aplusScore, criticalFlags }) {
+export function computeCortexVerdict({ sniper, heat, aplusScore, criticalFlags, entryPlanStage, dailyBias }) {
   // Real hard-gate alignment with am-core-engine.js's classifyCoreVerdict
   // (One Engine consolidation, Phase 2.5 — audit finding: this function's
   // gate cascade covers real Stage-4/anti-chase extension via heat.state,
@@ -145,6 +145,22 @@ export function computeCortexVerdict({ sniper, heat, aplusScore, criticalFlags }
   // coreCriticalFlags) should pass it through.
   if (Number(criticalFlags) > 0) {
     return { verdict: "AVOID", icon: "🔴", color: "#c8282a", reason: "A critical real red flag is active — not a valid setup right now." };
+  }
+  // Real hard-gate alignment, part 2 (/goal Phase 7 audit, 2026-09-01) —
+  // classifyCoreVerdict also hard-gates AVOID_LONG on a broken 4H structure
+  // (entryPlan.stage === "STRUCTURE_BROKEN") and a bearish daily trend
+  // (dailyBias === "BEARISH"), neither of which this function's own gate
+  // cascade below checks — sniper.action/heat.state can both still read
+  // clean (they only look at Minervini stage/passCount and chase-distance,
+  // not 4H structure or daily bias) while the canonical engine already says
+  // AVOID_LONG for the same symbol. Both params optional/additive, same
+  // "existing callers without them keep exact prior behavior" contract as
+  // criticalFlags above.
+  if (entryPlanStage === "STRUCTURE_BROKEN") {
+    return { verdict: "AVOID", icon: "🔴", color: "#c8282a", reason: "4H structure is broken — not a valid setup right now." };
+  }
+  if (dailyBias === "BEARISH") {
+    return { verdict: "AVOID", icon: "🔴", color: "#c8282a", reason: "Daily trend is bearish — long bias invalid." };
   }
   if (heat?.state === "CLIMACTIC_DANGER" || heat?.state === "WEAK_AVOID") {
     return { verdict: "AVOID", icon: "🔴", color: "#c8282a", reason: heat.reason };

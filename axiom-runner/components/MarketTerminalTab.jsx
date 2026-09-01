@@ -1198,7 +1198,18 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   // WATCH while Core Verdict correctly said AVOID_LONG for the same
   // symbol at the same moment).
   const cortexV = (symTrend && sniperD && heatD && aPlusScore)
-    ? computeCortexVerdict({ sniper: sniperD, heat: heatD, aplusScore: aPlusScore.score, criticalFlags: (symPosition ? exitRedFlagsDW : redFlagsDW)?.criticalCount })
+    ? computeCortexVerdict({
+        sniper: sniperD, heat: heatD, aplusScore: aPlusScore.score,
+        criticalFlags: (symPosition ? exitRedFlagsDW : redFlagsDW)?.criticalCount,
+        // Phase 7 audit fix (2026-09-01) — entryPlanDW.stage and dwDailyBias
+        // are already computed above for coreVerdictDW's own classifyCoreVerdict
+        // call; threading the same two real hard gates into Cortex Verdict here
+        // closes the remaining case where dwState could disagree with
+        // coreVerdictDW on a HARD gate (broken 4H structure or bearish daily
+        // bias), not just the softer entry-quality vocabulary difference the
+        // two engines are intentionally allowed to differ on.
+        entryPlanStage: entryPlanDW?.stage, dailyBias: dwDailyBias,
+      })
     : null;
   const dwState = cortexV ? (DW_STATE_MAP[cortexV.verdict] || { label: cortexV.verdict, icon: "⚪", color: C.textDim }) : null;
 

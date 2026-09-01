@@ -85,6 +85,28 @@ function ok(name, fn) { try { fn(); passed++; console.log(`  ✓ ${name}`); } ca
     assert.doesNotMatch(r.reason, /exhaustion/, "the real critical-flag reason should win, not the heat reason, since it's checked first");
   });
 
+  console.log("Checking computeCortexVerdict — real structure/dailyBias hard-gate alignment with classifyCoreVerdict (/goal Phase 7 audit, 2026-09-01)…");
+
+  ok("regression: a real broken 4H structure forces AVOID even when sniper+heat would otherwise read BUY ZONE", () => {
+    const r = computeCortexVerdict({ sniper: { action: "ENTER_LONG" }, heat: { state: "HEALTHY_STRENGTH" }, aplusScore: 90, entryPlanStage: "STRUCTURE_BROKEN" });
+    assert.strictEqual(r.verdict, "AVOID");
+  });
+
+  ok("regression: a real bearish daily bias forces AVOID even when sniper+heat would otherwise read BUY ZONE", () => {
+    const r = computeCortexVerdict({ sniper: { action: "ENTER_LONG" }, heat: { state: "HEALTHY_STRENGTH" }, aplusScore: 90, dailyBias: "BEARISH" });
+    assert.strictEqual(r.verdict, "AVOID");
+  });
+
+  ok("entryPlanStage/dailyBias omitted entirely (existing callers) -> honest backward-compatible behavior, unaffected", () => {
+    const r = computeCortexVerdict({ sniper: { action: "ENTER_LONG" }, heat: { state: "HEALTHY_STRENGTH" }, aplusScore: 90 });
+    assert.strictEqual(r.verdict, "BUY ZONE");
+  });
+
+  ok("a non-broken entryPlanStage / non-bearish dailyBias never forces AVOID on its own", () => {
+    const r = computeCortexVerdict({ sniper: { action: "ENTER_LONG" }, heat: { state: "HEALTHY_STRENGTH" }, aplusScore: 90, entryPlanStage: "CONFIRMED_UPTREND", dailyBias: "BULLISH" });
+    assert.strictEqual(r.verdict, "BUY ZONE");
+  });
+
   console.log(`\n${passed} checks passed.`);
   if (process.exitCode) console.error("CORTEX-ENGINE TEST FAILED"); else console.log("CORTEX-ENGINE TEST OK");
 })();
