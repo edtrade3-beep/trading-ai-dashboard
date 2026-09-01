@@ -16,7 +16,7 @@
 // price, or statistic it didn't actually find via search.
 "use strict";
 
-const { callAnthropicWithSearch } = require("./anthropic");
+const { callAnthropicWithSearch, MODELS } = require("./anthropic");
 const { getMode } = require("./credit-saver-mode");
 const { saveCoachOutput } = require("./ai-coach-store");
 const {
@@ -48,7 +48,7 @@ async function buildCurblineIntel() {
   let aiError = null;
   try {
     const raw = await callAnthropicWithSearch(prompt + "\n\n" + SYSTEM, KEY(), {
-      model: "claude-sonnet-4-6", maxTokens: 8000,
+      model: MODELS.sonnet, maxTokens: 8000,
       maxSearches: getMode() === "saver" ? 2 : 4,
       timeout: 280000,
       feature: "curbline-intel",

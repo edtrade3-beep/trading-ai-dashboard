@@ -151,7 +151,7 @@ export const SIDEBAR_ITEMS = [
   // distinct daily report, not a sub-view of Research (that one runs
   // pre-market at 8:35 AM and hunts early opportunities; this one runs
   // after close and recaps the real session that just happened).
-  { id: "marketwrap", label: "Market Wrap", icon: "📰",  tab: "marketwrap" },
+  { id: "marketwrap", label: "Market Wrap", icon: "🌇",  tab: "marketwrap" },
 
   // Car Business — a completely separate automotive-business decision
   // system, explicit user /goal (2026-08-30: "Create a NEW standalone
@@ -203,10 +203,13 @@ export const SIDEBAR_ITEMS = [
 // slated to redistribute into Dashboard's new 4-card grid (Phase 4 of
 // the redesign), and Alerts into a Dashboard/Portfolio panel — that
 // embedding work hasn't landed yet as of this file's rewrite, so for now
-// these are palette-only (CEO-AI is still the default landing tab
-// regardless of sidebar
-// presence; COMMANDCENTER / XINTEL / ALERTS for their full standalone
-// views) until Phase 4 gives them a real embedded home.
+// these are palette-only (CEO / COMMANDCENTER / XINTEL / ALERTS for
+// their full standalone views) until Phase 4 gives them a real embedded
+// home. Note (2026-09-01 platform audit): this comment previously
+// claimed CEO-AI was "still the default landing tab regardless of
+// sidebar presence" — the real default (axiom-live.jsx's activeTab
+// useState initializer) is "trade-desk", not "ceo-ai". Corrected here so
+// a future reader doesn't trust the stale claim.
 
 // Icon-only rail width when collapsed — wide enough for the 16px icon +
 // its own 9-10px horizontal padding without the button feeling cramped.

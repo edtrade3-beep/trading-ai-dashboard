@@ -24,6 +24,16 @@ const { buildInventorySummary, detectIntent, uid } = require("./dealership/fb-hu
 
 const INV_FILE = path.join(ROOT, "data", "inventory.json");
 const CRM_FILE = path.join(ROOT, "data", "crm-leads.json");
+// Real dedup for genuine leads left unread when GMAIL_AUTO_SEND is off
+// (2026-09-01 audit fix — see the \Seen comment below for why they're
+// left unread). Without this, the 3-minute poll (server.js) would
+// re-classify (real AI cost) and re-Telegram-alert the SAME still-unread
+// lead every single cycle until a human manually replies. Keyed by IMAP
+// UID, capped/pruned so this can't grow unbounded.
+const NOTIFIED_FILE = path.join(ROOT, "data", "gmail-leads-notified.json");
+const NOTIFIED_CAP = 500;
+function loadNotifiedUids() { return new Set(readJsonSafe(NOTIFIED_FILE, [])); }
+function saveNotifiedUids(set) { writeJsonAtomic(NOTIFIED_FILE, [...set].slice(-NOTIFIED_CAP)); }
 
 const DEALER = () => ({
   name: process.env.DEALER_NAME || "Dixie Motors",
@@ -109,6 +119,8 @@ async function pollGmailLeads() {
   // default EventEmitter behavior is to throw it as an uncaught exception.
   client.on("error", (err) => console.error("[Gmail leads] client error:", err.message));
   let handled = 0, skipped = 0;
+  const notifiedUids = loadNotifiedUids();
+  let notifiedChanged = false;
   try {
     await client.connect();
     const lock = await client.getMailboxLock("INBOX");
@@ -120,6 +132,11 @@ async function pollGmailLeads() {
       // replying to non-lead mail.
       const uids = await client.search({ seen: false, since });
       for (const msgUid of (uids || [])) {
+        // Already classified + Telegrammed as a pending manual-reply lead
+        // on an earlier poll (still unread because auto-send is off and no
+        // human has replied yet) — skip entirely, don't re-classify or
+        // re-alert every 3 minutes.
+        if (notifiedUids.has(msgUid)) continue;
         const msg = await client.fetchOne(msgUid, { source: true });
         if (!msg || !msg.source) continue;
         const parsed = await simpleParser(msg.source);
@@ -138,14 +155,29 @@ async function pollGmailLeads() {
 
         let lead;
         try { lead = await classifyAndDraftEmailLead({ fromEmail, subject, text }, apiKey); } catch { lead = null; }
-        await client.messageFlagsAdd(msgUid, ["\\Seen"]);
-        if (!lead || !lead.isLead || !lead.reply) { skipped++; continue; }
+        if (!lead || !lead.isLead || !lead.reply) {
+          // Not a real lead — fully handled, safe to mark read.
+          await client.messageFlagsAdd(msgUid, ["\\Seen"]);
+          skipped++; continue;
+        }
 
         if (autoSend) {
           const transport = nodemailer.createTransport({ host: "smtp.gmail.com", port: 465, secure: true, auth: { user, pass } });
           const replySubject = subject && !/^re:/i.test(subject) ? `Re: ${subject}` : (subject || "Re: your inquiry");
           await transport.sendMail({ from: `"${DEALER().name}" <${user}>`, to: fromEmail, subject: replySubject, text: lead.reply });
+          // Auto-replied — fully handled, safe to mark read.
+          await client.messageFlagsAdd(msgUid, ["\\Seen"]);
         }
+        // Real lead audit fix (2026-09-01): when auto-send is off, a genuine
+        // lead is left unread — the CRM log + Telegram alert below are real,
+        // durable records either way, but leaving it unread also means the
+        // dealer's own Gmail inbox keeps showing it as awaiting a manual
+        // reply (the actual point of auto-send-off mode), rather than
+        // silently marking it handled when no reply was ever sent. Record
+        // the UID as notified either way (auto-sent or not) so a re-poll
+        // before Gmail's own \Seen flag is visible doesn't double-fire.
+        notifiedUids.add(msgUid);
+        notifiedChanged = true;
 
         // Log to the same CRM board the Messenger leads use.
         try {
@@ -180,7 +212,10 @@ async function pollGmailLeads() {
     await client.logout();
   } catch (e) {
     console.error("[Gmail leads] error:", e.message);
-  } finally { _running = false; }
+  } finally {
+    if (notifiedChanged) { try { saveNotifiedUids(notifiedUids); } catch (e) { console.error("[Gmail leads] notified-uid save failed:", e.message); } }
+    _running = false;
+  }
   if (handled || skipped) console.log(`[Gmail leads] handled ${handled} lead(s), skipped ${skipped} non-lead email(s)`);
 }
 

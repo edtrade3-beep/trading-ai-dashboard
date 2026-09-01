@@ -42,7 +42,7 @@
 // verdict here ever touches the trading engine.
 "use strict";
 
-const { callAnthropicWithSearch } = require("./anthropic");
+const { callAnthropicWithSearch, MODELS } = require("./anthropic");
 const { saveCoachOutput, loadCoachLog } = require("./ai-coach-store");
 const { loadHistory, getMostRecentEntry, appendSnapshot, etDateStr } = require("./car-business-store");
 const { loadInventory } = require("./inventory-store");
@@ -153,7 +153,7 @@ REAL MACRO/CREDIT CONTEXT (already computed — reuse, don't re-derive): ${summa
 
 Search for real, current comps/demand data now and return the JSON.`;
 
-  return runCall(prompt, system, { model: "claude-sonnet-4-6", maxTokens: 10000, maxSearches: 2, timeout: 280000, feature: "car-business-inventory" });
+  return runCall(prompt, system, { model: MODELS.sonnet, maxTokens: 10000, maxSearches: 2, timeout: 280000, feature: "car-business-inventory" });
 }
 
 // ── CALL 2 — ACQUISITION & OPPORTUNITY (§2/§3 Buy Tomorrow + Buy-Price
@@ -190,7 +190,7 @@ ${summarizePrior(prior.opportunities)}
 
 Search for real, current auction/wholesale/local-market/technology information now and return the JSON.`;
 
-  return runCall(prompt, system, { model: "claude-sonnet-4-6", maxTokens: 10000, maxSearches: 2, timeout: 280000, feature: "car-business-acquisition" });
+  return runCall(prompt, system, { model: MODELS.sonnet, maxTokens: 10000, maxSearches: 2, timeout: 280000, feature: "car-business-acquisition" });
 }
 
 // ── CALL 3 — MARKET, CUSTOMER, CREDIT & REGULATION (§7 Customer Intel,
@@ -227,7 +227,7 @@ REAL MACRO/CREDIT CONTEXT (already computed — reuse, don't re-derive): ${summa
 
 Search for real, current market/credit/regulatory information now and return the JSON.`;
 
-  return runCall(prompt, system, { model: "claude-sonnet-4-6", maxTokens: 10000, maxSearches: 2, timeout: 280000, feature: "car-business-market" });
+  return runCall(prompt, system, { model: MODELS.sonnet, maxTokens: 10000, maxSearches: 2, timeout: 280000, feature: "car-business-market" });
 }
 
 async function buildCarBusinessIntel() {
@@ -364,7 +364,7 @@ ${summarizeVehiclesForRepricing(batch)}
 
 Search for real, current supply/demand comps data now and return the JSON.`;
 
-  const result = await runCall(prompt, system, { model: "claude-sonnet-4-6", maxTokens: 8000, maxSearches: 2, timeout: 280000, feature: "car-business-reprice" });
+  const result = await runCall(prompt, system, { model: MODELS.sonnet, maxTokens: 8000, maxSearches: 2, timeout: 280000, feature: "car-business-reprice" });
   if (!result.ok) return { ok: false, error: result.error };
 
   const results = sanitizeRepricingResults(result.parsed.results, uploadedVins);
@@ -447,7 +447,7 @@ Financing-language guidance: ${dealer.financingNote}
 
 Search for real, current Facebook Marketplace/Page strategy information now and return the JSON.`;
 
-  const result = await runCall(prompt, system, { model: "claude-sonnet-4-6", maxTokens: 9000, maxSearches: 2, timeout: 280000, feature: "car-business-facebook" });
+  const result = await runCall(prompt, system, { model: MODELS.sonnet, maxTokens: 9000, maxSearches: 2, timeout: 280000, feature: "car-business-facebook" });
   if (!result.ok) return { ok: false, aiUnavailable: true, aiError: result.error, generatedAt: Date.now() };
 
   const strategy = sanitizeFacebookStrategy(result.parsed, realVins);
@@ -515,7 +515,7 @@ Financing-language guidance: ${dealer.financingNote}
 
 Search for real, current comps on this vehicle if useful for positioning, then build the step-by-step ad and return the JSON.`;
 
-  const result = await runCall(prompt, system, { model: "claude-sonnet-4-6", maxTokens: 4000, maxSearches: 2, timeout: 200000, feature: "car-business-ad-maker" });
+  const result = await runCall(prompt, system, { model: MODELS.sonnet, maxTokens: 4000, maxSearches: 2, timeout: 200000, feature: "car-business-ad-maker" });
   if (!result.ok) return { ok: false, error: result.error };
 
   const ad = sanitizeFacebookAd(result.parsed);
