@@ -62,6 +62,24 @@ ok("2R+ extended with fading conviction -> TAKE_PARTIAL", () => {
   const d = computePositionState({ side: "long", mixedVerdict: "MIXED", mixedReason: "mixed", rNow: 2.5, rTarget: null });
   assert.strictEqual(d.state, "TAKE_PARTIAL");
 });
+
+console.log("Checking partialTaken — real one-time-partial memory (2026-09-01 audit fix, directly found: a position sitting at/above target for several ticks in a row re-fired TAKE_PARTIAL every tick, whittling the real remainder 50%->25%->12.5%->... instead of banking size once)…");
+ok("real target reached with partialTaken:true -> does NOT re-fire TAKE_PARTIAL", () => {
+  const d = computePositionState({ side: "long", mixedVerdict: "MIXED", mixedReason: "mixed", rNow: 2.5, rTarget: 2, partialTaken: true });
+  assert.notStrictEqual(d.state, "TAKE_PARTIAL");
+});
+ok("real target still reached, still sitting above it a tick later, but partialTaken:true -> falls through to a real WARNING/HOLD read instead of a repeated partial", () => {
+  const d = computePositionState({ side: "long", mixedVerdict: "BULLISH", mixedReason: "still bullish", rNow: 3, rTarget: 2, partialTaken: true });
+  assert.strictEqual(d.state, "HOLD", "thesis still strongly confirmed and already partialed once -> a clean HOLD, not another partial");
+});
+ok("2R+ extended with fading conviction, partialTaken:true -> does NOT re-fire TAKE_PARTIAL either (the second real TAKE_PARTIAL condition gets the same gate)", () => {
+  const d = computePositionState({ side: "long", mixedVerdict: "MIXED", mixedReason: "mixed", rNow: 2.5, rTarget: null, partialTaken: true });
+  assert.notStrictEqual(d.state, "TAKE_PARTIAL");
+});
+ok("partialTaken defaults to false when omitted -> exact unchanged behavior from before this fix", () => {
+  const d = computePositionState({ side: "long", mixedVerdict: "MIXED", mixedReason: "mixed", rNow: 2.5, rTarget: 2 });
+  assert.strictEqual(d.state, "TAKE_PARTIAL");
+});
 ok("real gain, trend strongly confirmed -> TRAIL", () => {
   const d = computePositionState({ side: "long", gainPct: 5, mixedVerdict: "BULLISH", mixedReason: "still bullish" });
   assert.strictEqual(d.state, "TRAIL");

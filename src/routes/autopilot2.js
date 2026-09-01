@@ -121,7 +121,7 @@ async function handleAutopilot2(req, res, requestUrl) {
       const body = raw ? JSON.parse(raw) : {};
       confirm = body.confirm === true;
     } catch {}
-    const result = resetAccount({ confirm });
+    const result = await resetAccount({ confirm });
     if (!result.ok) return writeJson(res, 400, { ok: false, error: result.error });
     setState("OFF", "reset by user");
     return writeJson(res, 200, { ok: true });

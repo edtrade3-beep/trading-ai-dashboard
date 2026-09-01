@@ -119,6 +119,11 @@ async function managePositions(snapshot) {
     const decision = computePositionState({
       side: isShort ? "short" : "long", gainPct, mixedVerdict, mixedReason, rNow, rTarget,
       currentPrice: pos.currentPrice, stopPrice: pos.stop,
+      // Real one-time-partial memory (2026-09-01 audit fix) — pos comes
+      // straight from getAccountSnapshot's real, persisted record, which
+      // now carries this flag once partialClosePosition has actually
+      // executed for it (see that function's own comment).
+      partialTaken: !!pos.partialTaken,
     });
 
     if (decision.state === "HARD_EXIT" || decision.state === "EXIT") {
@@ -133,7 +138,7 @@ async function managePositions(snapshot) {
       // by updateStop itself), not a fabricated "optimal" trail. For a
       // short this moves the stop DOWN toward price; for a long, UP.
       const newStop = pos.stop + (pos.currentPrice - pos.stop) * 0.5;
-      const result = updateStop(pos.id, newStop);
+      const result = await updateStop(pos.id, newStop);
       if (result.ok) appendActivity({ type: "TRAIL", symbol: pos.symbol, reason: decision.reason, newStop });
     }
     // HOLD/WARNING/null: no action, no log spam — routine ticks aren't activity.
@@ -173,13 +178,19 @@ async function manageOptionPosition(pos) {
   if (decision.state === "EXIT") {
     const result = await closeOptionPosition(pos.id, { reason: "EXIT" });
     appendActivity({ type: "EXIT", symbol: pos.symbol, reason: decision.reason, realizedPnl: result.closedTrade?.realizedPnl ?? null });
-  } else if (decision.state === "TAKE_PARTIAL" && pos.qty > 1) {
-    // Real partial: close half the real contracts at the real current bid.
+  } else if (decision.state === "TAKE_PARTIAL") {
+    // No partial-close helper for options yet (v1 scope) — a full close
+    // is the honest fallback rather than a fabricated partial fill.
+    // Real bug fix (2026-09-01 audit): this used to be gated `&& pos.qty
+    // > 1`, so a 1-contract position hitting this exact same real profit
+    // signal got nothing — the signal was silently dropped with no
+    // fallback and no logged activity. Since this path already does a
+    // full close regardless of qty, the qty>1 gate served no real
+    // protective purpose; removed so a 1-contract position gets the same
+    // real profit-taking every other qty already gets.
     const chain = await require("./autopilot2-account").fetchOptionsChain(pos.symbol, pos.expiry).catch(() => null);
     const contract = (isPut ? chain?.puts : chain?.calls)?.find((c) => c.contractSymbol === pos.contractSymbol);
     if (Number(contract?.bid) > 0) {
-      // No partial-close helper for options yet (v1 scope) — a full close
-      // is the honest fallback rather than a fabricated partial fill.
       const result = await closeOptionPosition(pos.id, { exitPremium: contract.bid, reason: "TAKE_PARTIAL" });
       appendActivity({ type: "TAKE_PARTIAL", symbol: pos.symbol, reason: decision.reason, realizedPnl: result.closedTrade?.realizedPnl ?? null });
     }
@@ -588,7 +599,32 @@ async function tryEnter(opp, snapshot) {
 }
 
 // The one exported tick — registered via registerJob in server.js.
+// Real re-entrancy guard (2026-09-01 /goal audit fix) — server.js's
+// registerJob is a bare setInterval with no overlap protection, and a
+// real tick can plausibly run past its own 5-minute interval (sequential
+// per-position verdict refreshes + a ~100-symbol scan + live options-
+// chain fetches). Directly reproduced during the audit: two concurrent
+// real order calls for the same symbol both succeeded but only one
+// position/cash-deduction actually persisted, since autopilot2-account.js
+// had no lock either (fixed separately, see that file's own write-lock
+// comment — this guard and that lock are complementary defenses, not
+// redundant: this stops a second real tick from starting at all; that
+// lock protects any other real caller — e.g. a manual /tick-now hitting
+// the API route — that could still race a mutation mid-flight). Same
+// simple flag pattern this codebase already uses for the same real
+// reason in gmail-leads.js's pollGmailLeads.
+let _ticking = false;
 async function tick() {
+  if (_ticking) return { ran: false, reason: "a real tick is already in progress — skipped to avoid a concurrent run" };
+  _ticking = true;
+  try {
+    return await _tickImpl();
+  } finally {
+    _ticking = false;
+  }
+}
+
+async function _tickImpl() {
   const autopilotState = loadState();
   // OFF means fully off — no monitoring, no management, nothing (spec
   // §31). Every other state still MANAGES real open positions (protecting

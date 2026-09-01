@@ -114,6 +114,26 @@ function saveAccount(account) {
   writeJsonAtomic(ACCOUNT_PATH, account);
 }
 
+// Real write lock (2026-09-01, /goal Autopilot 2.0 audit fix) — every
+// real mutating function in this file does loadAccount() -> mutate ->
+// saveAccount(), an unsynchronized read-modify-write with no lock
+// between the two. Directly reproduced during the audit: two concurrent
+// real order calls for the same symbol both read the same real account
+// snapshot, both independently decided to proceed, and the second
+// saveAccount() silently clobbered the first's write — a real lost
+// order that still reported { ok: true }. The real root cause is
+// autopilot2-engine.js's tick() having no re-entrancy guard (fixed
+// separately, see that file), but this lock is the correct real
+// defense-in-depth here regardless of what calls it — same promise-
+// chain write-lock pattern already applied this session to
+// providers/alpaca-client.js for the real-broker autopilots.
+let _writeLock = Promise.resolve();
+function withWriteLock(fn) {
+  const run = _writeLock.then(fn, fn);
+  _writeLock = run.then(() => {}, () => {});
+  return run;
+}
+
 // Real fill price — bid/ask-aware when the quote has real bid/ask (BUY
 // fills at the real ask, SELL at the real bid, same convention a real
 // market order actually crosses), an honest disclosed default spread off
@@ -152,25 +172,45 @@ function rollWeeklyStart(account, equity) {
 // paid (capital committed), not a delta-adjusted notional — a real,
 // disclosed simplification (see the plan).
 async function getAccountSnapshot() {
-  const account = loadAccount();
+  // Real market-data gathering — read-only, deliberately OUTSIDE the
+  // write lock so this real network I/O (quotes + option chains, which
+  // can be slow) never blocks a concurrent real mutation from acquiring
+  // it. Uses an early, possibly-slightly-stale symbol list — if a
+  // position closes mid-fetch, this just wastes one quote lookup for a
+  // symbol no longer held, never a correctness issue on its own.
+  const earlyAccount = loadAccount();
   const { sectorOf } = require("./risk-guardrails");
 
-  const stockPositions = account.openPositions.filter((p) => p.assetType !== "CALL" && p.assetType !== "PUT");
-  const optionPositions = account.openPositions.filter((p) => p.assetType === "CALL" || p.assetType === "PUT");
+  const earlyStockPositions = earlyAccount.openPositions.filter((p) => p.assetType !== "CALL" && p.assetType !== "PUT");
+  const earlyOptionPositions = earlyAccount.openPositions.filter((p) => p.assetType === "CALL" || p.assetType === "PUT");
 
-  const stockSymbols = stockPositions.map((p) => p.symbol);
+  const stockSymbols = earlyStockPositions.map((p) => p.symbol);
   const quotes = stockSymbols.length ? await fetchQuoteBatchWithFallback(stockSymbols).catch(() => []) : [];
   const quoteBySymbol = new Map(quotes.map((q) => [String(q.symbol || "").toUpperCase(), q]));
 
   // One real chain fetch per unique (symbol, expiry) among held calls —
   // never one fetch per position, so multiple contracts on the same real
   // expiry share a single real chain read.
-  const chainKeys = [...new Set(optionPositions.map((p) => `${p.symbol}|${p.expiry}`))];
+  const chainKeys = [...new Set(earlyOptionPositions.map((p) => `${p.symbol}|${p.expiry}`))];
   const chainByKey = new Map();
   for (const key of chainKeys) {
     const [sym, exp] = key.split("|");
     chainByKey.set(key, await fetchOptionsChain(sym, exp).catch(() => null));
   }
+
+  // Real compute + persist — inside the write lock, off a FRESH
+  // loadAccount() (not earlyAccount above), so a concurrent real
+  // mutation that completed while the network fetches above were still
+  // in flight is never silently clobbered/resurrected by this
+  // function's own rollover/peak-equity save below (2026-09-01 audit
+  // fix — a real, separate bug from the mutating functions' own race:
+  // without re-loading here, a position legitimately closed by a
+  // concurrent closePosition() mid-fetch would be silently revived by
+  // this function saving its own stale openPositions array back out).
+  return withWriteLock(() => {
+  const account = loadAccount();
+  const stockPositions = account.openPositions.filter((p) => p.assetType !== "CALL" && p.assetType !== "PUT");
+  const optionPositions = account.openPositions.filter((p) => p.assetType === "CALL" || p.assetType === "PUT");
 
   let marketValue = 0, unrealizedPnl = 0;
   const stalePricing = [];
@@ -239,6 +279,7 @@ async function getAccountSnapshot() {
     closedTrades: account.closedTrades,
     stalePricing,
   };
+  });
 }
 
 // Real, instant simulated fill — refuses (never fabricates) if there's no
@@ -261,6 +302,12 @@ async function getAccountSnapshot() {
 async function openPosition({ symbol, qty, stop, target, riskDollars, opportunitySnapshot, assetType = "STOCK", direction = "long" }) {
   symbol = String(symbol || "").trim().toUpperCase();
   if (!symbol || !(qty > 0)) return { ok: false, error: "invalid symbol/qty" };
+  // Real write lock (2026-09-01 audit fix) — the duplicate-symbol check
+  // right below MUST serialize with the eventual account.openPositions
+  // push, or two concurrent real opens for the same symbol could both
+  // pass the check (neither sees the other's not-yet-saved position)
+  // and both push — a real duplicate position, not just a lost write.
+  return withWriteLock(async () => {
   const account = loadAccount();
   if (account.openPositions.some((p) => p.symbol === symbol)) {
     return { ok: false, error: `already holding an open position in ${symbol} — duplicate entry blocked` };
@@ -292,6 +339,7 @@ async function openPosition({ symbol, qty, stop, target, riskDollars, opportunit
   account.openPositions.push(position);
   saveAccount(account);
   return { ok: true, position };
+  });
 }
 
 // Real, instant simulated CALL fill — same refuse-don't-fabricate
@@ -312,6 +360,10 @@ async function openPosition({ symbol, qty, stop, target, riskDollars, opportunit
 async function openOptionPosition({ symbol, strike, expiry, contractSymbol, qty, entryPremium, underlyingAtEntry, opportunitySnapshot, optionType = "call" }) {
   symbol = String(symbol || "").trim().toUpperCase();
   if (!symbol || !(qty > 0) || !(entryPremium > 0) || !contractSymbol) return { ok: false, error: "invalid option fill inputs" };
+  // Real write lock (2026-09-01 audit fix) — see openPosition's own
+  // comment for why the duplicate-symbol check must serialize with the
+  // eventual push.
+  return withWriteLock(async () => {
   const account = loadAccount();
   if (account.openPositions.some((p) => p.symbol === symbol)) {
     return { ok: false, error: `already holding an open position in ${symbol} — duplicate entry blocked` };
@@ -333,6 +385,7 @@ async function openOptionPosition({ symbol, strike, expiry, contractSymbol, qty,
   account.openPositions.push(position);
   saveAccount(account);
   return { ok: true, position };
+  });
 }
 
 // Real CALL close — real cash credit = premium x contracts x 100.
@@ -343,6 +396,9 @@ async function openOptionPosition({ symbol, strike, expiry, contractSymbol, qty,
 // the caller (autopilot2-engine.js) should already be closing ahead of
 // real expiration via the DTE floor, so this should be rare.
 async function closeOptionPosition(id, { exitPremium, reason } = {}) {
+  // Real write lock (2026-09-01 audit fix) — see openPosition's own
+  // comment; every real mutation here shares one lock.
+  return withWriteLock(async () => {
   const account = loadAccount();
   const idx = account.openPositions.findIndex((p) => p.id === id);
   if (idx === -1) return { ok: false, error: `no open position with id ${id}` };
@@ -369,6 +425,7 @@ async function closeOptionPosition(id, { exitPremium, reason } = {}) {
   account.closedTrades = account.closedTrades.slice(-MAX_CLOSED_TRADES);
   saveAccount(account);
   return { ok: true, closedTrade };
+  });
 }
 
 // Full close — real P&L off the real entry fill, real R-multiple off the
@@ -378,8 +435,15 @@ async function closeOptionPosition(id, { exitPremium, reason } = {}) {
 // ask, not the bid), debits cash instead of crediting it, and flips the
 // P&L/R-multiple sign — the exact mirror of openPosition's short-entry
 // mechanics above.
-async function closePosition(id, { exitPrice, reason } = {}) {
-  const account = loadAccount();
+// Lock-free core — assumes the caller already holds the write lock and
+// already has a fresh, in-scope `account` (2026-09-01 audit fix).
+// Extracted so partialClosePosition's own full-close fallback can call
+// this directly instead of the public closePosition() below, which
+// would try to re-acquire the same non-reentrant lock from inside an
+// already-held callback and deadlock (the outer callback would never
+// resolve, since it's waiting on the inner call, which is queued behind
+// the still-executing outer one in the same promise chain).
+async function _closePositionCore(account, id, { exitPrice, reason } = {}) {
   const idx = account.openPositions.findIndex((p) => p.id === id);
   if (idx === -1) return { ok: false, error: `no open position with id ${id}` };
   const position = account.openPositions[idx];
@@ -405,6 +469,15 @@ async function closePosition(id, { exitPrice, reason } = {}) {
   return { ok: true, closedTrade };
 }
 
+async function closePosition(id, opts = {}) {
+  // Real write lock (2026-09-01 audit fix) — see openPosition's own
+  // comment; every real mutation here shares one lock.
+  return withWriteLock(async () => {
+    const account = loadAccount();
+    return _closePositionCore(account, id, opts);
+  });
+}
+
 // Real partial-close quantity, extracted for direct unit testing (no
 // network/file I/O). CRYPTO (2026-08-30): real fractional qty —
 // Math.floor to a whole unit would either sell 0 (silently no-op a real
@@ -422,14 +495,20 @@ function computePartialCloseQty(position, fraction) {
 // Partial close (spec §23 profit management) — sells a real fraction of
 // the position at a real current quote, books real partial realized P&L,
 // leaves the remainder open with its original stop/target untouched.
-async function partialClosePosition(id, { fraction = 0.5, reason } = {}) {
+async function partialClosePosition(id, opts = {}) {
+  const { fraction = 0.5, reason } = opts;
+  // Real write lock (2026-09-01 audit fix) — see openPosition's own
+  // comment. Uses _closePositionCore (not the public closePosition) for
+  // the full-close fallback below — see that function's own comment for
+  // why calling the public, self-locking version here would deadlock.
+  return withWriteLock(async () => {
   const account = loadAccount();
   const idx = account.openPositions.findIndex((p) => p.id === id);
   if (idx === -1) return { ok: false, error: `no open position with id ${id}` };
   const position = account.openPositions[idx];
   const isShort = position.direction === "short";
   const sellQty = computePartialCloseQty(position, fraction);
-  if (!(sellQty > 0) || sellQty >= position.qty) return closePosition(id, { reason });
+  if (!(sellQty > 0) || sellQty >= position.qty) return _closePositionCore(account, id, { reason });
 
   const [quote] = await fetchQuoteBatchWithFallback([position.symbol]).catch(() => []);
   const fillPrice = realFillPrice(quote, isShort ? "BUY" : "SELL");
@@ -439,8 +518,15 @@ async function partialClosePosition(id, { fraction = 0.5, reason } = {}) {
   account.cash += cashDelta;
   account.realizedPnl += realizedPnl;
   position.qty -= sellQty;
+  // Real one-time memory (2026-09-01 audit fix) — see
+  // position-decision-engine.js's own comment: without this, the next
+  // real tick re-derives TAKE_PARTIAL off the exact same still-true
+  // "at/above target" condition and this function fires again on the
+  // real remainder, repeatedly, rather than banking size once.
+  position.partialTaken = true;
   saveAccount(account);
   return { ok: true, soldQty: sellQty, fillPrice, realizedPnl, remainingQty: position.qty };
+  });
 }
 
 // Real stop-trail (spec §14/§19 TRAIL) — tightens (never loosens) a real
@@ -449,7 +535,11 @@ async function partialClosePosition(id, { fraction = 0.5, reason } = {}) {
 // (2026-08-31): a long's stop can only ever RISE; a short's stop
 // (sitting above entry) can only ever FALL — "tighter" means "closer to
 // the real current price" in both cases.
-function updateStop(id, newStop) {
+// Real write lock (2026-09-01 audit fix) — now async (was sync) so it
+// can share the same lock every other real mutation here uses; its one
+// real caller (autopilot2-engine.js) already awaits it.
+async function updateStop(id, newStop) {
+  return withWriteLock(() => {
   const account = loadAccount();
   const position = account.openPositions.find((p) => p.id === id);
   if (!position) return { ok: false, error: `no open position with id ${id}` };
@@ -457,14 +547,21 @@ function updateStop(id, newStop) {
   position.stop = newStop;
   saveAccount(account);
   return { ok: true, stop: newStop };
+  });
 }
 
 // Real, explicit, destructive reset back to a fresh $100k (spec §31) —
 // only reachable via its own confirmed call, never automatic.
-function resetAccount({ confirm } = {}) {
+// Real write lock (2026-09-01 audit fix) — now async (was sync); its one
+// real caller (routes/autopilot2.js) already runs inside an async
+// handler. Locked so a reset can never race with an in-flight real
+// mutation silently reviving a stale position into the fresh account.
+async function resetAccount({ confirm } = {}) {
   if (!confirm) return { ok: false, error: "reset requires explicit confirm:true — a real destructive action" };
-  saveAccount(freshAccount());
-  return { ok: true };
+  return withWriteLock(() => {
+    saveAccount(freshAccount());
+    return { ok: true };
+  });
 }
 
 module.exports = {
@@ -474,4 +571,5 @@ module.exports = {
   openOptionPosition, closeOptionPosition, fetchOptionsChain,
   realFillPrice, computePartialCloseQty,
   priceStockPosition, closeFinancials, isStopTighter,
+  withWriteLock, // exported for direct unit testing (2026-09-01 audit fix) — a pure, network-free concurrency primitive, testable in isolation from the real I/O it protects
 };

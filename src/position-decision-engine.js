@@ -37,7 +37,17 @@ const EXTENDED_R_MULTIPLE = 2;
 //   own current_price, pos.plannedStop from the matched real trade plan)
 //   — null when no real plan is on file, same graceful-degradation
 //   discipline as rNow/rTarget above.
-function computePositionState({ side, gainPct, mixedVerdict, mixedReason, rNow = null, rTarget = null, currentPrice = null, stopPrice = null }) {
+// partialTaken: boolean, default false (2026-09-01 /goal Autopilot 2.0
+//   audit fix) — the caller's own real record of whether a real partial
+//   close has already executed for this position. Neither TAKE_PARTIAL
+//   condition below has any memory of its own; without this, a position
+//   that simply sits at/above rTarget for several ticks in a row (a
+//   completely ordinary real outcome — price doesn't obligingly retreat
+//   the instant a target prints) re-derives TAKE_PARTIAL and re-executes
+//   it EVERY tick, whittling the position 50%->25%->12.5%->... instead
+//   of banking size once as the real spec intends ("consider banking
+//   SOME size" — a one-time action, not a repeating one).
+function computePositionState({ side, gainPct, mixedVerdict, mixedReason, rNow = null, rTarget = null, currentPrice = null, stopPrice = null, partialTaken = false }) {
   // HARD EXIT (Master Build Spec §18, 2026-08-22) — a real, objective,
   // mechanical stop breach: the planned risk limit already agreed to when
   // the position was opened, not a soft thesis change. Checked FIRST,
@@ -66,14 +76,18 @@ function computePositionState({ side, gainPct, mixedVerdict, mixedReason, rNow =
     return { state: "EXIT", reason: mixedReason || "Weighted evidence has turned against this position — thesis invalidated." };
   }
 
-  // TAKE_PARTIAL — real target reached (spec §15).
-  if (rNow != null && rTarget != null && rTarget > 0 && rNow >= rTarget) {
+  // TAKE_PARTIAL — real target reached (spec §15). Gated on !partialTaken
+  // (2026-09-01 audit fix) — see this function's own param comment: a
+  // real partial banks size ONCE, it doesn't re-fire every tick a
+  // position happens to sit at/above target.
+  if (!partialTaken && rNow != null && rTarget != null && rTarget > 0 && rNow >= rTarget) {
     return { state: "TAKE_PARTIAL", reason: `Target reached (+${rNow.toFixed(1)}R of ${rTarget.toFixed(1)}R planned) — consider banking some size.` };
   }
   // TAKE_PARTIAL — meaningfully extended (2R+) while conviction is no
   // longer strongly confirming (mixed or just barely aligned, not a
   // clean strong read) — real "momentum starts weakening" evidence (§15).
-  if (rNow != null && rNow >= EXTENDED_R_MULTIPLE && !thesisStronglyAligned) {
+  // Same !partialTaken gate.
+  if (!partialTaken && rNow != null && rNow >= EXTENDED_R_MULTIPLE && !thesisStronglyAligned) {
     return { state: "TAKE_PARTIAL", reason: `+${rNow.toFixed(1)}R and conviction is fading (${mixedVerdict.toLowerCase()}) — consider taking partial profit.` };
   }
 

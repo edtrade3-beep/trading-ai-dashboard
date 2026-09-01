@@ -10,7 +10,7 @@
 // Run: node test/autopilot2-account.test.js (or npm test).
 "use strict";
 const assert = require("node:assert");
-const { realFillPrice, STARTING_CAPITAL, computePartialCloseQty, priceStockPosition, closeFinancials, isStopTighter } = require("../src/autopilot2-account");
+const { realFillPrice, STARTING_CAPITAL, computePartialCloseQty, priceStockPosition, closeFinancials, isStopTighter, withWriteLock } = require("../src/autopilot2-account");
 
 let passed = 0;
 function ok(name, fn) { try { fn(); passed++; console.log(`  ✓ ${name}`); } catch (e) { console.error(`  ✗ ${name}\n    ${e.message}`); process.exitCode = 1; } }
@@ -128,5 +128,48 @@ ok("undefined direction defaults to the long convention — full backward compat
   assert.strictEqual(isStopTighter({ stop: 95 }, 93), false);
 });
 
-console.log(`\n${passed} checks passed.`);
-if (process.exitCode) console.error("AUTOPILOT2-ACCOUNT TEST FAILED"); else console.log("AUTOPILOT2-ACCOUNT TEST OK");
+console.log("\nChecking withWriteLock — real concurrency primitive behind every real account mutation (2026-09-01 audit fix, directly reproduced live: two concurrent openPosition() calls for the same symbol both reported ok:true, but the second's write silently clobbered the first's — a real lost order that still reported success)…");
+
+async function runAsyncChecks() {
+  await (async () => {
+    // A second real call for the same lock must wait for the first to
+    // finish before its own callback even starts — proves genuine
+    // serialization, not just "eventually both resolve."
+    const order = [];
+    const first = withWriteLock(async () => {
+      order.push("first-start");
+      await new Promise((r) => setTimeout(r, 20));
+      order.push("first-end");
+      return "first";
+    });
+    const second = withWriteLock(async () => {
+      order.push("second-start");
+      return "second";
+    });
+    const [r1, r2] = await Promise.all([first, second]);
+    ok("two real concurrent calls run strictly one after another, never interleaved", () => {
+      assert.deepStrictEqual(order, ["first-start", "first-end", "second-start"]);
+    });
+    ok("both real calls still resolve with their own correct real return value", () => {
+      assert.strictEqual(r1, "first");
+      assert.strictEqual(r2, "second");
+    });
+  })();
+
+  await (async () => {
+    // A real error in one locked call must never leave the lock stuck —
+    // the next real call still has to run (this is exactly what would
+    // otherwise permanently freeze every future real order/exit).
+    let secondRan = false;
+    await withWriteLock(async () => { throw new Error("real simulated failure"); }).catch(() => {});
+    await withWriteLock(async () => { secondRan = true; });
+    ok("a real thrown error in one locked call never wedges the lock for the next real call", () => {
+      assert.strictEqual(secondRan, true);
+    });
+  })();
+
+  console.log(`\n${passed} checks passed.`);
+  if (process.exitCode) console.error("AUTOPILOT2-ACCOUNT TEST FAILED"); else console.log("AUTOPILOT2-ACCOUNT TEST OK");
+}
+
+runAsyncChecks();
