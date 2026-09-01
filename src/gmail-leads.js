@@ -259,4 +259,53 @@ async function testGmailConnection() {
   }
 }
 
-module.exports = { pollGmailLeads, testGmailConnection };
+// Real outcome grading (2026-09-01 platform audit) — mirrors
+// car-business-engine.js's gradeInventoryPrediction/gradeLearningHistory
+// exactly: was the AI's real classification of this lead actually
+// borne out? Reuses the SAME real, already-tracked CRM stage field
+// (NEW/APPOINTMENT/NEGOTIATING/SOLD, fb-hub.js's own vocabulary — a human
+// moves a lead through these stages as the real sale progresses) rather
+// than building a new outcome-tracking system — no new data collection,
+// just a real read over data that already exists. Same
+// MIN_GRADE_AGE_DAYS=3 car-business-engine.js uses, for the same reason:
+// an ungraded-too-soon lead is honestly excluded, never scored as a
+// false negative just because not enough real time has passed yet.
+const MIN_GRADE_AGE_DAYS = 3;
+
+// Pure — given one real CRM entry (source: "email"), decides whether
+// it's old enough to fairly judge and what the real outcome says about
+// the AI's original classification. Exported for unit testing.
+function gradeEmailLead(crmEntry) {
+  const createdAtMs = Number(crmEntry?.createdAt) || 0;
+  if (!createdAtMs) return null;
+  const daysSince = (Date.now() - createdAtMs) / 86_400_000;
+  if (daysSince < MIN_GRADE_AGE_DAYS) return null; // too soon to fairly grade
+  const days = Math.round(daysSince);
+  if (crmEntry.stage === "SOLD") {
+    return { email: crmEntry.email, verdict: "CONVERTED", reason: `Real CRM stage is SOLD, ${days}d after the lead was classified.` };
+  }
+  if (crmEntry.stage === "APPOINTMENT" || crmEntry.stage === "NEGOTIATING") {
+    return { email: crmEntry.email, verdict: "IN_PROGRESS", reason: `Real CRM stage is ${crmEntry.stage}, ${days}d after classification — still active.` };
+  }
+  return { email: crmEntry.email, verdict: "NO_PROGRESS", reason: `Real CRM stage is still ${crmEntry.stage || "NEW"} after ${days}d — no real movement.` };
+}
+
+// Real, honest aggregate over every real email-sourced CRM lead old
+// enough to grade. Never fabricates an outcome for a lead with no real
+// createdAt on file or too little real elapsed time.
+function gradeEmailLeadHistory(crmLeads) {
+  return (crmLeads || [])
+    .filter((l) => l.source === "email")
+    .map(gradeEmailLead)
+    .filter(Boolean);
+}
+
+// Thin real I/O wrapper — reads the real, live CRM file and grades it.
+// Kept separate from the pure gradeEmailLeadHistory above so the route
+// layer never needs to know CRM_FILE's real path.
+function loadEmailLeadGrades() {
+  const crm = readJsonSafe(CRM_FILE, []);
+  return gradeEmailLeadHistory(crm);
+}
+
+module.exports = { pollGmailLeads, testGmailConnection, gradeEmailLead, gradeEmailLeadHistory, loadEmailLeadGrades, MIN_GRADE_AGE_DAYS };

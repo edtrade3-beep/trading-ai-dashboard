@@ -2342,6 +2342,14 @@ async function handleMarket(req, res, requestUrl) {
     catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
   }
 
+  // Real outcome grading for email-sourced leads (2026-09-01 platform
+  // audit) — was the AI's classification actually borne out by the real,
+  // human-maintained CRM stage? See gmail-leads.js's own header comment.
+  if (pathname === "/api/market/leads-grades" && req.method === "GET") {
+    try { const { loadEmailLeadGrades } = require("../gmail-leads"); return writeJson(res, 200, { ok: true, grades: loadEmailLeadGrades() }); }
+    catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
+  }
+
   // 📧 CARGURUS LEAD RESPONDER — parse a lead email + draft the dealer reply.
   if (pathname === "/api/market/lead-reply" && req.method === "POST") {
     const key = (process.env.ANTHROPIC_API_KEY || "").trim();
