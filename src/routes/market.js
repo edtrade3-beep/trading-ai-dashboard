@@ -1,5 +1,5 @@
 const { writeJson, readRequestBody, withTimeout, fetchJsonSafe, round2, average, trimText, cached } = require("../utils");
-const { callAnthropicApi, MODELS, anthropicRequest } = require("../anthropic");
+const { MODELS, anthropicRequest } = require("../anthropic");
 const { PORT, MARKET_QUOTE_TIMEOUT_MS, MACRO_SYMBOLS, TIMEFRAME_CONFIG, resolveProviderKeys } = require("../config");
 const { detectFVGs, detectOrderBlocks, detectBOSChoCh, detectLiquidityLevels } = require("../smc-engine");
 const { computeGammaExposure, computeGammaLabReads } = require("../gamma-exposure");
@@ -2314,11 +2314,10 @@ async function handleMarket(req, res, requestUrl) {
     const s = b.setup || {};
     const sym = String(s.symbol || "").toUpperCase().replace(/[^A-Z.]/g, "").slice(0, 8);
     if (!sym) return writeJson(res, 400, { ok: false, error: "symbol required" });
-    const SYSTEM = `You are a disciplined institutional swing-trader reviewing a long setup from a rules-based scanner. Be concise and honest — your job is to critique, not cheerlead. Rules you trade by: trade only A+ setups (score ≥90) in a green market regime, in strong sectors, at the buy zone (not extended); risk 1% per trade; reward:risk must be ≥2:1; cut losers fast, let winners run; when in doubt, stay in cash. Respond in 3 short parts:\nVERDICT: BUY / WAIT / PASS (one word)\nWHY: one tight sentence.\nRISKS: 1-2 specific risks to watch.\nNo preamble, no disclaimers, under 70 words total.`;
-    const prompt = `Setup for ${sym}:\n- Price $${s.px} (${s.chg >= 0 ? "+" : ""}${s.chg}% today)\n- A+ Score ${s.aScore}/100 (grade ${s.grade})\n- Market regime ${s.marketScore}/100 ${s.marketPass ? "(green)" : "(not green)"}\n- Sector ${s.sector || "?"} ${s.strongSector ? "(strong)" : "(weak/unknown)"}\n- Relative strength vs SPY: ${s.relStrength}%\n- RVOL ${s.rvol}x\n- Entry $${s.bestEntry}, stop $${s.stop}, R:R ${s.rr}:1\n- At buy zone: ${s.atEntry ? "yes" : "no (extended/pullback)"}\nGive your review.`;
     try {
-      const review = await callAnthropicApi(prompt, key, { model: MODELS.haiku, maxTokens: 220, system: SYSTEM, cache: true });
-      return writeJson(res, 200, { ok: true, review: (review || "").trim() });
+      const { reviewSetup } = require("../ai-setup-review-ai");
+      const review = await reviewSetup(sym, s, key);
+      return writeJson(res, 200, { ok: true, review });
     } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
   }
 
@@ -2330,12 +2329,10 @@ async function handleMarket(req, res, requestUrl) {
     const setups = Array.isArray(b.setups) ? b.setups.slice(0, 12) : [];
     const regime = Number(b.regime) || 0;
     if (!setups.length) return writeJson(res, 200, { ok: true, analysis: "No setups to analyze — stay in cash." });
-    const SYSTEM = `You are a disciplined institutional swing-trader doing a quick scan triage. Be concise and honest — your job is to focus the trader on the best 1-3 names and warn off weak ones. Rules: only A+ (score ≥90) in a green market, strong sector, at the buy zone, reward:risk ≥2:1; cut losers fast, let winners run; cash is a position. Format:\nMARKET: one short line on whether to be aggressive, selective, or in cash given the regime.\nTOP PICKS: up to 3 tickers, one tight reason each (best first).\nAVOID: any names that look weak/extended, one phrase each (or "none").\nKeep the whole thing under 120 words. No preamble.`;
-    const rows = setups.map(s => `${s.symbol}: A+${s.aScore}/100 (${s.grade}), R:R ${s.rr}:1, RVOL ${s.rvol}x, RS ${s.relStrength}% vs SPY, sector ${s.sector || "?"}, ${s.atEntry ? "at entry" : "extended"}`).join("\n");
-    const prompt = `Market regime ${regime}/100. Today's scanned setups:\n${rows}\n\nTriage them.`;
     try {
-      const analysis = await callAnthropicApi(prompt, key, { model: MODELS.haiku, maxTokens: 350, system: SYSTEM, cache: true });
-      return writeJson(res, 200, { ok: true, analysis: (analysis || "").trim() });
+      const { triageScan } = require("../scan-triage-ai");
+      const analysis = await triageScan(setups, regime, key);
+      return writeJson(res, 200, { ok: true, analysis });
     } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
   }
 
@@ -2353,25 +2350,9 @@ async function handleMarket(req, res, requestUrl) {
     const email = String(b.email || "").slice(0, 6000);
     if (!email.trim()) return writeJson(res, 400, { ok: false, error: "lead email text required" });
     const dealer = b.dealer || { name: "Dixie Motors", address: "6416 Dixie Highway, Fairfield, OH 45014", phone: "513-874-4999" };
-    const system = `You are the sales assistant for ${dealer.name}, a used-car dealership. You receive a CarGurus lead email. Extract the customer's FIRST name, their email, their phone, and the vehicle they're asking about (year make model trim) plus the LISTED price (use "Listed Price", not the market value). Then write a short, warm reply email.
-Reply template (follow it closely):
-Subject: <Year Make Model Trim> – Still Available
-Body:
-Hi <FirstName>,
-
-Thank you for your interest in our <Year Make Model Trim>.
-
-The vehicle is still available at the listed price of $<ListedPrice>. What day and time would you like to come in and take a look at it?
-
-Please let me know the best way to reach you, or feel free to call us at ${dealer.phone}.
-
-${dealer.name}
-${dealer.address}
-
-Return ONLY valid JSON, no markdown: {"firstName":"","customerEmail":"","customerPhone":"","vehicle":"","price":"","subject":"","body":""}. The body must be the full email text with real line breaks as \\n.`;
     try {
-      const raw = await callAnthropicApi(`Lead email:\n${email}`, key, { model: MODELS.haiku, maxTokens: 600, system, cache: true });
-      let data; try { data = JSON.parse(raw.replace(/^```json\s*|\s*```$/g, "").trim()); } catch { data = { body: raw, subject: "Vehicle – Still Available" }; }
+      const { draftLeadReply } = require("../lead-reply-ai");
+      const data = await draftLeadReply(email, dealer, key);
       return writeJson(res, 200, { ok: true, ...data });
     } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
   }
@@ -2464,62 +2445,10 @@ Return ONLY valid JSON, no markdown: {"firstName":"","customerEmail":"","custome
     let b; try { b = JSON.parse((await readRequestBody(req)) || "{}"); } catch { b = {}; }
     const symbols = (Array.isArray(b.symbols) && b.symbols.length ? b.symbols : ["SPY", "QQQ", "IWM", "NVDA", "TSLA", "AAPL", "META", "MSFT"])
       .map(s => String(s || "").toUpperCase().replace(/[^A-Z.\-]/g, "")).filter(Boolean).slice(0, 10);
-    const base = `http://127.0.0.1:${PORT}`;
-    const q = symbols.map(encodeURIComponent).join(",");
-
-    const [cot, flow, insider, dp, shortChg] = await Promise.all([
-      withTimeout(fetchJsonSafe(`${base}/api/cot/status`), 8000, null),
-      withTimeout(fetchJsonSafe(`${base}/api/market/options-flow?symbols=${q}`), 8000, null),
-      withTimeout(fetchJsonSafe(`${base}/api/scanner/insider`), 8000, null),
-      withTimeout(fetchJsonSafe(`${base}/api/market/darkpool`), 8000, null),
-      withTimeout(fetchJsonSafe(`${base}/api/market/short-changes`), 8000, null),
-    ]);
-
-    const lines = [];
-    const bias = cot?.summary || cot?.ok ? cot.summary : null;
-    if (bias) {
-      lines.push(`COT institutional positioning (${bias.reportDate || "latest"}): equities ${bias.equityBias || "?"}, bonds ${bias.bondBias || "?"}, dollar ${bias.dollarBias || "?"}, gold ${bias.goldBias || "?"}, oil ${bias.oilBias || "?"}, VIX ${bias.vixBias || "?"}.`);
-    } else lines.push("COT positioning: unavailable this run.");
-
-    if (flow?.summary) {
-      const f = flow.summary;
-      const topFlow = (flow.bySymbol || []).slice(0, 5).map(s => `${s.symbol} C/P ${s.callPutRatio}`).join(", ");
-      lines.push(`Options flow (${symbols.join(",")}): $${Math.round((f.callNotional || 0) / 1000)}K call vs $${Math.round((f.putNotional || 0) / 1000)}K put notional. Per-symbol call/put ratio: ${topFlow || "n/a"}.${flow.source?.includes("estimated") ? " (estimated from price/volume, not live options tape)" : ""}`);
-    } else lines.push("Options flow: unavailable this run.");
-
-    if (insider?.ok && insider.results?.length) {
-      const top = insider.results.slice(0, 8).map(r => r.ticker || r.symbol).filter(Boolean).join(", ");
-      // The scanner covers 3 days (see routes/insider.js — a real SEC
-      // rate-limit constraint, not an arbitrary choice), not 14. This line
-      // said "14 days" until now, a stale claim from before that fix —
-      // wrong on a feature whose whole pitch is "not what the headlines say."
-      lines.push(`Insider buying (Form 4, last 3 days) — active names: ${top}.`);
-    } else lines.push("Insider buying: no notable Form 4 buys scanned this run.");
-
-    if (dp?.ok && dp.prints?.length) {
-      // GET /api/market/darkpool's prints are shaped { ticker, ... }, not
-      // { symbol, ... } — same bug class as the short-interest fix above,
-      // just masked locally since this branch only fires with a real
-      // Unusual Whales key configured.
-      const biggest = dp.prints.slice(0, 5).map(p => `${p.ticker} $${Math.round((p.value || 0) / 1e6)}M`).join(", ");
-      lines.push(`Dark pool prints: ${biggest}.`);
-    } else lines.push("Dark pool: unavailable this run (no data provider configured).");
-
-    if (shortChg?.ok && (shortChg.increasing?.length || shortChg.covering?.length)) {
-      // /api/market/short-changes returns { sym, ... } not { symbol, ... } —
-      // reading .symbol here silently produced "" for every entry, so this
-      // line rendered as "increasing short bets in , , ,": commas with
-      // nothing between them, joined from an array of undefined.
-      const inc = (shortChg.increasing || []).slice(0, 4).map(s => s.sym).join(", ");
-      const cov = (shortChg.covering || []).slice(0, 4).map(s => s.sym).join(", ");
-      lines.push(`Short interest changes: increasing short bets in ${inc || "none notable"}; short covering in ${cov || "none notable"}.`);
-    } else lines.push("Short interest changes: unavailable this run.");
-
-    const system = `You are a skeptical institutional strategist who ignores financial-media narratives and reads only positioning data — dark pool prints, options flow, insider Form 4 buys, CFTC Commitments of Traders, and short interest. Your job: tell the trader what the SMART MONEY is actually doing right now, and where that likely CONTRADICTS or gets ahead of the mainstream headline story. Be specific and honest — if the data is thin or mixed, say so plainly rather than forcing a narrative. Format:\nWHAT'S REALLY HAPPENING: 2-3 tight sentences on the actual positioning picture.\nVS. THE HEADLINES: one sentence on how this differs from (or confirms) what mainstream financial media is likely saying today.\nWATCH: 1-2 specific names or signals worth tracking from this data.\nUnder 140 words total. No preamble, no disclaimers, no "consult a financial advisor." Plain text only — no markdown, no asterisks, no bullet symbols, no headers.`;
-    const prompt = `Today's cross-market positioning data:\n${lines.join("\n")}\n\nWhat is smart money actually doing, and how does that compare to what the headlines are probably saying?`;
     try {
-      const brief = await callAnthropicApi(prompt, key, { model: MODELS.haiku, maxTokens: 260, system, cache: true });
-      return writeJson(res, 200, { ok: true, brief: (brief || "").trim(), sources: lines, generatedAt: new Date().toISOString() });
+      const { buildSmartMoneyBrief } = require("../smart-money-brief-ai");
+      const { brief, sources } = await buildSmartMoneyBrief(symbols, key);
+      return writeJson(res, 200, { ok: true, brief, sources, generatedAt: new Date().toISOString() });
     } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
   }
 
@@ -2704,12 +2633,10 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
     let b; try { b = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { ok: false, error: "bad json" }); }
     const regime = Number(b.regime) || 0;
     const setups = (Array.isArray(b.setups) ? b.setups : []).slice(0, 10);
-    const SYSTEM = `You are a head trader writing the team's morning game plan in ONE short paragraph (max 60 words). Be direct and actionable. Cover: today's stance (aggressive long / selective / cash) given the regime, the 1-3 best tickers to focus on, and one risk to respect. No fluff, no disclaimers.`;
-    const rows = setups.length ? setups.map(s => `${s.symbol} (A+${s.aScore}, ${s.sector || "?"}, ${s.atEntry ? "at entry" : "extended"})`).join(", ") : "none qualify";
-    const prompt = `Date: ${new Date().toDateString()}. Market regime ${regime}/100. Top A+ setups today: ${rows}. Write the morning game plan.`;
     try {
-      const plan = await callAnthropicApi(prompt, key, { model: MODELS.haiku, maxTokens: 200, system: SYSTEM, cache: true });
-      return writeJson(res, 200, { ok: true, plan: (plan || "").trim() });
+      const { buildGamePlan } = require("../gameplan-ondemand-ai");
+      const plan = await buildGamePlan(regime, setups, key);
+      return writeJson(res, 200, { ok: true, plan });
     } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
   }
 
@@ -2720,12 +2647,10 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
     let b; try { b = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { ok: false, error: "bad json" }); }
     const trades = (Array.isArray(b.trades) ? b.trades : []).slice(0, 25);
     if (!trades.length) return writeJson(res, 200, { ok: true, coach: "No closed trades today — nothing to review. Discipline (sitting out) is a valid result." });
-    const SYSTEM = `You are a tough-but-fair trading coach reviewing a trader's CLOSED trades for the day. Be specific and honest — praise good discipline, call out mistakes (cutting winners early, holding losers, oversizing, revenge trades). Max 80 words. Format:\nWENT WELL: one line.\nFIX: 1-2 specific things.\nTOMORROW: one focus.`;
-    const rows = trades.map(t => `${t.symbol} ${t.side || "long"}: entry $${t.entry} → exit $${t.exit}, P&L $${Math.round(t.pnl)}, held ${t.held || "?"}`).join("\n");
-    const prompt = `Today's closed trades:\n${rows}\n\nCoach me.`;
     try {
-      const coach = await callAnthropicApi(prompt, key, { model: MODELS.haiku, maxTokens: 250, system: SYSTEM, cache: true });
-      return writeJson(res, 200, { ok: true, coach: (coach || "").trim() });
+      const { coachTrades } = require("../trade-coach-ondemand-ai");
+      const coach = await coachTrades(trades, key);
+      return writeJson(res, 200, { ok: true, coach });
     } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
   }
 
@@ -2736,19 +2661,9 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
     if (!key) return writeJson(res, 200, { ok: false, error: "ANTHROPIC_API_KEY not set" });
     let b; try { b = JSON.parse(await readRequestBody(req)); } catch { b = {}; }
     const recent = (Array.isArray(b.recentTitles) ? b.recentTitles : []).slice(0, 20);
-    const topics = ["تداول وأسواق", "إدارة المال والمخاطر", "الانضباط والعادات",
-      "علم النفس وضبط العواطف", "الحكمة والإيمان", "القيادة والشخصية القوية", "الأب والزوج"];
-    const topic = topics[Math.floor(Math.random() * topics.length)];
-    const SYSTEM = `أنت مدرّب نخبة يكتب درساً واحداً جديداً ومفيداً باللغة العربية الفصحى. الدرس قصير وعميق وعملي. أعِد JSON فقط بهذا الشكل بالضبط، بلا أي نص خارج الـ JSON:
-{"title":"عنوان قصير","teach":"شرح من 2-3 جمل يعلّم الفكرة بعمق","deep":"جملة أو جملتان تضيفان بُعداً أعمق أو مثالاً","practice":"تمرين عملي واحد يُطبَّق اليوم","mantra":"جملة واحدة تُحفظ وتُردَّد"}`;
-    const prompt = `اكتب درساً جديداً في موضوع: ${topic}.${recent.length ? ` تجنّب تكرار هذه العناوين السابقة: ${recent.join("، ")}.` : ""} أعِد JSON فقط.`;
     try {
-      const raw = await callAnthropicApi(prompt, key, { model: MODELS.haiku, maxTokens: 500, system: SYSTEM, cache: true });
-      let lesson;
-      try {
-        const m = (raw || "").match(/\{[\s\S]*\}/);
-        lesson = JSON.parse(m ? m[0] : raw);
-      } catch { return writeJson(res, 200, { ok: false, error: "could not parse lesson" }); }
+      const { generateLesson } = require("../arabic-lesson-ai");
+      const { lesson, topic } = await generateLesson(recent, key);
       return writeJson(res, 200, { ok: true, lesson, topic });
     } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
   }
@@ -2761,16 +2676,10 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
     let b; try { b = JSON.parse(await readRequestBody(req)); } catch { b = {}; }
     const trades = (Array.isArray(b.trades) ? b.trades : []).slice(0, 120);
     if (!trades.length) return writeJson(res, 200, { ok: true, review: "No closed trades yet — let the autopilot run a few weeks on paper first, then I can judge whether it has a real edge." });
-    const wins = trades.filter(t => Number(t.pnl) > 0), losses = trades.filter(t => Number(t.pnl) <= 0);
-    const net = trades.reduce((s, t) => s + (Number(t.pnl) || 0), 0);
-    const gp = wins.reduce((s, t) => s + Number(t.pnl), 0), gl = Math.abs(losses.reduce((s, t) => s + Number(t.pnl), 0));
-    const pf = gl > 0 ? (gp / gl) : (gp > 0 ? 99 : 0);
-    const stats = `${trades.length} trades · ${Math.round(wins.length / trades.length * 100)}% win · net $${Math.round(net)} · profit factor ${pf.toFixed(2)} · avg win $${wins.length ? Math.round(gp / wins.length) : 0} · avg loss $${losses.length ? Math.round(gl / losses.length) : 0}`;
-    const SYSTEM = `You are a hedge-fund risk manager doing a rigorous, skeptical review of an automated trading strategy's REAL track record. Be brutally honest — most retail strategies have no edge. Assess: (1) is there a statistically meaningful edge yet, or is the sample too small? (2) what's the biggest weakness in the numbers? (3) 2-3 concrete parameter changes to test. Do NOT be encouraging for its own sake. Max 220 words. End with a one-line verdict: KEEP / TUNE / STOP.`;
-    const rows = trades.map(t => `${t.symbol} ${t.side || "long"}: $${t.entry}→$${t.exit}, P&L $${Math.round(t.pnl)}`).join("\n");
     try {
-      const review = await callAnthropicApi(`Track record: ${stats}\n\nTrades:\n${rows}\n\nDoes this strategy have a real edge? Be honest.`, key, { model: MODELS.fable, maxTokens: 700, system: SYSTEM, cache: true, timeout: 150000 });
-      return writeJson(res, 200, { ok: true, review: (review || "").trim(), stats });
+      const { deepReviewStrategy } = require("../deep-strategy-review-ai");
+      const { review, stats } = await deepReviewStrategy(trades, key);
+      return writeJson(res, 200, { ok: true, review, stats });
     } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
   }
 
@@ -2782,46 +2691,10 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
     let b; try { b = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { ok: false, error: "bad json" }); }
     const stocks = (Array.isArray(b.stocks) ? b.stocks : []).slice(0, 40);
     const news = (Array.isArray(b.news) ? b.news : []).slice(0, 24);
-    const SYSTEM = `You are TRADE PRO AI, the AI operating system of Trade Pro — an elite institutional trading intelligence system. You are NOT a chatbot. Your mission: transform live market data into ONE clear, high-confidence decision. Your purpose is to REMOVE UNCERTAINTY, not add information. Success = how fast and accurately a trader can make a disciplined decision.
-
-Think simultaneously like a Chief Investment Officer, Portfolio Manager, Quant, Technical Analyst, Macro Economist, Risk Manager, and Institutional Flow Analyst. Never analyze one indicator in isolation. Answer the most important question first; summarize before explaining; simple language first, technical detail second.
-
-ABSOLUTE RULES:
-- Never invent, estimate, or hallucinate data. Analyze ONLY the live data provided below.
-- Data you HAVE: market regime (SPY/QQQ/VIX/breadth/trend), a ranked stock universe (0-100 score, 8-pt Trend Template, relative-strength rating, stage, entry/stop/target, at-buy-point flag), TODAY'S % MOVE and RELATIVE VOLUME per stock, recent NEWS HEADLINES for top names, sector performance.
-- Data you DO NOT have — say so and LOWER confidence: intraday VWAP, options (gamma/IV/OI/dealer), dark-pool/insider/13F/ETF flows, fundamentals. Never fabricate these.
-- Protect capital before returns. Never force a trade. If confidence < 90, the ACTION is WAIT. Because options/institutional data are missing, cap confidence at ~82 — so expect WAIT often; that is discipline.
-- Every trade MUST define: entry, stop, target, risk, probability, trade-invalidation level, expected hold, position size. No trade without a stop. Never chase extended price.
-- Score each idea 0-100. 95-100 exceptional · 90-94 A+ · 85-89 high quality · 75-84 watchlist · <75 no trade.
-- Never call BUY (in TOP OPPORTUNITIES, BEST TRADE NOW, or the final ACTION) for a stock whose real stage is Stage 4 — that is this platform's own hard invalidation for a long, regardless of score or momentum. If the strongest candidate is Stage 4, say so and either pick the next real qualifying candidate or output WAIT.
-
-FORMATTING — clean markdown that renders as colored cards. Use "## " headers EXACTLY as named (keep the emoji). "- " bullets, **bold** key numbers, "⚠️ " before risks, "✅ " before positives. For every stock cite its real numbers (score, RS, today's move %, RVOL); if RVOL ≥ 1.5 note "elevated volume" and explain WHY it moved using the news headline if provided, else "no news catalyst — technical."
-
-OUTPUT (ranked strongest→weakest, scannable):
-## 📊 MARKET SNAPSHOT
-- **Market Health:** score + one line. **Bias:** … **Risk Level:** … **Confidence:** … **Best Strategy Today:** …
-## 🏆 TOP OPPORTUNITIES
-Rank up to the 10 strongest candidates. Each ONE line: **TICKER** · dir · **score**/RS · stage · $entry→$stop→$target · **R:R** · today **±x%** · RVOL **x.x×** · size% · one-sentence reason (news or "technical").
-## 🎯 BEST TRADE NOW
-Ticker · Direction, then bullets: **Trade Score** · **Confidence** · **Entry** · **Stop** · **Target 1** · **Target 2** · **R:R** · **Probability** · **Position Size %** · **Expected Hold** · **Invalidation** (the level/condition that kills the thesis). If nothing qualifies: "WAIT — no setup clears the bar" (skip levels).
-## ✅ WHY BUY
-Strongest supporting reasons: trend, momentum, **volume (RVOL)**, sector strength, market conditions, **news catalyst** (headline or "none").
-## ⚠️ WHY NOT BUY
-Every meaningful risk that could invalidate it: extension/resistance, weak breadth, high VIX, not-at-buy-point, conflicting signals, unknown earnings (data missing).
-## 📰 WHAT'S MOVING & WHY
-4-6 biggest movers / highest-RVOL names — one line each explaining the move (RVOL + news). No news for a mover: "no catalyst — technical." No news feed at all: "No news feed today."
-## 🌍 MARKET RISKS
-Biggest risks affecting today's market from the data: VIX, breadth, extension, sector concentration.
-## 🧭 ACTION
-Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** / ⚪ **HOLD**. Then <150 words, plain English, capital-first.`;
-    const rows = stocks.map(s => `${s.symbol}: score ${s.score}/100, ${s.passCount}/8 template, RS ${s.rsRating}, ${s.stage}, ${s.atBuyPoint ? "AT BUY POINT" : "not at buy point"}, today ${Number(s.chgPct || 0) >= 0 ? "+" : ""}${Number(s.chgPct || 0).toFixed(2)}%, RVOL ${Number(s.rvol || 0).toFixed(2)}x${s.entry ? `, entry $${s.entry} stop $${s.stop}${s.target2 ? ` target $${s.target2}` : ""}` : ""}, price $${s.price}`).join("\n");
-    const sec = (Array.isArray(b.sectors) ? b.sectors : []).map(s => `${s.name} ${s.chg >= 0 ? "+" : ""}${Number(s.chg).toFixed(2)}%`).join(", ");
-    const newsBlock = news.length ? news.map(n => `[${n.ticker || "MKT"}] ${n.title}`).join("\n") : "No news feed available.";
-    const reg = b.regime || {};
-    const prompt = `LIVE DATA — ${new Date().toDateString()}\n\nMARKET REGIME: ${reg.score}/100 (${reg.label}). Factors: ${(reg.factors || []).map(f => `${f.label}=${f.pass ? "✓" : "✗"}`).join(", ")}. VIX ${reg.vixVal || "?"}.\nFEAR/GREED: ${b.fearGreed || "n/a"}\nSECTOR PERFORMANCE: ${sec || "n/a"}\n\nRANKED CANDIDATES (${stocks.length}) — with today's move & relative volume:\n${rows || "none"}\n\nRECENT NEWS HEADLINES (use to explain why names are moving):\n${newsBlock}\n\nProduce the detailed CIO briefing. Cite real numbers. Explain WHY the movers moved using RVOL + news. Only this data exists; flag what's missing; preserve capital.`;
     try {
-      const report = await callAnthropicApi(prompt, key, { model: MODELS.sonnet, maxTokens: 1900, system: SYSTEM, cache: true, timeout: 100000, effort: "low" });
-      return writeJson(res, 200, { ok: true, report: (report || "").trim() });
+      const { buildApexCioBriefing } = require("../apex-cio-ai");
+      const report = await buildApexCioBriefing(stocks, news, Array.isArray(b.sectors) ? b.sectors : [], b.regime, b.fearGreed, key);
+      return writeJson(res, 200, { ok: true, report });
     } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
   }
 
@@ -2832,12 +2705,10 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
     let b; try { b = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { ok: false, error: "bad json" }); }
     const t = b.trade || {};
     if (!t.symbol) return writeJson(res, 200, { ok: false, error: "no trade" });
-    const SYSTEM = `You are a tough, specific trading coach grading a SINGLE completed trade. Assign one letter grade (A+, A, B, C, D, or F). Judge: entry quality, exit quality, risk management (was size/stop sane?), timing, and emotional discipline. Reward process over outcome — a small planned loss can be an A; a lucky oversized win can be a C. Be concise and concrete. Format EXACTLY:\nGRADE: <letter>\nENTRY: <one line>\nEXIT: <one line>\nRISK: <one line>\nEMOTION: <one line>\nFIX: <one specific improvement>`;
-    const prompt = `Trade: ${t.symbol} ${t.side || "long"} · ${t.shares} sh · entry $${t.entry} → exit $${t.exit} · P&L $${Math.round(Number(t.pnl) || 0)}${t.aiScore ? ` · AI setup score ${t.aiScore}` : ""}\nTrader notes: ${t.notes || "none"}\nMistakes noted: ${t.mistakes || "none"}\nEmotional state: ${t.emotion || "not recorded"}\n\nGrade this trade.`;
     try {
-      const out = await callAnthropicApi(prompt, key, { model: MODELS.haiku, maxTokens: 300, system: SYSTEM, cache: true });
-      const m = (out || "").match(/GRADE:\s*([A-F][+-]?)/i);
-      return writeJson(res, 200, { ok: true, grade: m ? m[1].toUpperCase() : "?", feedback: (out || "").trim() });
+      const { gradeTrade } = require("../trade-grade-ai");
+      const { grade, feedback } = await gradeTrade(t, key);
+      return writeJson(res, 200, { ok: true, grade, feedback });
     } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
   }
 
@@ -3278,21 +3149,10 @@ Exactly one, with the colored dot: 🟢 **BUY** / 🔴 **SELL** / 🟡 **WAIT** 
 
         // AI-extracted qualitative context (MW/contract/customer/execution
         // risk) — real news only, no invented facts.
-        let qualitative = null;
         const headlines = (Array.isArray(newsRows) ? newsRows : []).map((n) => `${n.title || ""}${n.summary ? " — " + n.summary : ""}`).filter(Boolean).slice(0, 12);
         const key = (process.env.ANTHROPIC_API_KEY || "").trim();
-        if (key && headlines.length) {
-          const SYSTEM = `You extract real facts about a Bitcoin-mining/HPC-hosting company from real news headlines given to you. You NEVER invent a number, contract, or fact not explicitly present in the headlines. For each of these 5 topics, state the real fact if the headlines mention it, or say exactly "Not disclosed in recent coverage" if they don't: BTC MINING ECONOMICS (hash rate, cost per BTC), AI/HPC REVENUE (data center hosting/AI compute revenue), CONTRACTED/ENERGIZED/PIPELINE MW (power capacity deals), CONTRACT VALUE (deal dollar figures, counterparties), CUSTOMER QUALITY & EXECUTION RISK (who the customers are, delivery/build-out risk mentioned). Respond in exactly this format, one line per topic, under 120 words total:
-BTC ECONOMICS: ...
-AI/HPC REVENUE: ...
-MW (CONTRACTED/ENERGIZED/PIPELINE): ...
-CONTRACT VALUE: ...
-CUSTOMER QUALITY & EXECUTION RISK: ...`;
-          try {
-            const raw = await callAnthropicApi(`${symbol} — real recent headlines:\n${headlines.map((h) => `- ${h}`).join("\n")}\n\nExtract.`, key, { model: MODELS.haiku, maxTokens: 260, system: SYSTEM, cache: true });
-            qualitative = (raw || "").trim() || null;
-          } catch { qualitative = null; }
-        }
+        const { extractQualitativeContext } = require("../btc-hpc-qualitative-ai");
+        const qualitative = await extractQualitativeContext(symbol, headlines, key);
 
         return {
           symbol, grade: institutionalLetterGrade(aplus.score), score: aplus.score,
@@ -3421,29 +3281,10 @@ CUSTOMER QUALITY & EXECUTION RISK: ...`;
     let b; try { b = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { ok: false, error: "bad json" }); }
     const sym = String(b.symbol || "").toUpperCase().replace(/[^A-Z.]/g, "").slice(0, 8);
     if (!sym) return writeJson(res, 400, { ok: false, error: "symbol required" });
-    const SYSTEM = `You explain a deterministic trading-decision engine's output in plain English for a retail investor. You do NOT have opinions of your own, you do NOT invent technical conditions, and you NEVER say a stock will go up or down — every fact you use is given to you below; only explain and connect them. Translate jargon into plain language (examples: "ADX rising" -> "trend strength is starting to increase"; "RVOL 1.2x" -> "trading volume is 20% above normal"; "MTF conflict" -> "short-term strength is fighting against the larger trend"). Respond in exactly this format, under 90 words total, no preamble:
-WHY: 1-2 sentences on why the state is what it is.
-WHAT'S MISSING: what specifically still needs to happen (skip this line if nothing is missing).
-INVALIDATION: what would break this setup.`;
-    const g = b.gate || {};
-    const gateLine = Array.isArray(g.checks) ? g.checks.map((c) => `${c.pass ? "PASS" : "FAIL"} ${c.label} (${c.detail})`).join("; ") : "not available";
-    const prompt = `Symbol: ${sym}
-Confirmed state: ${b.state || "unknown"}
-Quality score: ${b.quality ?? "?"}/100
-Setup (4H): ${b.swingState || "unknown"}
-Early development (1H): ${b.earlyScore ?? "?"}/100
-Entry trigger: ${b.entryAction || "unknown"}
-Exit risk: ${b.exitRiskState || "unknown"}
-MTF alignment: ${b.mtfScore ?? "?"}/100${b.mtfConflict ? ` — CONFLICT: ${b.mtfConflict}` : ""}
-A+ Quality Gate: ${gateLine}
-Sniper reason: ${b.sniperReason || "n/a"}
-Waiting for: ${b.waitingFor || "n/a"}
-Heat risk reason: ${b.heatReason || "n/a"}
-
-Explain this.`;
     try {
-      const explanation = await callAnthropicApi(prompt, key, { model: MODELS.haiku, maxTokens: 220, system: SYSTEM, cache: true });
-      return writeJson(res, 200, { ok: true, symbol: sym, explanation: (explanation || "").trim() });
+      const { explainMtfState } = require("../mtf-explain-ai");
+      const explanation = await explainMtfState(sym, b, key);
+      return writeJson(res, 200, { ok: true, symbol: sym, explanation });
     } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
   }
 
