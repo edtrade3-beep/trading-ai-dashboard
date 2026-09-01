@@ -71,17 +71,22 @@ async function runMarketAutoWatchlist(opts = {}) {
   // as designed.
   if (!opts.ignoreMarketHours && !isMarketHoursET()) return { ok: true, skipped: "outside market hours" };
 
-  let screenTrendTemplate, fetchMarketQuotes, resolveProviderKeys;
+  let screenWatchlistCached, fetchMarketQuotes, resolveProviderKeys;
   try {
-    ({ screenTrendTemplate, fetchMarketQuotes } = require("./routes/market"));
+    ({ screenWatchlistCached, fetchMarketQuotes } = require("./routes/market"));
     ({ resolveProviderKeys } = require("./config"));
   } catch { return { ok: false, added: [] }; }
 
   const { symbols: current } = loadWatchlist();
   const currentSet = new Set((current || []).map((s) => String(s).toUpperCase()));
 
+  // Real shared-cache fix (2026-09-01 platform audit) — this job's own
+  // fixed MARKET_UNIVERSE_SYMBOLS was hitting raw screenTrendTemplate
+  // directly, bypassing the shared 3-min cache the other watchlist-*-
+  // alerts.js jobs already route through (screenWatchlistCached, CTO
+  // audit item #4, 2026-07-29). Same real symbol list every run.
   let rows;
-  try { rows = await screenTrendTemplate(MARKET_UNIVERSE_SYMBOLS); } catch { return { ok: false, added: [] }; }
+  try { rows = await screenWatchlistCached(MARKET_UNIVERSE_SYMBOLS); } catch { return { ok: false, added: [] }; }
 
   const macroRows = await fetchMarketQuotes(["SPY", "QQQ", "VIXY"], resolveProviderKeys(new URLSearchParams())).catch(() => []);
   const regime = computeRegime(Array.isArray(macroRows) ? macroRows : []);

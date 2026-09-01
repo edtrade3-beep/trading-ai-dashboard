@@ -63,9 +63,9 @@ async function checkBestOpportunitiesAlerts() {
   if (!telegramConfigured()) return { ok: true, skipped: "telegram not configured" };
   if (!isMarketHoursET()) return { ok: true, skipped: "outside market hours" };
 
-  let screenTrendTemplate, fetchMarketQuotes, computeRegime, regimeToEntryVocabulary, computeAPlusScore;
+  let screenWatchlistCached, fetchMarketQuotes, computeRegime, regimeToEntryVocabulary, computeAPlusScore;
   try {
-    ({ screenTrendTemplate, fetchMarketQuotes } = require("./routes/market"));
+    ({ screenWatchlistCached, fetchMarketQuotes } = require("./routes/market"));
     ({ computeRegime, regimeToEntryVocabulary, computeAPlusScore } = require("./trade-planner-scoring"));
   } catch {
     return { ok: false, checked: 0, alerts: [] };
@@ -75,7 +75,13 @@ async function checkBestOpportunitiesAlerts() {
   const regime = computeRegime(Array.isArray(macroRows) ? macroRows : []);
   const marketRegime = regimeToEntryVocabulary(regime.label);
 
-  const rows = await screenTrendTemplate(SCAN_UNIVERSE, {}).catch(() => []);
+  // Real shared-cache fix (2026-09-01 platform audit) — this job's own
+  // fixed SCAN_UNIVERSE was hitting raw screenTrendTemplate directly,
+  // bypassing the shared 3-min cache the other watchlist-*-alerts.js jobs
+  // already route through (screenWatchlistCached, CTO audit item #4,
+  // 2026-07-29). Same real symbol list every run, so this now shares real
+  // work with anything else scanning an identical universe within the TTL.
+  const rows = await screenWatchlistCached(SCAN_UNIVERSE).catch(() => []);
 
   const prev = loadState();
   const next = { ...prev };
