@@ -2,7 +2,6 @@
 // Gaps fill ~70% of the time — high-probability price targets
 // Looks at daily candles, finds significant gaps, checks if they're still open
 
-const https  = require("https");
 const { writeJson } = require("../utils");
 
 let _cache = null, _cacheTs = 0;
@@ -15,29 +14,24 @@ const UNIVERSE = [
   "SMR","HIMS","SNAP","UBER","DASH","RDDT","RIVN","IBIT","GLD","SLV",
 ];
 
-function fetchCandles(sym) {
-  return new Promise(resolve => {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=1d&range=60d`;
-    const req = https.get(url, { headers: { "User-Agent": "Mozilla/5.0" } }, res => {
-      let d = ""; res.on("data", c => d += c);
-      res.on("end", () => {
-        try {
-          const j = JSON.parse(d);
-          const r = j?.chart?.result?.[0];
-          const ts = r?.timestamp || [];
-          const q  = r?.indicators?.quote?.[0] || {};
-          const meta = r?.meta || {};
-          const bars = ts.map((t, i) => ({
-            date: new Date(t * 1000).toISOString().slice(0, 10),
-            o: q.open?.[i], h: q.high?.[i], l: q.low?.[i], c: q.close?.[i],
-          })).filter(b => b.o && b.c);
-          resolve({ sym, bars, price: meta.regularMarketPrice || 0 });
-        } catch { resolve({ sym, bars: [], price: 0 }); }
-      });
-    });
-    req.on("error", () => resolve({ sym, bars: [], price: 0 }));
-    req.setTimeout(7000, () => { req.destroy(); resolve({ sym, bars: [], price: 0 }); });
-  });
+// Routed through the shared providers/yahoo.js fetchYahooBars +
+// fetchYahooChartMeta (2026-08-31 audit fix #5) instead of a hand-rolled
+// raw https.get, so this tracker gets the same real query1->query2
+// fallback and full browser-like headers every other Yahoo consumer
+// already has. Reshaped onto this file's own {date,o,h,l,c} bar shape so
+// findGaps below needs zero changes.
+async function fetchCandles(sym) {
+  const { fetchYahooBars, fetchYahooChartMeta } = require("../providers/yahoo");
+  try {
+    const [yBars, meta] = await Promise.all([
+      fetchYahooBars(sym, "60d", "1d"),
+      fetchYahooChartMeta(sym),
+    ]);
+    const bars = yBars
+      .map(b => ({ date: new Date(b.time).toISOString().slice(0, 10), o: b.open, h: b.high, l: b.low, c: b.close }))
+      .filter(b => b.o && b.c);
+    return { sym, bars, price: meta?.regularMarketPrice || 0 };
+  } catch { return { sym, bars: [], price: 0 }; }
 }
 
 function findGaps(sym, bars, currentPrice) {

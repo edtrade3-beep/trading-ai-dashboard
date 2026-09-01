@@ -5,7 +5,6 @@
 
 "use strict";
 
-const https  = require("https");
 const { sendTelegramMessage, isConfigured } = require("./telegram");
 const { shouldSendAlert } = require("./telegram-bot");
 const { nextRotatedSlice } = require("./scan-rotation");
@@ -43,33 +42,24 @@ async function fetchCandles(sym, interval, range) {
   return fetchYahooCandles(sym, interval, range);
 }
 
-function fetchYahooCandles(sym, interval, range) {
-  return new Promise(resolve => {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=${interval}&range=${range}`;
-    const req = https.get(url, { headers: { "User-Agent": "Mozilla/5.0" } }, res => {
-      let d = ""; res.on("data", c => d += c);
-      res.on("end", () => {
-        try {
-          const j   = JSON.parse(d);
-          const r   = j?.chart?.result?.[0];
-          const ts  = r?.timestamp || [];
-          const q   = r?.indicators?.quote?.[0] || {};
-          const meta= r?.meta || {};
-          const bars = ts.map((t, i) => ({
-            t, time: new Date(t * 1000),
-            o: q.open?.[i]  || 0,
-            h: q.high?.[i]  || 0,
-            l: q.low?.[i]   || 0,
-            c: q.close?.[i] || 0,
-            v: q.volume?.[i] || 0,
-          })).filter(b => b.c > 0 && b.h > 0);
-          resolve({ bars, price: meta.regularMarketPrice || bars.at(-1)?.c || 0 });
-        } catch { resolve({ bars: [], price: 0 }); }
-      });
-    });
-    req.on("error", () => resolve({ bars: [], price: 0 }));
-    req.setTimeout(8000, () => { req.destroy(); resolve({ bars: [], price: 0 }); });
-  });
+// Real Yahoo fallback (2026-08-31 audit fix #5) — routed through the
+// shared providers/yahoo.js fetchYahooBars instead of a hand-rolled raw
+// https.get, so this scanner gets the same real query1->query2 fallback
+// and full browser-like headers every other Yahoo consumer in the app
+// already has. Output reshaped onto this file's own {t,time,o,h,l,c,v}
+// bar shape so calcEMA/calcVWAP/etc below need zero changes.
+async function fetchYahooCandles(sym, interval, range) {
+  try {
+    const { fetchYahooBars } = require("./providers/yahoo");
+    const yBars = await fetchYahooBars(sym, range, interval);
+    const bars = yBars.map(b => ({
+      t: Math.floor(b.time / 1000), time: new Date(b.time),
+      o: b.open || 0, h: b.high || 0, l: b.low || 0, c: b.close || 0, v: b.volume || 0,
+    })).filter(b => b.c > 0 && b.h > 0);
+    return { bars, price: bars.at(-1)?.c || 0 };
+  } catch {
+    return { bars: [], price: 0 };
+  }
 }
 
 // ── Technical calculations ────────────────────────────────────────────────────

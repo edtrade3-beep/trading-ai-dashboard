@@ -135,35 +135,29 @@ async function fetchForm4Purchases(entry) {
   return results;
 }
 
-// Enrich with current Yahoo price data (same v8/finance/chart endpoint
-// already used elsewhere in this app — not the v7/v10 endpoints that
-// require Yahoo's crumb handshake).
-function fetchPrice(sym) {
-  return new Promise(resolve => {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=1d&range=5d`;
-    const req = https.get(url, { headers: { "User-Agent": "Mozilla/5.0" } }, res => {
-      let d = ""; res.on("data", c => d += c);
-      res.on("end", () => {
-        try {
-          const meta = JSON.parse(d)?.chart?.result?.[0]?.meta || {};
-          const price = meta.regularMarketPrice || 0;
-          const prevClose = meta.previousClose || meta.chartPreviousClose || 0;
-          // regularMarketChangePercent isn't reliably present on this
-          // endpoint (confirmed: often missing even when price and
-          // previousClose both are — e.g. a real TSM lookup returned
-          // price $409.74, previousClose $436.96, a real -6.2% move, but
-          // regularMarketChangePercent was null) — `|| 0` there would
-          // silently show a fabricated "+0%" for a stock that actually
-          // moved significantly. Compute it from the two fields that are
-          // reliably present instead; null (not 0) when genuinely unknown.
-          const chg = price > 0 && prevClose > 0 ? ((price - prevClose) / prevClose) * 100 : null;
-          resolve({ price, chg });
-        } catch { resolve({ price: 0, chg: null }); }
-      });
-    });
-    req.on("error", () => resolve({ price: 0, chg: null }));
-    req.setTimeout(5000, () => { req.destroy(); resolve({ price: 0, chg: null }); });
-  });
+// Enrich with current Yahoo price data — routed through the shared
+// providers/yahoo.js fetchYahooChartMeta (2026-08-31 audit fix #5)
+// instead of a hand-rolled raw https.get, so this screen gets the same
+// real query1->query2 fallback and full browser-like headers every
+// other Yahoo consumer already has.
+async function fetchPrice(sym) {
+  const { fetchYahooChartMeta } = require("../providers/yahoo");
+  try {
+    const meta = await fetchYahooChartMeta(sym);
+    if (!meta) return { price: 0, chg: null };
+    const price = meta.regularMarketPrice || 0;
+    const prevClose = meta.previousClose || meta.chartPreviousClose || 0;
+    // regularMarketChangePercent isn't reliably present on this
+    // endpoint (confirmed: often missing even when price and
+    // previousClose both are — e.g. a real TSM lookup returned
+    // price $409.74, previousClose $436.96, a real -6.2% move, but
+    // regularMarketChangePercent was null) — `|| 0` there would
+    // silently show a fabricated "+0%" for a stock that actually
+    // moved significantly. Compute it from the two fields that are
+    // reliably present instead; null (not 0) when genuinely unknown.
+    const chg = price > 0 && prevClose > 0 ? ((price - prevClose) / prevClose) * 100 : null;
+    return { price, chg };
+  } catch { return { price: 0, chg: null }; }
 }
 
 async function runInsiderScreen() {

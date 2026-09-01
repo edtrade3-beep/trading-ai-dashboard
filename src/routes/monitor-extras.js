@@ -78,27 +78,20 @@ async function fetchSessionMovers(session) {
   });
 }
 
-function fetchChartQuote(sym) {
-  const https = require("https");
-  return new Promise(resolve => {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=1d&range=2d`;
-    const req = https.get(url, { headers: { "User-Agent": "Mozilla/5.0", "Accept": "application/json" } }, res => {
-      let d = ""; res.on("data", c => d += c);
-      res.on("end", () => {
-        try {
-          const j = JSON.parse(d);
-          const meta   = j?.chart?.result?.[0]?.meta || {};
-          const closes = j?.chart?.result?.[0]?.indicators?.quote?.[0]?.close || [];
-          const prev   = closes[0] || 0;
-          const price  = meta.regularMarketPrice || 0;
-          const chg    = prev > 0 ? (price - prev) / prev * 100 : 0;
-          resolve({ sym, price: Math.round(price * 100) / 100, chg: Math.round(chg * 100) / 100 });
-        } catch { resolve({ sym, price: 0, chg: 0 }); }
-      });
-    });
-    req.on("error", () => resolve({ sym, price: 0, chg: 0 }));
-    req.setTimeout(6000, () => { req.destroy(); resolve({ sym, price: 0, chg: 0 }); });
-  });
+// Routed through the shared providers/yahoo.js fetchYahooChartMeta
+// (2026-08-31 audit fix #5) instead of a hand-rolled raw https.get, so
+// this gets the same real query1->query2 fallback and full browser-like
+// headers every other Yahoo consumer already has.
+async function fetchChartQuote(sym) {
+  const { fetchYahooChartMeta } = require("../providers/yahoo");
+  try {
+    const meta = await fetchYahooChartMeta(sym);
+    if (!meta) return { sym, price: 0, chg: 0 };
+    const prev  = Number(meta.previousClose ?? meta.chartPreviousClose) || 0;
+    const price = Number(meta.regularMarketPrice) || 0;
+    const chg   = prev > 0 ? (price - prev) / prev * 100 : 0;
+    return { sym, price: Math.round(price * 100) / 100, chg: Math.round(chg * 100) / 100 };
+  } catch { return { sym, price: 0, chg: 0 }; }
 }
 
 

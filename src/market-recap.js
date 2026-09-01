@@ -10,27 +10,20 @@ const { fetchJsonSafe, withTimeout }        = require("./utils");
 // ── Fetch all market data in parallel ────────────────────────────────────────
 
 async function fetchMarketData() {
-  const https = require("https");
-
-  function yahooMeta(sym) {
-    return new Promise(resolve => {
-      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=1d&range=2d`;
-      const req = https.get(url, { headers: { "User-Agent": "Mozilla/5.0" } }, res => {
-        let d = ""; res.on("data", c => d += c);
-        res.on("end", () => {
-          try {
-            const m = JSON.parse(d)?.chart?.result?.[0]?.meta || {};
-            const closes = JSON.parse(d)?.chart?.result?.[0]?.indicators?.quote?.[0]?.close || [];
-            const prev   = closes[0] || m.previousClose || 0;
-            const price  = m.regularMarketPrice || 0;
-            const chg    = prev > 0 ? (price - prev) / prev * 100 : 0;
-            resolve({ price: Math.round(price * 100) / 100, chg: Math.round(chg * 100) / 100 });
-          } catch { resolve({ price: 0, chg: 0 }); }
-        });
-      });
-      req.on("error", () => resolve({ price: 0, chg: 0 }));
-      req.setTimeout(6000, () => { req.destroy(); resolve({ price: 0, chg: 0 }); });
-    });
+  // Real Yahoo fetch (2026-08-31 audit fix #5) — routed through the shared
+  // providers/yahoo.js fetchYahooChartMeta instead of a hand-rolled raw
+  // https.get, so this recap gets the same real query1->query2 fallback
+  // and full browser-like headers every other Yahoo consumer already has.
+  async function yahooMeta(sym) {
+    const { fetchYahooChartMeta } = require("./providers/yahoo");
+    try {
+      const m = await fetchYahooChartMeta(sym);
+      if (!m) return { price: 0, chg: 0 };
+      const prev  = Number(m.previousClose ?? m.chartPreviousClose) || 0;
+      const price = Number(m.regularMarketPrice) || 0;
+      const chg   = prev > 0 ? (price - prev) / prev * 100 : 0;
+      return { price: Math.round(price * 100) / 100, chg: Math.round(chg * 100) / 100 };
+    } catch { return { price: 0, chg: 0 }; }
   }
 
   const [spy, qqq, iwm, vix, tlt, dxy, oil, gold, btc] = await Promise.all([

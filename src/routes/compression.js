@@ -2,7 +2,6 @@
 // Signals: ATR shrinking + volume drying up + price near key level
 // = spring loaded, about to break
 
-const https  = require("https");
 const { writeJson } = require("../utils");
 
 let _cache = null, _cacheTs = 0;
@@ -29,30 +28,25 @@ const UNIVERSE = [
   "GM","F","RIVN","LCID","NIO","XPEV","LI",
 ];
 
-// Fetch 30 days of daily OHLCV via Yahoo v8
-function fetchHistory(sym) {
-  return new Promise(resolve => {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=1d&range=30d`;
-    const req = https.get(url, { headers: { "User-Agent": "Mozilla/5.0" } }, res => {
-      let d = ""; res.on("data", c => d += c);
-      res.on("end", () => {
-        try {
-          const j   = JSON.parse(d);
-          const r   = j?.chart?.result?.[0];
-          const ts  = r?.timestamp || [];
-          const q   = r?.indicators?.quote?.[0] || {};
-          const meta = r?.meta || {};
-          const bars = ts.map((t, i) => ({
-            t, o: q.open?.[i], h: q.high?.[i], l: q.low?.[i],
-            c: q.close?.[i], v: q.volume?.[i],
-          })).filter(b => b.c && b.v);
-          resolve({ sym, bars, price: meta.regularMarketPrice || 0 });
-        } catch { resolve({ sym, bars: [], price: 0 }); }
-      });
-    });
-    req.on("error", () => resolve({ sym, bars: [], price: 0 }));
-    req.setTimeout(7000, () => { req.destroy(); resolve({ sym, bars: [], price: 0 }); });
-  });
+// Fetch 30 days of daily OHLCV — routed through the shared
+// providers/yahoo.js fetchYahooBars + fetchYahooChartMeta (2026-08-31
+// audit fix #5) instead of a hand-rolled raw https.get, so this scanner
+// gets the same real query1->query2 fallback and full browser-like
+// headers every other Yahoo consumer already has. Reshaped onto this
+// file's own {t,o,h,l,c,v} bar shape so atr/analyze below need zero
+// changes.
+async function fetchHistory(sym) {
+  const { fetchYahooBars, fetchYahooChartMeta } = require("../providers/yahoo");
+  try {
+    const [yBars, meta] = await Promise.all([
+      fetchYahooBars(sym, "30d", "1d"),
+      fetchYahooChartMeta(sym),
+    ]);
+    const bars = yBars
+      .map(b => ({ t: b.time, o: b.open, h: b.high, l: b.low, c: b.close, v: b.volume }))
+      .filter(b => b.c && b.v);
+    return { sym, bars, price: meta?.regularMarketPrice || 0 };
+  } catch { return { sym, bars: [], price: 0 }; }
 }
 
 function atr(bars, n) {
@@ -121,36 +115,30 @@ function analyze(sym, bars, price) {
   };
 }
 
-// Step 1: batch quote all symbols cheaply — one HTTP call per 20 symbols
-function fetchBatchQuotes(syms) {
-  return new Promise(resolve => {
-    const url = `https://query1.finance.yahoo.com/v8/finance/spark?symbols=${syms.join(",")}&range=5d&interval=1d`;
-    const req = https.get(url, { headers: { "User-Agent": "Mozilla/5.0" } }, res => {
-      let d = ""; res.on("data", c => d += c);
-      res.on("end", () => {
-        try {
-          const j = JSON.parse(d);
-          const spark = j?.spark?.result || [];
-          const out = {};
-          spark.forEach(s => {
-            if (!s?.symbol) return;
-            const closes = s?.response?.[0]?.indicators?.quote?.[0]?.close?.filter(Boolean) || [];
-            const volumes = s?.response?.[0]?.indicators?.quote?.[0]?.volume?.filter(Boolean) || [];
-            const meta = s?.response?.[0]?.meta || {};
-            out[s.symbol.toUpperCase()] = {
-              price: meta.regularMarketPrice || closes[closes.length - 1] || 0,
-              hi52: meta.fiftyTwoWeekHigh || 0,
-              lo52: meta.fiftyTwoWeekLow || 0,
-              closes, volumes,
-            };
-          });
-          resolve(out);
-        } catch { resolve({}); }
-      });
+// Step 1: batch quote all symbols cheaply — one HTTP call per 20 symbols.
+// Routed through the shared providers/yahoo.js fetchYahooSparkBatch
+// (2026-08-31 audit fix #5) instead of a hand-rolled raw https.get, so
+// this scanner gets the same real query1->query2 fallback and full
+// browser-like headers every other Yahoo consumer already has.
+async function fetchBatchQuotes(syms) {
+  const { fetchYahooSparkBatch } = require("../providers/yahoo");
+  try {
+    const spark = await fetchYahooSparkBatch(syms, "5d", "1d");
+    const out = {};
+    spark.forEach(s => {
+      if (!s?.symbol) return;
+      const closes = s?.response?.[0]?.indicators?.quote?.[0]?.close?.filter(Boolean) || [];
+      const volumes = s?.response?.[0]?.indicators?.quote?.[0]?.volume?.filter(Boolean) || [];
+      const meta = s?.response?.[0]?.meta || {};
+      out[s.symbol.toUpperCase()] = {
+        price: meta.regularMarketPrice || closes[closes.length - 1] || 0,
+        hi52: meta.fiftyTwoWeekHigh || 0,
+        lo52: meta.fiftyTwoWeekLow || 0,
+        closes, volumes,
+      };
     });
-    req.on("error", () => resolve({}));
-    req.setTimeout(8000, () => { req.destroy(); resolve({}); });
-  });
+    return out;
+  } catch { return {}; }
 }
 
 // Step 2: pre-filter — only candidates worth fetching full history for

@@ -356,6 +356,34 @@ async function fetchQuoteBatchWithFallback(symbols) {
   } catch { return []; }
 }
 
+// Real multi-symbol batch spark fetch — one real call covers many
+// symbols' short daily close/volume history + 52w high/low at once (the
+// v7/finance/quote batch endpoint fetchYahooQuoteBatch uses doesn't carry
+// historical close/volume arrays, only the latest snapshot). Added
+// 2026-08-31 (audit fix #5) as a real, shared home for this endpoint —
+// routes/compression.js was hand-rolling this exact query1-only raw
+// https.get; every other real Yahoo consumer in the app already gets the
+// query1->query2 fallback + full browser-like headers below.
+async function fetchYahooSparkBatch(symbols, range = "5d", interval = "1d") {
+  const list = (symbols || []).map((s) => String(s || "").trim()).filter(Boolean).join(",");
+  if (!list) return [];
+  const path = `/v8/finance/spark?symbols=${encodeURIComponent(list)}&range=${range}&interval=${interval}`;
+  const urls = [
+    `https://query1.finance.yahoo.com${path}`,
+    `https://query2.finance.yahoo.com${path}`,
+  ];
+  for (const url of urls) {
+    try {
+      const response = await yFetch(url, 8000);
+      if (!response.ok) continue;
+      const payload = await response.json();
+      const result = Array.isArray(payload?.spark?.result) ? payload.spark.result : [];
+      if (result.length > 0) return result;
+    } catch { continue; }
+  }
+  return [];
+}
+
 async function fetchYahooChartMeta(symbol) {
   const path = `/v8/finance/chart/${encodeURIComponent(symbol)}?range=5d&interval=1d&includePrePost=false&events=div%2Csplits`;
   for (const host of ["query1", "query2"]) {
@@ -1103,7 +1131,7 @@ module.exports = {
   fetchYahooNews, fetchYahooRssNews,
   fetchYahooFundamentals, fetchYahooCandlesWithIndicators,
   fetchYahooOptionsFlowForSymbol, fetchEstimatedOptionsFlow, fetchYahooOptionsChain,
-  fetchYahooMarketCapFromSummary, fetchYahooChartMeta,
+  fetchYahooMarketCapFromSummary, fetchYahooChartMeta, fetchYahooSparkBatch,
   resolveMarketCap, MARKET_CAP_CACHE,
   fetchYahooShortInterest,
   fetchYahooInsiderTransactions, fetchYahooInstitutional,

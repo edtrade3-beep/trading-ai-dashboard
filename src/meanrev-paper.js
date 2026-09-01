@@ -19,13 +19,18 @@ const UNIVERSE = [
 // Best audited config: RSI2<10 · within 4% of a rising 50-MA · RVOL≥1.3 · 2×ATR stop · exit on close>MA5 or 12-day time stop.
 const CFG = { rsiIn: 10, near: 0.04, rvol: 1.3, stopATR: 2, timeStop: 12 };
 
+// Real Yahoo fetch (2026-08-31 audit fix #5) — routed through the shared
+// providers/yahoo.js fetchYahooBarsLong (the no-Alpaca-fallback, full-
+// history variant, since this needs a real 200+ trading-day window) so
+// this tracker gets the same real query1->query2 fallback and full
+// browser-like headers every other Yahoo consumer already has, instead
+// of a hand-rolled raw fetch. Output reshaped onto this file's own
+// {t,o,h,l,c,v} bar shape so sma/vavg/rsi/atr below need zero changes.
 async function yahoo(sym) {
   try {
-    const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${sym}?range=1y&interval=1d`, { headers: { "User-Agent": "Mozilla/5.0" } });
-    if (!r.ok) return null;
-    const res = (await r.json())?.chart?.result?.[0]; if (!res) return null;
-    const t = res.timestamp || [], q = res.indicators?.quote?.[0] || {}; const bars = [];
-    for (let i = 0; i < t.length; i++) { const o=q.open?.[i],h=q.high?.[i],l=q.low?.[i],c=q.close?.[i],v=q.volume?.[i]; if ([o,h,l,c].some(x=>x==null)) continue; bars.push({ t:t[i]*1000,o,h,l,c,v:v||0 }); }
+    const { fetchYahooBarsLong } = require("./providers/yahoo");
+    const yBars = await fetchYahooBarsLong(sym, "1y", "1d");
+    const bars = yBars.map(b => ({ t: b.time, o: b.open, h: b.high, l: b.low, c: b.close, v: b.volume || 0 }));
     return bars.length > 210 ? bars : null;
   } catch { return null; }
 }
