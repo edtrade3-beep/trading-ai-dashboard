@@ -271,6 +271,10 @@ export function classifyCoreVerdict(input = {}) {
   // never again let an EXTENDED (real, stretched) entry through as a BUY.
   if (entryPlan.doNotChaseZone?.band === "DO_NOT_CHASE") return { verdict: "AVOID_LONG", reason: "Price is extended — too far above the breakout to chase now." };
   if (entryPlan.doNotChaseZone?.band === "EXTENDED") return { verdict: "AVOID_LONG", reason: "Price is stretched above the breakout — wait for a pullback before entering." };
+  // Sniper merge (2026-09-01) — KEEP IN SYNC with the server twin
+  // (src/am-core-engine.js). input.reversalTopRisk is the caller's own
+  // already-computed computeReversalDetector({...}).isTop.
+  if (input.reversalTopRisk) return { verdict: "AVOID_LONG", reason: "Real technical exhaustion signs (near-top reversal read) — too risky to enter here." };
   if (criticalCount > 0) {
     const names = redFlags.filter((f) => f.critical).map((f) => f.label).join(", ");
     return { verdict: "AVOID_LONG", reason: names ? `Critical red flag: ${names}.` : "A critical red flag is active." };

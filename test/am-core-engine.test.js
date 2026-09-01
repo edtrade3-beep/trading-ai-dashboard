@@ -197,6 +197,17 @@ ok("Entry Score exactly at the floor (75) does not block (>=, inclusive)", () =>
   const r = classifyCoreVerdict({ score: 90, entryScore: 75, entryPlan: CLEAN_ENTRY_PLAN, redFlagResult: CLEAN_RED_FLAGS });
   assert.notStrictEqual(r.verdict, "AVOID_LONG");
 });
+ok("sniper merge (2026-09-01): a real reversalTopRisk (technical exhaustion) forces AVOID_LONG even at a high score", () => {
+  const r = classifyCoreVerdict({ score: 95, entryPlan: CLEAN_ENTRY_PLAN, redFlagResult: CLEAN_RED_FLAGS, reversalTopRisk: true });
+  assert.strictEqual(r.verdict, "AVOID_LONG");
+  assert.match(r.reason, /exhaustion|reversal/i);
+});
+ok("sniper merge: reversalTopRisk false/absent does NOT trip the gate — an honest, non-fabricated signal", () => {
+  const r1 = classifyCoreVerdict({ score: 95, entryPlan: CLEAN_ENTRY_PLAN, redFlagResult: CLEAN_RED_FLAGS, reversalTopRisk: false });
+  const r2 = classifyCoreVerdict({ score: 95, entryPlan: CLEAN_ENTRY_PLAN, redFlagResult: CLEAN_RED_FLAGS });
+  assert.notStrictEqual(r1.verdict, "AVOID_LONG");
+  assert.notStrictEqual(r2.verdict, "AVOID_LONG");
+});
 
 console.log("\nChecking the reported TSLA case (spec's own worked example) — real regression guard…");
 ok("Stage 4, Entry Score 35/100, bearish bias, high raw score -> AVOID_LONG, never BUY/EARLY_BUY/WAIT", () => {

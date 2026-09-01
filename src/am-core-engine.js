@@ -434,6 +434,20 @@ function classifyCoreVerdict(input = {}) {
   // through as a BUY the way the reported live case did.
   if (entryPlan.doNotChaseZone?.band === "DO_NOT_CHASE") return { verdict: "AVOID_LONG", reason: "Price is extended — too far above the breakout to chase now." };
   if (entryPlan.doNotChaseZone?.band === "EXTENDED") return { verdict: "AVOID_LONG", reason: "Price is stretched above the breakout — wait for a pullback before entering." };
+  // Sniper merge (2026-09-01 platform audit) — folds sniper-decision.js's
+  // real reversal-detector signal in as a hard gate, the one genuinely new
+  // real read it had that this engine's own 12 buckets/gates had no
+  // equivalent of (RSI level, 52w-high proximity, climax-volume
+  // exhaustion — technical topping exhaustion, NOT the same thing as the
+  // doNotChaseZone gates above, which are pure price-distance-from-pivot
+  // signals; a stock can be un-extended by distance yet genuinely
+  // exhausted). input.reversalTopRisk is the caller's own already-computed
+  // computeReversalDetector({...}).isTop (sniper-decision.js) — never
+  // recomputed here, same "pass the real computed input in" discipline as
+  // entryPlan/redFlagResult above. Sniper AI/Telegram's /sniper no longer
+  // need a second, standalone verdict to carry this real signal — it's
+  // folded into the one real Master Verdict now.
+  if (input.reversalTopRisk) return { verdict: "AVOID_LONG", reason: "Real technical exhaustion signs (near-top reversal read) — too risky to enter here." };
   if (criticalCount > 0) {
     const names = redFlags.filter((f) => f.critical).map((f) => f.label).join(", ");
     return { verdict: "AVOID_LONG", reason: names ? `Critical red flag: ${names}.` : "A critical red flag is active." };

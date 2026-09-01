@@ -850,20 +850,32 @@ async function cmdScanner(args) {
 }
 
 // AI Sniper commands (2026-08-11, explicit user request: "whole ai sniper
-// scanner pro tab as command and be able to check sniper"). Reuses the same
-// real engine as the app's Sniper Decision screen (src/sniper-decision.js,
-// same computeSniperDecision the watchlist-sniper-alerts.js cron job and
-// axiom-runner's SniperDecisionModal.jsx both call) — zero new scoring
-// logic, this only exposes it as a Telegram command.
+// scanner pro tab as command and be able to check sniper"). Exposes the
+// real, canonical Master Verdict (am-core-engine.js's classifyCoreVerdict,
+// via opportunity-engine.js) as a Telegram command.
 //
-// /sniper AAPL — one symbol's real hard-gated verdict, with a deep-link
+// Sniper merge (2026-09-01 platform audit) — this command used to render
+// sniper-decision.js's own standalone ENTER_LONG/WAIT/NO_CHASE/AVOID
+// verdict, a genuinely separate real gate cascade that could disagree with
+// the real Master Verdict shown everywhere else in the app for the same
+// symbol. sniper-decision.js's one real, genuinely new signal (the
+// reversal-detector's technical-exhaustion read) is now folded into
+// classifyCoreVerdict itself as a hard gate, so both real paths below now
+// self-fetch the exact same enriched real routes the app's own UI reads
+// (/api/market/sniper-scan, /api/market/trend-template?withDecision=1) —
+// this command, the Sniper AI tab, and every other Master-Verdict surface
+// can no longer quietly disagree. computeSniperDecision's own checklist
+// (d.reasons) is kept as real supporting evidence under the headline —
+// that's genuinely useful "why," not a second competing verdict.
+//
+// /sniper AAPL — one symbol's real Master Verdict, with a deep-link
 // button back to that symbol's Sniper screen in the app.
 // /sniper (no args) — the real ~100-symbol scan universe (SCAN_UNIVERSE,
 // the exact same universe the AI Sniper Scanner Pro tab itself scans, NOT
-// just the Watchlist), bucketed by verdict with the real top ENTER LONG
-// opportunities listed — the closest text equivalent of "the whole tab."
+// just the Watchlist), bucketed by the real unified verdict.
 async function cmdSniper(args) {
   const { computeSniperDecision } = require("./sniper-decision");
+  const { CORE_VERDICT_META } = require("./am-core-engine");
   const base = process.env.RENDER_EXTERNAL_URL || `http://localhost:${process.env.PORT || 3000}`;
   const sym = (args[0] || "").toUpperCase().trim();
 
@@ -875,13 +887,39 @@ async function cmdSniper(args) {
       const rows = await screenTrendTemplate([sym]);
       const row = (rows || []).find((r) => !r.error);
       if (!row) return reply(`No real data for ${sym} — check the symbol and try again.`);
+      // sniper-decision.js's own checklist — kept as real supporting
+      // evidence (the "WHY:" section), never the headline verdict anymore.
       const d = computeSniperDecision(row);
+
+      // Real canonical verdict — same real macro-quote + computeOpportunity
+      // path /api/market/trend-template?withDecision=1 uses.
+      let coreMeta = null, coreReason = null, entry = null, stop = null, target = null;
+      try {
+        const { computeRegime, regimeToEntryVocabulary } = require("./trade-planner-scoring");
+        const { computeOpportunity } = require("./opportunity-engine");
+        const macroResp = await fetch(`${base}/api/market/quote?symbols=SPY,QQQ,VIXY`);
+        const macroData = macroResp.ok ? await macroResp.json().catch(() => []) : [];
+        const regime = computeRegime(Array.isArray(macroData) ? macroData : []);
+        const marketRegime = regimeToEntryVocabulary(regime.label);
+        const opp = computeOpportunity({ symbol: sym, row, regime, marketRegime });
+        if (opp) {
+          coreMeta = CORE_VERDICT_META[opp.verdict] || null;
+          coreReason = opp.verdictReason;
+          entry = opp.entry; stop = opp.stop; target = opp.target;
+        }
+      } catch { /* best-effort — falls back to sniper's own read below if this fails */ }
+
+      const meta = coreMeta || d.meta;
+      const reasonText = coreReason || d.reason;
+      const rr = (Number.isFinite(entry) && Number.isFinite(stop) && Number.isFinite(target) && entry > stop)
+        ? ((target - entry) / (entry - stop)) : null;
+
       const lines = [
         `🎯 AI SNIPER — ${sym}`,
-        `${d.meta.icon} ${d.meta.label.toUpperCase()}`,
-        d.reason,
+        `${meta.icon} ${meta.label.toUpperCase()}`,
+        reasonText,
         "",
-        d.entry != null ? `Entry $${d.entry.toFixed(2)} · Stop ${d.stop != null ? "$" + d.stop.toFixed(2) : "—"} · Target ${d.target2 != null ? "$" + d.target2.toFixed(2) : "—"}${d.rr != null ? ` · R:R ${d.rr.toFixed(1)}:1` : ""}` : null,
+        entry != null ? `Entry $${Number(entry).toFixed(2)} · Stop ${stop != null ? "$" + Number(stop).toFixed(2) : "—"} · Target ${target != null ? "$" + Number(target).toFixed(2) : "—"}${rr != null ? ` · R:R ${rr.toFixed(1)}:1` : ""}` : null,
         d.waitingFor ? `Waiting for: ${d.waitingFor}` : null,
         "",
         "WHY:",
@@ -903,31 +941,30 @@ async function cmdSniper(args) {
 
   await reply("🎯 Scanning the full real universe (~100 stocks)…");
   try {
-    const { SCAN_UNIVERSE } = require("./advisor-ai");
-    const { screenTrendTemplate } = require("./routes/market");
-    const { rankSniperScan } = require("./sniper-decision");
-    const rows = await withTimeout(screenTrendTemplate(SCAN_UNIVERSE), 45_000, []);
-    // Real ranked scan (2026-08-23) — same real rankSniperScan the new
-    // /api/market/sniper-scan route (Sniper AI tab) now also calls, so
-    // this Telegram command and the in-app tab can never quietly drift
-    // apart. Not just an enter-long filter (explicit user follow-up,
-    // 2026-08-11: "when i type /sniper... ai scanner pro comes") — that
-    // reads as near-empty on a quiet/cautious day (real example: 0 enter
-    // long, 52 avoid). Full ranked list instead.
-    const { ranked, counts } = rankSniperScan(rows);
-    if (!ranked.length) return reply("Scan returned no real data — try again in a moment.");
-    const ICON = { ENTER_LONG: "🟢", WAIT: "🟡", NO_CHASE: "🟠", AVOID: "🔴" };
+    // Self-fetch the real, already-enriched route (2026-09-01 sniper
+    // merge) — /api/market/sniper-scan already attaches the real
+    // coreVerdict/coreReason via computeOpportunity per row, so this
+    // command inherits the exact same unified verdict the Sniper AI tab
+    // shows with zero duplicated computation, guaranteeing they can't drift.
+    const scanResp = await withTimeout(fetch(`${base}/api/market/sniper-scan`), 45_000, null);
+    const scanJson = scanResp && scanResp.ok ? await scanResp.json().catch(() => null) : null;
+    const results = scanJson?.results || [];
+    if (!results.length) return reply("Scan returned no real data — try again in a moment.");
+
+    const counts = { EARLY_BUY: 0, BUY: 0, WATCH: 0, WAIT: 0, AVOID_LONG: 0 };
+    for (const r of results) { if (r.coreVerdict && counts[r.coreVerdict] != null) counts[r.coreVerdict]++; }
 
     const lines = [
-      `🎯 AI SNIPER SCANNER PRO — ${ranked.length} stocks scanned`,
-      `🟢 ${counts.ENTER_LONG || 0} enter long · 🟡 ${counts.WAIT || 0} wait · 🟠 ${counts.NO_CHASE || 0} no chase · 🔴 ${counts.AVOID || 0} avoid`,
+      `🎯 AI SNIPER SCANNER PRO — ${results.length} stocks scanned`,
+      `🟢 ${(counts.EARLY_BUY || 0) + (counts.BUY || 0)} buy · 🟡 ${(counts.WATCH || 0) + (counts.WAIT || 0)} watch/wait · 🔴 ${counts.AVOID_LONG || 0} avoid`,
       "",
       "TOP RANKED (real tier → Minervini → confidence):",
     ];
-    ranked.slice(0, 25).forEach((x, i) => {
-      lines.push(`${i + 1}. ${x.row.symbol} ${ICON[x.d.action]} ${x.d.meta.label.toUpperCase()} — ${x.row.passCount ?? "?"}/8`);
+    results.slice(0, 25).forEach((r, i) => {
+      const meta = r.coreVerdict ? CORE_VERDICT_META[r.coreVerdict] : r.meta;
+      lines.push(`${i + 1}. ${r.symbol} ${meta.icon} ${meta.label.toUpperCase()} — ${r.passCount ?? "?"}/8`);
     });
-    lines.push("", `...and ${Math.max(0, ranked.length - 25)} more.`, "Reply /sniper SYMBOL to check one stock in full detail.");
+    lines.push("", `...and ${Math.max(0, results.length - 25)} more.`, "Reply /sniper SYMBOL to check one stock in full detail.");
     return reply(lines.join("\n"));
   } catch (err) {
     return reply("Sniper scan error: " + err.message);

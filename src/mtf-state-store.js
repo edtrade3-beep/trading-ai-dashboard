@@ -16,12 +16,13 @@ const { ROOT, resolveProviderKeys } = require("./config");
 const { writeJsonAtomic, readJsonSafe } = require("./atomic-write");
 const { loadWatchlist } = require("./routes/watchlist");
 const { computeSniperDecision } = require("./sniper-decision");
+const { computeOpportunity } = require("./opportunity-engine");
 // cortex-decision.js — the already-proven CommonJS twin of
 // axiom-runner/components/cortex-engine.js (same dual-port convention
 // sniper-decision.js uses), not a new shim. Same real functions
 // aplus-score-history.js's own daily snapshot job already uses this way.
 const { computeHeatRisk } = require("./cortex-decision");
-const { computeRegime, computeAPlusScore } = require("./trade-planner-scoring");
+const { computeRegime, computeAPlusScore, regimeToEntryVocabulary } = require("./trade-planner-scoring");
 const { deriveCandidateState, stepMtfState, GATE_DEFAULTS } = require("./mtf-decision-engine");
 const { computeSwingSetup } = require("./mtf-swing-engine");
 const { computeEarlyDevelopment } = require("./mtf-early-engine");
@@ -90,6 +91,7 @@ async function tickMtfStates() {
     const macroRows = await fetchMarketQuotes(["SPY", "QQQ", "VIXY"], resolveProviderKeys(new URLSearchParams()));
     regime = computeRegime(Array.isArray(macroRows) ? macroRows : []);
   } catch {}
+  const marketRegime = regimeToEntryVocabulary(regime?.label);
 
   for (const symbol of symbols) {
     const row = trendBySymbol.get(symbol);
@@ -101,6 +103,11 @@ async function tickMtfStates() {
       ]);
       const swing = r4h ? computeSwingSetup(r4h.bars) : { state: null };
       const early = r1h ? computeEarlyDevelopment({ bars: r1h.bars, indicators: r1h.indicators }) : { score: null };
+      // sniper-decision.js's own checklist — kept for its real reason/
+      // waitingFor evidence text (still read by mtf-explain-ai.js's
+      // prompt below) and as computeHeatRisk's real input. sniper.action
+      // itself is no longer used to drive ev.entryAction — see the sniper
+      // merge note below.
       const sniper = computeSniperDecision(row);
       const heat = computeHeatRisk(row, sniper);
       const aplus = computeAPlusScore(row, regime || {});
@@ -113,10 +120,32 @@ async function tickMtfStates() {
       const atrLevels = r4h ? computeAtrRiskLevels(r4h.bars, currentPrice4h) : { dataInsufficient: true };
       const antiChase = computeAntiChase(Number(row.abovePivotPct));
 
+      // Sniper merge (2026-09-01 platform audit) — ev.entryAction used to
+      // be sniper-decision.js's own standalone action (ENTER_LONG/WAIT/
+      // NO_CHASE/AVOID), a real, separate gate cascade from the Master
+      // Verdict that could disagree with it. Derived here from the real,
+      // unified coreVerdict (am-core-engine.js's classifyCoreVerdict, via
+      // opportunity-engine.js — same engine every other real gate in this
+      // state machine already reads through aplus/swing/early/heat) so
+      // this state machine's own ENTER_LONG/AVOID checks below (see
+      // mtf-decision-engine.js's deriveCandidateState) can never again be
+      // fed a verdict that contradicts what the rest of the app shows for
+      // this symbol. NO_CHASE has no separate slot in the unified 5-value
+      // vocabulary — it's already folded into AVOID_LONG by
+      // classifyCoreVerdict's own doNotChaseZone/reversalTopRisk gates, so
+      // it maps to "AVOID" here too, the same conservative real intent
+      // ("don't enter, wait for a pullback") NO_CHASE always had.
+      const opp = computeOpportunity({ symbol, row, regime, marketRegime });
+      const derivedEntryAction = !opp ? null
+        : (opp.verdict === "EARLY_BUY" || opp.verdict === "BUY") ? "ENTER_LONG"
+        : opp.verdict === "AVOID_LONG" ? "AVOID"
+        : (opp.verdict === "WATCH" || opp.verdict === "WAIT") ? "WAIT"
+        : null;
+
       const prev = state.bySymbol[symbol];
       const ev = {
         quality: aplus.score, swingState: swing.state, earlyScore: early.score,
-        entryAction: sniper.action, exitRiskState: heat.state, dailyBias,
+        entryAction: derivedEntryAction, exitRiskState: heat.state, dailyBias,
         rsRating: row.rsRating, rr: sniper.rr, everStarted: !!prev?.everStarted,
       };
       const { state: candidate, gate } = deriveCandidateState(ev, GATE_DEFAULTS);

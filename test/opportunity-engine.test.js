@@ -151,6 +151,18 @@ ok("an extended (chase-blocked) but otherwise real setup lands in the EXTENDED t
   const o = computeOpportunity({ symbol: "TEST", row, regime: REGIME, marketRegime: "RISK_ON" });
   assert.strictEqual(o.tier, "EXTENDED");
 });
+ok("sniper merge (2026-09-01): a real reversal-detector top-risk read (near-52w-high) forces AVOID_LONG -> EXTENDED tier, computed off the row's own real hi52/lo52 fields, never a second standalone verdict", () => {
+  const row = baseRow({ hi52: 105, lo52: 60 }); // price 102, 2.9% off a real 52w high -> real isTop signal
+  const o = computeOpportunity({ symbol: "TEST", row, regime: REGIME, marketRegime: "RISK_ON" });
+  assert.strictEqual(o.verdict, "AVOID_LONG");
+  assert.strictEqual(o.tier, "EXTENDED");
+  assert.strictEqual(o.reversalTopRisk, true);
+  assert.ok(o.reversal && o.reversal.isTop, "real reversal object must be exposed on the Opportunity Object");
+});
+ok("no real 52w-high/low data on the row -> honest false, never a fabricated reversal signal", () => {
+  const o = computeOpportunity({ symbol: "TEST", row: baseRow(), regime: REGIME, marketRegime: "RISK_ON" });
+  assert.strictEqual(o.reversalTopRisk, false);
+});
 ok("optionsFlow contradicting a real bullish verdict is surfaced as CONTRADICTS on the Opportunity Object, not silently dropped", () => {
   const o = computeOpportunity({
     symbol: "TEST", row: baseRow(), regime: REGIME, marketRegime: "RISK_ON",

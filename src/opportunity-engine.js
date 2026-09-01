@@ -28,6 +28,7 @@ const { computeCoreScore, classifyCoreVerdict, computeBearishScore, classifyBear
 const { computeAPlusScore } = require("./trade-planner-scoring");
 const { buildEvFromRow } = require("./watchlist-setup-alerts");
 const { winProbFor } = require("./institutional-scoring");
+const { computeReversalDetector } = require("./sniper-decision");
 
 function round2(n) { return Number.isFinite(n) ? Math.round(n * 100) / 100 : null; }
 
@@ -78,8 +79,12 @@ function computeExpectedValue({ winRate, entry, stop, target, spreadPct }) {
 // plenty of genuinely-developing setups as dead. The entry-score-only
 // case reads as WAIT — not ready for a new position right now, but not a
 // broken thesis either.
-function classifyOpportunityTier({ verdict, entryStage, antiChaseBand, structurallyInvalid }) {
-  const chaseBlocked = antiChaseBand === "EXTENDED" || antiChaseBand === "DO_NOT_CHASE";
+function classifyOpportunityTier({ verdict, entryStage, antiChaseBand, structurallyInvalid, reversalTopRisk = false }) {
+  // reversalTopRisk folded into the same "EXTENDED" tier as the anti-chase
+  // bands (2026-09-01 sniper merge) — semantically the same real class of
+  // gate: too risky to enter RIGHT NOW (temporary technical exhaustion),
+  // not a permanent structural disqualification like INVALIDATED covers.
+  const chaseBlocked = antiChaseBand === "EXTENDED" || antiChaseBand === "DO_NOT_CHASE" || reversalTopRisk;
   if (verdict === "AVOID_LONG") {
     if (chaseBlocked) return "EXTENDED";
     return structurallyInvalid ? "INVALIDATED" : "WAIT";
@@ -332,10 +337,22 @@ function computeOpportunity({ symbol, row, regime, marketRegime, sectorInfo = nu
     riskPct: row.riskPct, pctFromHigh: row.pctFromHigh, antiChase: ev.antiChase,
     optionsFlow, dollarVolume: row.dollarVolume,
   });
+  // Sniper merge (2026-09-01 platform audit) — the real reversal-detector
+  // read sniper-decision.js's own standalone verdict used to gate on
+  // (NO_CHASE on reversalTopRisk), computed here off the exact same real
+  // row fields screenTrendTemplate already attaches (hi52/lo52/rsi/
+  // volRatio/dayChangePct/weekChangePct/ma50) — zero new fetch. Threaded
+  // into classifyCoreVerdict as one more hard gate so the Master Verdict
+  // itself now carries this signal, instead of it only ever showing up in
+  // a second, separately-computed verdict that could disagree.
+  const reversal = computeReversalDetector({
+    price: row.price, hi52: row.hi52, lo52: row.lo52, rsi: row.rsi,
+    rvol: row.volRatio, dayChangePct: row.dayChangePct, weekChangePct: row.weekChangePct, ma50: row.ma50,
+  });
   const deep = classifyCoreVerdict({
     score: coreScore.score, entryPlan, redFlagResult,
     stage: row.stage, dailyBias: ev.dailyBias, entryScore: aPlusScore,
-    hasPosition: false,
+    hasPosition: false, reversalTopRisk: !!(reversal && reversal.isTop),
   });
   if (!deep) return null; // SHORT direction or otherwise unclassifiable — honest null, never a guess
 
@@ -390,7 +407,7 @@ function computeOpportunity({ symbol, row, regime, marketRegime, sectorInfo = nu
     || redFlagResult.criticalCount > 0
     || String(row.stage || "").startsWith("Stage 4")
     || ev.dailyBias === "BEARISH";
-  const tier = classifyOpportunityTier({ verdict: deep.verdict, entryStage: entryPlan.stage, antiChaseBand: ev.antiChase?.band, structurallyInvalid });
+  const tier = classifyOpportunityTier({ verdict: deep.verdict, entryStage: entryPlan.stage, antiChaseBand: ev.antiChase?.band, structurallyInvalid, reversalTopRisk: !!(reversal && reversal.isTop) });
   const options = checkOptionsConfirmsStructure({ optionsFlow, verdict: deep.verdict });
 
   const fingerprint = buildMarketFingerprint({
@@ -439,6 +456,14 @@ function computeOpportunity({ symbol, row, regime, marketRegime, sectorInfo = nu
     counterfactual,
     criticalFlags: redFlagResult.criticalCount,
     redFlags: redFlagResult.flags,
+    // Real reversal-detector read (sniper merge, 2026-09-01) — exposed so
+    // a consumer can show WHY a reversalTopRisk-gated AVOID_LONG fired
+    // (e.g. Sniper AI/Telegram's /sniper, which used to compute this
+    // itself as a second, standalone verdict) without recomputing it.
+    // null when no real top-risk signal is present, same honest-null
+    // discipline as every other field here.
+    reversalTopRisk: !!(reversal && reversal.isTop),
+    reversal: reversal || null,
     // Bearish fields — additive, `verdict`/`stop`/`target` above stay the
     // real long-side fields every existing consumer already reads.
     bearishVerdict: bearishDeep?.verdict ?? null,
