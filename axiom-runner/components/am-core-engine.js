@@ -19,12 +19,24 @@ function clampRound(n, max) {
   return Math.max(0, Math.min(max, Math.round(n)));
 }
 
+// Weights synced to src/am-core-engine.js's real Central Opportunity &
+// Options Engine phase (2026-08-31 audit fix — real, confirmed live drift:
+// this twin was still on the PRE-"Options Confirmation" 11-bucket/14pt
+// weight set; the server moved to a 12-bucket/13pt set with its own
+// dedicated 10pt Options Confirmation bucket several phases ago and this
+// file was never updated). This drift was real, not cosmetic — 4 real
+// client-side callers (RhProScanner.jsx, AMCortexTab.jsx,
+// MarketTerminalTab.jsx, SmartScanTab.jsx) call this function directly to
+// compute their OWN client-side score, so Trade Desk's displayed AI score
+// could disagree with the server's real score for the identical real
+// inputs. See src/am-core-engine.js's own per-bucket comments for the full
+// rationale — this file mirrors those exact point values now.
 export function computeCoreScore(input = {}) {
   const regimeScore = Number(input.regime?.score);
-  const regimePts = Number.isFinite(regimeScore) ? clampRound((regimeScore / 100) * 14, 14) : 7;
+  const regimePts = Number.isFinite(regimeScore) ? clampRound((regimeScore / 100) * 13, 13) : 6.5;
 
   const passCount = Number(input.passCount);
-  const trendPts = Number.isFinite(passCount) ? clampRound((passCount / 8) * 14, 14) : 7;
+  const trendPts = Number.isFinite(passCount) ? clampRound((passCount / 8) * 13, 13) : 6.5;
 
   const adx = input.adx;
   let adxPts = 5.5;
@@ -41,53 +53,59 @@ export function computeCoreScore(input = {}) {
   else if (smc?.choch?.type === "CHOCH_BEAR") smcPts = 2;
   else if (smc?.nearestOB?.type === "BULL_OB") smcPts = 3.5;
   else if (smc?.nearestOB?.type === "BEAR_OB") smcPts = 2;
-  const structurePts = clampRound(adxPts + smcPts, 11);
+  const structurePts = clampRound((adxPts + smcPts) * (10 / 11), 10);
 
   const momentum = Number(input.momentum);
   const momentumPts = Number.isFinite(momentum) ? clampRound(Math.max(0, Math.min(1, (momentum + 0.1) / 0.5)) * 7, 7) : 3.5;
 
   const volRatio = Number(input.volRatio);
-  const volumePts = Number.isFinite(volRatio) ? clampRound(Math.max(0, Math.min(1, volRatio / 2)) * 9, 9) : 4.5;
+  const volumePts = Number.isFinite(volRatio) ? clampRound(Math.max(0, Math.min(1, volRatio / 2)) * 8, 8) : 4;
 
   const rsRating = Number(input.rsRating);
-  const rsPts = Number.isFinite(rsRating) ? clampRound((Math.max(1, Math.min(99, rsRating)) / 99) * 9, 9) : 4.5;
+  const rsPts = Number.isFinite(rsRating) ? clampRound((Math.max(1, Math.min(99, rsRating)) / 99) * 8, 8) : 4;
 
   const vcpScoreRaw = Number(input.vcpScore);
-  const setupQualityPts = Number.isFinite(vcpScoreRaw) ? clampRound((vcpScoreRaw / 100) * 9, 9) : 4.5;
+  const setupQualityPts = Number.isFinite(vcpScoreRaw) ? clampRound((vcpScoreRaw / 100) * 8, 8) : 4;
 
   // Real bug fix (2026-08-26, "unify the swing/entry-decision verdict"):
   // this used to check band names "IDEAL"/"ACCEPTABLE"/"STRETCHED" — names
   // computeAntiChase (anti-chase.js) never actually produces. Its real
   // bands are NOT_YET_BROKEN_OUT/NORMAL/CAUTION/EXTENDED/DO_NOT_CHASE, so
   // every real antiChase read except the exact terminal DO_NOT_CHASE
-  // silently fell through to the generic 2.25 "unavailable" default.
+  // silently fell through to the generic "unavailable" default.
   const antiChaseBand = input.antiChase?.band;
-  const entryDistPts = antiChaseBand === "NOT_YET_BROKEN_OUT" || antiChaseBand === "NORMAL" ? 4.5
-    : antiChaseBand === "CAUTION" ? 3
-    : antiChaseBand === "EXTENDED" ? 1.5
+  const entryDistPts = antiChaseBand === "NOT_YET_BROKEN_OUT" || antiChaseBand === "NORMAL" ? 4
+    : antiChaseBand === "CAUTION" ? 2.67
+    : antiChaseBand === "EXTENDED" ? 1.33
     : antiChaseBand === "DO_NOT_CHASE" ? 0
-    : 2.25;
+    : 2;
   const riskPct = Number(input.riskPct);
-  const riskDistPts = Number.isFinite(riskPct) && riskPct > 0 ? Math.max(0, Math.min(1, (10 - riskPct) / 7)) * 4.5 : 2.25;
-  const entryQualityPts = clampRound(entryDistPts + riskDistPts, 9);
+  const riskDistPts = Number.isFinite(riskPct) && riskPct > 0 ? Math.max(0, Math.min(1, (10 - riskPct) / 7)) * 4 : 2;
+  const entryQualityPts = clampRound(entryDistPts + riskDistPts, 8);
 
   const sectorRank = Number(input.sectorInfo?.rank);
   const sectorOf = Number(input.sectorInfo?.of) || 11;
-  const sectorPts = Number.isFinite(sectorRank) && sectorRank > 0 ? clampRound(((sectorOf - sectorRank + 1) / sectorOf) * 8, 8) : 4;
+  const sectorPts = Number.isFinite(sectorRank) && sectorRank > 0 ? clampRound(((sectorOf - sectorRank + 1) / sectorOf) * 7, 7) : 3.5;
 
   const dollarVolume = Number(input.dollarVolume);
   const liquidityPts = Number.isFinite(dollarVolume) && dollarVolume > 0 ? clampRound(Math.max(0, Math.min(1, dollarVolume / 1e9)) * 5, 5) : 3;
 
+  // Catalyst — 3pts, EPS growth only (options flow moved to its own
+  // dedicated bucket below — see src/am-core-engine.js's comment for why).
   const epsGrowth = Number(input.epsGrowth);
-  const epsPts = Number.isFinite(epsGrowth) ? Math.max(0, Math.min(1, (epsGrowth + 10) / 30)) * 2.5 : 1.25;
+  const catalystPts = Number.isFinite(epsGrowth) ? clampRound(Math.max(0, Math.min(1, (epsGrowth + 10) / 30)) * 3, 3) : 1.5;
+
+  // Options Confirmation — 10pts (NEW bucket this fix adds to the client
+  // twin — was previously folded into Catalyst at half weight, silently
+  // missing from this file's own SCORE_BUCKET_META display too).
   const callN = Number(input.optionsFlow?.callNotional), putN = Number(input.optionsFlow?.putNotional);
   const flowTotal = (Number.isFinite(callN) ? callN : 0) + (Number.isFinite(putN) ? putN : 0);
   const flowRatio = flowTotal > 0 ? callN / flowTotal : null;
-  const flowPts = flowRatio != null ? Math.max(0, Math.min(1, flowRatio)) * 2.5 : 1.25;
-  const catalystPts = clampRound(epsPts + flowPts, 5);
+  const optionsConfirmationPts = flowRatio != null ? clampRound(Math.max(0, Math.min(1, flowRatio)) * 10, 10) : 5;
 
   const breakdown = {
     regime: regimePts, trend: trendPts, structure: structurePts, momentum: momentumPts,
+    optionsConfirmation: optionsConfirmationPts,
     volume: volumePts, relativeStrength: rsPts, setupQuality: setupQualityPts,
     entryQuality: entryQualityPts, sector: sectorPts, liquidity: liquidityPts, catalyst: catalystPts,
   };
@@ -101,19 +119,17 @@ export function computeCoreScore(input = {}) {
     Number.isFinite(rsRating) ? `RS Rating ${rsRating}` : "RS Rating unavailable",
     Number.isFinite(vcpScoreRaw) ? `VCP Setup Score ${vcpScoreRaw}/100` : "No real VCP base detected",
     Number.isFinite(sectorRank) ? `Sector rank #${sectorRank}/${sectorOf} today` : "Sector rank unavailable",
+    flowRatio != null ? `Real options flow ${Math.round(flowRatio * 100)}% call-weighted` : "Options flow data unavailable",
   ];
 
   return { score, breakdown, reasons };
 }
 
-// computeBearishScore — short-side sibling of computeCoreScore, added
-// 2026-08-31 (explicit user request: "trade up and down options and
-// stocks and crypto"). Mirrors THIS file's own 11-bucket weights exactly
-// (not the server's 12-bucket set — the two files are already out of
-// sync per src/am-core-engine.js's own header comment; this addition
-// deliberately does not fix that pre-existing drift, just stays
-// internally consistent with whichever bucket set each file already
-// has). Same "never fabricate — neutral default when data is missing"
+// computeBearishScore — short-side sibling of computeCoreScore. Weights
+// synced to the server's real 12-bucket set in the same 2026-08-31 audit
+// fix as computeCoreScore above (this file previously mirrored its OWN
+// stale 11-bucket set, not the server's real one — now matches exactly).
+// Same "never fabricate — neutral default when data is missing"
 // discipline; polarity flipped per-bucket where the signal is
 // directional. See src/am-core-engine.js's computeBearishScore for the
 // full per-bucket rationale (Setup Quality deliberately left flat —
@@ -121,10 +137,10 @@ export function computeCoreScore(input = {}) {
 // to invert; Volume/Liquidity deliberately NOT flipped — directionless).
 export function computeBearishScore(input = {}) {
   const regimeScore = Number(input.regime?.score);
-  const bRegimePts = Number.isFinite(regimeScore) ? clampRound(((100 - regimeScore) / 100) * 14, 14) : 7;
+  const bRegimePts = Number.isFinite(regimeScore) ? clampRound(((100 - regimeScore) / 100) * 13, 13) : 6.5;
 
   const passCount = Number(input.passCount);
-  const bTrendPts = Number.isFinite(passCount) ? clampRound(((8 - passCount) / 8) * 14, 14) : 7;
+  const bTrendPts = Number.isFinite(passCount) ? clampRound(((8 - passCount) / 8) * 13, 13) : 6.5;
 
   const adx = input.adx;
   let bAdxPts = 5.5;
@@ -141,47 +157,48 @@ export function computeBearishScore(input = {}) {
   else if (smc?.choch?.type === "CHOCH_BULL") bSmcPts = 2;
   else if (smc?.nearestOB?.type === "BEAR_OB") bSmcPts = 3.5;
   else if (smc?.nearestOB?.type === "BULL_OB") bSmcPts = 2;
-  const bStructurePts = clampRound(bAdxPts + bSmcPts, 11);
+  const bStructurePts = clampRound((bAdxPts + bSmcPts) * (10 / 11), 10);
 
   const momentum = Number(input.momentum);
   const bMomentumPts = Number.isFinite(momentum) ? clampRound(Math.max(0, Math.min(1, (-momentum + 0.1) / 0.5)) * 7, 7) : 3.5;
 
   const volRatio = Number(input.volRatio);
-  const bVolumePts = Number.isFinite(volRatio) ? clampRound(Math.max(0, Math.min(1, volRatio / 2)) * 9, 9) : 4.5;
+  const bVolumePts = Number.isFinite(volRatio) ? clampRound(Math.max(0, Math.min(1, volRatio / 2)) * 8, 8) : 4;
 
   const rsRating = Number(input.rsRating);
-  const bRsPts = Number.isFinite(rsRating) ? clampRound(((99 - Math.max(1, Math.min(99, rsRating))) / 99) * 9, 9) : 4.5;
+  const bRsPts = Number.isFinite(rsRating) ? clampRound(((99 - Math.max(1, Math.min(99, rsRating))) / 99) * 8, 8) : 4;
 
   // Deliberately flat/neutral — see file-level comment above.
-  const bSetupQualityPts = 4.5;
+  const bSetupQualityPts = 4;
 
   const bExtBand = input.bearishExtension?.band;
-  const bEntryDistPts = bExtBand === "NOT_YET_BROKEN_DOWN" || bExtBand === "NORMAL" ? 4.5
-    : bExtBand === "CAUTION" ? 3
-    : bExtBand === "EXTENDED" ? 1.5
+  const bEntryDistPts = bExtBand === "NOT_YET_BROKEN_DOWN" || bExtBand === "NORMAL" ? 4
+    : bExtBand === "CAUTION" ? 2.67
+    : bExtBand === "EXTENDED" ? 1.33
     : bExtBand === "DO_NOT_CHASE" ? 0
-    : 2.25;
+    : 2;
   const riskPct = Number(input.riskPct);
-  const bRiskDistPts = Number.isFinite(riskPct) && riskPct > 0 ? Math.max(0, Math.min(1, (10 - riskPct) / 7)) * 4.5 : 2.25;
-  const bEntryQualityPts = clampRound(bEntryDistPts + bRiskDistPts, 9);
+  const bRiskDistPts = Number.isFinite(riskPct) && riskPct > 0 ? Math.max(0, Math.min(1, (10 - riskPct) / 7)) * 4 : 2;
+  const bEntryQualityPts = clampRound(bEntryDistPts + bRiskDistPts, 8);
 
   const sectorRank = Number(input.sectorInfo?.rank);
   const sectorOf = Number(input.sectorInfo?.of) || 11;
-  const bSectorPts = Number.isFinite(sectorRank) && sectorRank > 0 ? clampRound((sectorRank / sectorOf) * 8, 8) : 4;
+  const bSectorPts = Number.isFinite(sectorRank) && sectorRank > 0 ? clampRound((sectorRank / sectorOf) * 7, 7) : 3.5;
 
   const dollarVolume = Number(input.dollarVolume);
   const bLiquidityPts = Number.isFinite(dollarVolume) && dollarVolume > 0 ? clampRound(Math.max(0, Math.min(1, dollarVolume / 1e9)) * 5, 5) : 3;
 
   const epsGrowth = Number(input.epsGrowth);
-  const bEpsPts = Number.isFinite(epsGrowth) ? Math.max(0, Math.min(1, (-epsGrowth + 10) / 30)) * 2.5 : 1.25;
+  const bCatalystPts = Number.isFinite(epsGrowth) ? clampRound(Math.max(0, Math.min(1, (-epsGrowth + 10) / 30)) * 3, 3) : 1.5;
+
   const callN = Number(input.optionsFlow?.callNotional), putN = Number(input.optionsFlow?.putNotional);
   const flowTotal = (Number.isFinite(callN) ? callN : 0) + (Number.isFinite(putN) ? putN : 0);
   const putRatio = flowTotal > 0 ? putN / flowTotal : null;
-  const bFlowPts = putRatio != null ? Math.max(0, Math.min(1, putRatio)) * 2.5 : 1.25;
-  const bCatalystPts = clampRound(bEpsPts + bFlowPts, 5);
+  const bOptionsConfirmationPts = putRatio != null ? clampRound(Math.max(0, Math.min(1, putRatio)) * 10, 10) : 5;
 
   const breakdown = {
     regime: bRegimePts, trend: bTrendPts, structure: bStructurePts, momentum: bMomentumPts,
+    optionsConfirmation: bOptionsConfirmationPts,
     volume: bVolumePts, relativeStrength: bRsPts, setupQuality: bSetupQualityPts,
     entryQuality: bEntryQualityPts, sector: bSectorPts, liquidity: bLiquidityPts, catalyst: bCatalystPts,
   };

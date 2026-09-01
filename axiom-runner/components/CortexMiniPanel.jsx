@@ -45,25 +45,35 @@ const RISK_LEVEL_COLOR = { LOW: "#0d9465", MODERATE: "#d6a312", HIGH: "#c8282a" 
 
 // Score Breakdown (Trade Desk redesign Phase 1, §8 — "AI Score Engine"
 // transparent bucket breakdown). Zero new scoring: am-core-engine.js's own
-// computeCoreScore already returns these exact 11 real weighted buckets
+// computeCoreScore already returns these exact 12 real weighted buckets
 // (opp.breakdown, already flowing through opportunity-engine.js's
 // computeOpportunity into row.opportunity — confirmed via code read, no
 // server change needed) — this only renders what was already computed and
 // already reaching the client, unused until now. Max points per bucket
 // match computeCoreScore's own real weights (am-core-engine.js) exactly;
 // keep in sync if that engine's weights ever change.
+//
+// Fixed (2026-08-31 audit): was still the PRE-"Options Confirmation"
+// 11-bucket/14pt set — real, confirmed live drift, not cosmetic. The
+// server moved to a 12-bucket/13pt set with its own dedicated 10pt
+// Options Confirmation bucket several phases ago; this display metadata
+// was never updated, so every bar here was miscalibrated (wrong max) and
+// the real Options Confirmation bucket was silently invisible (no entry
+// in this map at all, so Object.entries never rendered it even though
+// the server was already sending opp.breakdown.optionsConfirmation).
 const SCORE_BUCKET_META = {
-  regime: { label: "MARKET REGIME", max: 14 },
-  trend: { label: "TREND", max: 14 },
-  structure: { label: "STRUCTURE", max: 11 },
+  regime: { label: "MARKET REGIME", max: 13 },
+  trend: { label: "TREND", max: 13 },
+  structure: { label: "STRUCTURE", max: 10 },
   momentum: { label: "MOMENTUM", max: 7 },
-  volume: { label: "VOLUME", max: 9 },
-  relativeStrength: { label: "RELATIVE STRENGTH", max: 9 },
-  setupQuality: { label: "VCP SETUP", max: 9 },
-  entryQuality: { label: "ENTRY QUALITY", max: 9 },
-  sector: { label: "SECTOR", max: 8 },
+  optionsConfirmation: { label: "OPTIONS CONFIRMATION", max: 10 },
+  volume: { label: "VOLUME", max: 8 },
+  relativeStrength: { label: "RELATIVE STRENGTH", max: 8 },
+  setupQuality: { label: "VCP SETUP", max: 8 },
+  entryQuality: { label: "ENTRY QUALITY", max: 8 },
+  sector: { label: "SECTOR", max: 7 },
   liquidity: { label: "LIQUIDITY", max: 5 },
-  catalyst: { label: "CATALYST", max: 5 },
+  catalyst: { label: "CATALYST", max: 3 },
 };
 function ScoreBreakdown({ opp, overrideReason, C, MONO, SANS }) {
   const [open, setOpen] = useState(false);
