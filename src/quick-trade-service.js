@@ -15,16 +15,31 @@
 // buying-power rejection is never overridden; this service only removes
 // the additional application-level "no short" refusal for its own
 // explicitly-short-side calls.
+const path = require("node:path");
 const { alpacaTradingRequest, isAlpacaConfigured } = require("./providers/alpaca-client");
 const {
-  checkAccountHealth, dailyLossBreakerTripped, openRiskPct, sectorCapExceeded,
+  checkAccountHealth, dailyLossBreakerTripped, weeklyLossBreakerTripped,
+  totalDrawdownBreakerTripped, updateWeeklyDrawdownState, openRiskPct, sectorCapExceeded,
   isMarketHoursET, sizePositionByRisk,
 } = require("./risk-guardrails");
-const { PORT } = require("./config");
+const { writeJsonAtomic, readJsonSafe } = require("./atomic-write");
+const { PORT, ROOT } = require("./config");
 
 const MAX_LOSS_PCT = Number(process.env.SERVER_AUTOPILOT_MAXLOSS) || 2;
 const MAX_RISK_PCT = Number(process.env.SERVER_AUTOPILOT_MAXRISK) || 6;
 const MAX_PER_SECTOR = Number(process.env.SERVER_AUTOPILOT_MAXSECTOR) || 3;
+const WEEKLY_MAX_LOSS_PCT = Number(process.env.SERVER_AUTOPILOT_WEEKLY_MAXLOSS) || 5;
+const MAX_DRAWDOWN_PCT = Number(process.env.SERVER_AUTOPILOT_MAX_DRAWDOWN) || 15;
+
+// Same shared real account-level high-water-mark file server-autopilot.js,
+// autopilot2-engine.js, and lightbox-autopilot-execute.js already read/write
+// (Autopilot goal audit, 2026-08-30) — one real Alpaca paper account gets
+// one real weekly/drawdown breaker anchor, never a private copy that could
+// disagree with the others about whether it's already tripped.
+const RISK_STATE_PATH = path.join(ROOT, "data", "autopilot-risk-state.json");
+const DEFAULT_RISK_STATE = { weekAnchorDate: "", weekStartEquity: 0, peakEquity: 0 };
+function readRiskState() { return { ...DEFAULT_RISK_STATE, ...readJsonSafe(RISK_STATE_PATH, null) }; }
+function writeRiskState(state) { writeJsonAtomic(RISK_STATE_PATH, state); }
 
 // Same real self-loopback JSON-fetch convention routes/ai-hub.js already
 // uses for this exact computeSymbolVsPositionsCorrelation call.
@@ -78,6 +93,20 @@ async function preTradeCheck({ symbol, requireMarketHours = true, checkCorrelati
 
   if (dailyLossBreakerTripped({ equity: account.equity, startOfDayEquity: account.lastEquity, maxLossPct: MAX_LOSS_PCT })) {
     return { ok: false, reason: `daily loss breaker tripped (real -${MAX_LOSS_PCT}% limit)` };
+  }
+
+  // Weekly/total-drawdown breakers (2026-09-01 /goal Phase 8 audit fix) —
+  // this function already had the daily breaker but was the only one of
+  // the 4 real order-placing paths missing these two. Same shared
+  // real risk-state file/anchor the other 3 read/write.
+  const riskState = readRiskState();
+  updateWeeklyDrawdownState(riskState, account.equity);
+  writeRiskState(riskState);
+  if (weeklyLossBreakerTripped({ equity: account.equity, weekStartEquity: riskState.weekStartEquity, maxLossPct: WEEKLY_MAX_LOSS_PCT })) {
+    return { ok: false, reason: `weekly loss breaker tripped (real -${WEEKLY_MAX_LOSS_PCT}% limit)` };
+  }
+  if (totalDrawdownBreakerTripped({ equity: account.equity, peakEquity: riskState.peakEquity, maxDrawdownPct: MAX_DRAWDOWN_PCT })) {
+    return { ok: false, reason: `total drawdown breaker tripped (real -${MAX_DRAWDOWN_PCT}% off peak)` };
   }
 
   const risk = openRiskPct({ positions, equity: account.equity });

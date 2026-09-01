@@ -38,7 +38,7 @@ const { fetchAlpacaQuotes } = require("./providers/alpaca-data");
 const {
   isMarketHoursET, checkAccountHealth, dailyLossBreakerTripped,
   weeklyLossBreakerTripped, totalDrawdownBreakerTripped, updateWeeklyDrawdownState,
-  openRiskPct, sizePositionByRisk,
+  openRiskPct, sectorCapExceeded, sizePositionByRisk,
 } = require("./risk-guardrails");
 const {
   getMode, getPosition, upsertPosition, logActivity,
@@ -149,6 +149,15 @@ async function validateAndSize(symbol) {
   const maxRiskPct = Number(process.env.LIGHTBOX_AUTOPILOT_MAXRISK) || 3;
   if (openRiskPct({ positions: normPositions, equity }) >= maxRiskPct) {
     return { ok: false, error: `Open-risk ceiling reached (≥${maxRiskPct}% of equity across all real open positions).` };
+  }
+  // Sector cap (2026-09-01 /goal Phase 8 audit fix) — this file already
+  // imported every other real risk-guardrails.js check (health, breakers,
+  // open-risk) but never sectorCapExceeded, the one server-autopilot.js/
+  // autopilot2-engine.js both already gate on. Real gap, not an intentional
+  // exemption (nothing in this file's own header explained one).
+  const maxPerSector = Number(process.env.LIGHTBOX_AUTOPILOT_MAXSECTOR) || 3;
+  if (sectorCapExceeded({ positions: normPositions, symbol, maxPerSector })) {
+    return { ok: false, error: `Sector cap: already ${maxPerSector}+ real positions in this sector.` };
   }
 
   // Real shortability check (SHORT only) — Alpaca will reject an

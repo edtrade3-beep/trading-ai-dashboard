@@ -5,6 +5,7 @@ const { tierStats, appendJournal, readJournal } = require("../autopilot-journal"
 const { computeLearningGates } = require("../learning-engine");
 const { sectorOf } = require("../risk-guardrails");
 const { resolveAlpacaKeys, alpacaTradingRequest } = require("../providers/alpaca-client");
+const { preTradeCheck } = require("../quick-trade-service");
 
 // keys()/alpaca() now thin aliases over the real shared client
 // (src/providers/alpaca-client.js) — extracted 2026-07 after finding this
@@ -378,6 +379,18 @@ async function handleAlpaca(req, res, requestUrl) {
       if (heldLong <= 0) return writeJson(res, 200, { ok: false, error: `Shorting disabled — no long position in ${symbol} to sell (long-only).` });
       if (qty > heldLong) return writeJson(res, 200, { ok: false, error: `Long-only: can sell at most ${heldLong} ${isCrypto ? "" : "sh "}of ${symbol} (would open a short).` });
     }
+    // Real pre-trade risk gate (2026-09-01 /goal Phase 8 audit fix) — this
+    // was the one real order-placing path with ZERO risk-gate coverage
+    // (no health check, no breakers, no open-risk ceiling, no sector cap,
+    // no market-hours check beyond Alpaca's own rejection). Reuses
+    // quick-trade-service.js's existing preTradeCheck rather than inventing
+    // a second version of the same real checks. Crypto trades 24/7, so it
+    // never requires market hours; correlation is only checked on a real
+    // buy (an exposure-reducing sell/short-cover should never be blocked
+    // by a "don't add correlated risk" gate — same real reasoning
+    // preTradeCheck's own callers already use).
+    const gate = await preTradeCheck({ symbol, requireMarketHours: !isCrypto, checkCorrelation: side === "buy" });
+    if (!gate.ok) return writeJson(res, 200, { ok: false, error: gate.reason || "blocked by real pre-trade risk gate" });
     const order = {
       symbol, qty: String(qty), side,
       type: b.type || "market",
