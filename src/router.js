@@ -91,7 +91,17 @@ async function handleRequest(req, res) {
       // real paper account, same gate as the legacy Alpaca routes above.
       // /precheck is GET-only (read-only risk-gate status) and intentionally
       // not listed here.
-      pathname.startsWith("/api/quick-trade/")
+      pathname.startsWith("/api/quick-trade/") ||
+      // Light Box Autopilot ASSIST (routes/autopilot.js) — /execute places a
+      // real bracket order on the real Alpaca paper account via
+      // lightbox-autopilot-execute.js, same risk category as /api/alpaca/order
+      // above; found unguarded during the 2026-09-01 platform-wide audit.
+      // /preview and /mode(POST) swept in too (same prefix, same POST
+      // gate) — preview returns real account equity/positions data and
+      // mode flips whether ASSIST is armed, neither should be reachable
+      // with zero auth either. /status and /mode(GET) are read-only and
+      // stay open (not POST/DELETE, never reach this branch).
+      pathname.startsWith("/api/autopilot/")
     )) {
       if (!AUTH_TOKEN) return writeJson(res, 401, { ok: false, error: "unauthorized — API_AUTH_TOKEN is not configured on the server" });
       const tok = req.headers["x-api-token"] || "";
