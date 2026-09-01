@@ -131,7 +131,17 @@ const DOCK_MODULES = [
   { key: "news", label: "NEWS", color: "#0d9488" },
   { key: "scanner", label: "SCANNER", color: "#4f46e5" },
   { key: "vcp", label: "VCP", color: "#9333ea" },
-  { key: "autopilot", label: "AUTOPILOT", color: "#0284c7" },
+  // Relabeled from "AUTOPILOT" (2026-08-31 audit fix, finding #2) — this
+  // dock module is Light Box's own real order-assist panel
+  // (AutopilotPanel.jsx: preview/confirm real Alpaca paper orders off
+  // Light Box's own detections), a genuinely different, deliberate third
+  // system from src/server-autopilot.js/AutoPilotEngine.jsx (swing) and
+  // the dedicated Autopilot 2.0 sidebar tab — NOT an old version of
+  // either. The generic "AUTOPILOT" label, sitting right next to the
+  // "LIGHT BOX" tab, read as if it were the same category of thing as
+  // the real Autopilot 2.0 tab. Key unchanged (dockModule === "autopilot"
+  // still works everywhere) — only the user-visible label changed.
+  { key: "autopilot", label: "LB ASSIST", color: "#0284c7" },
 ];
 
 export default function TradeDeskTab({

@@ -106,7 +106,12 @@ export default function AutopilotPanel({ C, MONO, SANS }) {
     <div style={{ marginBottom: 14, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, boxShadow: C.shadow, padding: "10px 14px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: C.text }}>🤖 AUTOPILOT</span>
+          {/* Relabeled from "AUTOPILOT" (2026-08-31 audit fix) — this panel
+              is Light Box's own order-assist feature, not the dedicated
+              Autopilot 2.0 system; the generic label read as the same
+              thing. See this file's own header comment for the full
+              real-system-boundary explanation. */}
+          <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: C.text }}>🤖 LIGHT BOX ASSIST</span>
           <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: modeColor }}>
             {status.mode === "OFF" ? "⚪ OFF" : `🟢 ${status.mode}`}
           </span>
