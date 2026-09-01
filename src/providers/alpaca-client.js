@@ -24,6 +24,26 @@ function isAlpacaConfigured() {
   return Boolean(id && secret);
 }
 
+// Real write lock (2026-08-31, audit fix #3) — server-autopilot.js,
+// lightbox-autopilot-execute.js, and AutoPilotEngine.jsx (via
+// routes/alpaca.js) all trade the SAME real Alpaca paper account, and
+// all three now funnel every real order/position mutation through this
+// one function. Previously that coordination was comment-level only
+// ("stays separate" headers, distinct client_order_id prefixes) — real,
+// but nothing stopped two systems' ticks from landing a POST /v2/orders
+// (or a DELETE close) at the literal same moment. A promise chain here
+// serializes every real mutating call (GETs are read-only and pass
+// straight through — no reason to slow polling for those) so a second
+// system's order/close always sees the first one's real, already-
+// reflected effect before it place its own, closing that race
+// structurally instead of by convention.
+let _writeLock = Promise.resolve();
+function withWriteLock(fn) {
+  const run = _writeLock.then(fn, fn);
+  _writeLock = run.then(() => {}, () => {});
+  return run;
+}
+
 // Real trading-API request. Response shape is a real superset of what both
 // pre-extraction copies used (ok/status/data, plus the legacy _ok/_status
 // aliases routes/alpaca.js's existing call sites already read) so neither
@@ -32,18 +52,22 @@ function isAlpacaConfigured() {
 async function alpacaTradingRequest(path, method = "GET", body = null) {
   const { id, secret } = resolveAlpacaKeys();
   if (!id || !secret) return { ok: false, status: 0, data: null, _ok: false, _status: 0, _noKey: true };
-  const r = await fetch(`${BASE}${path}`, {
-    method,
-    headers: {
-      "APCA-API-KEY-ID": id,
-      "APCA-API-SECRET-KEY": secret,
-      "Content-Type": "application/json",
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const text = await r.text();
-  let data; try { data = JSON.parse(text); } catch { data = { raw: text }; }
-  return { ok: r.ok, status: r.status, data, _ok: r.ok, _status: r.status };
+  const doFetch = async () => {
+    const r = await fetch(`${BASE}${path}`, {
+      method,
+      headers: {
+        "APCA-API-KEY-ID": id,
+        "APCA-API-SECRET-KEY": secret,
+        "Content-Type": "application/json",
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const text = await r.text();
+    let data; try { data = JSON.parse(text); } catch { data = { raw: text }; }
+    return { ok: r.ok, status: r.status, data, _ok: r.ok, _status: r.status };
+  };
+  const mutating = method !== "GET";
+  return mutating ? withWriteLock(doFetch) : doFetch();
 }
 
 module.exports = { BASE, resolveAlpacaKeys, isAlpacaConfigured, alpacaTradingRequest };
