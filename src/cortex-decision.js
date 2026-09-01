@@ -16,9 +16,10 @@
 function clamp(x, lo, hi) { return Math.max(lo, Math.min(hi, x)); }
 const round2 = (n) => (Number.isFinite(n) ? Math.round(n * 100) / 100 : null);
 
-function computeHeatRisk(row, sniper) {
+function computeHeatRisk(row, sniper, antiChase) {
   const rev = sniper?.reversal;
-  const extended = !!row?.extended;
+  const band = antiChase?.band;
+  const extended = band != null ? (band === "EXTENDED" || band === "DO_NOT_CHASE") : !!row?.extended;
   const dayChg = Number(row?.dayChangePct);
   const volRatio = Number(row?.volRatio ?? row?.volSurge);
   const climaxMove = Number.isFinite(dayChg) && Number.isFinite(volRatio) && Math.abs(dayChg) >= 5 && volRatio >= 2.5;
@@ -33,7 +34,9 @@ function computeHeatRisk(row, sniper) {
   if (extended || rev?.isTop) {
     return {
       state: "OVEREXTENDED_DO_NOT_CHASE", label: "OVEREXTENDED — DO NOT CHASE", color: "#e08a1e", icon: "🟠",
-      reason: extended && Number.isFinite(row?.abovePivotPct) ? `${row.abovePivotPct.toFixed(1)}% above pivot — chasing risk.` : (rev?.verdict || "Stretched from recent structure."),
+      reason: band != null
+        ? (antiChase.label || "Extended above the breakout — chasing risk.")
+        : (extended && Number.isFinite(row?.abovePivotPct) ? `${row.abovePivotPct.toFixed(1)}% above pivot — chasing risk.` : (rev?.verdict || "Stretched from recent structure.")),
     };
   }
   if (stage4 || sniper?.action === "AVOID") {
@@ -48,14 +51,21 @@ function computeHeatRisk(row, sniper) {
   return { state: "NEUTRAL_WAIT", label: "NEUTRAL — WAIT", color: "#d6a312", icon: "🟡", reason: sniper?.reason || "No clear real edge either way right now." };
 }
 
-function computeCortexVerdict({ sniper, heat, aplusScore, criticalFlags }) {
+function computeCortexVerdict({ sniper, heat, aplusScore, criticalFlags, entryPlanStage, dailyBias }) {
   // Real hard-gate alignment with am-core-engine.js's classifyCoreVerdict
-  // (One Engine consolidation, Phase 2.5) — see the identical comment on
-  // the client twin (cortex-engine.js) for the full real-bug context.
-  // `criticalFlags` is optional and additive — existing callers that don't
-  // pass it keep their exact prior behavior.
+  // (One Engine consolidation, Phase 2.5, and /goal Phase 7 audit,
+  // 2026-09-01) — see the identical comments on the client twin
+  // (cortex-engine.js) for the full real-bug context. All 3 params are
+  // optional and additive — existing callers that don't pass them keep
+  // their exact prior behavior.
   if (Number(criticalFlags) > 0) {
     return { verdict: "AVOID", icon: "🔴", color: "#c8282a", reason: "A critical real red flag is active — not a valid setup right now." };
+  }
+  if (entryPlanStage === "STRUCTURE_BROKEN") {
+    return { verdict: "AVOID", icon: "🔴", color: "#c8282a", reason: "4H structure is broken — not a valid setup right now." };
+  }
+  if (dailyBias === "BEARISH") {
+    return { verdict: "AVOID", icon: "🔴", color: "#c8282a", reason: "Daily trend is bearish — long bias invalid." };
   }
   if (heat?.state === "CLIMACTIC_DANGER" || heat?.state === "WEAK_AVOID") {
     return { verdict: "AVOID", icon: "🔴", color: "#c8282a", reason: heat.reason };

@@ -41,6 +41,7 @@ async function main() {
   const [
     amCoreClient, entryClient, redFlagClient, mtfClient, simpleClient,
     decisionPriorityClient, atrRiskClient, antiChaseClient, futureValueClient, btcHpcClient,
+    cortexClient, marketHelpersClient,
   ] = await Promise.all([
     import("../axiom-runner/components/am-core-engine.js"),
     import("../axiom-runner/components/entry-engine.js"),
@@ -52,6 +53,8 @@ async function main() {
     import("../axiom-runner/components/anti-chase.js"),
     import("../axiom-runner/components/future-value-scoring.js"),
     import("../axiom-runner/components/btc-hpc-scan.js"),
+    import("../axiom-runner/components/cortex-engine.js"),
+    import("../axiom-runner/components/market-helpers.js"),
   ]);
   const amCoreServer = require("../src/am-core-engine");
   const entryServer = require("../src/entry-engine");
@@ -62,6 +65,9 @@ async function main() {
   const atrRiskServer = require("../src/atr-risk-engine");
   const futureValueServer = require("../src/future-value-scoring");
   const btcHpcServer = require("../src/btc-hpc-scan");
+  const cortexServer = require("../src/cortex-decision");
+  const institutionalScoringServer = require("../src/institutional-scoring");
+  const marketHelpersDecisionServer = require("../src/market-helpers-decision");
 
   console.log("Checking am-core-engine.js — computeCoreScore/classifyCoreVerdict…");
   const CORE_INPUT_RICH = {
@@ -207,6 +213,49 @@ async function main() {
   const BTC_UPTREND = Array.from({ length: 70 }, (_, i) => btcBar(i, 100 + i * 2));
   sameOutput("computeBtcRegime: a real sustained uptrend matches on both sides",
     btcHpcServer.computeBtcRegime(BTC_UPTREND), btcHpcClient.computeBtcRegime(BTC_UPTREND));
+
+  console.log("\nChecking cortex-engine.js — computeHeatRisk/computeCortexVerdict (/goal Phase 5 audit, 2026-09-01 — no twin-sync coverage existed before this, which is how this pair silently drifted: the server twin was missing the antiChase-band param entirely until this same pass)…");
+  const HEAT_CASES = [
+    [{ extended: false }, {}, { band: "EXTENDED", label: "Extended — 6.2% above the breakout" }],
+    [{ extended: true }, { action: "ENTER_LONG" }, { band: "NORMAL", label: "Normal" }],
+    [{ extended: false }, { action: "ENTER_LONG" }, undefined],
+    [{ extended: false }, { reversal: { isTop: true, topScore: 8, sigs: [{ txt: "RSI divergence" }] } }, { band: "NORMAL" }],
+    [{ stage: "Stage 4 — Declining" }, {}, undefined],
+  ];
+  HEAT_CASES.forEach(([row, sniper, antiChase], i) => {
+    sameOutput(`computeHeatRisk: real case ${i + 1}/${HEAT_CASES.length} matches on both sides`,
+      cortexServer.computeHeatRisk(row, sniper, antiChase), cortexClient.computeHeatRisk(row, sniper, antiChase));
+  });
+  const CORTEX_VERDICT_CASES = [
+    { sniper: { action: "ENTER_LONG" }, heat: { state: "HEALTHY_STRENGTH" }, aplusScore: 90 },
+    { sniper: { action: "ENTER_LONG" }, heat: { state: "HEALTHY_STRENGTH" }, aplusScore: 90, criticalFlags: 1 },
+    { sniper: { action: "ENTER_LONG" }, heat: { state: "HEALTHY_STRENGTH" }, aplusScore: 90, entryPlanStage: "STRUCTURE_BROKEN" },
+    { sniper: { action: "ENTER_LONG" }, heat: { state: "HEALTHY_STRENGTH" }, aplusScore: 90, dailyBias: "BEARISH" },
+    { sniper: {}, heat: { state: "CLIMACTIC_DANGER", reason: "exhaustion" }, aplusScore: 10 },
+  ];
+  CORTEX_VERDICT_CASES.forEach((c, i) => {
+    sameOutput(`computeCortexVerdict: real case ${i + 1}/${CORTEX_VERDICT_CASES.length} matches on both sides`,
+      cortexServer.computeCortexVerdict(c), cortexClient.computeCortexVerdict(c));
+  });
+
+  console.log("\nChecking computeInstitutionalGrade — 3 required-byte-identical copies (market-helpers.js client, institutional-scoring.js + market-helpers-decision.js server twins) — no twin-sync coverage existed before this, which is how market-helpers-decision.js silently drifted (missing the 2026-08-26 Stage-4/anti-chase gate entirely until this same pass)…");
+  const GRADE_REGIME = { label: "GREEN", score: 78 };
+  const GRADE_TECH = { adx: { adx: 35, strength: "Strong", direction: "Bullish", plusDI: 30, minusDI: 10 } };
+  const GRADE_SECTOR = { rank: 2, of: 11 };
+  const GRADE_CASES = [
+    [{ passCount: 8, abovePivotPct: 1, epsGrowth: 15, stage: "Stage 2 — Confirmed", smc: { bos: { type: "BULL_BOS" } } }, GRADE_TECH, GRADE_REGIME, GRADE_SECTOR, null, 0],
+    [{ passCount: 8, abovePivotPct: 1, epsGrowth: 15, stage: "Stage 4 — Declining", smc: { bos: { type: "BULL_BOS" } } }, GRADE_TECH, GRADE_REGIME, GRADE_SECTOR, null, 0],
+    [{ passCount: 8, abovePivotPct: 12, epsGrowth: 15, stage: "Stage 2 — Confirmed" }, GRADE_TECH, GRADE_REGIME, GRADE_SECTOR, null, 0],
+    [{ passCount: 8, abovePivotPct: 1, epsGrowth: 15, stage: "Stage 2 — Confirmed" }, GRADE_TECH, GRADE_REGIME, GRADE_SECTOR, null, 1],
+    [{ passCount: 3, stage: "Stage 1" }, {}, GRADE_REGIME, null, null, 0],
+  ];
+  GRADE_CASES.forEach((args, i) => {
+    const clientResult = marketHelpersClient.computeInstitutionalGrade(...args);
+    sameOutput(`computeInstitutionalGrade: real case ${i + 1}/${GRADE_CASES.length} — institutional-scoring.js matches the client on both sides`,
+      institutionalScoringServer.computeInstitutionalGrade(...args), clientResult);
+    sameOutput(`computeInstitutionalGrade: real case ${i + 1}/${GRADE_CASES.length} — market-helpers-decision.js matches the client on both sides`,
+      marketHelpersDecisionServer.computeInstitutionalGrade(...args), clientResult);
+  });
 
   console.log(`\n${passed} checks passed.`);
   console.log("CLIENT-SERVER-TWIN-SYNC TEST OK");
