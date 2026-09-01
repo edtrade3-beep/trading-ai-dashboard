@@ -390,14 +390,6 @@ export default function RhProScanner({
     return rawRows.map(x => {
       const quality = stockQualityBreakdown(x, sectorPerf);
       const aplus = computeAPlusScore(x, regime);
-      // Institutional Grade — same real 7-dimension function MarketTerminalTab's
-      // AI Score Card uses (Overall Grade/AI Conviction below), computed here
-      // for every scanned row instead of just one symbol. Technicals/options-flow
-      // aren't part of this bulk scan's payload, so those two dimensions honestly
-      // fall back to computeInstitutionalGrade's own neutral midpoint (same
-      // "honest null, never fabricated" discipline as everywhere else) — the
-      // other five (trend/smart-money/fundamentals/macro/sector) stay fully real.
-      const institutionalGrade = computeInstitutionalGrade(x, null, regime, sectorInfoFor(x.symbol), null);
       // Real prediction reused from PredictionsTab's engine, run on this
       // same row (x doubles as both the quote and the trend input — no
       // separate live-quote fetch here, so today's %-change/day-range
@@ -436,6 +428,18 @@ export default function RhProScanner({
       // discipline as everywhere else this engine is used), zero new
       // fetches.
       const redFlags = computeRedFlags({ ...entryEv, riskPct: x.riskPct, dollarVolume: x.dollarVolume });
+      // Institutional Grade — same real 7-dimension function MarketTerminalTab's
+      // AI Score Card uses (Overall Grade/AI Conviction below), computed here
+      // for every scanned row instead of just one symbol. Technicals/options-flow
+      // aren't part of this bulk scan's payload, so those two dimensions honestly
+      // fall back to computeInstitutionalGrade's own neutral midpoint (same
+      // "honest null, never fabricated" discipline as everywhere else) — the
+      // other five (trend/smart-money/fundamentals/macro/sector) stay fully real.
+      // Moved below computeRedFlags (/goal Phase 5 audit, 2026-09-01) so its
+      // real criticalCount can be threaded straight into the same critical-
+      // red-flag hard gate classifyCoreVerdict/Cortex Verdict already use —
+      // zero new fetches, redFlags was already computed on this exact row.
+      const institutionalGrade = computeInstitutionalGrade(x, null, regime, sectorInfoFor(x.symbol), null, redFlags.criticalCount);
       // AM Core Engine (One Engine Migration Phase 2, 2026-08-23) —
       // replaces classifyDeepScanDecision + the retired final-trade-gate.js
       // overlay. adx/optionsFlow are honestly null here, same real gap

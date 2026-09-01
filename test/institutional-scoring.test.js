@@ -51,6 +51,22 @@ ok("no real abovePivotPct available never fabricates an anti-chase gate", () => 
   assert.strictEqual(r.cautions.length, 0);
 });
 
+console.log("Checking computeInstitutionalGrade — real critical-red-flag hard gate (/goal Phase 5 audit, 2026-09-01)…");
+ok("regression: a real critical red flag caps the score, never reading Excellent, even with every other real dimension strong", () => {
+  const r = computeInstitutionalGrade(STRONG_ROW, STRONG_TECHNICALS, REGIME, SECTOR, null, 1);
+  assert.ok(r.score <= 20, `expected a capped score <=20, got ${r.score}`);
+  assert.ok(r.cautions.some((c) => /critical/i.test(c)));
+  assert.notStrictEqual(institutionalRecommendation(r.score).label, "Excellent");
+});
+ok("criticalFlags omitted entirely (existing callers) -> honest backward-compatible behavior, unaffected", () => {
+  const r = computeInstitutionalGrade(STRONG_ROW, STRONG_TECHNICALS, REGIME, SECTOR, null);
+  assert.strictEqual(r.cautions.length, 0);
+});
+ok("criticalFlags of 0 never forces the gate on its own", () => {
+  const r = computeInstitutionalGrade(STRONG_ROW, STRONG_TECHNICALS, REGIME, SECTOR, null, 0);
+  assert.strictEqual(r.cautions.length, 0);
+});
+
 console.log("Checking institutionalLetterGrade/institutionalRecommendation — pure score-derived mappings, unaffected by this fix's shape…");
 ok("real thresholds unchanged (A+/A/B+/B/C/D/F)", () => {
   assert.strictEqual(institutionalLetterGrade(95), "A+");

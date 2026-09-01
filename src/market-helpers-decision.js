@@ -20,8 +20,9 @@
 // classifyEntryType in market-helpers.js, mirror the change here too.
 
 const { computeRegime, computeAPlusScore } = require("./trade-planner-scoring");
+const { computeAntiChase } = require("./atr-risk-engine");
 
-function computeInstitutionalGrade(row, technicals, regime, sectorInfo, optionsFlow) {
+function computeInstitutionalGrade(row, technicals, regime, sectorInfo, optionsFlow, criticalFlags) {
   const passCount = Number(row?.passCount);
   const trendPts = Number.isFinite(passCount) ? Math.round((passCount / 8) * 20) : 10;
 
@@ -54,7 +55,30 @@ function computeInstitutionalGrade(row, technicals, regime, sectorInfo, optionsF
 
   const sectorPts = sectorInfo?.rank ? Math.round(((11 - sectorInfo.rank + 1) / 11) * 10) : 5;
 
-  const score = Math.max(0, Math.min(100, trendPts + technicalPts + smartMoneyPts + optionsFlowPts + fundamentalPts + macroPts + sectorPts));
+  const rawScore = Math.max(0, Math.min(100, trendPts + technicalPts + smartMoneyPts + optionsFlowPts + fundamentalPts + macroPts + sectorPts));
+
+  // Real Stage-4/anti-chase/critical-red-flag hard gate — this file had
+  // drifted out of sync with its own "kept byte-identical" mandate (see
+  // header): market-helpers.js/institutional-scoring.js got this gate
+  // 2026-08-26 (the real "★★★★★ Strong Buy under a 🔴 AVOID banner"
+  // incident) but this Telegram-facing copy never did, so `/cortex` could
+  // still show an uncapped institutional score for a Stage-4/extended/
+  // critically-red-flagged symbol after that fix shipped everywhere else.
+  // Brought current here (/goal Phase 5 audit, 2026-09-01), plus the new
+  // critical-flag gate added to the other two copies in the same pass.
+  const stage4 = /Stage\s*4/i.test(String(row?.stage || ""));
+  const abovePivotPct = Number(row?.abovePivotPct);
+  const antiChase = Number.isFinite(abovePivotPct) ? computeAntiChase(abovePivotPct) : null;
+  const chaseBlocked = antiChase?.band === "EXTENDED" || antiChase?.band === "DO_NOT_CHASE";
+  const criticalGated = Number(criticalFlags) > 0;
+  const gated = stage4 || chaseBlocked || criticalGated;
+  const score = gated ? Math.min(rawScore, 20) : rawScore;
+
+  const cautions = [];
+  if (criticalGated) cautions.push("🔴 A critical real red flag is active — real score capped.");
+  if (stage4) cautions.push("🔴 Stage 4 downtrend — real score capped, not a valid long setup.");
+  if (chaseBlocked) cautions.push(`🔴 ${antiChase.label} — real score capped, too extended to chase.`);
+
   const reasons = [
     Number.isFinite(passCount) ? `${passCount}/8 real Minervini trend-template criteria pass` : "Trend template data unavailable",
     adx ? `ADX ${adx.adx} (${adx.strength}), ${adx.direction} — +DI ${adx.plusDI} / -DI ${adx.minusDI}` : "ADX unavailable (insufficient history)",
@@ -65,7 +89,7 @@ function computeInstitutionalGrade(row, technicals, regime, sectorInfo, optionsF
     sectorInfo?.rank ? `Sector rank #${sectorInfo.rank}/${sectorInfo.of} today` : "Sector rank unavailable",
   ];
   return {
-    score, reasons, cautions: [],
+    score, reasons, cautions,
     breakdown: { trendPts, technicalPts, smartMoneyPts, optionsFlowPts, fundamentalPts, macroPts, sectorPts },
   };
 }

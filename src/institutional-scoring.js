@@ -10,7 +10,7 @@
 const { computeRegime } = require("./trade-planner-scoring");
 const { computeAntiChase } = require("./atr-risk-engine");
 
-function computeInstitutionalGrade(row, technicals, regime, sectorInfo, optionsFlow) {
+function computeInstitutionalGrade(row, technicals, regime, sectorInfo, optionsFlow, criticalFlags) {
   const passCount = Number(row?.passCount);
   const trendPts = Number.isFinite(passCount) ? Math.round((passCount / 8) * 20) : 10;
 
@@ -57,10 +57,21 @@ function computeInstitutionalGrade(row, technicals, regime, sectorInfo, optionsF
   const abovePivotPct = Number(row?.abovePivotPct);
   const antiChase = Number.isFinite(abovePivotPct) ? computeAntiChase(abovePivotPct) : null;
   const chaseBlocked = antiChase?.band === "EXTENDED" || antiChase?.band === "DO_NOT_CHASE";
-  const gated = stage4 || chaseBlocked;
+  // Real critical-red-flag hard gate (/goal Phase 5 audit, 2026-09-01) —
+  // this function had Stage-4/anti-chase awareness (the fix above) but
+  // none for a critical red flag (red-flag-engine.js), the one hard gate
+  // classifyCoreVerdict/Cortex Verdict both already check. A red-flagged
+  // symbol could still show an uncapped high institutional score anywhere
+  // this renders standalone (not behind the Hero-verdict-gated Smart Money
+  // panel) — e.g. RhProScanner.jsx's list rows. `criticalFlags` is
+  // optional/additive, same "existing callers keep exact prior behavior"
+  // contract as the stage4/chaseBlocked gate above.
+  const criticalGated = Number(criticalFlags) > 0;
+  const gated = stage4 || chaseBlocked || criticalGated;
   const score = gated ? Math.min(rawScore, 20) : rawScore;
 
   const cautions = [];
+  if (criticalGated) cautions.push("🔴 A critical real red flag is active — real score capped.");
   if (stage4) cautions.push("🔴 Stage 4 downtrend — real score capped, not a valid long setup.");
   if (chaseBlocked) cautions.push(`🔴 ${antiChase.label} — real score capped, too extended to chase.`);
 

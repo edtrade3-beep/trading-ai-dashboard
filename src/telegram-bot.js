@@ -570,7 +570,7 @@ async function cmdCortex(args) {
     // sector ETFs) — computeInstitutionalGrade already honestly defaults
     // that one dimension to a neutral 5/10 when sectorInfo is null, same as
     // the web app does when sector data hasn't loaded yet.
-    const grade = computeInstitutionalGrade(row, row.technicals, regime, null, null);
+    const grade = computeInstitutionalGrade(row, row.technicals, regime, null, null, row.coreCriticalFlags);
     const heat = computeHeatRisk(row, sniper);
     const verdict = computeCortexVerdict({ sniper, heat, aplusScore: aplus.score, criticalFlags: row.coreCriticalFlags });
     const priceToPay = computePriceToPay(row, sniper);
