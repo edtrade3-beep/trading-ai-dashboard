@@ -4209,6 +4209,12 @@ export default function App() {
       CARBUSINESS: "carbusiness",
       DEALER: "carbusiness",
       CARS: "carbusiness",
+      // Curbline dropped from the sidebar rail (2026-09-01 platform audit,
+      // see Sidebar.jsx's own comment) — same "hide, don't delete"
+      // convention as SNIPER/MARKET/CRYPTO above. Real tab (CurblineTab.jsx,
+      // activeTab "curbline") untouched, just one keystroke away now
+      // instead of a permanent row.
+      CURBLINE: "curbline",
       // PORTFOLIO/SCANNER repointed 2026-07-29 (institutional redesign) to
       // match what those words now mean in the sidebar — the real Alpaca-
       // backed Portfolio (portfolio-tab) and Sniper Scanner (rhpro-scan),

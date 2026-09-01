@@ -162,13 +162,19 @@ export const SIDEBAR_ITEMS = [
   // duplicating it; no am-core-engine.js/opportunity-engine.js involved.
   { id: "carbusiness", label: "Car Business", icon: "🚗", tab: "carbusiness" },
 
-  // Curbline — concept preview for a productized version of Car
-  // Business's Facebook Ad Maker, sold to other independent dealers.
-  // Explicit user request (2026-08-31: "Project making money from home
-  // using ai" -> "a new AI-powered side business" -> "TAB INSIDE MY
-  // PLATFORM"). Static pitch page only — no multi-tenant backend exists
-  // yet, so this never calls an API; the CTA is an honest mailto: link.
-  { id: "curbline", label: "Curbline", icon: "📣", tab: "curbline" },
+  // Curbline dropped from the rail (2026-09-01 platform audit) — same
+  // "hide, don't delete" convention as Market/Crypto/Calendar/Sniper AI
+  // above. It's still a concept preview for a productized version of Car
+  // Business's Facebook Ad Maker (explicit user request 2026-08-31), but
+  // per its own header comment it's a static pitch page only — no multi-
+  // tenant backend exists yet, so it never calls a real API. This app's
+  // own stated bar for a permanent nav slot is "7 real 'what deserves a
+  // permanent slot' surfaces" (see this file's own top comment) — a non-
+  // functional preview page doesn't clear that today. CurblineTab.jsx and
+  // the real curbline-intel-*.js engine behind its one working feature
+  // (the daily competitor-intel scan) are untouched — still reachable via
+  // the CURBLINE command-palette alias (axiom-live.jsx). Revisit a real
+  // sidebar row once/if it gets a real multi-tenant backend.
 
   // Dealership — the real, already-built operational dealer portal
   // (inventory management, AI CRM inbox, photo tools, price beater —
