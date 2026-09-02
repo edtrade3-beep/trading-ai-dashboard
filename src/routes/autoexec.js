@@ -49,7 +49,6 @@ const DEFAULT_CONFIG = {
   rvolThreshold:  2.0,         // minimum RVOL
   orderType:      "market",    // "market" or "limit"
   limitSlippage:  0.02,        // for limit orders: place limit this % above ask (buy) or below bid (sell)
-  allowShorts:    false,       // sell-side auto-execute (requires margin account)
   riskPct:        1,           // % of equity risked per trade (entry-to-stop), same default as the Alpaca autopilot
   maxRiskPct:     6,           // total open risk ceiling, % of equity — matches server-autopilot.js
   maxPerSector:   3,           // sector-correlation cap — matches server-autopilot.js
@@ -67,6 +66,9 @@ function readConfig() {
   const raw = readJsonSafe(CONFIG_PATH, null);
   if (!raw) return { ...DEFAULT_CONFIG };
   const cfg = { ...DEFAULT_CONFIG, ...raw };
+  // Retire the old independent short-signal toggle. Keep old JSON readable,
+  // but never expose or honor it as an execution capability.
+  delete cfg.allowShorts;
   // Back-compat: existing configs on disk only have the old `enabled`
   // boolean, not `mode` — translate once rather than losing the user's
   // current on/off state on first load after this change.
@@ -306,7 +308,7 @@ async function handleAutoExec(req, res, requestUrl) {
 
     const cfg = readConfig();
     const allowed = ["mode","positionSize","maxPositions","maxDailyLoss","scoreThreshold",
-                     "rvolThreshold","orderType","limitSlippage","allowShorts",
+                     "rvolThreshold","orderType","limitSlippage",
                      "riskPct","maxRiskPct","maxPerSector","maxNamePct"];
     for (const k of allowed) {
       if (updates[k] !== undefined) cfg[k] = updates[k];

@@ -71,6 +71,7 @@ Paper trading remains the default. No migration step authorizes live execution o
 - Added `execution-authority.js`, a shared paper-only ownership contract distinguishing broker mutators (Server Autopilot, Light Box Assist, Quick Trade) from read-only schedulers.
 - Execution authority and `/api/health` now include the legacy Tradier Autoexec mode, including pending assistant approval, so every broker mutator is visible in one status contract.
 - Remaining trend-screen consumers (Trade Advisor, Green Light, Terminal refresh, Predictions, Multi-TF, Heat Map, Holdings, Crypto, and Early Entry) now request `withDecision=1`, ensuring canonical AssetDecision data is available at each surface.
+- Removed the Autoexec UI's misleading independent `allowShorts` control and retired its persisted setting; Tradier Autoexec is long-only until canonical short-side decisions are implemented.
 
 ## Target canonical contracts
 
