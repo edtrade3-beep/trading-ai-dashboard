@@ -73,6 +73,7 @@ Paper trading remains the default. No migration step authorizes live execution o
 - Remaining trend-screen consumers (Trade Advisor, Green Light, Terminal refresh, Predictions, Multi-TF, Heat Map, Holdings, Crypto, and Early Entry) now request `withDecision=1`, ensuring canonical AssetDecision data is available at each surface.
 - Removed the Autoexec UI's misleading independent `allowShorts` control and retired its persisted setting; Tradier Autoexec is long-only until canonical short-side decisions are implemented.
 - Tradier Autoexec now fails closed whenever the canonical Server Autopilot scheduler is enabled, preventing concurrent broker mutators during the scheduler migration.
+- The opportunities route's canonical regime/health sample now carries the same Research/Market Wrap context as each per-symbol decision, avoiding a split top-level health state.
 
 ## Target canonical contracts
 

@@ -2167,7 +2167,7 @@ async function computeAllOpportunities() {
   }
   const canonicalSample = rows.find((r) => !r.error);
   const canonicalRegime = canonicalSample
-    ? computeCanonicalAssetDecision({ symbol: canonicalSample.symbol, row: canonicalSample, macroQuotes: macroData, nowMs, marketHours })
+    ? computeCanonicalAssetDecision({ symbol: canonicalSample.symbol, row: canonicalSample, macroQuotes: macroData, nowMs, marketHours, researchContext })
     : null;
   return { tiers, dataQuality, dataHealth: canonicalRegime?.dataHealth || null, marketRegime: canonicalRegime?.marketRegime || null, researchContext };
 }
