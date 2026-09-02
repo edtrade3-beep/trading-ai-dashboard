@@ -74,6 +74,7 @@ Paper trading remains the default. No migration step authorizes live execution o
 - Removed the Autoexec UI's misleading independent `allowShorts` control and retired its persisted setting; Tradier Autoexec is long-only until canonical short-side decisions are implemented.
 - Tradier Autoexec now fails closed whenever the canonical Server Autopilot scheduler is enabled, preventing concurrent broker mutators during the scheduler migration.
 - The opportunities route's canonical regime/health sample now carries the same Research/Market Wrap context as each per-symbol decision, avoiding a split top-level health state.
+- Smart Money now publishes the canonical `assetDecision`/`finalVerdict` alongside its institutional/SMC evidence, making its decision boundary inspectable without replacing existing detail fields.
 
 ## Target canonical contracts
 

@@ -5905,12 +5905,24 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
       const volConfirmed = (trend.volRatio || 0) >= 1.4;
       const atBuyPoint = trend.passCount >= 7 && trend.setup.actionable && !trend.setup.extended && volConfirmed;
       const row = {
+        symbol, price: trend.price, entry: trend.setup.entryPrice, pivot: trend.setup.pivot,
+        stop: trend.setup.stop, target2: trend.setup.target2,
         passCount: trend.passCount, stage: trend.stage, verdict: trend.setup.verdict,
         actionable: trend.setup.actionable, extended: trend.setup.extended, tightening: trend.setup.tightening,
         vcpGrade: trend.setup.vcp?.grade, volRatio: trend.volRatio, volConfirmed, atBuyPoint,
         abovePivotPct: trend.setup.abovePivotPct, riskPct: trend.setup.riskPct, pctFromHigh: trend.pctFromHigh,
         rsRating: trend.rsRating, smc: trend.smc, epsGrowth, earningsSoon, earningsDte,
       };
+
+      // Canonical final decision for this surface. The institutional grade,
+      // SMC, and market-context values below remain evidence/detail; they do
+      // not create a second executable verdict.
+      const { computeCanonicalAssetDecision } = require("../canonical-decision-pipeline");
+      const canonical = computeCanonicalAssetDecision({
+        symbol, row, macroQuotes: macroData, sectorInfo: null,
+        adx: trend.technicals?.adx || null, trackReport, nowMs: Date.now(),
+        marketHours: false,
+      });
 
       const nextAction = computeNextAction(row);
       const VERDICT_MAP = { BUY: "BUY NOW", BREAKOUT: "WAIT", WATCH: "WAIT", WAIT: "WAIT", AVOID: "AVOID" };
@@ -5986,6 +5998,8 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
         marketState: trend.marketState,
         asOf: trend.asOf,
         verdict, verdictAction: nextAction.action, verdictReason: nextAction.reason,
+        finalVerdict: canonical?.assetDecision?.verdict || null,
+        assetDecision: canonical?.assetDecision || null,
         confidence: grade.score,
         letterGrade, recommendation,
         bias, marketControl, risk,
