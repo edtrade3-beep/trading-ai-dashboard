@@ -92,38 +92,6 @@ import TradeDeskTabs from "./TradeDeskTabs.jsx";
 // "ALERTS is red" as a bearish signal. Fixed hex (not theme-swapped) since
 // mid-saturation hues at this lightness hold up against both the light
 // and dark surface colors.
-// TD — Trade Desk's own fixed "trading terminal" palette, STANDALONE from
-// the shared `C` prop (theme.js's THEME_LIGHT/THEME_DARK) — Trade Desk
-// keeps its own look regardless of the app's own light/dark toggle, per
-// the user's own answer "Trade Desk only" when this was first asked.
-// Uses the shared dark institutional palette so the command center remains
-// visually consistent with the platform shell. Same key names as
-// theme.js's real THEME_* objects (bg/surface/card/border/text/etc) so
-// every child component that reads `C.foo` works unmodified when handed
-// `TD` instead of the real `C` — only the values change, never the shape.
-// Semantic green/red/amber/gold reuse theme.js's own THEME_LIGHT hexes
-// `theme.js` itself remains untouched: every other tab keeps using the real
-// `C` exactly as before.
-const TD = {
-  // Trade Desk follows the same dark institutional shell as the rest of the
-  // platform. Keep the token shape stable so existing child components need
-  // no trading-logic or API changes.
-  bg: "#0f1318", surface: "#161c24", card: "#1c2530", cardHover: "#222f3e",
-  border: "#2a3545", borderLit: "#374860",
-  text: "#e8dcc8", textSec: "#9aaa95", textDim: "#718184",
-  accent: "#5b9cf6", accentGlow: "rgba(91,156,246,0.22)",
-  green: "#2ec27e", greenBg: "rgba(46,194,126,0.12)", greenLight: "#8fd9ae",
-  red: "#e05c6a", redBg: "rgba(224,92,106,0.12)", redLight: "#eb98a0",
-  amber: "#f0a830", amberBg: "rgba(240,168,48,0.13)",
-  gold: "#d6ac47", goldBg: "rgba(214,172,71,0.14)",
-  // Purple "AI intelligence" accent (§1 of the spec: "Purple for AI
-  // intelligence") — a new token, distinct from `accent` (routine
-  // info/navigation) and from the real green/red/amber status system.
-  // Used only for Cortex/AI-verdict chrome, never a bull/bear read.
-  purple: "#7c3aed", purpleBg: "rgba(124,58,237,0.10)",
-  shadow: "0 1px 3px rgba(15,23,42,0.08), 0 1px 2px rgba(15,23,42,0.06)",
-};
-
 const DOCK_MODULES = [
   { key: "discover", label: "DISCOVER", color: "#6366f1" },
   { key: "scanlist", label: "FULL SCAN", color: "#2563eb" },
@@ -154,6 +122,15 @@ export default function TradeDeskTab({
   alertsProps, newsProps, scannerProps, discoverProps,
   lightboxSettings, setLightboxSettings, openDaytradeConsole, openInTradeDesk,
 }) {
+  // TD used to be a fixed dark palette, standalone from the app's real
+  // light/dark toggle ("Trade Desk only" stays dark, an earlier explicit
+  // decision). Reversed 2026-09-02, explicit user request after seeing it
+  // live: "i want white page align with whole a platform" — Trade Desk
+  // now follows the same theme as every other tab. `C` (theme.js's
+  // THEME_LIGHT/THEME_DARK, already kept in sync with themeMode by
+  // axiom-live.jsx) has the identical key shape TD always used, so every
+  // child component below needs no changes.
+  const TD = C;
   const [symbol, setSymbol] = useState(() => {
     try {
       const pending = localStorage.getItem("mterminal_load_sym");

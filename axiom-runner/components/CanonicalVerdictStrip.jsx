@@ -1,13 +1,23 @@
 import React from "react";
 
-const VERDICT_COLORS = {
-  STRONG_BUY: "#2ec27e", BUY: "#2ec27e", WATCH: "#f0a830", WAIT: "#718184",
-  HOLD: "#5b9cf6", REDUCE: "#f0a830", EXIT: "#e05c6a", AVOID: "#e05c6a",
-};
+// Real status colors, not hardcoded hex — was a fixed dark-theme-only map
+// (STRONG_BUY: "#2ec27e", etc.) that never matched a light theme once
+// Trade Desk started following the app's real toggle (2026-09-02). Reuses
+// theme.js's own 4-color status system (green/amber/red/textDim) already
+// on the passed-in `C`, plus `accent` for HOLD (same role TD's old
+// hardcoded palette gave it — a routine/neutral "keep as-is" read, not a
+// bull/bear signal).
+function verdictColor(verdict, C) {
+  if (verdict === "STRONG_BUY" || verdict === "BUY") return C.green;
+  if (verdict === "WATCH" || verdict === "REDUCE") return C.amber;
+  if (verdict === "EXIT" || verdict === "AVOID") return C.red;
+  if (verdict === "HOLD") return C.accent;
+  return C.textDim; // WAIT and any unrecognized verdict
+}
 
 export default function CanonicalVerdictStrip({ decision, loading, error, C, MONO, SANS }) {
   const verdict = decision?.verdict || "—";
-  const color = VERDICT_COLORS[verdict] || C.textDim;
+  const color = verdictColor(verdict, C);
   const regime = decision?.marketRegime?.regime || "—";
   const stage = decision?.opportunityStage || "—";
   const confidence = Number.isFinite(decision?.confidence) ? `${decision.confidence}%` : "—";
