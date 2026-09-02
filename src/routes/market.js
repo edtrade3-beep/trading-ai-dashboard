@@ -2104,6 +2104,8 @@ ${evidenceList}${contextBlock}`;
 async function computeAllOpportunities() {
   const { SCAN_UNIVERSE } = require("../advisor-ai");
   const { computeCanonicalAssetDecision } = require("../canonical-decision-pipeline");
+  const { buildResearchContext } = require("../research-context-adapter");
+  const { loadCoachLog } = require("../ai-coach-store");
 
   const MACRO_SYMS = ["SPY", "QQQ", "IWM", "DIA", "^VIX", "UUP", "VIXY", "TLT", "HYG"];
   const [rows, macroQuotes, sectorQuotes, trackReport] = await Promise.all([
@@ -2121,6 +2123,8 @@ async function computeAllOpportunities() {
   const marketHours = isMarketHoursET();
   const { computeDataFreshness } = require("../data-freshness");
   const dataQuality = computeDataFreshness({ quotes: macroQuotes, nowMs, isMarketHours: marketHours });
+  const coachLog = loadCoachLog();
+  const researchContext = buildResearchContext({ researchIntel: coachLog.researchIntel, marketWrap: coachLog.marketWrap, timestamp: nowMs });
 
   const sectorRanked = SECTOR_THEME_MAP.SECTOR_ETFS
     .map((s) => ({ sym: s.sym, chgPct: Number(sectorQuotes.find((q) => q.symbol === s.sym)?.regularMarketChangePercent) || 0 }))
@@ -2139,6 +2143,7 @@ async function computeAllOpportunities() {
       symbol: row.symbol, row, macroQuotes: macroData,
       sectorInfo: sectorInfoFor(row.symbol), adx: row.technicals?.adx || null,
       trackReport, nowMs, marketHours,
+      researchContext,
       extraDataSources: [{ source: "sector-quotes", available: sectorQuotes.length > 0, required: false }],
     });
     if (!canonical) continue;
@@ -2164,7 +2169,7 @@ async function computeAllOpportunities() {
   const canonicalRegime = canonicalSample
     ? computeCanonicalAssetDecision({ symbol: canonicalSample.symbol, row: canonicalSample, macroQuotes: macroData, nowMs, marketHours })
     : null;
-  return { tiers, dataQuality, dataHealth: canonicalRegime?.dataHealth || null, marketRegime: canonicalRegime?.marketRegime || null };
+  return { tiers, dataQuality, dataHealth: canonicalRegime?.dataHealth || null, marketRegime: canonicalRegime?.marketRegime || null, researchContext };
 }
 
 async function handleMarket(req, res, requestUrl) {
@@ -2977,7 +2982,7 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
   // a ~100-symbol-per-request fetch.
   if (pathname === "/api/market/opportunities" && req.method === "GET") {
     try {
-      const { tiers, dataQuality, dataHealth, marketRegime } = await computeAllOpportunities();
+      const { tiers, dataQuality, dataHealth, marketRegime, researchContext } = await computeAllOpportunities();
 
       // Same-session Edge Timeline (Phase 2, 2026-08-26) — real, throttled
       // intraday snapshot of every real Opportunity Object this scan just
@@ -2991,7 +2996,7 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
       return writeJson(res, 200, {
         ok: true, generatedAt: new Date().toISOString(),
         counts: Object.fromEntries(Object.entries(tiers).map(([k, v]) => [k, v.length])),
-        tiers, dataQuality, dataHealth, marketRegime,
+        tiers, dataQuality, dataHealth, marketRegime, researchContext,
       });
     } catch (err) {
       return writeJson(res, 502, { ok: false, error: err instanceof Error ? err.message : "Opportunity scan failed." });
