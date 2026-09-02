@@ -78,6 +78,7 @@ Paper trading remains the default. No migration step authorizes live execution o
 - Smart Money Decision Panel now renders that canonical final verdict and reason when available; legacy route labels remain compatibility-only.
 - Cortex Stock tab's second verdict card is now explicitly labeled as the canonical decision track record, removing the implication that Cortex computes a separate final verdict.
 - Removed the duplicate Cortex symbol-view verdict card; one canonical verdict card remains, with track-record context beneath it.
+- The conversational `run_scan` tool now ranks and reports the canonical AssetDecision verdict/stage/reason rather than the legacy client `computeNextAction` classifier.
 
 ## Target canonical contracts
 
@@ -118,7 +119,7 @@ Opportunity lifecycle: `DORMANT | DEVELOPING | EMERGING | ACTIONABLE | CONFIRMED
 
 ### P2
 
-- [ ] Cortex becomes a query/explanation layer over canonical state
+- [~] Cortex becomes a query/explanation layer over canonical state (Cortex tab, Smart Money, Telegram, and `run_scan` now consume canonical decisions; remaining explanation surfaces are being audited)
 - [~] Future Wallet separates asset potential from current timing (API now labels `verdictType: FUTURE_POTENTIAL`; live entry verdict remains canonical pipeline data and is not fabricated)
 - [~] Portfolio consumes canonical decisions and exposes factor/event concentration (open-position edge monitor now carries canonical `assetDecision`; factor/event aggregation remains)
 - [~] Add real event-risk inputs and risk overrides where provider data exists (earnings DTE and explicit event records are supported; provider calendar wiring remains)

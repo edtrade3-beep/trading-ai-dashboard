@@ -1987,29 +1987,36 @@ async function screenWatchlistCached(symbols) {
 // anything request-specific.
 async function runAiScanTool(args) {
   const { SCAN_UNIVERSE } = require("../advisor-ai");
-  const { computeRegime, computeAPlusScore, computeNextAction } = require("../trade-planner-scoring");
+  const { computeAPlusScore } = require("../trade-planner-scoring");
+  const { computeCanonicalAssetDecision } = require("../canonical-decision-pipeline");
+  const { isMarketHoursET } = require("../risk-guardrails");
   const maxPrice = Number.isFinite(Number(args?.maxPrice)) ? Number(args.maxPrice) : null;
   const minScore = Number.isFinite(Number(args?.minScore)) ? Number(args.minScore) : null;
   const limit = Math.max(1, Math.min(50, Number(args?.limit) || 25));
 
   const macroRows = await fetchMarketQuotes(["SPY", "QQQ", "VIXY"], resolveProviderKeys(new URLSearchParams()));
-  const regime = computeRegime(Array.isArray(macroRows) ? macroRows : []);
-
   const results = await screenTrendTemplate(SCAN_UNIVERSE);
+  const marketHours = isMarketHoursET();
   let scored = results
     .filter(r => !r.error && Number(r.entry) > Number(r.stop))
-    .map(r => ({ ...r, aplus: computeAPlusScore(r, regime), next: computeNextAction(r) }));
+    .map(r => {
+      const canonical = computeCanonicalAssetDecision({ symbol: r.symbol, row: r, macroQuotes: macroRows, marketHours });
+      return { ...r, aplus: computeAPlusScore(r, canonical?.compatibilityRegime), assetDecision: canonical?.assetDecision || null, marketRegime: canonical?.marketRegime || null };
+    })
+    .filter(r => r.assetDecision);
 
   if (maxPrice != null) scored = scored.filter(r => Number(r.price) <= maxPrice);
   if (minScore != null) scored = scored.filter(r => r.aplus.score >= minScore);
 
   const ranked = scored.sort((a, b) => b.aplus.score - a.aplus.score).slice(0, limit);
   return {
-    regime: { score: regime.score, label: regime.label },
+    regime: ranked[0]?.marketRegime ? { score: ranked[0].marketRegime.score, label: ranked[0].marketRegime.regime } : null,
     universeSize: SCAN_UNIVERSE.length,
     matchCount: ranked.length,
     results: ranked.map(r => ({
-      symbol: r.symbol, price: r.price, score: r.aplus.score, action: r.next.action,
+      symbol: r.symbol, price: r.price, score: r.aplus.score, action: r.assetDecision.verdict,
+      opportunityStage: r.assetDecision.opportunityStage,
+      reason: r.assetDecision.reasons?.[0] || r.assetDecision.blockers?.[0] || null,
       rsRating: r.rsRating, passCount: r.passCount,
       stage: (r.stage || "").replace(/ —.*/, ""),
       entry: r.entry, stop: r.stop, target: r.target2, atBuyPoint: !!r.atBuyPoint,
