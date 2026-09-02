@@ -622,7 +622,7 @@ export default function TradeDeskTab({
             left, real ticker search center, real SPY/QQQ/VIX + regime +
             autopilot pills right. Fixed dark TD palette regardless of the
             app's own light/dark toggle (see TD's own comment above). */}
-        <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "10px 14px", borderBottom: `1px solid ${TD.border}`, flexWrap: "wrap", background: TD.card }}>
+        <div aria-hidden="true" style={{ display: "none" }}>
           <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.1 }}>
             <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: TD.text, letterSpacing: 0.4 }}>AM TRADING</span>
             <span style={{ fontFamily: SANS, fontSize: 8.5, fontWeight: 700, color: TD.textDim, letterSpacing: 1 }}>AI POWERED · DATA DRIVEN</span>
