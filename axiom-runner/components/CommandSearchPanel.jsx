@@ -200,13 +200,22 @@ export default function CommandSearchPanel({ symbol, onSelectSymbol, onOpenDaytr
 
   const load = async () => {
     setLoading(true); setError(null);
+    // 15s frontend timeout (2026-09-02 fix) — this had none at all, so a
+    // hung /api/market/opportunities request left "Scanning…" on screen
+    // forever with no way out (the refresh button itself is disabled
+    // while loading is stuck true).
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15_000);
     try {
-      const r = await fetch("/api/market/opportunities").then((res) => res.json());
+      const r = await fetch("/api/market/opportunities", { signal: controller.signal }).then((res) => res.json());
       if (!r.ok) throw new Error(r.error || "Scan failed");
       setData(r);
     } catch (e) {
-      setError(e.message);
-    } finally { setLoading(false); }
+      setError(e.name === "AbortError" ? "Unable to load market data. Request timed out." : "Unable to load market data.");
+    } finally {
+      clearTimeout(timer);
+      setLoading(false);
+    }
   };
   useEffect(() => { load(); }, []);
 
@@ -340,7 +349,12 @@ export default function CommandSearchPanel({ symbol, onSelectSymbol, onOpenDaytr
         </button>
       </div>
 
-      {error && <div style={{ padding: "0 10px", fontFamily: SANS, fontSize: 11, color: "#c8282a" }}>{error}</div>}
+      {error && (
+        <div style={{ padding: "0 10px", display: "flex", alignItems: "center", gap: 8, fontFamily: SANS, fontSize: 11, color: "#c8282a" }}>
+          <span>{error}</span>
+          <button onClick={load} style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.accent, background: "none", border: `1px solid ${C.accent}55`, borderRadius: 5, padding: "2px 8px", cursor: "pointer" }}>Retry</button>
+        </div>
+      )}
       {loading && !data && <div style={{ padding: "12px 10px", fontFamily: SANS, fontSize: 11, color: C.textDim }}>Scanning…</div>}
 
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 8px 8px", display: "flex", flexDirection: "column", gap: 8 }}>

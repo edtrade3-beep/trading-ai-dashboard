@@ -239,6 +239,12 @@ export default function CortexMiniPanel({ symbol, onSelectSymbol, setActiveTab, 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
+  // Bumping this re-runs the analysis effect below without duplicating its
+  // fetch logic — the Retry button's only job. Real fix (2026-09-02): the
+  // analysis fetch had no timeout at all, so a hung request left "Analyzing
+  // {symbol}…" on screen forever with no way to recover short of switching
+  // symbols.
+  const [retryTick, setRetryTick] = useState(0);
   const reqRef = useRef(null);
 
   // Portfolio correlation annotation (Phase 2, 2026-08-26, spec's
@@ -306,12 +312,17 @@ export default function CortexMiniPanel({ symbol, onSelectSymbol, setActiveTab, 
     // spurious error banner.
     const loadAnalysis = async (silent) => {
       if (!silent) { setLoading(true); setError(null); setNotice(null); }
+      // 15s frontend timeout (matches this app's one existing precedent,
+      // axiom-live.jsx's deals-search AbortController) — the button/panel
+      // must never hang forever on a slow or dead request.
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 15_000);
       try {
         // Publish the canonical decision as soon as the decision endpoint
         // returns. Optional fundamentals/news must not hold the verdict in a
         // misleading "Analyzing" state while the left Trade Desk already
         // shows the same symbol's opportunity.
-        const screenJ = await fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(symbol)}&withDecision=1&withOptions=1`).then((r) => r.json());
+        const screenJ = await fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(symbol)}&withDecision=1&withOptions=1`, { signal: controller.signal }).then((r) => r.json());
         if (cancelled || reqRef.current !== symbol) return;
         const row = (screenJ.results || [])[0];
         if (!row || row.error) { if (!silent) { setError(`No real market data available for ${symbol}.`); setAnalysis(null); } return; }
@@ -328,8 +339,12 @@ export default function CortexMiniPanel({ symbol, onSelectSymbol, setActiveTab, 
             : current);
         }
       } catch (e) {
-        if (!cancelled && !silent) { setError(e.message); setAnalysis(null); }
+        if (!cancelled && !silent) {
+          setError(e.name === "AbortError" ? "Unable to load market data. Request timed out." : "Unable to load market data.");
+          setAnalysis(null);
+        }
       } finally {
+        clearTimeout(timer);
         if (!cancelled && !silent) setLoading(false);
       }
     };
@@ -340,7 +355,7 @@ export default function CortexMiniPanel({ symbol, onSelectSymbol, setActiveTab, 
     // server-side gate ignores anything younger than that).
     const iv = setInterval(() => loadAnalysis(true), 5 * 60_000);
     return () => { cancelled = true; clearInterval(iv); };
-  }, [symbol]);
+  }, [symbol, retryTick]);
 
   const submit = () => {
     const parsed = parseCortexQuery(query, null);
@@ -378,7 +393,12 @@ export default function CortexMiniPanel({ symbol, onSelectSymbol, setActiveTab, 
       </div>
 
       {notice && <div style={{ margin: "0 10px 8px", fontFamily: SANS, fontSize: 11, color: C.textDim }}>{notice}</div>}
-      {error && <div style={{ margin: "0 10px 8px", fontFamily: SANS, fontSize: 11, color: "#c8282a" }}>{error}</div>}
+      {error && (
+        <div style={{ margin: "0 10px 8px", display: "flex", alignItems: "center", gap: 8, fontFamily: SANS, fontSize: 11, color: "#c8282a" }}>
+          <span>{error}</span>
+          <button onClick={() => setRetryTick((t) => t + 1)} style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.accent, background: "none", border: `1px solid ${C.accent}55`, borderRadius: 5, padding: "2px 8px", cursor: "pointer" }}>Retry</button>
+        </div>
+      )}
       {loading && <div style={{ margin: "0 10px 8px", fontFamily: SANS, fontSize: 11, color: C.textDim }}>Analyzing {symbol}…</div>}
 
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 10px 10px" }}>

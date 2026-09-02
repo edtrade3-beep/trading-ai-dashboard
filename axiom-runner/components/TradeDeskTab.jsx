@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { computeRegime, computeMarketBias, SCAN_UNIVERSE } from "./market-helpers.js";
 import { fetchSharedQuotes } from "./quote-store.js";
+import { getCachedDecision, fetchDecision } from "./decision-store.js";
 import TrendChart from "./TrendChart.jsx";
 import CommandSearchPanel, { TickerHeader, pickTopOpportunities } from "./CommandSearchPanel.jsx";
 import CortexMiniPanel from "./CortexMiniPanel.jsx";
@@ -387,25 +388,27 @@ export default function TradeDeskTab({
 
   // One authoritative decision for the desk. This is presentation-only:
   // the server returns the canonical AssetDecision and the client never
-  // recomputes or relabels its verdict.
+  // recomputes or relabels its verdict. Routed through decision-store.js
+  // (a shared cache/dedup layer) rather than a raw fetch here, since
+  // CortexMiniPanel below mounts for this exact same symbol at the same
+  // time and used to fire its own independent request for the identical
+  // canonical decision.
   const [canonicalDecision, setCanonicalDecision] = useState(null);
   const [decisionLoading, setDecisionLoading] = useState(false);
   const [decisionError, setDecisionError] = useState(null);
   useEffect(() => {
     if (!symbol) return;
     let cancelled = false;
-    setDecisionLoading(true);
-    setDecisionError(null);
-    fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(symbol)}&withDecision=1`)
-      .then((r) => r.json().then((d) => ({ ok: r.ok, d })))
-      .then(({ ok, d }) => {
-        if (cancelled) return;
-        const row = Array.isArray(d?.results) ? d.results[0] : null;
-        if (!ok || !row || row.error || !row.assetDecision) throw new Error(row?.error || d?.error || "canonical decision unavailable");
-        setCanonicalDecision(row.assetDecision);
-      })
-      .catch((e) => { if (!cancelled) { setCanonicalDecision(null); setDecisionError(e?.message || "canonical decision unavailable"); } })
-      .finally(() => { if (!cancelled) setDecisionLoading(false); });
+    const cached = getCachedDecision(symbol);
+    setCanonicalDecision(cached.assetDecision);
+    setDecisionLoading(cached.loading);
+    setDecisionError(cached.error);
+    fetchDecision(symbol).then((entry) => {
+      if (cancelled) return;
+      setCanonicalDecision(entry.assetDecision);
+      setDecisionLoading(false);
+      setDecisionError(entry.error);
+    });
     return () => { cancelled = true; };
   }, [symbol]);
 
@@ -687,7 +690,7 @@ export default function TradeDeskTab({
         {isMobile ? (
           <MobileTradeDeskBody symbol={symbol} selectSymbol={selectSymbol} chart={chart} chartError={chartError} symbolQuote={symbolQuote} fundamentals={fundamentals} applyLightboxHandoff={applyLightboxHandoff} dayTradeHandoff={dayTradeHandoff} loadingChart={loadingChart} vcpOn={vcpOn} setVcpOn={setVcpOn} setActiveTab={setActiveTab} macroData={macroData} C={TD} MONO={MONO} SANS={SANS} />
         ) : (
-          <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "220px 1fr 280px" }}>
+          <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: isTablet ? "160px 1fr 220px" : "220px 1fr 280px" }}>
             <div style={{ borderRight: `1px solid ${TD.border}`, minHeight: 0, overflow: "hidden", background: TD.bg }}>
               <CommandSearchPanel symbol={symbol} onSelectSymbol={selectSymbol} onOpenDaytrade={applyLightboxHandoff} chart={chart} symbolQuote={symbolQuote} fundamentals={fundamentals} C={TD} MONO={MONO} SANS={SANS} hideSearch />
             </div>

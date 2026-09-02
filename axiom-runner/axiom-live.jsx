@@ -1478,7 +1478,13 @@ export default function App() {
   const wlSymsKey = [...new Set((watchlistSymbols || []).filter(Boolean))].sort().join(",");
   useEffect(() => {
     if (!wlSymsKey) return;
-    fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(wlSymsKey)}`)
+    // withDecision=1 (2026-09-02 fix): every consumer of this shared
+    // trendMap (QuotesTab's SETUP badge, the two fetchTradeSetup call
+    // sites below) needs row.assetDecision to prefer the one canonical
+    // verdict over a legacy re-derived one — it was silently absent for
+    // every row here, so those consumers always fell back to legacy
+    // formulas even when a real canonical decision existed.
+    fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(wlSymsKey)}&withDecision=1`)
       .then(r => r.json())
       .then(j => {
         const map = {};
@@ -1549,7 +1555,7 @@ export default function App() {
     setActiveTab("smartscan");
     setSelectedStock(null);
     setTimeout(() => { setScanExpanded(sym); loadDeepDive(sym); loadDeepSocial(sym); }, 80);
-    setTimeout(() => fetchTradeSetup(sym, { ticker: sym, score: sc, signal: "WATCH", signals: [], quote: { price: selectedStock.price || 0 } }), 1300);
+    setTimeout(() => fetchTradeSetup(sym, { ticker: sym, score: sc, signal: "WATCH", signals: [], quote: { price: selectedStock.price || 0 }, ...cortexContextFor(sym) }), 1300);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedStock]);
   const [terminalSymbol, setTerminalSymbol] = useState(WATCHLIST_SYMBOLS[0]);
@@ -2455,7 +2461,13 @@ export default function App() {
   });
   const [tasbihCompleted, setTasbihCompleted] = useState(false);
 
-  const themeMode = String(settings.themeMode || "light").toLowerCase() === "dark" ? "dark" : "light";
+  // Falls back to "dark" (matching DEFAULT_SETTINGS.themeMode's own
+  // "permanent default" comment above) when no real preference has ever
+  // been saved — this previously fell back to "light" instead, silently
+  // contradicting that comment for a genuinely first-ever/unconfigured
+  // load. Never overrides a real saved choice: settings.themeMode is
+  // only falsy when nothing has been explicitly set.
+  const themeMode = String(settings.themeMode || "dark").toLowerCase() === "dark" ? "dark" : "light";
   const brightness = Math.max(30, Math.min(100, Number(settings.brightness ?? 100)));
   // Sync module-level C on every render so all components see the current theme immediately
   Object.assign(C, themeMode === "dark" ? THEME_DARK : THEME_LIGHT);
@@ -3065,7 +3077,7 @@ export default function App() {
     setScanExpanded(sym);
     setActiveTab("smartscan");
     setTimeout(() => { setScanExpanded(sym); loadDeepDive(sym); loadDeepSocial(sym); }, 150);
-    setTimeout(() => { try { fetchTradeSetup(sym, { ticker: sym, score: 50, signal: "WATCH", signals: [], quote: quote || { price: 0 } }); } catch {} }, 1400);
+    setTimeout(() => { try { fetchTradeSetup(sym, { ticker: sym, score: 50, signal: "WATCH", signals: [], quote: quote || { price: 0 }, ...cortexContextFor(sym) }); } catch {} }, 1400);
   }
 
   async function loadDeepDive(ticker) {
@@ -3134,6 +3146,22 @@ export default function App() {
       setDeepSocialData(prev => ({ ...prev, [ticker]: {} }));
     }
     setDeepSocialLoad(prev => ({ ...prev, [ticker]: false }));
+  }
+
+  // Same compatibility mapping SmartScanTab.jsx already uses (canonical
+  // assetDecision.verdict -> the legacy BUY ZONE/WATCH/WAIT/OVEREXTENDED/
+  // AVOID vocabulary buildTradeSetup's CORTEX_TO_BIAS/CONVICTION tables
+  // key off), so any fetchTradeSetup caller here can pass real Cortex
+  // context instead of silently hitting buildTradeSetup's legacy re-score
+  // fallback (2026-08-19 fix class — see routes/agent.js's own comment).
+  function cortexContextFor(sym) {
+    const ad = trendMap[sym]?.assetDecision;
+    if (!ad?.verdict) return {};
+    return {
+      cortexVerdict: ad.verdict === "STRONG_BUY" || ad.verdict === "BUY" ? "BUY ZONE" : ad.verdict,
+      cortexReason: ad.reasons?.[0] || null,
+      cortexScore: Number.isFinite(ad.confidence) ? ad.confidence : (Number.isFinite(ad.opportunityScore) ? ad.opportunityScore : null),
+    };
   }
 
   async function fetchTradeSetup(ticker, row) {
@@ -3728,6 +3756,13 @@ export default function App() {
 
   useEffect(() => {
     try {
+      // Keep <html> in sync too, not just <body> — index.html's own
+      // synchronous pre-hydration script sets document.documentElement's
+      // background from a cached guess (localStorage may still be empty
+      // on a first-ever load, defaulting to dark); once the real
+      // server-persisted themeMode resolves here, it can differ from that
+      // guess, and nothing else ever corrects <html> afterward.
+      document.documentElement.style.background = C.bg;
       document.body.style.background = C.bg;
       document.body.style.color = C.text;
     } catch {}
@@ -7835,6 +7870,5 @@ export default function App() {
 }
 
 window.__AXIOM_APP__ = function AppRoot() { return React.createElement(RhErrorBoundary, null, React.createElement(App)); };
-
 
 

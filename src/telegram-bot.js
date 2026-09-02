@@ -1727,12 +1727,24 @@ const COMMANDS = {
       const regime = computeRegime(Array.isArray(macroData) ? macroData : []);
 
       // Best-effort, same trend-template screen Terminal/Watchlists/Scanner/website use.
-      let aplus = null, next = null;
+      // withDecision=1 (2026-09-02 fix): this was silently omitted, so
+      // tsRow.assetDecision was never populated and /plan always fell
+      // back to computeNextAction's independent legacy formula for its
+      // "Next Action" line — the same class of bug already fixed for
+      // QuotesTab.jsx's SETUP badge (same fallback pattern, same fix).
+      let aplus = null, next = null, canonicalVerdict = null;
       try {
-        const tsResp = await fetch(`${base}/api/market/trend-screen?symbols=${encodeURIComponent(sym)}`);
+        const tsResp = await fetch(`${base}/api/market/trend-screen?symbols=${encodeURIComponent(sym)}&withDecision=1`);
         const tsJson = tsResp.ok ? await tsResp.json() : null;
         const tsRow = (tsJson?.results || []).find(x => x && !x.error && x.symbol === sym);
-        if (tsRow) { aplus = computeAPlusScore(tsRow, regime); next = computeNextAction(tsRow); }
+        if (tsRow) {
+          aplus = computeAPlusScore(tsRow, regime);
+          if (tsRow.assetDecision?.verdict) {
+            canonicalVerdict = { action: tsRow.assetDecision.verdict, reason: tsRow.assetDecision.reasons?.[0] || "Canonical final verdict." };
+          } else {
+            next = computeNextAction(tsRow);
+          }
+        }
       } catch {}
 
       const pct = (a, b) => b > 0 ? round2((a - b) / b * 100) : 0;
@@ -1749,7 +1761,7 @@ const COMMANDS = {
         ``,
         `Market Regime: ${regime.label} ${regime.score}/100`,
         aplus ? `A+ Score: ${aplus.score}/100` : `A+ Score: unavailable (not in trend-template universe)`,
-        next ? `Next Action: ${next.action} — ${next.reason}` : "",
+        canonicalVerdict ? `Verdict: ${canonicalVerdict.action} — ${canonicalVerdict.reason}` : next ? `Next Action: ${next.action} — ${next.reason}` : "",
         ``,
         `💰 LEVELS`,
         `Entry:  $${price.toFixed(2)}  (current)`,

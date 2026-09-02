@@ -101,6 +101,32 @@ ok("scoreSentiment: real |score|>=3 threshold — News Engine Phase 12's market-
   assert.ok(Math.abs(mild.score) < 3, "a single mild keyword must not be treated as market-moving");
 });
 
+console.log("Checking buildTradeSetup — canonical Cortex verdict must never be overridden by the legacy score/signal re-score (2026-09-02 fix)…");
+ok("buildTradeSetup: a real canonical AVOID overrides a bullish legacy score/signal, not the other way around", () => {
+  const { buildTradeSetup } = require("../src/routes/agent");
+  // score/signal alone would normally read as a strong LONG (A+ LONG,
+  // HIGH conviction) under the legacy fallback formula — but a real
+  // canonical Cortex verdict of AVOID must win, proving the legacy
+  // inputs are evidence only, never a competing final decision.
+  const out = buildTradeSetup({
+    ticker: "TEST", score: 90, signal: "LONG", signals: [], rsiVal: 65, macdBull: true,
+    livePrice: 100, liveChg: 1.2, cortexVerdict: "AVOID", cortexReason: "Broken 4H structure.",
+  });
+  assert.strictEqual(out.bias, "NEUTRAL", "AVOID must map to NEUTRAL bias regardless of the bullish legacy score/signal");
+  assert.ok(out.plan.includes("FINAL VERDICT: AVOID"), "plan text must show the canonical verdict, not a legacy-derived label");
+  assert.ok(out.plan.includes("Cortex Verdict"), "plan text must disclose the verdict came from Cortex, not a re-derived score");
+  assert.ok(!/A\+ LONG|FINAL VERDICT: LONG/.test(out.plan), "the legacy bullish label must never appear once a real canonical verdict is present");
+});
+ok("buildTradeSetup: with no canonical verdict supplied, the legacy fallback still runs (regression safety)", () => {
+  const { buildTradeSetup } = require("../src/routes/agent");
+  const out = buildTradeSetup({
+    ticker: "TEST", score: 90, signal: "LONG", signals: [], rsiVal: 65, macdBull: true,
+    livePrice: 100, liveChg: 1.2,
+  });
+  assert.strictEqual(out.bias, "LONG", "with no canonical context, the legacy score/signal formula should still resolve bias as before");
+  assert.ok(!out.plan.includes("Cortex Verdict"), "must not claim a Cortex verdict when none was supplied");
+});
+
 console.log("Checking gamma-exposure.js (Phase 2, options redesign)…");
 ok("computeGammaExposure: honest unavailable with no contracts or no underlying", () => {
   const { computeGammaExposure } = require("../src/gamma-exposure");

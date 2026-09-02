@@ -1120,3 +1120,4 @@ async function handleAgent(req, res, requestUrl) {
 module.exports = handleAgent;
 module.exports.scoreSentiment = scoreSentiment;
 module.exports.aggregateSentimentForSymbol = aggregateSentimentForSymbol;
+module.exports.buildTradeSetup = buildTradeSetup;

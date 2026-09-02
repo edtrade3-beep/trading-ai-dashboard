@@ -12,13 +12,46 @@
   <link rel="icon" type="image/png" href="/axiom-runner/assets/am-trading-logo.png">
   <link rel="shortcut icon" type="image/png" href="/axiom-runner/assets/am-trading-logo.png">
   <link rel="apple-touch-icon" href="/axiom-runner/assets/am-trading-logo.png">
+  <script>
+    // Real fix (2026-09-02) for a pre-hydration background-color flash:
+    // this app's theme is a single shared, server-persisted preference
+    // (settings.themeMode, cached client-side under axiom_local_config_v1
+    // — same key axiom-live.jsx itself reads/writes), not a per-browser
+    // default, so a hardcoded static color here was ALWAYS wrong for
+    // whichever theme wasn't currently active — flashing dark-behind-white
+    // for a dark-mode session, or light-behind-dark for a light-mode one.
+    // This runs synchronously, before <body> paints anything, and sets
+    // <html>'s own background from the same cached value axiom-live.jsx's
+    // own theme effect (document.body.style.background = C.bg) will
+    // confirm/overwrite a moment later — so the two can never disagree.
+    // Falls back to DEFAULT_SETTINGS.themeMode's own documented default
+    // ("dark") only when no cached preference exists yet (first-ever load).
+    (function () {
+      var dark = "#0f1318", light = "#ffffff", bg = dark;
+      try {
+        var raw = localStorage.getItem("axiom_local_config_v1");
+        var mode = raw && JSON.parse(raw)?.settings?.themeMode;
+        if (mode === "light") bg = light;
+      } catch (e) { /* keep the dark default */ }
+      document.documentElement.style.background = bg;
+    })();
+  </script>
   <style>
     html, body, #root {
+      width: 100%;
       height: 100%;
+      min-height: 100%;
       margin: 0;
+      padding: 0;
     }
     body {
-      background: #fbfcff;
+      /* No background here — the synchronous script above sets it on
+         <html> before first paint, and axiom-live.jsx's own theme effect
+         (document.body.style.background = C.bg) sets body's real inline
+         background once React mounts. Leaving body transparent between
+         those two moments lets html's already-correct color show through
+         instead of a third, competing static guess. */
+      overflow-x: hidden;
     }
     .boot {
       display: grid;
