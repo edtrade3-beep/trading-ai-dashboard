@@ -17,7 +17,7 @@ export default function MultiTfTab({
         useEffect(() => {
           if (!sym) return;
           setSymTrend(null);
-          fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(sym)}`)
+          fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(sym)}&withDecision=1`)
             .then(r => r.json())
             .then(j => setSymTrend((j.results || []).find(r => r.symbol === sym && !r.error) || null))
             .catch(() => {});

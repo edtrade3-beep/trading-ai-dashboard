@@ -86,7 +86,7 @@ export default function HoldingsTab({ C, MONO, SANS, macroData }) {
   useEffect(() => {
     const stockSyms = holdings.filter(h => !HOLDINGS_CRYPTO.has(h.symbol)).map(h => h.symbol);
     if (!stockSyms.length) return;
-    fetch(`/api/market/trend-screen?symbols=${encodeURIComponent([...new Set(stockSyms)].sort().join(","))}`)
+    fetch(`/api/market/trend-screen?symbols=${encodeURIComponent([...new Set(stockSyms)].sort().join(","))}&withDecision=1`)
       .then(r => r.json())
       .then(j => {
         const map = {};

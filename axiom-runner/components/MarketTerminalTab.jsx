@@ -902,7 +902,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   const rowsSymKey = [...new Set(rows.map(r => r.symbol))].sort().join(",");
   useEffect(() => {
     if (!rowsSymKey) { setTermTrendMap({}); return; }
-    fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(rowsSymKey)}`)
+    fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(rowsSymKey)}&withDecision=1`)
       .then(r => r.json())
       .then(j => {
         const map = {};

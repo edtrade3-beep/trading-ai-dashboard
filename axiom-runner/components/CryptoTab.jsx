@@ -41,7 +41,7 @@ function CryptoScanTrade({ C, MONO, SANS }) {
 
   useEffect(() => {
     const load = () => {
-      fetch(`/api/market/trend-screen?symbols=${CRYPTO_SCAN_UNIVERSE.join(",")}`)
+      fetch(`/api/market/trend-screen?symbols=${CRYPTO_SCAN_UNIVERSE.join(",")}&withDecision=1`)
         .then(r => r.json())
         .then(d => { if (Array.isArray(d?.results)) { setScan(d.results); setScanState("ok"); } else setScanState("error"); })
         .catch(() => setScanState("error"));

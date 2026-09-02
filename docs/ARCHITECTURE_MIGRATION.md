@@ -70,6 +70,7 @@ Paper trading remains the default. No migration step authorizes live execution o
 - Trend-screen responses now publish top-level canonical `dataHealth` and `marketRegime` alongside per-row AssetDecision state for consistent page headers and health indicators.
 - Added `execution-authority.js`, a shared paper-only ownership contract distinguishing broker mutators (Server Autopilot, Light Box Assist, Quick Trade) from read-only schedulers.
 - Execution authority and `/api/health` now include the legacy Tradier Autoexec mode, including pending assistant approval, so every broker mutator is visible in one status contract.
+- Remaining trend-screen consumers (Trade Advisor, Green Light, Terminal refresh, Predictions, Multi-TF, Heat Map, Holdings, Crypto, and Early Entry) now request `withDecision=1`, ensuring canonical AssetDecision data is available at each surface.
 
 ## Target canonical contracts
 
@@ -119,7 +120,7 @@ Opportunity lifecycle: `DORMANT | DEVELOPING | EMERGING | ACTIONABLE | CONFIRMED
 ### P3
 
 - [ ] Publish Research/Market Wrap narrative state into canonical context
-- [ ] Standardize verdict/stage UI vocabulary and visual treatment
+- [~] Standardize verdict/stage UI vocabulary and visual treatment (canonical data is now delivered to remaining trend-screen surfaces; local presentation cleanup remains)
 - [ ] Remove verified dead engines, fallbacks, routes, prompts, imports, and duplicate requests
 - [ ] Complete dependency-flow and operational documentation
 

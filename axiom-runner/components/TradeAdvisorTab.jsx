@@ -210,7 +210,7 @@ export default function TradeAdvisorTab({ C, MONO, SANS, watchlistData, watchlis
   const wlSymsKey = [...new Set(wlSyms)].sort().join(",");
   useEffect(() => {
     if (!wlSymsKey) return;
-    fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(wlSymsKey)}`)
+    fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(wlSymsKey)}&withDecision=1`)
       .then(r => r.json())
       .then(j => {
         const map = {};

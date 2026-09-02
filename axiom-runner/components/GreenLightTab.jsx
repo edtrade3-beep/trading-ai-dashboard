@@ -309,7 +309,7 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
   const wlSymsKey = [...new Set((watchlistData || []).map(q => q.symbol).filter(Boolean))].sort().join(",");
   useEffect(() => {
     if (!wlSymsKey) return;
-    fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(wlSymsKey)}`)
+    fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(wlSymsKey)}&withDecision=1`)
       .then(r => r.json())
       .then(j => {
         const map = {};
@@ -1488,4 +1488,3 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
     </div>
   );
 }
-

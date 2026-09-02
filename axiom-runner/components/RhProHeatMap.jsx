@@ -9,7 +9,7 @@ import { SECTOR_ETFS } from "./market-helpers.js";
 export default function RhProHeatMap({ C, MONO, SANS, sectorData, macroData, compact = false }) {
   const [screen, setScreen] = useState({}); // symbol -> {rsRating, momentum, stage}
   useEffect(() => {
-    fetch(`/api/market/trend-screen?symbols=${SECTOR_ETFS.map(s => s.symbol).join(",")}`)
+    fetch(`/api/market/trend-screen?symbols=${SECTOR_ETFS.map(s => s.symbol).join(",")}&withDecision=1`)
       .then(r => r.json())
       .then(d => { const m = {}; (d.results || []).forEach(x => { if (!x.error) m[x.symbol] = x; }); setScreen(m); })
       .catch(() => {});

@@ -175,7 +175,7 @@ export default function EarlyEntryScanner({ watchlistData, macroData, sectorData
   const watchSymbolsKey = (watchlistData || []).map(q => q.symbol).filter(Boolean).sort().join(",");
   useEffect(() => {
     if (!watchSymbolsKey) return;
-    fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(watchSymbolsKey)}`)
+    fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(watchSymbolsKey)}&withDecision=1`)
       .then(r => r.json())
       .then(j => {
         const map = {};

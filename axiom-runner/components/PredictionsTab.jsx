@@ -42,7 +42,7 @@ export default function PredictionsTab({ C, MONO, SANS, watchlistData, macroData
 
   useEffect(() => {
     if (!stockKey) return;
-    fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(stockKey)}`)
+    fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(stockKey)}&withDecision=1`)
       .then(r => r.json())
       .then(j => {
         const map = {};
