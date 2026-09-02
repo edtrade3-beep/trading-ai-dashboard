@@ -19,6 +19,11 @@ ok("data health reports optional source availability without blocking", () => {
   assert.equal(h.canTrade, true);
   assert.equal(h.sources.find((s) => s.source === "news").status, "UNAVAILABLE");
 });
+ok("canonical pipeline recognizes provider timestamps for optional freshness", () => {
+  const realNow = Date.now();
+  const h = computeCanonicalAssetDecision({ symbol: "TEST", row: { symbol: "TEST", price: 100, entry: 100, stop: 95, target2: 110, passCount: 7, rsRating: 80, stage: "Stage 2", vcpScore: 80 }, macroQuotes: [{ symbol: "SPY", changesPercentage: 1 }, { symbol: "QQQ", changesPercentage: 1 }, { symbol: "VIX", price: 14 }], fundamentals: { updatedAt: realNow - 2 * 86400000 }, nowMs: realNow });
+  assert.equal(h.dataHealth.sources.find((s) => s.source === "fundamentals").status, "STALE");
+});
 ok("stale required source fails closed", () => { assert.equal(stale.canTrade, false); assert.equal(stale.sources[0].status, "STALE"); });
 const riskOn = computeMarketRegimeState({ macroQuotes: [{ symbol: "SPY", changesPercentage: 1 }, { symbol: "QQQ", changesPercentage: 1.2 }, { symbol: "VIX", price: 14 }], dataHealth: healthy, timestamp: now });
 const crisis = computeMarketRegimeState({ macroQuotes: [{ symbol: "SPY", changesPercentage: -3 }, { symbol: "QQQ", changesPercentage: -4 }, { symbol: "VIX", price: 40 }], dataHealth: healthy, timestamp: now });

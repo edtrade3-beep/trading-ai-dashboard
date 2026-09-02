@@ -11,7 +11,8 @@ const PIPELINE_VERSION = "canonical-pipeline-v1";
 
 function latestTimestampMs(rows) {
   return (rows || []).reduce((latest, row) => {
-    const raw = Number(row?.regularMarketTime ?? row?.timestamp ?? row?.ts);
+    const candidate = row?.regularMarketTime ?? row?.timestamp ?? row?.ts ?? row?.updatedAt ?? row?.asOf ?? row?.generatedAt;
+    const raw = typeof candidate === "string" && !/^\d+(\.\d+)?$/.test(candidate) ? Date.parse(candidate) : Number(candidate);
     if (!Number.isFinite(raw) || raw <= 0) return latest;
     const ms = raw < 10_000_000_000 ? raw * 1000 : raw;
     return Math.max(latest, ms);
@@ -31,9 +32,9 @@ function computeCanonicalAssetDecision({
     { source: "market-price", available: Number.isFinite(row.price), timestamp: latestTimestampMs([row]), staleAfterMs: marketHours ? 5 * 60_000 : null, required: true },
     { source: "macro-quotes", available: macroQuotes.length > 0, timestamp: latestTimestampMs(macroQuotes), staleAfterMs: marketHours ? 15 * 60_000 : null, required: true },
     { source: "options-flow", available: optionsFlow != null, required: false },
-    { source: "fundamentals", available: fundamentals != null, required: false },
-    { source: "news", available: news != null, required: false },
-    { source: "execution-paper-broker", available: executionHealth !== false, required: false },
+    { source: "fundamentals", available: fundamentals != null, timestamp: latestTimestampMs([fundamentals]), staleAfterMs: 24 * 60 * 60_000, required: false },
+    { source: "news", available: news != null, timestamp: latestTimestampMs([news]), staleAfterMs: 60 * 60_000, required: false },
+    { source: "execution-paper-broker", available: executionHealth !== false, timestamp: latestTimestampMs([executionHealth]), staleAfterMs: 5 * 60_000, required: false },
     { source: "research-market-wrap", available: researchContext?.available === true, required: false },
     ...extraDataSources,
   ], { nowMs });
