@@ -98,7 +98,7 @@ function upperWick(bar)  { return bar.h - Math.max(bar.o, bar.c); }
 function lowerWick(bar)  { return Math.min(bar.o, bar.c) - bar.l; }
 
 // ── Pattern detection ─────────────────────────────────────────────────────────
-function detectPatterns(bars) {
+function detectBasePatterns(bars) {
   if (bars.length < 3) return [];
   const patterns = [];
   const prev2 = bars[bars.length - 3];
@@ -433,11 +433,21 @@ async function runAdol22(watchlistSymbols) {
   }
 }
 
-// ── More patterns — added to detectPatterns ──────────────────────────────────
-// (patch detectPatterns to add more)
-const _origDetect = detectPatterns;
+// ── More patterns — added to detectBasePatterns ──────────────────────────────
+// Real fix (previously a real, live bug): this used to redeclare
+// `function detectPatterns` a second time in the same scope and alias
+// `_origDetect = detectPatterns` to call the "original" — but sloppy-mode
+// function-declaration hoisting means both declarations bind the same
+// name, and by the time this line ran, `detectPatterns` already pointed at
+// THIS function (the second declaration), making `_origDetect` a
+// self-reference. Every real call recursed infinitely (stack overflow),
+// silently caught by runAdol22Scan's per-symbol `catch {}`, so this
+// scanner found zero patterns on every scan since 2026-08-31 (7046bac).
+// It also duplicate-declared the same top-level name, which some bundlers
+// (Vercel's build) parse-error on outright. Fixed by giving the base
+// function its own name (detectBasePatterns) instead of shadowing it.
 function detectPatterns(bars) {
-  const base = _origDetect(bars);
+  const base = detectBasePatterns(bars);
   if (bars.length < 4) return base;
   const prev3 = bars[bars.length - 4];
   const prev2 = bars[bars.length - 3];
