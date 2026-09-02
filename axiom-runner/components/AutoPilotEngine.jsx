@@ -63,7 +63,13 @@ export default function AutoPilotEngine({ watchlistData, macroData, scanResults 
   const serverAutoRef = useRef(false);   // true when the SERVER autopilot is trading (browser stands down)
   // Detect server-side autopilot so the browser engine doesn't double-trade the same account.
   useEffect(() => {
-    const check = () => fetch("/api/health").then(r => r.json()).then(d => { serverAutoRef.current = !!d?.serverAutopilot; }).catch(() => {});
+    const check = () => fetch("/api/health").then(r => r.json()).then(d => {
+      const active = d?.execution?.activeMutators || [];
+      // Browser automation stands down whenever another broker mutator is
+      // active, not only when the legacy server flag is set. This keeps the
+      // shared paper account under one active automated owner.
+      serverAutoRef.current = !!d?.serverAutopilot || active.includes("TRADIER_AUTOEXEC") || active.includes("SERVER_AUTOPILOT");
+    }).catch(() => {});
     check();
     const iv = setInterval(check, 5 * 60_000);
     return () => clearInterval(iv);
