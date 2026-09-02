@@ -162,8 +162,7 @@ export default function AutoPilotEngine({ watchlistData, macroData, scanResults 
       const threshold = Number(localStorage.getItem("axiom_autopilot_min")) || 5;
       const doShares  = localStorage.getItem("axiom_autopilot_shares") !== "off";  // independent toggle, default ON
       const doOptions = localStorage.getItem("axiom_autopilot_opts") === "on";      // independent toggle, default OFF
-      const doShort   = localStorage.getItem("axiom_autopilot_short") === "on";      // short selling, default OFF
-      if (!doShares && !doOptions && !doShort) return;  // nothing enabled
+      if (!doShares && !doOptions) return;  // nothing enabled
       const today = new Date().toISOString().slice(0, 10);
       // ── Total open-risk guard: stop opening NEW trades once combined open risk hits the ceiling. ──
       const maxRiskPct = Number(localStorage.getItem("axiom_autopilot_maxrisk")) || 6;  // % of equity
@@ -244,16 +243,16 @@ export default function AutoPilotEngine({ watchlistData, macroData, scanResults 
         // surfaces like GreenLightTab.jsx's manual checklist, just no
         // longer an independent automated-execution trigger, per the
         // user's own explicit "AUTOPILOT MUST NOT INDEPENDENTLY CALCULATE
-        // ANOTHER FINAL SIGNAL" requirement). A+ MODE accepts EARLY_BUY
-        // only (score >=85); BASIC accepts EARLY_BUY or BUY (score >=70)
-        // — both are real acceptance thresholds on the SAME Master Engine
-        // verdict, not two different signals.
-        const acceptedVerdicts = aPlusMode ? ["EARLY_BUY"] : ["EARLY_BUY", "BUY"];
-        const coreQualifies = trendRow && trendRow.coreCriticalFlags === 0 &&
-          acceptedVerdicts.includes(trendRow.coreVerdict);
+        // ANOTHER FINAL SIGNAL" requirement). A+ MODE accepts only the
+        // canonical STRONG_BUY; BASIC accepts canonical STRONG_BUY or BUY.
+        // Legacy coreVerdict fields are not executable inputs.
+        const acceptedVerdicts = aPlusMode ? ["STRONG_BUY"] : ["STRONG_BUY", "BUY"];
+        const canonicalDecision = trendRow?.assetDecision;
+        const coreQualifies = canonicalDecision && acceptedVerdicts.includes(canonicalDecision.verdict) &&
+          !(canonicalDecision.blockers || []).length;
         const bullish = gradeAllowed && coreQualifies;
         const bearishPut = false;  // puts disabled — no bearish option buys
-        const shortSetup = doShort && gl.shortSignal === "SHORT" && gl.shortPassed >= threshold;
+        const shortSetup = false;
         if (!bullish && !shortSetup) return;
         // quality: A+ score (institutional) leads; else checks + relative strength.
         const quality = aPlusMode ? gl.aScore : (Math.max(gl.passed, shortSetup ? gl.shortPassed : 0) * 10 + Math.abs(Number(gl.relStrength) || 0) + (gl.isLeader ? 5 : 0));
