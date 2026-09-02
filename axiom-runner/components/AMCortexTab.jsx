@@ -536,30 +536,9 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
               </>
               )}
 
-              {/* MASTER VERDICT — the real am-core-engine.js verdict, same
-                  engine driving the Workspace banner, Scanner grade,
-                  Autopilot, and every alert in this app (Discover/Cortex
-                  Additive Verdict, 2026-08-23). Shown above Cortex's own
-                  verdict card below, which stays completely real and
-                  unchanged — including its own historical win-rate track
-                  record — as the specialized, tracked supplementary read,
-                  per the user's own "additive only" decision (never touch
-                  Cortex's tracked verdict strings, that historical data
-                  matters). */}
-              {row.assetDecision?.verdict && (() => {
-                const cm = FINAL_VERDICT_META[row.assetDecision.verdict] || {};
-                return (
-                  <div style={{ background: `${cm.color}18`, border: `2px solid ${cm.color || C.border}`, borderRadius: 12, padding: 18, textAlign: "center", marginBottom: 10 }}>
-                    <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textDim, marginBottom: 4 }}>MASTER VERDICT</div>
-                    <div style={{ fontFamily: MONO, fontSize: 28, fontWeight: 900, color: cm.color }}>{cm.icon} {cm.label || row.assetDecision.verdict}</div>
-                    <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.textSec, marginTop: 6, lineHeight: 1.5 }}>{row.coreReason}</div>
-                  </div>
-                );
-              })()}
-
               {/* Canonical decision track record — this card intentionally
-                  repeats the same AssetDecision verdict with Cortex's
-                  historical observation count; it is not a second classifier. */}
+                  shows the AssetDecision verdict with Cortex's historical
+                  observation count; it is not a second classifier. */}
               <div style={{ background: `${verdict.color}14`, border: `1px solid ${verdict.color}66`, borderRadius: 12, padding: 18, textAlign: "center", marginBottom: 10 }}>
                 <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textDim, marginBottom: 4 }}>CANONICAL VERDICT · TRACK RECORD</div>
                 <div style={{ fontFamily: MONO, fontSize: 28, fontWeight: 900, color: verdict.color }}>{verdict.icon} {verdict.verdict}</div>

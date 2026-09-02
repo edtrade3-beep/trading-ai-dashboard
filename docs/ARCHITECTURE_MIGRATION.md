@@ -77,6 +77,7 @@ Paper trading remains the default. No migration step authorizes live execution o
 - Smart Money now publishes the canonical `assetDecision`/`finalVerdict` alongside its institutional/SMC evidence, making its decision boundary inspectable without replacing existing detail fields.
 - Smart Money Decision Panel now renders that canonical final verdict and reason when available; legacy route labels remain compatibility-only.
 - Cortex Stock tab's second verdict card is now explicitly labeled as the canonical decision track record, removing the implication that Cortex computes a separate final verdict.
+- Removed the duplicate Cortex symbol-view verdict card; one canonical verdict card remains, with track-record context beneath it.
 
 ## Target canonical contracts
 
