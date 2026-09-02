@@ -1,4 +1,5 @@
-import { computeRegime, computeAPlusScore, computeNextAction } from "./market-helpers.js";
+import { computeRegime, computeAPlusScore } from "./market-helpers.js";
+import { FINAL_VERDICT_META } from "./final-decision-meta.js";
 import { computeAtrRiskLevels } from "./atr-risk-engine.js";
 import { fetchSharedQuotes } from "./quote-store.js";
 import AiScoreExplainer, { AplusBadge } from "./AiScoreExplainer.jsx";
@@ -104,10 +105,15 @@ export default function TradePlannerTab({ C, MONO, SANS, macroData }) {
       // even though the code to compute it sits right below.
       if (!aplus || !next) {
         try {
-          const tsResp = await fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(sym)}`);
+          const tsResp = await fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(sym)}&withDecision=1`);
           const tsJson = tsResp.ok ? await tsResp.json() : null;
           const tsRow = (tsJson?.results || []).find(x => x && !x.error && x.symbol === sym);
-          if (tsRow) { aplus = computeAPlusScore(tsRow, regime); next = computeNextAction(tsRow); }
+          if (tsRow) {
+            aplus = computeAPlusScore(tsRow, regime);
+            const v = tsRow.assetDecision?.verdict;
+            const meta = v ? FINAL_VERDICT_META[v] : null;
+            next = meta ? { action: meta.label, color: meta.color, reason: (tsRow.assetDecision.reasons || ["Canonical final verdict."])[0] } : null;
+          }
         } catch {}
       }
 

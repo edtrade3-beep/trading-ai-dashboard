@@ -7,7 +7,7 @@
 // real computeSniperDecision, not a hand-copied approximation of it.
 "use strict";
 const assert = require("node:assert");
-const { rankSniperScan, computeSniperDecision } = require("../src/sniper-decision");
+const { rankSniperScan, computeSniperDecision, computeReversalTopRisk } = require("../src/sniper-decision");
 
 let passed = 0;
 function ok(name, fn) { try { fn(); passed++; console.log(`  ✓ ${name}`); } catch (e) { console.error(`  ✗ ${name}\n    ${e.message}`); process.exitCode = 1; } }
@@ -62,6 +62,11 @@ ok("empty/all-error input returns an empty ranked list, not a crash", () => {
   const { ranked, counts } = rankSniperScan([errorRow]);
   assert.strictEqual(ranked.length, 0);
   assert.strictEqual(counts.ENTER_LONG + counts.WAIT + counts.NO_CHASE + counts.AVOID, 0);
+});
+
+ok("shared reversalTopRisk row adapter flags a real near-top row and honestly clears a neutral row", () => {
+  assert.strictEqual(computeReversalTopRisk({ price: 99, hi52: 100, lo52: 50, rsi: 74 }), true);
+  assert.strictEqual(computeReversalTopRisk({ price: 75, hi52: 100, lo52: 50, rsi: 50 }), false);
 });
 
 console.log(`\n${passed} checks passed.`);

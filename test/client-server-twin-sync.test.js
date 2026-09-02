@@ -18,6 +18,8 @@
 // synchronous top-level style every other test file here uses.
 "use strict";
 const assert = require("node:assert");
+const fs = require("node:fs");
+const path = require("node:path");
 
 let passed = 0;
 function ok(name, fn) { try { fn(); passed++; console.log(`  ✓ ${name}`); } catch (e) { console.error(`  ✗ ${name}\n    ${e.message}`); process.exitCode = 1; } }
@@ -41,7 +43,7 @@ async function main() {
   const [
     amCoreClient, entryClient, redFlagClient, mtfClient, simpleClient,
     decisionPriorityClient, atrRiskClient, antiChaseClient, futureValueClient, btcHpcClient,
-    cortexClient, marketHelpersClient,
+    cortexClient, marketHelpersClient, sniperClient,
   ] = await Promise.all([
     import("../axiom-runner/components/am-core-engine.js"),
     import("../axiom-runner/components/entry-engine.js"),
@@ -55,6 +57,7 @@ async function main() {
     import("../axiom-runner/components/btc-hpc-scan.js"),
     import("../axiom-runner/components/cortex-engine.js"),
     import("../axiom-runner/components/market-helpers.js"),
+    import("../axiom-runner/components/sniper-decision.js"),
   ]);
   const amCoreServer = require("../src/am-core-engine");
   const entryServer = require("../src/entry-engine");
@@ -68,6 +71,7 @@ async function main() {
   const cortexServer = require("../src/cortex-decision");
   const institutionalScoringServer = require("../src/institutional-scoring");
   const marketHelpersDecisionServer = require("../src/market-helpers-decision");
+  const sniperServer = require("../src/sniper-decision");
 
   console.log("Checking am-core-engine.js — computeCoreScore/classifyCoreVerdict…");
   const CORE_INPUT_RICH = {
@@ -98,6 +102,17 @@ async function main() {
     sameOutput(`classifyCoreVerdict: real case ${i + 1}/${VERDICT_CASES.length} matches on both sides`,
       amCoreServer.classifyCoreVerdict(c), amCoreClient.classifyCoreVerdict(c));
   });
+
+  console.log("\nChecking sniper-decision.js — shared reversalTopRisk row adapter…");
+  const REVERSAL_ROWS = [
+    { price: 99, hi52: 100, lo52: 50, rsi: 74, volRatio: 1.2, dayChangePct: 1, weekChangePct: 4, ma50: 80 },
+    { price: 75, hi52: 100, lo52: 50, rsi: 50, volRatio: 1, dayChangePct: 0, weekChangePct: 0, ma50: 74 },
+    {},
+  ];
+  REVERSAL_ROWS.forEach((row, i) => sameOutput(
+    `computeReversalTopRisk: real case ${i + 1}/${REVERSAL_ROWS.length} matches on both sides`,
+    sniperServer.computeReversalTopRisk(row), sniperClient.computeReversalTopRisk(row)
+  ));
 
   console.log("\nChecking entry-engine.js — computeEntryPlan…");
   const STRONG_EVIDENCE = {
@@ -256,6 +271,17 @@ async function main() {
     sameOutput(`computeInstitutionalGrade: real case ${i + 1}/${GRADE_CASES.length} — market-helpers-decision.js matches the client on both sides`,
       marketHelpersDecisionServer.computeInstitutionalGrade(...args), clientResult);
   });
+
+  console.log("\nChecking authoritative client consumption — decision surfaces must use the server Opportunity Object…");
+  for (const relative of ["MarketTerminalTab.jsx", "RhProScanner.jsx", "SmartScanTab.jsx"]) {
+    const source = fs.readFileSync(path.join(__dirname, "..", "axiom-runner", "components", relative), "utf8");
+    ok(`${relative} does not invoke the client Master Verdict classifier`, () => {
+      assert.doesNotMatch(source, /\bclassifyCoreVerdict\s*\(\s*\{/);
+    });
+    ok(`${relative} consumes the canonical Opportunity Object`, () => {
+      assert.match(source, /\.opportunity/);
+    });
+  }
 
   console.log(`\n${passed} checks passed.`);
   console.log("CLIENT-SERVER-TWIN-SYNC TEST OK");

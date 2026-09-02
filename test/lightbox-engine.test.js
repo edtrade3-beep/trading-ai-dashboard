@@ -4,6 +4,7 @@
 // input, zero-network. Run: node test/lightbox-engine.test.js (or npm test).
 "use strict";
 const assert = require("node:assert");
+const { canExecuteFinalVerdict } = require("../src/lightbox-autopilot-execute");
 const { stepSymbol, classifyLifecycle, applyWeakeningOverride } = require("../src/lightbox-engine");
 
 let passed = 0;
@@ -76,6 +77,15 @@ ok("QUALIFIED/DEVELOPING/EARLY are never touched by the weakening override, even
   assert.strictEqual(applyWeakeningOverride("QUALIFIED", "DECAYING"), "QUALIFIED");
   assert.strictEqual(applyWeakeningOverride("DEVELOPING", "DECAYING"), "DEVELOPING");
   assert.strictEqual(applyWeakeningOverride("EARLY", "DECAYING"), "EARLY");
+});
+
+console.log("Checking Light Box execution authority — source-local states cannot place orders…");
+ok("only canonical STRONG_BUY/BUY Final Verdicts are executable", () => {
+  assert.strictEqual(canExecuteFinalVerdict("STRONG_BUY"), true);
+  assert.strictEqual(canExecuteFinalVerdict("BUY"), true);
+  for (const verdict of ["WATCH", "WAIT", "HOLD", "REDUCE", "EXIT", "AVOID", "ENTRY_READY", null]) {
+    assert.strictEqual(canExecuteFinalVerdict(verdict), false);
+  }
 });
 
 console.log(`\n${passed} checks passed.`);

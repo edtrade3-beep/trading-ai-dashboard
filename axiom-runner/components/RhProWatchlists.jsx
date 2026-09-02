@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { RH_UNIVERSE, rhScreenProgressive } from "./rhpro-shared.jsx";
-import { computeRegime, computeInstitutionalGrade, computeAPlusScore, computeNextAction, computePrediction, SECTOR_ETFS, STOCK_TO_SECTOR } from "./market-helpers.js";
+import { computeRegime, computeInstitutionalGrade, computeAPlusScore, computePrediction, SECTOR_ETFS, STOCK_TO_SECTOR } from "./market-helpers.js";
 import { mapToAiAction } from "./ai-actions.js";
 // Cortex slide-over (2026-08-14, same linked-panel treatment SmartScanTab.jsx
 // got — "wire them together... professional way like bloomberg", extended
@@ -49,7 +49,12 @@ export default function RhProWatchlists({ C, MONO, SANS, setActiveTab, macroData
   // real per-symbol flow reads land, at which point the number is byte-for-
   // byte the same computation Workspace would show for that symbol.
   const gradeRow = (x, optionsFlow) => {
-    const next = computeNextAction(x);
+    const canonical = x.assetDecision?.verdict;
+    const next = canonical ? {
+      action: canonical === "STRONG_BUY" || canonical === "BUY" ? "BUY" : canonical,
+      color: canonical === "STRONG_BUY" || canonical === "BUY" ? "#0d9465" : canonical === "AVOID" ? "#c8282a" : "#d6a312",
+      reason: (x.assetDecision?.reasons || ["Canonical final verdict."])[0],
+    } : { action: "LOADING…", color: "#94a3b8", reason: "Canonical decision unavailable." };
     const grade = computeInstitutionalGrade(x, x.technicals, regime, sectorInfoFor(x.symbol), optionsFlow || null);
     const aiAction = mapToAiAction({ nextAction: next.action, institutionalScore: grade.score });
     // aplus (Trade Setup Score) + action alias (2026-08-11, "same setup for

@@ -33,8 +33,9 @@ async function logDailySnapshot() {
   const { SCAN_UNIVERSE } = require("./advisor-ai");
   const { screenTrendTemplate, fetchMarketQuotes } = require("./routes/market");
   const { computeRegime, computeAPlusScore } = require("./trade-planner-scoring");
+  const { computeTechnicalScore } = require("./cortex-decision");
   const { computeSniperDecision } = require("./sniper-decision");
-  const { computeHeatRisk, computeCortexVerdict, computeTechnicalScore } = require("./cortex-decision");
+  const { computeCanonicalAssetDecision } = require("./canonical-decision-pipeline");
 
   const macroRows = await fetchMarketQuotes(["SPY", "QQQ", "VIXY"], resolveProviderKeys(new URLSearchParams()));
   const regime = computeRegime(Array.isArray(macroRows) ? macroRows : []);
@@ -50,15 +51,17 @@ async function logDailySnapshot() {
     .filter(r => !r.error && Number.isFinite(Number(r.price)) && Number(r.price) > 0)
     .map(r => {
       const aplus = computeAPlusScore(r, regime);
+      const canonical = computeCanonicalAssetDecision({ symbol: r.symbol, row: r, macroQuotes, marketHours: false });
+      if (!canonical) return null;
       const sniper = computeSniperDecision(r);
-      const heat = computeHeatRisk(r, sniper);
-      const verdict = computeCortexVerdict({ sniper, heat, aplusScore: aplus.score });
       return {
         symbol: r.symbol, score: aplus.score, price: Number(r.price),
-        sniperAction: sniper.action, cortexVerdict: verdict.verdict,
+        sniperAction: sniper.action,
+        cortexVerdict: canonical.assetDecision.verdict,
+        assetVerdict: canonical.assetDecision.verdict,
         technicalScore: computeTechnicalScore(r, sniper),
       };
-    });
+    }).filter(Boolean);
 
   const days = loadHistory();
   const today = etDateStr();

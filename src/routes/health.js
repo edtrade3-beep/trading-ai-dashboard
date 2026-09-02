@@ -24,8 +24,15 @@ async function handleHealth(req, res) {
   // (src/atomic-write.js) once DATABASE_URL is set; this confirms it's
   // actually connected, not just configured.
   const postgres = { ...getDbStatus(), photosConnected: photosDbMode() };
-
-  return writeJson(res, 200, { ok: true, version: "market-v2", build: BUILD, startedAt: STARTED_AT, telegram: telegramConfigured(), serverAutopilot, meanrevPaper, apiAuth, envSeen, postgres });
+  let lightboxMode = "OFF";
+  try { lightboxMode = require("../autopilot-store").getMode(); } catch { /* optional store */ }
+  const { executionStatus } = require("../execution-authority");
+  return writeJson(res, 200, {
+    ok: true, version: "market-v2", build: BUILD, startedAt: STARTED_AT,
+    telegram: telegramConfigured(), serverAutopilot, meanrevPaper, apiAuth,
+    execution: { ...executionStatus({ serverAutopilot, lightboxMode }), lightboxMode },
+    envSeen, postgres,
+  });
 }
 
 module.exports = handleHealth;

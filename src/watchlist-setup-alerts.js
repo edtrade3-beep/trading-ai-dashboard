@@ -36,10 +36,8 @@ const { isConfigured: telegramConfigured } = require("./telegram");
 const { pushDigestLines } = require("./alert-buffer");
 const { loadWatchlist } = require("./routes/watchlist");
 const { isMarketHoursET } = require("./risk-guardrails");
-const { computeAntiChase } = require("./atr-risk-engine");
-const { computeEntryPlan } = require("./entry-engine");
-const { computeRedFlags } = require("./red-flag-engine");
-const { computeCoreScore, classifyCoreVerdict } = require("./am-core-engine");
+const { buildEvFromRow } = require("./setup-evidence");
+const { computeOpportunity } = require("./opportunity-engine");
 
 const STORE_PATH = path.join(ROOT, "data", "watchlist-setup-state.json");
 
@@ -73,33 +71,6 @@ function saveState(s) {
 // (no MTF data at this scan tier) — computeEntryPlan/computeRedFlags
 // already exclude absent real inputs from their gates/flags rather than
 // fabricating a fail, per their own established design.
-function buildEvFromRow(row, marketRegime) {
-  const dailyBias = (String(row.stage || "").includes("2") && Number(row.passCount || 0) >= 6) ? "BULLISH"
-    : String(row.stage || "").includes("4") ? "BEARISH" : "NEUTRAL";
-  // target1 = entry + 1R, the same real conservative-first-target
-  // convention _buildTrendTemplate itself uses elsewhere in routes/
-  // market.js — a deliberate, intentional 1R level, not a bug. rr is
-  // computed off row.target2 (real, already on the row — routes/market.js
-  // defines it as entry + 2*(entry-stop)), NOT off target1: a caller
-  // elsewhere in this codebase (SmartScanTab.jsx's entryPlanSS) computes
-  // its own rr as (target1-entry)/(entry-stop), which by construction
-  // always equals exactly 1.0 regardless of the real setup — a real,
-  // pre-existing bug there (out of scope this phase, not touched), NOT
-  // replicated here since red-flag-engine.js's unacceptableRR check would
-  // otherwise permanently fire for every symbol.
-  const target1 = row.entry > row.stop ? Math.round((row.entry + (row.entry - row.stop)) * 100) / 100 : null;
-  const rr = Number.isFinite(row.target2) && row.entry > row.stop ? Math.round(((row.target2 - row.entry) / (row.entry - row.stop)) * 100) / 100 : null;
-  const antiChase = computeAntiChase(row.abovePivotPct);
-  return {
-    price: row.price, pivot: row.pivot, atr: null, contractionLow: row.contractionLow,
-    dailyBias, rsRating: row.rsRating, higherLows: row.higherLows, tightening: row.tightening,
-    vcpVerdict: row.vcpVerdict, vwap20: row.technicals?.vwap20, rr,
-    breakoutConfirmed: row.breakoutConfirmed, extended: row.extended, priceAction: {}, antiChase,
-    stop: row.stop, target1, target2: row.target2, marketRegime,
-    riskPct: row.riskPct, dollarVolume: row.dollarVolume,
-  };
-}
-
 // Real alert-transition check — pure, testable. Fires when the symbol
 // newly reaches a real actionable BUY-family verdict AND has zero
 // critical red flags (spec §8-9/§23: a critical flag overrides a high
@@ -120,10 +91,10 @@ async function checkWatchlistSetupAlerts() {
   const { symbols } = loadWatchlist();
   if (!Array.isArray(symbols) || !symbols.length) return { ok: true, checked: 0, alerts: [] };
 
-  let screenWatchlistCached, fetchMarketQuotes, computeRegime, regimeToEntryVocabulary, computeAPlusScore;
+  let screenWatchlistCached, fetchMarketQuotes, computeRegime, regimeToEntryVocabulary;
   try {
     ({ screenWatchlistCached, fetchMarketQuotes } = require("./routes/market"));
-    ({ computeRegime, regimeToEntryVocabulary, computeAPlusScore } = require("./trade-planner-scoring"));
+    ({ computeRegime, regimeToEntryVocabulary } = require("./trade-planner-scoring"));
   } catch { return { ok: false, checked: 0, alerts: [] }; }
 
   const macroRows = await fetchMarketQuotes(["SPY", "QQQ", "VIXY"], resolveProviderKeys(new URLSearchParams())).catch(() => []);
@@ -141,27 +112,14 @@ async function checkWatchlistSetupAlerts() {
   for (const row of results) {
     if (row.error) continue;
     const symbol = row.symbol;
-    const ev = buildEvFromRow(row, marketRegime);
-    const entryPlan = computeEntryPlan(ev);
-    const redFlagResult = computeRedFlags(ev);
-    const { score: aPlusScore } = computeAPlusScore(row, regime);
-    const coreScore = computeCoreScore({
-      passCount: row.passCount, rsRating: row.rsRating, momentum: row.momentum,
-      stage: row.stage, volRatio: row.volRatio, regime, sectorInfo: null,
-      adx: null, smc: row.smc, epsGrowth: row.epsGrowth, vcpScore: row.vcpScore,
-      riskPct: row.riskPct, pctFromHigh: row.pctFromHigh, antiChase: ev.antiChase,
-      optionsFlow: null, dollarVolume: row.dollarVolume,
-    });
-    const deep = classifyCoreVerdict({
-      score: coreScore.score, entryPlan, redFlagResult,
-      stage: row.stage, dailyBias: ev.dailyBias, entryScore: aPlusScore,
-      hasPosition: false,
-    });
+    const opp = computeOpportunity({ symbol, row, regime, marketRegime, trackReport: null });
+    if (!opp) continue;
+    const entryPlan = opp.entryPlan;
     const last = prev[symbol] || {};
 
-    if (shouldAlert(last.decision, deep.verdict, redFlagResult.criticalCount)) {
+    if (shouldAlert(last.decision, opp.verdict, opp.criticalFlags)) {
       alerts.push({
-        symbol, decision: deep.verdict, reason: deep.reason,
+        symbol, decision: opp.verdict, reason: opp.verdictReason,
         entry: entryPlan.entryPrice, stop: entryPlan.stop, target: entryPlan.target1,
         // Real ✓/✗ WHY checklist (Market Opportunity Engine Phase 1,
         // 2026-08-25, spec §20: alert messages should show the real
@@ -172,7 +130,7 @@ async function checkWatchlistSetupAlerts() {
       });
     }
 
-    next[symbol] = { decision: deep.verdict };
+    next[symbol] = { decision: opp.verdict };
   }
 
   saveState(next);

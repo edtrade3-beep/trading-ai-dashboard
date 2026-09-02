@@ -5,6 +5,7 @@
 
 const { writeJson, readRequestBody } = require("../utils");
 const { VALID_MODES, getMode, setMode, getStatus } = require("../autopilot-store");
+const { executionStatus } = require("../execution-authority");
 
 async function readSymbol(req) {
   const raw = await readRequestBody(req);
@@ -43,7 +44,7 @@ async function handleAutopilot(req, res, requestUrl) {
   }
 
   if (pathname === "/api/autopilot/status" && req.method === "GET") {
-    return writeJson(res, 200, { ok: true, ...getStatus() });
+    return writeJson(res, 200, { ok: true, ...getStatus(), execution: executionStatus({ serverAutopilot: false, lightboxMode: getMode() }) });
   }
 
   // Real ASSIST order preview/execute (2026-08-23, explicit user request:

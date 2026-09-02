@@ -193,6 +193,11 @@ async function handleFutureWallet(req, res, requestUrl) {
         riskScore: s.risk_score != null ? Number(s.risk_score) : null,
         stage: stageBySymbol.get(s.symbol) || "UNKNOWN",
         verdict: s.verdict || null,
+        verdictType: "FUTURE_POTENTIAL",
+        // Future Wallet intentionally ranks structural potential; current
+        // entry timing belongs to the canonical market decision pipeline and
+        // is not inferred from this long-horizon score.
+        currentEntryVerdict: null,
         bestOfBoth: crossoverSymbols.has(s.symbol),
       }));
     // Real filter, applied only when requested — a row whose real price

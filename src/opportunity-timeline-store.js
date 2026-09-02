@@ -70,7 +70,17 @@ function recordOpportunitySnapshots(opportunities) {
     // it actionable" calc — older same-day samples recorded before this
     // field existed simply have price:undefined, honestly skipped there,
     // never backfilled with a guess.
-    list.push({ ts: now, score: opp.score, tier: opp.tier || null, expectedValue: opp.expectedValue ?? null, price: Number.isFinite(opp.price) ? opp.price : null });
+    const decision = opp.assetDecision || null;
+    const nextVerdict = decision?.verdict || null;
+    const nextStage = decision?.opportunityStage || null;
+    const nextReason = decision?.reasons?.[0] || opp.verdictReason || null;
+    if (last && last.score === opp.score && last.tier === (opp.tier || null) && last.verdict === nextVerdict && last.opportunityStage === nextStage && last.reason === nextReason) continue;
+    list.push({
+      ts: now, score: opp.score, tier: opp.tier || null,
+      opportunityStage: nextStage, verdict: nextVerdict, reason: nextReason,
+      expectedValue: opp.expectedValue ?? null,
+      price: Number.isFinite(opp.price) ? opp.price : null,
+    });
     if (list.length > MAX_SAMPLES_PER_SYMBOL) list.shift();
     store.bySymbol[opp.symbol] = list;
     changed = true;

@@ -39,7 +39,7 @@ const CRYPTO_WATCH_SYMBOLS = ["BTC-USD", "ETH-USD", "SOL-USD", "XRP-USD", "DOGE-
 // autopilot2-engine.js will actually act on; see ACTIONABLE_VERDICTS
 // below for the same change.
 const VERDICT_COLOR = (C) => ({
-  EARLY_BUY: C.green, BUY: C.green, AVOID_LONG: C.red, HOLD: C.accent, EXIT: C.red, TAKE_PROFIT: C.green,
+  STRONG_BUY: C.green, BUY: C.green, WATCH: C.amber, WAIT: C.textDim, HOLD: C.accent, REDUCE: C.amber, EXIT: C.red, AVOID: C.red,
 });
 
 // Real-time visibility into WHY crypto is or isn't trading right now — the
@@ -65,8 +65,8 @@ const VERDICT_COLOR = (C) => ({
 // SHORT read as "clear to trade" here would be actively misleading about
 // what this engine will actually do. displayVerdict below now only ever
 // reads the long-side coreVerdict.
-const ACTIONABLE_VERDICTS = new Set(["EARLY_BUY", "BUY", "TAKE_PROFIT"]);
-const VERDICT_RANK = { EARLY_BUY: 0, BUY: 0, TAKE_PROFIT: 0, HOLD: 1, AVOID_LONG: 2, EXIT: 2 };
+const ACTIONABLE_VERDICTS = new Set(["STRONG_BUY", "BUY"]);
+const VERDICT_RANK = { STRONG_BUY: 0, BUY: 0, WATCH: 1, WAIT: 2, HOLD: 2, REDUCE: 2, AVOID: 3, EXIT: 3 };
 
 function CryptoWatch({ C, MONO, SANS }) {
   const [rows, setRows] = useState(null);
@@ -94,7 +94,7 @@ function CryptoWatch({ C, MONO, SANS }) {
   // preference, not a real ranking of which direction is "better."
   const displayVerdict = (r) => {
     if (r.error) return { verdict: null, reason: null, bearish: false };
-    return { verdict: r.coreVerdict, reason: r.coreReason || r.stage, bearish: false };
+    return { verdict: r.assetDecision?.verdict || null, reason: r.assetDecision?.reasons?.[0] || r.coreReason || r.stage, bearish: false };
   };
 
   const actionableCount = rows ? rows.filter((r) => !r.error && ACTIONABLE_VERDICTS.has(displayVerdict(r).verdict)).length : 0;
@@ -169,9 +169,9 @@ function CryptoWatch({ C, MONO, SANS }) {
 // (BUY/EARLY_BUY always actionable; a WATCH only counts with a real
 // executableEntry) so "clear to trade" here means the same thing it
 // means to the actual engine.
-const STOCK_ACTIONABLE_VERDICTS = new Set(["EARLY_BUY", "BUY"]);
+const STOCK_ACTIONABLE_VERDICTS = new Set(["STRONG_BUY", "BUY"]);
 function isStockActionable(o) {
-  return STOCK_ACTIONABLE_VERDICTS.has(o.verdict) || (o.verdict === "WATCH" && o.executableEntry != null);
+  return STOCK_ACTIONABLE_VERDICTS.has(o.assetDecision?.verdict);
 }
 
 function StockWatch({ C, MONO, SANS }) {
@@ -230,8 +230,8 @@ function StockWatch({ C, MONO, SANS }) {
                 <span style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 800, color: C.text }}>{o.symbol}</span>
                 {Number.isFinite(o.price) && <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>${o.price.toLocaleString()}</span>}
               </div>
-              <div style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 800, color: C.green, marginTop: 3 }}>{o.verdict}</div>
-              {o.verdictReason && <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, marginTop: 2 }}>{o.verdictReason}</div>}
+              <div style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 800, color: C.green, marginTop: 3 }}>{o.assetDecision?.verdict || "—"}</div>
+              {(o.assetDecision?.reasons?.[0] || o.verdictReason) && <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, marginTop: 2 }}>{o.assetDecision?.reasons?.[0] || o.verdictReason}</div>}
             </div>
           ))}
         </div>

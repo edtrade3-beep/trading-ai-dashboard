@@ -35,11 +35,9 @@ const { sendTelegramMessage, isConfigured: telegramConfigured } = require("./tel
 const { shouldSendAlert } = require("./telegram-bot");
 const { loadWatchlist, saveWatchlist } = require("./routes/watchlist");
 const { isMarketHoursET } = require("./risk-guardrails");
-const { computeRegime, regimeToEntryVocabulary, computeAPlusScore } = require("./trade-planner-scoring");
-const { computeEntryPlan } = require("./entry-engine");
-const { computeRedFlags } = require("./red-flag-engine");
-const { computeCoreScore, classifyCoreVerdict } = require("./am-core-engine");
-const { buildEvFromRow, ACTIONABLE_DECISIONS } = require("./watchlist-setup-alerts");
+const { computeRegime, regimeToEntryVocabulary } = require("./trade-planner-scoring");
+const { computeOpportunity } = require("./opportunity-engine");
+const { ACTIONABLE_DECISIONS } = require("./watchlist-setup-alerts");
 
 const MARKET_UNIVERSE_SYMBOLS = [
   "AAPL","MSFT","NVDA","AMZN","META","GOOGL","TSLA","AVGO","BRK.B","JPM","V","UNH","XOM","LLY","MA","HD","PG","COST","JNJ","MRK",
@@ -96,23 +94,9 @@ async function runMarketAutoWatchlist(opts = {}) {
   const watchAdds = [];
   for (const r of rows) {
     if (!isCandidate(r) || currentSet.has(r.symbol)) continue;
-    const ev = buildEvFromRow(r, marketRegime);
-    const entryPlan = computeEntryPlan(ev);
-    const redFlagResult = computeRedFlags(ev);
-    const { score: aPlusScore } = computeAPlusScore(r, regime);
-    const coreScore = computeCoreScore({
-      passCount: r.passCount, rsRating: r.rsRating, momentum: r.momentum,
-      stage: r.stage, volRatio: r.volRatio, regime, sectorInfo: null,
-      adx: null, smc: r.smc, epsGrowth: r.epsGrowth, vcpScore: r.vcpScore,
-      riskPct: r.riskPct, pctFromHigh: r.pctFromHigh, antiChase: ev.antiChase,
-      optionsFlow: null, dollarVolume: r.dollarVolume,
-    });
-    const deep = classifyCoreVerdict({
-      score: coreScore.score, entryPlan, redFlagResult,
-      stage: r.stage, dailyBias: ev.dailyBias, entryScore: aPlusScore,
-      hasPosition: false,
-    });
-    if (isUnifiedGo(deep.verdict, redFlagResult.criticalCount)) goAdds.push(r.symbol);
+    const opportunity = computeOpportunity({ symbol: r.symbol, row: r, regime, marketRegime, trackReport: null });
+    if (!opportunity) continue;
+    if (isUnifiedGo(opportunity.verdict, opportunity.criticalFlags)) goAdds.push(r.symbol);
     else watchAdds.push(r.symbol);
   }
 

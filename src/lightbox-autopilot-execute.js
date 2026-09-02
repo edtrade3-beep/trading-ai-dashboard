@@ -46,6 +46,7 @@ const {
 } = require("./autopilot-store");
 
 const CLIENT_ORDER_PREFIX = "lba-"; // "Light Box Autopilot" — real idempotency + real ownership marker on every order this file places
+function canExecuteFinalVerdict(verdict) { return verdict === "STRONG_BUY" || verdict === "BUY"; }
 
 const { resolveAlpacaKeys, alpacaTradingRequest } = require("./providers/alpaca-client");
 const keys = resolveAlpacaKeys;
@@ -99,9 +100,32 @@ async function validateAndSize(symbol) {
   if (!position) return { ok: false, error: "No real Light Box signal on file for this symbol." };
   const direction = position.direction;
   if (direction !== "LONG" && direction !== "SHORT") return { ok: false, error: `Unrecognized direction "${direction}" — refusing to size blind.` };
+  if (direction === "SHORT") return { ok: false, error: "Short execution is disabled until the canonical Final Decision and short-side risk model support it." };
   if (position.state !== "ENTRY_READY") return { ok: false, error: `Signal is ${position.state}, not ENTRY_READY — nothing to execute.` };
   if (position.orderId && position.orderPlacedForTs === position.detectedAt) {
     return { ok: false, error: `An order was already placed for this signal (order ${position.orderId}).` };
+  }
+
+  // A Light Box state is tactical evidence, never execution authority.
+  // Re-evaluate the symbol through the same canonical pipeline used by
+  // Trade Desk and Autopilot 2.0, and use that pipeline's one setup plan.
+  const { screenTrendTemplate, fetchMarketQuotes } = require("./routes/market");
+  const { resolveProviderKeys } = require("./config");
+  const { computeCanonicalAssetDecision } = require("./canonical-decision-pipeline");
+  const [trendRows, macroQuotes] = await Promise.all([
+    screenTrendTemplate([symbol]).catch(() => []),
+    fetchMarketQuotes(["SPY", "QQQ", "VIXY"], resolveProviderKeys(new URLSearchParams())).catch(() => []),
+  ]);
+  const trendRow = trendRows.find((row) => row?.symbol === symbol && !row.error);
+  const canonical = trendRow ? computeCanonicalAssetDecision({ symbol, row: trendRow, macroQuotes, marketHours: true }) : null;
+  const finalVerdict = canonical?.assetDecision?.verdict;
+  if (!canExecuteFinalVerdict(finalVerdict)) {
+    return { ok: false, error: `Canonical Final Verdict ${finalVerdict || "unavailable"} is not executable.` };
+  }
+  const canonicalStop = Number(canonical.assetDecision.stop);
+  const canonicalTarget = Number(canonical.assetDecision.targets?.[0]);
+  if (!(canonicalStop > 0) || !(canonicalTarget > 0)) {
+    return { ok: false, error: "Canonical setup has no valid stop/target — refusing to size or execute." };
   }
 
   const { id, secret } = keys();
@@ -179,8 +203,8 @@ async function validateAndSize(symbol) {
   const currentPrice = Number(quotes?.[0]?.price) || 0;
   if (!(currentPrice > 0)) return { ok: false, error: "No real current price available." };
 
-  const stop = Number(position.stop);
-  const target = Number(position.target);
+  const stop = canonicalStop;
+  const target = canonicalTarget;
   const stopValid = direction === "SHORT" ? (stop > 0 && stop > currentPrice) : (stop > 0 && currentPrice > stop);
   if (!stopValid) {
     return { ok: false, error: `Real stop isn't valid for a ${direction} entry at the current price — refusing to size blind.` };
@@ -192,6 +216,7 @@ async function validateAndSize(symbol) {
 
   return {
     ok: true, symbol, position, direction, qty, entry: currentPrice, stop, target,
+    finalVerdict, assetDecision: canonical.assetDecision,
     riskPct, riskDollars: +(qty * Math.abs(currentPrice - stop)).toFixed(2),
     estCost: +(qty * currentPrice).toFixed(2),
   };
@@ -289,4 +314,4 @@ async function maybeFlattenEndOfDay() {
   return { ok: true, flattened };
 }
 
-module.exports = { previewOrder, placeOrder, maybeFlattenEndOfDay, CLIENT_ORDER_PREFIX };
+module.exports = { previewOrder, placeOrder, maybeFlattenEndOfDay, CLIENT_ORDER_PREFIX, canExecuteFinalVerdict };

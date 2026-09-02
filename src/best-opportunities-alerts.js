@@ -37,10 +37,8 @@ const { isConfigured: telegramConfigured } = require("./telegram");
 const { pushDigestLines } = require("./alert-buffer");
 const { isMarketHoursET } = require("./risk-guardrails");
 const { SCAN_UNIVERSE } = require("./advisor-ai");
-const { computeEntryPlan } = require("./entry-engine");
-const { computeRedFlags } = require("./red-flag-engine");
-const { computeCoreScore, classifyCoreVerdict } = require("./am-core-engine");
-const { buildEvFromRow, shouldAlert } = require("./watchlist-setup-alerts");
+const { computeOpportunity } = require("./opportunity-engine");
+const { shouldAlert } = require("./watchlist-setup-alerts");
 
 const STORE_PATH = path.join(ROOT, "data", "best-opportunities-alert-state.json");
 
@@ -63,10 +61,10 @@ async function checkBestOpportunitiesAlerts() {
   if (!telegramConfigured()) return { ok: true, skipped: "telegram not configured" };
   if (!isMarketHoursET()) return { ok: true, skipped: "outside market hours" };
 
-  let screenWatchlistCached, fetchMarketQuotes, computeRegime, regimeToEntryVocabulary, computeAPlusScore;
+  let screenWatchlistCached, fetchMarketQuotes, computeRegime, regimeToEntryVocabulary;
   try {
     ({ screenWatchlistCached, fetchMarketQuotes } = require("./routes/market"));
-    ({ computeRegime, regimeToEntryVocabulary, computeAPlusScore } = require("./trade-planner-scoring"));
+    ({ computeRegime, regimeToEntryVocabulary } = require("./trade-planner-scoring"));
   } catch {
     return { ok: false, checked: 0, alerts: [] };
   }
@@ -89,32 +87,18 @@ async function checkBestOpportunitiesAlerts() {
 
   for (const r of rows) {
     if (!r || r.error) continue;
-    const ev = buildEvFromRow(r, marketRegime);
-    const entryPlan = computeEntryPlan(ev);
-    const redFlagResult = computeRedFlags(ev);
-    const { score: aPlusScore } = computeAPlusScore(r, regime);
-    const coreScore = computeCoreScore({
-      passCount: r.passCount, rsRating: r.rsRating, momentum: r.momentum,
-      stage: r.stage, volRatio: r.volRatio, regime, sectorInfo: null,
-      adx: null, smc: r.smc, epsGrowth: r.epsGrowth, vcpScore: r.vcpScore,
-      riskPct: r.riskPct, pctFromHigh: r.pctFromHigh, antiChase: ev.antiChase,
-      optionsFlow: null, dollarVolume: r.dollarVolume,
-    });
-    const deep = classifyCoreVerdict({
-      score: coreScore.score, entryPlan, redFlagResult,
-      stage: r.stage, dailyBias: ev.dailyBias, entryScore: aPlusScore,
-      hasPosition: false,
-    });
+    const opportunity = computeOpportunity({ symbol: r.symbol, row: r, regime, marketRegime, trackReport: null });
+    if (!opportunity) continue;
 
     // Preserved as a deliberate, disclosed additional bar on top of the
     // unified verdict, not replaced by it: forcing a non-qualifying row
     // to an honest "WAIT" reading lets shouldAlert's already-tested
     // transition/red-flag/first-seed logic handle the rest unchanged.
-    const decision = qualifiesAsLeader(r) ? deep.verdict : "WAIT";
+    const decision = qualifiesAsLeader(r) ? opportunity.verdict : "WAIT";
     const last = prev[r.symbol];
 
-    if (shouldAlert(last, decision, redFlagResult.criticalCount)) {
-      alerts.push({ symbol: r.symbol, price: r.price, entry: entryPlan.entryPrice, stop: entryPlan.stop, target: entryPlan.target1, rsRating: r.rsRating, decision });
+    if (shouldAlert(last, decision, opportunity.criticalFlags)) {
+      alerts.push({ symbol: r.symbol, price: r.price, entry: opportunity.entryPlan.entryPrice, stop: opportunity.entryPlan.stop, target: opportunity.entryPlan.target1, rsRating: r.rsRating, decision });
     }
     next[r.symbol] = decision;
   }

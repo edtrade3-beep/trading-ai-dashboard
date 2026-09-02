@@ -148,3 +148,13 @@ export function computeSniperDecision(row) {
     vwap20: Number.isFinite(vwap20) ? vwap20 : null,
   };
 }
+
+// Client twin of src/sniper-decision.js's shared row adapter.
+export function computeReversalTopRisk(row) {
+  const reversal = computeReversalDetector({
+    price: row?.price, hi52: row?.hi52, lo52: row?.lo52, rsi: row?.rsi,
+    rvol: row?.volRatio, dayChangePct: row?.dayChangePct,
+    weekChangePct: row?.weekChangePct, ma50: row?.ma50,
+  });
+  return !!reversal?.isTop;
+}

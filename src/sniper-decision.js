@@ -141,6 +141,17 @@ function computeSniperDecision(row) {
   };
 }
 
+// Shared row adapter for consumers that need to feed the Sniper reversal
+// signal into the Master Verdict without recreating this field mapping.
+function computeReversalTopRisk(row) {
+  const reversal = computeReversalDetector({
+    price: row?.price, hi52: row?.hi52, lo52: row?.lo52, rsi: row?.rsi,
+    rvol: row?.volRatio, dayChangePct: row?.dayChangePct,
+    weekChangePct: row?.weekChangePct, ma50: row?.ma50,
+  });
+  return !!(reversal && reversal.isTop);
+}
+
 // Real ranked scan (2026-08-23, Sniper AI — a real, separate tab from
 // Discover) — extracted verbatim from telegram-bot.js's cmdSniper, which
 // used to inline this exact same ranking. Now the one real implementation
@@ -162,4 +173,4 @@ function rankSniperScan(rows) {
   return { ranked, counts };
 }
 
-module.exports = { computeSniperDecision, computeReversalDetector, SNIPER_TIMING, rankSniperScan };
+module.exports = { computeSniperDecision, computeReversalDetector, computeReversalTopRisk, SNIPER_TIMING, rankSniperScan };

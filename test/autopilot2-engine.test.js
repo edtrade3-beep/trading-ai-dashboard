@@ -9,7 +9,7 @@
 // Run: node test/autopilot2-engine.test.js (or npm test).
 "use strict";
 const assert = require("node:assert");
-const { sizeEntry, sizeCryptoEntry, CRYPTO_UNIVERSE, RISK_PCT_PER_TRADE, MAX_TRADE_RISK_DOLLARS, isBullishCandidate, isBearishCandidate, BULLISH_RANK, BEARISH_RANK, symbolsToScan } = require("../src/autopilot2-engine");
+const { sizeEntry, sizeCryptoEntry, CRYPTO_UNIVERSE, RISK_PCT_PER_TRADE, MAX_TRADE_RISK_DOLLARS, isBullishCandidate, hasExecutableFinalVerdict, isBearishCandidate, BULLISH_RANK, BEARISH_RANK, symbolsToScan } = require("../src/autopilot2-engine");
 
 let passed = 0;
 function ok(name, fn) { try { fn(); passed++; console.log(`  ✓ ${name}`); } catch (e) { console.error(`  ✗ ${name}\n    ${e.message}`); process.exitCode = 1; } }
@@ -116,21 +116,27 @@ ok("sizeCryptoEntry SHORT: a long-shaped stop (below entry) is rejected", () => 
   assert.strictEqual(qty, 0, "stop below entry is a LONG-shaped stop, invalid for a real short");
 });
 
-console.log("\nChecking isBullishCandidate/isBearishCandidate — real near-miss WATCH inclusion, widening the opportunity pool (2026-08-31, \"make $1000/day... best setup\")…");
+console.log("\nChecking isBullishCandidate — Autopilot 2.0 executes only the canonical BUY-family Master Verdict…");
 ok("EARLY_BUY/BUY are always actionable, regardless of executableEntry", () => {
   assert.strictEqual(isBullishCandidate({ verdict: "EARLY_BUY" }), true);
   assert.strictEqual(isBullishCandidate({ verdict: "BUY", executableEntry: null }), true);
 });
-ok("a real WATCH verdict WITH a real executable entry is now accepted — the actual widening", () => {
-  assert.strictEqual(isBullishCandidate({ verdict: "WATCH", executableEntry: 123.45 }), true);
-});
-ok("a real WATCH verdict with NO real executable entry is still rejected — a WATCH with nothing to trade can never become tradeable just by relaxing the bar", () => {
+ok("WATCH is never promoted into an executable decision, even when it has a real entry", () => {
+  assert.strictEqual(isBullishCandidate({ verdict: "WATCH", executableEntry: 123.45 }), false);
   assert.strictEqual(isBullishCandidate({ verdict: "WATCH", executableEntry: null }), false);
   assert.strictEqual(isBullishCandidate({ verdict: "WATCH" }), false);
 });
-ok("AVOID_LONG/WAIT are never accepted — this only widens the SOFT score bar, hard gates (already baked into the verdict) are untouched", () => {
+ok("WAIT/AVOID_LONG and source-local LIGHTBOX_BUY are never executable", () => {
   assert.strictEqual(isBullishCandidate({ verdict: "AVOID_LONG", executableEntry: 100 }), false);
   assert.strictEqual(isBullishCandidate({ verdict: "WAIT", executableEntry: 100 }), false);
+  assert.strictEqual(isBullishCandidate({ verdict: "LIGHTBOX_BUY", executableEntry: 100 }), false);
+  assert.strictEqual(isBullishCandidate({}), false);
+});
+ok("execution requires the risk-adjusted canonical Final Verdict", () => {
+  assert.strictEqual(hasExecutableFinalVerdict({ assetDecision: { verdict: "STRONG_BUY" } }), true);
+  assert.strictEqual(hasExecutableFinalVerdict({ assetDecision: { verdict: "BUY" } }), true);
+  assert.strictEqual(hasExecutableFinalVerdict({ verdict: "BUY", assetDecision: { verdict: "WAIT" } }), false);
+  assert.strictEqual(hasExecutableFinalVerdict({ verdict: "BUY" }), false);
 });
 ok("EARLY_SHORT/SHORT are always actionable", () => {
   assert.strictEqual(isBearishCandidate({ bearishVerdict: "EARLY_SHORT" }), true);
@@ -145,8 +151,9 @@ ok("a real WATCH_SHORT with no real bearishEntry is rejected", () => {
 ok("AVOID_SHORT is never accepted", () => {
   assert.strictEqual(isBearishCandidate({ bearishVerdict: "AVOID_SHORT", bearishEntry: 100 }), false);
 });
-ok("BULLISH_RANK/BEARISH_RANK real ordering puts EARLY_ before plain, and both before the new WATCH near-miss tier", () => {
-  assert.ok(BULLISH_RANK.EARLY_BUY < BULLISH_RANK.BUY && BULLISH_RANK.BUY < BULLISH_RANK.WATCH);
+ok("BULLISH_RANK contains only executable Master Verdicts; bearish legacy ordering is unchanged", () => {
+  assert.deepStrictEqual(Object.keys(BULLISH_RANK).sort(), ["BUY", "EARLY_BUY"]);
+  assert.ok(BULLISH_RANK.EARLY_BUY < BULLISH_RANK.BUY);
   assert.ok(BEARISH_RANK.EARLY_SHORT < BEARISH_RANK.SHORT && BEARISH_RANK.SHORT < BEARISH_RANK.WATCH_SHORT);
 });
 

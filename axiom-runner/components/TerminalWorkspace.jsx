@@ -2,10 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { C, MONO, SANS } from "./theme.js";
 import { computeScores } from "./trading-utils.js";
 import { STOCK_TO_SECTOR, computeRegime, computeAPlusScore } from "./market-helpers.js";
-import { computeSniperDecision } from "./sniper-decision.js";
-import { computeHeatRisk, computeCortexVerdict } from "./cortex-engine.js";
-import { computeAntiChase } from "./anti-chase.js";
-import { CORE_VERDICT_META } from "./am-core-engine.js";
+import { FINAL_VERDICT_META } from "./final-decision-meta.js";
 
 // Real Cortex Verdict per symbol — replaces this file's own separate
 // composite-score thresholds (sig/sig2/qs, 72/55/40 cutoffs on
@@ -16,26 +13,6 @@ import { CORE_VERDICT_META } from "./am-core-engine.js";
 // trendMap[symbol] is the same real trend-screen row Cortex uses,
 // already fetched by this component for every watchlist symbol. Returns
 // null (never fabricated) when the real row hasn't loaded yet.
-function cortexVerdictFor(trendRow, regime) {
-  if (!trendRow) return null;
-  const aplus = computeAPlusScore(trendRow, regime);
-  const sniper = computeSniperDecision(trendRow);
-  // Real bug fix (2026-08-26, "unify the swing/entry-decision verdict"):
-  // threads the real graduated computeAntiChase band (same primitive
-  // SmartScanTab.jsx already uses) into the heat check, same as
-  // MarketTerminalTab.jsx's own fix, so this file's Cortex read can't
-  // disagree with the unified verdict elsewhere over the exact same
-  // real chase-distance signal.
-  const antiChase = computeAntiChase(trendRow.abovePivotPct);
-  const heat = computeHeatRisk(trendRow, sniper, antiChase);
-  return computeCortexVerdict({ sniper, heat, aplusScore: aplus.score });
-}
-const verdictLabelColor = (v) => !v ? [null, C.textDim]
-  : v.verdict === "BUY ZONE" ? [v.verdict, "#0d9465"]
-  : v.verdict === "WATCH" ? [v.verdict, "#5ab552"]
-  : v.verdict === "WAIT" ? [v.verdict, "#d6a312"]
-  : v.verdict === "OVEREXTENDED" ? [v.verdict, "#e08a1e"]
-  : [v.verdict, "#c8282a"];
 
 // Real, primary badge for a row/pill in this file — prefers the real
 // am-core-engine.js Master Verdict (same engine as Autopilot 2.0/most
@@ -47,9 +24,9 @@ const verdictLabelColor = (v) => !v ? [null, C.textDim]
 // remaining spot still showing the unlabeled Cortex-derived verdict on
 // its own (audit fix #4, 2026-08-31).
 function primaryVerdictFor(trendRow, regime) {
-  const coreMeta = trendRow?.coreVerdict ? CORE_VERDICT_META[trendRow.coreVerdict] : null;
-  if (coreMeta) return [coreMeta.label, coreMeta.color];
-  return verdictLabelColor(cortexVerdictFor(trendRow, regime));
+  const verdict = trendRow?.assetDecision?.verdict;
+  const meta = verdict ? FINAL_VERDICT_META[verdict] : null;
+  return meta ? [meta.label, meta.color] : ["LOADING…", C.textDim];
 }
 
 export default function TerminalWorkspace({

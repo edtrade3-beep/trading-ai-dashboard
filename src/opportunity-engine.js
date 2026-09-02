@@ -26,9 +26,9 @@ const { computeEntryPlan } = require("./entry-engine");
 const { computeRedFlags } = require("./red-flag-engine");
 const { computeCoreScore, classifyCoreVerdict, computeBearishScore, classifyBearishVerdict } = require("./am-core-engine");
 const { computeAPlusScore } = require("./trade-planner-scoring");
-const { buildEvFromRow } = require("./watchlist-setup-alerts");
+const { buildEvFromRow } = require("./setup-evidence");
 const { winProbFor } = require("./institutional-scoring");
-const { computeReversalDetector } = require("./sniper-decision");
+const { computeReversalDetector, computeReversalTopRisk } = require("./sniper-decision");
 
 function round2(n) { return Number.isFinite(n) ? Math.round(n * 100) / 100 : null; }
 
@@ -352,7 +352,7 @@ function computeOpportunity({ symbol, row, regime, marketRegime, sectorInfo = nu
   const deep = classifyCoreVerdict({
     score: coreScore.score, entryPlan, redFlagResult,
     stage: row.stage, dailyBias: ev.dailyBias, entryScore: aPlusScore,
-    hasPosition: false, reversalTopRisk: !!(reversal && reversal.isTop),
+    hasPosition: false, reversalTopRisk: computeReversalTopRisk(row),
   });
   if (!deep) return null; // SHORT direction or otherwise unclassifiable — honest null, never a guess
 
@@ -448,6 +448,9 @@ function computeOpportunity({ symbol, row, regime, marketRegime, sectorInfo = nu
     // — null everywhere else (FOUNDATION/NONE/STRUCTURE_BROKEN/
     // FAILED_BREAKOUT), never fabricated as "actionable now."
     executableEntry: Number.isFinite(entryPlan.entryPrice) ? entryPlan.entryPrice : null,
+    // The one setup object consumed beside this verdict. Alerts and
+    // execution should not rebuild entry/stop/target/checks independently.
+    entryPlan,
     stop: entryPlan.stop,
     target: entryPlan.target1,
     invalidation: entryPlan.invalidation,

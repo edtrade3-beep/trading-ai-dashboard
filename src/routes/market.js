@@ -1960,9 +1960,19 @@ async function screenTrendTemplate(symbols, filters = {}) {
 // than the sub-second gap between these jobs' near-simultaneous fires) lets
 // whichever job runs first do the real work and the other two get it free.
 const WATCHLIST_SCREEN_CACHE_TTL_MS = 3 * 60_000;
+function normalizeWatchlistScreenSymbols(symbols) {
+  return [...new Set((Array.isArray(symbols) ? symbols : [])
+    .map((symbol) => String(symbol || "").trim().toUpperCase())
+    .filter(Boolean))].sort();
+}
 async function screenWatchlistCached(symbols) {
-  const key = `watchlist-screen:${symbols.slice().sort().join(",")}`;
-  return cached(key, WATCHLIST_SCREEN_CACHE_TTL_MS, () => screenTrendTemplate(symbols));
+  const normalized = normalizeWatchlistScreenSymbols(symbols);
+  if (!normalized.length) return [];
+  const key = `watchlist-screen:${normalized.join(",")}`;
+  const rows = await cached(key, WATCHLIST_SCREEN_CACHE_TTL_MS, () => screenTrendTemplate(normalized));
+  // Cache values are process-shared. Return a fresh plain-data graph so a
+  // sorting/annotation consumer cannot mutate what another scanner job sees.
+  return structuredClone(rows);
 }
 
 // 🗣️ TRADING COPILOT tool — lets the model actually RUN a live scan instead
@@ -2072,8 +2082,7 @@ Distinguish FACT (a real number/state from the data below) from INFERENCE (your 
 
 REAL DATA for ${d.symbol || "this symbol"}:
 - Price: $${d.price ?? "?"}
-- MASTER VERDICT (Core Engine, the platform's one canonical verdict): ${d.coreVerdict || "unavailable"} — ${d.coreReason || "no reason recorded"}
-- CORTEX VERDICT (this screen's own specialized read, tracked separately): ${d.cortexVerdict || "unavailable"} — ${d.cortexReason || "no reason recorded"}
+- FINAL VERDICT (canonical AssetDecision after risk overrides): ${d.coreVerdict || "unavailable"} — ${d.coreReason || "no reason recorded"}
 - Heat/Risk: ${d.heatLabel || "unavailable"} — ${d.heatReason || "—"}
 - A+ Score: ${d.aplusScore ?? "?"}/100
   Reasons:
@@ -2094,8 +2103,7 @@ ${evidenceList}${contextBlock}`;
 // that route's own header comment below for what it does and why.
 async function computeAllOpportunities() {
   const { SCAN_UNIVERSE } = require("../advisor-ai");
-  const { computeRegime, regimeToEntryVocabulary } = require("../trade-planner-scoring");
-  const { computeOpportunity } = require("../opportunity-engine");
+  const { computeCanonicalAssetDecision } = require("../canonical-decision-pipeline");
 
   const MACRO_SYMS = ["SPY", "QQQ", "IWM", "DIA", "^VIX", "UUP", "VIXY", "TLT", "HYG"];
   const [rows, macroQuotes, sectorQuotes, trackReport] = await Promise.all([
@@ -2108,12 +2116,11 @@ async function computeAllOpportunities() {
   const macroData = macroQuotes.map((q) => ({
     symbol: q.symbol, price: q.regularMarketPrice, changesPercentage: q.regularMarketChangePercent,
   }));
-  const regime = computeRegime(macroData);
-  const marketRegime = regimeToEntryVocabulary(regime.label);
-
-  const { computeDataFreshness } = require("../data-freshness");
   const { isMarketHoursET } = require("../risk-guardrails");
-  const dataQuality = computeDataFreshness({ quotes: macroQuotes, nowMs: Date.now(), isMarketHours: isMarketHoursET() });
+  const nowMs = Date.now();
+  const marketHours = isMarketHoursET();
+  const { computeDataFreshness } = require("../data-freshness");
+  const dataQuality = computeDataFreshness({ quotes: macroQuotes, nowMs, isMarketHours: marketHours });
 
   const sectorRanked = SECTOR_THEME_MAP.SECTOR_ETFS
     .map((s) => ({ sym: s.sym, chgPct: Number(sectorQuotes.find((q) => q.symbol === s.sym)?.regularMarketChangePercent) || 0 }))
@@ -2128,12 +2135,14 @@ async function computeAllOpportunities() {
   const tiers = { actionable: [], developing: [], wait: [], extended: [], invalidated: [] };
   for (const row of rows) {
     if (row.error) continue;
-    const opp = computeOpportunity({
-      symbol: row.symbol, row, regime, marketRegime,
+    const canonical = computeCanonicalAssetDecision({
+      symbol: row.symbol, row, macroQuotes: macroData,
       sectorInfo: sectorInfoFor(row.symbol), adx: row.technicals?.adx || null,
-      optionsFlow: null, trackReport,
+      trackReport, nowMs, marketHours,
+      extraDataSources: [{ source: "sector-quotes", available: sectorQuotes.length > 0, required: false }],
     });
-    if (!opp) continue;
+    if (!canonical) continue;
+    const { opportunity: opp } = canonical;
     // Edge Velocity (Phase 3, 2026-08-26) — real rate-of-change over this
     // symbol's own prior real same-session samples (opportunity-timeline-
     // store.js). Read BEFORE this scan's own new snapshot is recorded
@@ -2151,7 +2160,11 @@ async function computeAllOpportunities() {
   for (const key of Object.keys(tiers)) {
     tiers[key].sort((a, b) => (b.score || 0) - (a.score || 0) || ((b.edgeVelocity?.velocity || 0) - (a.edgeVelocity?.velocity || 0)));
   }
-  return { tiers, dataQuality };
+  const canonicalSample = rows.find((r) => !r.error);
+  const canonicalRegime = canonicalSample
+    ? computeCanonicalAssetDecision({ symbol: canonicalSample.symbol, row: canonicalSample, macroQuotes: macroData, nowMs, marketHours })
+    : null;
+  return { tiers, dataQuality, dataHealth: canonicalRegime?.dataHealth || null, marketRegime: canonicalRegime?.marketRegime || null };
 }
 
 async function handleMarket(req, res, requestUrl) {
@@ -2178,8 +2191,7 @@ async function handleMarket(req, res, requestUrl) {
       // daily computation, so this attaches safely regardless of `interval`.
       if (searchParams.get("withDecision") === "1") {
         try {
-          const { computeRegime, regimeToEntryVocabulary } = require("../trade-planner-scoring");
-          const { computeOpportunity } = require("../opportunity-engine");
+          const { computeCanonicalAssetDecision } = require("../canonical-decision-pipeline");
           const [macroRows, trackReport, screenRows] = await Promise.all([
             fetchMarketQuotes(["SPY", "QQQ", "VIXY"], resolveProviderKeys(searchParams)).catch(() => []),
             _getTrackReportCached(),
@@ -2187,14 +2199,14 @@ async function handleMarket(req, res, requestUrl) {
           ]);
           const row = screenRows[0];
           if (row && !row.error) {
-            const regime = computeRegime(Array.isArray(macroRows) ? macroRows : []);
-            const marketRegime = regimeToEntryVocabulary(regime.label);
-            const opp = computeOpportunity({ symbol, row, regime, marketRegime, trackReport, optionsFlow: null });
-            if (opp) {
+            const canonical = computeCanonicalAssetDecision({ symbol, row, macroQuotes: macroRows, trackReport, marketHours: false });
+            if (canonical) {
+              const opp = canonical.opportunity;
               payload.coreVerdict = opp.verdict;
               payload.coreCriticalFlags = opp.criticalFlags;
               payload.coreReason = opp.verdictReason;
               payload.opportunity = opp;
+              payload.assetDecision = canonical.assetDecision;
             }
           }
         } catch { /* best-effort additive enrichment — payload stays fully valid without it */ }
@@ -2786,14 +2798,21 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
       // deep-dive case those real per-symbol enrichments belong in.
       if (searchParams.get("withDecision") === "1" && results.length) {
         try {
-          const { computeRegime, regimeToEntryVocabulary } = require("../trade-planner-scoring");
-          const { computeOpportunity } = require("../opportunity-engine");
+          const { computeCanonicalAssetDecision } = require("../canonical-decision-pipeline");
           const [macroRows, trackReport] = await Promise.all([
             fetchMarketQuotes(["SPY", "QQQ", "VIXY"], resolveProviderKeys(searchParams)).catch(() => []),
             _getTrackReportCached(),
           ]);
-          const regime = computeRegime(Array.isArray(macroRows) ? macroRows : []);
-          const marketRegime = regimeToEntryVocabulary(regime.label);
+          const { computeDataHealth } = require("../data-health-engine");
+          const { isMarketHoursET } = require("../risk-guardrails");
+          const decisionTimestamp = Date.now();
+          const macroTimestamp = macroRows.reduce((latest, q) => Math.max(latest, Number(q?.regularMarketTime || 0) * 1000), 0) || null;
+          const dataHealth = computeDataHealth([
+            { source: "market-price", available: results.some((row) => !row.error && Number.isFinite(row.price)), required: true },
+            { source: "macro-quotes", available: macroRows.length > 0, timestamp: macroTimestamp, staleAfterMs: isMarketHoursET() ? 15 * 60_000 : null, required: true },
+            { source: "options-flow", available: searchParams.get("withOptions") !== "1" || results.length > 5 ? false : true, required: false,
+              note: searchParams.get("withOptions") === "1" ? "Requested for this decision batch" : "Not requested for this scan tier" },
+          ], { nowMs: decisionTimestamp });
 
           // Real per-symbol options-flow cross-check — opt-in (&withOptions=1)
           // and capped to <=5 symbols (a real, disclosed safety cap): this
@@ -2821,8 +2840,13 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
           for (const row of results) {
             if (row.error) continue;
             const optionsFlow = optionsFlowBySymbol?.get(row.symbol) || null;
-            const opp = computeOpportunity({ symbol: row.symbol, row, regime, marketRegime, trackReport, optionsFlow });
-            if (!opp) continue;
+            const canonical = computeCanonicalAssetDecision({
+              symbol: row.symbol, row, macroQuotes: macroRows, trackReport, optionsFlow,
+              nowMs: decisionTimestamp, marketHours: isMarketHoursET(),
+              extraDataSources: [{ source: "batch-data-health", available: dataHealth?.canTrade !== false, required: false }],
+            });
+            if (!canonical) continue;
+            const { opportunity: opp } = canonical;
             row.coreVerdict = opp.verdict;
             row.coreCriticalFlags = opp.criticalFlags;
             row.coreReason = opp.verdictReason;
@@ -2834,6 +2858,7 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
             row.bearishVerdict = opp.bearishVerdict;
             row.bearishReason = opp.bearishVerdictReason;
             row.opportunity = opp;
+            row.assetDecision = opp.assetDecision;
           }
 
           // "What Changed?" (Trade Desk redesign Phase 2, spec §20) — real
@@ -2861,7 +2886,12 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
           }
         } catch { /* enrichment is additive-only — a failure here must not break the base scan response */ }
       }
-      return writeJson(res, 200, { count: results.length, results });
+      const canonicalSample = results.find((row) => row.assetDecision);
+      return writeJson(res, 200, {
+        count: results.length, results,
+        dataHealth: canonicalSample?.assetDecision?.dataHealth || null,
+        marketRegime: canonicalSample?.assetDecision?.marketRegime || null,
+      });
     } catch (err) {
       return writeJson(res, 502, { error: err instanceof Error ? err.message : "Screen failed." });
     }
@@ -2904,20 +2934,20 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
       // trend-screen route's own enrichment already uses; a failure here
       // must never break the base Sniper AI response.
       try {
-        const { computeRegime, regimeToEntryVocabulary } = require("../trade-planner-scoring");
-        const { computeOpportunity } = require("../opportunity-engine");
+        const { computeCanonicalAssetDecision } = require("../canonical-decision-pipeline");
         const macroRows = await fetchMarketQuotes(["SPY", "QQQ", "VIXY"], resolveProviderKeys(searchParams)).catch(() => []);
-        const regime = computeRegime(Array.isArray(macroRows) ? macroRows : []);
-        const marketRegime = regimeToEntryVocabulary(regime.label);
         const rowBySymbol = new Map(rows.filter((r) => !r.error).map((r) => [r.symbol, r]));
         for (const result of results) {
           const row = rowBySymbol.get(result.symbol);
           if (!row) continue;
-          const opp = computeOpportunity({ symbol: result.symbol, row, regime, marketRegime });
-          if (!opp) continue;
+          const canonical = computeCanonicalAssetDecision({ symbol: result.symbol, row, macroQuotes: macroRows, marketHours: false });
+          if (!canonical) continue;
+          const opp = canonical.opportunity;
           result.coreVerdict = opp.verdict;
           result.coreCriticalFlags = opp.criticalFlags;
           result.coreReason = opp.verdictReason;
+          result.assetDecision = canonical.assetDecision;
+          result.opportunity = opp;
         }
       } catch { /* canonical-verdict enrichment is additive-only — never breaks the base Sniper AI response */ }
 
@@ -2947,7 +2977,7 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
   // a ~100-symbol-per-request fetch.
   if (pathname === "/api/market/opportunities" && req.method === "GET") {
     try {
-      const { tiers, dataQuality } = await computeAllOpportunities();
+      const { tiers, dataQuality, dataHealth, marketRegime } = await computeAllOpportunities();
 
       // Same-session Edge Timeline (Phase 2, 2026-08-26) — real, throttled
       // intraday snapshot of every real Opportunity Object this scan just
@@ -2961,7 +2991,7 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
       return writeJson(res, 200, {
         ok: true, generatedAt: new Date().toISOString(),
         counts: Object.fromEntries(Object.entries(tiers).map(([k, v]) => [k, v.length])),
-        tiers, dataQuality,
+        tiers, dataQuality, dataHealth, marketRegime,
       });
     } catch (err) {
       return writeJson(res, 502, { ok: false, error: err instanceof Error ? err.message : "Opportunity scan failed." });
@@ -3017,9 +3047,9 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
   if (pathname === "/api/market/btc-hpc-scan" && req.method === "GET") {
     try {
       const { HPC_MINER_UNIVERSE, HPC_MINER_NAMES, HPC_MINER_SECTOR, computeBtcRegime } = require("../btc-hpc-scan");
-      const { computeEntryPlan } = require("../entry-engine");
-      const { computeCoreScore, classifyCoreVerdict, CORE_VERDICT_META } = require("../am-core-engine");
+      const { CORE_VERDICT_META } = require("../am-core-engine");
       const { computeRegime, computeAPlusScore } = require("../trade-planner-scoring");
+      const { computeCanonicalAssetDecision } = require("../canonical-decision-pipeline");
       const { institutionalLetterGrade } = require("../institutional-scoring");
       const data = await cached("btc-hpc-scan", 600_000, async () => {
         const providerKeys = resolveProviderKeys(new URLSearchParams());
@@ -3032,49 +3062,20 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
         const regime = computeRegime(Array.isArray(macroRows) ? macroRows : []);
         const rotation = rows.filter((r) => !r.error).map((r) => {
           const aplus = computeAPlusScore(r, regime);
-          // Daily-only entry staging for the fast rotation list — no 4H/1H/
-          // 15M fetch per row here (5 symbols x full MTF would be slow for a
-          // quick ranked list); structureBroken stays unknown (null) rather
-          // than assumed healthy OR broken, honestly reflecting that this
-          // row hasn't checked 4H yet. atr is also null (no per-row bars
-          // re-fetch here) so earlyEntryZone/etc. come back null too — a
-          // click-through to the symbol's own /api/market/btc-hpc-deep gets
-          // the real ATR-based zones. Real cheap fields ARE passed (2026-08-20
-          // fix — these were missing entirely, which silently zeroed out
-          // qualifying.total and made every row resolve to NONE/WAIT
-          // regardless of real quality).
-          const dailyBias = (String(r.stage || "").includes("2") && Number(r.passCount || 0) >= 6) ? "BULLISH"
-            : String(r.stage || "").includes("4") ? "BEARISH" : "NEUTRAL";
-          const target1 = r.entry > r.stop ? round2(r.entry + (r.entry - r.stop)) : null;
-          const rr = Number.isFinite(target1) && r.entry > r.stop ? round2((target1 - r.entry) / (r.entry - r.stop)) : null;
-          const entryPlan = computeEntryPlan({
-            price: r.price, pivot: r.pivot, atr: null, contractionLow: r.contractionLow,
-            dailyBias, rsRating: r.rsRating, higherLows: r.higherLows, tightening: r.tightening,
-            vcpVerdict: r.vcpVerdict, vwap20: r.technicals?.vwap20, rr,
-            breakoutConfirmed: r.breakoutConfirmed, extended: r.extended, priceAction: {},
-            stop: r.stop, target1, target2: r.target2,
-          });
-          const coreScore = computeCoreScore({
-            passCount: r.passCount, rsRating: r.rsRating, momentum: r.momentum,
-            stage: r.stage, volRatio: r.volRatio, regime, sectorInfo: null,
-            adx: null, smc: r.smc, epsGrowth: r.epsGrowth, vcpScore: r.vcpScore,
-            riskPct: r.riskPct, pctFromHigh: r.pctFromHigh, antiChase: null,
-            optionsFlow: null, dollarVolume: r.dollarVolume,
-          });
-          const deep = classifyCoreVerdict({
-            score: coreScore.score, entryPlan, stage: r.stage, dailyBias,
-            entryScore: aplus.score, hasPosition: false,
-          });
-          const meta = CORE_VERDICT_META[deep.verdict] || {};
-          const decision = { decision: deep.verdict, reason: deep.reason, icon: meta.icon, color: meta.color };
+          const canonical = computeCanonicalAssetDecision({ symbol: r.symbol, row: r, macroQuotes: macroRows, marketHours: false });
+          if (!canonical) return null;
+          const opportunity = canonical.opportunity;
+          const meta = CORE_VERDICT_META[canonical.assetDecision.verdict] || {};
+          const decision = { decision: opportunity.verdict, reason: opportunity.verdictReason, icon: meta.icon, color: meta.color };
           return {
             symbol: r.symbol, company: HPC_MINER_NAMES[r.symbol] || r.symbol, sector: HPC_MINER_SECTOR,
             price: r.price, grade: institutionalLetterGrade(aplus.score), score: aplus.score,
-            passCount: r.passCount, stage: r.stage, pivot: r.pivot, entryPrice: entryPlan.entryPrice,
+            passCount: r.passCount, stage: r.stage, pivot: r.pivot, entryPrice: opportunity.entryPlan.entryPrice,
             vcpStatus: r.vcpVerdict || null,
-            decision: decision.decision, decisionIcon: decision.icon, decisionColor: decision.color, decisionReason: decision.reason,
+            decision: canonical.assetDecision.verdict, decisionIcon: decision.icon, decisionColor: decision.color, decisionReason: canonical.assetDecision.reasons?.[0] || decision.reason,
+            assetDecision: canonical.assetDecision,
           };
-        }).sort((a, b) => (b.score || 0) - (a.score || 0));
+        }).filter(Boolean).sort((a, b) => (b.score || 0) - (a.score || 0));
         return { btcRegime, rotation };
       });
       return writeJson(res, 200, { ok: true, universe: HPC_MINER_UNIVERSE, ...data });
@@ -3101,9 +3102,9 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
     const symbol = (searchParams.get("symbol") || "").trim().toUpperCase();
     if (!symbol) return writeJson(res, 400, { ok: false, error: "symbol required" });
     try {
-      const { computeEntryPlan } = require("../entry-engine");
-      const { computeCoreScore, classifyCoreVerdict, CORE_VERDICT_META } = require("../am-core-engine");
+      const { CORE_VERDICT_META } = require("../am-core-engine");
       const { computeRegime, computeAPlusScore } = require("../trade-planner-scoring");
+      const { computeCanonicalAssetDecision } = require("../canonical-decision-pipeline");
       const { institutionalLetterGrade } = require("../institutional-scoring");
       const { computeFutureValueRead } = require("../future-value-scoring");
       const data = await cached(`btc-hpc-deep:${symbol}`, 900_000, async () => {
@@ -3128,31 +3129,21 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
         const aplus = computeAPlusScore(row, regime);
         // Same real one-liner MarketTerminalTab.jsx's dwDailyBias uses —
         // kept in sync deliberately, not re-derived differently here.
-        const dailyBias = (String(tt.stage || "").includes("2") && Number(tt.passCount || 0) >= 6) ? "BULLISH"
-          : String(tt.stage || "").includes("4") ? "BEARISH" : "NEUTRAL";
         const atr = Array.isArray(dailyBars) && dailyBars.length > 15 ? atrAt(dailyBars, 14, dailyBars.length - 1) : null;
-        const target1 = round2(tt.setup.entry + (tt.setup.entry - tt.setup.stop));
-        const rr = Number.isFinite(target1) && tt.setup.entry > tt.setup.stop ? round2((target1 - tt.setup.entry) / (tt.setup.entry - tt.setup.stop)) : null;
-        const entryPlan = computeEntryPlan({
-          price: tt.price, pivot: tt.setup.pivot, atr, contractionLow: tt.setup.contractionLow,
-          dailyBias, rsRating: tt.rsRating, higherLows: tt.setup.higherLows, tightening: tt.setup.tightening,
-          vcpVerdict: tt.setup.report?.verdict, vwap20: tt.technicals?.vwap20, rr,
-          breakoutConfirmed: tt.setup.breakoutConfirmed, extended: tt.setup.extended, priceAction: {},
-          stop: tt.setup.stop, target1, target2: tt.setup.target2,
+        row.atr = atr;
+        Object.assign(row, {
+          hi52: tt.hi52, lo52: tt.lo52, rsi: tt.rsi, volRatio: tt.volRatio,
+          dayChangePct: tt.dayChangePct, weekChangePct: tt.weekChangePct,
+          ma50: tt.ma50, momentum: tt.momentum, smc: tt.smc,
+          pctFromHigh: tt.pctFromHigh, riskPct: tt.setup.riskPct,
+          contractionLow: tt.setup.contractionLow, higherLows: tt.setup.higherLows,
+          tightening: tt.setup.tightening, technicals: tt.technicals,
         });
-        const coreScore = computeCoreScore({
-          passCount: tt.passCount, rsRating: tt.rsRating, momentum: tt.momentum,
-          stage: tt.stage, volRatio: tt.volRatio, regime, sectorInfo: null,
-          adx: null, smc: tt.smc, epsGrowth: null, vcpScore: tt.setup.report?.score,
-          riskPct: tt.setup.riskPct, pctFromHigh: tt.pctFromHigh, antiChase: null,
-          optionsFlow: null, dollarVolume: null,
-        });
-        const deepVerdict = classifyCoreVerdict({
-          score: coreScore.score, entryPlan, stage: tt.stage, dailyBias,
-          entryScore: aplus.score, hasPosition: false,
-        });
-        const deepMeta = CORE_VERDICT_META[deepVerdict.verdict] || {};
-        const decision = { decision: deepVerdict.verdict, reason: deepVerdict.reason, icon: deepMeta.icon, color: deepMeta.color };
+        const canonical = computeCanonicalAssetDecision({ symbol, row, macroQuotes: macroRows, marketHours: false });
+        if (!canonical) throw new Error("Canonical opportunity unavailable");
+        const opportunity = canonical.opportunity;
+        const deepMeta = CORE_VERDICT_META[canonical.assetDecision.verdict] || {};
+        const decision = { decision: canonical.assetDecision.verdict, reason: canonical.assetDecision.reasons?.[0] || opportunity.verdictReason, icon: deepMeta.icon, color: deepMeta.color };
         const valuation = fundamentals ? computeFutureValueRead(fundamentals, tt.price) : null;
 
         // AI-extracted qualitative context (MW/contract/customer/execution
@@ -3168,7 +3159,7 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
             vwap20: tt.technicals?.vwap20 ?? null, rsi: tt.rsi ?? null, volRatio: tt.volRatio ?? null,
             support: tt.setup?.contractionLow ?? null, resistance: tt.setup?.pivot ?? null,
             ma20: tt.ma?.ma50 ?? null, ma50: tt.ma?.ma50 ?? null },
-          entryPlan, decision,
+          entryPlan: opportunity.entryPlan, decision, assetDecision: canonical.assetDecision,
           fundamentals: fundamentals ? {
             revenueGrowth: fundamentals.revenueGrowth, ebitdaGrowth: fundamentals.ebitdaGrowth ?? null,
             freeCashFlow: fundamentals.freeCashFlow, freeCashFlowGrowth: fundamentals.freeCashFlowGrowth,
@@ -6367,6 +6358,7 @@ module.exports.fetchOptionsFlow = fetchOptionsFlow; // exposed for watchlist-ins
 module.exports.fetchDarkPoolPrints = fetchDarkPoolPrints; // exposed for the same file's real dark-pool-spike alert
 module.exports.fetchGammaForSymbol = fetchGammaForSymbol; // exposed for the same file's real gamma-breakout alert (Phase 14)
 module.exports.screenWatchlistCached = screenWatchlistCached; // exposed for the 3 watchlist-*-alerts.js background jobs (CTO audit item #4) — shared cache, not for live/manual-refresh routes
+module.exports.normalizeWatchlistScreenSymbols = normalizeWatchlistScreenSymbols;
 module.exports.fetchDayTradeScanRows = fetchDayTradeScanRows; // exposed for watchlist-daytrade-alerts.js's real Day Trade Mode GREEN-signal alert
 module.exports.atrAt = atrAt; // exposed for daytrade-console-engine.js's real 15-min ATR (same real Wilder true-range formula, just fed intraday bars instead of daily)
 module.exports.ttSmaAt = ttSmaAt; // exposed for backtest-engine.js's point-in-time trend-template replay (same real SMA formula, just walked bar-by-bar over history)

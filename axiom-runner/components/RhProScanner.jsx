@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { RH_UNIVERSE, rhScore, stockQualityBreakdown, rhScreenProgressive } from "./rhpro-shared.jsx";
 import {
-  computeRegime, computeAPlusScore, computeNextAction, classifyEntryType, computePrediction, winProbFor, MIN_WIN_SAMPLE,
+  computeRegime, computeAPlusScore, classifyEntryType, computePrediction, winProbFor, MIN_WIN_SAMPLE,
   computeInstitutionalGrade, institutionalLetterGrade, institutionalRecommendation, SECTOR_ETFS, STOCK_TO_SECTOR,
   computeReversalDetector,
 } from "./market-helpers.js";
@@ -12,11 +12,7 @@ import { mapToAiAction, coreVerdictToAiAction, AI_ACTIONS } from "./ai-actions.j
 // own deep-dive already uses, so Discover's AI ACTION column is now backed
 // by the same real entry-engine read instead of an independent guess (see
 // actionFor() below).
-import { computeEntryPlan } from "./entry-engine.js";
-import { computeRedFlags } from "./red-flag-engine.js";
-import { computeCoreScore, classifyCoreVerdict } from "./am-core-engine.js";
-import { computeRegimeLabel, regimeLabelToEntryVocabulary } from "./DashboardTab.jsx";
-import { computeAntiChase } from "./anti-chase.js";
+import { computeRegimeLabel } from "./DashboardTab.jsx";
 import { computeGreenLight } from "./trading-utils.js";
 import { findWeakestPosition, evaluateRotation } from "./portfolio-rotation-engine.js";
 import GapScanner from "./GapScanner.jsx";
@@ -210,7 +206,6 @@ export default function RhProScanner({
   const { regLabel: regLabel_reg } = computeRegimeLabel(C, {
     spy: spyQ_reg, qqq: qqqQ_reg, vix: Number(vixQ_reg?.price || vixQ_reg?.regularMarketPrice || 0), loaded: !!spyQ_reg,
   });
-  const marketRegimeForEntry = regimeLabelToEntryVocabulary(regLabel_reg);
   // "chart" and "plan" used to be two separate buttons/destinations —
   // "chart" opened Market Terminal, "plan" opened a standalone Trade
   // Planner that silently recomputed its OWN ATR-based entry/stop/targets,
@@ -402,24 +397,13 @@ export default function RhProScanner({
       // makes, off this same real trend-screen row, so a symbol's AI ACTION
       // here is backed by the exact same real read Smart Scan's headline
       // verdict would show for it, not an independent guess.
-      const dailyBias = (String(x.stage || "").includes("2") && Number(x.passCount || 0) >= 6) ? "BULLISH" : String(x.stage || "").includes("4") ? "BEARISH" : "NEUTRAL";
-      const target1 = x.entry > x.stop ? Math.round((x.entry + (x.entry - x.stop)) * 100) / 100 : null;
-      const rr = Number.isFinite(target1) && x.entry > x.stop ? Math.round(((target1 - x.entry) / (x.entry - x.stop)) * 100) / 100 : null;
       // Real Anti-Chase band (2026-08-21, Unified Trading System phase 3)
       // — same real computeAntiChase primitive Workspace already passes
       // into computeEntryPlan, off the same real abovePivotPct already on
       // this trend-screen row. Without this, entry-engine.js's real
       // breakout gate silently fell back to a cruder flat 10% cutoff for
       // every Discover row.
-      const antiChase = computeAntiChase(x.abovePivotPct);
-      const entryEv = {
-        price: x.price, pivot: x.pivot, atr: null, contractionLow: x.contractionLow,
-        dailyBias, rsRating: x.rsRating, higherLows: x.higherLows, tightening: x.tightening,
-        vcpVerdict: x.vcpVerdict, vwap20: x.technicals?.vwap20, rr,
-        breakoutConfirmed: x.breakoutConfirmed, extended: x.extended, priceAction: {}, antiChase,
-        stop: x.stop, target1, target2: x.target2, marketRegime: marketRegimeForEntry,
-      };
-      const entryPlan = computeEntryPlan(entryEv);
+      const entryPlan = x.opportunity?.entryPlan || null;
       // Red Flag Engine (Final Trade Validation Engine, 2026-08-23) — this
       // scan previously had zero red-flag awareness at all; reuses the
       // exact same entryEv already assembled for computeEntryPlan above
@@ -427,7 +411,9 @@ export default function RhProScanner({
       // read them — both honestly degrade to "unknown" when absent, same
       // discipline as everywhere else this engine is used), zero new
       // fetches.
-      const redFlags = computeRedFlags({ ...entryEv, riskPct: x.riskPct, dollarVolume: x.dollarVolume });
+      const redFlags = x.opportunity
+        ? { criticalCount: x.opportunity.criticalFlags, flags: x.opportunity.redFlags || [] }
+        : { criticalCount: 0, flags: [] };
       // Institutional Grade — same real 7-dimension function MarketTerminalTab's
       // AI Score Card uses (Overall Grade/AI Conviction below), computed here
       // for every scanned row instead of just one symbol. Technicals/options-flow
@@ -445,20 +431,18 @@ export default function RhProScanner({
       // overlay. adx/optionsFlow are honestly null here, same real gap
       // institutionalGrade's own call above already has on this page
       // (no ADX/options-flow data at this scan tier) — never fabricated.
-      const coreScore = computeCoreScore({
-        passCount: x.passCount, rsRating: x.rsRating, momentum: x.momentum, stage: x.stage,
-        volRatio: x.volRatio, regime, sectorInfo: sectorInfoFor(x.symbol), adx: null,
-        smc: x.smc, epsGrowth: x.epsGrowth, vcpScore: x.vcpScore, riskPct: x.riskPct,
-        pctFromHigh: x.pctFromHigh, antiChase, optionsFlow: null, dollarVolume: x.dollarVolume,
-      });
-      const coreVerdict = classifyCoreVerdict({
-        score: coreScore.score, entryPlan, redFlagResult: redFlags, stage: x.stage,
-        dailyBias, entryScore: aplus?.score,
-      });
-      return { ...x, score: quality.score, quality, aplus, institutionalGrade, next: computeNextAction(x), prediction: computePrediction(x, x, { track, aplusScore: aplus?.score }), entryPlan, redFlags, coreScore, coreVerdict };
+      const coreScore = x.opportunity
+        ? { score: x.opportunity.score, breakdown: x.opportunity.breakdown, reasons: x.opportunity.reasons }
+        : null;
+      const coreVerdict = x.assetDecision
+        ? { verdict: x.assetDecision.verdict, reason: x.assetDecision.reasons?.[0] || "Canonical decision available." }
+        : null;
+      const v = x.assetDecision?.verdict;
+      const next = v ? { action: v === "STRONG_BUY" ? "BUY" : v, reason: x.assetDecision.reasons?.[0] || "Canonical final verdict." } : null;
+      return { ...x, score: quality.score, quality, aplus, institutionalGrade, next, prediction: computePrediction(x, x, { track, aplusScore: aplus?.score }), entryPlan, redFlags, coreScore, coreVerdict };
     }).sort((a, b) => (b.score - a.score) || ((b.rsRating || 0) - (a.rsRating || 0)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rawRows, sectorPerfKey, regime?.score, marketRegimeForEntry, track]);
+  }, [rawRows, sectorPerfKey, regime?.score, track]);
 
   useEffect(() => {
     if ((category !== "lowiv" && category !== "highiv") || ivRanksState !== "idle") return;
@@ -605,7 +589,7 @@ export default function RhProScanner({
     // the final trade gate has approved it" rule. Skips the ROTATE
     // consideration below too, on purpose: a symbol that's hard-blocked
     // shouldn't be suggested as a rotation target.
-    if (r.coreVerdict?.verdict === "AVOID_LONG") return { action: AI_ACTIONS.AVOID, rotationInfo: null };
+    if (r.coreVerdict?.verdict === "AVOID") return { action: AI_ACTIONS.AVOID, rotationInfo: null };
     let rotationInfo = null;
     if (action.tier >= AI_ACTIONS.ACCUMULATE.tier && !rotationState.heldSymbols.has(r.symbol) && rotationState.scoredOpen.length) {
       const candidateQuality = r.aplus?.score ?? r.institutionalGrade?.score ?? -1;

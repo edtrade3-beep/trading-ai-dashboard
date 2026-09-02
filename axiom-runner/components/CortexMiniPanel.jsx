@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { computeSniperDecision } from "./sniper-decision.js";
-import { CORE_VERDICT_META } from "./am-core-engine.js";
+import { FINAL_VERDICT_META } from "./final-decision-meta.js";
 import { parseCortexQuery } from "./cortex-engine.js";
 import WhyBreakdownPanel from "./WhyBreakdownPanel.jsx";
 import EdgeTimelineSparkline from "./EdgeTimelineSparkline.jsx";
@@ -142,7 +142,7 @@ function AiUpdateBanner({ whatChanged, currentScore, currentVerdict, C, MONO, SA
       )}
       {whatChanged.verdictChanged && (
         <div style={{ fontFamily: MONO, fontSize: 12, color: C.text, marginBottom: 2 }}>
-          Verdict {CORE_VERDICT_META[whatChanged.previousVerdict]?.label || whatChanged.previousVerdict} → {CORE_VERDICT_META[currentVerdict]?.label || currentVerdict}
+          Verdict {FINAL_VERDICT_META[whatChanged.previousVerdict]?.label || whatChanged.previousVerdict} → {FINAL_VERDICT_META[currentVerdict]?.label || currentVerdict}
         </div>
       )}
       {whatChanged.biggestMover && (
@@ -192,10 +192,10 @@ function FinalDecisionAndRS({ analysis, opp, macroData, C, MONO, SANS }) {
   return (
     <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 12px", marginBottom: 12 }}>
       <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.6, marginBottom: 6 }}>FINAL DECISION</div>
-      {opp?.verdict && (
+      {analysis.row?.assetDecision?.verdict && (
         <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11, marginBottom: 4 }}>
           <span style={{ color: C.textDim }}>STOCK</span>
-          <b style={{ color: CORE_VERDICT_META[opp.verdict]?.color || C.text }}>{CORE_VERDICT_META[opp.verdict]?.label || opp.verdict}</b>
+          <b style={{ color: FINAL_VERDICT_META[analysis.row.assetDecision.verdict]?.color || C.text }}>{FINAL_VERDICT_META[analysis.row.assetDecision.verdict]?.label || analysis.row.assetDecision.verdict}</b>
         </div>
       )}
       {aiTrade && (
@@ -345,7 +345,7 @@ export default function CortexMiniPanel({ symbol, onSelectSymbol, setActiveTab, 
     setTimeout(() => setActiveTab && setActiveTab("cortex"), 500);
   };
 
-  const verdictMeta = analysis?.row?.coreVerdict ? CORE_VERDICT_META[analysis.row.coreVerdict] : null;
+  const verdictMeta = analysis?.row?.assetDecision?.verdict ? FINAL_VERDICT_META[analysis.row.assetDecision.verdict] : null;
   const opp = analysis?.row?.opportunity || null;
 
   return (
@@ -440,7 +440,7 @@ export default function CortexMiniPanel({ symbol, onSelectSymbol, setActiveTab, 
             )}
           </div>
         )}
-        {opp && <AiUpdateBanner whatChanged={opp.whatChanged} currentScore={opp.score} currentVerdict={opp.verdict} C={C} MONO={MONO} SANS={SANS} />}
+        {opp && <AiUpdateBanner whatChanged={opp.whatChanged} currentScore={analysis?.row?.assetDecision?.opportunityScore ?? opp.score} currentVerdict={analysis?.row?.assetDecision?.verdict || null} C={C} MONO={MONO} SANS={SANS} />}
         {analysis && verdictMeta && (
           <div style={{ border: `1px solid ${verdictMeta.color}55`, background: `${verdictMeta.color}12`, borderRadius: 10, padding: 14, textAlign: "center", marginBottom: 12 }}>
             <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.6 }}>AI VERDICT — {analysis.symbol}</div>

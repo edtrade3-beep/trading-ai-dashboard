@@ -99,15 +99,12 @@ export default function SniperAITab({ C, MONO, SANS, setActiveTab }) {
 
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {results.map((r, i) => {
-              // Real coreVerdict (unified Master Verdict) preferred over
-              // sniper-decision.js's own retired standalone r.meta — falls
-              // back to it only if the per-row canonical-verdict enrichment
-              // genuinely failed for this symbol (additive-only, see the
-              // route's own comment), never a silent revert once real Core
-              // Engine data is present.
+              // Never substitute the retired Sniper action when canonical
+              // enrichment is unavailable. Missing authority is displayed
+              // honestly as unavailable, not as a second verdict.
               const coreMeta = r.coreVerdict ? CORE_VERDICT_META[r.coreVerdict] : null;
-              const meta = coreMeta || r.meta;
-              const reasonText = r.coreReason || r.reason;
+              const meta = coreMeta || { icon: "⚪", label: "Unavailable", color: C.textDim };
+              const reasonText = r.coreReason || "Master Verdict unavailable — no trade decision substituted.";
               return (
                 <div key={r.symbol} style={{ display: "flex", alignItems: "center", gap: 10, background: C.card, border: `1px solid ${meta.color}33`, borderLeft: `3px solid ${meta.color}`, borderRadius: 8, padding: "10px 12px" }}>
                   <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, width: 24, textAlign: "right" }}>{i + 1}</span>

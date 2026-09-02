@@ -87,13 +87,16 @@ export function simpleDecisionToAiAction(decision) {
 // ACCUMULATE/BUY since a held position isn't a new-entry call.
 export function coreVerdictToAiAction(verdict) {
   switch (verdict) {
+    case "STRONG_BUY": return AI_ACTIONS.STRONG_BUY;
     case "EARLY_BUY": return AI_ACTIONS.STRONG_BUY;
     case "BUY": return AI_ACTIONS.BUY;
     case "WATCH": return AI_ACTIONS.WATCH;
     case "WAIT": return AI_ACTIONS.WAIT;
-    case "AVOID_LONG": return AI_ACTIONS.AVOID;
+    case "AVOID_LONG":
+    case "AVOID": return AI_ACTIONS.AVOID;
     case "HOLD": return AI_ACTIONS.WATCH;
-    case "TAKE_PROFIT": return AI_ACTIONS.TAKE_PROFITS;
+    case "TAKE_PROFIT":
+    case "REDUCE": return AI_ACTIONS.TAKE_PROFITS;
     case "EXIT": return AI_ACTIONS.EXIT;
     default: return null;
   }

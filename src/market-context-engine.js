@@ -230,7 +230,7 @@ function getMarketContextExplanation(context) {
 // Pure, additive — never mutates am-core-engine.js/cortex-decision.js.
 function applyMarketContextToVerdict({ verdict, score }, context) {
   if (!context || context.macroScore == null) return { label: null, confidenceAdjustment: 0, explanation: "Market Context unavailable — technical read shown alone." };
-  const bullishVerdict = verdict === "EARLY_BUY" || verdict === "BUY";
+  const bullishVerdict = verdict === "EARLY_BUY" || verdict === "STRONG_BUY" || verdict === "BUY";
   const macroSupportive = context.macroScore >= 15;
   const macroHostile = context.macroScore <= -15;
 

@@ -572,7 +572,11 @@ async function cmdCortex(args) {
     // the web app does when sector data hasn't loaded yet.
     const grade = computeInstitutionalGrade(row, row.technicals, regime, null, null, row.coreCriticalFlags);
     const heat = computeHeatRisk(row, sniper);
-    const verdict = computeCortexVerdict({ sniper, heat, aplusScore: aplus.score, criticalFlags: row.coreCriticalFlags });
+    // The HTTP trend-screen response is the authoritative decision pipeline.
+    // Cortex-specific heat/evidence remains explanatory only; it may not
+    // create or relabel a second final verdict for Telegram.
+    if (!row.assetDecision?.verdict) return reply(`Canonical decision unavailable for ${symbol}; no verdict was generated.`);
+    const verdict = { verdict: row.assetDecision.verdict, reason: row.assetDecision.reasons?.[0] || "Canonical decision returned without a reason." };
     const priceToPay = computePriceToPay(row, sniper);
     const buyPrice = summarizeBuyPrice(priceToPay, verdict, sniper, aplus.score);
     const evidence = whyEvidence(sniper, aplus);
@@ -907,10 +911,13 @@ async function cmdSniper(args) {
           coreReason = opp.verdictReason;
           entry = opp.entry; stop = opp.stop; target = opp.target;
         }
-      } catch { /* best-effort — falls back to sniper's own read below if this fails */ }
+      } catch { /* fail closed below — the retired Sniper action is evidence, never a headline fallback */ }
 
-      const meta = coreMeta || d.meta;
-      const reasonText = coreReason || d.reason;
+      if (!coreMeta || !coreReason) {
+        return reply(`Master Verdict unavailable for ${sym} right now — no trade decision was substituted. Try again shortly.`);
+      }
+      const meta = coreMeta;
+      const reasonText = coreReason;
       const rr = (Number.isFinite(entry) && Number.isFinite(stop) && Number.isFinite(target) && entry > stop)
         ? ((target - entry) / (entry - stop)) : null;
 
@@ -953,18 +960,21 @@ async function cmdSniper(args) {
 
     const counts = { EARLY_BUY: 0, BUY: 0, WATCH: 0, WAIT: 0, AVOID_LONG: 0 };
     for (const r of results) { if (r.coreVerdict && counts[r.coreVerdict] != null) counts[r.coreVerdict]++; }
+    const canonicalResults = results.filter((r) => r.coreVerdict && CORE_VERDICT_META[r.coreVerdict]);
+    const unavailableCount = results.length - canonicalResults.length;
 
     const lines = [
       `🎯 AI SNIPER SCANNER PRO — ${results.length} stocks scanned`,
       `🟢 ${(counts.EARLY_BUY || 0) + (counts.BUY || 0)} buy · 🟡 ${(counts.WATCH || 0) + (counts.WAIT || 0)} watch/wait · 🔴 ${counts.AVOID_LONG || 0} avoid`,
+      unavailableCount ? `⚪ ${unavailableCount} unavailable — no verdict substituted` : null,
       "",
       "TOP RANKED (real tier → Minervini → confidence):",
-    ];
-    results.slice(0, 25).forEach((r, i) => {
-      const meta = r.coreVerdict ? CORE_VERDICT_META[r.coreVerdict] : r.meta;
+    ].filter(Boolean);
+    canonicalResults.slice(0, 25).forEach((r, i) => {
+      const meta = CORE_VERDICT_META[r.coreVerdict];
       lines.push(`${i + 1}. ${r.symbol} ${meta.icon} ${meta.label.toUpperCase()} — ${r.passCount ?? "?"}/8`);
     });
-    lines.push("", `...and ${Math.max(0, results.length - 25)} more.`, "Reply /sniper SYMBOL to check one stock in full detail.");
+    lines.push("", `...and ${Math.max(0, canonicalResults.length - 25)} more canonical results.`, "Reply /sniper SYMBOL to check one stock in full detail.");
     return reply(lines.join("\n"));
   } catch (err) {
     return reply("Sniper scan error: " + err.message);

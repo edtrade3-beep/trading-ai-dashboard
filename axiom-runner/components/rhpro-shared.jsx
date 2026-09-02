@@ -113,7 +113,7 @@ export async function rhScreen(symbols) {
   const chunks = [];
   for (let i = 0; i < symbols.length; i += 12) chunks.push(symbols.slice(i, i + 12));
   const parts = await Promise.all(chunks.map(c =>
-    fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(c.join(","))}`)
+    fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(c.join(","))}&withDecision=1`)
       .then(r => r.ok ? r.json() : null)
       .then(d => (d && d.results) || [])
       .catch(() => [])
@@ -127,7 +127,7 @@ export function rhScreenProgressive(symbols, onBatch, onDone) {
   for (let i = 0; i < symbols.length; i += 10) chunks.push(symbols.slice(i, i + 10));
   let done = 0;
   chunks.forEach(c => {
-    fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(c.join(","))}`)
+    fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(c.join(","))}&withDecision=1`)
       .then(r => r.ok ? r.json() : null)
       .then(d => onBatch(((d && d.results) || []).filter(x => x && !x.error)))
       .catch(() => {})

@@ -74,8 +74,7 @@ const MAX_ENTRIES_PER_TICK = 5;
 async function freshMixedVerdict(symbol) {
   try {
     const { screenTrendTemplate, fetchMarketQuotes } = require("./routes/market");
-    const { computeRegime, regimeToEntryVocabulary } = require("./trade-planner-scoring");
-    const { computeOpportunity } = require("./opportunity-engine");
+    const { computeCanonicalAssetDecision } = require("./canonical-decision-pipeline");
     const { resolveProviderKeys } = require("./config");
 
     const [rows, macroQuotes] = await Promise.all([
@@ -355,24 +354,17 @@ const CRYPTO_UNIVERSE = [
   "TRX-USD", "ATOM-USD", "NEAR-USD", "ETC-USD", "XLM-USD", "FIL-USD", "OP-USD", "ICP-USD",
 ];
 
-// Near-miss inclusion (2026-08-31, "widen Autopilot 2.0's opportunity
-// pool" — real trade FREQUENCY was diagnosed as the actual bottleneck,
-// not strategy quality; the scheduler itself was confirmed healthy via a
-// real manual tick trigger). This loosens a SOFT, selectivity-only bar —
-// no hard risk gate changes here at all. A WATCH/WATCH_SHORT verdict
-// still cleared every one of classifyCoreVerdict's/classifyBearishVerdict's
-// real hard gates (structure, anti-chase, red flags, Stage-4/dailyBias,
-// entry-score floor) — it only missed the BUY/SHORT score threshold. It's
-// only accepted here when it ALSO carries a real executable entry price
-// (executableEntry/bearishEntry) — a WATCH with no real entry literally
-// cannot be traded, so this can never turn an unreal setup real, only
-// widen which REAL, gate-cleared setups get a chance. Position sizing,
-// stops, sector caps, portfolio open-risk ceiling, and the daily/weekly/
-// drawdown breakers are completely untouched by this.
+// Autopilot 2.0 executes the Master Verdict; it does not promote a WATCH
+// into an executable decision merely because an entry level exists. Keep
+// this predicate as the shared source-selection and final-entry invariant
+// so a future candidate source cannot silently widen execution again.
 const BULLISH_ACTIONABLE = new Set(["EARLY_BUY", "BUY"]);
-const BULLISH_RANK = { EARLY_BUY: 0, BUY: 1, WATCH: 2 };
+const BULLISH_RANK = { EARLY_BUY: 0, BUY: 1 };
 function isBullishCandidate(o) {
-  return BULLISH_ACTIONABLE.has(o.verdict) || (o.verdict === "WATCH" && o.executableEntry != null);
+  return BULLISH_ACTIONABLE.has(o?.verdict);
+}
+function hasExecutableFinalVerdict(o) {
+  return o?.assetDecision?.verdict === "STRONG_BUY" || o?.assetDecision?.verdict === "BUY";
 }
 const BEARISH_ACTIONABLE = new Set(["EARLY_SHORT", "SHORT"]);
 const BEARISH_RANK = { EARLY_SHORT: 0, SHORT: 1, WATCH_SHORT: 2 };
@@ -414,17 +406,14 @@ async function fetchCryptoCandidates() {
       screenTrendTemplate(CRYPTO_UNIVERSE),
       fetchMarketQuotes(["SPY", "QQQ", "VIXY"], resolveProviderKeys(new URLSearchParams())).catch(() => []),
     ]);
-    const regime = computeRegime(Array.isArray(macroQuotes) ? macroQuotes : []);
-    const marketRegime = regimeToEntryVocabulary(regime.label);
-
     const opportunities = (rows || [])
       .filter((row) => !row.error)
-      .map((row) => computeOpportunity({ symbol: row.symbol, row, regime, marketRegime, trackReport: null }))
+      .map((row) => computeCanonicalAssetDecision({ symbol: row.symbol, row, macroQuotes, trackReport: null, marketHours: isMarketHoursET() })?.opportunity)
       .filter(Boolean)
       .map((opp) => ({ ...opp, assetClass: "CRYPTO" }));
 
     const bullish = opportunities
-      .filter((o) => isBullishCandidate(o) && (o.criticalFlags ?? 0) === 0)
+      .filter((o) => hasExecutableFinalVerdict(o))
       .sort((a, b) => (BULLISH_RANK[a.verdict] - BULLISH_RANK[b.verdict]) || ((b.expectedValue ?? -Infinity) - (a.expectedValue ?? -Infinity)));
 
     // Bearish/short candidates removed from the tradable pool (2026-08-31,
@@ -485,25 +474,21 @@ async function fetchWatchlistCandidates(alreadyScannedSymbols) {
     if (!extraSymbols.length) return { bullish: [], bearish: [] };
 
     const { screenTrendTemplate, fetchMarketQuotes } = require("./routes/market");
-    const { computeRegime, regimeToEntryVocabulary } = require("./trade-planner-scoring");
-    const { computeOpportunity } = require("./opportunity-engine");
+    const { computeCanonicalAssetDecision } = require("./canonical-decision-pipeline");
     const { resolveProviderKeys } = require("./config");
 
     const [rows, macroQuotes] = await Promise.all([
       screenTrendTemplate(extraSymbols),
       fetchMarketQuotes(["SPY", "QQQ", "VIXY"], resolveProviderKeys(new URLSearchParams())).catch(() => []),
     ]);
-    const regime = computeRegime(Array.isArray(macroQuotes) ? macroQuotes : []);
-    const marketRegime = regimeToEntryVocabulary(regime.label);
-
     const opportunities = (rows || [])
       .filter((row) => !row.error)
-      .map((row) => computeOpportunity({ symbol: row.symbol, row, regime, marketRegime, trackReport: null }))
+      .map((row) => computeCanonicalAssetDecision({ symbol: row.symbol, row, macroQuotes, trackReport: null, marketHours: isMarketHoursET() })?.opportunity)
       .filter(Boolean)
       .map((opp) => ({ ...opp, fromWatchlist: true }));
 
     const bullish = opportunities
-      .filter((o) => isBullishCandidate(o) && (o.criticalFlags ?? 0) === 0)
+      .filter((o) => hasExecutableFinalVerdict(o))
       .sort((a, b) => (BULLISH_RANK[a.verdict] - BULLISH_RANK[b.verdict]) || ((b.expectedValue ?? -Infinity) - (a.expectedValue ?? -Infinity)));
     // bearish removed (2026-08-31, "REMOVE SHORTS FROM AUTOPILOT 2.0") —
     // see fetchCryptoCandidates' matching header for why the classifier
@@ -521,6 +506,14 @@ async function fetchWatchlistCandidates(alreadyScannedSymbols) {
 // Calls the real Expression Engine first (spec §11) to decide STOCK vs
 // CALL before any sizing happens.
 async function tryEnter(opp, snapshot) {
+  // Defense in depth at the paper-order boundary: source filters are not
+  // authority. Only the canonical long-side Master Verdict may open new
+  // risk; WATCH, WAIT, AVOID_LONG, and source-local labels such as
+  // LIGHTBOX_BUY remain non-executable.
+  const finalVerdict = opp?.assetDecision?.verdict;
+  if (finalVerdict !== "STRONG_BUY" && finalVerdict !== "BUY") {
+    return { entered: false, reason: `Final Verdict ${finalVerdict || "unavailable"} is not executable` };
+  }
   if (snapshot.openPositions.some((p) => p.symbol === opp.symbol)) return { entered: false, reason: "already held" };
   if (snapshot.openPositions.length >= MAX_OPEN_POSITIONS) return { entered: false, reason: `max open positions (${MAX_OPEN_POSITIONS}) reached` };
   if (sectorCapExceeded({ positions: snapshot.openPositions, symbol: opp.symbol, maxPerSector: MAX_PER_SECTOR })) {
@@ -718,7 +711,7 @@ async function _tickImpl() {
     // is completely unchanged.
     const allOpportunities = Object.values(scan.tiers).flat();
     const bullishStockCandidates = allOpportunities
-      .filter((o) => isBullishCandidate(o) && (o.criticalFlags ?? 0) === 0)
+      .filter((o) => hasExecutableFinalVerdict(o))
       .sort((a, b) => (BULLISH_RANK[a.verdict] - BULLISH_RANK[b.verdict]) || ((b.expectedValue ?? -Infinity) - (a.expectedValue ?? -Infinity)));
     // Bearish stock candidates removed (2026-08-31, "REMOVE SHORTS FROM
     // AUTOPILOT 2.0 ANLY CRYPTO AND STOCK AND STOCKS OPTIONS LONG") — see
@@ -742,11 +735,11 @@ async function _tickImpl() {
 
     opportunityCandidates = [...bullishStockCandidates, ...watchlistCandidates.bullish];
 
-    // Light Box (2026-08-27) — a real, complementary, more real-time source
-    // (see fetchLightBoxCandidates' own header comment). Appended after the
-    // Opportunity Engine's own candidates, deduped by symbol — a symbol
-    // already surfaced by the stricter Opportunity Engine read keeps that
-    // read, never double-counted or overridden by the Light Box one.
+    // Light Box remains a read-only candidate feed here. Its source-local
+    // LIGHTBOX_BUY label is not the Master Verdict, so these rows are kept
+    // for tick observability but are not added to the executable pool.
+    // Re-enable only after each row is re-evaluated through
+    // computeOpportunity() and carries EARLY_BUY/BUY itself.
     lightBoxCandidates = (await fetchLightBoxCandidates().catch(() => []))
       .filter((lb) => !opportunityCandidates.some((o) => o.symbol === lb.symbol));
     lightBoxCandidates.sort((a, b) => (b.expectedValue ?? -Infinity) - (a.expectedValue ?? -Infinity));
@@ -758,7 +751,7 @@ async function _tickImpl() {
   const cryptoCandidates = (await fetchCryptoCandidates())
     .filter((c) => !opportunityCandidates.some((o) => o.symbol === c.symbol));
 
-  const candidates = [...opportunityCandidates, ...lightBoxCandidates, ...cryptoCandidates];
+  const candidates = [...opportunityCandidates, ...cryptoCandidates];
   let entered = 0;
   let workingSnapshot = freshSnapshot;
   for (const opp of candidates) {
@@ -768,10 +761,10 @@ async function _tickImpl() {
     const verdictNote = opp.tier === "LIGHTBOX"
       ? " [source: Light Box real CONFIRMED entry trigger]"
       : opp.assetClass === "CRYPTO"
-      ? ` [24/7 crypto, Core Verdict ${opp.verdict}, real Opportunity tier ${opp.tier}]`
+      ? ` [24/7 crypto, Final Verdict ${opp.assetDecision?.verdict || "unavailable"}, real Opportunity tier ${opp.tier}]`
       : opp.fromWatchlist
-      ? ` [from your Trade Desk watchlist, Core Verdict ${opp.verdict}, real Opportunity tier ${opp.tier}]`
-      : ` [Core Verdict ${opp.verdict}, real Opportunity tier ${opp.tier}]`;
+      ? ` [from your Trade Desk watchlist, Final Verdict ${opp.assetDecision?.verdict || "unavailable"}, real Opportunity tier ${opp.tier}]`
+      : ` [Final Verdict ${opp.assetDecision?.verdict || "unavailable"}, real Opportunity tier ${opp.tier}]`;
     appendActivity({ type: result.entered ? "ENTER" : "REJECT", symbol: opp.symbol, reason: `${result.reason}${verdictNote}` });
     if (result.entered) {
       entered++;
@@ -785,7 +778,7 @@ async function _tickImpl() {
       // this can never itself cause a trade.
       recordMissed({
         symbol: opp.symbol, price: opp.price ?? opp.entry, reason: result.reason,
-        verdict: opp.verdict, score: opp.score, tier: opp.tier, expectedValue: opp.expectedValue,
+        verdict: opp.assetDecision?.verdict || null, score: opp.score, tier: opp.assetDecision?.opportunityStage || opp.tier, expectedValue: opp.expectedValue,
         source: "autopilot2",
       });
     }
@@ -804,5 +797,5 @@ module.exports = {
   fetchWatchlistCandidates, symbolsToScan,
   CRYPTO_UNIVERSE, RISK_PCT_PER_TRADE, MAX_TRADE_RISK_DOLLARS, MAX_OPEN_POSITIONS, MAX_PER_SECTOR,
   MAX_OPEN_RISK_PCT, CALL_DTE_EXIT_FLOOR,
-  isBullishCandidate, isBearishCandidate, BULLISH_RANK, BEARISH_RANK,
+  isBullishCandidate, hasExecutableFinalVerdict, isBearishCandidate, BULLISH_RANK, BEARISH_RANK,
 };

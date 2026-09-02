@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { computeRegime, computeAPlusScore, computeNextAction } from "./market-helpers.js";
+import { computeRegime, computeAPlusScore } from "./market-helpers.js";
 import { BEST_OPP_UNIVERSE } from "./terminal-panels.jsx";
 
 // ── AI Trade Session — one click, then it runs itself while you watch ──
@@ -100,13 +100,13 @@ export default function AiTradeSessionPanel({ C, MONO, SANS, macroData, newsData
     setStep(3);
     setScanState("loading");
     if (setActiveTab) setActiveTab("best-opportunities");
-    fetch("/api/market/trend-screen?symbols=" + encodeURIComponent(BEST_OPP_UNIVERSE.join(",")))
+    fetch("/api/market/trend-screen?symbols=" + encodeURIComponent(BEST_OPP_UNIVERSE.join(",")) + "&withDecision=1")
       .then(r => r.json())
       .then(j => {
         if (endedRef.current) return;
         const regime = computeRegime(macroData);
         const allScored = (j.results || []).filter(r => !r.error);
-        const qualified = allScored.filter(r => Number(r.entry) > Number(r.stop) && (r.passCount || 0) >= 6 && !r.extended && (r.rsRating || 0) >= 70);
+        const qualified = allScored.filter(r => (r.assetDecision?.verdict === "STRONG_BUY" || r.assetDecision?.verdict === "BUY") && Number(r.entry) > Number(r.stop));
         const ranked = qualified.map(r => ({ ...r, _aplus: computeAPlusScore(r, regime) })).sort((a, b) => b._aplus.score - a._aplus.score);
         const top = ranked.slice(0, 3);
         if (!top.length) {
@@ -115,7 +115,7 @@ export default function AiTradeSessionPanel({ C, MONO, SANS, macroData, newsData
           timerRef.current = setTimeout(() => { if (!endedRef.current) endSession(); }, PAUSE_RESULT);
           return;
         }
-        setScan({ top, next: computeNextAction(top[0]), regime });
+        setScan({ top, regime });
         setScanState("ok");
         timerRef.current = setTimeout(() => { if (!endedRef.current) goToPlaceTrade(top[0]); }, PAUSE_RESULT);
       })

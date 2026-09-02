@@ -44,6 +44,12 @@ const LEADERS = [
   "LLY","V","MA","JPM","COST","WMT","HD","AXP","GE","CAT",
 ];
 
+function tierForFinalDecision(assetDecision) {
+  if (assetDecision?.verdict === "STRONG_BUY") return "A";
+  if (assetDecision?.verdict === "BUY") return "B";
+  return null;
+}
+
 const BASE = () => process.env.RENDER_EXTERNAL_URL || `http://127.0.0.1:${PORT}`;
 const { resolveAlpacaKeys, alpacaTradingRequest } = require("./providers/alpaca-client");
 const keys = resolveAlpacaKeys;
@@ -137,7 +143,7 @@ async function runServerAutopilot() {
   // 2026-08-23).
   const screen = await getJson(`/api/market/trend-screen?symbols=${encodeURIComponent(syms.join(","))}&withDecision=1`);
   const eligible = ((screen && screen.results) || [])
-    .filter(r => !r.error && !held.has(r.symbol) && Number(r.entry) > 0 && Number(r.stop) > 0 && Number(r.entry) > Number(r.stop))
+    .filter(r => !r.error && !held.has(r.symbol) && r.assetDecision)
     // Tier A = Core Engine EARLY_BUY (score >=85, real entry, clears the
     // full hard-gate cascade) — full size, same role as the old
     // atBuyPoint&&volConfirmed gate. Tier B = Core Engine BUY (score >=70)
@@ -146,10 +152,7 @@ async function runServerAutopilot() {
     // broken, do-not-chase, critical red flags, Stage 4, bearish daily
     // bias, entry-score floor) the old fields never checked at all.
     .map(r => {
-      const coreClean = r.coreCriticalFlags === 0;
-      const tierA = coreClean && r.coreVerdict === "EARLY_BUY";
-      const tierB = coreClean && r.coreVerdict === "BUY";
-      return { ...r, tier: tierA ? "A" : (tierB ? "B" : null) };
+      return { ...r, tier: tierForFinalDecision(r.assetDecision) };
     })
     .filter(r => r.tier)
     .sort((a, b) => (a.tier === b.tier ? 0 : a.tier === "A" ? -1 : 1) || (b.passCount - a.passCount) || ((b.rsRating || 0) - (a.rsRating || 0)));
@@ -185,8 +188,12 @@ async function runServerAutopilot() {
     if (sectorCapExceeded({ positions: heldPositions, symbol: r.symbol, maxPerSector })) continue;
     const sectorGate = sectorGates[sectorOf(r.symbol)];
     if (!isAllowed(sectorGate)) { console.log(`[Server autopilot] Learning Engine paused sector for ${r.symbol}: ${sectorGate.reason}`); continue; }
-    const entry = Number(r.entry), stop = Number(r.stop);
-    const target = Number(r.target2) > entry ? Number(r.target2) : +(entry + (entry - stop) * 2).toFixed(2);
+    const entry = Number(r.assetDecision.entry), stop = Number(r.assetDecision.stop);
+    const target = Number(r.assetDecision.targets?.[0]);
+    if (!(entry > 0) || !(stop > 0) || !(target > entry) || entry <= stop) {
+      console.log(`[Server autopilot] rejected ${r.symbol}: canonical setup levels unavailable or invalid`);
+      continue;
+    }
     const riskFrac = r.tier === "A" ? riskPct : riskPct * 0.5;   // Tier B trades at half size
     const qty = sizePositionByRisk({ equity, riskPct: riskFrac, entry, stop, availCash, maxNamePct: 20 });
     if (qty < 1) continue;
@@ -218,4 +225,4 @@ async function runServerAutopilot() {
   if (placed) console.log(`[Server autopilot] placed ${placed} order(s)`);
 }
 
-module.exports = { runServerAutopilot };
+module.exports = { runServerAutopilot, tierForFinalDecision };

@@ -54,10 +54,8 @@ const { isConfigured: telegramConfigured } = require("./telegram");
 const { pushDigestLines } = require("./alert-buffer");
 const { loadWatchlist } = require("./routes/watchlist");
 const { isMarketHoursET } = require("./risk-guardrails");
-const { computeEntryPlan } = require("./entry-engine");
-const { computeRedFlags } = require("./red-flag-engine");
-const { computeCoreScore, classifyCoreVerdict } = require("./am-core-engine");
-const { buildEvFromRow, shouldAlert, ACTIONABLE_DECISIONS } = require("./watchlist-setup-alerts");
+const { computeOpportunity } = require("./opportunity-engine");
+const { shouldAlert, ACTIONABLE_DECISIONS } = require("./watchlist-setup-alerts");
 
 const STORE_PATH = path.join(ROOT, "data", "watchlist-sniper-actions.json");
 const BASE = () => process.env.RENDER_EXTERNAL_URL || `http://127.0.0.1:${PORT}`;
@@ -95,10 +93,10 @@ async function checkWatchlistSniperTurns() {
   const symbols = [...new Set([...(watchlistSymbols || []), ...SCAN_UNIVERSE])];
   if (!symbols.length) return { ok: true, checked: 0, turns: [] };
 
-  let screenWatchlistCached, fetchMarketQuotes, computeRegime, regimeToEntryVocabulary, computeAPlusScore;
+  let screenWatchlistCached, fetchMarketQuotes, computeRegime, regimeToEntryVocabulary;
   try {
     ({ screenWatchlistCached, fetchMarketQuotes } = require("./routes/market"));
-    ({ computeRegime, regimeToEntryVocabulary, computeAPlusScore } = require("./trade-planner-scoring"));
+    ({ computeRegime, regimeToEntryVocabulary } = require("./trade-planner-scoring"));
   } catch { return { ok: false, checked: 0, turns: [] }; }
 
   const macroRows = await fetchMarketQuotes(["SPY", "QQQ", "VIXY"], resolveProviderKeys(new URLSearchParams())).catch(() => []);
@@ -113,30 +111,17 @@ async function checkWatchlistSniperTurns() {
   for (const row of rows) {
     if (row.error) continue;
     const symbol = row.symbol;
-    const ev = buildEvFromRow(row, marketRegime);
-    const entryPlan = computeEntryPlan(ev);
-    const redFlagResult = computeRedFlags(ev);
-    const { score: aPlusScore } = computeAPlusScore(row, regime);
-    const coreScore = computeCoreScore({
-      passCount: row.passCount, rsRating: row.rsRating, momentum: row.momentum,
-      stage: row.stage, volRatio: row.volRatio, regime, sectorInfo: null,
-      adx: null, smc: row.smc, epsGrowth: row.epsGrowth, vcpScore: row.vcpScore,
-      riskPct: row.riskPct, pctFromHigh: row.pctFromHigh, antiChase: ev.antiChase,
-      optionsFlow: null, dollarVolume: row.dollarVolume,
-    });
-    const deep = classifyCoreVerdict({
-      score: coreScore.score, entryPlan, redFlagResult,
-      stage: row.stage, dailyBias: ev.dailyBias, entryScore: aPlusScore,
-      hasPosition: false,
-    });
+    const opp = computeOpportunity({ symbol, row, regime, marketRegime, trackReport: null });
+    if (!opp) continue;
+    const entryPlan = opp.entryPlan;
     const last = prev[symbol];
 
-    const transition = classifyTransition(last, deep.verdict, redFlagResult.criticalCount);
-    next[symbol] = deep.verdict;
+    const transition = classifyTransition(last, opp.verdict, opp.criticalFlags);
+    next[symbol] = opp.verdict;
     if (transition === "buy") {
-      turns.push({ symbol, direction: "buy", from: last, to: deep.verdict, entryPlan, reason: deep.reason });
+      turns.push({ symbol, direction: "buy", from: last, to: opp.verdict, entryPlan, reason: opp.verdictReason });
     } else if (transition === "exit") {
-      turns.push({ symbol, direction: "exit", from: last, to: deep.verdict, reason: deep.reason });
+      turns.push({ symbol, direction: "exit", from: last, to: opp.verdict, reason: opp.verdictReason });
     }
   }
 

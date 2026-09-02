@@ -231,17 +231,16 @@ import {
   computeTechnicalRead, classifyEntryType, computeSetupScore, computeDecisionStrength, computeDataQuality,
 } from "./market-helpers.js";
 import { computeSniperDecision } from "./sniper-decision.js";
-import { computeHeatRisk, computeCortexVerdict } from "./cortex-engine.js";
+import { computeHeatRisk } from "./cortex-engine.js";
 import { computeMtfAlignment } from "./mtf-combiner.js";
 // Staged Swing-Entry System (2026-08-20) — fixes the root bug where
 // entryPrice was unconditionally assigned the pivot price. See
 // entry-engine.js's own header for the full design; see below for where
 // entryPlanDW replaces sniperD.entry as the source of "what IS the real,
 // executable entry right now."
-import { computeEntryPlan } from "./entry-engine.js";
 import { computeSimpleDecision } from "./simple-decision.js";
-import { computeRedFlags, computeExitRedFlags } from "./red-flag-engine.js";
-import { computeCoreScore, classifyCoreVerdict, CORE_VERDICT_META } from "./am-core-engine.js";
+import { computeExitRedFlags } from "./red-flag-engine.js";
+import { FINAL_VERDICT_META } from "./final-decision-meta.js";
 import AiScoreExplainer, {
   AplusBadge, TRADE_SETUP_DIMENSIONS, STOCK_QUALITY_DIMENSIONS, INSTITUTIONAL_GRADE_DIMENSIONS,
   TECHNICAL_DIMENSIONS, TIMING_DIMENSIONS, AI_TRADE_ENGINE_DIMENSIONS, FOUNDATION_DIMENSIONS, FOUNDATION_LABEL,
@@ -546,7 +545,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
     if (!sym) return;
     let cancelled = false;
     setSymTrend(null);
-    fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(sym)}`)
+    fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(sym)}&withDecision=1`)
       .then(r => r.json())
       .then(j => { if (cancelled) return; const row = (j.results || []).find(r => !r.error); setSymTrend(row || null); })
       .catch(() => {});
@@ -564,7 +563,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
     let cancelled = false;
     const symbol = sym;
     const t = setInterval(() => {
-      fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(symbol)}`)
+      fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(symbol)}&withDecision=1`)
         .then(r => r.json())
         .then(j => { if (cancelled) return; const row = (j.results || []).find(r => !r.error); if (row) setSymTrend(row); })
         .catch(() => {});
@@ -1127,25 +1126,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   // spec-requested conditions (RS slope, sector strength) are honestly
   // left out — no real data source for either exists in this codebase —
   // see entry-engine.js's own header for the full disclosure.
-  const entryPlanDW = (symTrend && sniperD) ? computeEntryPlan({
-    price: Number(chart?.livePrice ?? chart?.price), pivot: sniperD.pivot, atr: symMtf?.atrLevels?.atr,
-    contractionLow: symTrend.contractionLow, dailyBias: dwDailyBias, swing4hState: symMtf?.swing4h?.state,
-    rsiTrend1h: symMtf?.early1h?.rsiTrend, adx: chart?.technicals?.adx, rsRating: symTrend.rsRating,
-    volTrend1h: symMtf?.early1h?.volTrend, higherLows: symTrend.higherLows, tightening: symTrend.tightening,
-    vcpVerdict: symTrend.vcpVerdict, marketRegime: marketRegimeDW, vwap20: symTrend?.technicals?.vwap20,
-    rr: sniperD.rr, breakoutConfirmed: symTrend.breakoutConfirmed, extended: symTrend.extended,
-    priceAction: symMtf?.swing4h?.priceAction, antiChase: symMtf?.antiChase,
-    stop: sniperD.stop, target1: sniperD.target1, target2: sniperD.target2, trailingStop: symMtf?.atrLevels?.trailingStop,
-    // V-Structure/Foundation (spec §6, Unified Trading System phase 5) —
-    // symFoundation is already fetched for the Foundation card (lazy,
-    // TECHNICAL-tab-gated); reusing its real verdict here is zero new
-    // fetches. Absent until that tab has been opened for this symbol —
-    // an honest `undefined`, not a fabricated read; the gate itself
-    // (isFoundationStrong) treats a missing verdict as simply not
-    // qualifying, same as any other real-but-not-yet-fetched input on
-    // this page.
-    foundationVerdict: symFoundation?.verdict,
-  }) : null;
+  const entryPlanDW = symTrend?.opportunity?.entryPlan || null;
 
   // Red Flag Engine (Master Build Spec §8-9, 2026-08-22) — reuses the
   // exact same real fields already gathered for entryPlanDW above, zero
@@ -1154,13 +1135,9 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   // entry-engine.js's own inputs. See red-flag-engine.js for the full
   // design (which flags are critical, which are honestly omitted for
   // missing data).
-  const redFlagsDW = symTrend ? computeRedFlags({
-    dailyBias: dwDailyBias, swing4hState: symMtf?.swing4h?.state, rsRating: symTrend.rsRating,
-    volTrend1h: symMtf?.early1h?.volTrend, vwap20: symTrend?.technicals?.vwap20,
-    price: Number(chart?.livePrice ?? chart?.price), marketRegime: marketRegimeDW, rr: sniperD?.rr,
-    priceAction: symMtf?.swing4h?.priceAction, antiChase: symMtf?.antiChase,
-    riskPct: symTrend.riskPct, dollarVolume: symTrend.dollarVolume,
-  }) : null;
+  const redFlagsDW = symTrend?.opportunity
+    ? { criticalCount: symTrend.opportunity.criticalFlags, flags: symTrend.opportunity.redFlags || [] }
+    : null;
 
   // Exit Red Flags (Master Build Spec §8-9, phase 3, 2026-08-22) — the
   // EXIT taxonomy, only relevant for a real open position (symPosition).
@@ -1197,21 +1174,13 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   // red flag with no Stage-4/overextension could read Cortex BUY ZONE/
   // WATCH while Core Verdict correctly said AVOID_LONG for the same
   // symbol at the same moment).
-  const cortexV = (symTrend && sniperD && heatD && aPlusScore)
-    ? computeCortexVerdict({
-        sniper: sniperD, heat: heatD, aplusScore: aPlusScore.score,
-        criticalFlags: (symPosition ? exitRedFlagsDW : redFlagsDW)?.criticalCount,
-        // Phase 7 audit fix (2026-09-01) — entryPlanDW.stage and dwDailyBias
-        // are already computed above for coreVerdictDW's own classifyCoreVerdict
-        // call; threading the same two real hard gates into Cortex Verdict here
-        // closes the remaining case where dwState could disagree with
-        // coreVerdictDW on a HARD gate (broken 4H structure or bearish daily
-        // bias), not just the softer entry-quality vocabulary difference the
-        // two engines are intentionally allowed to differ on.
-        entryPlanStage: entryPlanDW?.stage, dailyBias: dwDailyBias,
-      })
+  const canonicalVerdictDW = symPosition?.dayTradeState
+    ? (symPosition.dayTradeState === "EXIT" || symPosition.dayTradeState === "HARD_EXIT" ? "EXIT"
+      : symPosition.dayTradeState === "TAKE_PARTIAL" ? "REDUCE" : "HOLD")
+    : symTrend?.assetDecision?.verdict;
+  const dwState = canonicalVerdictDW
+    ? (DW_STATE_MAP[canonicalVerdictDW] || { label: canonicalVerdictDW, icon: "⚪", color: C.textDim })
     : null;
-  const dwState = cortexV ? (DW_STATE_MAP[cortexV.verdict] || { label: cortexV.verdict, icon: "⚪", color: C.textDim }) : null;
 
   // "5-Second Rule" simplified decision (2026-08-20, explicit user
   // directive — "the trader should open the Workspace and understand the
@@ -1258,18 +1227,18 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   // persistent banner's primary icon/label/why switch to the real Core
   // verdict below, so the banner never shows a verdict from one engine
   // paired with reason text from a different one.
-  const coreScoreDW = symTrend ? computeCoreScore({
-    passCount: symTrend.passCount, rsRating: symTrend.rsRating, momentum: symTrend.momentum,
-    stage: symTrend.stage, volRatio: symTrend.volRatio, regime, sectorInfo: symSectorInfo,
-    adx: chart?.technicals?.adx, smc: symTrend.smc, epsGrowth: symTrend.epsGrowth,
-    vcpScore: symTrend.vcpScore, riskPct: symTrend.riskPct, pctFromHigh: symTrend.pctFromHigh,
-    antiChase: symMtf?.antiChase, optionsFlow: symOptionsFlow, dollarVolume: symTrend.dollarVolume,
-  }) : null;
-  const coreVerdictDW = coreScoreDW ? classifyCoreVerdict({
-    score: coreScoreDW.score, entryPlan: entryPlanDW, redFlagResult: symPosition ? exitRedFlagsDW : redFlagsDW,
-    stage: symTrend?.stage, dailyBias: dwDailyBias, entryScore: aPlusScore?.score,
-    hasPosition: !!symPosition, positionState: symPosition?.dayTradeState, positionReason: symPosition?.dayTradeReason,
-  }) : null;
+  const coreScoreDW = symTrend?.opportunity
+    ? { score: symTrend.opportunity.score, breakdown: symTrend.opportunity.breakdown, reasons: symTrend.opportunity.reasons }
+    : null;
+  const coreVerdictDW = symPosition?.dayTradeState
+    ? {
+        verdict: symPosition.dayTradeState === "EXIT" || symPosition.dayTradeState === "HARD_EXIT" ? "EXIT"
+          : symPosition.dayTradeState === "TAKE_PARTIAL" ? "TAKE_PROFIT" : "HOLD",
+        reason: symPosition.dayTradeReason || "Position state supplied by the server position-management pipeline.",
+      }
+    : symTrend?.assetDecision
+      ? { verdict: symTrend.assetDecision.verdict, reason: symTrend.assetDecision.reasons?.[0] || "Canonical decision available." }
+      : null;
 
   // Market Context overlay (spec §10 "A+ SETUP + MACRO CONFIRMATION" /
   // "A+ TECHNICAL SETUP — MACRO HEADWIND") — purely additive, never
@@ -1424,7 +1393,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
     // trendPts (see coreScoreDW above), it's just not a second, independently
     // displayed verdict anymore. Falls back to the old chart.setup-driven
     // read only if coreVerdictDW itself isn't available yet (e.g. still loading).
-    const meta = coreVerdictDW ? (CORE_VERDICT_META[coreVerdictDW.verdict] || {}) : null;
+    const meta = coreVerdictDW ? (FINAL_VERDICT_META[coreVerdictDW.verdict] || {}) : null;
     const legacyVerdict = su.verdict; // "GO" | "WAIT" | "AVOID" — fallback only
     const vColor = meta?.color || (legacyVerdict === "GO" ? "#0d9465" : legacyVerdict === "WAIT" ? "#d6a312" : "#c8282a");
     const vIcon = meta?.icon || (legacyVerdict === "GO" ? "🟢" : legacyVerdict === "WAIT" ? "🟡" : "🔴");
@@ -1631,9 +1600,9 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             still fully computed and available — just collapsed by
             default now, not deleted. */}
         {simpleDecisionDW && coreVerdictDW && (
-          <div style={{ border: `2px solid ${CORE_VERDICT_META[coreVerdictDW.verdict].color}`, background: `${CORE_VERDICT_META[coreVerdictDW.verdict].color}0d`, borderRadius: 12, padding: "16px 18px", marginBottom: 14 }}>
+          <div style={{ border: `2px solid ${FINAL_VERDICT_META[coreVerdictDW.verdict].color}`, background: `${FINAL_VERDICT_META[coreVerdictDW.verdict].color}0d`, borderRadius: 12, padding: "16px 18px", marginBottom: 14 }}>
             <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.6, marginBottom: 6 }}>DECISION</div>
-            <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: CORE_VERDICT_META[coreVerdictDW.verdict].color, marginBottom: 8 }}>{CORE_VERDICT_META[coreVerdictDW.verdict].icon} {CORE_VERDICT_META[coreVerdictDW.verdict].label}</div>
+            <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: FINAL_VERDICT_META[coreVerdictDW.verdict].color, marginBottom: 8 }}>{FINAL_VERDICT_META[coreVerdictDW.verdict].icon} {FINAL_VERDICT_META[coreVerdictDW.verdict].label}</div>
             <div style={{ fontFamily: SANS, fontSize: 13, color: C.text, marginBottom: 10 }}><b>Why:</b> {coreVerdictDW.reason}</div>
             {/* Setup Score / Entry Score — promoted into the persistent
                 banner (Workspace layout redesign, 2026-08-23, user-picked

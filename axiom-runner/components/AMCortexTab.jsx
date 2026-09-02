@@ -2,11 +2,11 @@ import { useState, useRef, useEffect } from "react";
 import { RH_UNIVERSE, rhScreenProgressive } from "./rhpro-shared.jsx";
 import { computeRegime, computeAPlusScore, computeInstitutionalGrade, computeInstitutionScore, computeFundamentalsRead, classifyEntryType, SECTOR_ETFS, STOCK_TO_SECTOR } from "./market-helpers.js";
 import { computeSniperDecision } from "./sniper-decision.js";
-import { computeCoreScore, CORE_VERDICT_META } from "./am-core-engine.js";
+import { FINAL_VERDICT_META } from "./final-decision-meta.js";
 import { computeAntiChase } from "./anti-chase.js";
 import { FundamentalsPanel, OptionsFlowPanel, NewsPanel, InvestorsPanel } from "./terminal-panels.jsx";
 import {
-  parseCortexQuery, computeHeatRisk, computeCortexVerdict, computePriceToPay, summarizeBuyPrice, whyEvidence,
+  parseCortexQuery, computeHeatRisk, computePriceToPay, summarizeBuyPrice, whyEvidence,
   computeTechnicalScore, computeTrimSignal, computePremiumRead, verdictWinProbFor, computeBottomSignal,
   rankAplusSetups, rankBreakouts, rankStrongNotExtended, rankBestRewardRisk, rankInstitutionalAccumulation,
   rankImprovingFundamentals, SCAN_LABELS,
@@ -171,7 +171,9 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
     // data on this same row). Computed once, reused by both.
     const antiChase = computeAntiChase(row.abovePivotPct);
     const heat = computeHeatRisk(row, sniper, antiChase);
-    const verdict = computeCortexVerdict({ sniper, heat, aplusScore: aplus.score, criticalFlags: row.coreCriticalFlags });
+    const verdict = row.assetDecision
+      ? { verdict: row.assetDecision.verdict, reason: row.assetDecision.reasons?.[0] || "Canonical decision available." }
+      : null;
     const priceToPay = computePriceToPay(row, sniper);
     const evidence = whyEvidence(sniper, aplus);
     const entryType = classifyEntryType(row, aplus.score);
@@ -194,13 +196,9 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
     // null unless real dark-pool/options-flow data was actually fetched
     // above, matching every other real Core Engine caller's degrade
     // discipline — never fabricated.
-    const coreScore = computeCoreScore({
-      passCount: row.passCount, rsRating: row.rsRating, momentum: row.momentum,
-      stage: row.stage, volRatio: row.volRatio, regime, sectorInfo: sectorInfoFor(symbol),
-      adx: null, smc: row.smc, epsGrowth: row.epsGrowth, vcpScore: row.vcpScore,
-      riskPct: row.riskPct, pctFromHigh: row.pctFromHigh, antiChase,
-      optionsFlow: null, dollarVolume: row.dollarVolume,
-    });
+    const coreScore = row.assetDecision
+      ? { score: row.assetDecision.opportunityScore, breakdown: row.opportunity?.breakdown || {}, reasons: row.assetDecision.reasons || [] }
+      : null;
     return {
       symbol, row, sniper, aplus, grade, heat, verdict, priceToPay, evidence, entryType, futureValue,
       technicalScore, trimSignal, premiumRead, fundamentalsRead, analyst, social, institutionScore, coreScore,
@@ -307,8 +305,7 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
       ]);
       const data = {
         symbol: result.symbol, price: result.row?.price,
-        coreVerdict: result.row?.coreVerdict, coreReason: result.row?.coreReason,
-        cortexVerdict: result.verdict?.verdict, cortexReason: result.verdict?.reason,
+        coreVerdict: result.row?.assetDecision?.verdict, coreReason: result.row?.assetDecision?.reasons?.[0],
         heatLabel: result.heat?.label, heatReason: result.heat?.reason,
         aplusScore: result.aplus?.score, aplusReasons: result.aplus?.reasons,
         technicalScore: result.technicalScore,
@@ -549,12 +546,12 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
                   per the user's own "additive only" decision (never touch
                   Cortex's tracked verdict strings, that historical data
                   matters). */}
-              {row.coreVerdict && (() => {
-                const cm = CORE_VERDICT_META[row.coreVerdict] || {};
+              {row.assetDecision?.verdict && (() => {
+                const cm = FINAL_VERDICT_META[row.assetDecision.verdict] || {};
                 return (
                   <div style={{ background: `${cm.color}18`, border: `2px solid ${cm.color || C.border}`, borderRadius: 12, padding: 18, textAlign: "center", marginBottom: 10 }}>
                     <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textDim, marginBottom: 4 }}>MASTER VERDICT</div>
-                    <div style={{ fontFamily: MONO, fontSize: 28, fontWeight: 900, color: cm.color }}>{cm.icon} {cm.label || row.coreVerdict}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 28, fontWeight: 900, color: cm.color }}>{cm.icon} {cm.label || row.assetDecision.verdict}</div>
                     <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.textSec, marginTop: 6, lineHeight: 1.5 }}>{row.coreReason}</div>
                   </div>
                 );
@@ -941,7 +938,7 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
                 </thead>
                 <tbody>
                   {ranked.map((a) => {
-                    const meta = CORE_VERDICT_META[a.row.coreVerdict] || null;
+                    const meta = FINAL_VERDICT_META[a.row.assetDecision?.verdict] || null;
                     const isWinner = a === winner;
                     return (
                       <tr key={a.symbol} style={{ background: isWinner ? `${C.accent}0a` : "transparent" }}>

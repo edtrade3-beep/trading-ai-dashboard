@@ -1078,7 +1078,7 @@ export function getEdgeDecayFor(score, decayReport) {
 // honest no-op rather than a fabricated label.
 export function applyMarketContextToVerdict({ verdict, score }, marketContext) {
   if (!marketContext || marketContext.macroScore == null) return { label: null, confidenceAdjustment: 0, explanation: null };
-  const bullishVerdict = verdict === "EARLY_BUY" || verdict === "BUY";
+  const bullishVerdict = verdict === "EARLY_BUY" || verdict === "STRONG_BUY" || verdict === "BUY";
   const macroSupportive = marketContext.macroScore >= 15;
   const macroHostile = marketContext.macroScore <= -15;
 

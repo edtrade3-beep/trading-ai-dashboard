@@ -403,7 +403,8 @@ export default function QuotesTab({
                     // separate signal from this tab's own SIGNAL badge
                     // (computeMTFSignal, multi-timeframe momentum) — same
                     // additive-not-replacing discipline as A+ above.
-                    const next = computeNextAction(trendMap?.[q.symbol] || {});
+                    const canonical = trendMap?.[q.symbol]?.assetDecision?.verdict;
+                    const next = canonical ? { action: canonical === "STRONG_BUY" || canonical === "BUY" ? "BUY" : canonical, color: canonical === "AVOID" ? C.red : C.amber, reason: (trendMap[q.symbol].assetDecision.reasons || ["Canonical final verdict."])[0] } : computeNextAction(trendMap?.[q.symbol] || {});
                     const sigCol = mtf.signal === "BUY" ? C.green : mtf.signal === "SELL" ? C.red : C.amber;
                     const trendArrow = trend.includes("Up") ? "▲" : trend.includes("Down") ? "▼" : "─";
                     const trendCol   = trend.includes("Up") ? C.green : trend.includes("Down") ? C.red : C.textDim;
@@ -562,7 +563,8 @@ export default function QuotesTab({
                         const rvol = computeRvol(q, trendMap?.[q.symbol]);
                         const mtf = computeMTFSignal(q, trendMap?.[q.symbol]);
                         const aplus = computeAPlusScore(trendMap?.[q.symbol] || {}, regime);
-                        const next = computeNextAction(trendMap?.[q.symbol] || {});
+                        const canonical = trendMap?.[q.symbol]?.assetDecision?.verdict;
+                        const next = canonical ? { action: canonical === "STRONG_BUY" || canonical === "BUY" ? "BUY" : canonical, color: canonical === "AVOID" ? C.red : C.amber, reason: (trendMap[q.symbol].assetDecision.reasons || ["Canonical final verdict."])[0] } : computeNextAction(trendMap?.[q.symbol] || {});
                         // +1 base column count for the new always-visible SETUP column (on top
                         // of the existing +1 for A+, tablet-gated — 5 tablet-hidden total).
                         const colSpan = ((marketSession === "PREMARKET" || marketSession === "AFTERMARKET") ? 17 : 16) - (isTablet ? 5 : 0);

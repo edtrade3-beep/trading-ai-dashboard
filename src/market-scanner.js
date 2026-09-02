@@ -524,34 +524,18 @@ async function checkCoreEngineBuy(sym) {
   try {
     const { screenTrendTemplate, fetchMarketQuotes } = require("./routes/market");
     const { resolveProviderKeys } = require("./config");
-    const { buildEvFromRow } = require("./watchlist-setup-alerts");
-    const { computeEntryPlan } = require("./entry-engine");
-    const { computeRedFlags } = require("./red-flag-engine");
-    const { computeRegime, regimeToEntryVocabulary, computeAPlusScore } = require("./trade-planner-scoring");
-    const { computeCoreScore, classifyCoreVerdict } = require("./am-core-engine");
+    const { computeCanonicalAssetDecision } = require("./canonical-decision-pipeline");
 
     const macroRows = await fetchMarketQuotes(["SPY", "QQQ", "VIXY"], resolveProviderKeys(new URLSearchParams())).catch(() => []);
-    const regime = computeRegime(Array.isArray(macroRows) ? macroRows : []);
     const rows = await screenTrendTemplate([sym]).catch(() => []);
     const row = rows[0];
     if (!row || row.error) return false;
 
-    const ev = buildEvFromRow(row, regimeToEntryVocabulary(regime.label));
-    const entryPlan = computeEntryPlan(ev);
-    const redFlagResult = computeRedFlags(ev);
-    const { score: entryScore } = computeAPlusScore(row, regime);
-    const coreScore = computeCoreScore({
-      passCount: row.passCount, rsRating: row.rsRating, momentum: row.momentum,
-      stage: row.stage, volRatio: row.volRatio, regime, sectorInfo: null,
-      adx: null, smc: row.smc, epsGrowth: row.epsGrowth, vcpScore: row.vcpScore,
-      riskPct: row.riskPct, pctFromHigh: row.pctFromHigh, antiChase: ev.antiChase,
-      optionsFlow: null, dollarVolume: row.dollarVolume,
+    const canonical = computeCanonicalAssetDecision({
+      symbol: row.symbol || sym, row, macroQuotes: macroRows,
+      trackReport: null, marketHours: isMarketHoursET(),
     });
-    const deep = classifyCoreVerdict({
-      score: coreScore.score, entryPlan, redFlagResult,
-      stage: row.stage, dailyBias: ev.dailyBias, entryScore, hasPosition: false,
-    });
-    return redFlagResult.criticalCount === 0 && ["EARLY_BUY", "BUY"].includes(deep.verdict);
+    return canonical?.assetDecision?.verdict === "STRONG_BUY" || canonical?.assetDecision?.verdict === "BUY";
   } catch {
     return false; // fail closed — never auto-execute on a real error, same discipline as every other real gate in this app
   }

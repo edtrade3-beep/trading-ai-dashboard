@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { NUM } from "./theme.js";
-import { computeRegime, computeAPlusScore, computeNextAction } from "./market-helpers.js";
+import { computeRegime, computeAPlusScore } from "./market-helpers.js";
+import { FINAL_VERDICT_META } from "./final-decision-meta.js";
 import { BEST_OPP_UNIVERSE } from "./terminal-panels.jsx";
 
 // Dashboard's "should I trade today" top-opportunity card — same scan/rank
@@ -10,12 +11,12 @@ export default function TopOpportunityCard({ C, MONO, SANS, macroData, setActive
   const [row, setRow] = useState(null);
   const [state, setState] = useState("idle"); // idle | loading | ok | none | err
   const regime = computeRegime(macroData);
-  const regimeRef = React.useRef(regime);
+  const regimeRef = useRef(regime);
   regimeRef.current = regime;
 
   const scan = () => {
     setState(s => s === "ok" ? "ok" : "loading");
-    fetch("/api/market/trend-screen?symbols=" + encodeURIComponent(BEST_OPP_UNIVERSE.join(",")))
+    fetch("/api/market/trend-screen?symbols=" + encodeURIComponent(BEST_OPP_UNIVERSE.join(",")) + "&withDecision=1")
       .then(r => r.json())
       .then(j => {
         // allScored = every valid row in the scan, real A+ score attached —
@@ -25,7 +26,7 @@ export default function TopOpportunityCard({ C, MONO, SANS, macroData, setActive
         // weak end of an already-good-only list isn't actually a real
         // avoid-worthy name, just the least-good good one.
         const allScored = (j.results || []).filter(r => !r.error).map(r => ({ ...r, _aplus: computeAPlusScore(r, regimeRef.current) }));
-        const res = allScored.filter(r => Number(r.entry) > Number(r.stop) && (r.passCount || 0) >= 6 && !r.extended && (r.rsRating || 0) >= 70);
+        const res = allScored.filter(r => (r.assetDecision?.verdict === "STRONG_BUY" || r.assetDecision?.verdict === "BUY") && Number(r.entry) > Number(r.stop));
         const top = [...res].sort((a, b) => b._aplus.score - a._aplus.score)[0] || null;
         setRow(top); setState(top ? "ok" : "none");
         if (onScore) onScore(top);
@@ -64,7 +65,7 @@ export default function TopOpportunityCard({ C, MONO, SANS, macroData, setActive
       {state === "err" && <div style={{ fontFamily: MONO, fontSize: 12, color: "#c8282a", padding: "8px 16px 14px" }}>⚠ Scan failed — try again shortly.</div>}
       {state === "none" && <div style={{ fontFamily: SANS, fontSize: 13, color: C.textSec, padding: "8px 16px 14px" }}>No clean A-setups right now — cash is a position.</div>}
       {state === "ok" && row && (() => {
-        const next = computeNextAction(row);
+        const next = FINAL_VERDICT_META[row.assetDecision?.verdict] || { label: "LOADING…", color: C.textDim };
         const ac = row._aplus.score >= 80 ? "#0d9465" : row._aplus.score >= 60 ? "#d6a312" : "#c8282a";
         return (
           <div onClick={goToChart} style={{ display: "flex", gap: 14, alignItems: "center", padding: "10px 16px 14px", cursor: "pointer", flexWrap: "wrap" }}>
@@ -74,7 +75,7 @@ export default function TopOpportunityCard({ C, MONO, SANS, macroData, setActive
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
               <span title={row._aplus.reasons.join(" · ")} style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: "#fff", background: ac, borderRadius: 5, padding: "2px 8px", cursor: "help" }}>A+ {row._aplus.score}</span>
-              <span title={next.reason} style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: "#fff", background: next.color, borderRadius: 5, padding: "2px 8px", cursor: "help" }}>{next.action}</span>
+              <span title={(row.assetDecision?.reasons || []).join(" · ")} style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: "#fff", background: next.color, borderRadius: 5, padding: "2px 8px", cursor: "help" }}>{next.label}</span>
               <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>{row.passCount}/8 template · RS {row.rsRating}</span>
             </div>
             <div style={{ display: "flex", gap: 14, fontFamily: MONO, fontSize: 12, whiteSpace: "nowrap" }}>

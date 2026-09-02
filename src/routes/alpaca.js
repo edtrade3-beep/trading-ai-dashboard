@@ -301,8 +301,7 @@ async function handleAlpaca(req, res, requestUrl) {
         const longSymbols = positions.filter((p) => p.side === "long" && getEntrySnapshot(p.symbol)).map((p) => p.symbol);
         if (longSymbols.length) {
           const { screenTrendTemplate, getTrackReportCached } = require("./market");
-          const { computeRegime, regimeToEntryVocabulary } = require("../trade-planner-scoring");
-          const { computeOpportunity } = require("../opportunity-engine");
+          const { computeCanonicalAssetDecision } = require("../canonical-decision-pipeline");
           const { fetchYahooQuoteBatch } = require("../providers/yahoo");
           const MACRO_SYMS = ["SPY", "QQQ", "IWM", "DIA", "^VIX", "UUP", "VIXY", "TLT", "HYG"];
           const [rows, macroQuotes, trackReport] = await Promise.all([
@@ -310,17 +309,16 @@ async function handleAlpaca(req, res, requestUrl) {
             fetchYahooQuoteBatch(MACRO_SYMS).catch(() => []),
             getTrackReportCached(),
           ]);
-          const macroData = macroQuotes.map((q) => ({ symbol: q.symbol, price: q.regularMarketPrice, changesPercentage: q.regularMarketChangePercent }));
-          const regime = computeRegime(macroData);
-          const marketRegime = regimeToEntryVocabulary(regime.label);
           const rowsBySymbol = new Map(rows.filter((r) => !r.error).map((r) => [r.symbol, r]));
 
           for (const pos of positions) {
             const snapshot = getEntrySnapshot(pos.symbol);
             const row = rowsBySymbol.get(pos.symbol);
             if (!snapshot || !row) continue;
-            const opp = computeOpportunity({ symbol: pos.symbol, row, regime, marketRegime, sectorInfo: null, adx: row.technicals?.adx || null, optionsFlow: null, trackReport });
-            if (!opp) continue;
+            const canonical = computeCanonicalAssetDecision({ symbol: pos.symbol, row, macroQuotes, trackReport, marketHours: false });
+            if (!canonical) continue;
+            const opp = canonical.opportunity;
+            pos.assetDecision = canonical.assetDecision;
             pos.edgeMonitor = {
               ...classifyEdgeChange({ entryScore: snapshot.score, entryTier: snapshot.tier, currentScore: opp.score, currentTier: opp.tier }),
               entrySnapshotAt: snapshot.ts,

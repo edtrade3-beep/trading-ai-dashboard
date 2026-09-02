@@ -5,10 +5,8 @@ import { FIVEX_REF } from "./fivex-data.js";
 import { computeAPlusScore, computeRegime, computePrediction } from "./market-helpers.js";
 import { computeSniperDecision } from "./sniper-decision.js";
 import { computeHeatRisk, computeCortexVerdict } from "./cortex-engine.js";
-import { computeEntryPlan } from "./entry-engine.js";
-import { DECISION_LABELS } from "./btc-hpc-scan.js";
-import { computeCoreScore, classifyCoreVerdict, CORE_VERDICT_META } from "./am-core-engine.js";
-import { computeRegimeLabel, regimeLabelToEntryVocabulary } from "./DashboardTab.jsx";
+import { FINAL_VERDICT_META } from "./final-decision-meta.js";
+import { computeRegimeLabel } from "./DashboardTab.jsx";
 import { computeAntiChase } from "./anti-chase.js";
 import { computeFutureValueRead } from "./future-value-scoring.js";
 import { PanelErrorBoundary } from "./ui-atoms.jsx";
@@ -220,7 +218,6 @@ export default function SmartScanTab({
           const { regLabel: smartScanRegLabel } = computeRegimeLabel(C, {
             spy: smartScanSpyQ, qqq: smartScanQqqQ, vix: Number(smartScanVixQ?.price || smartScanVixQ?.regularMarketPrice || 0), loaded: !!smartScanSpyQ,
           });
-          const smartScanMarketRegime = regimeLabelToEntryVocabulary(smartScanRegLabel);
           // "Why is this moving" — real web-searched /api/market/ai-why, same
           // on-demand pattern already used on the Opportunities tab. This
           // deep-dive expanded row is the SHARED destination MoversTab/
@@ -373,15 +370,13 @@ export default function SmartScanTab({
           scanResults.forEach(r => {
             const tr = smartScanTrendMap[r.ticker];
             if (!tr) return;
-            const ap = computeAPlusScore(tr, smartScanRegime);
-            const sd = computeSniperDecision(tr);
-            // Real bug fix (2026-08-26, "unify the swing/entry-decision
-            // verdict") — real graduated antiChase band, same primitive
-            // already used elsewhere in this file, threaded into the heat
-            // check here too.
-            const hd = computeHeatRisk(tr, sd, computeAntiChase(tr.abovePivotPct));
-            const cv = computeCortexVerdict({ sniper: sd, heat: hd, aplusScore: ap.score });
-            if (sigCounts[cv.verdict] !== undefined) sigCounts[cv.verdict]++;
+            const canonical = tr.assetDecision?.verdict;
+            const bucket = canonical === "STRONG_BUY" || canonical === "BUY" ? "BUY ZONE"
+              : canonical === "WATCH" ? "WATCH"
+              : canonical === "WAIT" || canonical === "HOLD" ? "WAIT"
+              : canonical === "AVOID" || canonical === "EXIT" || canonical === "REDUCE" ? "AVOID"
+              : null;
+            if (bucket) sigCounts[bucket]++;
           });
 
           // Early Warning counts — "stocks before it pops / before it drops"
@@ -918,13 +913,16 @@ export default function SmartScanTab({
                         // Scan can never disagree again, since it's the same function.
                         const trendRow = smartScanTrendMap[row.ticker] || null;
                         const aplus = computeAPlusScore(trendRow || {}, smartScanRegime);
-                        const sniperD = trendRow ? computeSniperDecision(trendRow) : null;
-                        // Real bug fix (2026-08-26, "unify the swing/entry-
-                        // decision verdict") — threads the real graduated
-                        // antiChase band in, same primitive already used
-                        // elsewhere in this file.
-                        const heatD = trendRow && sniperD ? computeHeatRisk(trendRow, sniperD, computeAntiChase(trendRow.abovePivotPct)) : null;
-                        const cortexV = trendRow && sniperD && heatD ? computeCortexVerdict({ sniper: sniperD, heat: heatD, aplusScore: aplus.score }) : null;
+                        // Compatibility presentation object for the existing
+                        // deep-dive/auto-trade panel. The value is derived
+                        // from the canonical AssetDecision; it is not a new
+                        // classifier and cannot override the server verdict.
+                        const canonicalVerdict = trendRow?.assetDecision?.verdict || null;
+                        const cortexV = canonicalVerdict ? {
+                          verdict: canonicalVerdict === "STRONG_BUY" || canonicalVerdict === "BUY" ? "BUY ZONE" : canonicalVerdict,
+                          color: FINAL_VERDICT_META[canonicalVerdict]?.color || C.textDim,
+                          reason: trendRow.assetDecision.reasons?.[0] || "Canonical final verdict.",
+                        } : null;
                         // Discover/Cortex Additive Verdict (2026-08-23) — the
                         // row badge (bar color + primary label) is now driven
                         // by the real am-core-engine.js verdict (same engine
@@ -936,9 +934,9 @@ export default function SmartScanTab({
                         // primary badge; falls back to it only while
                         // coreVerdict hasn't loaded yet, never reverting once
                         // real Core Engine data is present.
-                        const coreMeta = trendRow?.coreVerdict ? CORE_VERDICT_META[trendRow.coreVerdict] : null;
-                        const verdictColor = coreMeta ? coreMeta.color : (cortexV ? cortexV.color : C.textDim);
-                        const verdictLabel = coreMeta ? coreMeta.label : (cortexV ? cortexV.verdict : "LOADING…");
+                        const coreMeta = trendRow?.assetDecision?.verdict ? FINAL_VERDICT_META[trendRow.assetDecision.verdict] : null;
+                        const verdictColor = coreMeta ? coreMeta.color : C.textDim;
+                        const verdictLabel = coreMeta ? coreMeta.label : "LOADING…";
                         const composite = aplus.score;
                         // The real field on the smart-scan quote shape is changesPercentage
                         // (see fetchYahooQuotes in src/providers/yahoo.js) — changePercent
@@ -1490,28 +1488,13 @@ export default function SmartScanTab({
                                       // system. A real bearish SMC/structure read still surfaces
                                       // below as a disclosed note, just not as a competing verdict
                                       // with its own stop/target math.
-                                      const dailyBiasSS = trendRow ? ((String(trendRow.stage || "").includes("2") && Number(trendRow.passCount || 0) >= 6) ? "BULLISH" : String(trendRow.stage || "").includes("4") ? "BEARISH" : "NEUTRAL") : null;
-                                      const target1SS = trendRow && trendRow.entry > trendRow.stop ? Math.round((trendRow.entry + (trendRow.entry - trendRow.stop)) * 100) / 100 : null;
-                                      const rrSS = Number.isFinite(target1SS) && trendRow && trendRow.entry > trendRow.stop ? Math.round(((target1SS - trendRow.entry) / (trendRow.entry - trendRow.stop)) * 100) / 100 : null;
                                       // Real Anti-Chase band (2026-08-21, Unified Trading System
                                       // phase 3) — same real computeAntiChase primitive Workspace
                                       // already passes into computeEntryPlan, off the same real
                                       // abovePivotPct already on this trend-screen row. Without
                                       // this, entry-engine.js's real breakout gate silently fell
                                       // back to a cruder flat 10% cutoff for every Smart Scan row.
-                                      const antiChaseSS = trendRow ? computeAntiChase(trendRow.abovePivotPct) : null;
-                                      const entryPlanSS = trendRow ? computeEntryPlan({
-                                        price: px || trendRow.price, pivot: trendRow.pivot, atr: null, contractionLow: trendRow.contractionLow,
-                                        dailyBias: dailyBiasSS, rsRating: trendRow.rsRating, higherLows: trendRow.higherLows, tightening: trendRow.tightening,
-                                        vcpVerdict: trendRow.vcpVerdict, vwap20: trendRow.technicals?.vwap20, rr: rrSS,
-                                        breakoutConfirmed: trendRow.breakoutConfirmed, extended: trendRow.extended, priceAction: {}, antiChase: antiChaseSS,
-                                        stop: trendRow.stop, target1: target1SS, target2: trendRow.target2, marketRegime: smartScanMarketRegime,
-                                        // V-Structure/Foundation (spec §6, Unified Trading System
-                                        // phase 5) — smartScanFoundation is already fetched (lazy,
-                                        // row-expand-gated) for the Foundation & V-Recovery panel
-                                        // below; reusing its real verdict here is zero new fetches.
-                                        foundationVerdict: smartScanFoundation[row.ticker]?.verdict,
-                                      }) : null;
+                                      const entryPlanSS = trendRow?.opportunity?.entryPlan || null;
                                       const aplusSS = trendRow ? computeAPlusScore(trendRow, smartScanRegime) : null;
                                       // One Engine Migration Phase 6 (2026-08-23): was
                                       // classifyDeepScanDecision (retired) — now the SAME real
@@ -1520,17 +1503,9 @@ export default function SmartScanTab({
                                       // fetched here. adx/optionsFlow/sectorInfo/dollarVolume
                                       // honestly null (not fetched at this scan tier), same
                                       // precedent as RhProScanner.jsx's own Core Engine wiring.
-                                      const coreScoreSS = trendRow ? computeCoreScore({
-                                        passCount: trendRow.passCount, rsRating: trendRow.rsRating, momentum: trendRow.momentum,
-                                        stage: trendRow.stage, volRatio: trendRow.volRatio, regime: smartScanRegime, sectorInfo: null,
-                                        adx: null, smc: trendRow.smc, epsGrowth: trendRow.epsGrowth, vcpScore: trendRow.vcpScore,
-                                        riskPct: trendRow.riskPct, pctFromHigh: trendRow.pctFromHigh, antiChase: antiChaseSS,
-                                        optionsFlow: null, dollarVolume: trendRow.dollarVolume,
-                                      }) : null;
-                                      const deepDecision = entryPlanSS ? classifyCoreVerdict({
-                                        score: coreScoreSS?.score, entryPlan: entryPlanSS, stage: trendRow?.stage,
-                                        dailyBias: dailyBiasSS, entryScore: aplusSS?.score, hasPosition: false,
-                                      }) : null;
+                                      const deepDecision = trendRow?.assetDecision
+                                        ? { verdict: trendRow.assetDecision.verdict, reason: trendRow.assetDecision.reasons?.[0] || "Canonical decision available." }
+                                        : null;
 
                                       // Real SMC BOS/CHoCH — kept as real, disclosed
                                       // supplementary evidence (not discarded), but no longer
@@ -1543,7 +1518,7 @@ export default function SmartScanTab({
                                         : chochType === "CHOCH_BULL" ? "Smart Money: bullish Change of Character"
                                         : null;
 
-                                      const vLabel = deepDecision ? (DECISION_LABELS[deepDecision.verdict] || deepDecision.verdict) : "—";
+                                      const vLabel = deepDecision ? (FINAL_VERDICT_META[deepDecision.verdict]?.label || deepDecision.verdict) : "—";
                                       const vAction = deepDecision?.reason ?? "Not enough real data yet.";
                                       const vSetup = entryPlanSS ? entryPlanSS.stage.replace(/_/g, " ") : "No Setup";
                                       const composite = aplusSS ? aplusSS.score : 0;
@@ -1988,7 +1963,7 @@ export default function SmartScanTab({
                                         {/* Signal reasons */}
                                         {(row.signals || []).length > 0 && (
                                           <>
-                                            <div style={{ fontFamily: MONO, fontSize: 12, fontFamily: SANS, fontWeight: 700, color: C.textDim, letterSpacing: "0.1em", marginBottom: 5, marginTop: 8, textTransform: "uppercase" }}>REASONS</div>
+                                            <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 700, color: C.textDim, letterSpacing: "0.1em", marginBottom: 5, marginTop: 8, textTransform: "uppercase" }}>REASONS</div>
                                             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                                               {(row.signals || []).map((sig, si) => (
                                                 <div key={si} style={{ display: "flex", alignItems: "center",
@@ -2004,7 +1979,7 @@ export default function SmartScanTab({
                                         {/* Entry zones */}
                                         {ref && (
                                           <div style={{ marginTop: 12 }}>
-                                            <div style={{ fontFamily: MONO, fontSize: 12, fontFamily: SANS, fontWeight: 700, color: C.textDim, letterSpacing: "0.1em", marginBottom: 5, marginTop: 8, textTransform: "uppercase" }}>ENTRY ZONES</div>
+                                            <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 700, color: C.textDim, letterSpacing: "0.1em", marginBottom: 5, marginTop: 8, textTransform: "uppercase" }}>ENTRY ZONES</div>
                                             {[
                                               { label: "Deep", val: ref.e3, col: "#00e676" },
                                               { label: "Better", val: ref.e2, col: "#4caf50" },
