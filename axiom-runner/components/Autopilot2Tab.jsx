@@ -384,8 +384,13 @@ export default function Autopilot2Tab({ C, MONO, SANS }) {
   const runAction = async (path, body) => {
     setLoading(true);
     try {
-      await fetch(`/api/autopilot2/${path}`, { method: "POST", headers: body ? { "Content-Type": "application/json" } : undefined, body: body ? JSON.stringify(body) : undefined });
+      const response = await fetch(`/api/autopilot2/${path}`, { method: "POST", headers: body ? { "Content-Type": "application/json" } : undefined, body: body ? JSON.stringify(body) : undefined });
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.ok) throw new Error(result?.error || `Autopilot action failed (${response.status})`);
       await load();
+      setError(null);
+    } catch (e) {
+      setError(e?.message || "Autopilot action failed");
     } finally { setLoading(false); }
   };
 
