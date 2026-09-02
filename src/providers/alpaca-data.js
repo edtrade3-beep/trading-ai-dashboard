@@ -10,6 +10,27 @@
 // source of truth), keeps its own request logic since it's a real,
 // different API surface.
 const { resolveAlpacaKeys: KEYS } = require("./alpaca-client");
+
+// Real fix (2026-09-02, confirmed live on Render): both fetch() calls below
+// had no timeout at all. When data.alpaca.markets stalls (no response, no
+// error — a real, observed hang, not a rate-limit 4xx) from Render's
+// network specifically, the plain try/catch around them never fires (a
+// promise that never settles isn't a caught error), so the whole
+// screenTrendTemplate scan (both /api/market/trend-screen and
+// /api/market/opportunities, and everything that calls them) hung
+// indefinitely — worse, it never even reached the already-timeout-
+// protected Yahoo fallback in providers/yahoo.js (this is tried FIRST).
+// Same AbortController pattern as yahoo.js's own yFetch, kept local here
+// rather than shared since this hits a different real host/header shape.
+async function fetchWithTimeout(url, opts = {}, timeoutMs = 8000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...opts, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
 const TF = {
   "1m": "1Min", "2m": "2Min", "5m": "5Min", "15m": "15Min", "30m": "30Min",
   "60m": "1Hour", "1h": "1Hour", "1d": "1Day", "1day": "1Day", "1wk": "1Week", "1w": "1Week",
@@ -48,7 +69,7 @@ async function fetchAlpacaBars(symbol, range, interval) {
       const url = `https://data.alpaca.markets/v2/stocks/${encodeURIComponent(symbol)}/bars`
         + `?timeframe=${tf}&start=${encodeURIComponent(start)}&limit=10000&adjustment=all&feed=iex`
         + (token ? `&page_token=${encodeURIComponent(token)}` : "");
-      const r = await fetch(url, { headers });
+      const r = await fetchWithTimeout(url, { headers });
       if (!r.ok) return bars.length ? bars : null;
       const j = await r.json();
       for (const b of (j.bars || [])) bars.push({ time: new Date(b.t).getTime(), open: b.o, high: b.h, low: b.l, close: b.c, volume: b.v || 0 });
@@ -71,7 +92,7 @@ async function fetchAlpacaQuotes(symbols) {
     const chunk = eq.slice(i, i + 100);
     try {
       const url = `https://data.alpaca.markets/v2/stocks/snapshots?symbols=${encodeURIComponent(chunk.join(","))}&feed=iex`;
-      const r = await fetch(url, { headers });
+      const r = await fetchWithTimeout(url, { headers });
       if (!r.ok) continue;
       const j = await r.json();
       const map = j.snapshots || j;

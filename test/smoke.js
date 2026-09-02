@@ -127,6 +127,18 @@ ok("buildTradeSetup: with no canonical verdict supplied, the legacy fallback sti
   assert.ok(!out.plan.includes("Cortex Verdict"), "must not claim a Cortex verdict when none was supplied");
 });
 
+console.log("Checking providers/alpaca-data.js — both real fetch() calls must be timeout-protected (2026-09-02 fix: a hang here, confirmed live on Render, blocked /api/market/trend-screen and /api/market/opportunities indefinitely since it's tried before the already-timeout-protected Yahoo fallback)…");
+ok("fetchAlpacaBars and fetchAlpacaQuotes route through the local timeout wrapper, not a bare fetch()", () => {
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const src = fs.readFileSync(path.join(__dirname, "..", "src", "providers", "alpaca-data.js"), "utf8");
+  assert.match(src, /async function fetchWithTimeout\(/, "fetchWithTimeout helper must exist");
+  assert.match(src, /new AbortController\(\)/);
+  assert.doesNotMatch(src, /await fetch\(url, \{ headers \}\)/, "no remaining bare, un-timed-out fetch() call to data.alpaca.markets");
+  const timeoutCalls = (src.match(/await fetchWithTimeout\(url, \{ headers \}\)/g) || []).length;
+  assert.strictEqual(timeoutCalls, 2, "both fetchAlpacaBars and fetchAlpacaQuotes must use the timeout wrapper");
+});
+
 console.log("Checking gamma-exposure.js (Phase 2, options redesign)…");
 ok("computeGammaExposure: honest unavailable with no contracts or no underlying", () => {
   const { computeGammaExposure } = require("../src/gamma-exposure");
