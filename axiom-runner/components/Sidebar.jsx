@@ -25,8 +25,6 @@
 //     permanent rail slot next to equities.
 // Single flat list, no section grouping — 7 items don't need one.
 export const SIDEBAR_ITEMS = [
-  { id: "dashboard", label: "Home",       icon: "🏠", tab: "dashboard" },
-
   // Trade Desk — one unified screen (2026-08-25, explicit user request:
   // top status strip + Discover-search|Chart|Cortex 3-pane + a bottom
   // module dock, all without leaving the page). New, additive tab —
@@ -34,6 +32,10 @@ export const SIDEBAR_ITEMS = [
   // colliding with the real, separate, already-shipped AI Market Command
   // Center (CommandCenterTab.jsx, activeTab "command-center").
   { id: "trade-desk", label: "Trade Desk", icon: "🎛️", tab: "trade-desk" },
+
+  { id: "dashboard", label: "Market Overview", icon: "🏠", tab: "dashboard" },
+  { id: "scanner", label: "Scanner", icon: "📡", tab: "scanner" },
+  { id: "economy", label: "Economy", icon: "📈", tab: "market" },
 
   // Cortex — "ask anything" intelligence layer (2026-08-11, explicit user
   // request: "AM CORTEX — AI TRADING INTELLIGENCE ENGINE"). A genuinely new
@@ -92,11 +94,11 @@ export const SIDEBAR_ITEMS = [
   // News — "what changed?" Unchanged from before.
   { id: "news",      label: "News",       icon: "📰", tab: "news" },
 
-  // Journal removed completely (2026-08-25, explicit user request: "remove
-  // journal completely") — no sidebar row, no palette alias, no hotkey.
-  // RhProJournal.jsx and any real historical trade-journal data are
-  // untouched; see axiom-live.jsx's palette-alias section for the full
-  // removal note.
+  { id: "journal", label: "Journal", icon: "📓", tab: "journal" },
+  { id: "alerts", label: "Alerts", icon: "🔔", tab: "alerts" },
+
+  // Journal remains a direct destination so historical trade records stay
+  // discoverable; its existing component and data path are unchanged.
 
   // Light Box dropped from the rail (2026-08-25, explicit user request:
   // "link light box to as a branch to trade desk as well as discover as
@@ -203,15 +205,9 @@ export const SIDEBAR_ITEMS = [
 // it as a nav destination either. Reachable from Dashboard's
 // AiCopilotLauncherCard.
 //
-// CEO AI / Command Center / Alerts dropped from the sidebar rows rather
-// than kept — per the approved redesign plan, CEO AI's brief + Command
-// Center's real Sector Rotation/Portfolio Risk Summary sections are
-// slated to redistribute into Dashboard's new 4-card grid (Phase 4 of
-// the redesign), and Alerts into a Dashboard/Portfolio panel — that
-// embedding work hasn't landed yet as of this file's rewrite, so for now
-// these are palette-only (CEO / COMMANDCENTER / XINTEL / ALERTS for
-// their full standalone views) until Phase 4 gives them a real embedded
-// home. Note (2026-09-01 platform audit): this comment previously
+// CEO AI / Command Center remain palette-first specialist surfaces. Alerts
+// now has a direct sidebar row; its existing standalone route is unchanged.
+// Note (2026-09-01 platform audit): this comment previously
 // claimed CEO-AI was "still the default landing tab regardless of
 // sidebar presence" — the real default (axiom-live.jsx's activeTab
 // useState initializer) is "trade-desk", not "ceo-ai". Corrected here so

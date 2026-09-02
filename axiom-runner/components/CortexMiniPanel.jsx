@@ -307,16 +307,26 @@ export default function CortexMiniPanel({ symbol, onSelectSymbol, setActiveTab, 
     const loadAnalysis = async (silent) => {
       if (!silent) { setLoading(true); setError(null); setNotice(null); }
       try {
-        const [screenJ, fundJ, newsJ] = await Promise.all([
-          fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(symbol)}&withDecision=1&withOptions=1`).then((r) => r.json()),
-          fetch(`/api/market/fundamentals?symbol=${encodeURIComponent(symbol)}`).then((r) => r.json()).catch(() => null),
-          fetch(`/api/news/ticker/${encodeURIComponent(symbol)}`).then((r) => r.json()).catch(() => null),
-        ]);
+        // Publish the canonical decision as soon as the decision endpoint
+        // returns. Optional fundamentals/news must not hold the verdict in a
+        // misleading "Analyzing" state while the left Trade Desk already
+        // shows the same symbol's opportunity.
+        const screenJ = await fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(symbol)}&withDecision=1&withOptions=1`).then((r) => r.json());
         if (cancelled || reqRef.current !== symbol) return;
         const row = (screenJ.results || [])[0];
         if (!row || row.error) { if (!silent) { setError(`No real market data available for ${symbol}.`); setAnalysis(null); } return; }
         const sniper = computeSniperDecision(row);
-        setAnalysis({ symbol, row, sniper, fundamentals: fundJ && !fundJ.error ? fundJ : null, news: newsJ });
+        setAnalysis({ symbol, row, sniper, fundamentals: null, news: null });
+        if (!silent) setLoading(false);
+        const [fundJ, newsJ] = await Promise.all([
+          fetch(`/api/market/fundamentals?symbol=${encodeURIComponent(symbol)}`).then((r) => r.json()).catch(() => null),
+          fetch(`/api/news/ticker/${encodeURIComponent(symbol)}`).then((r) => r.json()).catch(() => null),
+        ]);
+        if (!cancelled && reqRef.current === symbol) {
+          setAnalysis((current) => current && current.symbol === symbol
+            ? { ...current, fundamentals: fundJ && !fundJ.error ? fundJ : null, news: newsJ }
+            : current);
+        }
       } catch (e) {
         if (!cancelled && !silent) { setError(e.message); setAnalysis(null); }
       } finally {

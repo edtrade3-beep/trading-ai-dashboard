@@ -78,13 +78,24 @@ async function handleAutopilot2(req, res, requestUrl) {
   }
 
   if (pathname === "/api/autopilot2/start" && req.method === "POST") {
-    return writeJson(res, 200, { ok: true, state: setState("RUNNING", "started by user") });
+    const state = setState("RUNNING", "started by user");
+    // Do not make the user wait for the next five-minute scheduler interval.
+    // This invokes the exact same guarded, paper-only tick as the scheduler;
+    // it does not bypass risk gates or create a second execution path.
+    Promise.resolve().then(() => require("../autopilot2-engine").tick()).catch((err) => {
+      console.error("[ADOL22 Autopilot 2.0] immediate start tick failed:", err?.message || err);
+    });
+    return writeJson(res, 200, { ok: true, state });
   }
   if (pathname === "/api/autopilot2/pause" && req.method === "POST") {
     return writeJson(res, 200, { ok: true, state: setState("PAUSED", "paused by user — no new entries, existing positions still managed") });
   }
   if (pathname === "/api/autopilot2/resume" && req.method === "POST") {
-    return writeJson(res, 200, { ok: true, state: setState("RUNNING", "resumed by user") });
+    const state = setState("RUNNING", "resumed by user");
+    Promise.resolve().then(() => require("../autopilot2-engine").tick()).catch((err) => {
+      console.error("[ADOL22 Autopilot 2.0] immediate resume tick failed:", err?.message || err);
+    });
+    return writeJson(res, 200, { ok: true, state });
   }
   if (pathname === "/api/autopilot2/off" && req.method === "POST") {
     return writeJson(res, 200, { ok: true, state: setState("OFF", "turned off by user") });

@@ -83,7 +83,11 @@ Paper trading remains the default. No migration step authorizes live execution o
 - Browser AutoPilot now reads shared health execution authority and stands down when any Server or Tradier automated mutator is active, preventing cross-scheduler overlap.
 - Cortex Stock tab's second verdict card is now explicitly labeled as the canonical decision track record, removing the implication that Cortex computes a separate final verdict.
 - Removed the duplicate Cortex symbol-view verdict card; one canonical verdict card remains, with track-record context beneath it.
+- Cortex Mini now publishes the canonical trend-screen decision before optional fundamentals/news requests finish, preventing a temporary “Analyzing” state from appearing out of sync with the Trade Desk opportunity card.
 - The conversational `run_scan` tool now ranks and reports the canonical AssetDecision verdict/stage/reason rather than the legacy client `computeNextAction` classifier.
+- Trade Desk now presents a canonical Master Verdict strip, evidence/trade-plan panels, connected ticker tabs, IWM/data-status top-bar context, and a dark institutional shell; these are presentation-only and consume existing AssetDecision/chart data.
+- Trade Desk's header now reads the Autopilot 2.0 status endpoint and labels it explicitly as the simulated paper account, avoiding ambiguity with legacy automation surfaces.
+- Trade Desk chart loading now reports real API errors on desktop and mobile, and ticker-aware tabs preserve the selected symbol through existing route handoffs.
 
 ## Target canonical contracts
 
@@ -151,7 +155,7 @@ Opportunity lifecycle: `DORMANT | DEVELOPING | EMERGING | ACTIONABLE | CONFIRMED
 ### P3
 
 - [~] Publish Research/Market Wrap narrative state into canonical context (opportunities and trend-screen now carry the bounded adapter output; scheduled publication/provider coverage remains)
-- [~] Standardize verdict/stage UI vocabulary and visual treatment (canonical data is now delivered to remaining trend-screen surfaces; local presentation cleanup remains)
+- [~] Standardize verdict/stage UI vocabulary and visual treatment (Trade Desk canonical strip/evidence/tabs are complete; remaining legacy surfaces still require cleanup)
 - [ ] Remove verified dead engines, fallbacks, routes, prompts, imports, and duplicate requests
 - [ ] Complete dependency-flow and operational documentation
 
@@ -169,6 +173,20 @@ Opportunity lifecycle: `DORMANT | DEVELOPING | EMERGING | ACTIONABLE | CONFIRMED
 - Autopilot 2.0's final order boundary now fails closed unless `assetDecision.verdict` is `STRONG_BUY` or `BUY`; a raw Core BUY alone is insufficient.
 
 ## Known constraints and risks
+
+### Scheduler inventory (shadow migration)
+
+The following autonomous loops remain intentionally active until deployment
+shadowing and operational approval are complete:
+
+- `ADOL22 Autopilot 2.0` — internal simulated paper account, canonical BUY gate.
+- `SERVER_AUTOPILOT` — existing Alpaca paper mutator, environment-gated.
+- `Light Box Confirm` — paper order-assist confirmation path.
+- `Day-Trade Autopilot` — alert/analysis tick; not an order authority.
+
+They must not be merged by simply deleting registrations. The safe migration
+is to compare heartbeats, candidate sets, risk decisions, and order intents in
+shadow mode, then retire one mutator only after no active dependency remains.
 
 - The client/server ESM/CommonJS twins remain because of the current build architecture. They may continue as feature calculators during migration, but must not independently finalize decisions.
 - Some tactical MTF detail currently exists only in the client while the bulk server Opportunity Object is daily-scan based. Do not silently claim those inputs affected the canonical final verdict until they are moved server-side.

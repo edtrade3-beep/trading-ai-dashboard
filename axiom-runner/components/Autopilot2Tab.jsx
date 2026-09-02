@@ -384,8 +384,13 @@ export default function Autopilot2Tab({ C, MONO, SANS }) {
   const runAction = async (path, body) => {
     setLoading(true);
     try {
-      await fetch(`/api/autopilot2/${path}`, { method: "POST", headers: body ? { "Content-Type": "application/json" } : undefined, body: body ? JSON.stringify(body) : undefined });
+      const response = await fetch(`/api/autopilot2/${path}`, { method: "POST", headers: body ? { "Content-Type": "application/json" } : undefined, body: body ? JSON.stringify(body) : undefined });
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.ok) throw new Error(result?.error || `Autopilot action failed (${response.status})`);
       await load();
+      setError(null);
+    } catch (e) {
+      setError(e?.message || "Autopilot action failed");
     } finally { setLoading(false); }
   };
 
@@ -440,6 +445,9 @@ export default function Autopilot2Tab({ C, MONO, SANS }) {
           <span style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.text }}>🤖 ADOL22 AUTOPILOT 2.0</span>
           <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: meta.color, background: `${meta.color}18`, border: `1px solid ${meta.color}55`, borderRadius: 999, padding: "3px 10px" }}>
             {meta.icon} {meta.label}
+          </span>
+          <span title="No real orders are ever placed by this engine" style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.amber, background: `${C.amber}18`, border: `1px solid ${C.amber}55`, borderRadius: 999, padding: "3px 10px" }}>
+            🧪 PAPER ONLY
           </span>
         </div>
         <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 3 }}>
