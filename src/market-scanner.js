@@ -529,15 +529,15 @@ async function checkCoreEngineBuy(sym) {
     const macroRows = await fetchMarketQuotes(["SPY", "QQQ", "VIXY"], resolveProviderKeys(new URLSearchParams())).catch(() => []);
     const rows = await screenTrendTemplate([sym]).catch(() => []);
     const row = rows[0];
-    if (!row || row.error) return false;
+    if (!row || row.error) return null;
 
     const canonical = computeCanonicalAssetDecision({
       symbol: row.symbol || sym, row, macroQuotes: macroRows,
       trackReport: null, marketHours: isMarketHoursET(),
     });
-    return canonical?.assetDecision?.verdict === "STRONG_BUY" || canonical?.assetDecision?.verdict === "BUY";
+    return canonical?.assetDecision || null;
   } catch {
-    return false; // fail closed — never auto-execute on a real error, same discipline as every other real gate in this app
+    return null; // fail closed — never auto-execute on a real error, same discipline as every other real gate in this app
   }
 }
 
@@ -746,9 +746,10 @@ async function runScan(options = {}) {
       // other real BUY signal in this app. Gated before recordSignal/
       // enqueueScanAlert/Telegram too, not just before maybeAutoExecute —
       // a signal Core Engine rejects shouldn't fire a "real" BUY alert
-      // either. SELL/short is unaffected (see checkCoreEngineBuy's own
-      // header comment for why).
-      if (signal === "BUY" && !(await checkCoreEngineBuy(sym))) continue;
+      // either. SELL/short is not an executable signal in this path until
+      // the canonical engine exposes a real short-side AssetDecision.
+      const assetDecision = signal === "BUY" ? await checkCoreEngineBuy(sym) : null;
+      if (signal === "BUY" && !assetDecision) continue;
 
       recordSignal(sym, signal);
       const hit = {
@@ -775,6 +776,7 @@ async function runScan(options = {}) {
         composite: a.composite, price: a.price,
         support: a.support, resistance: a.resistance,
         rvol: a.rvol,
+        assetDecision,
       }).then(result => {
         if (!result) return;
         if (result.error) {

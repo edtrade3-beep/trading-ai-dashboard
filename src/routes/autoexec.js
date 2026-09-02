@@ -181,7 +181,7 @@ function isCryptoPairSymbol(sym) {
 }
 
 // ── Exported for market-scanner.js to call ───────────────────────────────────
-async function maybeAutoExecute({ symbol, signal, composite, price, support, resistance, rvol }) {
+async function maybeAutoExecute({ symbol, signal, composite, price, support, resistance, rvol, assetDecision }) {
   if (!broker.isConfigured()) return null;
   if (!isMarketHoursET()) return null;
   if (isCryptoPairSymbol(symbol)) return null;
@@ -190,11 +190,16 @@ async function maybeAutoExecute({ symbol, signal, composite, price, support, res
   cfg = await maybeResetDaily(cfg);
 
   if (cfg.mode === "off" || !cfg.mode) return null;
+  // Automated entries must consume the canonical final decision, not a
+  // scanner-local composite.  Missing/stale decisions fail closed.
+  const finalVerdict = String(assetDecision?.verdict || "").toUpperCase();
+  if (signal === "BUY" && !["STRONG_BUY", "BUY"].includes(finalVerdict)) return null;
+  // This route has no canonical short-side AssetDecision. Keep the existing
+  // paper/live boundary safe by refusing shorts until a real short verdict is
+  // available; do not let allowShorts reintroduce a second decision engine.
+  if (signal === "SELL" || ["sell", "short"].includes(String(signal || "").toLowerCase())) return null;
   if (composite < cfg.scoreThreshold) return null;
   if (rvol < cfg.rvolThreshold) return null;
-
-  // Only buy signals unless allowShorts is on
-  if (signal === "SELL" && !cfg.allowShorts) return null;
 
   // Already traded this symbol today
   if (cfg.tradedToday.includes(symbol)) return null;
@@ -217,44 +222,20 @@ async function maybeAutoExecute({ symbol, signal, composite, price, support, res
   // Sector-correlation cap — same math/defaults as the Alpaca autopilot.
   if (sectorCapExceeded({ positions: normPositions, symbol, maxPerSector: cfg.maxPerSector })) return null;
 
-  const side = signal === "BUY" ? "buy" : "sell";
-
-  // ONE ENGINE safety gate (Autopilot goal audit, 2026-08-30): BUY signals
-  // are already re-verified against the real canonical engine before they
-  // ever reach this function (market-scanner.js's checkCoreEngineBuy, run
-  // ahead of maybeAutoExecute). SELL/short signals have NO such check —
-  // am-core-engine.js has no short-side verdict implementation to check
-  // against (a real, disclosed limitation, not something to fake here) —
-  // so an ungated SELL is the one case where this, the only one of the
-  // platform's execution paths capable of a real LIVE (non-paper) order,
-  // could fire on a signal nothing but market-scanner.js's own composite
-  // has ever looked at. Per "risk always overrides opportunity signals":
-  // force it through the human-approval (assistant) queue instead of
-  // "autopilot" mode's automatic placement, regardless of the configured
-  // mode. BUY keeps full autonomy; SELL always needs a human tap until a
-  // real canonical short verdict exists.
-  const forceAssistant = side === "sell" && cfg.mode === "autopilot";
+  const side = "buy";
 
   // Risk-based sizing for the long (BUY) path — entry/stop come from the
   // scanner's support level, same convention market-scanner.js already uses
   // for its Telegram "Stop $X" message. If a valid stop can't be derived,
   // skip the trade rather than fall back to flat/risk-blind sizing.
-  let qty;
-  if (side === "buy") {
-    const availCash = Number(balances && balances.totalCash) || 0;
-    qty = sizePositionByRisk({ equity, riskPct: cfg.riskPct, entry: price, stop: support, availCash, maxNamePct: cfg.maxNamePct });
-    if (qty < 1) return null;
-  } else {
-    // Shorts are opt-in (allowShorts) and rare — flat position-size fallback.
-    qty = Math.max(1, Math.floor(cfg.positionSize / price));
-  }
+  const availCash = Number(balances && balances.totalCash) || 0;
+  const qty = sizePositionByRisk({ equity, riskPct: cfg.riskPct, entry: price, stop: support, availCash, maxNamePct: cfg.maxNamePct });
+  if (qty < 1) return null;
 
   let orderPrice = null;
   if (cfg.orderType === "limit") {
     // Buy slightly above current price, sell slightly below
-    orderPrice = side === "buy"
-      ? Math.round(price * (1 + cfg.limitSlippage) * 100) / 100
-      : Math.round(price * (1 - cfg.limitSlippage) * 100) / 100;
+    orderPrice = Math.round(price * (1 + cfg.limitSlippage) * 100) / 100;
   }
 
   const orderOpts = { side, symbol, quantity: qty, type: cfg.orderType, price: orderPrice, duration: "day" };
@@ -271,23 +252,18 @@ async function maybeAutoExecute({ symbol, signal, composite, price, support, res
   }
 
   // Assistant mode — propose the trade and wait for explicit approval via
-  // /api/autoexec/pending instead of placing it automatically. Also entered
-  // for an ungated SELL in "autopilot" mode (forceAssistant, see above) —
-  // the message says so explicitly so it's never mistaken for the normal
-  // assistant-mode flow.
-  if (cfg.mode === "assistant" || forceAssistant) {
+  // /api/autoexec/pending instead of placing it automatically.
+  if (cfg.mode === "assistant") {
     cfg.tradedToday = [...(cfg.tradedToday || []), symbol];
     writeConfig(cfg);
     const pending = readPending();
     const entry = { id: `${symbol}-${Date.now()}`, symbol, side, qty, price, orderOpts, score: composite, rvol, proposedAt: Date.now(), status: "pending" };
     pending.push(entry);
     writePending(pending);
-    const reason = forceAssistant
-      ? `🟡 ASSISTANT (forced — ungated SELL) — proposed ${side.toUpperCase()} ${qty} ${symbol} @ ~$${price} (score ${composite}, RVOL ${rvol.toFixed ? rvol.toFixed(1) : rvol}). Autopilot mode auto-places BUYs (canonical-engine-verified) but always routes SELLs through approval — no real short-verdict engine exists to verify this signal. Approve in the app (Pending Approval) or via POST /api/autoexec/pending/${entry.id}/approve.`
-      : `🟡 ASSISTANT — proposed ${side.toUpperCase()} ${qty} ${symbol} @ ~$${price} (score ${composite}, RVOL ${rvol.toFixed ? rvol.toFixed(1) : rvol}). Approve in the app (Pending Approval) or via POST /api/autoexec/pending/${entry.id}/approve.`;
+    const reason = `🟡 ASSISTANT — proposed ${side.toUpperCase()} ${qty} ${symbol} @ ~$${price} (score ${composite}, RVOL ${rvol.toFixed ? rvol.toFixed(1) : rvol}). Approve in the app (Pending Approval) or via POST /api/autoexec/pending/${entry.id}/approve.`;
     console.log(`[autoexec] ${reason}`);
     if (telegramConfigured()) sendTelegramMessage(reason).catch(() => {});
-    return { proposed: true, id: entry.id, autoTriggered: true, score: composite, rvol, symbol, side, qty, price, forcedAssistant: forceAssistant };
+    return { proposed: true, id: entry.id, autoTriggered: true, score: composite, rvol, symbol, side, qty, price };
   }
 
   // Autopilot mode — unchanged from the original always-on behavior. Only

@@ -66,6 +66,7 @@ Paper trading remains the default. No migration step authorizes live execution o
 - Smart Scan’s deep-dive/auto-trade compatibility display now derives its legacy `Cortex` label from canonical `AssetDecision`; the prior runtime reference had no local `cortexV` definition after migration.
 - Autopilot 2.0 UI Stock Watch now filters and displays standardized `STRONG_BUY`/`BUY` AssetDecision verdicts rather than legacy `EARLY_BUY`/raw opportunity fields.
 - Autopilot 2.0 Crypto Watch color/rank/actionable sets now use the same standardized final verdict vocabulary.
+- Tradier scanner auto-execution now requires the canonical AssetDecision object at the order boundary; the scanner-local composite is retained only as a secondary threshold/telemetry signal. Unsupported SELL/short auto-execution is fail-closed until a canonical short-side decision exists.
 - Trend-screen responses now publish top-level canonical `dataHealth` and `marketRegime` alongside per-row AssetDecision state for consistent page headers and health indicators.
 - Added `execution-authority.js`, a shared paper-only ownership contract distinguishing broker mutators (Server Autopilot, Light Box Assist, Quick Trade) from read-only schedulers.
 
@@ -96,8 +97,8 @@ Opportunity lifecycle: `DORMANT | DEVELOPING | EMERGING | ACTIONABLE | CONFIRMED
 - [x] Implement and validate canonical `AssetDecision` (`src/asset-decision.js`, v1 contract; consumer migration continues)
 - [x] Implement one canonical `MarketRegimeState` (`src/market-regime-engine.js`, compatibility adapter retained during migration)
 - [x] Add one explicit final risk-override boundary (data/regime/event/setup blockers in `buildAssetDecision`)
-- [~] Migrate all active execution paths to final `AssetDecision` (paper order boundaries are migrated; remaining broker/job audit is in progress)
-- [ ] Verify paper/live isolation across every broker route and scheduled job
+- [~] Migrate all active execution paths to final `AssetDecision` (Alpaca and Tradier paper order boundaries now require canonical BUY-family decisions; remaining broker/job audit is in progress)
+- [~] Verify paper/live isolation across every broker route and scheduled job (Alpaca is paper-only; Tradier remains sandbox by default and live mode is explicit, auth-gated, and no longer reachable from unsupported short signals)
 
 ### P1
 
