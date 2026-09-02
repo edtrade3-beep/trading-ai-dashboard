@@ -15,6 +15,7 @@ export default function TradeDeskEvidence({ decision, chart, C, MONO, SANS }) {
   const stop = decision?.stop;
   const targets = decision?.targets || [];
   const rr = decision?.riskReward;
+  const invalidation = decision?.invalidation;
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10, padding: "10px 12px", background: C.bg, borderTop: `1px solid ${C.border}` }}>
       <Panel title="EVIDENCE" C={C} MONO={MONO}>
@@ -26,6 +27,7 @@ export default function TradeDeskEvidence({ decision, chart, C, MONO, SANS }) {
         <Row label="Stop" value={value(stop && `$${Number(stop).toFixed(2)}`)} C={C} MONO={MONO} danger={stop != null} />
         <Row label="Targets" value={targets.length ? targets.map((t) => `$${Number(t).toFixed(2)}`).join(" · ") : "—"} C={C} MONO={MONO} />
         <Row label="Risk / reward" value={value(rr, rr != null ? "R" : "")} C={C} MONO={MONO} />
+        <Row label="Invalidation" value={value(invalidation && `$${Number(invalidation).toFixed(2)}`)} C={C} MONO={MONO} danger={invalidation != null} />
       </Panel>
       <Panel title="WHY / WHAT CHANGES IT" C={C} MONO={MONO} SANS={SANS}>
         <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, lineHeight: 1.4 }}>{decision?.reasons?.[0] || decision?.blockers?.[0] || "No explanation available."}</div>

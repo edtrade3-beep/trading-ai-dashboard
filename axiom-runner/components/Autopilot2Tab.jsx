@@ -446,6 +446,9 @@ export default function Autopilot2Tab({ C, MONO, SANS }) {
           <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: meta.color, background: `${meta.color}18`, border: `1px solid ${meta.color}55`, borderRadius: 999, padding: "3px 10px" }}>
             {meta.icon} {meta.label}
           </span>
+          <span title="No real orders are ever placed by this engine" style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.amber, background: `${C.amber}18`, border: `1px solid ${C.amber}55`, borderRadius: 999, padding: "3px 10px" }}>
+            🧪 PAPER ONLY
+          </span>
         </div>
         <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 3 }}>
           A real internal $100,000 simulated paper account — long only: stocks, calls (market hours), and real 24/7 spot crypto, no real orders ever. Shorts and puts are disabled by request; no spreads yet. {data.state?.reason ? `(${data.state.reason})` : ""}

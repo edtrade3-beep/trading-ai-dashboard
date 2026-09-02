@@ -75,6 +75,7 @@ function buildAssetDecision({ opportunity, marketRegime, dataHealth, positionSta
     confidence: Number.isFinite(confidenceBase) ? Math.round(confidenceBase * healthMultiplier) : null,
     entry: entryPlan.entryPrice ?? null, stop: entryPlan.stop ?? null,
     targets: [entryPlan.target1, entryPlan.target2].filter(Number.isFinite), riskReward: entryPlan.rr ?? derivedRr,
+    invalidation: Number.isFinite(entryPlan.invalidation) ? entryPlan.invalidation : null,
     decision, riskOverride: risk.overridden ? { from: decision, to: risk.finalVerdict, reasons: risk.blockers } : null,
     verdict: risk.finalVerdict,
     reasons: [...new Set([positionState ? positionReason : opportunity.verdictReason, ...(opportunity.reasons || [])].filter(Boolean))],
