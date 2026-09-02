@@ -22,6 +22,7 @@ function computeCanonicalAssetDecision({
   symbol, row, macroQuotes = [], marketContext = null, sectorInfo = null, adx = null,
   optionsFlow = null, trackReport = null, spreadPct = null, eventRisk = null,
   fundamentals = null, news = null, executionHealth = null,
+  researchContext = null,
   nowMs = Date.now(), marketHours = false, extraDataSources = [],
 } = {}) {
   if (!row || row.error || !symbol) return null;
@@ -33,6 +34,7 @@ function computeCanonicalAssetDecision({
     { source: "fundamentals", available: fundamentals != null, required: false },
     { source: "news", available: news != null, required: false },
     { source: "execution-paper-broker", available: executionHealth !== false, required: false },
+    { source: "research-market-wrap", available: researchContext?.available === true, required: false },
     ...extraDataSources,
   ], { nowMs });
   const marketRegime = computeMarketRegimeState({ macroQuotes, marketContext, dataHealth, timestamp: nowMs });

@@ -7,6 +7,7 @@ const { computeCanonicalAssetDecision } = require("../src/canonical-decision-pip
 const { computeEventRisk } = require("../src/event-risk-engine");
 const { tierForFinalDecision } = require("../src/server-autopilot");
 const { executionStatus } = require("../src/execution-authority");
+const { buildResearchContext } = require("../src/research-context-adapter");
 let passed = 0;
 function ok(name, fn) { try { fn(); passed++; console.log(`  ✓ ${name}`); } catch (e) { console.error(`  ✗ ${name}\n    ${e.message}`); process.exitCode = 1; } }
 const now = 2_000_000;
@@ -67,6 +68,12 @@ ok("execution authority is paper-only and separates mutators from read-only jobs
   assert.equal(status.paperOnly, true);
   assert.deepEqual(status.activeMutators, ["SERVER_AUTOPILOT", "LIGHTBOX_ASSIST"]);
   assert(status.readOnlySchedulers.includes("SCANNERS"));
+});
+ok("research context is bounded context, never a final verdict", () => {
+  const c = buildResearchContext({ researchIntel: { narrativeShifts: [{ dimension: "fed-policy-direction", state: "DETERIORATING", shifted: true }], cards: [{ risk: "HIGH" }] } });
+  assert.equal(c.available, true);
+  assert.equal(c.highRiskCount, 1);
+  assert.equal(c.verdict, undefined);
 });
 console.log(`\n${passed} checks passed.`);
 if (!process.exitCode) console.log("CANONICAL-ARCHITECTURE TEST OK");
