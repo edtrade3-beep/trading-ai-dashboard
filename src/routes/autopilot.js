@@ -44,7 +44,8 @@ async function handleAutopilot(req, res, requestUrl) {
   }
 
   if (pathname === "/api/autopilot/status" && req.method === "GET") {
-    return writeJson(res, 200, { ok: true, ...getStatus(), execution: executionStatus({ serverAutopilot: false, lightboxMode: getMode() }) });
+    const { getAutoexecMode } = require("./autoexec");
+    return writeJson(res, 200, { ok: true, ...getStatus(), execution: executionStatus({ serverAutopilot: false, lightboxMode: getMode(), tradierMode: getAutoexecMode() }) });
   }
 
   // Real ASSIST order preview/execute (2026-08-23, explicit user request:

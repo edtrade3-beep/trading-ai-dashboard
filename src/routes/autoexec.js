@@ -464,4 +464,4 @@ async function handleAutoExec(req, res, requestUrl) {
   return writeJson(res, 404, { error: "Not found" });
 }
 
-module.exports = { handleAutoExec, maybeAutoExecute, isCryptoPairSymbol };
+module.exports = { handleAutoExec, maybeAutoExecute, isCryptoPairSymbol, getAutoexecMode: () => readConfig().mode };

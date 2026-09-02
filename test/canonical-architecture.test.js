@@ -69,9 +69,9 @@ ok("legacy Alpaca paper Autopilot tiers only canonical executable Final Verdicts
   }
 });
 ok("execution authority is paper-only and separates mutators from read-only jobs", () => {
-  const status = executionStatus({ serverAutopilot: true, lightboxMode: "ASSIST" });
+  const status = executionStatus({ serverAutopilot: true, lightboxMode: "ASSIST", tradierMode: "autopilot" });
   assert.equal(status.paperOnly, true);
-  assert.deepEqual(status.activeMutators, ["SERVER_AUTOPILOT", "LIGHTBOX_ASSIST"]);
+  assert.deepEqual(status.activeMutators, ["SERVER_AUTOPILOT", "LIGHTBOX_ASSIST", "TRADIER_AUTOEXEC"]);
   assert(status.readOnlySchedulers.includes("SCANNERS"));
 });
 ok("research context is bounded context, never a final verdict", () => {

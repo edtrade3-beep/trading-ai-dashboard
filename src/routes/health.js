@@ -26,11 +26,13 @@ async function handleHealth(req, res) {
   const postgres = { ...getDbStatus(), photosConnected: photosDbMode() };
   let lightboxMode = "OFF";
   try { lightboxMode = require("../autopilot-store").getMode(); } catch { /* optional store */ }
+  let tradierMode = "off";
+  try { tradierMode = require("./autoexec").getAutoexecMode(); } catch { /* optional legacy broker */ }
   const { executionStatus } = require("../execution-authority");
   return writeJson(res, 200, {
     ok: true, version: "market-v2", build: BUILD, startedAt: STARTED_AT,
     telegram: telegramConfigured(), serverAutopilot, meanrevPaper, apiAuth,
-    execution: { ...executionStatus({ serverAutopilot, lightboxMode }), lightboxMode },
+    execution: { ...executionStatus({ serverAutopilot, lightboxMode, tradierMode }), lightboxMode, tradierMode },
     envSeen, postgres,
   });
 }

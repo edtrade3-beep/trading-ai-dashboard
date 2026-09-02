@@ -69,6 +69,7 @@ Paper trading remains the default. No migration step authorizes live execution o
 - Tradier scanner auto-execution now requires the canonical AssetDecision object at the order boundary; the scanner-local composite is retained only as a secondary threshold/telemetry signal. Unsupported SELL/short auto-execution is fail-closed until a canonical short-side decision exists.
 - Trend-screen responses now publish top-level canonical `dataHealth` and `marketRegime` alongside per-row AssetDecision state for consistent page headers and health indicators.
 - Added `execution-authority.js`, a shared paper-only ownership contract distinguishing broker mutators (Server Autopilot, Light Box Assist, Quick Trade) from read-only schedulers.
+- Execution authority and `/api/health` now include the legacy Tradier Autoexec mode, including pending assistant approval, so every broker mutator is visible in one status contract.
 
 ## Target canonical contracts
 
@@ -102,7 +103,7 @@ Opportunity lifecycle: `DORMANT | DEVELOPING | EMERGING | ACTIONABLE | CONFIRMED
 
 ### P1
 
-- [ ] Consolidate user-facing Autopilot state and scheduler ownership
+- [~] Consolidate user-facing Autopilot state and scheduler ownership (all mutators are now reported by one authority contract; scheduler consolidation remains a shadow/migration task)
 - [~] Expand Data Health from quote freshness to per-source health (canonical pipeline now reports price/macro/options/fundamentals/news/paper-broker source states; provider-specific timestamps remain to be wired where available)
 - [x] Add deterministic why / why-not / change-my-mind fields
 - [x] Finish Trade Desk canonical-state presentation
