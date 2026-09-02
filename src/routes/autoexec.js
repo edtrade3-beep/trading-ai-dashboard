@@ -187,6 +187,10 @@ async function maybeAutoExecute({ symbol, signal, composite, price, support, res
   if (!broker.isConfigured()) return null;
   if (!isMarketHoursET()) return null;
   if (isCryptoPairSymbol(symbol)) return null;
+  // Do not let the legacy Tradier scheduler run beside the canonical Alpaca
+  // Server Autopilot. Two active mutators would violate one-engine ownership;
+  // the legacy path stays available only when the canonical scheduler is off.
+  if (require("../utils").isOn(process.env.SERVER_AUTOPILOT)) return null;
 
   let cfg = readConfig();
   cfg = await maybeResetDaily(cfg);
