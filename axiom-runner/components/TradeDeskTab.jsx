@@ -247,7 +247,9 @@ export default function TradeDeskTab({
       const el = rootRef.current;
       if (!el) return;
       const top = Math.max(0, el.getBoundingClientRect().top);
-      const h = Math.max(560, Math.floor(window.innerHeight - top - 48));
+      // Leave room for the fixed status bar and browser zoomed layouts. A
+      // 560px floor made the chart extend below the viewport at 125% zoom.
+      const h = Math.max(420, Math.floor(window.innerHeight - top - 90));
       setRootHeight((prev) => (prev == null || Math.abs(prev - h) > 4 ? h : prev));
     };
     measure();
