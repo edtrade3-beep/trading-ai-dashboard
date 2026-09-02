@@ -205,6 +205,28 @@ async function handleFutureWallet(req, res, requestUrl) {
     // than guessed into or out of the result.
     if (maxPrice != null) rows = rows.filter((r) => r.price != null && r.price <= maxPrice);
     rows = rows.sort((a, b) => b.horseScore - a.horseScore).slice(0, limit);
+    if (requestUrl.searchParams.get("withDecision") === "1" && rows.length) {
+      try {
+        const { screenTrendTemplate, fetchMarketQuotes } = require("./market");
+        const { resolveProviderKeys } = require("../config");
+        const { computeCanonicalAssetDecision } = require("../canonical-decision-pipeline");
+        const [screen, macro] = await Promise.all([
+          screenTrendTemplate(rows.map((r) => r.symbol)),
+          fetchMarketQuotes(["SPY", "QQQ", "VIXY"], resolveProviderKeys(new URLSearchParams())).catch(() => []),
+        ]);
+        const bySymbol = new Map((screen || []).map((r) => [r.symbol, r]));
+        const decisions = new Map();
+        for (const item of rows) {
+          const row = bySymbol.get(item.symbol);
+          const canonical = row && !row.error ? computeCanonicalAssetDecision({ symbol: item.symbol, row, macroQuotes: macro }) : null;
+          if (canonical?.assetDecision) decisions.set(item.symbol, canonical.assetDecision);
+        }
+        rows = rows.map((item) => {
+          const assetDecision = decisions.get(item.symbol) || null;
+          return { ...item, currentEntryVerdict: assetDecision?.verdict || null, assetDecision };
+        });
+      } catch { /* current timing is optional; potential scores remain valid */ }
+    }
     return writeJson(res, 200, { ok: true, count: rows.length, rows, bestOfBoth: crossover, maxPrice });
   }
 

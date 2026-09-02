@@ -131,7 +131,7 @@ export default function LightBoxTab({ C, MONO, SANS, lightboxSettings, setLightb
     let alive = true;
     const pollHorses = async () => {
       try {
-        const r = await fetch("/api/future-wallet/horses?limit=20");
+        const r = await fetch("/api/future-wallet/horses?limit=20&withDecision=1");
         const j = await r.json();
         if (!alive || !j.ok) return;
         setHorses(j.rows || []);
@@ -284,12 +284,12 @@ export default function LightBoxTab({ C, MONO, SANS, lightboxSettings, setLightb
               if (!filtered.length) return <span style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, alignSelf: "center" }}>No real Horses match this filter right now.</span>;
               return filtered.slice(0, 12).map((h) => (
                 <button key={h.symbol} onClick={() => onOpenHorse && onOpenHorse(h.symbol)}
-                  title={h.verdict || ""}
+                  title={h.assetDecision?.reasons?.[0] || h.verdict || ""}
                   style={{
                     fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "5px 10px", borderRadius: 999, cursor: onOpenHorse ? "pointer" : "default",
                     border: "1px solid #a855f755", background: C.card, color: C.text,
                   }}>
-                  {STAGE_ICON[h.stage] || "⚪"} {h.symbol} ({h.horseScore})
+                  {STAGE_ICON[h.stage] || "⚪"} {h.symbol} ({h.horseScore}){h.currentEntryVerdict ? ` · ${h.currentEntryVerdict}` : ""}
                 </button>
               ));
             })()}
