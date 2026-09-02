@@ -112,13 +112,15 @@ export default function SmartMoneyDecisionPanel({ symbol, C, MONO, SANS, setActi
   // computed primaryAction down, that's the headline here too, so this
   // panel can never show a different buy/sell call than the rest of the
   // page for the same symbol at the same instant. Falls back to this
-  // panel's own real verdict only when mounted standalone with no
-  // heroAction prop (defensive, not the normal path on Workspace).
-  const verdictLabel = heroAction ? heroAction.label : data?.verdict;
-  const verdictColor = heroAction ? heroAction.color : (!data ? C.textDim : data.verdict === "BUY NOW" ? C.green : data.verdict === "AVOID" ? C.red : C.amber);
+  // canonical server verdict is used whenever the route provides it; the
+  // legacy presentation verdict remains only as a compatibility fallback.
+  const canonicalVerdict = data?.finalVerdict || data?.assetDecision?.verdict || null;
+  const verdictLabel = heroAction ? heroAction.label : canonicalVerdict || data?.verdict;
+  const verdictColor = heroAction ? heroAction.color : (!data ? C.textDim : ["STRONG_BUY", "BUY"].includes(canonicalVerdict) || data.verdict === "BUY NOW" ? C.green : ["AVOID", "EXIT"].includes(canonicalVerdict) || data.verdict === "AVOID" ? C.red : C.amber);
   const verdictIcon = heroAction
     ? (heroAction.tier >= 7 ? "🟢" : heroAction.tier === 6 ? "⚪" : heroAction.tier >= 3 ? "🟡" : "🔴")
-    : (!data ? "⚪" : data.verdict === "BUY NOW" ? "🟢" : data.verdict === "AVOID" ? "🔴" : "🟡");
+    : (!data ? "⚪" : ["STRONG_BUY", "BUY"].includes(canonicalVerdict) || data.verdict === "BUY NOW" ? "🟢" : ["AVOID", "EXIT"].includes(canonicalVerdict) || data.verdict === "AVOID" ? "🔴" : "🟡");
+  const canonicalReason = data?.assetDecision?.reasons?.[0] || data?.assetDecision?.blockers?.[0] || data?.verdictReason;
 
   const trendLight = data ? (data.trend.passCount >= 7 ? "green" : data.trend.passCount >= 6 ? "yellow" : "red") : null;
   const instLight = data ? (data.marketControl === "BUYERS" ? "green" : data.marketControl === "MIXED" ? "yellow" : "red") : null;
@@ -193,7 +195,7 @@ export default function SmartMoneyDecisionPanel({ symbol, C, MONO, SANS, setActi
                     </div>
                     <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.textDim, marginTop: 4, maxWidth: 380 }}>
                       {heroAction && <span style={{ opacity: 0.75 }}>Same call as the page verdict above — </span>}
-                      {data.verdictReason}
+                      {canonicalReason}
                     </div>
                   </div>
                   <RadialGauge C={C} MONO={MONO} value={data.confidence} label="CONFIDENCE" color={verdictColor} size={130} />
@@ -213,7 +215,7 @@ export default function SmartMoneyDecisionPanel({ symbol, C, MONO, SANS, setActi
                 style={{ marginBottom: 14, border: `1px solid ${verdictColor}55`, borderRadius: 10, padding: "10px 16px", background: `${verdictColor}0d`, cursor: "pointer",
                   display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                 <span style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: verdictColor, display: "flex", alignItems: "center", gap: 6 }}>{verdictIcon}{verdictLabel}</span>
-                <span style={{ fontFamily: SANS, fontSize: 11.5, color: C.textDim }}>{heroAction ? "Same call as the page verdict above" : data.verdictReason}</span>
+                <span style={{ fontFamily: SANS, fontSize: 11.5, color: C.textDim }}>{heroAction ? "Same call as the page verdict above" : canonicalReason}</span>
                 <span style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 800, color: C.accent, marginLeft: "auto" }}>Show full read ▾</span>
               </div>
             )}
