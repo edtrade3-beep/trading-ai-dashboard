@@ -76,6 +76,7 @@ Paper trading remains the default. No migration step authorizes live execution o
 - The opportunities route's canonical regime/health sample now carries the same Research/Market Wrap context as each per-symbol decision, avoiding a split top-level health state.
 - Smart Money now publishes the canonical `assetDecision`/`finalVerdict` alongside its institutional/SMC evidence, making its decision boundary inspectable without replacing existing detail fields.
 - Smart Money Decision Panel now renders that canonical final verdict and reason when available; legacy route labels remain compatibility-only.
+- Cortex Stock tab's second verdict card is now explicitly labeled as the canonical decision track record, removing the implication that Cortex computes a separate final verdict.
 
 ## Target canonical contracts
 

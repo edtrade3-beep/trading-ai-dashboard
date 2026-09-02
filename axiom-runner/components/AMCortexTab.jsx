@@ -557,11 +557,11 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
                 );
               })()}
 
-              {/* CORTEX VERDICT — Cortex's own specialized read (Sniper +
-                  Heat Risk + A+ Score), real and unchanged, including its
-                  own real historical win-rate track record below. */}
+              {/* Canonical decision track record — this card intentionally
+                  repeats the same AssetDecision verdict with Cortex's
+                  historical observation count; it is not a second classifier. */}
               <div style={{ background: `${verdict.color}14`, border: `1px solid ${verdict.color}66`, borderRadius: 12, padding: 18, textAlign: "center", marginBottom: 10 }}>
-                <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textDim, marginBottom: 4 }}>CORTEX VERDICT</div>
+                <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textDim, marginBottom: 4 }}>CANONICAL VERDICT · TRACK RECORD</div>
                 <div style={{ fontFamily: MONO, fontSize: 28, fontWeight: 900, color: verdict.color }}>{verdict.icon} {verdict.verdict}</div>
                 <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.textSec, marginTop: 6, lineHeight: 1.5 }}>{verdict.reason}</div>
                 {(() => {
