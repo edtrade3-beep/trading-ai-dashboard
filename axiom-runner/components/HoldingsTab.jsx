@@ -145,7 +145,7 @@ export default function HoldingsTab({ C, MONO, SANS, macroData }) {
     const belowStop = px <= stop;
     const belowMA = trendStage.startsWith("Stage 3") || trendStage.startsWith("Stage 4");
     const status = belowStop ? { t: "🔴 BELOW STOP", c: C.red } : belowMA ? { t: "🟠 BELOW MA50", c: C.amber } : { t: "🟢 TREND OK", c: C.green };
-    return { ...h, q, px, stop, pnl, pnlPct, status, signal: gl.signal, value: px * h.shares };
+    return { ...h, q, px, stop, pnl, pnlPct, status, signal: gl.signal, value: px * h.shares, assetDecision: trendMap[h.symbol]?.assetDecision || null };
   });
   const totalValue = rows.reduce((s, r) => s + (r.value || 0), 0);
   const totalPnl = rows.reduce((s, r) => s + (r.pnl || 0), 0);
@@ -309,6 +309,7 @@ export default function HoldingsTab({ C, MONO, SANS, macroData }) {
                 </div>
                 <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
                   <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: r.status.c, background: `${r.status.c}14`, borderRadius: 5, padding: "3px 9px" }}>{r.status.t}</span>
+                  {r.assetDecision?.verdict && <span title={r.assetDecision.reasons?.[0] || "Canonical decision"} style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textSec, border: `1px solid ${C.border}`, borderRadius: 5, padding: "3px 7px" }}>{r.assetDecision.verdict}</span>}
                   <button
                     onClick={() => askWhy(r.symbol, r.px, Number.isFinite(dayChgPct) ? dayChgPct : undefined)}
                     title={`Why is ${r.symbol} moving? — real web-searched catalyst`}
