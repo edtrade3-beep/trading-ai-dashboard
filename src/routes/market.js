@@ -1393,9 +1393,20 @@ let _trackReportCache = null;
 const TRACK_TTL_MS = 600_000;
 async function _getTrackReportCached() {
   if (_trackReportCache && Date.now() - _trackReportCache.ts < TRACK_TTL_MS) return _trackReportCache.data;
-  const data = await require("../aplus-score-history").buildForwardReturnReport().catch(() => null);
-  _trackReportCache = { ts: Date.now(), data };
-  return data;
+  // Real fix (2026-09-02, confirmed live): buildForwardReturnReport() makes
+  // up to 10 sequential fetchMarketQuotes() calls (5 horizons × score +
+  // Cortex-verdict buckets) on a cold cache. Each individual call is
+  // already timeout-guarded internally, but the sequential total can still
+  // run far past any reasonable request budget — this was hanging every
+  // one of this function's 4 callers (trend-screen?withDecision=1,
+  // opportunities, and 2 others), none of which could see it since it's 2
+  // requires deep. withTimeout only stops THIS request from waiting; the
+  // real computation keeps running in the background and still populates
+  // the cache for the next request once it finishes.
+  const promise = require("../aplus-score-history").buildForwardReturnReport()
+    .then((data) => { _trackReportCache = { ts: Date.now(), data }; return data; })
+    .catch(() => null);
+  return withTimeout(promise, 8000, _trackReportCache?.data ?? null);
 }
 
 async function buildTrendTemplate(symbol, opts = {}) {
