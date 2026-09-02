@@ -2126,12 +2126,15 @@ async function computeAllOpportunities() {
   const { loadCoachLog } = require("../ai-coach-store");
 
   const MACRO_SYMS = ["SPY", "QQQ", "IWM", "DIA", "^VIX", "UUP", "VIXY", "TLT", "HYG"];
+  console.log(`[DIAG] computeAllOpportunities: starting Promise.all at ${Date.now()}, SCAN_UNIVERSE.length=${SCAN_UNIVERSE.length}`);
+  const tag = (name, p) => p.then((r) => { console.log(`[DIAG] computeAllOpportunities: ${name} RESOLVED at ${Date.now()}`); return r; }).catch((e) => { console.log(`[DIAG] computeAllOpportunities: ${name} REJECTED at ${Date.now()}: ${e && e.message}`); throw e; });
   const [rows, macroQuotes, sectorQuotes, trackReport] = await Promise.all([
-    screenTrendTemplate(SCAN_UNIVERSE),
-    fetchYahooQuoteBatch(MACRO_SYMS).catch(() => []),
-    fetchYahooQuoteBatch(SECTOR_THEME_MAP.SECTOR_ETFS.map((s) => s.sym)).catch(() => []),
-    _getTrackReportCached(),
+    tag("screenTrendTemplate", screenTrendTemplate(SCAN_UNIVERSE)),
+    tag("macroQuotes", fetchYahooQuoteBatch(MACRO_SYMS).catch(() => [])),
+    tag("sectorQuotes", fetchYahooQuoteBatch(SECTOR_THEME_MAP.SECTOR_ETFS.map((s) => s.sym)).catch(() => [])),
+    tag("trackReport", _getTrackReportCached()),
   ]);
+  console.log(`[DIAG] computeAllOpportunities: Promise.all done at ${Date.now()}`);
 
   const macroData = macroQuotes.map((q) => ({
     symbol: q.symbol, price: q.regularMarketPrice, changesPercentage: q.regularMarketChangePercent,
@@ -3021,6 +3024,7 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
   // a ~100-symbol-per-request fetch.
   if (pathname === "/api/market/opportunities" && req.method === "GET") {
     try {
+      console.log(`[DIAG] opportunities: handler entered at ${Date.now()}`);
       // Real fix (2026-09-02, confirmed live on Render): computeAllOpportunities()
       // scans the full ~100-symbol SCAN_UNIVERSE with no overall bound — every
       // individual provider call it makes is (now) timeout-guarded, but chained
@@ -3032,9 +3036,10 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
       // honest 502 the client's own Retry UI already handles — instead of a
       // request that never resolves.
       const { tiers, dataQuality, dataHealth, marketRegime, researchContext } = await Promise.race([
-        computeAllOpportunities(),
-        new Promise((_, reject) => setTimeout(() => reject(new Error("Opportunity scan timed out.")), 18000)),
+        computeAllOpportunities().then((r) => { console.log(`[DIAG] opportunities: computeAllOpportunities RESOLVED at ${Date.now()}`); return r; }).catch((e) => { console.log(`[DIAG] opportunities: computeAllOpportunities REJECTED at ${Date.now()}: ${e && e.message}`); throw e; }),
+        new Promise((_, reject) => setTimeout(() => { console.log(`[DIAG] opportunities: 18s TIMEOUT fired at ${Date.now()}`); reject(new Error("Opportunity scan timed out.")); }, 18000)),
       ]);
+      console.log(`[DIAG] opportunities: race settled successfully at ${Date.now()}`);
 
       // Same-session Edge Timeline (Phase 2, 2026-08-26) — real, throttled
       // intraday snapshot of every real Opportunity Object this scan just
@@ -3045,12 +3050,14 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
         recordOpportunitySnapshots(Object.values(tiers).flat());
       } catch {}
 
+      console.log(`[DIAG] opportunities: about to writeJson 200 at ${Date.now()}, headersSent=${res.headersSent}`);
       return writeJson(res, 200, {
         ok: true, generatedAt: new Date().toISOString(),
         counts: Object.fromEntries(Object.entries(tiers).map(([k, v]) => [k, v.length])),
         tiers, dataQuality, dataHealth, marketRegime, researchContext,
       });
     } catch (err) {
+      console.log(`[DIAG] opportunities: CATCH at ${Date.now()}, headersSent=${res.headersSent}, err=${err && err.message}`);
       return writeJson(res, 502, { ok: false, error: err instanceof Error ? err.message : "Opportunity scan failed." });
     }
   }
