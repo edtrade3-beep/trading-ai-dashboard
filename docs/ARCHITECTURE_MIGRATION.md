@@ -74,6 +74,7 @@ Paper trading remains the default. No migration step authorizes live execution o
 - Removed the Autoexec UI's misleading independent `allowShorts` control and retired its persisted setting; Tradier Autoexec is long-only until canonical short-side decisions are implemented.
 - Tradier Autoexec now fails closed whenever the canonical Server Autopilot scheduler is enabled, preventing concurrent broker mutators during the scheduler migration.
 - The opportunities route's canonical regime/health sample now carries the same Research/Market Wrap context as each per-symbol decision, avoiding a split top-level health state.
+- Trend-screen `withDecision=1` responses now publish the bounded Research/Market Wrap context at both row and top-level scope, so all major decision consumers receive the same narrative context.
 - Smart Money now publishes the canonical `assetDecision`/`finalVerdict` alongside its institutional/SMC evidence, making its decision boundary inspectable without replacing existing detail fields.
 - Smart Money Decision Panel now renders that canonical final verdict and reason when available; legacy route labels remain compatibility-only.
 - Future Wallet Horses endpoint supports opt-in `withDecision=1`; Light Box now requests it and displays the canonical current-entry verdict alongside long-term Horse score/stage.
@@ -149,7 +150,7 @@ Opportunity lifecycle: `DORMANT | DEVELOPING | EMERGING | ACTIONABLE | CONFIRMED
 
 ### P3
 
-- [ ] Publish Research/Market Wrap narrative state into canonical context
+- [~] Publish Research/Market Wrap narrative state into canonical context (opportunities and trend-screen now carry the bounded adapter output; scheduled publication/provider coverage remains)
 - [~] Standardize verdict/stage UI vocabulary and visual treatment (canonical data is now delivered to remaining trend-screen surfaces; local presentation cleanup remains)
 - [ ] Remove verified dead engines, fallbacks, routes, prompts, imports, and duplicate requests
 - [ ] Complete dependency-flow and operational documentation

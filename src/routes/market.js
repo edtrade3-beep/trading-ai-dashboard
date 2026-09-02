@@ -2817,7 +2817,11 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
           ]);
           const { computeDataHealth } = require("../data-health-engine");
           const { isMarketHoursET } = require("../risk-guardrails");
+          const { buildResearchContext } = require("../research-context-adapter");
+          const { loadCoachLog } = require("../ai-coach-store");
           const decisionTimestamp = Date.now();
+          const coachLog = loadCoachLog();
+          const researchContext = buildResearchContext({ researchIntel: coachLog.researchIntel, marketWrap: coachLog.marketWrap, timestamp: decisionTimestamp });
           const macroTimestamp = macroRows.reduce((latest, q) => Math.max(latest, Number(q?.regularMarketTime || 0) * 1000), 0) || null;
           const dataHealth = computeDataHealth([
             { source: "market-price", available: results.some((row) => !row.error && Number.isFinite(row.price)), required: true },
@@ -2854,6 +2858,7 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
             const optionsFlow = optionsFlowBySymbol?.get(row.symbol) || null;
             const canonical = computeCanonicalAssetDecision({
               symbol: row.symbol, row, macroQuotes: macroRows, trackReport, optionsFlow,
+              researchContext,
               nowMs: decisionTimestamp, marketHours: isMarketHoursET(),
               extraDataSources: [{ source: "batch-data-health", available: dataHealth?.canTrade !== false, required: false }],
             });
@@ -2871,6 +2876,7 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
             row.bearishReason = opp.bearishVerdictReason;
             row.opportunity = opp;
             row.assetDecision = opp.assetDecision;
+            row.researchContext = researchContext;
           }
 
           // "What Changed?" (Trade Desk redesign Phase 2, spec §20) — real
@@ -2903,6 +2909,7 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
         count: results.length, results,
         dataHealth: canonicalSample?.assetDecision?.dataHealth || null,
         marketRegime: canonicalSample?.assetDecision?.marketRegime || null,
+        researchContext: canonicalSample?.researchContext || null,
       });
     } catch (err) {
       return writeJson(res, 502, { error: err instanceof Error ? err.message : "Screen failed." });
