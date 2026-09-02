@@ -22,7 +22,12 @@ async function handleAutopilot2(req, res, requestUrl) {
         const { computeAllOpportunities } = require("./market");
         const scan = await computeAllOpportunities();
         const heldSymbols = new Set(account.openPositions.map((p) => p.symbol));
-        const candidates = (scan.tiers?.actionable || []).filter((o) => !heldSymbols.has(o.symbol));
+        // Match the live engine's source-selection gate: an executable
+        // canonical BUY is eligible even when its opportunity lifecycle is
+        // DEVELOPING/EXTENDED, while risk/setup gates decide the final entry.
+        // Restricting status to ACTIONABLE made a running engine look idle.
+        const candidates = Object.values(scan.tiers || {}).flat()
+          .filter((o) => (o.assetDecision?.verdict === "STRONG_BUY" || o.assetDecision?.verdict === "BUY") && !heldSymbols.has(o.symbol));
         bestOpportunity = candidates.sort((a, b) => (b.expectedValue ?? -Infinity) - (a.expectedValue ?? -Infinity))[0] || null;
 
         // Bearish fallback (2026-08-31, bidirectional trading) — only
@@ -61,7 +66,12 @@ async function handleAutopilot2(req, res, requestUrl) {
         heartbeat = loadHeartbeats()["ADOL22 Autopilot 2.0"] || null;
       } catch { heartbeat = null; }
 
-      return writeJson(res, 200, { ok: true, state, account, activity: recentActivity(50), bestOpportunity, heartbeat });
+      const recent = recentActivity(50);
+      return writeJson(res, 200, { ok: true, state, account, activity: recent, bestOpportunity, heartbeat,
+        statusMessage: state.state === "OFF" ? "OFF — scheduler will not open or manage positions"
+          : heartbeat?.lastOk === false ? `RUNNING — scheduler error: ${heartbeat.lastError || "unknown"}`
+          : bestOpportunity ? `RUNNING — next canonical ${bestOpportunity.assetDecision?.verdict || "BUY"} candidate: ${bestOpportunity.symbol}`
+          : "RUNNING — no qualifying canonical BUY setup right now" });
     } catch (err) {
       return writeJson(res, 200, { ok: false, error: err instanceof Error ? err.message : "status failed" });
     }

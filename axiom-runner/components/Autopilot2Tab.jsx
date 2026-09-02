@@ -445,6 +445,7 @@ export default function Autopilot2Tab({ C, MONO, SANS }) {
         <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginTop: 3 }}>
           A real internal $100,000 simulated paper account — long only: stocks, calls (market hours), and real 24/7 spot crypto, no real orders ever. Shorts and puts are disabled by request; no spreads yet. {data.state?.reason ? `(${data.state.reason})` : ""}
         </div>
+        {data.statusMessage && <div style={{ marginTop: 8, fontFamily: MONO, fontSize: 12, fontWeight: 800, color: best ? C.green : state === "SAFE_MODE" ? C.red : C.amber }}>{data.statusMessage}</div>}
       </div>
 
       {/* How it trades — a plain-English brief, not marketing copy. Every
