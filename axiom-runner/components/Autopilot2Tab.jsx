@@ -524,20 +524,20 @@ export default function Autopilot2Tab({ C, MONO, SANS }) {
                 🔻 SHORT
               </span>
             )}
-            {best.stage && (
-              <span title="EARLY = just clearing entry criteria, before it's obvious. CONFIRMED = fully confirmed breakout/retest."
+            {(best.assetDecision?.opportunityStage || best.stage) && (
+              <span title="Canonical opportunity lifecycle stage from the central decision pipeline."
                 style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: 0.5,
-                  color: best.stage === "EARLY" ? "#0d9465" : C.accent,
-                  background: `${best.stage === "EARLY" ? "#0d9465" : C.accent}18`,
-                  border: `1px solid ${best.stage === "EARLY" ? "#0d9465" : C.accent}55`, borderRadius: 4, padding: "2px 7px" }}>
-                {best.stage}
+                  color: best.assetDecision?.opportunityStage === "EMERGING" ? "#0d9465" : C.accent,
+                  background: `${best.assetDecision?.opportunityStage === "EMERGING" ? "#0d9465" : C.accent}18`,
+                  border: `1px solid ${best.assetDecision?.opportunityStage === "EMERGING" ? "#0d9465" : C.accent}55`, borderRadius: 4, padding: "2px 7px" }}>
+                {best.assetDecision?.opportunityStage || best.stage}
               </span>
             )}
             {stat("TRADE QUALITY", best.score)}
             {stat("PROBABILITY", best.probability != null ? `${best.probability}%` : "insufficient data")}
             {stat("EXPECTED R", Number.isFinite(best.expectedValue) ? `${best.expectedValue >= 0 ? "+" : ""}${best.expectedValue}%` : "—")}
             {stat("CHASE RISK", best.chaseRisk || "—")}
-            <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, flex: 1, minWidth: 200 }}>{best.verdictReason}</div>
+            <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, flex: 1, minWidth: 200 }}>{best.assetDecision?.reasons?.[0] || best.verdictReason}</div>
           </div>
         ) : (
           <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>No real actionable candidate right now — honestly none, not hidden.</div>
