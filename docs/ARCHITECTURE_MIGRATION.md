@@ -86,6 +86,24 @@ Paper trading remains the default. No migration step authorizes live execution o
 
 ## Target canonical contracts
 
+## Dependency flow and ownership
+
+The production dependency path is:
+
+`provider fetches -> normalized scanner row -> data-health-engine -> market-regime-engine -> opportunity-engine -> asset-decision risk override -> AssetDecision`
+
+Consumers must read `assetDecision.verdict`, `assetDecision.opportunityStage`, and its reason/blocker fields. Technical, institutional, sniper, Cortex, Future Wallet, and portfolio calculations are evidence or long-horizon context; they cannot authorize an order. Order-capable paths are limited to the execution-authority mutators and must fail closed without a canonical BUY-family decision. Compatibility fields such as `coreVerdict`, `next`, and legacy GO/WAIT labels remain temporary presentation adapters only.
+
+Source ownership:
+
+- Market regime: `src/market-regime-engine.js`
+- Opportunity assembly: `src/opportunity-engine.js`
+- Final decision and risk override: `src/asset-decision.js`
+- Data freshness/blocking: `src/data-health-engine.js`
+- Event blocking: `src/event-risk-engine.js`
+- Broker mutator ownership: `src/execution-authority.js`
+- Research/Market Wrap context: `src/research-context-adapter.js`
+
 ### MarketRegimeState
 
 Vocabulary: `RISK_ON | SELECTIVE_RISK_ON | NEUTRAL | RISK_OFF | CRISIS`.
