@@ -702,7 +702,7 @@ export default function TradeDeskTab({
       </div>
 
       <TradeDeskEvidence decision={canonicalDecision} chart={chart} C={TD} MONO={MONO} SANS={SANS} />
-      <TradeDeskTabs symbol={symbol} onOpen={openTickerTab} C={TD} MONO={MONO} />
+      <TradeDeskTabs symbol={symbol} activeKey={dockModule} onOpen={openTickerTab} C={TD} MONO={MONO} />
 
       {/* Workspace Grid (Trade Desk redesign Phase 1) — a plain sibling
           BELOW the fixed-height core zone and ABOVE the bottom dock, never
