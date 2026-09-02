@@ -2820,6 +2820,19 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
       // slow; CortexMiniPanel's real single-symbol lookup is exactly the
       // deep-dive case those real per-symbol enrichments belong in.
       if (searchParams.get("withDecision") === "1" && results.length) {
+        // Real fix (2026-09-02, confirmed live on Render): even after
+        // timeout-guarding fetchAlpacaBars/fetchAlpacaQuotes and
+        // _getTrackReportCached individually, this whole enrichment block
+        // could still hang the route — every internal awaited call has its
+        // own guard, but this many chained together (macro quotes,
+        // trackReport, options flow) could still sum well past a
+        // reasonable request budget. One outer ceiling closes that
+        // regardless of which specific internal step is slow. This block
+        // was already documented as "additive-only — a failure here must
+        // not break the base scan response," so timing it out is the same
+        // honest degrade as any of its existing catches, not a new
+        // behavior class.
+        await withTimeout((async () => {
         try {
           const { computeCanonicalAssetDecision } = require("../canonical-decision-pipeline");
           const [macroRows, trackReport] = await Promise.all([
@@ -2914,6 +2927,7 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
             } catch { /* snapshot diffing is additive-only — never breaks the base scan response */ }
           }
         } catch { /* enrichment is additive-only — a failure here must not break the base scan response */ }
+        })(), 12000, null);
       }
       const canonicalSample = results.find((row) => row.assetDecision);
       return writeJson(res, 200, {
@@ -3007,7 +3021,20 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
   // a ~100-symbol-per-request fetch.
   if (pathname === "/api/market/opportunities" && req.method === "GET") {
     try {
-      const { tiers, dataQuality, dataHealth, marketRegime, researchContext } = await computeAllOpportunities();
+      // Real fix (2026-09-02, confirmed live on Render): computeAllOpportunities()
+      // scans the full ~100-symbol SCAN_UNIVERSE with no overall bound — every
+      // individual provider call it makes is (now) timeout-guarded, but chained
+      // across a full-universe scan the total could still run far past any
+      // reasonable request budget, hanging this route indefinitely. Unlike the
+      // trend-screen withDecision=1 block (additive enrichment, safe to skip),
+      // this IS the route's actual payload, so timing out here rejects (not a
+      // silent empty result) into the existing catch below, producing a fast,
+      // honest 502 the client's own Retry UI already handles — instead of a
+      // request that never resolves.
+      const { tiers, dataQuality, dataHealth, marketRegime, researchContext } = await Promise.race([
+        computeAllOpportunities(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("Opportunity scan timed out.")), 18000)),
+      ]);
 
       // Same-session Edge Timeline (Phase 2, 2026-08-26) — real, throttled
       // intraday snapshot of every real Opportunity Object this scan just
