@@ -1357,14 +1357,20 @@ const TT_TTL_MS = 300_000;
 // Sharing the bars array means passCount/RS/momentum/ADX/etc. are computed
 // from the exact same data whether the caller is a bulk scan row or the
 // single symbol just opened in Workspace.
-const _barsCache = new Map();
+// Real fix (2026-09-02, confirmed live): a plain Map cache has no
+// in-flight-request sharing — when several real callers (Dashboard,
+// Watchlists, sector scans, ...) each independently request a large,
+// heavily-overlapping symbol list with withDecision=1 at nearly the same
+// moment (confirmed via a live page load: 5 concurrent ~100-symbol
+// trend-screen requests, 3-6s each), every one of them missed this cache
+// simultaneously and fired its own real Alpaca/Yahoo fetch for the SAME
+// symbols — a real thundering-herd multiplication of provider calls,
+// not just redundant CPU. cached() (src/utils.js) already solves exactly
+// this for every other full-scan cache in this file — concurrent misses
+// for the same key share one real in-flight fetch instead of each
+// starting their own.
 async function _fetchBarsCached(symbol) {
-  const hit = _barsCache.get(symbol);
-  if (hit && Date.now() - hit.ts < TT_TTL_MS) return hit.data;
-  const data = await fetchYahooBars(symbol, "1y", "1d");
-  _barsCache.set(symbol, { ts: Date.now(), data });
-  if (_barsCache.size > 400) { for (const [k, v] of _barsCache) if (Date.now() - v.ts > TT_TTL_MS) _barsCache.delete(k); }
-  return data;
+  return cached(`bars:${symbol}`, TT_TTL_MS, () => fetchYahooBars(symbol, "1y", "1d"));
 }
 
 // Cross-request cache of the momentum distribution from the fullest recent
