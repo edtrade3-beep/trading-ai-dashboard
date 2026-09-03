@@ -563,6 +563,46 @@ async function fetchWatchlistCandidates(alreadyScannedSymbols) {
   }
 }
 
+// Real broader-universe scan (2026-09-03, explicit user request: "make it
+// more flexible more trades") — mirrors fetchWatchlistCandidates exactly:
+// same real symbolsToScan dedup, same real screenTrendTemplate +
+// computeCanonicalAssetDecision pipeline, same honest-empty-on-failure
+// discipline. Not a second scoring engine, not a looser bar — purely more
+// real candidates for the exact same real verdict/score/entry-stage
+// checks to run against. DAYTRADE_UNIVERSE (routes/market.js, 136 real
+// liquid symbols, already used by lightbox-state-store.js's own broader
+// rotation pool) is the real, already-curated superset SCAN_UNIVERSE
+// (advisor-ai.js, 100 symbols) sits inside — this scans only the real
+// symbols DAYTRADE_UNIVERSE adds beyond what this tick already covered.
+async function fetchDaytradeUniverseCandidates(alreadyScannedSymbols) {
+  try {
+    const { SCAN_UNIVERSE } = require("./advisor-ai");
+    const { screenTrendTemplate, fetchMarketQuotes, DAYTRADE_UNIVERSE } = require("./routes/market");
+    const extraSymbols = symbolsToScan(DAYTRADE_UNIVERSE, SCAN_UNIVERSE, alreadyScannedSymbols);
+    if (!extraSymbols.length) return { bullish: [], bearish: [] };
+
+    const { computeCanonicalAssetDecision } = require("./canonical-decision-pipeline");
+    const { resolveProviderKeys } = require("./config");
+
+    const [rows, macroQuotes] = await Promise.all([
+      screenTrendTemplate(extraSymbols),
+      fetchMarketQuotes(["SPY", "QQQ", "VIXY"], resolveProviderKeys(new URLSearchParams())).catch(() => []),
+    ]);
+    const opportunities = (rows || [])
+      .filter((row) => !row.error)
+      .map((row) => computeCanonicalAssetDecision({ symbol: row.symbol, row, macroQuotes, trackReport: null, marketHours: isMarketHoursET() })?.opportunity)
+      .filter(Boolean)
+      .map((opp) => ({ ...opp, fromDaytradeUniverse: true }));
+
+    const bullish = opportunities
+      .filter((o) => hasExecutableFinalVerdict(o))
+      .sort((a, b) => (BULLISH_RANK[a.verdict] - BULLISH_RANK[b.verdict]) || ((b.expectedValue ?? -Infinity) - (a.expectedValue ?? -Infinity)));
+    return { bullish, bearish: [] };
+  } catch {
+    return { bullish: [], bearish: [] }; // honest empty result on any real failure — never a fabricated candidate
+  }
+}
+
 // Real validate+size+enter for one candidate opportunity against the
 // current real account snapshot. Returns a real reason string either way
 // — a rejection is a logged, disclosed outcome (spec §25), never silent.
@@ -777,6 +817,7 @@ async function _tickImpl() {
   let opportunityCandidates = [];
   let lightBoxCandidates = [];
   let watchlistCandidates = { bullish: [], bearish: [] };
+  let daytradeUniverseCandidates = { bullish: [], bearish: [] };
   if (marketOpen) {
     const { computeAllOpportunities } = require("./routes/market");
     const scan = await computeAllOpportunities().catch((e) => ({ error: String(e && e.message || e) }));
@@ -846,7 +887,14 @@ async function _tickImpl() {
     const scannedSymbols = new Set(allOpportunities.map((o) => o.symbol));
     watchlistCandidates = await fetchWatchlistCandidates(scannedSymbols);
 
-    opportunityCandidates = [...bullishStockCandidates, ...watchlistCandidates.bullish];
+    // Broader universe (2026-09-03, explicit user request: "make it more
+    // flexible more trades") — same real scan-and-dedup pattern as the
+    // watchlist pass immediately above, just against DAYTRADE_UNIVERSE's
+    // real 136-symbol superset instead of the user's own curated list.
+    const scannedAfterWatchlist = new Set([...scannedSymbols, ...watchlistCandidates.bullish.map((o) => o.symbol)]);
+    daytradeUniverseCandidates = await fetchDaytradeUniverseCandidates(scannedAfterWatchlist);
+
+    opportunityCandidates = [...bullishStockCandidates, ...watchlistCandidates.bullish, ...daytradeUniverseCandidates.bullish];
 
     // Light Box remains a read-only candidate feed here. Its source-local
     // LIGHTBOX_BUY label is not the Master Verdict, so these rows are kept
@@ -912,7 +960,7 @@ async function _tickImpl() {
 
 module.exports = {
   tick, sizeEntry, sizeOptionEntry, sizeCryptoEntry, fetchLightBoxCandidates, fetchCryptoCandidates,
-  fetchWatchlistCandidates, symbolsToScan,
+  fetchWatchlistCandidates, fetchDaytradeUniverseCandidates, symbolsToScan,
   CRYPTO_UNIVERSE, RISK_PCT_PER_TRADE, MAX_TRADE_RISK_DOLLARS, MAX_OPEN_POSITIONS, MAX_PER_SECTOR,
   MAX_OPEN_RISK_PCT, CALL_DTE_EXIT_FLOOR, DAILY_LOSS_LOCK_DOLLARS, DAILY_LOSS_PCT,
   MAX_CONSECUTIVE_LOSSES,
