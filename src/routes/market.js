@@ -1875,7 +1875,16 @@ async function screenTrendTemplate(symbols, filters = {}) {
       }
     }
   };
-  await Promise.all(Array.from({ length: Math.min(6, symbols.length) }, worker));
+  // Concurrency (2026-09-03, Phase 0 audit finding: this was a hardcoded
+  // 6, the real bottleneck on reaching the platform's 500+-symbol scan
+  // goal — universe SIZE was never the limiter, this fixed worker count
+  // was). Raised to a real, disclosed default and made configurable via
+  // env var since Yahoo's unofficial endpoint has no documented rate-limit
+  // contract to size this against precisely — if 429s/timeouts start
+  // showing up in buildTrendTemplate's error rows, lower
+  // TREND_SCAN_CONCURRENCY rather than reverting this change outright.
+  const TREND_SCAN_CONCURRENCY = Number(process.env.TREND_SCAN_CONCURRENCY) || 12;
+  await Promise.all(Array.from({ length: Math.min(TREND_SCAN_CONCURRENCY, symbols.length) }, worker));
 
   // ── Real RS rating: percentile-rank each name's weighted momentum against a real peer universe (1–99). ──
   // Prefer the shared cross-request cache (see _universeMomsCache above) —

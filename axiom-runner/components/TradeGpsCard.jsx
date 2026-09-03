@@ -108,6 +108,26 @@ export default function TradeGpsCard({
 
   const dangerText = dangerEvent ? `${dangerEvent.label} ${dangerCountdown || ""}`.trim() : null;
 
+  // Send-to-Quick-Trade handoff (2026-09-03, Phase 0 audit finding: this
+  // exact real "open-quick-trade" event + shares/stopLoss/takeProfit
+  // handoff already exists in CortexMiniPanel.jsx, MarketTerminalTab.jsx,
+  // TradePlannerTab.jsx, and CommandSearchPanel.jsx — Trade GPS's own
+  // card, the ONE place meant to be Trade Desk's single primary plan, was
+  // the one surface missing it. Without this, a user reading this card's
+  // real entry/stop/target had no way to carry those exact numbers into
+  // Quick Trade — they'd retype them by hand into a separately-computed
+  // panel, or submit against whatever QuickTradePanel derived on its own,
+  // silently diverging from the plan they just read. Reuses this card's
+  // OWN already-computed positionSize (the real, hand-ported sizeEntry
+  // mirror above) as `shares` — a stronger real number than the simpler
+  // localStorage-risk-% formula the other call sites use. STOCK only:
+  // QuickTradePanel's own order path is real-shares/equity only, no
+  // options order route exists there, so this is never offered for a
+  // CALL/PUT/spread structure it couldn't actually carry out.
+  const firstTarget = targets.find(Number.isFinite);
+  const canSendToQuickTrade = verdict === "BUY_STOCK" && Number.isFinite(entry) && Number.isFinite(stop)
+    && Number.isFinite(firstTarget) && Number.isFinite(positionSize) && positionSize > 0;
+
   return (
     <section aria-label="Trade GPS primary opportunity" style={{ display: "flex", flexWrap: "wrap", alignItems: "stretch", gap: 14, padding: "12px 14px", background: C.surface, borderBottom: `1px solid ${C.border}` }}>
       <div style={{ minWidth: 190, display: "flex", flexDirection: "column", justifyContent: "center" }}>
@@ -136,6 +156,18 @@ export default function TradeGpsCard({
         <div style={{ width: 10, height: 10, borderRadius: "50%", background: light.color, margin: "4px 0" }} />
         <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: light.color }}>{light.label}</div>
       </div>
+
+      {canSendToQuickTrade && (
+        <div style={{ display: "flex", alignItems: "center" }}>
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent("open-quick-trade", { detail: { symbol, shares: positionSize, stopLoss: stop, takeProfit: firstTarget } }))}
+            title="Prefills Quick Trade with this exact entry, stop, target, and size — still requires your own confirm/submit."
+            style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, padding: "9px 12px", borderRadius: 7, border: "none", background: color, color: "#fff", cursor: "pointer", whiteSpace: "nowrap" }}
+          >
+            SEND TO QUICK TRADE
+          </button>
+        </div>
+      )}
 
       <div style={{ flex: 1, minWidth: 200, fontFamily: SANS, fontSize: 11.5, color: C.textSec, display: "flex", alignItems: "center" }}>
         {whyNow?.primary?.label && <span style={{ color: C.text, fontWeight: 700, marginRight: 5 }}>Why now: {whyNow.primary.label}.</span>}
