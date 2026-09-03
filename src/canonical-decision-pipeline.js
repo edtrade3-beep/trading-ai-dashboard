@@ -10,6 +10,7 @@ const { computeTradeGpsScore, mapOpportunityToTradeGpsInputs, BREAKDOWN_MAX_POIN
 const { selectTradeStructure } = require("./trade-structure-selector");
 const { evaluateTrapShield, computeMarketAgreement } = require("./trap-shield");
 const { translateToTradeGpsVerdict } = require("./trade-gps-verdict");
+const { THRESHOLDS: RED_FLAG_THRESHOLDS } = require("./red-flag-engine");
 
 const PIPELINE_VERSION = "canonical-pipeline-v1";
 
@@ -100,6 +101,14 @@ function computeCanonicalAssetDecision({
     optionsAligned: alignedFromBreakdown("optionsConfirmation"),
     riskRewardAligned: Number.isFinite(assetDecision?.riskReward) ? assetDecision.riskReward >= 1.5 : null,
   });
+  // Real options-pricing warnings (2026-09-03) — computed here (not inside
+  // computeRedFlags/opportunity-engine.js) because tradeStructure's own
+  // real contract pick doesn't exist until after this point in the
+  // pipeline. Same real thresholds red-flag-engine.js's own
+  // wideOptionSpread/excessiveIv checks are defined with.
+  const pickedSpreadPct = Number.isFinite(tradeStructure?.contract?.spread) ? tradeStructure.contract.spread : null;
+  const wideOptionSpread = pickedSpreadPct != null ? pickedSpreadPct > RED_FLAG_THRESHOLDS.maxOptionSpreadPct : null;
+  const excessiveIv = Number.isFinite(ivRank) ? ivRank > RED_FLAG_THRESHOLDS.maxIvRankForNaked : null;
   const trapShield = evaluateTrapShield({
     redFlags: {
       count: Array.isArray(opportunity.redFlags) ? opportunity.redFlags.length : null,
@@ -108,6 +117,7 @@ function computeCanonicalAssetDecision({
     antiChaseBand: opportunity.chaseRisk ?? null,
     marketAgreementCount: marketAgreement.count,
     marketAgreementTotal: marketAgreement.total,
+    wideOptionSpread, excessiveIv,
   });
   // Trade GPS verdict translation (2026-09-03) — additive vocabulary
   // layer only; the real FINAL_VERDICTS enum on assetDecision.verdict is

@@ -12,6 +12,14 @@
 function evaluateTrapShield({
   redFlags = null, antiChaseBand = null,
   marketAgreementCount = null, marketAgreementTotal = null,
+  // Real options-pricing warnings (2026-09-03) — passed directly rather
+  // than routed through redFlags/computeRedFlags, because that call
+  // happens inside computeOpportunity, BEFORE tradeStructure's own real
+  // contract pick exists anywhere in the pipeline. Same real thresholds
+  // red-flag-engine.js's own wideOptionSpread/excessiveIv checks use
+  // (MAX_SPREAD_PCT / maxIvRankForNaked=80) — the caller computes the
+  // boolean, this module only reads it.
+  wideOptionSpread = null, excessiveIv = null,
 } = {}) {
   const criticalCount = Number.isFinite(redFlags?.criticalCount) ? redFlags.criticalCount : null;
   const flagCount = Number.isFinite(redFlags?.count) ? redFlags.count : null;
@@ -23,10 +31,12 @@ function evaluateTrapShield({
     ? marketAgreementCount / marketAgreementTotal < 0.5
     : null;
 
+  const optionPricingWarning = wideOptionSpread === true || excessiveIv === true;
+
   const blocked = (criticalCount != null && criticalCount > 0) || chaseBlocked;
   let warningLevel = "NONE";
   if (blocked) warningLevel = "HIGH";
-  else if ((flagCount != null && flagCount > 0) || chaseWarning || weakAgreement === true) warningLevel = "CAUTION";
+  else if ((flagCount != null && flagCount > 0) || chaseWarning || weakAgreement === true || optionPricingWarning) warningLevel = "CAUTION";
 
   const reasons = [];
   if (criticalCount) reasons.push(`${criticalCount} critical red flag${criticalCount === 1 ? "" : "s"}`);
@@ -35,6 +45,8 @@ function evaluateTrapShield({
     if (flagCount) reasons.push(`${flagCount} non-critical red flag${flagCount === 1 ? "" : "s"}`);
     if (chaseWarning) reasons.push("extended entry zone");
     if (weakAgreement === true) reasons.push("weak market agreement");
+    if (wideOptionSpread === true) reasons.push("wide option spread");
+    if (excessiveIv === true) reasons.push("excessive IV");
   }
 
   return {

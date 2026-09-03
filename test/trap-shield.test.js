@@ -72,6 +72,27 @@ ok("a real critical flag + a real weak agreement -> still BLOCKED (critical wins
   assert.doesNotMatch(r.message, /weak market agreement/, "once blocked, the message should lead with the real blocking reason(s), not pad in the warn-only reasons");
 });
 
+ok("real wideOptionSpread alone -> CAUTION, not blocked (2026-09-03: real options-pricing warnings, computed by the caller from tradeStructure's own contract pick)", () => {
+  const r = evaluateTrapShield({ wideOptionSpread: true });
+  assert.strictEqual(r.blocked, false);
+  assert.strictEqual(r.warningLevel, "CAUTION");
+  assert.match(r.message, /wide option spread/);
+});
+ok("real excessiveIv alone -> CAUTION, not blocked", () => {
+  const r = evaluateTrapShield({ excessiveIv: true });
+  assert.strictEqual(r.blocked, false);
+  assert.strictEqual(r.warningLevel, "CAUTION");
+  assert.match(r.message, /excessive IV/);
+});
+ok("real wideOptionSpread: false / excessiveIv: false never contributes a warning", () => {
+  const r = evaluateTrapShield({ wideOptionSpread: false, excessiveIv: false });
+  assert.strictEqual(r.warningLevel, "NONE");
+});
+ok("real wideOptionSpread/excessiveIv left null (no real option contract picked yet) never fabricates a warning", () => {
+  const r = evaluateTrapShield({});
+  assert.strictEqual(r.warningLevel, "NONE");
+});
+
 console.log("\nChecking computeMarketAgreement — real factor counting, honest omission…");
 
 ok("all real factors true -> count === total", () => {
