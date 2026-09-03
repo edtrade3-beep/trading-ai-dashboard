@@ -10,6 +10,7 @@ const {
   checkAccountHealth, dailyLossBreakerTripped, weeklyLossBreakerTripped,
   totalDrawdownBreakerTripped, openRiskPct, sectorCapExceeded,
   sizePositionByRisk, isMarketHoursET, weekAnchorET, updateWeeklyDrawdownState,
+  consecutiveLossBreakerTripped, eventRiskSizeMultiplier,
 } = require("../src/risk-guardrails");
 
 let passed = 0;
@@ -271,6 +272,48 @@ ok("3:56 PM ET, one minute after close, is outside market hours", () => {
 });
 ok("weekend is always outside market hours regardless of time", () => {
   assert.strictEqual(withFixedNow("2026-07-18T13:35:00.000Z", isMarketHoursET), false); // Sat, same clock time as the open-boundary case
+});
+
+console.log("\nChecking consecutiveLossBreakerTripped — Trade Navigator's real streak breaker (2026-09-03)…");
+ok("3 real consecutive losses trips the real default breaker", () => {
+  assert.strictEqual(consecutiveLossBreakerTripped({ recentTrades: [{ pnl: 100 }, { pnl: -50 }, { pnl: -30 }, { pnl: -20 }] }), true);
+});
+ok("a real winning trade anywhere in the trailing window resets the streak — no trip", () => {
+  assert.strictEqual(consecutiveLossBreakerTripped({ recentTrades: [{ pnl: -50 }, { pnl: 10 }, { pnl: -30 }, { pnl: -20 }] }), false);
+});
+ok("only 2 real consecutive losses with the default floor of 3 -> no trip (honest, not premature)", () => {
+  assert.strictEqual(consecutiveLossBreakerTripped({ recentTrades: [{ pnl: 100 }, { pnl: -30 }, { pnl: -20 }] }), false);
+});
+ok("fewer real trades than maxConsecutiveLosses -> honest false, never trips on an incomplete sample", () => {
+  assert.strictEqual(consecutiveLossBreakerTripped({ recentTrades: [{ pnl: -10 }] }), false);
+});
+ok("a real breakeven trade (pnl === 0) counts as a non-loss and resets the streak", () => {
+  assert.strictEqual(consecutiveLossBreakerTripped({ recentTrades: [{ pnl: -10 }, { pnl: 0 }, { pnl: -10 }, { pnl: -10 }] }), false);
+});
+ok("a real custom maxConsecutiveLosses is honored", () => {
+  assert.strictEqual(consecutiveLossBreakerTripped({ recentTrades: [{ pnl: -10 }, { pnl: -10 }], maxConsecutiveLosses: 2 }), true);
+});
+ok("no real trades supplied -> honest false, never fabricated", () => {
+  assert.strictEqual(consecutiveLossBreakerTripped({ recentTrades: [] }), false);
+  assert.strictEqual(consecutiveLossBreakerTripped({}), false);
+});
+
+console.log("\nChecking eventRiskSizeMultiplier — Trade Navigator's real event-based size reduction (2026-09-03)…");
+ok("no real eventRisk supplied -> real multiplier of 1 (no reduction), never fabricated", () => {
+  assert.strictEqual(eventRiskSizeMultiplier({}), 1);
+  assert.strictEqual(eventRiskSizeMultiplier({ eventRisk: null }), 1);
+});
+ok("a real eventRisk that already blocksNewExposure -> multiplier 1 (sizing is moot, the hard block already stopped the trade upstream)", () => {
+  assert.strictEqual(eventRiskSizeMultiplier({ eventRisk: { blocksNewExposure: true, score: 90 } }), 1);
+});
+ok("a real nonzero eventRisk score short of a hard block -> the real reduced multiplier", () => {
+  assert.strictEqual(eventRiskSizeMultiplier({ eventRisk: { blocksNewExposure: false, score: 45 } }), 0.5);
+});
+ok("a real zero eventRisk score -> multiplier 1, no real event risk to reduce for", () => {
+  assert.strictEqual(eventRiskSizeMultiplier({ eventRisk: { blocksNewExposure: false, score: 0 } }), 1);
+});
+ok("a real custom nearEventScale is honored", () => {
+  assert.strictEqual(eventRiskSizeMultiplier({ eventRisk: { blocksNewExposure: false, score: 45 }, nearEventScale: 0.25 }), 0.25);
 });
 
 console.log(`\n${passed} checks passed.`);

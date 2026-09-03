@@ -84,4 +84,14 @@ function getPerformanceViews({ window = 50, groupBy = null, startingEquity = 100
   return { overall, groups: groupStats, sampleSize: withOutcome.length };
 }
 
-module.exports = { recordSetupEvent, getPerformanceViews, STORE_PATH, MAX_RECORDS };
+// Real ordered closed-trade outcomes (Trade Navigator, 2026-09-03) — for
+// risk-guardrails.js's own consecutiveLossBreakerTripped, which needs the
+// trailing N real {pnl} outcomes in their real chronological order (this
+// store's own natural append order), not an aggregated view.
+// getPerformanceViews() above answers "how has this performed," this
+// answers "what actually just happened, in order."
+function getRecentClosedTrades({ window = 20 } = {}) {
+  return readStore().map(toBacktestTrade).filter(Boolean).slice(-Math.max(1, Number(window) || 20));
+}
+
+module.exports = { recordSetupEvent, getPerformanceViews, getRecentClosedTrades, STORE_PATH, MAX_RECORDS };

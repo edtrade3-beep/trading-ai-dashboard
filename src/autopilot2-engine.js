@@ -11,7 +11,8 @@
 const { PORT } = require("./config");
 const {
   isMarketHoursET, checkAccountHealth, dailyLossBreakerTripped, weeklyLossBreakerTripped,
-  totalDrawdownBreakerTripped, sectorCapExceeded, sizePositionByRisk,
+  totalDrawdownBreakerTripped, consecutiveLossBreakerTripped, eventRiskSizeMultiplier,
+  sectorCapExceeded, sizePositionByRisk,
 } = require("./risk-guardrails");
 const { isEmergencyStopActive } = require("./emergency-stop");
 const { getAccountSnapshot, openPosition, closePosition, partialClosePosition, updateStop, openOptionPosition, closeOptionPosition } = require("./autopilot2-account");
@@ -20,7 +21,8 @@ const { loadState, setState, appendActivity } = require("./autopilot2-store");
 const { computePositionState } = require("./position-decision-engine");
 const { recordMissed } = require("./missed-opportunity-tracker");
 const { notifyMaterialStateChange } = require("./trade-gps-notifier");
-const { recordSetupEvent } = require("./trade-gps-audit-store");
+const { recordSetupEvent, getRecentClosedTrades } = require("./trade-gps-audit-store");
+const { computeEventRisk } = require("./event-risk-engine");
 
 // Real self-loopback JSON fetch — same established convention this file's
 // own account/expression modules already use to reuse a route's real
@@ -69,6 +71,11 @@ const DAILY_LOSS_PCT = Number(process.env.AUTOPILOT2_DAILY_LOSS_PCT) || 2;
 const DAILY_LOSS_LOCK_DOLLARS = Number(process.env.AUTOPILOT2_DAILY_LOSS_LOCK) || 1000;
 const WEEKLY_LOSS_PCT = Number(process.env.AUTOPILOT2_WEEKLY_LOSS_PCT) || 5;
 const TOTAL_DRAWDOWN_PCT = Number(process.env.AUTOPILOT2_DRAWDOWN_PCT) || 15;
+// Trade Navigator (2026-09-03, explicit user spec: "Stop after three
+// consecutive losses"). Distinct from the $/%-cumulative breakers above —
+// this reads trade-gps-audit-store.js's own real closed-outcome history
+// (already recorded per Stage 8), never a second store.
+const MAX_CONSECUTIVE_LOSSES = Number(process.env.AUTOPILOT2_MAX_CONSECUTIVE_LOSSES) || 3;
 const MAX_ENTRIES_PER_TICK = 5;
 
 // Fresh real verdict for an already-open position (management, not entry)
@@ -555,6 +562,15 @@ async function tryEnter(opp, snapshot) {
   if (finalVerdict !== "STRONG_BUY" && finalVerdict !== "BUY") {
     return { entered: false, reason: `Final Verdict ${finalVerdict || "unavailable"} is not executable` };
   }
+  // Trade Navigator (2026-09-03, explicit user spec: "Reduce size around
+  // major economic releases") — reuses the real eventRiskScore
+  // event-risk-engine.js already computed for THIS candidate as part of
+  // buildAssetDecision (asset-decision.js), never a second event-risk
+  // read. A real blocksNewExposure:true event already forced a
+  // non-executable verdict long before this line — blocksNewExposure is
+  // therefore always false here by construction, not assumed blindly.
+  const eventSizeMultiplier = eventRiskSizeMultiplier({ eventRisk: { score: opp?.assetDecision?.eventRiskScore ?? 0, blocksNewExposure: false } });
+
   if (snapshot.openPositions.some((p) => p.symbol === opp.symbol)) return { entered: false, reason: "already held" };
   if (snapshot.openPositions.length >= MAX_OPEN_POSITIONS) return { entered: false, reason: `max open positions (${MAX_OPEN_POSITIONS}) reached` };
   if (sectorCapExceeded({ positions: snapshot.openPositions, symbol: opp.symbol, maxPerSector: MAX_PER_SECTOR })) {
@@ -583,7 +599,7 @@ async function tryEnter(opp, snapshot) {
   // sizing (sizeCryptoEntry, see above) and a distinct assetType so the
   // account/UI can label it correctly.
   if (opp.assetClass === "CRYPTO") {
-    const { qty, riskPerShare, reason: sizeReason } = sizeCryptoEntry({ equity: snapshot.equity, cash: snapshot.cash, entry: opp.entry, stop: opp.stop, direction });
+    const { qty, riskPerShare, reason: sizeReason } = sizeCryptoEntry({ equity: snapshot.equity, cash: snapshot.cash, entry: opp.entry, stop: opp.stop, direction, riskPct: RISK_PCT_PER_TRADE * eventSizeMultiplier });
     if (sizeReason) return { entered: false, reason: sizeReason };
     if (!(qty > 0)) return { entered: false, reason: "sized to 0 (below minimum real fractional size) under current real risk limits" };
 
@@ -601,7 +617,7 @@ async function tryEnter(opp, snapshot) {
 
   if (expr.expression === "CALL" || expr.expression === "PUT") {
     const contract = expr.contract;
-    const { qty, riskDollars, reason: sizeReason } = sizeOptionEntry({ equity: snapshot.equity, cash: snapshot.cash, entryPremium: contract.ask });
+    const { qty, riskDollars, reason: sizeReason } = sizeOptionEntry({ equity: snapshot.equity, cash: snapshot.cash, entryPremium: contract.ask, riskPct: RISK_PCT_PER_TRADE * eventSizeMultiplier });
     if (sizeReason) return { entered: false, reason: `${expr.reason} — but ${sizeReason}` };
     if (!(qty > 0)) return { entered: false, reason: `${expr.reason} — but sized to 0 contracts under current real risk limits` };
 
@@ -619,7 +635,7 @@ async function tryEnter(opp, snapshot) {
 
   // STOCK or SHORT_STOCK — either the Expression Engine chose it, or it
   // fell back to it.
-  const { qty, riskPerShare, reason: sizeReason } = sizeEntry({ equity: snapshot.equity, cash: snapshot.cash, entry: opp.entry, stop: opp.stop, direction });
+  const { qty, riskPerShare, reason: sizeReason } = sizeEntry({ equity: snapshot.equity, cash: snapshot.cash, entry: opp.entry, stop: opp.stop, direction, riskPct: RISK_PCT_PER_TRADE * eventSizeMultiplier });
   if (sizeReason) return { entered: false, reason: sizeReason };
   if (!(qty > 0)) return { entered: false, reason: `sized to 0 ${isShort ? "shares to short" : "shares"} under current real risk limits` };
 
@@ -696,6 +712,7 @@ async function _tickImpl() {
     dailyLossBreakerTripped({ equity: freshSnapshot.equity, startOfDayEquity: freshSnapshot.dailyStartEquity, maxLossPct: DAILY_LOSS_PCT, maxLossAbs: DAILY_LOSS_LOCK_DOLLARS }) && "daily loss breaker",
     weeklyLossBreakerTripped({ equity: freshSnapshot.equity, weekStartEquity: freshSnapshot.weekStartEquity, maxLossPct: WEEKLY_LOSS_PCT }) && "weekly loss breaker",
     totalDrawdownBreakerTripped({ equity: freshSnapshot.equity, peakEquity: freshSnapshot.peakEquity, maxDrawdownPct: TOTAL_DRAWDOWN_PCT }) && "total drawdown breaker",
+    consecutiveLossBreakerTripped({ recentTrades: getRecentClosedTrades({ window: MAX_CONSECUTIVE_LOSSES }), maxConsecutiveLosses: MAX_CONSECUTIVE_LOSSES }) && "consecutive loss breaker",
   ].filter(Boolean);
   if (breakers.length) {
     if (autopilotState.state !== "SAFE_MODE") {
@@ -704,6 +721,12 @@ async function _tickImpl() {
         notifyMaterialStateChange({
           symbol: "ACCOUNT", newState: "DAILY_RISK_LOCKED",
           decision: { reasonOneLine: `Daily loss limit ($${DAILY_LOSS_LOCK_DOLLARS}) reached — new entries locked for the rest of the day. Equity: ${Number.isFinite(freshSnapshot.equity) ? "$" + freshSnapshot.equity.toFixed(2) : "n/a"}.` },
+        }).catch(() => {});
+      }
+      if (breakers.includes("consecutive loss breaker")) {
+        notifyMaterialStateChange({
+          symbol: "ACCOUNT", newState: "CONSECUTIVE_LOSS_LOCKED",
+          decision: { reasonOneLine: `${MAX_CONSECUTIVE_LOSSES} real consecutive losses — new entries locked. Step away, don't force the next trade.` },
         }).catch(() => {});
       }
     }
@@ -846,5 +869,6 @@ module.exports = {
   fetchWatchlistCandidates, symbolsToScan,
   CRYPTO_UNIVERSE, RISK_PCT_PER_TRADE, MAX_TRADE_RISK_DOLLARS, MAX_OPEN_POSITIONS, MAX_PER_SECTOR,
   MAX_OPEN_RISK_PCT, CALL_DTE_EXIT_FLOOR, DAILY_LOSS_LOCK_DOLLARS, DAILY_LOSS_PCT,
+  MAX_CONSECUTIVE_LOSSES,
   isBullishCandidate, hasExecutableFinalVerdict, isBearishCandidate, BULLISH_RANK, BEARISH_RANK,
 };

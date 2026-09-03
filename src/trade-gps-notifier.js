@@ -16,18 +16,20 @@ const STATE_PATH = path.join(__dirname, "..", "data", "trade-gps-notify-state.js
 
 // The real state strings this fires on — signal-lifecycle.js's own
 // SETUP_FORMING/ENTER_NOW/CANCELLED, position-decision-engine.js's own
-// TRAIL/TAKE_PARTIAL/EXIT/HARD_EXIT, plus the synthetic
-// DAILY_RISK_LOCKED the caller passes at Stage 1's own lock-trip point.
-// Every other state (SCANNING/ARMED/HOLD/WARNING/null) is silently
-// skipped — not every state change is material.
+// TRAIL/TAKE_PARTIAL/EXIT/HARD_EXIT, plus the synthetic DAILY_RISK_LOCKED
+// / CONSECUTIVE_LOSS_LOCKED the caller passes at each real risk-breaker's
+// own lock-trip point (autopilot2-engine.js). Every other state
+// (SCANNING/ARMED/HOLD/WARNING/null) is silently skipped — not every
+// state change is material.
 const MATERIAL_STATES = new Set([
-  "SETUP_FORMING", "ENTER_NOW", "CANCELLED", "TRAIL", "TAKE_PARTIAL", "EXIT", "HARD_EXIT", "DAILY_RISK_LOCKED",
+  "SETUP_FORMING", "ENTER_NOW", "CANCELLED", "TRAIL", "TAKE_PARTIAL", "EXIT", "HARD_EXIT",
+  "DAILY_RISK_LOCKED", "CONSECUTIVE_LOSS_LOCKED",
 ]);
 
 // Only the genuinely time-critical states bypass the shared
-// informational budget (spec: "ENTER_NOW/EXIT_NOW/DAILY_RISK_LOCKED
+// informational budget (spec: "ENTER_NOW/EXIT_NOW/risk-lock states
 // only").
-const ALWAYS_ALLOW_STATES = new Set(["ENTER_NOW", "EXIT", "HARD_EXIT", "DAILY_RISK_LOCKED"]);
+const ALWAYS_ALLOW_STATES = new Set(["ENTER_NOW", "EXIT", "HARD_EXIT", "DAILY_RISK_LOCKED", "CONSECUTIVE_LOSS_LOCKED"]);
 
 function categoryFor(state) {
   return ALWAYS_ALLOW_STATES.has(state) ? "trade-gps-critical" : "trade-gps-info";

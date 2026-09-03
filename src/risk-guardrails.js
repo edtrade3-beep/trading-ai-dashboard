@@ -110,6 +110,38 @@ function updateWeeklyDrawdownState(riskState, equity) {
   return riskState;
 }
 
+// Consecutive-loss breaker (Trade Navigator, 2026-09-03) — stops opening
+// new automated trades after maxConsecutiveLosses real losing trades in a
+// row, distinct from the three breakers above (all cumulative-$/%-based,
+// never streak-based). recentTrades: real closed outcomes ordered
+// OLDEST-first (same order trade-gps-audit-store.js's own records
+// naturally accumulate in) — only the trailing N are inspected. A single
+// real winning/breakeven trade (pnl >= 0) anywhere in that trailing
+// window resets the streak. Honest false on fewer than
+// maxConsecutiveLosses real trades — never trips on an incomplete sample.
+function consecutiveLossBreakerTripped({ recentTrades, maxConsecutiveLosses = 3 }) {
+  const trades = Array.isArray(recentTrades) ? recentTrades : [];
+  if (trades.length < maxConsecutiveLosses) return false;
+  const trailing = trades.slice(-maxConsecutiveLosses);
+  return trailing.every((t) => Number(t?.pnl) < 0);
+}
+
+// Event-based position-size reduction (Trade Navigator, 2026-09-03) — a
+// real, disclosed multiplier applied to riskPct near a real imminent
+// macro/earnings event, rather than event-risk-engine.js's existing
+// binary blocksNewExposure (which fully blocks within blockWithinDays,
+// not a graded reduction). nearEventScale is the multiplier applied when
+// a real event is imminent but NOT yet inside the hard-block window —
+// event-risk-engine.js's own score=45 band (real earnings 3-10 days out,
+// see its own computeEventRisk) is the real signal this reads; a
+// blocksNewExposure:true event is already fully blocked upstream and
+// never reaches sizing at all.
+function eventRiskSizeMultiplier({ eventRisk, nearEventScale = 0.5 } = {}) {
+  if (!eventRisk || eventRisk.blocksNewExposure) return 1;
+  const score = Number(eventRisk.score);
+  return Number.isFinite(score) && score > 0 ? nearEventScale : 1;
+}
+
 function sectorCapExceeded({ positions, symbol, maxPerSector }) {
   const sec = sectorOf(symbol);
   const count = (positions || []).filter(p => sectorOf(p.symbol) === sec).length;
@@ -142,5 +174,6 @@ function sizePositionByRisk({ equity, riskPct, entry, stop, availCash, maxNamePc
 module.exports = {
   SECTORS, sectorOf, isMarketHoursET, weekAnchorET, checkAccountHealth,
   dailyLossBreakerTripped, weeklyLossBreakerTripped, totalDrawdownBreakerTripped,
+  consecutiveLossBreakerTripped, eventRiskSizeMultiplier,
   openRiskPct, sectorCapExceeded, sizePositionByRisk, updateWeeklyDrawdownState,
 };

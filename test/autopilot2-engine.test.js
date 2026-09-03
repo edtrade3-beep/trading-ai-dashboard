@@ -9,8 +9,8 @@
 // Run: node test/autopilot2-engine.test.js (or npm test).
 "use strict";
 const assert = require("node:assert");
-const { sizeEntry, sizeCryptoEntry, CRYPTO_UNIVERSE, RISK_PCT_PER_TRADE, MAX_TRADE_RISK_DOLLARS, isBullishCandidate, hasExecutableFinalVerdict, isBearishCandidate, BULLISH_RANK, BEARISH_RANK, symbolsToScan, DAILY_LOSS_LOCK_DOLLARS, DAILY_LOSS_PCT } = require("../src/autopilot2-engine");
-const { dailyLossBreakerTripped } = require("../src/risk-guardrails");
+const { sizeEntry, sizeCryptoEntry, CRYPTO_UNIVERSE, RISK_PCT_PER_TRADE, MAX_TRADE_RISK_DOLLARS, isBullishCandidate, hasExecutableFinalVerdict, isBearishCandidate, BULLISH_RANK, BEARISH_RANK, symbolsToScan, DAILY_LOSS_LOCK_DOLLARS, DAILY_LOSS_PCT, MAX_CONSECUTIVE_LOSSES } = require("../src/autopilot2-engine");
+const { dailyLossBreakerTripped, consecutiveLossBreakerTripped, eventRiskSizeMultiplier } = require("../src/risk-guardrails");
 
 let passed = 0;
 function ok(name, fn) { try { fn(); passed++; console.log(`  ✓ ${name}`); } catch (e) { console.error(`  ✗ ${name}\n    ${e.message}`); process.exitCode = 1; } }
@@ -238,6 +238,23 @@ ok("sizeEntry/sizeCryptoEntry never take a daily-P&L or 'recover losses' input �
   // anything P&L-related.
   const src = sizeEntry.toString() + sizeCryptoEntry.toString();
   assert.doesNotMatch(src, /dailyPnl|recover|boostRisk|increaseRisk/i);
+});
+
+console.log("\nChecking Trade Navigator's consecutive-loss breaker + event-size reduction wiring (2026-09-03 spec)…");
+ok("real default: MAX_CONSECUTIVE_LOSSES is exactly 3", () => {
+  assert.strictEqual(MAX_CONSECUTIVE_LOSSES, 3);
+});
+ok("3 real consecutive real-money-equivalent paper losses trips the real breaker, using the same real exported constant the engine itself wires into tick()", () => {
+  const tripped = consecutiveLossBreakerTripped({
+    recentTrades: [{ pnl: -50 }, { pnl: -30 }, { pnl: -20 }],
+    maxConsecutiveLosses: MAX_CONSECUTIVE_LOSSES,
+  });
+  assert.strictEqual(tripped, true);
+});
+ok("sizeEntry/sizeCryptoEntry both accept a real riskPct override — the real hook eventRiskSizeMultiplier's reduced multiplier plugs into", () => {
+  const full = sizeEntry({ equity: 100_000, cash: 100_000, entry: 100, stop: 95, riskPct: 0.5 });
+  const reduced = sizeEntry({ equity: 100_000, cash: 100_000, entry: 100, stop: 95, riskPct: 0.5 * eventRiskSizeMultiplier({ eventRisk: { score: 45, blocksNewExposure: false } }) });
+  assert.ok(reduced.qty < full.qty, "a real near-event reduced riskPct must size a genuinely smaller real position, never the same or larger");
 });
 
 console.log(`\n${passed} checks passed.`);

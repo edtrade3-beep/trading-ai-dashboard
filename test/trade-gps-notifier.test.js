@@ -41,14 +41,15 @@ writeJsonAtomic(STATE_PATH, {});
   console.log("Checking categoryFor — real ALWAYS_ALLOW vs. shared-info-budget routing…");
 
   await ok("MATERIAL_STATES matches the real spec list exactly", () => {
-    assert.deepStrictEqual([...MATERIAL_STATES].sort(), ["CANCELLED", "DAILY_RISK_LOCKED", "ENTER_NOW", "EXIT", "HARD_EXIT", "SETUP_FORMING", "TAKE_PARTIAL", "TRAIL"]);
+    assert.deepStrictEqual([...MATERIAL_STATES].sort(), ["CANCELLED", "CONSECUTIVE_LOSS_LOCKED", "DAILY_RISK_LOCKED", "ENTER_NOW", "EXIT", "HARD_EXIT", "SETUP_FORMING", "TAKE_PARTIAL", "TRAIL"]);
   });
 
-  await ok("ENTER_NOW/EXIT/HARD_EXIT/DAILY_RISK_LOCKED route to the always-allow category (spec: never miss a real entry/exit/risk-lock)", () => {
+  await ok("ENTER_NOW/EXIT/HARD_EXIT/DAILY_RISK_LOCKED/CONSECUTIVE_LOSS_LOCKED route to the always-allow category (spec: never miss a real entry/exit/risk-lock)", () => {
     assert.strictEqual(categoryFor("ENTER_NOW"), "trade-gps-critical");
     assert.strictEqual(categoryFor("EXIT"), "trade-gps-critical");
     assert.strictEqual(categoryFor("HARD_EXIT"), "trade-gps-critical");
     assert.strictEqual(categoryFor("DAILY_RISK_LOCKED"), "trade-gps-critical");
+    assert.strictEqual(categoryFor("CONSECUTIVE_LOSS_LOCKED"), "trade-gps-critical");
   });
 
   await ok("SETUP_FORMING/CANCELLED/TRAIL/TAKE_PARTIAL route through the shared informational budget", () => {

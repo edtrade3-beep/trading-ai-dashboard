@@ -8,7 +8,7 @@
 "use strict";
 const assert = require("node:assert");
 const { writeJsonAtomic, readJsonSafe } = require("../src/atomic-write");
-const { recordSetupEvent, getPerformanceViews, STORE_PATH } = require("../src/trade-gps-audit-store");
+const { recordSetupEvent, getPerformanceViews, getRecentClosedTrades, STORE_PATH } = require("../src/trade-gps-audit-store");
 
 let passed = 0;
 function ok(name, fn) { try { fn(); passed++; console.log(`  ✓ ${name}`); } catch (e) { console.error(`  ✗ ${name}\n    ${e.message}`); process.exitCode = 1; } }
@@ -97,6 +97,32 @@ try {
     assert.strictEqual(r.sampleSize, 0);
     assert.strictEqual(r.overall.count, 0);
     assert.strictEqual(r.overall.winRate, null);
+  });
+
+  console.log("\nChecking getRecentClosedTrades — Trade Navigator's real ordered streak source (2026-09-03)…");
+  ok("real trades come back in the same real chronological order they were recorded, oldest-first", () => {
+    writeJsonAtomic(STORE_PATH, { records: [] });
+    recordSetupEvent({ symbol: "A", verdict: "BUY_STOCK", outcome: { pnl: 10 } });
+    recordSetupEvent({ symbol: "B", verdict: "BUY_STOCK", outcome: { pnl: -10 } });
+    recordSetupEvent({ symbol: "C", verdict: "BUY_STOCK", outcome: { pnl: -20 } });
+    const r = getRecentClosedTrades({ window: 20 });
+    assert.deepStrictEqual(r.map((t) => t.pnl), [10, -10, -20]);
+  });
+  ok("real window narrows to only the most recent N real closed trades", () => {
+    const r = getRecentClosedTrades({ window: 2 });
+    assert.deepStrictEqual(r.map((t) => t.pnl), [-10, -20]);
+  });
+  ok("a real still-open record (outcome null) is excluded, never treated as a real $0 trade", () => {
+    writeJsonAtomic(STORE_PATH, { records: [] });
+    recordSetupEvent({ symbol: "OPEN1", verdict: "BUY_STOCK" });
+    recordSetupEvent({ symbol: "D", verdict: "BUY_STOCK", outcome: { pnl: 5 } });
+    const r = getRecentClosedTrades({ window: 20 });
+    assert.strictEqual(r.length, 1);
+    assert.strictEqual(r[0].pnl, 5);
+  });
+  ok("no real closed trades at all -> honest empty array, never fabricated", () => {
+    writeJsonAtomic(STORE_PATH, { records: [] });
+    assert.deepStrictEqual(getRecentClosedTrades({ window: 20 }), []);
   });
 } finally {
   writeJsonAtomic(STORE_PATH, original);
