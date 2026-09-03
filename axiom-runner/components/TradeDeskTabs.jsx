@@ -1,8 +1,17 @@
 import React from "react";
 
+// Real bug fixed 2026-09-03 (user report: "circled tabs not working
+// properly"): Scenarios/AI Analysis both pointed at the same real target
+// ("cortex") and History/Journal both pointed at the same real target
+// ("journal") — two differently-labeled buttons doing the identical
+// thing, which reads as broken. Collapsed each duplicate pair into the
+// one real tab it actually opens. Fundamentals -> "discover" is kept:
+// MarketTerminalTab.jsx (dockModule "discover") genuinely fetches and
+// shows real fundamentals (market cap, P/E, etc.) alongside its other
+// content, not a mislabel.
 const TABS = [
   ["Overview", "overview"], ["Technicals", "vcp"], ["Options", "options"], ["News", "news"],
-  ["Fundamentals", "discover"], ["Scenarios", "cortex"], ["AI Analysis", "cortex"], ["History", "journal"], ["Journal", "journal"],
+  ["Fundamentals", "discover"], ["Cortex", "cortex"], ["Journal", "journal"],
 ];
 
 export default function TradeDeskTabs({ symbol, activeKey, onOpen, C, MONO }) {
