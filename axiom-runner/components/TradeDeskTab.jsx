@@ -527,12 +527,14 @@ export default function TradeDeskTab({
 
   const pill = { fontFamily: MONO, fontSize: 11, display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap" };
 
-  // Ticker search lifted into the top header bar (Trade Desk redesign
-  // Phase 1, §2) — same real selectSymbol() this file already uses for
-  // every other symbol-jump path (Opportunity Inbox rows, Light Box
-  // handoff, mobile search view); CommandSearchPanel's own internal search
-  // box is hidden (hideSearch below) rather than duplicated, so there is
-  // still exactly one real search code path, just one new entry point.
+  // Ticker search was lifted into this top header bar (Trade Desk redesign
+  // Phase 1, §2), but that whole header strip is now display:none (see
+  // below) — this state/handler is currently unreachable UI. The real,
+  // visible search entry point is CommandSearchPanel's own internal box
+  // (2026-09-03, restored). Left in place rather than removed in case the
+  // header strip itself gets un-hidden later; every symbol-jump path
+  // (Opportunity Inbox rows, Light Box handoff, mobile search view) still
+  // calls the same real selectSymbol().
   const [topQuery, setTopQuery] = useState("");
   const [suggestOpen, setSuggestOpen] = useState(false);
   const submitTopSearch = (raw) => {
@@ -702,7 +704,7 @@ export default function TradeDeskTab({
         ) : (
           <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: isTablet ? "160px 1fr 220px" : "220px 1fr 280px" }}>
             <div style={{ borderRight: `1px solid ${TD.border}`, minHeight: 0, overflow: "hidden", background: TD.bg }}>
-              <CommandSearchPanel symbol={symbol} onSelectSymbol={selectSymbol} onOpenDaytrade={applyLightboxHandoff} chart={chart} symbolQuote={symbolQuote} fundamentals={fundamentals} C={TD} MONO={MONO} SANS={SANS} hideSearch />
+              <CommandSearchPanel symbol={symbol} onSelectSymbol={selectSymbol} onOpenDaytrade={applyLightboxHandoff} chart={chart} symbolQuote={symbolQuote} fundamentals={fundamentals} C={TD} MONO={MONO} SANS={SANS} />
             </div>
           <ChartPane symbol={symbol} chart={chart} chartError={chartError} loadingChart={loadingChart} vcpOn={vcpOn} setVcpOn={setVcpOn} C={TD} MONO={MONO} SANS={SANS} chartTf={chartTf} setChartTf={setChartTf} />
             {/* Right column (2026-08-27) — Market Context moved to its own

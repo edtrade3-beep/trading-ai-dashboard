@@ -252,10 +252,13 @@ export default function CommandSearchPanel({ symbol, onSelectSymbol, onOpenDaytr
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
-      {/* Search box hidden when hideSearch (Trade Desk redesign Phase 1,
-          §2) — the real search now lives in TradeDeskTab.jsx's own top
-          header bar, calling the identical onSelectSymbol handler; kept
-          here (unhidden) for every other real mount of this panel. */}
+      {/* Search box hidden when hideSearch — TradeDeskTab.jsx's own top
+          header bar has its own real search UI wired to the identical
+          onSelectSymbol handler, but that whole header strip is currently
+          display:none (2026-08-27 dedup pass hid more than intended, along
+          with a genuinely duplicate SPY/QQQ/regime pill row). Restored here
+          instead (2026-09-03, explicit user request) rather than reviving
+          the dead header markup — one real, visible search entry point. */}
       {!hideSearch && (
         <div style={{ padding: "10px 10px 8px" }}>
           <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: 0.6, marginBottom: 6 }}>🔎 SEARCH</div>
