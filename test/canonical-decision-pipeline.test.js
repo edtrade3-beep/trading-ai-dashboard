@@ -50,6 +50,23 @@ ok("assetDecision no longer carries a sourceOpportunity back-reference", () => {
   assert.strictEqual(canonical.assetDecision.sourceOpportunity, undefined, "sourceOpportunity had zero real consumers and created the circular reference — must stay removed");
 });
 
+console.log("\nChecking Trade GPS's signalState integration (2026-09-03)…");
+ok("a real, well-formed row gets a real pre-entry signalState from the same shared signal-lifecycle.js machine, never a fabricated value", () => {
+  const { PRE_ENTRY_STATES } = require("../src/signal-lifecycle");
+  const canonical = computeCanonicalAssetDecision({
+    symbol: "TEST", row: baseRow(), macroQuotes: [], nowMs: Date.now(), marketHours: true,
+  });
+  assert.ok(PRE_ENTRY_STATES.has(canonical.assetDecision.signalState), `expected a real pre-entry state, got ${canonical.assetDecision.signalState}`);
+});
+ok("a held position (positionState supplied) gets signalState: null — that's position-decision-engine.js's own separate concern, never duplicated here", () => {
+  const canonical = computeCanonicalAssetDecision({
+    symbol: "TEST", row: baseRow(), macroQuotes: [], nowMs: Date.now(), marketHours: true,
+  });
+  const { buildAssetDecision } = require("../src/asset-decision");
+  const held = buildAssetDecision({ opportunity: canonical.opportunity, marketRegime: canonical.marketRegime, dataHealth: canonical.dataHealth, positionState: "HOLD", positionReason: "test" });
+  assert.strictEqual(held.signalState, null);
+});
+
 console.log(`\n${passed} checks passed.`);
 if (process.exitCode) console.error("CANONICAL-DECISION-PIPELINE TEST FAILED");
 else console.log("CANONICAL-DECISION-PIPELINE TEST OK");

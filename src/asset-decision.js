@@ -1,5 +1,7 @@
 "use strict";
 
+const { computeSignalState } = require("./signal-lifecycle");
+
 const ASSET_DECISION_VERSION = "asset-decision-v1";
 const FINAL_VERDICTS = new Set(["STRONG_BUY", "BUY", "WATCH", "WAIT", "HOLD", "REDUCE", "EXIT", "AVOID"]);
 const OPPORTUNITY_STAGES = new Set(["DORMANT", "DEVELOPING", "EMERGING", "ACTIONABLE", "CONFIRMED", "EXTENDED", "EXHAUSTED", "INVALIDATED"]);
@@ -62,6 +64,21 @@ function buildAssetDecision({ opportunity, marketRegime, dataHealth, positionSta
   const stop = Number(entryPlan.stop);
   const target = Number(entryPlan.target1 ?? entryPlan.target2);
   const derivedRr = entry > stop && target > entry ? (target - entry) / (entry - stop) : null;
+  // Trade GPS (2026-09-03) — pre-entry state only; a held position (real
+  // positionState supplied) already has its own real post-entry state
+  // machine (position-decision-engine.js's HOLD/TRAIL/TAKE_PARTIAL/EXIT),
+  // a separate concern this doesn't duplicate or override. No createdAtMs/
+  // ttlMs here deliberately — this runs per-symbol in bulk scans of
+  // 100+ real rows; real per-symbol TTL tracking (which needs a real
+  // persisted creation timestamp) is reserved for the narrow contexts
+  // that actually need it (signal-lifecycle.js's getOrSetSignalCreatedAt),
+  // not fired on every bulk-scan row.
+  const signalLifecycle = positionState ? null : computeSignalState({
+    opportunityStage: standardizeOpportunityStage(opportunity), tier: opportunity.tier, entryStage: opportunity.entryStage,
+    entry: opportunity.entry, executableEntry: opportunity.executableEntry, currentPrice: opportunity.price,
+    invalidation: Number.isFinite(entryPlan.invalidation) ? entryPlan.invalidation : null,
+    nowMs: timestamp,
+  });
   const result = {
     symbol: opportunity.symbol, timestamp, price: opportunity.price ?? null,
     dataHealth: dataHealth || null, marketRegime: marketRegime || null,
@@ -76,6 +93,7 @@ function buildAssetDecision({ opportunity, marketRegime, dataHealth, positionSta
     entry: entryPlan.entryPrice ?? null, stop: entryPlan.stop ?? null,
     targets: [entryPlan.target1, entryPlan.target2].filter(Number.isFinite), riskReward: entryPlan.rr ?? derivedRr,
     invalidation: Number.isFinite(entryPlan.invalidation) ? entryPlan.invalidation : null,
+    signalState: signalLifecycle?.state ?? null, signalExpiresAt: signalLifecycle?.expiresAtMs ?? null,
     decision, riskOverride: risk.overridden ? { from: decision, to: risk.finalVerdict, reasons: risk.blockers } : null,
     verdict: risk.finalVerdict,
     reasons: [...new Set([positionState ? positionReason : opportunity.verdictReason, ...(opportunity.reasons || [])].filter(Boolean))],
