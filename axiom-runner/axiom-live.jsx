@@ -73,6 +73,7 @@ import SmartMoneyBrief from "./components/SmartMoneyBrief.jsx";
 import AdvisorAiTab from "./components/AdvisorAiTab.jsx";
 import CommandCenterTab from "./components/CommandCenterTab.jsx";
 import TradeDeskTab from "./components/TradeDeskTab.jsx";
+import TradeNavigatorTab from "./components/TradeNavigatorTab.jsx";
 import MarketHealthTab from "./components/MarketHealthTab.jsx";
 import CeoAiCard from "./components/CeoAiCard.jsx";
 import CashGoldSilverAdvisor from "./components/CashGoldSilverAdvisor.jsx";
@@ -6802,6 +6803,18 @@ export default function App() {
             already receive at their own activeTab blocks below — same
             lifted state, just bagged so TradeDeskTab.jsx doesn't need to
             redeclare two dozen individual props. */}
+        {/* Trade Navigator (2026-09-03, explicit user spec: "10-Second
+            Trade Navigator... converts the entire market into simple,
+            executable trade plans"). A new, dedicated, mostly self-
+            fetching screen — opens straight to a ranked market-wide
+            radar with the top real setup auto-shown, unlike Trade Desk's
+            own per-symbol-first design. Reuses TradeGpsCard/
+            TradeGpsWhyPanel and decision-store.js's shared cache, never a
+            second scoring engine. */}
+        {activeTab === "trade-navigator" && (
+          <TradeNavigatorTab C={C} MONO={MONO} SANS={SANS} setActiveTab={setActiveTab} openInTradeDesk={openInTradeDesk} />
+        )}
+
         {activeTab === "trade-desk" && (
           <TradeDeskTab
             C={C} MONO={MONO} SANS={SANS} macroData={macroData} sectorData={sectorData}

@@ -33,6 +33,12 @@ export const SIDEBAR_ITEMS = [
   // Center (CommandCenterTab.jsx, activeTab "command-center").
   { id: "trade-desk", label: "Trade Desk", icon: "🎛️", tab: "trade-desk" },
 
+  // Trade Navigator (2026-09-03, explicit user spec: "10-Second Trade
+  // Navigator") — a new, dedicated market-wide radar screen, distinct
+  // from Trade Desk's own per-symbol-first design. See
+  // TradeNavigatorTab.jsx's own header for the full design.
+  { id: "trade-navigator", label: "Trade Navigator", icon: "🧭", tab: "trade-navigator" },
+
   { id: "dashboard", label: "Market Overview", icon: "🏠", tab: "dashboard" },
   { id: "scanner", label: "Scanner", icon: "📡", tab: "scanner" },
   { id: "economy", label: "Economy", icon: "📈", tab: "market" },
