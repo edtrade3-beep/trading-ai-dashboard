@@ -80,6 +80,12 @@ const ALWAYS_ALLOW_CATEGORIES = new Set([
   // crossings (src/anthropic-usage-store.js's checkBudgetWarnings, only
   // fires once per threshold per real month), same gate, no new system.
   "budget-warning",
+  // Trade GPS (2026-09-03) — only the genuinely time-critical states
+  // (ENTER_NOW / EXIT / HARD_EXIT / the daily-risk-lock trip) bypass the
+  // shared informational budget; SETUP_FORMING/CANCELLED/TRAIL/
+  // TAKE_PARTIAL route through the normal "trade-gps-info" budget below,
+  // per trade-gps-notifier.js's own categoryFor().
+  "trade-gps-critical",
 ]);
 
 // These used to be truly unlimited/day by design ("never gated, regardless

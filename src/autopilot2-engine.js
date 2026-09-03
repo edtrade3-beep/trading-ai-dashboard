@@ -19,6 +19,7 @@ const { chooseExpression } = require("./autopilot2-expression");
 const { loadState, setState, appendActivity } = require("./autopilot2-store");
 const { computePositionState } = require("./position-decision-engine");
 const { recordMissed } = require("./missed-opportunity-tracker");
+const { notifyMaterialStateChange } = require("./trade-gps-notifier");
 
 // Real self-loopback JSON fetch — same established convention this file's
 // own account/expression modules already use to reuse a route's real
@@ -137,9 +138,11 @@ async function managePositions(snapshot) {
     if (decision.state === "HARD_EXIT" || decision.state === "EXIT") {
       const result = await closePosition(pos.id, { reason: decision.state });
       appendActivity({ type: decision.state, symbol: pos.symbol, reason: decision.reason, realizedPnl: result.closedTrade?.realizedPnl ?? null });
+      notifyMaterialStateChange({ symbol: pos.symbol, newState: decision.state, decision: { reasonOneLine: decision.reason } }).catch(() => {});
     } else if (decision.state === "TAKE_PARTIAL") {
       const result = await partialClosePosition(pos.id, { fraction: 0.5, reason: "TAKE_PARTIAL" });
       appendActivity({ type: "TAKE_PARTIAL", symbol: pos.symbol, reason: decision.reason, realizedPnl: result.realizedPnl ?? null });
+      notifyMaterialStateChange({ symbol: pos.symbol, newState: "TAKE_PARTIAL", decision: { reasonOneLine: decision.reason } }).catch(() => {});
     } else if (decision.state === "TRAIL") {
       // Real trail: tighten the stop halfway toward current price — a
       // real, disclosed, conservative ratchet (never loosened, enforced
@@ -147,7 +150,10 @@ async function managePositions(snapshot) {
       // short this moves the stop DOWN toward price; for a long, UP.
       const newStop = pos.stop + (pos.currentPrice - pos.stop) * 0.5;
       const result = await updateStop(pos.id, newStop);
-      if (result.ok) appendActivity({ type: "TRAIL", symbol: pos.symbol, reason: decision.reason, newStop });
+      if (result.ok) {
+        appendActivity({ type: "TRAIL", symbol: pos.symbol, reason: decision.reason, newStop });
+        notifyMaterialStateChange({ symbol: pos.symbol, newState: "TRAIL", decision: { reasonOneLine: decision.reason, stop: newStop } }).catch(() => {});
+      }
     }
     // HOLD/WARNING/null: no action, no log spam — routine ticks aren't activity.
   }
@@ -666,7 +672,15 @@ async function _tickImpl() {
     totalDrawdownBreakerTripped({ equity: freshSnapshot.equity, peakEquity: freshSnapshot.peakEquity, maxDrawdownPct: TOTAL_DRAWDOWN_PCT }) && "total drawdown breaker",
   ].filter(Boolean);
   if (breakers.length) {
-    if (autopilotState.state !== "SAFE_MODE") setState("SAFE_MODE", `real risk breaker tripped: ${breakers.join(", ")}`);
+    if (autopilotState.state !== "SAFE_MODE") {
+      setState("SAFE_MODE", `real risk breaker tripped: ${breakers.join(", ")}`);
+      if (breakers.includes("daily loss breaker")) {
+        notifyMaterialStateChange({
+          symbol: "ACCOUNT", newState: "DAILY_RISK_LOCKED",
+          decision: { reasonOneLine: `Daily loss limit ($${DAILY_LOSS_LOCK_DOLLARS}) reached — new entries locked for the rest of the day. Equity: ${Number.isFinite(freshSnapshot.equity) ? "$" + freshSnapshot.equity.toFixed(2) : "n/a"}.` },
+        }).catch(() => {});
+      }
+    }
     appendActivity({ type: "SAFE_MODE", reason: `risk breaker tripped: ${breakers.join(", ")}` });
     return { ran: true, entered: 0, reason: `breaker tripped — SAFE_MODE: ${breakers.join(", ")}` };
   }
