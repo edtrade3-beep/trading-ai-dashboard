@@ -27,6 +27,8 @@ import MarketContextCard from "./MarketContextCard.jsx";
 import ExtendedHoursMovers from "./ExtendedHoursMovers.jsx";
 import CanonicalVerdictStrip from "./CanonicalVerdictStrip.jsx";
 import TradeDeskEvidence from "./TradeDeskEvidence.jsx";
+import TradeGpsCard from "./TradeGpsCard.jsx";
+import TradeGpsWhyPanel from "./TradeGpsWhyPanel.jsx";
 import TradeDeskTabs from "./TradeDeskTabs.jsx";
 
 // TradeDeskTab — one unified trading screen (2026-08-25, explicit user
@@ -390,6 +392,11 @@ export default function TradeDeskTab({
   const [canonicalDecision, setCanonicalDecision] = useState(null);
   const [decisionLoading, setDecisionLoading] = useState(false);
   const [decisionError, setDecisionError] = useState(null);
+  // Trade GPS (2026-09-03) — additive fields from the SAME shared
+  // decision-store.js fetch above (never a second request); TradeGpsCard
+  // below reads these, CanonicalVerdictStrip/TradeDeskEvidence are
+  // unaffected.
+  const [tradeGpsData, setTradeGpsData] = useState(null);
   useEffect(() => {
     if (!symbol) return;
     let cancelled = false;
@@ -397,11 +404,13 @@ export default function TradeDeskTab({
     setCanonicalDecision(cached.assetDecision);
     setDecisionLoading(cached.loading);
     setDecisionError(cached.error);
+    setTradeGpsData({ tradeGps: cached.tradeGps, tradeStructure: cached.tradeStructure, trapShield: cached.trapShield, marketAgreement: cached.marketAgreement, tradeGpsVerdict: cached.tradeGpsVerdict });
     fetchDecision(symbol).then((entry) => {
       if (cancelled) return;
       setCanonicalDecision(entry.assetDecision);
       setDecisionLoading(false);
       setDecisionError(entry.error);
+      setTradeGpsData({ tradeGps: entry.tradeGps, tradeStructure: entry.tradeStructure, trapShield: entry.trapShield, marketAgreement: entry.marketAgreement, tradeGpsVerdict: entry.tradeGpsVerdict });
     });
     return () => { cancelled = true; };
   }, [symbol]);
@@ -677,6 +686,13 @@ export default function TradeDeskTab({
         </div>
 
         <CanonicalVerdictStrip decision={canonicalDecision} loading={decisionLoading} error={decisionError} C={TD} MONO={MONO} SANS={SANS} />
+        <TradeGpsCard
+          symbol={symbol} decision={canonicalDecision} loading={decisionLoading}
+          tradeGps={tradeGpsData?.tradeGps} tradeStructure={tradeGpsData?.tradeStructure}
+          trapShield={tradeGpsData?.trapShield} marketAgreement={tradeGpsData?.marketAgreement}
+          tradeGpsVerdict={tradeGpsData?.tradeGpsVerdict}
+          C={TD} MONO={MONO} SANS={SANS}
+        />
 
         {/* Middle: 3-pane on desktop, stacked segmented view on mobile — never
             force the fixed-column grid on a narrow screen (ScanTerminalHub's
@@ -701,6 +717,7 @@ export default function TradeDeskTab({
       </div>
 
       <TradeDeskEvidence decision={canonicalDecision} chart={chart} C={TD} MONO={MONO} SANS={SANS} />
+      <TradeGpsWhyPanel tradeGps={tradeGpsData?.tradeGps} tradeStructure={tradeGpsData?.tradeStructure} trapShield={tradeGpsData?.trapShield} C={TD} MONO={MONO} SANS={SANS} />
       <TradeDeskTabs symbol={symbol} activeKey={dockModule} onOpen={openTickerTab} C={TD} MONO={MONO} />
 
       {/* Workspace Grid (Trade Desk redesign Phase 1) — a plain sibling

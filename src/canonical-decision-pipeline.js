@@ -118,7 +118,7 @@ function computeCanonicalAssetDecision({
   }) : null;
   return {
     assetDecision, opportunity, marketRegime, dataHealth, compatibilityRegime: legacyRegime,
-    tradeGps, tradeStructure, trapShield, tradeGpsVerdict, engineVersion: PIPELINE_VERSION,
+    tradeGps, tradeStructure, trapShield, marketAgreement, tradeGpsVerdict, engineVersion: PIPELINE_VERSION,
   };
 }
 

@@ -2921,6 +2921,17 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
             row.bearishReason = opp.bearishVerdictReason;
             row.opportunity = opp;
             row.assetDecision = opp.assetDecision;
+            // Trade GPS (2026-09-03) — additive pipeline fields, same
+            // forwarding pattern as row.assetDecision above. Without
+            // these, decision-store.js's shared cache (the one real
+            // fetch path Trade Desk/Cortex/Dashboard/Scanner/Holdings/
+            // Autopilot UI all already read from) would have no way to
+            // reach TradeGpsCard.jsx's real score/structure/verdict.
+            row.tradeGps = canonical.tradeGps;
+            row.tradeStructure = canonical.tradeStructure;
+            row.trapShield = canonical.trapShield;
+            row.marketAgreement = canonical.marketAgreement;
+            row.tradeGpsVerdict = canonical.tradeGpsVerdict;
             row.researchContext = researchContext;
           }
 

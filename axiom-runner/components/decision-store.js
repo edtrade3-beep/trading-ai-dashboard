@@ -32,7 +32,14 @@ function normalizeSymbol(sym) {
 }
 
 function emptyEntry(symbol) {
-  return { symbol, assetDecision: null, marketRegime: null, dataHealth: null, fetchedAt: null, loading: true, error: null };
+  return {
+    symbol, assetDecision: null, marketRegime: null, dataHealth: null,
+    // Trade GPS (2026-09-03) — additive fields from the same real
+    // canonical pipeline result; every consumer that only reads
+    // assetDecision is unaffected.
+    tradeGps: null, tradeStructure: null, trapShield: null, marketAgreement: null, tradeGpsVerdict: null,
+    fetchedAt: null, loading: true, error: null,
+  };
 }
 
 // Synchronous read of the last-known entry (or an honest loading
@@ -95,6 +102,11 @@ export function fetchDecision(symbol) {
         assetDecision: row?.assetDecision || null,
         marketRegime: row?.marketRegime || data?.marketRegime || null,
         dataHealth: row?.dataHealth || data?.dataHealth || null,
+        tradeGps: row?.tradeGps || null,
+        tradeStructure: row?.tradeStructure || null,
+        trapShield: row?.trapShield || null,
+        marketAgreement: row?.marketAgreement || null,
+        tradeGpsVerdict: row?.tradeGpsVerdict || null,
         fetchedAt: Date.now(),
         loading: false,
         error,
@@ -103,7 +115,11 @@ export function fetchDecision(symbol) {
       return entry;
     })
     .catch((err) => {
-      const entry = { symbol: key, assetDecision: null, marketRegime: null, dataHealth: null, fetchedAt: Date.now(), loading: false, error: err.message };
+      const entry = {
+        symbol: key, assetDecision: null, marketRegime: null, dataHealth: null,
+        tradeGps: null, tradeStructure: null, trapShield: null, marketAgreement: null, tradeGpsVerdict: null,
+        fetchedAt: Date.now(), loading: false, error: err.message,
+      };
       _decisionCache.set(key, { entry, ts: Date.now(), promise: null });
       return entry;
     });
