@@ -3031,8 +3031,18 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
       // silent empty result) into the existing catch below, producing a fast,
       // honest 502 the client's own Retry UI already handles — instead of a
       // request that never resolves.
+      // Real fix (2026-09-02): computeAllOpportunities() does genuine
+      // per-symbol computation across the full ~100-symbol SCAN_UNIVERSE
+      // (confirmed via production logs: ~5-8s of real synchronous work,
+      // not a hang), so every fresh page load/tab switch/concurrent user
+      // paid that full cost again. Same cached() dedup+TTL helper already
+      // used for the same-shaped full-universe scan at
+      // WATCHLIST_SCREEN_CACHE_TTL_MS above — a 3-minute-old full-market
+      // opportunity scan is still meaningfully fresh for a swing-oriented
+      // screen, and concurrent requests within the window now share one
+      // real computation instead of each re-running it.
       const { tiers, dataQuality, dataHealth, marketRegime, researchContext } = await Promise.race([
-        computeAllOpportunities(),
+        cached("all-opportunities", WATCHLIST_SCREEN_CACHE_TTL_MS, computeAllOpportunities),
         new Promise((_, reject) => setTimeout(() => reject(new Error("Opportunity scan timed out.")), 18000)),
       ]);
 
