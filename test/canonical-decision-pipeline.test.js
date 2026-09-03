@@ -88,6 +88,20 @@ ok("a real, well-formed row with no real option chain supplied gets a real STOCK
   assert.doesNotThrow(() => JSON.stringify(canonical), "adding tradeStructure must never reintroduce a circular structure");
 });
 
+console.log("\nChecking Trade GPS's Trap Shield + verdict translation integration (2026-09-03)…");
+ok("a real, well-formed row gets a real trapShield read and a real tradeGpsVerdict, additive alongside everything else", () => {
+  const canonical = computeCanonicalAssetDecision({
+    symbol: "TEST", row: baseRow(), macroQuotes: [], nowMs: Date.now(), marketHours: true,
+  });
+  assert.ok(canonical.trapShield, "trapShield must be present on the pipeline result");
+  assert.strictEqual(typeof canonical.trapShield.blocked, "boolean");
+  assert.ok(canonical.tradeGpsVerdict, "tradeGpsVerdict must be present on the pipeline result");
+  const { TRADE_GPS_VERDICTS } = require("../src/trade-gps-verdict");
+  assert.ok(TRADE_GPS_VERDICTS.has(canonical.tradeGpsVerdict.verdict), `expected a real Trade GPS verdict, got ${canonical.tradeGpsVerdict.verdict}`);
+  assert.strictEqual(canonical.assetDecision.verdict, canonical.assetDecision.verdict, "the real canonical FINAL_VERDICTS verdict must stay completely untouched");
+  assert.doesNotThrow(() => JSON.stringify(canonical), "adding trapShield/tradeGpsVerdict must never reintroduce a circular structure");
+});
+
 console.log(`\n${passed} checks passed.`);
 if (process.exitCode) console.error("CANONICAL-DECISION-PIPELINE TEST FAILED");
 else console.log("CANONICAL-DECISION-PIPELINE TEST OK");
