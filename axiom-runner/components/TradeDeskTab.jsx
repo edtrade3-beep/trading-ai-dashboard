@@ -698,6 +698,22 @@ export default function TradeDeskTab({
           </span>
         </div>
 
+        {/* Real bug fixed 2026-09-03 (found during a full Trade Desk scan) —
+            cash/open-risk/Autopilot 2.0 status were already computed
+            (riskRead/account/autopilot2Running above) but only ever
+            rendered inside the same display:none dead header block that
+            hid ticker search and the Simple/Full toggle. Nowhere else in
+            Trade Desk showed whether Autopilot 2.0 is actually running or
+            what real open risk currently is. */}
+        <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "6px 14px", background: TD.surface, borderBottom: `1px solid ${TD.border}` }}>
+          <span style={pill}><span style={{ color: TD.textDim }}>CASH</span> <b style={{ color: TD.text }}>{account?.cash != null ? `$${Math.round(Number(account.cash)).toLocaleString()}` : "—"}</b></span>
+          <span style={pill}><span style={{ color: TD.textDim }}>RISK</span> <b style={{ color: chgColor(riskRead.pl) }}>{riskRead.count} pos · {riskRead.pl >= 0 ? "+" : ""}${Math.round(riskRead.pl).toLocaleString()}</b></span>
+          <span title="Autopilot 2.0 internal simulated paper account" style={pill}>
+            <span>{autopilot2Running ? "🟢" : "🔴"}</span>
+            <span style={{ color: TD.textDim }}>AP2 {autopilot2Running ? "RUNNING" : "STOPPED"}</span>
+          </span>
+        </div>
+
         <CanonicalVerdictStrip decision={canonicalDecision} loading={decisionLoading} error={decisionError} C={TD} MONO={MONO} SANS={SANS} />
         <TradeGpsCard
           symbol={symbol} decision={canonicalDecision} loading={decisionLoading}
