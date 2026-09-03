@@ -8,7 +8,7 @@
 "use strict";
 const assert = require("node:assert");
 const { writeJsonAtomic, readJsonSafe } = require("../src/atomic-write");
-const { recordSetupEvent, getPerformanceViews, getRecentClosedTrades, STORE_PATH } = require("../src/trade-gps-audit-store");
+const { recordSetupEvent, getPerformanceViews, getRecentClosedTrades, getClosedRecordsForAnalysis, STORE_PATH } = require("../src/trade-gps-audit-store");
 
 let passed = 0;
 function ok(name, fn) { try { fn(); passed++; console.log(`  ✓ ${name}`); } catch (e) { console.error(`  ✗ ${name}\n    ${e.message}`); process.exitCode = 1; } }
@@ -123,6 +123,33 @@ try {
   ok("no real closed trades at all -> honest empty array, never fabricated", () => {
     writeJsonAtomic(STORE_PATH, { records: [] });
     assert.deepStrictEqual(getRecentClosedTrades({ window: 20 }), []);
+  });
+
+  console.log("\nChecking groupBy 'structure' + getClosedRecordsForAnalysis — Trade Replay Brain's real data source (2026-09-03)…");
+  ok("groupBy 'structure' splits by the real tradeStructure field", () => {
+    writeJsonAtomic(STORE_PATH, { records: [] });
+    recordSetupEvent({ symbol: "A", tradeStructure: "STOCK", outcome: { pnl: 10 } });
+    recordSetupEvent({ symbol: "B", tradeStructure: "CALL", outcome: { pnl: -5 } });
+    recordSetupEvent({ symbol: "C", tradeStructure: "STOCK", outcome: { pnl: 20 } });
+    const r = getPerformanceViews({ window: 50, groupBy: "structure" });
+    assert.strictEqual(r.groups.STOCK.count, 2);
+    assert.strictEqual(r.groups.CALL.count, 1);
+  });
+  ok("getClosedRecordsForAnalysis carries real openedAt/tradeStructure/holdingDays through, never fabricated for a record that lacks them", () => {
+    writeJsonAtomic(STORE_PATH, { records: [] });
+    const openedAt = "2026-09-01T14:30:00.000Z";
+    recordSetupEvent({ symbol: "D", tradeStructure: "PUT", openedAt, outcome: { pnl: 15, holdingDays: 2 } });
+    const r = getClosedRecordsForAnalysis({ window: 50 });
+    assert.strictEqual(r.length, 1);
+    assert.strictEqual(r[0].openedAt, openedAt);
+    assert.strictEqual(r[0].tradeStructure, "PUT");
+    assert.strictEqual(r[0].holdingDays, 2);
+  });
+  ok("a real record with no real openedAt captured -> honest null, never a fabricated timestamp", () => {
+    writeJsonAtomic(STORE_PATH, { records: [] });
+    recordSetupEvent({ symbol: "E", tradeStructure: "STOCK", outcome: { pnl: 5 } });
+    const r = getClosedRecordsForAnalysis({ window: 50 });
+    assert.strictEqual(r[0].openedAt, null);
   });
 } finally {
   writeJsonAtomic(STORE_PATH, original);

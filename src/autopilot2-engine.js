@@ -23,6 +23,7 @@ const { recordMissed } = require("./missed-opportunity-tracker");
 const { notifyMaterialStateChange } = require("./trade-gps-notifier");
 const { recordSetupEvent, getRecentClosedTrades } = require("./trade-gps-audit-store");
 const { computeEventRisk } = require("./event-risk-engine");
+const { analyzeUserPerformance, computePersonalizedGates, isAllowed: isReplayAllowed } = require("./trade-replay-brain");
 
 // Real self-loopback JSON fetch — same established convention this file's
 // own account/expression modules already use to reuse a route's real
@@ -154,8 +155,19 @@ async function managePositions(snapshot) {
       if (result.closedTrade) {
         const ct = result.closedTrade;
         const basis = ct.entryPrice * ct.qty;
+        // Real bug fixed (Trade Navigator Stage 5, 2026-09-03): verdict
+        // used to be overwritten with the real EXIT reason (already
+        // captured in stateTransition.to below) instead of the real
+        // ORIGINAL entry verdict — every per-setup performance view was
+        // silently grouping by exit reason, never by what was actually
+        // bought. tradeStructure/openedAt are real, already-available
+        // fields (pos.assetType, pos.entryAt) that were simply never
+        // passed through — Trade Replay Brain needs both for its real
+        // per-structure and per-hour breakdowns.
         recordSetupEvent({
-          symbol: pos.symbol, engineVersion: "autopilot2-engine", verdict: decision.state,
+          symbol: pos.symbol, engineVersion: "autopilot2-engine",
+          verdict: pos.opportunitySnapshot?.verdict ?? null,
+          tradeStructure: pos.assetType || "STOCK", openedAt: pos.entryAt || null,
           stateTransition: { from: "OPEN", to: decision.state, reason: decision.reason },
           outcome: {
             pnl: ct.realizedPnl,
@@ -171,7 +183,9 @@ async function managePositions(snapshot) {
       if (result.ok) {
         const basis = pos.entryPrice * (result.soldQty || 0);
         recordSetupEvent({
-          symbol: pos.symbol, engineVersion: "autopilot2-engine", verdict: "TAKE_PARTIAL",
+          symbol: pos.symbol, engineVersion: "autopilot2-engine",
+          verdict: pos.opportunitySnapshot?.verdict ?? null,
+          tradeStructure: pos.assetType || "STOCK", openedAt: pos.entryAt || null,
           stateTransition: { from: "OPEN", to: "TAKE_PARTIAL", reason: decision.reason },
           outcome: { pnl: result.realizedPnl, pnlPct: basis > 0 ? (result.realizedPnl / basis) * 100 : null, holdingDays: null },
         });
@@ -553,7 +567,7 @@ async function fetchWatchlistCandidates(alreadyScannedSymbols) {
 // — a rejection is a logged, disclosed outcome (spec §25), never silent.
 // Calls the real Expression Engine first (spec §11) to decide STOCK vs
 // CALL before any sizing happens.
-async function tryEnter(opp, snapshot) {
+async function tryEnter(opp, snapshot, replayGates = null) {
   // Defense in depth at the paper-order boundary: source filters are not
   // authority. Only the canonical long-side Master Verdict may open new
   // risk; WATCH, WAIT, AVOID_LONG, and source-local labels such as
@@ -562,6 +576,14 @@ async function tryEnter(opp, snapshot) {
   if (finalVerdict !== "STRONG_BUY" && finalVerdict !== "BUY") {
     return { entered: false, reason: `Final Verdict ${finalVerdict || "unavailable"} is not executable` };
   }
+
+  // Trade Replay Brain (2026-09-03, explicit user spec: "your strongest
+  // trading hours... whether calls/puts/spreads/shares perform best" fed
+  // back into ranking) — real, gate-only, same discipline as every other
+  // real breaker in this file: pauses, never boosts.
+  const currentHourET = parseInt(new Date().toLocaleString("en-US", { timeZone: "America/New_York", hour: "2-digit", hour12: false }), 10);
+  const hourGate = replayGates?.hourGates?.[currentHourET];
+  if (!isReplayAllowed(hourGate)) return { entered: false, reason: hourGate.reason };
   // Trade Navigator (2026-09-03, explicit user spec: "Reduce size around
   // major economic releases") — reuses the real eventRiskScore
   // event-risk-engine.js already computed for THIS candidate as part of
@@ -599,6 +621,8 @@ async function tryEnter(opp, snapshot) {
   // sizing (sizeCryptoEntry, see above) and a distinct assetType so the
   // account/UI can label it correctly.
   if (opp.assetClass === "CRYPTO") {
+    const cryptoGate = replayGates?.structureGates?.CRYPTO;
+    if (!isReplayAllowed(cryptoGate)) return { entered: false, reason: cryptoGate.reason };
     const { qty, riskPerShare, reason: sizeReason } = sizeCryptoEntry({ equity: snapshot.equity, cash: snapshot.cash, entry: opp.entry, stop: opp.stop, direction, riskPct: RISK_PCT_PER_TRADE * eventSizeMultiplier });
     if (sizeReason) return { entered: false, reason: sizeReason };
     if (!(qty > 0)) return { entered: false, reason: "sized to 0 (below minimum real fractional size) under current real risk limits" };
@@ -616,6 +640,8 @@ async function tryEnter(opp, snapshot) {
   const expr = await chooseExpression(opp, direction);
 
   if (expr.expression === "CALL" || expr.expression === "PUT") {
+    const optionGate = replayGates?.structureGates?.[expr.expression];
+    if (!isReplayAllowed(optionGate)) return { entered: false, reason: `${expr.reason} — but ${optionGate.reason}` };
     const contract = expr.contract;
     const { qty, riskDollars, reason: sizeReason } = sizeOptionEntry({ equity: snapshot.equity, cash: snapshot.cash, entryPremium: contract.ask, riskPct: RISK_PCT_PER_TRADE * eventSizeMultiplier });
     if (sizeReason) return { entered: false, reason: `${expr.reason} — but ${sizeReason}` };
@@ -635,6 +661,8 @@ async function tryEnter(opp, snapshot) {
 
   // STOCK or SHORT_STOCK — either the Expression Engine chose it, or it
   // fell back to it.
+  const stockGate = replayGates?.structureGates?.STOCK;
+  if (!isReplayAllowed(stockGate)) return { entered: false, reason: stockGate.reason };
   const { qty, riskPerShare, reason: sizeReason } = sizeEntry({ equity: snapshot.equity, cash: snapshot.cash, entry: opp.entry, stop: opp.stop, direction, riskPct: RISK_PCT_PER_TRADE * eventSizeMultiplier });
   if (sizeReason) return { entered: false, reason: sizeReason };
   if (!(qty > 0)) return { entered: false, reason: `sized to 0 ${isShort ? "shares to short" : "shares"} under current real risk limits` };
@@ -824,12 +852,17 @@ async function _tickImpl() {
     .filter((c) => !opportunityCandidates.some((o) => o.symbol === c.symbol));
 
   const candidates = [...opportunityCandidates, ...cryptoCandidates];
+  // Trade Replay Brain (2026-09-03) — computed once per real tick, not
+  // once per candidate (a real file read + aggregation each call would be
+  // wasted work repeated up to MAX_ENTRIES_PER_TICK times over the exact
+  // same real trade history).
+  const replayGates = computePersonalizedGates(analyzeUserPerformance({ window: 100 }));
   let entered = 0;
   let workingSnapshot = freshSnapshot;
   for (const opp of candidates) {
     if (entered >= MAX_ENTRIES_PER_TICK) break;
     if (workingSnapshot.openPositions.length >= MAX_OPEN_POSITIONS) break;
-    const result = await tryEnter(opp, workingSnapshot);
+    const result = await tryEnter(opp, workingSnapshot, replayGates);
     const verdictNote = opp.tier === "LIGHTBOX"
       ? " [source: Light Box real CONFIRMED entry trigger]"
       : opp.assetClass === "CRYPTO"

@@ -29,13 +29,18 @@ function recordSetupEvent({
   symbol = null, engineVersion = null, regime = null, inputTimestamps = null, scoreBreakdown = null,
   tradeStructure = null, verdict = null, riskDecision = null, stateTransition = null,
   outcome = null, slippage = null, optionSpreadCost = null, qualifyReason = null,
-  nowMs = Date.now(),
+  openedAt = null, nowMs = Date.now(),
 } = {}) {
   if (!symbol) return null; // honest no-op — never fabricates a record for an unknown symbol
   const record = {
     id: `${symbol}-${nowMs}-${Math.random().toString(36).slice(2, 8)}`,
     symbol, at: nowMs, engineVersion, regime, inputTimestamps, scoreBreakdown,
     tradeStructure, verdict, riskDecision, stateTransition, outcome, slippage, optionSpreadCost, qualifyReason,
+    // Trade Navigator Stage 5 (2026-09-03) — the real position-open
+    // timestamp (autopilot2-account.js's own real entryAt), additive.
+    // Trade Replay Brain's own per-hour analysis needs WHEN a trade was
+    // opened, not just when this record was written (which is close time).
+    openedAt,
   };
   const records = readStore();
   records.push(record);
@@ -64,7 +69,9 @@ function statsFor(records, startingEquity) {
 
 // window: how many of the most recent real closed-outcome records to
 // include (spec's own 20|50|100 options — any positive count accepted).
-// groupBy: null (one real overall view) | "regime" | "setup" (verdict).
+// groupBy: null (one real overall view) | "regime" | "setup" (verdict) |
+// "structure" (tradeStructure — stock/call/put/spread, Trade Replay
+// Brain's own per-structure breakdown).
 function getPerformanceViews({ window = 50, groupBy = null, startingEquity = 100_000 } = {}) {
   const all = readStore();
   const withOutcome = all.filter((r) => r?.outcome != null).slice(-Math.max(1, Number(window) || 50));
@@ -76,6 +83,7 @@ function getPerformanceViews({ window = 50, groupBy = null, startingEquity = 100
   for (const r of withOutcome) {
     const key = groupBy === "regime" ? (r.regime ?? "UNKNOWN")
       : groupBy === "setup" ? (r.verdict ?? "UNKNOWN")
+      : groupBy === "structure" ? (r.tradeStructure ?? "UNKNOWN")
       : "UNKNOWN";
     (groups[key] ||= []).push(r);
   }
@@ -94,4 +102,22 @@ function getRecentClosedTrades({ window = 20 } = {}) {
   return readStore().map(toBacktestTrade).filter(Boolean).slice(-Math.max(1, Number(window) || 20));
 }
 
-module.exports = { recordSetupEvent, getPerformanceViews, getRecentClosedTrades, STORE_PATH, MAX_RECORDS };
+// Real closed records with their full real context (openedAt/
+// tradeStructure/pnl/holdingDays), for Trade Replay Brain's own
+// per-hour/per-structure/hold-time analysis — richer than
+// getRecentClosedTrades' stripped {pnl}-only shape, still never a
+// fabricated field for a record that doesn't have real data.
+function getClosedRecordsForAnalysis({ window = 100 } = {}) {
+  return readStore()
+    .filter((r) => r?.outcome != null && Number.isFinite(Number(r.outcome.pnl)))
+    .slice(-Math.max(1, Number(window) || 100))
+    .map((r) => ({
+      symbol: r.symbol, openedAt: r.openedAt || null, tradeStructure: r.tradeStructure || null,
+      pnl: Number(r.outcome.pnl), holdingDays: Number.isFinite(r.outcome.holdingDays) ? r.outcome.holdingDays : null,
+    }));
+}
+
+module.exports = {
+  recordSetupEvent, getPerformanceViews, getRecentClosedTrades, getClosedRecordsForAnalysis,
+  STORE_PATH, MAX_RECORDS,
+};
