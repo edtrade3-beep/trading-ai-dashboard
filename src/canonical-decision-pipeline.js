@@ -6,6 +6,7 @@ const { computeDataHealth } = require("./data-health-engine");
 const { computeMarketRegimeState } = require("./market-regime-engine");
 const { buildAssetDecision } = require("./asset-decision");
 const { computeEventRisk } = require("./event-risk-engine");
+const { computeTradeGpsScore, mapOpportunityToTradeGpsInputs } = require("./trade-gps-score");
 
 const PIPELINE_VERSION = "canonical-pipeline-v1";
 
@@ -47,7 +48,13 @@ function computeCanonicalAssetDecision({
   const resolvedEventRisk = eventRisk || computeEventRisk({ earningsDte: row.earningsDte, nowMs });
   const assetDecision = buildAssetDecision({ opportunity, marketRegime, dataHealth, eventRisk: resolvedEventRisk, timestamp: nowMs });
   opportunity.assetDecision = assetDecision;
-  return { assetDecision, opportunity, marketRegime, dataHealth, compatibilityRegime: legacyRegime, engineVersion: PIPELINE_VERSION };
+  // Trade GPS (2026-09-03) — additive only, per the confirmed design
+  // decision: this is a SECOND, narrower "is this specific setup
+  // Trade-GPS-ready" read shown only on the new Trade GPS card, never a
+  // replacement for the real 12-bucket am-core-engine.js composite that
+  // already powers every other surface reading opportunity.score.
+  const tradeGps = assetDecision ? computeTradeGpsScore(mapOpportunityToTradeGpsInputs(opportunity, assetDecision)) : null;
+  return { assetDecision, opportunity, marketRegime, dataHealth, compatibilityRegime: legacyRegime, tradeGps, engineVersion: PIPELINE_VERSION };
 }
 
 module.exports = { PIPELINE_VERSION, latestTimestampMs, computeCanonicalAssetDecision };

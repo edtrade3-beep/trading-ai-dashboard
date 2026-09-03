@@ -67,6 +67,17 @@ ok("a held position (positionState supplied) gets signalState: null — that's p
   assert.strictEqual(held.signalState, null);
 });
 
+console.log("\nChecking Trade GPS's 7-bucket score integration (2026-09-03)…");
+ok("a real, well-formed row gets a real tradeGps score/band, additive alongside the unchanged real opportunity.score", () => {
+  const canonical = computeCanonicalAssetDecision({
+    symbol: "TEST", row: baseRow(), macroQuotes: [], nowMs: Date.now(), marketHours: true,
+  });
+  assert.ok(canonical.tradeGps, "tradeGps must be present on the pipeline result");
+  assert.ok(["PRIMARY", "WATCH", "REJECT", "NO_TRADE"].includes(canonical.tradeGps.band));
+  assert.ok(Number.isFinite(canonical.opportunity.score), "the real existing 12-bucket score must stay completely untouched");
+  assert.doesNotThrow(() => JSON.stringify(canonical), "adding tradeGps must never reintroduce a circular structure");
+});
+
 console.log(`\n${passed} checks passed.`);
 if (process.exitCode) console.error("CANONICAL-DECISION-PIPELINE TEST FAILED");
 else console.log("CANONICAL-DECISION-PIPELINE TEST OK");
