@@ -16,7 +16,7 @@ const PIPELINE_VERSION = "canonical-pipeline-v1";
 
 function latestTimestampMs(rows) {
   return (rows || []).reduce((latest, row) => {
-    const candidate = row?.regularMarketTime ?? row?.timestamp ?? row?.ts ?? row?.updatedAt ?? row?.asOf ?? row?.generatedAt;
+    const candidate = row?.asOfMs ?? row?.regularMarketTime ?? row?.timestamp ?? row?.ts ?? row?.updatedAt ?? row?.asOf ?? row?.generatedAt;
     const raw = typeof candidate === "string" && !/^\d+(\.\d+)?$/.test(candidate) ? Date.parse(candidate) : Number(candidate);
     if (!Number.isFinite(raw) || raw <= 0) return latest;
     const ms = raw < 10_000_000_000 ? raw * 1000 : raw;

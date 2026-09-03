@@ -104,6 +104,25 @@ ok("a real, well-formed row gets a real trapShield read and a real tradeGpsVerdi
   assert.doesNotThrow(() => JSON.stringify(canonical), "adding trapShield/tradeGpsVerdict must never reintroduce a circular structure");
 });
 
+console.log("\nChecking latestTimestampMs's real asOfMs support (2026-09-03 fix)…");
+ok("a row with a real asOfMs stamp (routes/market.js's screenTrendTemplate/macroRows fix) marks market-price/macro-quotes HEALTHY, not DEGRADED, even with no provider-native timestamp field", () => {
+  const nowMs = Date.now();
+  const row = baseRow({ asOfMs: nowMs });
+  const macroQuotes = [{ symbol: "SPY", regularMarketPrice: 500, asOfMs: nowMs }];
+  const canonical = computeCanonicalAssetDecision({ symbol: "TEST", row, macroQuotes, nowMs, marketHours: true });
+  const marketPriceSource = canonical.dataHealth.sources.find((s) => s.source === "market-price");
+  const macroQuotesSource = canonical.dataHealth.sources.find((s) => s.source === "macro-quotes");
+  assert.strictEqual(marketPriceSource.status, "HEALTHY", "a real asOfMs stamp must resolve market-price to HEALTHY");
+  assert.strictEqual(macroQuotesSource.status, "HEALTHY", "a real asOfMs stamp must resolve macro-quotes to HEALTHY");
+  assert.strictEqual(canonical.dataHealth.confidenceMultiplier, 1, "no real degraded-source penalty once the real fetch time is honestly disclosed");
+});
+ok("no asOfMs and no other real timestamp field -> honestly DEGRADED, never silently assumed fresh", () => {
+  const row = baseRow();
+  const canonical = computeCanonicalAssetDecision({ symbol: "TEST", row, macroQuotes: [{ symbol: "SPY" }], nowMs: Date.now(), marketHours: true });
+  const marketPriceSource = canonical.dataHealth.sources.find((s) => s.source === "market-price");
+  assert.strictEqual(marketPriceSource.status, "DEGRADED");
+});
+
 console.log(`\n${passed} checks passed.`);
 if (process.exitCode) console.error("CANONICAL-DECISION-PIPELINE TEST FAILED");
 else console.log("CANONICAL-DECISION-PIPELINE TEST OK");

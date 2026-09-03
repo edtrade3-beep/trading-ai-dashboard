@@ -1820,6 +1820,14 @@ async function screenTrendTemplate(symbols, filters = {}) {
         const passExclRS = r.criteria.filter((c) => c.id !== 8 && c.pass).length; // template passes without the RS rule
         const volConfirmed = (r.volRatio || 0) >= 1.4;  // breakout-day volume ≥40% above the 50-day average
         out.push({
+          // Real fetch-time stamp (2026-09-03) — buildTrendTemplate just
+          // fetched this real quote, this call, moments ago; no upstream
+          // provider field this row otherwise carries (regularMarketTime/
+          // timestamp/ts/etc.) is ever populated here, which silently made
+          // computeDataHealth's "market-price" source read DEGRADED on
+          // every single canonical decision built from a scan row,
+          // regardless of how fresh the real quote actually was.
+          asOfMs: Date.now(),
           symbol: r.symbol, price: r.price, passCount: r.passCount, qualifies: r.qualifies,
           stage: r.stage, rsRating: r.rsRating, pctFromHigh: r.pctFromHigh,
           pivot: r.setup.pivot, entry: r.setup.entry, stop: r.setup.stop, riskPct: r.setup.riskPct,
@@ -2865,6 +2873,13 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
           const { buildResearchContext } = require("../research-context-adapter");
           const { loadCoachLog } = require("../ai-coach-store");
           const decisionTimestamp = Date.now();
+          // Real fetch-time stamp (2026-09-03) — same fix as screenTrendTemplate's
+          // asOfMs above: macroRows was just fetched, this same request, but
+          // fetchMarketQuotes doesn't reliably carry a real regularMarketTime
+          // on every real provider path (Alpaca/Yahoo/Finnhub fallback chain),
+          // which silently made "macro-quotes" read DEGRADED regardless of
+          // real freshness. latestTimestampMs() checks asOfMs first.
+          for (const q of macroRows) { if (q && q.asOfMs == null) q.asOfMs = decisionTimestamp; }
           const coachLog = loadCoachLog();
           const researchContext = buildResearchContext({ researchIntel: coachLog.researchIntel, marketWrap: coachLog.marketWrap, timestamp: decisionTimestamp });
           const macroTimestamp = macroRows.reduce((latest, q) => Math.max(latest, Number(q?.regularMarketTime || 0) * 1000), 0) || null;
