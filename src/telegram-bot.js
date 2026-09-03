@@ -528,7 +528,7 @@ async function cmdCortex(args) {
   try {
     const { computeSniperDecision } = require("./sniper-decision");
     const {
-      computeHeatRisk, computeCortexVerdict, computePriceToPay, summarizeBuyPrice,
+      computeHeatRisk, computePriceToPay, summarizeBuyPrice,
       whyEvidence, computeTechnicalScore, computeTrimSignal, computePremiumRead, verdictWinProbFor, computeBottomSignal,
     } = require("./cortex-decision");
     const { computeRegime, computeAPlusScore, computeInstitutionalGrade, computeFundamentalsRead, classifyEntryType } = require("./market-helpers-decision");
@@ -536,12 +536,11 @@ async function cmdCortex(args) {
     const base = process.env.RENDER_EXTERNAL_URL || `http://localhost:${process.env.PORT || 3000}`;
 
     const [screenRes, fvRes, fundRes, macroRes, darkPoolRes, optionsFlowRes, insiderRes, shortInterestRes, trackRes, socialRes] = await Promise.allSettled([
-      // &withDecision=1 (One Engine consolidation, Phase 2.7) — attaches
-      // real coreCriticalFlags so computeCortexVerdict below can use the
-      // same real critical-red-flag hard gate Phase 2.5 already wired into
-      // the web app's AMCortexTab.jsx/MarketTerminalTab.jsx, keeping
-      // Telegram's /cortex consistent with the app instead of missing the
-      // one gate they now both have.
+      // &withDecision=1 (One Engine consolidation, Phase 2.7) — attaches the
+      // real canonical assetDecision this command's own VERDICT line reads
+      // below (cortex-decision.js's own computeCortexVerdict is deliberately
+      // never called here — the canonical pipeline's verdict is the one
+      // real answer this command ever shows, never a second one).
       withTimeout(fetch(`${base}/api/market/trend-screen?symbols=${encodeURIComponent(symbol)}&withDecision=1`).then(r => r.json()), 15_000, null),
       withTimeout(fetch(`${base}/api/scanner/future-value?symbol=${encodeURIComponent(symbol)}`).then(r => r.json()).catch(() => null), 15_000, null),
       withTimeout(fetch(`${base}/api/market/fundamentals?symbol=${encodeURIComponent(symbol)}`).then(r => r.json()).catch(() => null), 10_000, null),
