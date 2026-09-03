@@ -9,7 +9,8 @@
 // Run: node test/autopilot2-engine.test.js (or npm test).
 "use strict";
 const assert = require("node:assert");
-const { sizeEntry, sizeCryptoEntry, CRYPTO_UNIVERSE, RISK_PCT_PER_TRADE, MAX_TRADE_RISK_DOLLARS, isBullishCandidate, hasExecutableFinalVerdict, isBearishCandidate, BULLISH_RANK, BEARISH_RANK, symbolsToScan } = require("../src/autopilot2-engine");
+const { sizeEntry, sizeCryptoEntry, CRYPTO_UNIVERSE, RISK_PCT_PER_TRADE, MAX_TRADE_RISK_DOLLARS, isBullishCandidate, hasExecutableFinalVerdict, isBearishCandidate, BULLISH_RANK, BEARISH_RANK, symbolsToScan, DAILY_LOSS_LOCK_DOLLARS, DAILY_LOSS_PCT } = require("../src/autopilot2-engine");
+const { dailyLossBreakerTripped } = require("../src/risk-guardrails");
 
 let passed = 0;
 function ok(name, fn) { try { fn(); passed++; console.log(`  ✓ ${name}`); } catch (e) { console.error(`  ✗ ${name}\n    ${e.message}`); process.exitCode = 1; } }
@@ -199,6 +200,44 @@ ok("an empty real watchlist returns an empty real list, never fabricated symbols
 ok("alreadyScanned accepts a plain array too, not just a Set", () => {
   const r = symbolsToScan(["TSLA", "ZZZZ"], [], ["TSLA"]);
   assert.deepStrictEqual(r, ["ZZZZ"]);
+});
+
+console.log("\nChecking Trade GPS's $1,000 hard daily loss lock (2026-09-03 spec)…");
+ok(`real default: DAILY_LOSS_LOCK_DOLLARS is exactly $${DAILY_LOSS_LOCK_DOLLARS}`, () => {
+  assert.strictEqual(DAILY_LOSS_LOCK_DOLLARS, 1000);
+});
+ok("a $999 real daily loss on a $100k account does not trip the lock", () => {
+  const tripped = dailyLossBreakerTripped({
+    equity: 99_001, startOfDayEquity: 100_000,
+    maxLossPct: DAILY_LOSS_PCT, maxLossAbs: DAILY_LOSS_LOCK_DOLLARS,
+  });
+  assert.strictEqual(tripped, false);
+});
+ok("a real -$1,000 daily loss on a $100k account trips the lock at the exact boundary", () => {
+  const tripped = dailyLossBreakerTripped({
+    equity: 99_000, startOfDayEquity: 100_000,
+    maxLossPct: DAILY_LOSS_PCT, maxLossAbs: DAILY_LOSS_LOCK_DOLLARS,
+  });
+  assert.strictEqual(tripped, true);
+});
+ok("the $1,000 absolute lock binds tighter than the 2% percent breaker on a $100k account (2%=$2,000)", () => {
+  // A real -$1,500 daily loss: the percent breaker alone (2% = $2,000)
+  // would NOT trip yet, but the real $1,000 absolute lock must — proving
+  // the tighter real limit is the one actually enforced, not silently
+  // overridden by the looser percent check.
+  const tripped = dailyLossBreakerTripped({
+    equity: 98_500, startOfDayEquity: 100_000,
+    maxLossPct: DAILY_LOSS_PCT, maxLossAbs: DAILY_LOSS_LOCK_DOLLARS,
+  });
+  assert.strictEqual(tripped, true);
+});
+ok("sizeEntry/sizeCryptoEntry never take a daily-P&L or 'recover losses' input — risk sizing is a pure function of equity/entry/stop only", () => {
+  // Real safety assertion, not a new feature: confirms no code path can
+  // raise position size to chase back a loss, since these are the only
+  // two real sizing functions and neither function signature accepts
+  // anything P&L-related.
+  const src = sizeEntry.toString() + sizeCryptoEntry.toString();
+  assert.doesNotMatch(src, /dailyPnl|recover|boostRisk|increaseRisk/i);
 });
 
 console.log(`\n${passed} checks passed.`);

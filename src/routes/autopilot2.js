@@ -7,6 +7,7 @@
 const { writeJson, readRequestBody } = require("../utils");
 const { getAccountSnapshot, resetAccount } = require("../autopilot2-account");
 const { loadState, setState, recentActivity } = require("../autopilot2-store");
+const { dailyLossBreakerTripped } = require("../risk-guardrails");
 
 async function handleAutopilot2(req, res, requestUrl) {
   const { pathname } = requestUrl;
@@ -66,8 +67,20 @@ async function handleAutopilot2(req, res, requestUrl) {
         heartbeat = loadHeartbeats()["ADOL22 Autopilot 2.0"] || null;
       } catch { heartbeat = null; }
 
+      // Trade GPS (2026-09-03) — real, honest visibility into the $1,000
+      // hard daily loss lock (autopilot2-engine.js's DAILY_LOSS_LOCK_DOLLARS,
+      // OR'd against the existing DAILY_LOSS_PCT breaker). Same real check
+      // tick() runs before allowing any new entry — this just surfaces its
+      // current state without re-deriving a second version of the rule.
+      const { DAILY_LOSS_LOCK_DOLLARS, DAILY_LOSS_PCT } = require("../autopilot2-engine");
+      const dailyLossLocked = dailyLossBreakerTripped({
+        equity: account.equity, startOfDayEquity: account.dailyStartEquity,
+        maxLossPct: DAILY_LOSS_PCT, maxLossAbs: DAILY_LOSS_LOCK_DOLLARS,
+      });
+
       const recent = recentActivity(50);
       return writeJson(res, 200, { ok: true, state, account, activity: recent, bestOpportunity, heartbeat,
+        dailyLossLocked, dailyLossLockDollars: DAILY_LOSS_LOCK_DOLLARS,
         statusMessage: state.state === "OFF" ? "OFF — scheduler will not open or manage positions"
           : heartbeat?.lastOk === false ? `RUNNING — scheduler error: ${heartbeat.lastError || "unknown"}`
           : bestOpportunity ? `RUNNING — next canonical ${bestOpportunity.assetDecision?.verdict || "BUY"} candidate: ${bestOpportunity.symbol}`

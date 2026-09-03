@@ -56,6 +56,15 @@ const MAX_OPEN_POSITIONS = Number(process.env.AUTOPILOT2_MAX_POSITIONS) || 16;
 const MAX_PER_SECTOR = Number(process.env.AUTOPILOT2_MAX_SECTOR) || 3;
 const MAX_OPEN_RISK_PCT = Number(process.env.AUTOPILOT2_MAX_OPEN_RISK) || 6;
 const DAILY_LOSS_PCT = Number(process.env.AUTOPILOT2_DAILY_LOSS_PCT) || 2;
+// Trade GPS (2026-09-03, explicit user spec: "Hard daily loss limit:
+// $1,000... After the daily loss limit is reached, lock new entries").
+// dailyLossBreakerTripped() already supports an absolute-dollar breaker
+// (risk-guardrails.js) — this was simply never passed. OR'd against
+// DAILY_LOSS_PCT above (whichever trips first wins); on a $100k account
+// $1,000 is tighter than 2%/$2,000, so this becomes the real binding
+// limit without removing the existing percent-based breaker for other
+// account sizes.
+const DAILY_LOSS_LOCK_DOLLARS = Number(process.env.AUTOPILOT2_DAILY_LOSS_LOCK) || 1000;
 const WEEKLY_LOSS_PCT = Number(process.env.AUTOPILOT2_WEEKLY_LOSS_PCT) || 5;
 const TOTAL_DRAWDOWN_PCT = Number(process.env.AUTOPILOT2_DRAWDOWN_PCT) || 15;
 const MAX_ENTRIES_PER_TICK = 5;
@@ -652,7 +661,7 @@ async function _tickImpl() {
   const freshSnapshot = await getAccountSnapshot();
 
   const breakers = [
-    dailyLossBreakerTripped({ equity: freshSnapshot.equity, startOfDayEquity: freshSnapshot.dailyStartEquity, maxLossPct: DAILY_LOSS_PCT }) && "daily loss breaker",
+    dailyLossBreakerTripped({ equity: freshSnapshot.equity, startOfDayEquity: freshSnapshot.dailyStartEquity, maxLossPct: DAILY_LOSS_PCT, maxLossAbs: DAILY_LOSS_LOCK_DOLLARS }) && "daily loss breaker",
     weeklyLossBreakerTripped({ equity: freshSnapshot.equity, weekStartEquity: freshSnapshot.weekStartEquity, maxLossPct: WEEKLY_LOSS_PCT }) && "weekly loss breaker",
     totalDrawdownBreakerTripped({ equity: freshSnapshot.equity, peakEquity: freshSnapshot.peakEquity, maxDrawdownPct: TOTAL_DRAWDOWN_PCT }) && "total drawdown breaker",
   ].filter(Boolean);
@@ -796,6 +805,6 @@ module.exports = {
   tick, sizeEntry, sizeOptionEntry, sizeCryptoEntry, fetchLightBoxCandidates, fetchCryptoCandidates,
   fetchWatchlistCandidates, symbolsToScan,
   CRYPTO_UNIVERSE, RISK_PCT_PER_TRADE, MAX_TRADE_RISK_DOLLARS, MAX_OPEN_POSITIONS, MAX_PER_SECTOR,
-  MAX_OPEN_RISK_PCT, CALL_DTE_EXIT_FLOOR,
+  MAX_OPEN_RISK_PCT, CALL_DTE_EXIT_FLOOR, DAILY_LOSS_LOCK_DOLLARS, DAILY_LOSS_PCT,
   isBullishCandidate, hasExecutableFinalVerdict, isBearishCandidate, BULLISH_RANK, BEARISH_RANK,
 };

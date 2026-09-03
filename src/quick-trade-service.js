@@ -26,6 +26,13 @@ const { writeJsonAtomic, readJsonSafe } = require("./atomic-write");
 const { PORT, ROOT } = require("./config");
 
 const MAX_LOSS_PCT = Number(process.env.SERVER_AUTOPILOT_MAXLOSS) || 2;
+// Trade GPS (2026-09-03, explicit user spec: "Hard daily loss limit:
+// $1,000... lock new entries", applying to manual entries too, not just
+// Autopilot 2.0's automated ones — same DAILY_LOSS_LOCK_DOLLARS constant
+// and OR-against-percent pattern as autopilot2-engine.js, so a manual
+// Quick Trade order and an autopilot order respect the identical $1,000
+// real limit.
+const DAILY_LOSS_LOCK_DOLLARS = Number(process.env.AUTOPILOT2_DAILY_LOSS_LOCK) || 1000;
 const MAX_RISK_PCT = Number(process.env.SERVER_AUTOPILOT_MAXRISK) || 6;
 const MAX_PER_SECTOR = Number(process.env.SERVER_AUTOPILOT_MAXSECTOR) || 3;
 const WEEKLY_MAX_LOSS_PCT = Number(process.env.SERVER_AUTOPILOT_WEEKLY_MAXLOSS) || 5;
@@ -91,8 +98,8 @@ async function preTradeCheck({ symbol, requireMarketHours = true, checkCorrelati
   });
   if (!health.ok) return { ok: false, reason: `account health: ${health.reason}` };
 
-  if (dailyLossBreakerTripped({ equity: account.equity, startOfDayEquity: account.lastEquity, maxLossPct: MAX_LOSS_PCT })) {
-    return { ok: false, reason: `daily loss breaker tripped (real -${MAX_LOSS_PCT}% limit)` };
+  if (dailyLossBreakerTripped({ equity: account.equity, startOfDayEquity: account.lastEquity, maxLossPct: MAX_LOSS_PCT, maxLossAbs: DAILY_LOSS_LOCK_DOLLARS })) {
+    return { ok: false, reason: `daily loss breaker tripped (real -${MAX_LOSS_PCT}%/-$${DAILY_LOSS_LOCK_DOLLARS} limit)` };
   }
 
   // Weekly/total-drawdown breakers (2026-09-01 /goal Phase 8 audit fix) —
@@ -332,7 +339,7 @@ async function modifyTarget(orderId, newLimitPrice) {
 }
 
 module.exports = {
-  MAX_LOSS_PCT, MAX_RISK_PCT, MAX_PER_SECTOR,
+  MAX_LOSS_PCT, MAX_RISK_PCT, MAX_PER_SECTOR, DAILY_LOSS_LOCK_DOLLARS,
   getAccount, getPositions, preTradeCheck, sizeByRisk, buildOrder, rMultipleTarget,
   buy, sell, short, cover, submitBracket,
   closePosition, closeAll, closeAllLongs, closeAllShorts, flatten,
