@@ -29,13 +29,13 @@ export default function TradeGpsWhyPanel({ tradeGps, tradeStructure, trapShield,
       </button>
       {open && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10, padding: "0 12px 12px" }}>
-          <Panel title="SCORE BREAKDOWN" C={C} MONO={MONO}>
+          <Panel title="SCORE BREAKDOWN" color={C.accent} C={C} MONO={MONO}>
             {Object.entries(BUCKET_LABELS).map(([key, label]) => (
               <Row key={key} label={label} value={value(breakdown[key], breakdown[key] != null ? "/100" : "")} C={C} MONO={MONO} />
             ))}
           </Panel>
 
-          <Panel title="STRUCTURE PICK" C={C} MONO={MONO}>
+          <Panel title="STRUCTURE PICK" color={C.green} C={C} MONO={MONO}>
             <Row label="Structure" value={value(tradeStructure?.structure)} C={C} MONO={MONO} />
             {contract && (
               <>
@@ -48,12 +48,12 @@ export default function TradeGpsWhyPanel({ tradeGps, tradeStructure, trapShield,
             <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, marginTop: 6, lineHeight: 1.4 }}>{tradeStructure?.reason || "No real structure reasoning available."}</div>
           </Panel>
 
-          <Panel title="TRAP SHIELD" C={C} MONO={MONO}>
+          <Panel title="TRAP SHIELD" color={trapShield?.blocked ? C.red : C.amber} C={C} MONO={MONO}>
             <Row label="Status" value={trapShield?.blocked ? "BLOCKED" : (trapShield?.warningLevel || "—")} danger={!!trapShield?.blocked} C={C} MONO={MONO} />
             <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, marginTop: 6, lineHeight: 1.4 }}>{trapShield?.message || "No real trap conditions detected."}</div>
           </Panel>
 
-          <Panel title="REJECTED ALTERNATIVES" C={C} MONO={MONO}>
+          <Panel title="REJECTED ALTERNATIVES" color={C.textDim} C={C} MONO={MONO}>
             {rejected.length ? rejected.map((r, i) => (
               <div key={i} style={{ fontFamily: SANS, fontSize: 10.5, color: C.textSec, marginTop: i ? 4 : 0 }}>
                 <b style={{ color: C.textDim }}>{r.structure}{r.strike != null ? ` $${r.strike}` : ""}:</b> {r.reason}
@@ -66,8 +66,13 @@ export default function TradeGpsWhyPanel({ tradeGps, tradeStructure, trapShield,
   );
 }
 
-function Panel({ title, children, C, MONO }) {
-  return <section style={{ minWidth: 0, padding: "10px 12px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 8 }}><div style={{ fontFamily: MONO, fontSize: 9, letterSpacing: 0.8, color: C.textDim, marginBottom: 7 }}>{title}</div>{children}</section>;
+function Panel({ title, color, children, C, MONO }) {
+  return (
+    <section style={{ minWidth: 0, padding: "10px 12px", background: C.card, border: `1px solid ${C.border}`, borderLeft: `3px solid ${color}`, borderRadius: 8 }}>
+      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: 0.8, color, marginBottom: 7 }}>{title}</div>
+      {children}
+    </section>
+  );
 }
 
 function Row({ label, value: v, C, MONO, danger }) {
