@@ -78,6 +78,16 @@ ok("a real, well-formed row gets a real tradeGps score/band, additive alongside 
   assert.doesNotThrow(() => JSON.stringify(canonical), "adding tradeGps must never reintroduce a circular structure");
 });
 
+console.log("\nChecking Trade GPS's stock-vs-option structure pick integration (2026-09-03)…");
+ok("a real, well-formed row with no real option chain supplied gets a real STOCK structure pick, additive alongside tradeGps", () => {
+  const canonical = computeCanonicalAssetDecision({
+    symbol: "TEST", row: baseRow(), macroQuotes: [], nowMs: Date.now(), marketHours: true,
+  });
+  assert.ok(canonical.tradeStructure, "tradeStructure must be present on the pipeline result");
+  assert.strictEqual(canonical.tradeStructure.structure, "STOCK", "no real option chain supplied -> real stock preferred, never fabricated");
+  assert.doesNotThrow(() => JSON.stringify(canonical), "adding tradeStructure must never reintroduce a circular structure");
+});
+
 console.log(`\n${passed} checks passed.`);
 if (process.exitCode) console.error("CANONICAL-DECISION-PIPELINE TEST FAILED");
 else console.log("CANONICAL-DECISION-PIPELINE TEST OK");

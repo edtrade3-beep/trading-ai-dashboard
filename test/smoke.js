@@ -72,6 +72,24 @@ ok("liquidityScore: tighter spread + higher OI/volume score higher, always bound
   assert.ok(tight > wide, "a tight, liquid contract should score higher than a wide, illiquid one");
   assert.ok(tight >= 0 && tight <= 100 && wide >= 0 && wide <= 100, "score must stay within 0-100");
 });
+ok("theta: real time decay is always negative (never fabricated as value-gaining), honest null with no real inputs", () => {
+  const { theta } = require("../src/options-math");
+  const t = theta({ iv: 30, strike: 100, underlying: 100, dte: 30, isCall: true });
+  assert.ok(t < 0, `theta must be negative (real value lost per day), got ${t}`);
+  assert.strictEqual(theta({}), null);
+});
+ok("theta: shorter real DTE at the same strike/IV decays faster per day (theta magnitude grows near expiry)", () => {
+  const { theta } = require("../src/options-math");
+  const t30 = theta({ iv: 30, strike: 100, underlying: 100, dte: 30, isCall: true });
+  const t5 = theta({ iv: 30, strike: 100, underlying: 100, dte: 5, isCall: true });
+  assert.ok(Math.abs(t5) > Math.abs(t30), "a contract closer to real expiry should decay faster per day");
+});
+ok("breakEven: real long-call break-even is strike+premium; real long-put break-even is strike-premium", () => {
+  const { breakEven } = require("../src/options-math");
+  assert.strictEqual(breakEven({ strike: 100, premium: 3.5, isCall: true }), 103.5);
+  assert.strictEqual(breakEven({ strike: 100, premium: 3.5, isCall: false }), 96.5);
+  assert.strictEqual(breakEven({}), null, "honest null with no real inputs");
+});
 
 console.log("Checking agent.js's fixed AI Sentiment button + new per-symbol aggregator (Phase 0)…");
 ok("aggregateSentimentForSymbol: real bull/bear headline counts drive the verdict, templated one-liner", () => {

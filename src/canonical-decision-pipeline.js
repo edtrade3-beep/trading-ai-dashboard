@@ -7,6 +7,7 @@ const { computeMarketRegimeState } = require("./market-regime-engine");
 const { buildAssetDecision } = require("./asset-decision");
 const { computeEventRisk } = require("./event-risk-engine");
 const { computeTradeGpsScore, mapOpportunityToTradeGpsInputs } = require("./trade-gps-score");
+const { selectTradeStructure } = require("./trade-structure-selector");
 
 const PIPELINE_VERSION = "canonical-pipeline-v1";
 
@@ -24,7 +25,7 @@ function computeCanonicalAssetDecision({
   symbol, row, macroQuotes = [], marketContext = null, sectorInfo = null, adx = null,
   optionsFlow = null, trackReport = null, spreadPct = null, eventRisk = null,
   fundamentals = null, news = null, executionHealth = null,
-  researchContext = null,
+  researchContext = null, optionChain = [], ivRank = null,
   nowMs = Date.now(), marketHours = false, extraDataSources = [],
 } = {}) {
   if (!row || row.error || !symbol) return null;
@@ -54,7 +55,23 @@ function computeCanonicalAssetDecision({
   // replacement for the real 12-bucket am-core-engine.js composite that
   // already powers every other surface reading opportunity.score.
   const tradeGps = assetDecision ? computeTradeGpsScore(mapOpportunityToTradeGpsInputs(opportunity, assetDecision)) : null;
-  return { assetDecision, opportunity, marketRegime, dataHealth, compatibilityRegime: legacyRegime, tradeGps, engineVersion: PIPELINE_VERSION };
+  // Trade GPS (2026-09-03) — stock-vs-option structure pick, additive.
+  // Direction is derived from the real entry/stop relationship this
+  // pipeline already produces (stop below entry = bullish/LONG, stop
+  // above entry = bearish/SHORT) — no new bias field invented.
+  const direction = Number.isFinite(assetDecision?.entry) && Number.isFinite(assetDecision?.stop)
+    ? (assetDecision.stop < assetDecision.entry ? "LONG" : "SHORT")
+    : "LONG";
+  const stopDistance = Number.isFinite(assetDecision?.entry) && Number.isFinite(assetDecision?.stop)
+    ? Math.abs(assetDecision.entry - assetDecision.stop) : null;
+  const firstTarget = Array.isArray(assetDecision?.targets) ? assetDecision.targets[0] : null;
+  const targetDistance = Number.isFinite(assetDecision?.entry) && Number.isFinite(firstTarget)
+    ? Math.abs(firstTarget - assetDecision.entry) : null;
+  const tradeStructure = assetDecision ? selectTradeStructure({
+    symbol, price: opportunity.price, direction, stopDistance, targetDistance,
+    optionChain, ivRank, tradeGpsScore: tradeGps,
+  }) : null;
+  return { assetDecision, opportunity, marketRegime, dataHealth, compatibilityRegime: legacyRegime, tradeGps, tradeStructure, engineVersion: PIPELINE_VERSION };
 }
 
 module.exports = { PIPELINE_VERSION, latestTimestampMs, computeCanonicalAssetDecision };

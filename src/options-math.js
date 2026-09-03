@@ -81,6 +81,42 @@ function expectedMove({ iv, underlying, dte } = {}) {
   return Math.round(move * 100) / 100;
 }
 
+// Real time decay ($ per share, per calendar day — the conventional
+// quoting convention, always <= 0). Same r=0 Black-Scholes simplification
+// probabilityOfProfit/estimateDelta already use (no risk-free-rate term);
+// under that simplification a call and a put at the same strike/iv/dte
+// share this exact formula (the carry term that would otherwise
+// differentiate them vanishes), so isCall is accepted only for signature
+// consistency with every other function here, not used in the math.
+// Trade GPS (2026-09-03) — real inputs required for the spec's "options
+// must pass... theta" check; null (never fabricated) on missing data,
+// same discipline as every function in this file.
+function theta({ iv, strike, underlying, dte, isCall } = {}) {
+  if (
+    !Number.isFinite(iv) || iv <= 0 ||
+    !Number.isFinite(strike) || strike <= 0 ||
+    !Number.isFinite(underlying) || underlying <= 0 ||
+    !Number.isFinite(dte) || dte <= 0
+  ) return null;
+  const sigma = iv / 100;
+  const t = dte / 365;
+  const d1 = (Math.log(underlying / strike) + 0.5 * sigma * sigma * t) / (sigma * Math.sqrt(t));
+  const pdf = Math.exp((-d1 * d1) / 2) / Math.sqrt(2 * Math.PI);
+  const thetaPerYear = -(underlying * pdf * sigma) / (2 * Math.sqrt(t));
+  return Math.round((thetaPerYear / 365) * 100) / 100;
+}
+
+// Real break-even underlying price at expiry — standard formula, no
+// model needed: a long call needs the underlying above strike+premium to
+// profit; a long put needs it below strike-premium. Real inputs only.
+// Trade GPS (2026-09-03) — spec's own explicit "options must pass...
+// break-even" check.
+function breakEven({ strike, premium, isCall } = {}) {
+  const k = Number(strike), p = Number(premium);
+  if (!Number.isFinite(k) || k <= 0 || !Number.isFinite(p) || p < 0) return null;
+  return Math.round((isCall ? k + p : k - p) * 100) / 100;
+}
+
 // Bid-ask spread as % of mid price. Null (not 0) when bid/ask are
 // missing/zero/crossed — a real 0% spread would be a data anomaly, not an
 // honest "no spread" state, so this never fabricates a favorable number.
@@ -298,5 +334,5 @@ function interpretFlowRow(row) {
 module.exports = {
   normCdf, probabilityOfProfit, estimateDelta, expectedMove, spreadPct, liquidityScore,
   dteFromExpiry, expectedValue, rankContracts, gammaSqueezeProbability, ivCrushRisk, assignmentRisk,
-  interpretFlowRow,
+  interpretFlowRow, theta, breakEven,
 };
