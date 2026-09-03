@@ -1,18 +1,31 @@
 // Real tests for src/trade-gps-notifier.js — Trade GPS's material-state-
 // change notifier, reusing the existing real Telegram system end-to-end
-// (2026-09-03 spec). Telegram is genuinely not configured in this test
-// environment (no TELEGRAM_BOT_TOKEN), so sendTelegramMessage short-
-// circuits to a real, honest {ok:false, reason:"not-configured"} with
-// zero network calls — this test verifies the gating logic ahead of that
-// call, not real delivery. Run: node test/trade-gps-notifier.test.js
-// (or npm test).
+// (2026-09-03 spec). Real bug fixed 2026-09-03: this test used to assume
+// Telegram is never configured in ANY environment this runs in — true on
+// a dev machine, false on Render, where TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID
+// are real deploy secrets. That false assumption made this file (a) fail
+// the real `npm test` step of every Render build since Stage 7 (a real
+// send hit the real cross-call cooldown instead of the expected
+// "not-configured" branch, so the exact reason string didn't match) and,
+// worse, (b) actually attempt real Telegram sends during CI. Fixed by
+// forcibly clearing both real env vars BEFORE requiring anything that
+// resolves to config.js (which reads them once, at require time) — this
+// test must be hermetic and network-free in every real environment, not
+// just the one it happened to be written in.
 "use strict";
+process.env.TELEGRAM_BOT_TOKEN = "";
+process.env.TELEGRAM_CHAT_ID = "";
 const assert = require("node:assert");
 const { writeJsonAtomic, readJsonSafe } = require("../src/atomic-write");
 const {
   notifyMaterialStateChange, MATERIAL_STATES, ALWAYS_ALLOW_STATES, categoryFor, STATE_PATH,
 } = require("../src/trade-gps-notifier");
 const { shouldSendAlert } = require("../src/telegram-bot");
+const { isConfigured } = require("../src/telegram");
+
+if (isConfigured()) {
+  throw new Error("real Telegram config leaked into this test process — refusing to run (would risk a real send)");
+}
 
 let passed = 0;
 async function ok(name, fn) {
