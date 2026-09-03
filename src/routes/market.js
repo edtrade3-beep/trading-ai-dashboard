@@ -2896,8 +2896,10 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
           // rather than omitted (which selectTradeStructure would otherwise
           // treat as fail-closed-stale).
           let optionChainBySymbol = null;
+          let ivRankBySymbol = null;
           if (searchParams.get("withOptions") === "1" && results.length <= 5) {
             try {
+              const { ivRankFor } = require("../iv-history-store");
               const symbols = results.filter((r) => !r.error).map((r) => r.symbol);
               const chains = await Promise.all(symbols.map((sym) =>
                 fetchYahooOptionsChain(sym, null).catch(() => null)));
@@ -2912,7 +2914,27 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
                 });
                 return [sym, [...(c.calls || []).map(toContract(true)), ...(c.puts || []).map(toContract(false))]];
               }));
-            } catch { /* real option chain fetch is best-effort — optionChainBySymbol stays null, selectTradeStructure honestly falls back to STOCK */ }
+              // Real IV Rank (2026-09-03) — reuses the SAME real chain just
+              // fetched above (no extra network call): the nearest-strike-
+              // to-underlying call's real IV, matching iv-history-store.js's
+              // own fetchAtmIv "ATM" convention exactly, fed into its real
+              // accumulated history (logDailySnapshot already runs daily in
+              // server.js). Honest null until that real history clears its
+              // own MIN_DAYS floor — never a guessed rank.
+              ivRankBySymbol = new Map(symbols.map((sym, i) => {
+                const c = chains[i];
+                const underlying = Number(c?.underlying) || 0;
+                let atmIv = null, bestDist = Infinity;
+                for (const call of (c?.calls || [])) {
+                  const iv = Number(call.iv);
+                  if (!Number.isFinite(iv) || iv <= 0 || !underlying) continue;
+                  const dist = Math.abs(Number(call.strike) - underlying);
+                  if (dist < bestDist) { bestDist = dist; atmIv = iv; }
+                }
+                const rankResult = atmIv != null ? ivRankFor(sym, atmIv) : null;
+                return [sym, rankResult?.available ? rankResult.rank : null];
+              }));
+            } catch { /* real option chain fetch is best-effort — optionChainBySymbol/ivRankBySymbol stay null, selectTradeStructure honestly falls back to STOCK */ }
           }
           if (searchParams.get("withOptions") === "1" && results.length <= 5) {
             try {
@@ -2930,8 +2952,9 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
             if (row.error) continue;
             const optionsFlow = optionsFlowBySymbol?.get(row.symbol) || null;
             const optionChain = optionChainBySymbol?.get(row.symbol) || [];
+            const ivRank = ivRankBySymbol?.get(row.symbol) ?? null;
             const canonical = computeCanonicalAssetDecision({
-              symbol: row.symbol, row, macroQuotes: macroRows, trackReport, optionsFlow, optionChain,
+              symbol: row.symbol, row, macroQuotes: macroRows, trackReport, optionsFlow, optionChain, ivRank,
               researchContext,
               nowMs: decisionTimestamp, marketHours: isMarketHoursET(),
               extraDataSources: [{ source: "batch-data-health", available: dataHealth?.canTrade !== false, required: false }],
