@@ -1,0 +1,4 @@
+{
+  "_disclosure": "Static seed, not a live feed. No economic-calendar provider is wired anywhere in this repo (fred.js only serves already-published historical series; routes/fed.js only fetches the FOMC's most recent PAST statement text). Populate the events array by hand with real upcoming dates from federalreserve.gov (FOMC) and bls.gov (CPI) before relying on this for trade gating — an empty array here is honest; a guessed date is not.",
+  "events": []
+}

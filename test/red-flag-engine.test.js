@@ -86,6 +86,37 @@ ok("below VWAP -> regular, not critical", () => {
   assert.strictEqual(f.critical, false);
 });
 
+console.log("Checking Trade GPS Trap Shield's new real ENTRY flags (2026-09-03)…");
+ok("wide option spread -> regular, not critical", () => {
+  const r = computeRedFlags({ ...CLEAN, optionSpreadPct: 15 });
+  const f = r.flags.find((f) => f.key === "wideOptionSpread");
+  assert.ok(f);
+  assert.strictEqual(f.critical, false);
+});
+ok("a tight real option spread never triggers wideOptionSpread", () => {
+  const r = computeRedFlags({ ...CLEAN, optionSpreadPct: 3 });
+  assert.ok(!r.flags.find((f) => f.key === "wideOptionSpread"));
+});
+ok("excessive IV rank -> regular, not critical", () => {
+  const r = computeRedFlags({ ...CLEAN, ivRank: 90 });
+  const f = r.flags.find((f) => f.key === "excessiveIv");
+  assert.ok(f);
+  assert.strictEqual(f.critical, false);
+});
+ok("a real imminent macro event -> critical (blocks new exposure, matches event-risk-engine.js's own semantics)", () => {
+  const r = computeRedFlags({ ...CLEAN, macroEventRisk: true, macroEventReason: "CPI in 6 hours." });
+  const f = r.flags.find((f) => f.key === "macroEventRisk");
+  assert.ok(f);
+  assert.strictEqual(f.critical, true);
+  assert.strictEqual(f.reason, "CPI in 6 hours.");
+});
+ok("no real optionSpreadPct/ivRank/macroEventRisk supplied -> honest omission, zero fabricated flags", () => {
+  const r = computeRedFlags({ ...CLEAN });
+  assert.ok(!r.flags.find((f) => f.key === "wideOptionSpread"));
+  assert.ok(!r.flags.find((f) => f.key === "excessiveIv"));
+  assert.ok(!r.flags.find((f) => f.key === "macroEventRisk"));
+});
+
 console.log("Checking honest omission — missing real data never fabricates a flag…");
 ok("no swing4hState, no priceAction, no antiChase, no rr, no riskPct/dollarVolume at all -> zero flags, not fabricated failures", () => {
   const r = computeRedFlags({ dailyBias: "BULLISH" });

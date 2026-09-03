@@ -43,6 +43,8 @@ const THRESHOLDS = {
   maxStopDistancePct: 8,   // matches MarketTerminalTab.jsx's "High" riskPct band
   minDollarVolume: 5_000_000, // $5M/day — a disclosed, configurable liquidity floor
   minRsRating: 60,      // matches entry-engine.js's own rsStrength check
+  maxOptionSpreadPct: 10,  // matches trade-structure-selector.js's own MAX_SPREAD_PCT
+  maxIvRankForNaked: 80,   // above this, naked option premium is genuinely overpriced
 };
 
 // Every underlying real condition, computed once — {present, reason}
@@ -115,6 +117,22 @@ function rawChecks(ev, t) {
       present: ev.reversalTopRisk != null ? ev.reversalTopRisk === true : null,
       reason: ev.reversalReason || "Real early get-out signs — near-top reversal read (52w-high proximity, RSI, volume, or a parabolic run cooling off).",
     },
+    // Trade GPS Trap Shield (2026-09-03) — real options-liquidity/pricing
+    // and macro-event checks, fed by options-math.js's own spreadPct/
+    // ivRank reads and macro-calendar.js's own real (or honestly-empty)
+    // seed. Additive — every existing flag above is untouched.
+    wideOptionSpread: {
+      present: Number.isFinite(ev.optionSpreadPct) ? ev.optionSpreadPct > t.maxOptionSpreadPct : null,
+      reason: Number.isFinite(ev.optionSpreadPct) ? `Real option bid/ask spread is ${ev.optionSpreadPct.toFixed(1)}%, above the ${t.maxOptionSpreadPct}% floor.` : null,
+    },
+    excessiveIv: {
+      present: Number.isFinite(ev.ivRank) ? ev.ivRank > t.maxIvRankForNaked : null,
+      reason: Number.isFinite(ev.ivRank) ? `Real IV rank is ${ev.ivRank.toFixed(0)}, above the ${t.maxIvRankForNaked} floor — naked option premium is overpriced.` : null,
+    },
+    macroEventRisk: {
+      present: ev.macroEventRisk != null ? ev.macroEventRisk === true : null,
+      reason: ev.macroEventReason || "A real imminent macro event (CPI/FOMC/Fed speaker) is within the blocking window.",
+    },
   };
 }
 
@@ -151,6 +169,9 @@ const ENTRY_DEFS = [
   ["weakVolume", "weakVolume", "Weak Volume", false],
   ["fallingRS", "fallingRS", "Falling Relative Strength", false],
   ["belowVwap", "belowVwap", "Below VWAP", false],
+  ["wideOptionSpread", "wideOptionSpread", "Wide Option Spread", false],
+  ["excessiveIv", "excessiveIv", "Excessive IV (Premium Overpriced)", false],
+  ["macroEventRisk", "macroEventRisk", "Imminent Macro Event", true],
 ];
 
 // EXIT taxonomy (spec §8-9's EXIT RED FLAGS list) — same real underlying
