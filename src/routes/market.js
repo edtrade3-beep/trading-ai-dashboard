@@ -3016,6 +3016,7 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
             row.marketAgreement = canonical.marketAgreement;
             row.tradeGpsVerdict = canonical.tradeGpsVerdict;
             row.dangerEvent = canonical.dangerEvent;
+            row.whyNow = canonical.whyNow;
             row.researchContext = researchContext;
           }
 

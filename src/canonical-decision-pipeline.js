@@ -12,6 +12,7 @@ const { evaluateTrapShield, computeMarketAgreement } = require("./trap-shield");
 const { translateToTradeGpsVerdict } = require("./trade-gps-verdict");
 const { THRESHOLDS: RED_FLAG_THRESHOLDS } = require("./red-flag-engine");
 const { getUpcomingMacroEvents } = require("./macro-calendar");
+const { computeWhyNow } = require("./why-now-engine");
 
 const PIPELINE_VERSION = "canonical-pipeline-v1";
 
@@ -135,9 +136,20 @@ function computeCanonicalAssetDecision({
   // already is, for a single simple per-symbol read on the client.
   const dangerEvents = getUpcomingMacroEvents({ nowMs, windowHours: 4 });
   const dangerEvent = dangerEvents[0] || null;
+  // "Why Now?" (2026-09-03) — a real, additive pick over signals already
+  // flowing through this exact pipeline call (opportunity.breakdown, the
+  // same real anti-chase band/entry stage Trap Shield already reads).
+  // newsSignal/sectorRotation/institutionalRead stay honestly null until
+  // a future caller wires those separate real pipelines in — see
+  // why-now-engine.js's own header for the full disclosure.
+  const whyNow = computeWhyNow({
+    breakdown: opportunity.breakdown, breakdownMax: BREAKDOWN_MAX_POINTS,
+    antiChaseBand: opportunity.chaseRisk, entryStage: opportunity.entryStage,
+  });
   return {
     assetDecision, opportunity, marketRegime, dataHealth, compatibilityRegime: legacyRegime,
-    tradeGps, tradeStructure, trapShield, marketAgreement, tradeGpsVerdict, dangerEvent, engineVersion: PIPELINE_VERSION,
+    tradeGps, tradeStructure, trapShield, marketAgreement, tradeGpsVerdict, dangerEvent, whyNow,
+    engineVersion: PIPELINE_VERSION,
   };
 }
 

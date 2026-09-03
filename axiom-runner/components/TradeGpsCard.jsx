@@ -73,7 +73,7 @@ function useCountdown(expiresAtMs) {
 
 export default function TradeGpsCard({
   symbol, decision, tradeGps, tradeStructure, trapShield, marketAgreement, tradeGpsVerdict,
-  dangerEvent, account, loading, C, MONO, SANS,
+  dangerEvent, whyNow, account, loading, C, MONO, SANS,
 }) {
   const verdict = tradeGpsVerdict?.verdict || null;
   const label = loading ? "LOADING…" : (VERDICT_LABEL[verdict] || "—");
@@ -138,7 +138,8 @@ export default function TradeGpsCard({
       </div>
 
       <div style={{ flex: 1, minWidth: 200, fontFamily: SANS, fontSize: 11.5, color: C.textSec, display: "flex", alignItems: "center" }}>
-        {tradeGpsVerdict?.reasonOneLine || (loading ? "Reading the canonical decision…" : "No real explanation available yet.")}
+        {whyNow?.primary?.label && <span style={{ color: C.text, fontWeight: 700, marginRight: 5 }}>Why now: {whyNow.primary.label}.</span>}
+        {tradeGpsVerdict?.reasonOneLine || (loading ? "Reading the canonical decision…" : (whyNow?.primary ? null : "No real explanation available yet."))}
       </div>
     </section>
   );

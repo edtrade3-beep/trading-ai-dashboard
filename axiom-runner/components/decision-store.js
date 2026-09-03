@@ -37,7 +37,7 @@ function emptyEntry(symbol) {
     // Trade GPS (2026-09-03) — additive fields from the same real
     // canonical pipeline result; every consumer that only reads
     // assetDecision is unaffected.
-    tradeGps: null, tradeStructure: null, trapShield: null, marketAgreement: null, tradeGpsVerdict: null, dangerEvent: null,
+    tradeGps: null, tradeStructure: null, trapShield: null, marketAgreement: null, tradeGpsVerdict: null, dangerEvent: null, whyNow: null,
     fetchedAt: null, loading: true, error: null,
   };
 }
@@ -112,6 +112,7 @@ export function fetchDecision(symbol) {
         trapShield: row?.trapShield || null,
         marketAgreement: row?.marketAgreement || null,
         dangerEvent: row?.dangerEvent || null,
+        whyNow: row?.whyNow || null,
         tradeGpsVerdict: row?.tradeGpsVerdict || null,
         fetchedAt: Date.now(),
         loading: false,
@@ -123,7 +124,7 @@ export function fetchDecision(symbol) {
     .catch((err) => {
       const entry = {
         symbol: key, assetDecision: null, marketRegime: null, dataHealth: null,
-        tradeGps: null, tradeStructure: null, trapShield: null, marketAgreement: null, tradeGpsVerdict: null, dangerEvent: null,
+        tradeGps: null, tradeStructure: null, trapShield: null, marketAgreement: null, tradeGpsVerdict: null, dangerEvent: null, whyNow: null,
         fetchedAt: Date.now(), loading: false, error: err.message,
       };
       _decisionCache.set(key, { entry, ts: Date.now(), promise: null });
