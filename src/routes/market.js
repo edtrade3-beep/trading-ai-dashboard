@@ -2797,7 +2797,22 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
       minMarketCap: numOrUndef(searchParams.get("minMarketCap")),
       excludeETFs: searchParams.get("excludeETFs") === "1",
     };
-    try {
+    // Real fix (2026-09-02): confirmed via a live page-load trace that
+    // several DIFFERENT components (Dashboard, Watchlists, sector scans)
+    // each independently request their own large (>5-symbol) trend-screen
+    // scan on every load/refresh — 1-2s each, real per-symbol
+    // scoring/template work even with warm bars data underneath. Only
+    // large scans are eligible: the <=5-symbol branch below has real,
+    // deliberate side effects (live options-flow cross-check, "what
+    // changed" snapshot recording) that must keep running on every real
+    // request, matching CortexMiniPanel's own single-symbol deep-dive
+    // semantics — caching that path would silently skip/delay them.
+    // Same cached() dedup+TTL helper and TTL already used for the
+    // same-shaped WATCHLIST_SCREEN_CACHE_TTL_MS scan above.
+    const cacheKey = symbols.length > 5
+      ? `trend-screen:${symbols.slice().sort().join(",")}:${JSON.stringify(filters)}:${searchParams.get("withDecision") || ""}:${searchParams.get("withOptions") || ""}`
+      : null;
+    const computeTrendScreenPayload = async () => {
       const results = await screenTrendTemplate(symbols, filters);
       // Opt-in Core Engine verdict enrichment (One Engine Migration Phase 6,
       // 2026-08-23) — _buildTrendTemplate's own verdict/atBuyPoint fields
@@ -2936,12 +2951,18 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
         })(), 12000, null);
       }
       const canonicalSample = results.find((row) => row.assetDecision);
-      return writeJson(res, 200, {
+      return {
         count: results.length, results,
         dataHealth: canonicalSample?.assetDecision?.dataHealth || null,
         marketRegime: canonicalSample?.assetDecision?.marketRegime || null,
         researchContext: canonicalSample?.researchContext || null,
-      });
+      };
+    };
+    try {
+      const payload = cacheKey
+        ? await cached(cacheKey, WATCHLIST_SCREEN_CACHE_TTL_MS, computeTrendScreenPayload)
+        : await computeTrendScreenPayload();
+      return writeJson(res, 200, payload);
     } catch (err) {
       return writeJson(res, 502, { error: err instanceof Error ? err.message : "Screen failed." });
     }
