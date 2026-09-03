@@ -13,6 +13,7 @@ const { translateToTradeGpsVerdict } = require("./trade-gps-verdict");
 const { THRESHOLDS: RED_FLAG_THRESHOLDS } = require("./red-flag-engine");
 const { getUpcomingMacroEvents } = require("./macro-calendar");
 const { computeWhyNow } = require("./why-now-engine");
+const { classifyTradeLane } = require("./trade-lane-classifier");
 
 const PIPELINE_VERSION = "canonical-pipeline-v1";
 
@@ -146,9 +147,16 @@ function computeCanonicalAssetDecision({
     breakdown: opportunity.breakdown, breakdownMax: BREAKDOWN_MAX_POINTS,
     antiChaseBand: opportunity.chaseRisk, entryStage: opportunity.entryStage,
   });
+  // Trade lanes (2026-09-03) — a real, thin relabeling of tier/band/
+  // signalState this pipeline already computed above; dayTradeSignal
+  // stays honestly null until a future caller wires day-trade-calc.js's
+  // own separate real scan in (see trade-lane-classifier.js's header).
+  const tradeLane = classifyTradeLane({
+    tier: opportunity.tier, band: tradeGps?.band, signalState: assetDecision?.signalState,
+  });
   return {
     assetDecision, opportunity, marketRegime, dataHealth, compatibilityRegime: legacyRegime,
-    tradeGps, tradeStructure, trapShield, marketAgreement, tradeGpsVerdict, dangerEvent, whyNow,
+    tradeGps, tradeStructure, trapShield, marketAgreement, tradeGpsVerdict, dangerEvent, whyNow, tradeLane,
     engineVersion: PIPELINE_VERSION,
   };
 }
