@@ -2783,6 +2783,22 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
     }
   }
 
+  // Trade GPS Stage 8 follow-up (2026-09-03) — the audit store has been
+  // recording every real closed setup outcome since Stage 8 shipped, but
+  // no route ever exposed getPerformanceViews(). window: 20|50|100 (any
+  // positive count accepted); groupBy: "regime" | "setup" | omitted.
+  if (pathname === "/api/market/trade-gps-performance" && req.method === "GET") {
+    try {
+      const { getPerformanceViews } = require("../trade-gps-audit-store");
+      const window = Number(searchParams.get("window")) || 50;
+      const groupBy = searchParams.get("groupBy") || null;
+      const result = getPerformanceViews({ window, groupBy });
+      return writeJson(res, 200, { ok: true, ...result });
+    } catch (err) {
+      return writeJson(res, 502, { ok: false, error: err instanceof Error ? err.message : "Trade GPS performance lookup failed." });
+    }
+  }
+
   if (pathname === "/api/market/trend-screen" && req.method === "GET") {
     // Raised 90 → 120 (2026-07-29, "more stocks in that list") — the real
     // consolidated scan universe (market-helpers.js's SCAN_UNIVERSE) grew

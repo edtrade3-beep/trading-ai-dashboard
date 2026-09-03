@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import TradeGpsPerformancePanel from "./TradeGpsPerformancePanel.jsx";
 
 export default function JournalStatsTab({ C, MONO, SANS, jData }) {
         // Real alpha vs. SPY (2026-08-13, professional-investor audit
@@ -130,6 +131,14 @@ export default function JournalStatsTab({ C, MONO, SANS, jData }) {
                 </div>
               </>
             )}
+
+            {/* Trade GPS Performance (2026-09-03) — a real, separate data
+                source from the manual journal above: every closed real
+                Autopilot 2.0 setup outcome, recorded automatically by
+                trade-gps-audit-store.js, no manual logging required.
+                Always rendered, independent of whether trades.length is 0
+                above — the two data sources have no real relationship. */}
+            <TradeGpsPerformancePanel C={C} MONO={MONO} SANS={SANS} />
           </div>
         );
 }
