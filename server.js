@@ -391,6 +391,18 @@ server.listen(PORT, HOST, () => {
   registerJob("ADOL22 Autopilot 2.0", 5 * 60_000, () => require("./src/autopilot2-engine").tick());
   console.log("[ADOL22 Autopilot 2.0] Autonomous paper-trading tick registered — every 5 min, market hours only, OFF by default");
 
+  // Dynamic universe refresh (2026-09-03, Phase 0 audit's mega-cap-bias
+  // fix) — real, liquidity-filtered stock universe from Alpaca's own
+  // /v2/assets + snapshot quotes (universe-builder.js), NOT a hand-curated
+  // list. This is the slow, network-heavy build step; registerJob's
+  // setInterval only fires after its first full interval, so an explicit
+  // immediate call here means the very first deploy already has a real
+  // universe instead of an empty one for 24h. A failed/empty attempt never
+  // overwrites a previously-good persisted universe (see the function's
+  // own comment) — safe to fire-and-forget either way.
+  require("./src/universe-builder").refreshDynamicUniverse().catch((err) => console.error("[Universe Builder] initial refresh failed:", err.message));
+  registerJob("Dynamic Universe Refresh", 24 * 3600_000, () => require("./src/universe-builder").refreshDynamicUniverse());
+
   // Trade Navigator Stage 6 (2026-09-03) — Trade Replay Brain's own
   // ignored-alert follow-up sweep. 30-min cadence is plenty relative to
   // the real 4h follow-up delay itself (ignored-alert-tracker.js's own

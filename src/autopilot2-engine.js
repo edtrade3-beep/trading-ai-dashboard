@@ -603,6 +603,53 @@ async function fetchDaytradeUniverseCandidates(alreadyScannedSymbols) {
   }
 }
 
+// Real dynamic-universe scan (2026-09-03, Phase 0 audit's core
+// mega-cap-bias finding: SCAN_UNIVERSE/DAYTRADE_UNIVERSE are both
+// hand-curated lists, ~88% mega/large-cap by the former's own section
+// comments — no re-ranking downstream can fix a bias baked into which
+// candidates exist at all). Mirrors fetchDaytradeUniverseCandidates
+// exactly: same real symbolsToScan dedup, same real screenTrendTemplate +
+// computeCanonicalAssetDecision pipeline, same honest-empty-on-failure
+// discipline, same real verdict/score/entry-stage bar — the only
+// difference is the SOURCE of candidates, universe-builder.js's real,
+// liquidity-filtered (never hand-picked) 500-750-symbol universe instead
+// of a static list. Only a rotating BATCH is scanned each tick (not the
+// whole dynamic universe at once) — this session's own Phase 0 audit
+// found scan concurrency fixed at 6 workers against a single unofficial
+// provider, so this reaches full real coverage over several ticks instead
+// of depending on that concurrency limit being raised first.
+const DYNAMIC_UNIVERSE_BATCH_SIZE = Number(process.env.AUTOPILOT2_DYNAMIC_BATCH) || 40;
+async function fetchDynamicUniverseCandidates(alreadyScannedSymbols) {
+  try {
+    const { SCAN_UNIVERSE } = require("./advisor-ai");
+    const { getUniverseRotationBatch } = require("./universe-builder");
+    const batch = getUniverseRotationBatch(DYNAMIC_UNIVERSE_BATCH_SIZE);
+    const extraSymbols = symbolsToScan(batch, SCAN_UNIVERSE, alreadyScannedSymbols);
+    if (!extraSymbols.length) return { bullish: [], bearish: [] };
+
+    const { screenTrendTemplate, fetchMarketQuotes } = require("./routes/market");
+    const { computeCanonicalAssetDecision } = require("./canonical-decision-pipeline");
+    const { resolveProviderKeys } = require("./config");
+
+    const [rows, macroQuotes] = await Promise.all([
+      screenTrendTemplate(extraSymbols),
+      fetchMarketQuotes(["SPY", "QQQ", "VIXY"], resolveProviderKeys(new URLSearchParams())).catch(() => []),
+    ]);
+    const opportunities = (rows || [])
+      .filter((row) => !row.error)
+      .map((row) => computeCanonicalAssetDecision({ symbol: row.symbol, row, macroQuotes, trackReport: null, marketHours: isMarketHoursET() })?.opportunity)
+      .filter(Boolean)
+      .map((opp) => ({ ...opp, fromDynamicUniverse: true }));
+
+    const bullish = opportunities
+      .filter((o) => hasExecutableFinalVerdict(o))
+      .sort((a, b) => (BULLISH_RANK[a.verdict] - BULLISH_RANK[b.verdict]) || ((b.expectedValue ?? -Infinity) - (a.expectedValue ?? -Infinity)));
+    return { bullish, bearish: [] };
+  } catch {
+    return { bullish: [], bearish: [] }; // honest empty result on any real failure — never a fabricated candidate
+  }
+}
+
 // Real validate+size+enter for one candidate opportunity against the
 // current real account snapshot. Returns a real reason string either way
 // — a rejection is a logged, disclosed outcome (spec §25), never silent.
@@ -818,6 +865,7 @@ async function _tickImpl() {
   let lightBoxCandidates = [];
   let watchlistCandidates = { bullish: [], bearish: [] };
   let daytradeUniverseCandidates = { bullish: [], bearish: [] };
+  let dynamicUniverseCandidates = { bullish: [], bearish: [] };
   if (marketOpen) {
     const { computeAllOpportunities } = require("./routes/market");
     const scan = await computeAllOpportunities().catch((e) => ({ error: String(e && e.message || e) }));
@@ -894,7 +942,14 @@ async function _tickImpl() {
     const scannedAfterWatchlist = new Set([...scannedSymbols, ...watchlistCandidates.bullish.map((o) => o.symbol)]);
     daytradeUniverseCandidates = await fetchDaytradeUniverseCandidates(scannedAfterWatchlist);
 
-    opportunityCandidates = [...bullishStockCandidates, ...watchlistCandidates.bullish, ...daytradeUniverseCandidates.bullish];
+    // Dynamic universe (2026-09-03, Phase 0 audit's mega-cap-bias fix) —
+    // same real scan-and-dedup pattern as the two passes above, against a
+    // rotating batch of universe-builder.js's real, liquidity-filtered
+    // 500-750-symbol universe instead of a hand-curated list.
+    const scannedAfterDaytrade = new Set([...scannedAfterWatchlist, ...daytradeUniverseCandidates.bullish.map((o) => o.symbol)]);
+    dynamicUniverseCandidates = await fetchDynamicUniverseCandidates(scannedAfterDaytrade);
+
+    opportunityCandidates = [...bullishStockCandidates, ...watchlistCandidates.bullish, ...daytradeUniverseCandidates.bullish, ...dynamicUniverseCandidates.bullish];
 
     // Light Box remains a read-only candidate feed here. Its source-local
     // LIGHTBOX_BUY label is not the Master Verdict, so these rows are kept
@@ -960,7 +1015,7 @@ async function _tickImpl() {
 
 module.exports = {
   tick, sizeEntry, sizeOptionEntry, sizeCryptoEntry, fetchLightBoxCandidates, fetchCryptoCandidates,
-  fetchWatchlistCandidates, fetchDaytradeUniverseCandidates, symbolsToScan,
+  fetchWatchlistCandidates, fetchDaytradeUniverseCandidates, fetchDynamicUniverseCandidates, symbolsToScan,
   CRYPTO_UNIVERSE, RISK_PCT_PER_TRADE, MAX_TRADE_RISK_DOLLARS, MAX_OPEN_POSITIONS, MAX_PER_SECTOR,
   MAX_OPEN_RISK_PCT, CALL_DTE_EXIT_FLOOR, DAILY_LOSS_LOCK_DOLLARS, DAILY_LOSS_PCT,
   MAX_CONSECUTIVE_LOSSES,
