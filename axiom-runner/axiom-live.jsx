@@ -4015,9 +4015,21 @@ export default function App() {
     });
   }, [watchlistSymbols, terminalSymbol]);
 
+  // Real fix (2026-09-02, confirmed live): all three effects below
+  // (candles, panel candles, fundamentals) exclusively feed
+  // TerminalChartArea.jsx, the legacy "terminal" tab (a power-user
+  // multi-panel view reachable only via the TF/LAYOUT command-palette
+  // commands, not a sidebar destination) — confirmed via a repo-wide
+  // grep of every real consumer of terminalCandles/terminalPanelCandles/
+  // terminalFundamentals. None were gated on activeTab, so they fired on
+  // every single page load regardless of which tab was actually open —
+  // confirmed via a real production network trace: 4 duplicate real
+  // Yahoo candle fetches for the default trade-desk landing tab's
+  // symbol, for a legacy view nobody was looking at.
+  const onTerminalTab = activeTab === "terminal";
   useEffect(() => {
     let cancelled = false;
-    if (!apiKey || !terminalSymbol) return;
+    if (!onTerminalTab || !apiKey || !terminalSymbol) return;
     setTerminalCandlesLoading(true);
     fetchCandles(terminalSymbol, terminalTf)
       .then((data) => {
@@ -4032,11 +4044,11 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [apiKey, terminalSymbol, terminalTf]);
+  }, [onTerminalTab, apiKey, terminalSymbol, terminalTf]);
 
   useEffect(() => {
     let cancelled = false;
-    if (!apiKey) return;
+    if (!onTerminalTab || !apiKey) return;
     const panelCount = terminalLayout === "4" ? 4 : terminalLayout === "2" ? 2 : 1;
     const symbols = terminalPanelSymbols.slice(0, panelCount).filter(Boolean);
     if (!symbols.length) return;
@@ -4050,11 +4062,11 @@ export default function App() {
         setTerminalPanelCandles(map);
       });
     return () => { cancelled = true; };
-  }, [apiKey, terminalPanelSymbols, terminalLayout, terminalTf]);
+  }, [onTerminalTab, apiKey, terminalPanelSymbols, terminalLayout, terminalTf]);
 
   useEffect(() => {
     let cancelled = false;
-    if (!apiKey || !terminalSymbol) return;
+    if (!onTerminalTab || !apiKey || !terminalSymbol) return;
     fetchFundamentals(terminalSymbol, providerKeys)
       .then((f) => {
         if (!cancelled) setTerminalFundamentals(f || null);
@@ -4063,7 +4075,7 @@ export default function App() {
         if (!cancelled) setTerminalFundamentals(null);
       });
     return () => { cancelled = true; };
-  }, [apiKey, terminalSymbol, providerKeys]);
+  }, [onTerminalTab, apiKey, terminalSymbol, providerKeys]);
 
   useEffect(() => {
     let cancelled = false;

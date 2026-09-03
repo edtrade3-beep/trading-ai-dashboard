@@ -166,13 +166,30 @@ export default function TradeDeskTab({
   useEffect(() => {
     if (hadExplicitSymbolRef.current) return;
     let cancelled = false;
+    // Real fix (2026-09-02): this used to only call setSymbol (Trade
+    // Desk's own local state), never setTerminalSymbol — the one real
+    // user-driven selectSymbol() above does both. That gap meant the
+    // GLOBAL terminalSymbol stayed on its own hardcoded initial default
+    // (WATCHLIST_SYMBOLS[0]) forever on a fresh load, even though Trade
+    // Desk itself correctly showed the real best-trade-of-day pick —
+    // every OTHER top-level effect that reads terminalSymbol (Market
+    // Terminal's candles/fundamentals fetches in axiom-live.jsx) kept
+    // fetching data for that stale default symbol nobody was viewing,
+    // instead of the real pick.
     fetch("/api/market/opportunities").then((r) => r.json())
       .then((j) => {
         if (cancelled) return;
         const top = j?.ok !== false && j?.tiers ? pickTopOpportunities(j.tiers, 1)[0] : null;
-        setSymbol((s) => s || top?.symbol || terminalSymbol || "NVDA");
+        const resolved = top?.symbol || terminalSymbol || "NVDA";
+        setSymbol((s) => s || resolved);
+        if (!hadExplicitSymbolRef.current) setTerminalSymbol && setTerminalSymbol(resolved);
       })
-      .catch(() => { if (!cancelled) setSymbol((s) => s || terminalSymbol || "NVDA"); });
+      .catch(() => {
+        if (cancelled) return;
+        const resolved = terminalSymbol || "NVDA";
+        setSymbol((s) => s || resolved);
+        setTerminalSymbol && setTerminalSymbol(resolved);
+      });
     return () => { cancelled = true; };
   }, []);
 
