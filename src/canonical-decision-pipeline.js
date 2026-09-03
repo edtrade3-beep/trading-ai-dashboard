@@ -11,6 +11,7 @@ const { selectTradeStructure } = require("./trade-structure-selector");
 const { evaluateTrapShield, computeMarketAgreement } = require("./trap-shield");
 const { translateToTradeGpsVerdict } = require("./trade-gps-verdict");
 const { THRESHOLDS: RED_FLAG_THRESHOLDS } = require("./red-flag-engine");
+const { getUpcomingMacroEvents } = require("./macro-calendar");
 
 const PIPELINE_VERSION = "canonical-pipeline-v1";
 
@@ -126,9 +127,17 @@ function computeCanonicalAssetDecision({
     symbol, assetDecisionVerdict: assetDecision.verdict, tradeStructure,
     tradeGpsScore: tradeGps, trapShield, signalState: assetDecision.signalState, dataHealth,
   }) : null;
+  // Trade Navigator (2026-09-03, explicit user spec: "Danger: CPI release
+  // in 35 minutes") — the real, honestly-static macro calendar read
+  // (same source Trap Shield's own macroEventRisk flag already uses via
+  // opportunity-engine.js), a tight real 4h "imminent" window. Global,
+  // not symbol-specific — attached per-row the same way marketRegime
+  // already is, for a single simple per-symbol read on the client.
+  const dangerEvents = getUpcomingMacroEvents({ nowMs, windowHours: 4 });
+  const dangerEvent = dangerEvents[0] || null;
   return {
     assetDecision, opportunity, marketRegime, dataHealth, compatibilityRegime: legacyRegime,
-    tradeGps, tradeStructure, trapShield, marketAgreement, tradeGpsVerdict, engineVersion: PIPELINE_VERSION,
+    tradeGps, tradeStructure, trapShield, marketAgreement, tradeGpsVerdict, dangerEvent, engineVersion: PIPELINE_VERSION,
   };
 }
 

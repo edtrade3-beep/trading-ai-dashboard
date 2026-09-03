@@ -404,13 +404,13 @@ export default function TradeDeskTab({
     setCanonicalDecision(cached.assetDecision);
     setDecisionLoading(cached.loading);
     setDecisionError(cached.error);
-    setTradeGpsData({ tradeGps: cached.tradeGps, tradeStructure: cached.tradeStructure, trapShield: cached.trapShield, marketAgreement: cached.marketAgreement, tradeGpsVerdict: cached.tradeGpsVerdict });
+    setTradeGpsData({ tradeGps: cached.tradeGps, tradeStructure: cached.tradeStructure, trapShield: cached.trapShield, marketAgreement: cached.marketAgreement, tradeGpsVerdict: cached.tradeGpsVerdict, dangerEvent: cached.dangerEvent });
     fetchDecision(symbol).then((entry) => {
       if (cancelled) return;
       setCanonicalDecision(entry.assetDecision);
       setDecisionLoading(false);
       setDecisionError(entry.error);
-      setTradeGpsData({ tradeGps: entry.tradeGps, tradeStructure: entry.tradeStructure, trapShield: entry.trapShield, marketAgreement: entry.marketAgreement, tradeGpsVerdict: entry.tradeGpsVerdict });
+      setTradeGpsData({ tradeGps: entry.tradeGps, tradeStructure: entry.tradeStructure, trapShield: entry.trapShield, marketAgreement: entry.marketAgreement, tradeGpsVerdict: entry.tradeGpsVerdict, dangerEvent: entry.dangerEvent });
     });
     return () => { cancelled = true; };
   }, [symbol]);
@@ -719,7 +719,8 @@ export default function TradeDeskTab({
           symbol={symbol} decision={canonicalDecision} loading={decisionLoading}
           tradeGps={tradeGpsData?.tradeGps} tradeStructure={tradeGpsData?.tradeStructure}
           trapShield={tradeGpsData?.trapShield} marketAgreement={tradeGpsData?.marketAgreement}
-          tradeGpsVerdict={tradeGpsData?.tradeGpsVerdict}
+          tradeGpsVerdict={tradeGpsData?.tradeGpsVerdict} dangerEvent={tradeGpsData?.dangerEvent}
+          account={autopilotStatus?.account}
           C={TD} MONO={MONO} SANS={SANS}
         />
 

@@ -97,6 +97,7 @@ ok("a real, well-formed row gets a real trapShield read and a real tradeGpsVerdi
   assert.strictEqual(typeof canonical.trapShield.blocked, "boolean");
   assert.ok(canonical.marketAgreement, "marketAgreement must be present on the pipeline result (TradeGpsCard's own real read)");
   assert.strictEqual(typeof canonical.marketAgreement.total, "number");
+  assert.strictEqual(canonical.dangerEvent, null, "the shipped real macro-calendar seed is empty — dangerEvent must be honestly null, never fabricated");
   assert.ok(canonical.tradeGpsVerdict, "tradeGpsVerdict must be present on the pipeline result");
   const { TRADE_GPS_VERDICTS } = require("../src/trade-gps-verdict");
   assert.ok(TRADE_GPS_VERDICTS.has(canonical.tradeGpsVerdict.verdict), `expected a real Trade GPS verdict, got ${canonical.tradeGpsVerdict.verdict}`);

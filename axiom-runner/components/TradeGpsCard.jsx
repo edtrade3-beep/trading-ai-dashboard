@@ -30,6 +30,30 @@ function money(v) {
   return Number.isFinite(v) ? `$${Number(v).toFixed(2)}` : "—";
 }
 
+// Real, hand-ported mirror of autopilot2-engine.js's sizeEntry — same
+// documented real defaults (0.5% risk/trade, $500 max real risk/trade,
+// 20% max name concentration), same real formula. A genuine "here's what
+// Autopilot 2.0 would actually place" preview, not a fabricated number —
+// same "pure math, zero server-only dependencies, keep in sync" pattern
+// this codebase already uses for red-flag-engine.js's client twin. Reads
+// real equity/cash from Autopilot 2.0's own live status (already fetched
+// by the parent, no new network call) — returns null (not 0) when no
+// real account data is available yet, so a genuinely-zero-qty result is
+// never confused with "we don't know."
+function previewPositionSize({ equity, cash, entry, stop, direction = "LONG", riskPct = 0.5, maxTradeRiskDollars = 500, maxNamePct = 20 }) {
+  if (!Number.isFinite(equity) || !Number.isFinite(cash) || !Number.isFinite(entry) || !Number.isFinite(stop)) return null;
+  const isShort = direction === "SHORT";
+  const stopValid = isShort ? stop > 0 && stop > entry : stop > 0 && entry > stop;
+  if (!(entry > 0) || !stopValid) return null;
+  const riskPerShare = isShort ? stop - entry : entry - stop;
+  if (!(riskPerShare > 0)) return null;
+  let qty = Math.floor((equity * (riskPct / 100)) / riskPerShare);
+  qty = Math.min(qty, Math.floor(cash / entry));
+  qty = Math.min(qty, Math.floor((equity * (maxNamePct / 100)) / entry));
+  qty = Math.min(qty, Math.floor(maxTradeRiskDollars / riskPerShare));
+  return Math.max(0, qty);
+}
+
 // A live, self-contained countdown — recomputes every 30s so a viewer who
 // leaves the tab open sees a real, decaying window, never a frozen number.
 function useCountdown(expiresAtMs) {
@@ -49,7 +73,7 @@ function useCountdown(expiresAtMs) {
 
 export default function TradeGpsCard({
   symbol, decision, tradeGps, tradeStructure, trapShield, marketAgreement, tradeGpsVerdict,
-  loading, C, MONO, SANS,
+  dangerEvent, account, loading, C, MONO, SANS,
 }) {
   const verdict = tradeGpsVerdict?.verdict || null;
   const label = loading ? "LOADING…" : (VERDICT_LABEL[verdict] || "—");
@@ -57,6 +81,7 @@ export default function TradeGpsCard({
   const structure = tradeGpsVerdict?.structure || tradeStructure?.structure || null;
   const light = thesisLight(trapShield?.warningLevel, C);
   const countdown = useCountdown(decision?.signalExpiresAt);
+  const dangerCountdown = useCountdown(dangerEvent?.atMs);
 
   const entry = decision?.entry;
   const stop = decision?.stop;
@@ -65,10 +90,23 @@ export default function TradeGpsCard({
   const invalidation = decision?.invalidation;
   const stopDistance = Number.isFinite(entry) && Number.isFinite(stop) ? Math.abs(entry - stop) : null;
   const maxLoss = Number.isFinite(tradeStructure?.maxLoss) ? tradeStructure.maxLoss : null;
+  const direction = Number.isFinite(entry) && Number.isFinite(stop) && stop > entry ? "SHORT" : "LONG";
 
   const agreementText = Number.isFinite(marketAgreement?.count) && Number.isFinite(marketAgreement?.total) && marketAgreement.total > 0
     ? `${marketAgreement.count} of ${marketAgreement.total} factors aligned`
     : "—";
+
+  // Confirmation trigger — signal-lifecycle.js's own real ARMED/ENTER_NOW
+  // distinction: ARMED means a real reference entry exists but the real
+  // executable trigger hasn't printed yet (entry itself IS that trigger
+  // price); ENTER_NOW means it already has. Never a second signal read.
+  const confirmationText = decision?.signalState === "ENTER_NOW" ? "Confirmed — live now"
+    : decision?.signalState === "ARMED" && Number.isFinite(entry) ? `Hold ${direction === "SHORT" ? "below" : "above"} ${money(entry)}`
+    : "—";
+
+  const positionSize = previewPositionSize({ equity: account?.equity, cash: account?.cash, entry, stop, direction });
+
+  const dangerText = dangerEvent ? `${dangerEvent.label} ${dangerCountdown || ""}`.trim() : null;
 
   return (
     <section aria-label="Trade GPS primary opportunity" style={{ display: "flex", flexWrap: "wrap", alignItems: "stretch", gap: 14, padding: "12px 14px", background: C.surface, borderBottom: `1px solid ${C.border}` }}>
@@ -83,13 +121,16 @@ export default function TradeGpsCard({
       <Metric label="SCORE" value={Number.isFinite(tradeGps?.score) ? tradeGps.score : "—"} sub={tradeGps?.band || null} C={C} MONO={MONO} />
       <Metric label="CONFIDENCE" value={Number.isFinite(decision?.confidence) ? `${decision.confidence}%` : "—"} C={C} MONO={MONO} />
       <Metric label="ENTRY" value={money(entry)} C={C} MONO={MONO} />
+      <Metric label="CONFIRMATION" value={confirmationText} C={C} MONO={MONO} />
       <Metric label="STOP" value={money(stop)} danger C={C} MONO={MONO} />
       <Metric label="TARGETS" value={targets.length ? targets.filter(Number.isFinite).map((t) => money(t)).join(" · ") : "—"} C={C} MONO={MONO} />
       <Metric label="R:R" value={Number.isFinite(rr) ? `${rr.toFixed(1)}R` : "—"} C={C} MONO={MONO} />
+      <Metric label="SIZE" value={positionSize != null ? `${positionSize} ${structure === "STOCK" || !structure ? "sh" : "ct"}` : "—"} sub={positionSize != null ? "preview" : null} C={C} MONO={MONO} />
       <Metric label="MAX LOSS" value={maxLoss != null ? money(maxLoss) : (stopDistance != null ? `${money(stopDistance)}/sh` : "—")} danger C={C} MONO={MONO} />
       <Metric label="INVALIDATION" value={money(invalidation)} C={C} MONO={MONO} />
       <Metric label="EXPIRES" value={countdown || "—"} C={C} MONO={MONO} />
       <Metric label="AGREEMENT" value={agreementText} C={C} MONO={MONO} />
+      {dangerText && <Metric label="DANGER" value={dangerText} danger C={C} MONO={MONO} />}
       <div style={{ minWidth: 90, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center" }}>
         <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: 0.6 }}>THESIS</div>
         <div style={{ width: 10, height: 10, borderRadius: "50%", background: light.color, margin: "4px 0" }} />
