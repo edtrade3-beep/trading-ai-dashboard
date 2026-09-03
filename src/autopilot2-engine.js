@@ -24,6 +24,7 @@ const { notifyMaterialStateChange } = require("./trade-gps-notifier");
 const { recordSetupEvent, getRecentClosedTrades } = require("./trade-gps-audit-store");
 const { computeEventRisk } = require("./event-risk-engine");
 const { analyzeUserPerformance, computePersonalizedGates, isAllowed: isReplayAllowed } = require("./trade-replay-brain");
+const { checkForIgnoredSignal } = require("./ignored-alert-tracker");
 
 // Real self-loopback JSON fetch — same established convention this file's
 // own account/expression modules already use to reuse a route's real
@@ -810,6 +811,18 @@ async function _tickImpl() {
     // (risk sizing, sector cap, open-risk ceiling, duplicate protection)
     // is completely unchanged.
     const allOpportunities = Object.values(scan.tiers).flat();
+    // Ignored-alert tracking (Trade Navigator Stage 6, 2026-09-03) — every
+    // real scanned symbol this tick, not just the ones that qualify as
+    // bullish candidates below (a setup that was ARMED and later expired
+    // without ever qualifying as a full candidate is exactly the real
+    // "ignored alert" case the spec asks about).
+    for (const o of allOpportunities) {
+      if (!o?.symbol || !o?.assetDecision) continue;
+      checkForIgnoredSignal({
+        symbol: o.symbol, signalState: o.assetDecision.signalState, signalStateReason: o.assetDecision.signalStateReason,
+        decision: { verdict: o.assetDecision.verdict, entry: o.assetDecision.entry, stop: o.assetDecision.stop, targets: o.assetDecision.targets },
+      });
+    }
     const bullishStockCandidates = allOpportunities
       .filter((o) => hasExecutableFinalVerdict(o))
       .sort((a, b) => (BULLISH_RANK[a.verdict] - BULLISH_RANK[b.verdict]) || ((b.expectedValue ?? -Infinity) - (a.expectedValue ?? -Infinity)));

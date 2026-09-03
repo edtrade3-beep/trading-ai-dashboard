@@ -391,6 +391,13 @@ server.listen(PORT, HOST, () => {
   registerJob("ADOL22 Autopilot 2.0", 5 * 60_000, () => require("./src/autopilot2-engine").tick());
   console.log("[ADOL22 Autopilot 2.0] Autonomous paper-trading tick registered — every 5 min, market hours only, OFF by default");
 
+  // Trade Navigator Stage 6 (2026-09-03) — Trade Replay Brain's own
+  // ignored-alert follow-up sweep. 30-min cadence is plenty relative to
+  // the real 4h follow-up delay itself (ignored-alert-tracker.js's own
+  // FOLLOW_UP_DELAY_MS) — this only needs to catch each real due record
+  // reasonably promptly, not to the minute.
+  registerJob("Ignored Alert Follow-Up", 30 * 60_000, () => require("./src/ignored-alert-tracker").runIgnoredAlertFollowUps());
+
   // Market Context Phase 1 (2026-08-27) — real regime-change Telegram
   // push, same 5-min cadence as /api/market/context's own cache window.
   // A real no-op most ticks (only sends on an actual regime/Fed-signal

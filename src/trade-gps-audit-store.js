@@ -29,7 +29,7 @@ function recordSetupEvent({
   symbol = null, engineVersion = null, regime = null, inputTimestamps = null, scoreBreakdown = null,
   tradeStructure = null, verdict = null, riskDecision = null, stateTransition = null,
   outcome = null, slippage = null, optionSpreadCost = null, qualifyReason = null,
-  openedAt = null, nowMs = Date.now(),
+  openedAt = null, followUp = null, nowMs = Date.now(),
 } = {}) {
   if (!symbol) return null; // honest no-op — never fabricates a record for an unknown symbol
   const record = {
@@ -41,6 +41,11 @@ function recordSetupEvent({
     // Trade Replay Brain's own per-hour analysis needs WHEN a trade was
     // opened, not just when this record was written (which is close time).
     openedAt,
+    // Trade Navigator Stage 6 (2026-09-03) — ignored-alert-tracker.js's
+    // own real {checkAtMs, checked, result} for a setup nobody acted on;
+    // null for every real closed-trade record (they have a real outcome
+    // already, never a pending follow-up).
+    followUp,
   };
   const records = readStore();
   records.push(record);
@@ -117,7 +122,34 @@ function getClosedRecordsForAnalysis({ window = 100 } = {}) {
     }));
 }
 
+// Real, targeted update to one existing real record (Trade Navigator
+// Stage 6, 2026-09-03) — every other function in this file is append-
+// only by design (a real historical record should never silently change
+// shape later), but an ignored-alert's own real follow-up result
+// genuinely isn't known until N real hours after the record was first
+// written. Merges `patch` into the one record matching `id`; a missing
+// real id is an honest no-op, never an error thrown into a caller that
+// may be running on a schedule.
+function updateAuditRecord(id, patch) {
+  if (!id || !patch) return false;
+  const records = readStore();
+  const idx = records.findIndex((r) => r.id === id);
+  if (idx === -1) return false;
+  records[idx] = { ...records[idx], ...patch };
+  writeJsonAtomic(STORE_PATH, { records });
+  return true;
+}
+
+// Real records matching a real qualifyReason (e.g. "ignored-alert") —
+// for ignored-alert-tracker.js's own follow-up sweep, which needs to
+// find its own real pending records rather than scanning every record
+// in the store by hand.
+function getRecordsByQualifyReason(qualifyReason) {
+  return readStore().filter((r) => r?.qualifyReason === qualifyReason);
+}
+
 module.exports = {
   recordSetupEvent, getPerformanceViews, getRecentClosedTrades, getClosedRecordsForAnalysis,
+  updateAuditRecord, getRecordsByQualifyReason,
   STORE_PATH, MAX_RECORDS,
 };

@@ -94,6 +94,12 @@ function buildAssetDecision({ opportunity, marketRegime, dataHealth, positionSta
     targets: [entryPlan.target1, entryPlan.target2].filter(Number.isFinite), riskReward: entryPlan.rr ?? derivedRr,
     invalidation: Number.isFinite(entryPlan.invalidation) ? entryPlan.invalidation : null,
     signalState: signalLifecycle?.state ?? null, signalExpiresAt: signalLifecycle?.expiresAtMs ?? null,
+    // Trade Navigator Stage 6 (2026-09-03) — additive. ignored-alert-tracker.js
+    // needs to tell a genuine TTL expiry ("nobody acted, still don't know if
+    // it would have worked") apart from an invalidation ("thesis broke, real
+    // exit was correct") — signal-lifecycle.js's own real reason string
+    // already disambiguates this, it just was never surfaced before.
+    signalStateReason: signalLifecycle?.reason ?? null,
     decision, riskOverride: risk.overridden ? { from: decision, to: risk.finalVerdict, reasons: risk.blockers } : null,
     verdict: risk.finalVerdict,
     reasons: [...new Set([positionState ? positionReason : opportunity.verdictReason, ...(opportunity.reasons || [])].filter(Boolean))],
