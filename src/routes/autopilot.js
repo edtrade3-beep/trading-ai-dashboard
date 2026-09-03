@@ -45,7 +45,9 @@ async function handleAutopilot(req, res, requestUrl) {
 
   if (pathname === "/api/autopilot/status" && req.method === "GET") {
     const { getAutoexecMode } = require("./autoexec");
-    return writeJson(res, 200, { ok: true, ...getStatus(), execution: executionStatus({ serverAutopilot: false, lightboxMode: getMode(), tradierMode: getAutoexecMode() }) });
+    let tradierLive = false;
+    try { tradierLive = require("../tradier-broker").LIVE; } catch { /* optional legacy broker */ }
+    return writeJson(res, 200, { ok: true, ...getStatus(), execution: executionStatus({ serverAutopilot: false, lightboxMode: getMode(), tradierMode: getAutoexecMode(), tradierLive }) });
   }
 
   // Real ASSIST order preview/execute (2026-08-23, explicit user request:

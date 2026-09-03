@@ -1,15 +1,27 @@
 /**
  * tradier-broker.js
  * Tradier brokerage API — order placement, positions, account balances.
- * Uses the PAPER (sandbox) endpoint by default; set TRADIER_LIVE=true to trade live.
+ * Uses the PAPER (sandbox) endpoint by default; going live requires TWO
+ * independent env vars (see below), not one — this platform's charter is
+ * paper-only, so a single accidentally-flipped var can never alone enable
+ * real-money orders.
  *
  * Env vars:
  *   TRADIER_API_KEY      — your Tradier token
  *   TRADIER_ACCOUNT_ID   — your Tradier account number
- *   TRADIER_LIVE         — "true" to use live endpoint (default: paper/sandbox)
+ *   TRADIER_LIVE         — "true" to request the live endpoint (default: paper/sandbox)
+ *   TRADIER_LIVE_CONFIRM — must equal "REAL_MONEY_I_UNDERSTAND" for TRADIER_LIVE
+ *                           to actually take effect (2026-09-03, Phase 0 audit
+ *                           finding: TRADIER_LIVE alone was a single-var live
+ *                           switch with no code-level hard block)
  */
 
-const LIVE = process.env.TRADIER_LIVE === "true";
+const LIVE_REQUESTED = process.env.TRADIER_LIVE === "true";
+const LIVE = LIVE_REQUESTED && process.env.TRADIER_LIVE_CONFIRM === "REAL_MONEY_I_UNDERSTAND";
+if (LIVE_REQUESTED && !LIVE) {
+  // eslint-disable-next-line no-console
+  console.warn("[tradier-broker] TRADIER_LIVE=true was set but TRADIER_LIVE_CONFIRM is missing/incorrect — staying on the PAPER sandbox endpoint.");
+}
 const BASE = LIVE
   ? "https://api.tradier.com/v1"
   : "https://sandbox.tradier.com/v1";

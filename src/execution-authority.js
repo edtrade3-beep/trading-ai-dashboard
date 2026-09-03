@@ -12,10 +12,13 @@ const EXECUTION_PATHS = Object.freeze({
 });
 const READ_ONLY_PATHS = Object.freeze(["AUTOPILOT_ALERT_TICK", "SCANNERS", "ALERTS", "RESEARCH", "HISTORY"]);
 
-function executionStatus({ serverAutopilot = false, lightboxMode = "OFF", tradierMode = "off" } = {}) {
+function executionStatus({ serverAutopilot = false, lightboxMode = "OFF", tradierMode = "off", tradierLive = false } = {}) {
   return {
     version: EXECUTION_AUTHORITY_VERSION,
-    paperOnly: true,
+    // Real, checked state (2026-09-03, Phase 0 audit finding: this was
+    // previously hardcoded true regardless of tradier-broker.js's own LIVE
+    // flag, so health could have silently lied about live-money exposure).
+    paperOnly: !tradierLive,
     decisionEngine: "canonical-pipeline-v1",
     activeMutators: [
       ...(serverAutopilot ? ["SERVER_AUTOPILOT"] : []),

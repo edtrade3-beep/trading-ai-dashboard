@@ -107,11 +107,11 @@ let _lbCache = { key: null, at: 0, rows: null };
 const DAYTRADE_UNIVERSE = [
   // Mega / large-cap movers
   "NVDA","TSLA","AMD","AAPL","META","AMZN","MSFT","AVGO","NFLX","GOOGL",
-  "GOOG","AVGO","MU","SMCI","ARM","QCOM","INTC","TXN","MRVL","ANET",
+  "GOOG","MU","SMCI","ARM","QCOM","INTC","TXN","MRVL","ANET",
   "ORCL","CRM","ADBE","NOW","PANW","CRWD","SNOW","DDOG","NET","ZS",
   // Crypto-linked (high beta)
   "COIN","MARA","RIOT","CLSK","MSTR","HUT","WULF","IREN","CIFR","BITF",
-  "HOOD","SOFI","BTC","BITO",
+  "HOOD","SOFI","BTC-USD","BITO",
   // Momentum / growth / meme
   "PLTR","AFRM","UPST","DKNG","RBLX","U","PATH","AI","IONQ","RGTI",
   "SNAP","PINS","UBER","LYFT","SHOP","ABNB","DASH","RDDT","CVNA","CHWY",
@@ -127,7 +127,7 @@ const DAYTRADE_UNIVERSE = [
   // Energy / materials
   "XOM","CVX","OXY","CCJ","FCX","CLF","AA","PLUG","FCEL","ENPH",
   // Media / retail / other liquid
-  "DIS","WBD","PARA","T","INTC","WMT","COST","NKE","SBUX","LULU",
+  "DIS","WBD","PARA","T","WMT","COST","NKE","SBUX","LULU",
   // Index / sector ETFs (great intraday liquidity)
   "SPY","QQQ","IWM","SMH","XLE","XLF","ARKK","TQQQ","SQQQ","SOXL",
 ];
