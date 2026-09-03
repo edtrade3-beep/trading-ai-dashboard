@@ -474,8 +474,22 @@ export default function TradeDeskTab({
     }
     setDockModule((prev) => (prev === key ? null : key));
   };
+  // Real bug fixed 2026-09-03 (user report: "these tabs not working"):
+  // TradeDeskTabs is always visible regardless of viewMode, but the real
+  // dockModule content it opens only ever rendered when viewMode==="full"
+  // (see the bottom-dock block below) — clicking Technicals/Options/News/
+  // Fundamentals in Simple view (the real default) set dockModule
+  // correctly, with zero visible result. Opening a real module from this
+  // row now also switches into Full view itself, same persisted
+  // localStorage convention as toggleViewMode's own switch; Overview
+  // mirrors toggleViewMode's own "closing the dock returns to Simple".
   const openTickerTab = (key) => {
-    if (key === "overview") { setDockModule(null); return; }
+    if (key === "overview") {
+      setDockModule(null);
+      setViewMode("simple");
+      try { localStorage.setItem("tradedesk_view_mode", "simple"); } catch {}
+      return;
+    }
     if (symbol) {
       try { localStorage.setItem("mterminal_load_sym", symbol); } catch {}
     }
@@ -487,6 +501,8 @@ export default function TradeDeskTab({
       setActiveTab("cortex");
       return;
     }
+    setViewMode("full");
+    try { localStorage.setItem("tradedesk_view_mode", "full"); } catch {}
     openDockModule(key);
   };
   // VCP overlay toggle (2026-08-25, explicit user request: "vcp make it on
@@ -680,11 +696,6 @@ export default function TradeDeskTab({
             <span>{autopilot2Running ? "🟢" : "🔴"}</span>
             <span style={{ color: TD.textDim }}>AP2 PAPER</span>
           </span>
-          <button onClick={toggleViewMode} title={viewMode === "simple" ? "Show the full workspace grid + tool dock" : "Hide the extra grid + dock, just chart and verdict"}
-            style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 800, padding: "5px 10px", borderRadius: 999, cursor: "pointer",
-              border: `1px solid ${TD.accent}`, background: viewMode === "full" ? `${TD.accent}22` : "transparent", color: TD.accent }}>
-            {viewMode === "simple" ? "⚡ Simple" : "🧰 Full"}
-          </button>
         </div>
 
         <CanonicalVerdictStrip decision={canonicalDecision} loading={decisionLoading} error={decisionError} C={TD} MONO={MONO} SANS={SANS} />
