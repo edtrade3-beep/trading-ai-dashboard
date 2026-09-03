@@ -81,7 +81,12 @@ export function fetchDecision(symbol) {
     return Promise.resolve(hit.entry);
   }
 
-  const promise = fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(key)}&withDecision=1`)
+  // withOptions=1 (Trade GPS, 2026-09-03) — this is always a single real
+  // symbol, well within the route's own <=5-symbol real safety cap for its
+  // per-symbol option-chain fetch (same opt-in CortexMiniPanel's real
+  // single-symbol deep-dive already uses) — without it, TradeGpsCard's
+  // tradeStructure always falls back to STOCK for lack of any real chain.
+  const promise = fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(key)}&withDecision=1&withOptions=1`)
     .then((r) => {
       if (!r.ok) throw new Error(`trend-screen ${r.status}`);
       return r.json();

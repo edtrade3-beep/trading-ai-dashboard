@@ -2886,6 +2886,34 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
           // own real cap) — a genuine, if partial, real read, never
           // fabricated.
           let optionsFlowBySymbol = null;
+          // Trade GPS (2026-09-03) — real option chains for tradeStructure's
+          // stock-vs-option pick. Same opt-in + <=5-symbol real safety cap as
+          // the options-flow cross-check right below (one real live chain
+          // fetch per symbol is comparably expensive) — without this,
+          // tradeStructure always falls back to STOCK, since selectTradeStructure
+          // never fabricates a contract from an empty real chain. quoteAgeMinutes
+          // is honestly 0 (this chain was just fetched, this request, right now)
+          // rather than omitted (which selectTradeStructure would otherwise
+          // treat as fail-closed-stale).
+          let optionChainBySymbol = null;
+          if (searchParams.get("withOptions") === "1" && results.length <= 5) {
+            try {
+              const symbols = results.filter((r) => !r.error).map((r) => r.symbol);
+              const chains = await Promise.all(symbols.map((sym) =>
+                fetchYahooOptionsChain(sym, null).catch(() => null)));
+              optionChainBySymbol = new Map(symbols.map((sym, i) => {
+                const c = chains[i];
+                if (!c) return [sym, []];
+                const toContract = (isCall) => (row) => ({
+                  isCall, strike: row.strike, bid: row.bid || null, ask: row.ask || null,
+                  lastPrice: row.lastPrice || null, iv: row.iv || null,
+                  openInterest: row.openInterest, volume: row.volume,
+                  expiry: row.expiry, quoteAgeMinutes: 0,
+                });
+                return [sym, [...(c.calls || []).map(toContract(true)), ...(c.puts || []).map(toContract(false))]];
+              }));
+            } catch { /* real option chain fetch is best-effort — optionChainBySymbol stays null, selectTradeStructure honestly falls back to STOCK */ }
+          }
           if (searchParams.get("withOptions") === "1" && results.length <= 5) {
             try {
               const symbols = results.filter((r) => !r.error).map((r) => r.symbol);
@@ -2901,8 +2929,9 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
           for (const row of results) {
             if (row.error) continue;
             const optionsFlow = optionsFlowBySymbol?.get(row.symbol) || null;
+            const optionChain = optionChainBySymbol?.get(row.symbol) || [];
             const canonical = computeCanonicalAssetDecision({
-              symbol: row.symbol, row, macroQuotes: macroRows, trackReport, optionsFlow,
+              symbol: row.symbol, row, macroQuotes: macroRows, trackReport, optionsFlow, optionChain,
               researchContext,
               nowMs: decisionTimestamp, marketHours: isMarketHoursET(),
               extraDataSources: [{ source: "batch-data-health", available: dataHealth?.canTrade !== false, required: false }],
