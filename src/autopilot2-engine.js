@@ -20,6 +20,7 @@ const { loadState, setState, appendActivity } = require("./autopilot2-store");
 const { computePositionState } = require("./position-decision-engine");
 const { recordMissed } = require("./missed-opportunity-tracker");
 const { notifyMaterialStateChange } = require("./trade-gps-notifier");
+const { recordSetupEvent } = require("./trade-gps-audit-store");
 
 // Real self-loopback JSON fetch — same established convention this file's
 // own account/expression modules already use to reuse a route's real
@@ -139,10 +140,35 @@ async function managePositions(snapshot) {
       const result = await closePosition(pos.id, { reason: decision.state });
       appendActivity({ type: decision.state, symbol: pos.symbol, reason: decision.reason, realizedPnl: result.closedTrade?.realizedPnl ?? null });
       notifyMaterialStateChange({ symbol: pos.symbol, newState: decision.state, decision: { reasonOneLine: decision.reason } }).catch(() => {});
+      // Trade GPS unified audit record (Stage 8) — a real closed outcome,
+      // fed straight into trade-gps-audit-store.js's own real store; its
+      // getPerformanceViews reuses autopilot2-backtest.js's real
+      // buildStats over these, never a second expectancy formula.
+      if (result.closedTrade) {
+        const ct = result.closedTrade;
+        const basis = ct.entryPrice * ct.qty;
+        recordSetupEvent({
+          symbol: pos.symbol, engineVersion: "autopilot2-engine", verdict: decision.state,
+          stateTransition: { from: "OPEN", to: decision.state, reason: decision.reason },
+          outcome: {
+            pnl: ct.realizedPnl,
+            pnlPct: basis > 0 ? (ct.realizedPnl / basis) * 100 : null,
+            holdingDays: Number.isFinite(ct.holdingMinutes) ? ct.holdingMinutes / 1440 : null,
+          },
+        });
+      }
     } else if (decision.state === "TAKE_PARTIAL") {
       const result = await partialClosePosition(pos.id, { fraction: 0.5, reason: "TAKE_PARTIAL" });
       appendActivity({ type: "TAKE_PARTIAL", symbol: pos.symbol, reason: decision.reason, realizedPnl: result.realizedPnl ?? null });
       notifyMaterialStateChange({ symbol: pos.symbol, newState: "TAKE_PARTIAL", decision: { reasonOneLine: decision.reason } }).catch(() => {});
+      if (result.ok) {
+        const basis = pos.entryPrice * (result.soldQty || 0);
+        recordSetupEvent({
+          symbol: pos.symbol, engineVersion: "autopilot2-engine", verdict: "TAKE_PARTIAL",
+          stateTransition: { from: "OPEN", to: "TAKE_PARTIAL", reason: decision.reason },
+          outcome: { pnl: result.realizedPnl, pnlPct: basis > 0 ? (result.realizedPnl / basis) * 100 : null, holdingDays: null },
+        });
+      }
     } else if (decision.state === "TRAIL") {
       // Real trail: tighten the stop halfway toward current price — a
       // real, disclosed, conservative ratchet (never loosened, enforced
