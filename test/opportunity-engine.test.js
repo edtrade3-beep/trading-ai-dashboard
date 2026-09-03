@@ -335,5 +335,29 @@ ok("computeOpportunity attaches the real highLevelVerdict additively, verdict fi
   assert.strictEqual(o.highLevelVerdict, "LONG");
 });
 
+console.log("\nChecking Trade GPS's macro-calendar wiring into red-flag critical gating (2026-09-03)…");
+(() => {
+  const fs = require("fs");
+  const { SEED_PATH } = require("../src/macro-calendar");
+  const original = fs.readFileSync(SEED_PATH, "utf8");
+  try {
+    ok("a real imminent macro event (within the 48h window) forces criticalFlags > 0 via the real macroEventRisk flag", () => {
+      const nowMs = Date.parse("2026-09-10T12:00:00Z");
+      fs.writeFileSync(SEED_PATH, JSON.stringify({ events: [{ type: "FOMC", atMs: nowMs + 3600_000, label: "FOMC Decision" }] }));
+      const o = computeOpportunity({ symbol: "TEST", row: baseRow(), regime: REGIME, marketRegime: "RISK_ON", nowMs });
+      assert.ok(o.criticalFlags > 0, "an imminent real macro event must register as a real critical red flag");
+      assert.ok(o.redFlags.some((f) => f.key === "macroEventRisk"), "the real macroEventRisk flag must appear in redFlags");
+    });
+    ok("no real imminent macro event (empty real seed) never fabricates the flag", () => {
+      const nowMs = Date.parse("2026-09-10T12:00:00Z");
+      fs.writeFileSync(SEED_PATH, JSON.stringify({ events: [] }));
+      const o = computeOpportunity({ symbol: "TEST", row: baseRow(), regime: REGIME, marketRegime: "RISK_ON", nowMs });
+      assert.ok(!o.redFlags.some((f) => f.key === "macroEventRisk"));
+    });
+  } finally {
+    fs.writeFileSync(SEED_PATH, original);
+  }
+})();
+
 console.log(`\n${passed} checks passed.`);
 if (process.exitCode) console.error("OPPORTUNITY-ENGINE TEST FAILED"); else console.log("OPPORTUNITY-ENGINE TEST OK");

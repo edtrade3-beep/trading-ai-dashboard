@@ -28,6 +28,7 @@ const { computeCoreScore, classifyCoreVerdict, computeBearishScore, classifyBear
 const { computeAPlusScore } = require("./trade-planner-scoring");
 const { buildEvFromRow } = require("./setup-evidence");
 const { winProbFor } = require("./institutional-scoring");
+const { getUpcomingMacroEvents } = require("./macro-calendar");
 const { computeReversalDetector, computeReversalTopRisk } = require("./sniper-decision");
 
 function round2(n) { return Number.isFinite(n) ? Math.round(n * 100) / 100 : null; }
@@ -323,11 +324,20 @@ function buildBearishLevels(row) {
 // that pipeline (watchlist-setup-alerts.js passes sectorInfo/adx/
 // optionsFlow as null today) — every one honestly degrades, never
 // fabricates, when the caller doesn't have it.
-function computeOpportunity({ symbol, row, regime, marketRegime, sectorInfo = null, adx = null, optionsFlow = null, trackReport = null, spreadPct = null }) {
+function computeOpportunity({ symbol, row, regime, marketRegime, sectorInfo = null, adx = null, optionsFlow = null, trackReport = null, spreadPct = null, nowMs = Date.now() }) {
   if (!row || row.error) return null;
 
   const ev = buildEvFromRow(row, marketRegime);
   const entryPlan = computeEntryPlan(ev);
+  // Trade GPS Trap Shield (2026-09-03) — the real, honestly-static macro
+  // calendar read (macro-calendar.js's own seed; see that file's header
+  // for why it's static, not fetched). Same 48h blocking window as
+  // event-risk-engine.js's own blockWithinDays=2 default, for consistency.
+  const macroEvents = getUpcomingMacroEvents({ nowMs, windowHours: 48 });
+  if (macroEvents.length) {
+    ev.macroEventRisk = true;
+    ev.macroEventReason = `${macroEvents[0].label} is imminent — new exposure blocked.`;
+  }
   const redFlagResult = computeRedFlags(ev);
   const { score: aPlusScore } = computeAPlusScore(row, regime);
   const coreScore = computeCoreScore({

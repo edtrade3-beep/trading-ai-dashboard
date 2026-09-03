@@ -45,7 +45,7 @@ function computeCanonicalAssetDecision({
   const marketRegime = computeMarketRegimeState({ macroQuotes, marketContext, dataHealth, timestamp: nowMs });
   const opportunity = computeOpportunity({
     symbol, row, regime: legacyRegime, marketRegime: marketRegime.regime,
-    sectorInfo, adx, optionsFlow, trackReport, spreadPct,
+    sectorInfo, adx, optionsFlow, trackReport, spreadPct, nowMs,
   });
   if (!opportunity) return null;
   const resolvedEventRisk = eventRisk || computeEventRisk({ earningsDte: row.earningsDte, nowMs });
