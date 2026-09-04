@@ -31,11 +31,26 @@ async function handleHealth(req, res) {
   let tradierLive = false;
   try { tradierLive = require("../tradier-broker").LIVE; } catch { /* optional legacy broker */ }
   const { executionStatus } = require("../execution-authority");
+  // Real diagnostic (2026-09-04, live production question: a real market-
+  // hours Autopilot 2.0 tick was confirmed running with no errors, yet the
+  // dynamic-universe rotation cursor's Postgres key never appeared — no
+  // direct way to see why from outside the process). Read-only, no
+  // network call (getDynamicUniverse/the cursor read are both local
+  // cache/file reads) — exposes exactly what's actually persisted right
+  // now instead of inferring it from kvRowCount alone.
+  let dynamicUniverse = null;
+  try {
+    const { readJsonSafe } = require("../atomic-write");
+    const { getDynamicUniverse, CURSOR_PATH } = require("../universe-builder");
+    const u = getDynamicUniverse();
+    const cursor = readJsonSafe(CURSOR_PATH, null);
+    dynamicUniverse = { universeSize: u.universe.length, builtAt: u.builtAt ? new Date(u.builtAt).toISOString() : null, stale: u.stale, cursor };
+  } catch (err) { dynamicUniverse = { error: err instanceof Error ? err.message : String(err) }; }
   return writeJson(res, 200, {
     ok: true, version: "market-v2", build: BUILD, startedAt: STARTED_AT,
     telegram: telegramConfigured(), serverAutopilot, meanrevPaper, apiAuth,
     execution: { ...executionStatus({ serverAutopilot, lightboxMode, tradierMode, tradierLive }), lightboxMode, tradierMode },
-    envSeen, postgres,
+    envSeen, postgres, dynamicUniverse,
   });
 }
 
