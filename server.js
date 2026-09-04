@@ -388,6 +388,17 @@ server.listen(PORT, HOST, () => {
   // than OFF (autopilot2-store.js, default OFF) — registering the job
   // here just means the check happens every 5 min, same cadence
   // server-autopilot.js already uses for its own real Alpaca swing loop.
+  // Real fix (2026-09-04, live production investigation) — registerJob's
+  // setInterval only fires its FIRST real tick after the full 5-min
+  // interval elapses, so every restart/deploy left Autopilot 2.0
+  // genuinely idle for up to 5 minutes with no real scan happening at
+  // all — the exact thing that made today's hang investigation slow to
+  // get real evidence from (every deploy reset the wait). tick() is
+  // already a real no-op unless the user has explicitly set the
+  // autopilot to something other than OFF, and this is the identical
+  // real call the schedule already makes unattended every 5 minutes —
+  // only WHEN the very first one fires changes, not what it does.
+  require("./src/autopilot2-engine").tick().catch((err) => console.error("[ADOL22 Autopilot 2.0] initial tick failed:", err.message));
   registerJob("ADOL22 Autopilot 2.0", 5 * 60_000, () => require("./src/autopilot2-engine").tick());
   console.log("[ADOL22 Autopilot 2.0] Autonomous paper-trading tick registered — every 5 min, market hours only, OFF by default");
 
