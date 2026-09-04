@@ -66,8 +66,9 @@ ok("themeMode's unconfigured fallback matches DEFAULT_SETTINGS' documented dark 
 
 console.log("\nChecking Trade Desk tablet breakpoint (isTablet was computed but never used)…");
 const tradeDeskSrc = read("axiom-runner", "components", "TradeDeskTab.jsx");
-ok("TradeDeskTab.jsx's grid uses a distinct column layout at tablet width", () => {
-  assert.match(tradeDeskSrc, /isTablet\s*\?\s*"[^"]+"\s*:\s*"220px 1fr 280px"/);
+ok("TradeDeskTab.jsx's grid columns default to a distinct width at tablet width (2026-09-04: now real, draggable, user-resizable state — isTablet only sets the real starting default, not a fixed layout)", () => {
+  assert.match(tradeDeskSrc, /isTablet\s*\?\s*160\s*:\s*220/);
+  assert.match(tradeDeskSrc, /isTablet\s*\?\s*220\s*:\s*280/);
 });
 
 console.log(`\n${passed} checks passed.`);

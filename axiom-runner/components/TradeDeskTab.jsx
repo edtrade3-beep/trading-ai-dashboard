@@ -133,6 +133,49 @@ export default function TradeDeskTab({
   // axiom-live.jsx) has the identical key shape TD always used, so every
   // child component below needs no changes.
   const TD = C;
+  // Draggable column widths (2026-09-04, explicit user request: "make it
+  // draggable and be done") — replaces the fixed 220px/280px (160px/220px
+  // on tablet) grid columns with real, user-resizable ones, persisted per
+  // browser so a chosen width survives a reload. Sidesteps needing to get
+  // responsive breakpoints exactly right for every real window size — the
+  // user can just drag to whatever fits their own screen. Mobile is
+  // unaffected — MobileTradeDeskBody below is a completely separate,
+  // already-stacked layout that never uses this grid at all.
+  const [leftColW, setLeftColW] = useState(() => {
+    try { return Number(localStorage.getItem("tradedesk_left_col_w")) || (isTablet ? 160 : 220); } catch { return isTablet ? 160 : 220; }
+  });
+  const [rightColW, setRightColW] = useState(() => {
+    try { return Number(localStorage.getItem("tradedesk_right_col_w")) || (isTablet ? 220 : 280); } catch { return isTablet ? 220 : 280; }
+  });
+  const startColDrag = (side) => (e) => {
+    e.preventDefault();
+    const startX = e.touches ? e.touches[0].clientX : e.clientX;
+    const startW = side === "left" ? leftColW : rightColW;
+    let currentW = startW;
+    const onMove = (ev) => {
+      const clientX = ev.touches ? ev.touches[0].clientX : ev.clientX;
+      const delta = clientX - startX;
+      const raw = side === "left" ? startW + delta : startW - delta;
+      currentW = Math.max(150, Math.min(520, raw));
+      if (side === "left") setLeftColW(currentW); else setRightColW(currentW);
+    };
+    const onUp = () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      window.removeEventListener("touchmove", onMove);
+      window.removeEventListener("touchend", onUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      try { localStorage.setItem(side === "left" ? "tradedesk_left_col_w" : "tradedesk_right_col_w", String(currentW)); } catch {}
+    };
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    window.addEventListener("touchmove", onMove, { passive: false });
+    window.addEventListener("touchend", onUp);
+  };
+  const dragHandleStyle = { width: 6, cursor: "col-resize", background: "transparent", touchAction: "none" };
   const [symbol, setSymbol] = useState(() => {
     try {
       const pending = localStorage.getItem("mterminal_load_sym");
@@ -730,11 +773,13 @@ export default function TradeDeskTab({
         {isMobile ? (
           <MobileTradeDeskBody symbol={symbol} selectSymbol={selectSymbol} chart={chart} chartError={chartError} symbolQuote={symbolQuote} fundamentals={fundamentals} applyLightboxHandoff={applyLightboxHandoff} dayTradeHandoff={dayTradeHandoff} loadingChart={loadingChart} vcpOn={vcpOn} setVcpOn={setVcpOn} setActiveTab={setActiveTab} macroData={macroData} C={TD} MONO={MONO} SANS={SANS} />
         ) : (
-          <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: isTablet ? "160px 1fr 220px" : "220px 1fr 280px" }}>
+          <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: `${leftColW}px 6px 1fr 6px ${rightColW}px` }}>
             <div style={{ borderRight: `1px solid ${TD.border}`, minHeight: 0, overflow: "hidden", background: TD.bg }}>
               <CommandSearchPanel symbol={symbol} onSelectSymbol={selectSymbol} onOpenDaytrade={applyLightboxHandoff} chart={chart} symbolQuote={symbolQuote} fundamentals={fundamentals} C={TD} MONO={MONO} SANS={SANS} />
             </div>
+            <div title="Drag to resize" onMouseDown={startColDrag("left")} onTouchStart={startColDrag("left")} style={dragHandleStyle} />
           <ChartPane symbol={symbol} chart={chart} chartError={chartError} loadingChart={loadingChart} vcpOn={vcpOn} setVcpOn={setVcpOn} C={TD} MONO={MONO} SANS={SANS} chartTf={chartTf} setChartTf={setChartTf} />
+            <div title="Drag to resize" onMouseDown={startColDrag("right")} onTouchStart={startColDrag("right")} style={dragHandleStyle} />
             {/* Right column (2026-08-27) — Market Context moved to its own
                 real top-level section above the core zone, so this column
                 is Sniper (CortexMiniPanel) alone now, taking the full
