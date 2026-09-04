@@ -132,8 +132,18 @@ const GROUP_COLOR = { TRADE_NOW: "green", GET_READY: "amber", WAIT: "textSec", A
 
 function RadarGroup({ group, rows, activeSymbol, onSelect, C, MONO, SANS }) {
   const [open, setOpen] = useState(group.key === "TRADE_NOW" || group.key === "GET_READY");
+  // Real fix (2026-09-04, direct user report: "can not click on 85 stock
+  // can not see them") — the "+N more" line below used to be plain,
+  // non-interactive text with no way to actually see the rest of a real
+  // AVOID/WAIT list past the first 15/30 rows. It's now a real button
+  // that reveals every remaining real row, each of which was already a
+  // clickable RadarRow — this only fixes the reveal step, not row
+  // clickability itself, which already worked.
+  const [showAll, setShowAll] = useState(false);
   const color = C[GROUP_COLOR[group.key]] || C.text;
   if (!rows.length && group.key === "AVOID") return null; // real AVOID lists are routinely huge — collapsed by default below, and skipped entirely when literally empty
+  const cap = group.key === "AVOID" ? 15 : 30;
+  const limit = showAll ? rows.length : cap;
   return (
     <div style={{ marginBottom: 10 }}>
       <button onClick={() => setOpen((v) => !v)} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left", background: "transparent", border: "none", cursor: "pointer", padding: "4px 0" }}>
@@ -145,11 +155,20 @@ function RadarGroup({ group, rows, activeSymbol, onSelect, C, MONO, SANS }) {
       {open && (
         rows.length ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 4 }}>
-            {rows.slice(0, group.key === "AVOID" ? 15 : 30).map((row) => (
+            {rows.slice(0, limit).map((row) => (
               <RadarRow key={row.symbol} row={row} active={row.symbol === activeSymbol} onSelect={onSelect} C={C} MONO={MONO} />
             ))}
-            {rows.length > (group.key === "AVOID" ? 15 : 30) && (
-              <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, padding: "4px 0" }}>+{rows.length - (group.key === "AVOID" ? 15 : 30)} more</div>
+            {rows.length > limit && (
+              <button onClick={() => setShowAll(true)}
+                style={{ fontFamily: SANS, fontSize: 10.5, fontWeight: 700, color: C.accent, background: "transparent", border: "none", cursor: "pointer", textAlign: "left", padding: "4px 8px" }}>
+                +{rows.length - limit} more — click to show all
+              </button>
+            )}
+            {showAll && rows.length > cap && (
+              <button onClick={() => setShowAll(false)}
+                style={{ fontFamily: SANS, fontSize: 10.5, fontWeight: 700, color: C.textDim, background: "transparent", border: "none", cursor: "pointer", textAlign: "left", padding: "4px 8px" }}>
+                Show fewer
+              </button>
             )}
           </div>
         ) : (
