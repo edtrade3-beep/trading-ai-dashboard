@@ -2,6 +2,7 @@
 
 const { randomUUID } = require("node:crypto");
 const { computeSignalState } = require("./signal-lifecycle");
+const { computeInvestmentCommittee } = require("./investment-committee");
 
 const ASSET_DECISION_VERSION = "asset-decision-v1";
 const FINAL_VERDICTS = new Set(["STRONG_BUY", "BUY", "WATCH", "WAIT", "HOLD", "REDUCE", "EXIT", "AVOID"]);
@@ -30,7 +31,7 @@ function standardizeDecision(opp, positionState = null) {
   return "AVOID";
 }
 
-function applyRiskPolicy({ decision, marketRegime, dataHealth, eventRisk = null, criticalFlags = 0 }) {
+function applyRiskPolicy({ decision, marketRegime, dataHealth, eventRisk = null, criticalFlags = 0, committee = null }) {
   const blockers = [];
   if (criticalFlags > 0) blockers.push(`${criticalFlags} critical setup risk flag${criticalFlags === 1 ? "" : "s"} active.`);
   if (dataHealth && !dataHealth.canTrade) blockers.push(...dataHealth.blockers.map((b) => `Required data ${b}.`));
@@ -40,6 +41,19 @@ function applyRiskPolicy({ decision, marketRegime, dataHealth, eventRisk = null,
   const isNewBuy = decision === "STRONG_BUY" || decision === "BUY";
   let finalVerdict = decision;
   if (isNewBuy && blockers.length) finalVerdict = marketRegime?.regime === "CRISIS" || criticalFlags > 0 ? "AVOID" : "WAIT";
+  // Investment Committee (2026-09-04, direct user spec: "A trade cannot
+  // receive STRONG_BUY when a critical reviewer identifies unresolved
+  // stale data, accounting, liquidity, corporate-action, or event
+  // risk."). Narrower than the blockers above — this only ever downgrades
+  // STRONG_BUY to BUY, never blocks a trade outright (the existing
+  // blockers logic above already owns that). Real committee reviewer
+  // concerns only; never triggered by a reviewer this pipeline stage
+  // honestly couldn't evaluate (investment-committee.js never sets
+  // blocksStrongBuy off a NOT_EVALUATED reviewer).
+  if (finalVerdict === "STRONG_BUY" && committee?.blocksStrongBuy) {
+    finalVerdict = "BUY";
+    blockers.push(`Investment Committee: ${committee.criticalConcerns.map((k) => committee.reviewers[k].reason).join(" ")}`);
+  }
   return { finalVerdict, overridden: finalVerdict !== decision, blockers };
 }
 
@@ -57,7 +71,8 @@ function buildChangeMyMind({ finalVerdict, opportunity, risk }) {
 function buildAssetDecision({ opportunity, marketRegime, dataHealth, positionState = null, positionReason = null, eventRisk = null, timestamp = Date.now() } = {}) {
   if (!opportunity?.symbol) return null;
   const decision = standardizeDecision(opportunity, positionState);
-  const risk = applyRiskPolicy({ decision, marketRegime, dataHealth, eventRisk, criticalFlags: opportunity.criticalFlags || 0 });
+  const committee = computeInvestmentCommittee({ opportunity, marketRegime, dataHealth, eventRisk });
+  const risk = applyRiskPolicy({ decision, marketRegime, dataHealth, eventRisk, criticalFlags: opportunity.criticalFlags || 0, committee });
   const confidenceBase = Number.isFinite(opportunity.probability) ? opportunity.probability : opportunity.score;
   const healthMultiplier = Number.isFinite(dataHealth?.confidenceMultiplier) ? dataHealth.confidenceMultiplier : 1;
   const entryPlan = opportunity.entryPlan || {};
@@ -129,6 +144,7 @@ function buildAssetDecision({ opportunity, marketRegime, dataHealth, positionSta
     reasons: [...new Set([positionState ? positionReason : opportunity.verdictReason, ...(opportunity.reasons || [])].filter(Boolean))],
     blockers: [...new Set(risk.blockers)], changeMyMind: buildChangeMyMind({ finalVerdict: risk.finalVerdict, opportunity, risk }),
     dataSources: (dataHealth?.sources || []).map((s) => s.source), engineVersion: ASSET_DECISION_VERSION,
+    investmentCommittee: committee,
   };
   if (!FINAL_VERDICTS.has(result.verdict) || !OPPORTUNITY_STAGES.has(result.opportunityStage)) throw new Error("Invalid canonical AssetDecision state");
   return result;
