@@ -43,7 +43,15 @@ const DEALER = {
   phone: process.env.DEALER_PHONE || "513-874-4999",
 };
 
-const clean = (v) => String(v || "").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
+// Real live bug caught after the first production run: trim text like
+// "6.5&#x27; Box" / "135&quot;" was leaking raw HTML entities straight into
+// the draft record instead of decoding to 6.5' Box / 135" — this site's
+// markup entity-encodes quotes/apostrophes inside feature text. Decode the
+// handful that actually show up in real observed values.
+const clean = (v) => String(v || "")
+  .replace(/&nbsp;/g, " ").replace(/&quot;/g, '"').replace(/&#x27;/g, "'").replace(/&#39;/g, "'")
+  .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+  .replace(/\s+/g, " ").trim();
 
 // Real multi-word makes this site actually lists (the h4 title has no
 // separator between make and model, e.g. "2017 Land Rover Range Rover") —
