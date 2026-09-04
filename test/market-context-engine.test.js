@@ -89,12 +89,12 @@ ok("hawkish repricing + equities down -> ALIGNED, not falsely flagged", () => {
 });
 
 console.log("Checking computeCompositeMacroScore — honest degrade on missing real inputs (spec §9)…");
-ok("all real inputs present -> confidence 100%", () => {
-  const r = computeCompositeMacroScore({ fedSignal: "DOVISH_REPRICING", inflationYoy: 2.5, employmentScore: 60, liquidityScore: 55, breadthScore: 65, vixLevel: 15, divergence: "ALIGNED" });
+ok("all real inputs present (including treasury/credit) -> confidence 100%", () => {
+  const r = computeCompositeMacroScore({ fedSignal: "DOVISH_REPRICING", inflationYoy: 2.5, employmentScore: 60, liquidityScore: 55, breadthScore: 65, vixLevel: 15, divergence: "ALIGNED", treasuryScore: 60, creditScore: 65 });
   assert.strictEqual(r.confidence, 100);
 });
 ok("every real input missing -> honest 0% confidence and a neutral 0 score, never fabricated", () => {
-  const r = computeCompositeMacroScore({ fedSignal: null, inflationYoy: null, employmentScore: null, liquidityScore: null, breadthScore: null, vixLevel: null, divergence: null });
+  const r = computeCompositeMacroScore({ fedSignal: null, inflationYoy: null, employmentScore: null, liquidityScore: null, breadthScore: null, vixLevel: null, divergence: null, treasuryScore: null, creditScore: null });
   assert.strictEqual(r.confidence, 0);
   assert.strictEqual(r.score, 0);
 });
@@ -102,6 +102,26 @@ ok("a hawkish/high-inflation/weak-growth/tight-liquidity backdrop produces a rea
   const r = computeCompositeMacroScore({ fedSignal: "HAWKISH_REPRICING", inflationYoy: 4.5, employmentScore: 25, liquidityScore: 20, breadthScore: 20, vixLevel: 28, divergence: "MACRO_EQUITY_DIVERGENCE" });
   assert.ok(r.score < 0, `expected a negative macro score, got ${r.score}`);
   assert.strictEqual(r.fedPressure.label, "HAWKISH");
+});
+ok("treasuryScore/creditScore omitted entirely -> honestly degrades confidence rather than assuming neutral", () => {
+  const withBoth = computeCompositeMacroScore({ fedSignal: "DOVISH_REPRICING", inflationYoy: 2.5, employmentScore: 60, liquidityScore: 55, breadthScore: 65, vixLevel: 15, divergence: "ALIGNED", treasuryScore: 60, creditScore: 65 });
+  const without = computeCompositeMacroScore({ fedSignal: "DOVISH_REPRICING", inflationYoy: 2.5, employmentScore: 60, liquidityScore: 55, breadthScore: 65, vixLevel: 15, divergence: "ALIGNED" });
+  assert.strictEqual(withBoth.confidence, 100);
+  assert.ok(without.confidence < 100, `expected < 100% confidence with treasury/credit missing, got ${without.confidence}`);
+  assert.strictEqual(without.treasuryPressure, null);
+  assert.strictEqual(without.creditPressure, null);
+});
+ok("a real weak treasuryScore (deep in real STRESSED territory) -> treasuryPressure TIGHTENING and pulls the composite score down", () => {
+  const weak = computeCompositeMacroScore({ fedSignal: "MIXED", inflationYoy: 3, employmentScore: 50, liquidityScore: 50, breadthScore: 50, vixLevel: 20, divergence: null, treasuryScore: 10, creditScore: 50 });
+  const strong = computeCompositeMacroScore({ fedSignal: "MIXED", inflationYoy: 3, employmentScore: 50, liquidityScore: 50, breadthScore: 50, vixLevel: 20, divergence: null, treasuryScore: 90, creditScore: 50 });
+  assert.strictEqual(weak.treasuryPressure.label, "TIGHTENING");
+  assert.ok(weak.score < strong.score, `expected weak treasury to score lower than strong treasury (weak=${weak.score}, strong=${strong.score})`);
+});
+ok("a real weak creditScore (spreads blown out) -> creditPressure STRESSED and pulls the composite score down", () => {
+  const weak = computeCompositeMacroScore({ fedSignal: "MIXED", inflationYoy: 3, employmentScore: 50, liquidityScore: 50, breadthScore: 50, vixLevel: 20, divergence: null, treasuryScore: 50, creditScore: 5 });
+  const strong = computeCompositeMacroScore({ fedSignal: "MIXED", inflationYoy: 3, employmentScore: 50, liquidityScore: 50, breadthScore: 50, vixLevel: 20, divergence: null, treasuryScore: 50, creditScore: 95 });
+  assert.strictEqual(weak.creditPressure.label, "STRESSED");
+  assert.ok(weak.score < strong.score, `expected weak credit to score lower than strong credit (weak=${weak.score}, strong=${strong.score})`);
 });
 
 console.log("Checking classifyTradingEnvironment (spec §2)…");

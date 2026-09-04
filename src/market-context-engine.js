@@ -140,11 +140,18 @@ function detectDivergence({ fedSignal, spyChg, qqqChg }) {
 // HAWKISH/DOVISH-style word for readability). Each sub-factor honestly
 // degrades toward 0 (neutral) when its real inputs are missing, and
 // `confidence` reports what fraction of real inputs actually resolved.
-const SCORE_WEIGHTS = { fed: 0.20, inflation: 0.15, growth: 0.15, liquidity: 0.15, riskAppetite: 0.15, volatility: 0.10, equityAlignment: 0.10 };
+// treasury/credit added (2026-09-04, direct user spec — Market Regime
+// Engine section: "Treasury yields and yield-curve movement... credit
+// conditions"). Both scores were already real and computed by
+// treasury-credit-engine.js off real FRED series (/api/market/macro-regime
+// already fetches and returns them as macroRegime.treasury/.credit) — they
+// just never reached this composite's weighted blend before now, only a
+// couple of their factor fields were read for display/trend purposes.
+const SCORE_WEIGHTS = { fed: 0.20, inflation: 0.15, growth: 0.15, liquidity: 0.15, riskAppetite: 0.15, volatility: 0.10, equityAlignment: 0.10, treasury: 0.15, credit: 0.15 };
 
-function computeCompositeMacroScore({ fedSignal, inflationYoy, employmentScore, liquidityScore, breadthScore, vixLevel, divergence }) {
+function computeCompositeMacroScore({ fedSignal, inflationYoy, employmentScore, liquidityScore, breadthScore, vixLevel, divergence, treasuryScore, creditScore }) {
   const parts = {};
-  let resolvedCount = 0, totalCount = 7;
+  let resolvedCount = 0, totalCount = 9;
 
   parts.fed = fedSignal === "HAWKISH_REPRICING" ? -70 : fedSignal === "DOVISH_REPRICING" ? 70 : fedSignal === "MIXED" ? 0 : null;
   if (parts.fed != null) resolvedCount++;
@@ -167,6 +174,16 @@ function computeCompositeMacroScore({ fedSignal, inflationYoy, employmentScore, 
   parts.equityAlignment = divergence === "ALIGNED" ? 20 : divergence ? -50 : null;
   if (parts.equityAlignment != null) resolvedCount++;
 
+  // Real treasury-credit-engine.js scores (0-100, already disclosed
+  // first-pass point-additive reads off real FRED yield-curve/spread
+  // series) — same -50..+50-ish rescale every other 0-100 sub-score here
+  // already uses (50 = neutral anchor).
+  parts.treasury = Number.isFinite(treasuryScore) ? (treasuryScore - 50) * 2 : null;
+  if (parts.treasury != null) resolvedCount++;
+
+  parts.credit = Number.isFinite(creditScore) ? (creditScore - 50) * 2 : null;
+  if (parts.credit != null) resolvedCount++;
+
   let score = 0, weightSum = 0;
   for (const [key, weight] of Object.entries(SCORE_WEIGHTS)) {
     if (parts[key] != null) { score += parts[key] * weight; weightSum += weight; }
@@ -184,6 +201,8 @@ function computeCompositeMacroScore({ fedSignal, inflationYoy, employmentScore, 
     riskAppetite: parts.riskAppetite != null ? { value: parts.riskAppetite, label: parts.riskAppetite < -20 ? "RISK-AVERSE" : parts.riskAppetite > 20 ? "RISK-SEEKING" : "NEUTRAL" } : null,
     volatility: parts.volatility != null ? { value: parts.volatility, label: parts.volatility < -20 ? "ELEVATED" : parts.volatility > 20 ? "CONTAINED" : "NORMAL" } : null,
     equityAlignment: parts.equityAlignment != null ? { value: parts.equityAlignment, label: divergence } : null,
+    treasuryPressure: parts.treasury != null ? { value: parts.treasury, label: parts.treasury < -20 ? "TIGHTENING" : parts.treasury > 20 ? "ACCOMMODATIVE" : "NEUTRAL" } : null,
+    creditPressure: parts.credit != null ? { value: parts.credit, label: parts.credit < -20 ? "STRESSED" : parts.credit > 20 ? "HEALTHY" : "NEUTRAL" } : null,
   };
 }
 
@@ -288,6 +307,8 @@ async function computeMarketContext() {
     liquidityScore: macroRegime.liquidity?.score ?? null,
     breadthScore: macroRegime.breadth?.score ?? null,
     vixLevel, divergence,
+    treasuryScore: macroRegime.treasury?.score ?? null,
+    creditScore: macroRegime.credit?.score ?? null,
   });
   const tradingEnvironment = classifyTradingEnvironment({ macroScore: macroScoreResult.score, vixLevel, divergence });
 
@@ -300,6 +321,7 @@ async function computeMarketContext() {
     fedPressure: macroScoreResult.fedPressure, inflationPressure: macroScoreResult.inflationPressure,
     growthPressure: macroScoreResult.growthPressure, liquidity: macroScoreResult.liquidity,
     riskAppetite: macroScoreResult.riskAppetite, volatility: macroScoreResult.volatility, equityAlignment: macroScoreResult.equityAlignment,
+    treasuryPressure: macroScoreResult.treasuryPressure, creditPressure: macroScoreResult.creditPressure,
     tradingEnvironment,
     instruments: {
       twoYear: us2y ? { value: us2y.value, trend: twoYearTrend } : null,
