@@ -90,10 +90,9 @@ export default function TrendChart({ data, C, MONO, SANS, height, vcpOverlayOn }
   // Collapsible rating card (2026-09-04, explicit user request with a
   // screenshot of this exact card: "make it smaller so chart expand or
   // you can hide \just show score") — same localStorage-toggle convention
-  // as TradeDeskEvidence.jsx's own collapse. Included in the chart-
-  // creation effect's own deps below (same list H is already in) so
-  // toggling recomputes cardH and gives the freed/reclaimed space
-  // straight to the canvas, not just a lighter card.
+  // as TradeDeskEvidence.jsx's own collapse. A dedicated resize-only
+  // effect further down recomputes cardH and gives the freed/reclaimed
+  // space straight to the canvas on toggle, without recreating the chart.
   const [collapsed, setCollapsed] = React.useState(() => {
     try { return localStorage.getItem("trendchart_rating_collapsed") === "on"; } catch { return false; }
   });
@@ -287,7 +286,25 @@ export default function TrendChart({ data, C, MONO, SANS, height, vcpOverlayOn }
       el.removeEventListener("wheel", onWheel);
       chart.remove(); chartRef.current = null; seriesRef.current = null;
     };
-  }, [data && data.symbol, C, H, SANS, collapsed, expanded]);
+  }, [data && data.symbol, C, H, SANS]);
+
+  // Resize (never recreate) when the rating card collapses/expands or the
+  // fullscreen toggle flips. Real live bug caught before shipping: an
+  // earlier version put collapsed/expanded in the effect above's own deps,
+  // which tore down and rebuilt an empty chart+series on every toggle —
+  // the data-fill effect below only depends on [data, C] so it never
+  // reran to refill it, leaving a genuinely blank chart (confirmed live,
+  // screenshot: fullscreen opened to a totally empty white pane). Same
+  // imperative-resize-without-recreation pattern the file's own onResize/
+  // settleCorrect already use for window resize and fill-mode.
+  React.useLayoutEffect(() => {
+    const chart = chartRef.current, el = elRef.current;
+    if (!chart || !el) return;
+    const cardH = fillToViewport ? 0 : (cardRef.current ? cardRef.current.offsetHeight : 0);
+    const canvasHeight = fillToViewport ? effectiveH : Math.max(200, effectiveH - cardH);
+    applyHeight(canvasHeight);
+    chart.applyOptions({ height: canvasHeight, width: el.clientWidth || 800 });
+  }, [collapsed, expanded]);
 
   // Push data + overlays whenever `data` changes (keeps zoom on live refresh).
   React.useEffect(() => {
@@ -665,9 +682,9 @@ export default function TrendChart({ data, C, MONO, SANS, height, vcpOverlayOn }
         // strip above the chart instead of floating over it — the
         // chart's own height={H} sizing (used by lightweight-charts to
         // size its canvas) is completely untouched below.
-        <div ref={cardRef} style={{ marginBottom: 8, display: "inline-block",
-          background: C.card || "#fff", border: `1px solid ${rColor}`, borderRadius: 12,
-          padding: collapsed ? "4px 10px" : "8px 14px", boxShadow: "0 1px 4px rgba(0,0,0,0.10)", minWidth: collapsed ? 0 : 132 }}>
+        <div ref={cardRef} style={{ marginBottom: 6, display: "inline-block",
+          background: C.card || "#fff", border: `1px solid ${rColor}`, borderRadius: 10,
+          padding: collapsed ? "4px 10px" : "5px 10px", boxShadow: "0 1px 4px rgba(0,0,0,0.10)", minWidth: collapsed ? 0 : 0 }}>
           {/* "OVERALL RATING" renamed (2026-07-29, real user-reported
               confusion) — read as THE single verdict, directly competing
               with the AI Score Card's own recommendation above even though
@@ -727,22 +744,22 @@ export default function TrendChart({ data, C, MONO, SANS, height, vcpOverlayOn }
           </div>
           {!collapsed && (
             <>
-              <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-                <span style={{ fontFamily: SANS, fontSize: 30, fontWeight: 900, color: rColor, lineHeight: 1 }}>{rating}</span>
-                <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 800, color: rColor, letterSpacing: 0.5 }}>{rWord}</span>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginTop: 2 }}>
+                <span style={{ fontFamily: SANS, fontSize: 20, fontWeight: 900, color: rColor, lineHeight: 1 }}>{rating}</span>
+                <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, color: rColor, letterSpacing: 0.5 }}>{rWord}</span>
+                {verdict && (
+                  <span style={{ marginLeft: 4, fontFamily: MONO, fontSize: 9, fontWeight: 800, color: "#fff", background: vColor, borderRadius: 4, padding: "1px 7px" }}>
+                    {verdict === "GO" ? "🟢 GO" : verdict === "WAIT" ? "🟡 WAIT" : "🔴 AVOID"}
+                  </span>
+                )}
+                {upside != null && <span style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 9.5, color: "#f59e0b" }}>🎯 {upside > 0 ? "+" : ""}{upside}%</span>}
               </div>
-              {verdict && (
-                <div style={{ display: "inline-block", marginTop: 6, fontFamily: MONO, fontSize: 10, fontWeight: 800, color: "#fff", background: vColor, borderRadius: 5, padding: "2px 8px" }}>
-                  {verdict === "GO" ? "🟢 GO" : verdict === "WAIT" ? "🟡 WAIT" : "🔴 AVOID"}
-                </div>
-              )}
-              {upside != null && <div style={{ fontFamily: MONO, fontSize: 10, color: "#f59e0b", marginTop: 5 }}>🎯 {upside > 0 ? "+" : ""}{upside}% to target</div>}
               {/* Minervini's template is a daily/weekly method — the rating and
                   price levels above are always the real daily computation, even
                   while you're looking at an intraday candle granularity. Say so
                   rather than let it look like a live intraday rating. */}
               {data.intervalUsed && data.intervalUsed !== "1d" && (
-                <div style={{ fontFamily: SANS, fontSize: 9, color: C.textDim, marginTop: 5, fontStyle: "italic" }}>Rating reflects the daily setup</div>
+                <div style={{ fontFamily: SANS, fontSize: 8.5, color: C.textDim, marginTop: 3, fontStyle: "italic" }}>Rating reflects the daily setup</div>
               )}
             </>
           )}
