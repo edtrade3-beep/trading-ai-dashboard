@@ -43,6 +43,19 @@ export default function TrendChart({ data, C, MONO, SANS, height, vcpOverlayOn }
   // recreation) avoids this entirely.
   const fillToViewport = height === "fill";
   const H = fillToViewport ? 560 : (height || 520); // 560 = static fallback for the wrapper divs' initial layout only, in fill mode; the real value is computed+applied imperatively below once mounted
+  // Expand/fullscreen (2026-09-04, explicit user request with a screenshot
+  // of a small chart: "want to expand it to see it better") — a transient
+  // viewing action, not a persisted layout preference like collapsed/
+  // showTechnicals above, so it resets on remount rather than sticking.
+  // Only overrides a caller-supplied FIXED height; "fill" mode already
+  // recomputes its own real available space via computeFillHeight below,
+  // which naturally grows once the chart is moved into the full-viewport
+  // overlay (its own getBoundingClientRect().top shrinks to ~the overlay's
+  // own small top padding).
+  const [expanded, setExpanded] = React.useState(false);
+  const toggleExpanded = () => setExpanded((v) => !v);
+  const expandedH = expanded && !fillToViewport ? Math.max(420, (typeof window !== "undefined" ? window.innerHeight : 900) - 160) : null;
+  const effectiveH = expandedH || H;
   // Hoisted to component scope (not just inside the chart-creation effect)
   // so the data-fill effect below can also call them — real live bug found
   // after shipping: measuring available height only ONCE at chart-creation
@@ -140,7 +153,7 @@ export default function TrendChart({ data, C, MONO, SANS, height, vcpOverlayOn }
     // getBoundingClientRect().top, which naturally shrinks once the card
     // pushes it down — this only affects a caller-supplied fixed height.
     const cardH = fillToViewport ? 0 : (cardRef.current ? cardRef.current.offsetHeight : 0);
-    const canvasHeight = fillToViewport ? H : Math.max(200, H - cardH);
+    const canvasHeight = fillToViewport ? effectiveH : Math.max(200, effectiveH - cardH);
     const initialHeight = fillToViewport ? computeFillHeight() : canvasHeight;
     applyHeight(initialHeight);
     let raf1 = 0, raf2 = 0;
@@ -274,7 +287,7 @@ export default function TrendChart({ data, C, MONO, SANS, height, vcpOverlayOn }
       el.removeEventListener("wheel", onWheel);
       chart.remove(); chartRef.current = null; seriesRef.current = null;
     };
-  }, [data && data.symbol, C, H, SANS, collapsed]);
+  }, [data && data.symbol, C, H, SANS, collapsed, expanded]);
 
   // Push data + overlays whenever `data` changes (keeps zoom on live refresh).
   React.useEffect(() => {
@@ -640,7 +653,7 @@ export default function TrendChart({ data, C, MONO, SANS, height, vcpOverlayOn }
     ["🟪 Purple volume bars", "Real volume inside the detected VCP base — watch these bars shrink toward the pivot; that shrinking is the real \"volume dry-up\" signal. Only tinted when VCP overlay is ON."],
     ["🚀 VCP BREAKOUT", "The real candle where price first closed above the VCP engine's own pivot on this chart's data — a different real signal from the green MA50-reclaim BUY arrow above."],
   ];
-  return (
+  const chartBody = (
     <>
       {data && (
         // Real positioning fix (2026-09-04, direct user report with a
@@ -735,8 +748,8 @@ export default function TrendChart({ data, C, MONO, SANS, height, vcpOverlayOn }
           )}
         </div>
       )}
-      <div style={{ position: "relative", width: "100%", height: H }}>
-        <div ref={elRef} style={{ width: "100%", height: H }} />
+      <div style={{ position: "relative", width: "100%", height: effectiveH }}>
+        <div ref={elRef} style={{ width: "100%", height: effectiveH }} />
         {/* Master technicals on/off — top-right corner of the chart itself
             (this one genuinely doesn't collide with anything below it, a
             single small pill, unlike the rating card above — left as-is). */}
@@ -748,7 +761,29 @@ export default function TrendChart({ data, C, MONO, SANS, height, vcpOverlayOn }
             border: `1px solid ${showTechnicals ? C.border : C.accent}`, boxShadow: "0 2px 10px rgba(0,0,0,0.18)" }}>
           {showTechnicals ? "📈 TECHNICALS ON" : "📈 TECHNICALS OFF"}
         </button>
+        {/* Expand/fullscreen toggle (2026-09-04, see the state comment
+            above) — top-left so it never collides with the TECHNICALS
+            pill or the right-side price-scale labels. */}
+        <button onClick={toggleExpanded} title={expanded ? "Exit fullscreen" : "Expand chart to fullscreen"}
+          style={{ position: "absolute", top: 10, left: 12, zIndex: 5, fontFamily: MONO, fontSize: 9.5, fontWeight: 800,
+            letterSpacing: 0.3, padding: "5px 10px", borderRadius: 8, cursor: "pointer",
+            background: expanded ? (C.accent || "#2563eb") : (C.card || "#fff"),
+            color: expanded ? "#fff" : (C.textDim || "#888"),
+            border: `1px solid ${expanded ? C.accent : C.border}`, boxShadow: "0 2px 10px rgba(0,0,0,0.18)" }}>
+          {expanded ? "✕ EXIT FULLSCREEN" : "⛶ EXPAND"}
+        </button>
       </div>
     </>
+  );
+  if (!expanded) return chartBody;
+  // Fullscreen overlay — same fixed/inset0/zIndex-stacking pattern as this
+  // codebase's other modals (e.g. the glossary popup just above uses the
+  // same z-index-layering idea at a smaller scale). Real background token
+  // (not transparent) so it fully covers the page underneath, matching the
+  // artifact-safety convention this app already follows elsewhere.
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: C.bg || "#fff", padding: "16px 20px", overflow: "auto" }}>
+      {chartBody}
+    </div>
   );
 }
