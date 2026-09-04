@@ -1,5 +1,6 @@
 "use strict";
 
+const { randomUUID } = require("node:crypto");
 const { computeSignalState } = require("./signal-lifecycle");
 
 const ASSET_DECISION_VERSION = "asset-decision-v1";
@@ -79,8 +80,16 @@ function buildAssetDecision({ opportunity, marketRegime, dataHealth, positionSta
     invalidation: Number.isFinite(entryPlan.invalidation) ? entryPlan.invalidation : null,
     nowMs: timestamp,
   });
+  // correlationId (2026-09-04, Phase 0 audit finding: symbol was the sole
+  // identity field on this contract — no way to trace one specific
+  // decision instance end-to-end through logs/journal/alerts by ID, only
+  // by symbol+timestamp proximity). Fresh per decision computation, no
+  // meaning beyond "this exact object" — NOT a stable cross-time
+  // instrument identity (that needs real venue/asset-class/corporate-
+  // action data this function doesn't have; deliberately not fabricated
+  // here, scoped as its own later piece of work).
   const result = {
-    symbol: opportunity.symbol, timestamp, price: opportunity.price ?? null,
+    symbol: opportunity.symbol, correlationId: randomUUID(), timestamp, price: opportunity.price ?? null,
     dataHealth: dataHealth || null, marketRegime: marketRegime || null,
     assetQuality: opportunity.fingerprint?.fundamentals ?? null,
     trendScore: opportunity.breakdown?.trend ?? null, momentumScore: opportunity.breakdown?.momentum ?? null,
