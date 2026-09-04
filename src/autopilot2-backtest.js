@@ -40,11 +40,22 @@
 //      If a stop AND target are both hit on the same real bar, the stop
 //      is assumed to have hit first — the standard conservative backtest
 //      convention, never the target-first (performance-flattering) read.
+//   4. Real fill costs (2026-09-03, Phase 0 audit finding: this backtest
+//      previously filled every entry/exit at the exact quoted price —
+//      zero spread, zero slippage — while the live engine's own
+//      opportunity-engine.js already discloses a real flat slippage
+//      assumption (DISCLOSED_SLIPPAGE_PCT) that never reached this file,
+//      making every backtest P&L number systematically optimistic versus
+//      real paper/live execution). Every entry and exit below now applies
+//      that SAME disclosed constant against the trader — entries fill
+//      worse (higher) than the quoted open, stop/target exits fill worse
+//      (lower) than the exact trigger price. Not a new cost model, the
+//      existing disclosed one, finally applied consistently.
 "use strict";
 
 const { fetchYahooBarsLong } = require("./providers/yahoo");
 const { computeTrendTemplateAt } = require("./backtest-trend-template");
-const { computeOpportunity } = require("./opportunity-engine");
+const { computeOpportunity, DISCLOSED_SLIPPAGE_PCT } = require("./opportunity-engine");
 const { computeRegime, regimeToEntryVocabulary } = require("./trade-planner-scoring");
 const { ttWeightedMomentum } = require("./routes/market");
 const {
@@ -60,6 +71,12 @@ const STARTING_EQUITY = 100_000; // matches Autopilot 2.0's real paper account s
 const MIN_GAP_DAYS = 10; // same real anti-re-fire precedent as backtest-engine.js's Sniper Decision backtest
 const MAX_ENTRIES_PER_DAY = 5; // daily-bar analog of autopilot2-engine.js's MAX_ENTRIES_PER_TICK
 const DAILY_LOSS_PCT = 2, WEEKLY_LOSS_PCT = 5, TOTAL_DRAWDOWN_PCT = 15; // same real defaults as autopilot2-engine.js
+// Real fill-cost multipliers (2026-09-03, see header note 4) — the SAME
+// disclosed slippage percentage the live engine already assumes, applied
+// against the trader on both sides: a long BUY fills slightly higher than
+// quoted, a long SELL (stop or target) fills slightly lower than triggered.
+const BUY_SLIPPAGE_MULT = 1 + DISCLOSED_SLIPPAGE_PCT / 100;
+const SELL_SLIPPAGE_MULT = 1 - DISCLOSED_SLIPPAGE_PCT / 100;
 
 const RANGE_BY_YEARS = { 1: "2y", 2: "3y", 3: "5y" }; // fetch 1 extra year of real history so the FIRST backtested day already has a real 200-day lookback
 function rangeFor(years) {
@@ -158,8 +175,11 @@ async function runAutopilot2Backtest(symbols, opts = {}) {
       if (idx == null) continue; // no real bar today for this symbol (holiday mismatch) — stays open
       const bar = symbolBars[pos.symbol][idx];
       let exitPrice = null, reason = null;
-      if (bar.low <= pos.stop) { exitPrice = pos.stop; reason = "STOP"; } // conservative: stop checked before target
-      else if (bar.high >= pos.target) { exitPrice = pos.target; reason = "TARGET"; }
+      // Real slippage applied against the trader on the way out too (stops
+      // genuinely fill beyond their trigger, not exactly at it) — see
+      // header note 4.
+      if (bar.low <= pos.stop) { exitPrice = round2(pos.stop * SELL_SLIPPAGE_MULT); reason = "STOP"; } // conservative: stop checked before target
+      else if (bar.high >= pos.target) { exitPrice = round2(pos.target * SELL_SLIPPAGE_MULT); reason = "TARGET"; }
       if (exitPrice != null) {
         cash += pos.qty * exitPrice;
         const pnl = round2((exitPrice - pos.entry) * pos.qty);
@@ -212,7 +232,9 @@ async function runAutopilot2Backtest(symbols, opts = {}) {
         lastSignalIdx[sym] = idx;
 
         const fillBar = bars[idx + 1];
-        const entry = fillBar.open;
+        // Real slippage applied against the trader on entry too — see
+        // header note 4.
+        const entry = round2(fillBar.open * BUY_SLIPPAGE_MULT);
         const stop = opp.stop;
         const target = opp.target;
         if (!(entry > 0) || !(stop > 0) || !(stop < entry) || !(target > entry)) continue;

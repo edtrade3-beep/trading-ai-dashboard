@@ -492,5 +492,5 @@ function computeOpportunity({ symbol, row, regime, marketRegime, sectorInfo = nu
 module.exports = {
   computeOpportunity, computeExpectedValue, classifyOpportunityTier, checkOptionsConfirmsStructure,
   buildMarketFingerprint, computeCounterfactualEv, toOpportunityStage, toOpportunityStageFromPosition,
-  toHighLevelVerdict,
+  toHighLevelVerdict, DISCLOSED_SLIPPAGE_PCT,
 };
