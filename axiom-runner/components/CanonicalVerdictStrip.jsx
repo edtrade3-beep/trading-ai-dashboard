@@ -15,6 +15,18 @@ function verdictColor(verdict, C) {
   return C.textDim; // WAIT and any unrecognized verdict
 }
 
+// Real, already-computed status vocabulary from data-health-engine.js
+// (HEALTHY/DEGRADED/POOR/BLOCKED) — this was previously only surfaced as
+// freeform prose in the strip's bottom text, with no glanceable label at
+// all when data was fine (2026-09-04, Phase 0 audit's five-second-test
+// finding: "Data status" was the weakest of the 8 required fields).
+function dataHealthColor(status, C) {
+  if (status === "HEALTHY") return C.green;
+  if (status === "DEGRADED" || status === "POOR") return C.amber;
+  if (status === "BLOCKED") return C.red;
+  return C.textDim; // unknown/not yet computed
+}
+
 export default function CanonicalVerdictStrip({ decision, loading, error, C, MONO, SANS }) {
   const verdict = decision?.verdict || "—";
   const color = verdictColor(verdict, C);
@@ -34,6 +46,7 @@ export default function CanonicalVerdictStrip({ decision, loading, error, C, MON
       <Metric label="CONFIDENCE" value={confidence} C={C} MONO={MONO} />
       <Metric label="STAGE" value={stage} C={C} MONO={MONO} />
       <Metric label="REGIME" value={regime.replace(/_/g, " ")} C={C} MONO={MONO} />
+      <Metric label="DATA" value={health?.status || "—"} color={dataHealthColor(health?.status, C)} C={C} MONO={MONO} />
       <div style={{ flex: 1, minWidth: 180, fontFamily: SANS, fontSize: 11, color: stale ? C.amber : C.textSec }}>
         {error ? `Decision unavailable: ${error}` : stale ? `STALE / BLOCKED DATA: ${decision?.blockers?.[0] || "new exposure is blocked until required data is fresh"}` : decision?.reasons?.[0] || (loading ? "Fetching canonical decision…" : "No decision explanation available.")}
       </div>
@@ -41,6 +54,6 @@ export default function CanonicalVerdictStrip({ decision, loading, error, C, MON
   );
 }
 
-function Metric({ label, value, C, MONO }) {
-  return <div style={{ minWidth: 78 }}><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: 0.6 }}>{label}</div><div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text }}>{value}</div></div>;
+function Metric({ label, value, color, C, MONO }) {
+  return <div style={{ minWidth: 78 }}><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: 0.6 }}>{label}</div><div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: color || C.text }}>{value}</div></div>;
 }

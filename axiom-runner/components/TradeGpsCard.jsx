@@ -90,7 +90,14 @@ export default function TradeGpsCard({
   const invalidation = decision?.invalidation;
   const stopDistance = Number.isFinite(entry) && Number.isFinite(stop) ? Math.abs(entry - stop) : null;
   const maxLoss = Number.isFinite(tradeStructure?.maxLoss) ? tradeStructure.maxLoss : null;
-  const direction = Number.isFinite(entry) && Number.isFinite(stop) && stop > entry ? "SHORT" : "LONG";
+  const hasLevels = Number.isFinite(entry) && Number.isFinite(stop);
+  const direction = hasLevels && stop > entry ? "SHORT" : "LONG";
+  // Direction was already computed above but never rendered anywhere on
+  // this card (2026-09-04, Phase 0 audit's five-second-test finding) —
+  // a viewer had to infer LONG/SHORT from whether the stop sat above or
+  // below entry. Only shown once real entry/stop levels exist — never
+  // defaults to displaying "LONG" for a symbol with no real decision yet.
+  const directionLabel = hasLevels ? direction : null;
 
   const agreementText = Number.isFinite(marketAgreement?.count) && Number.isFinite(marketAgreement?.total) && marketAgreement.total > 0
     ? `${marketAgreement.count} of ${marketAgreement.total} factors aligned`
@@ -134,7 +141,7 @@ export default function TradeGpsCard({
         <div style={{ fontFamily: MONO, fontSize: 9, letterSpacing: 1, color: C.textDim }}>TRADE GPS · PAPER ONLY</div>
         <div style={{ fontFamily: MONO, fontSize: 24, fontWeight: 900, color, lineHeight: 1.15 }}>{label}</div>
         <div style={{ fontFamily: MONO, fontSize: 11, color: C.textSec, marginTop: 2 }}>
-          {symbol || "—"}{structure ? ` · ${structure.replace(/_/g, " ")}` : ""}
+          {symbol || "—"}{directionLabel ? ` · ${directionLabel}` : ""}{structure ? ` · ${structure.replace(/_/g, " ")}` : ""}
         </div>
       </div>
 
