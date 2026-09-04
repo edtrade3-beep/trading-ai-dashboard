@@ -96,6 +96,24 @@
       /* let any element that declares a fixed pixel width shrink to fit */
       .mobile-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
     }
+
+    /* Real prefers-reduced-motion support (2026-09-04, Phase 0 audit
+       finding: 36 component files set animation/transition via inline
+       style={} — a per-file pass would need 36 separate touches with no
+       browser to verify each one, and would still miss the next component
+       that adds a new animation). One global rule instead: !important in
+       an author stylesheet DOES override a plain (non-!important) inline
+       style per the CSS spec, so this genuinely neutralizes every
+       existing and future animation/transition in the app for a user
+       whose OS-level setting asks for it — not just a subset. */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
   </style>
 </head>
 <body>
