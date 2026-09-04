@@ -9,6 +9,7 @@
 // acceleration curves, trap modeling, learning engine self-audit).
 "use strict";
 const { PORT } = require("./config");
+const { withTimeout } = require("./utils");
 const {
   isMarketHoursET, checkAccountHealth, dailyLossBreakerTripped, weeklyLossBreakerTripped,
   totalDrawdownBreakerTripped, consecutiveLossBreakerTripped, eventRiskSizeMultiplier,
@@ -801,11 +802,36 @@ async function tryEnter(opp, snapshot, replayGates = null) {
 // simple flag pattern this codebase already uses for the same real
 // reason in gmail-leads.js's pollGmailLeads.
 let _ticking = false;
+// Real hang-protection fix (2026-09-04, live production investigation:
+// confirmed across 6+ clean server restarts that Autopilot 2.0's
+// heartbeat looked perpetually fresh every ~5 min with zero real
+// activity ever logged and the dynamic-universe rotation cursor never
+// advancing once). Root cause: job-heartbeat.js's wrapper only checks
+// whether tick() throws, not what it returns — if the real work inside
+// _tickImpl() ever hung (a slow/stalled real network call somewhere in
+// the real candidate-scan chain), every SUBSEQUENT scheduled tick would
+// immediately see _ticking still true and return the fast, successful-
+// looking "skipped" result — which still resolves fine, so heartbeat
+// kept recording lastOk:true every 5 min while the one real tick that
+// mattered stayed silently stuck forever, permanently blocking every
+// tick after it. TICK_TIMEOUT_MS is comfortably shorter than the 5-min
+// schedule so _ticking always releases in time for the next real
+// attempt, and a real, logged activity entry now marks exactly when this
+// happens — turning a silent, indefinite hang into an honest, visible,
+// recoverable one instead of just papering over it with a longer timeout.
+const TICK_TIMEOUT_MS = Number(process.env.AUTOPILOT2_TICK_TIMEOUT_MS) || 4 * 60_000;
 async function tick() {
   if (_ticking) return { ran: false, reason: "a real tick is already in progress — skipped to avoid a concurrent run" };
   _ticking = true;
   try {
-    return await _tickImpl();
+    const TIMED_OUT = Symbol("autopilot2-tick-timeout");
+    const result = await withTimeout(_tickImpl(), TICK_TIMEOUT_MS, TIMED_OUT);
+    if (result === TIMED_OUT) {
+      const reason = `tick timed out after ${Math.round(TICK_TIMEOUT_MS / 1000)}s — real work may still be running in the background; this tick's own result is discarded so the next scheduled tick isn't permanently blocked`;
+      appendActivity({ type: "SAFE_MODE", reason });
+      return { ran: false, reason };
+    }
+    return result;
   } finally {
     _ticking = false;
   }
