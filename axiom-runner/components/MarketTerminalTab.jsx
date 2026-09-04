@@ -33,12 +33,22 @@ function TrendRatingOverlay({ chart, C, MONO, SANS, isMobile }) {
     ["PIVOT", su.entry, C.accent], ["STOP", su.stop, "#ef4444"],
   ].filter(([, v]) => Number.isFinite(Number(v))) : [];
 
+  // Real positioning fix (2026-09-04, direct user report with a
+  // screenshot: "too much data... don't like some on top of some") — this
+  // used to be position:absolute directly over the chart, because the
+  // chart itself is a TradingView <iframe> with no seam to render
+  // "beside" — the iframe IS the whole box, so an absolute overlay was
+  // the only way to show it at all. That meant it visually sat on top of
+  // real candle data whenever expanded. Now rendered as its own normal-
+  // flow strip ABOVE the iframe instead — it can never overlap chart
+  // pixels again regardless of chart size, zoom, or theme, without
+  // needing to remove or hide any of its real content.
   if (!open) {
     return (
       <button onClick={() => setOpen(true)} title="Show Trend & Base Rating + trade levels"
-        style={{ position: "absolute", top: 52, left: 12, zIndex: 5, cursor: "pointer",
+        style={{ cursor: "pointer", marginBottom: 8,
           background: C.card || "#fff", border: `1px solid ${rColor}`, borderRadius: 999, padding: "4px 10px",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.15)", display: "flex", alignItems: "center", gap: 6 }}>
+          boxShadow: "0 1px 4px rgba(0,0,0,0.10)", display: "inline-flex", alignItems: "center", gap: 6 }}>
         <span style={{ fontFamily: SANS, fontSize: 15, fontWeight: 900, color: rColor, lineHeight: 1 }}>{rating}</span>
         <span style={{ fontFamily: SANS, fontSize: 10.5, fontWeight: 800, color: rColor }}>{rWord}</span>
         <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>▾</span>
@@ -46,9 +56,9 @@ function TrendRatingOverlay({ chart, C, MONO, SANS, isMobile }) {
     );
   }
   return (
-    <div style={{ position: "absolute", top: 52, left: 12, zIndex: 5,
+    <div style={{ marginBottom: 8, display: "inline-block",
       background: C.card || "#fff", border: `1px solid ${rColor}`, borderRadius: 12, padding: "8px 14px",
-      boxShadow: "0 2px 10px rgba(0,0,0,0.18)", minWidth: 132, maxWidth: isMobile ? 200 : undefined }}>
+      boxShadow: "0 1px 4px rgba(0,0,0,0.10)", minWidth: 132, maxWidth: isMobile ? 200 : undefined }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <span style={{ fontFamily: SANS, fontSize: 9, fontWeight: 700, color: C.textDim, letterSpacing: 1, flex: 1 }}>TREND & BASE RATING</span>
         <button onClick={() => setOpen(false)} title="Collapse"
@@ -2826,15 +2836,19 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                 <TrendChart data={chart} C={C} MONO={MONO} SANS={SANS} height={720} vcpOverlayOn={true} />
               )
               : <>
+                  {/* Trend & Base Rating + trade levels — real rating +
+                      PIVOT/STOP/T1/T2/T3 numbers TradingView has no way to
+                      know, using the exact same formula TrendChart.jsx
+                      used. Collapsed to a small pill by default — tap to
+                      expand. Rendered ABOVE the chart in normal flow
+                      (2026-09-04, direct user report: this used to be
+                      position:absolute over the iframe, sitting visually on
+                      top of real chart data — see TrendRatingOverlay's own
+                      comment) so it can never overlap the chart again. */}
+                  {showTrendRating && <TrendRatingOverlay chart={chart} C={C} MONO={MONO} SANS={SANS} isMobile={isMobile} />}
                   <iframe key={`chart-${sym}-${chartTf}-${tvTheme}`} title={`${sym} live chart`}
                     src={`/client/tv-widget.html?w=advanced-chart&s=${encodeURIComponent(sym)}&t=${tvTheme}&h=720&iv=${TV_INTERVAL[chartTf] || "D"}&st=ema50,wma150,ma200,bb,volume`}
                     style={{ width: "100%", height: 720, border: `1px solid ${C.border}`, borderRadius: 12, display: "block" }} />
-                  {/* Trend & Base Rating + trade levels overlay — real
-                      rating + PIVOT/STOP/T1/T2/T3 numbers TradingView has no
-                      way to know, using the exact same formula TrendChart.jsx
-                      used. Collapsed to a small pill by default — tap to
-                      expand. Untouched by the 2026-08-19 reorg. */}
-                  {showTrendRating && <TrendRatingOverlay chart={chart} C={C} MONO={MONO} SANS={SANS} isMobile={isMobile} />}
                 </>
               )
             : <div style={{ height: 720, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: 13, color: C.textDim, border: `1px solid ${C.border}`, borderRadius: 12 }}>Select a mover to load the chart…</div>}
