@@ -19,6 +19,7 @@ import { computeKeyLevels } from "./market-helpers.js";
 // here already exists on the real, already-fetched `data` prop.
 export default function TrendChart({ data, C, MONO, SANS, height, vcpOverlayOn }) {
   const elRef = React.useRef(null);
+  const cardRef = React.useRef(null);
   const chartRef = React.useRef(null);
   const seriesRef = React.useRef(null);
   const symRef = React.useRef(null);
@@ -109,8 +110,24 @@ export default function TrendChart({ data, C, MONO, SANS, height, vcpOverlayOn }
     const LC = window.LightweightCharts, el = elRef.current;
     if (!LC || !el) return;
     el.innerHTML = "";
-    const initialHeight = fillToViewport ? computeFillHeight() : H;
-    if (fillToViewport) applyHeight(initialHeight);
+    // Real regression fix (2026-09-04) — moving the rating card out of
+    // position:absolute into normal document flow (see the card's own
+    // comment below) meant this component's TOTAL real rendered height
+    // now exceeds a fixed `height` prop by the card's own real height,
+    // since the canvas below still claimed the FULL H. Confirmed live on
+    // Trade Desk: TradeDeskTab.jsx measures its own wrapper via
+    // ResizeObserver and passes that exact pixel budget inside an
+    // overflow:hidden container — the canvas got visually compressed/
+    // clipped once the card started taking real space above it, which
+    // read as "still overlapping" even though nothing was absolutely
+    // positioned anymore. "fill" mode doesn't need this: computeFillHeight
+    // below already measures elRef's own real position via
+    // getBoundingClientRect().top, which naturally shrinks once the card
+    // pushes it down — this only affects a caller-supplied fixed height.
+    const cardH = fillToViewport ? 0 : (cardRef.current ? cardRef.current.offsetHeight : 0);
+    const canvasHeight = fillToViewport ? H : Math.max(200, H - cardH);
+    const initialHeight = fillToViewport ? computeFillHeight() : canvasHeight;
+    applyHeight(initialHeight);
     let raf1 = 0, raf2 = 0;
     if (fillToViewport) {
       // One same-tick correction isn't always enough — sibling content
@@ -600,7 +617,7 @@ export default function TrendChart({ data, C, MONO, SANS, height, vcpOverlayOn }
         // strip above the chart instead of floating over it — the
         // chart's own height={H} sizing (used by lightweight-charts to
         // size its canvas) is completely untouched below.
-        <div style={{ marginBottom: 8, display: "inline-block",
+        <div ref={cardRef} style={{ marginBottom: 8, display: "inline-block",
           background: C.card || "#fff", border: `1px solid ${rColor}`, borderRadius: 12, padding: "8px 14px", boxShadow: "0 1px 4px rgba(0,0,0,0.10)", minWidth: 132 }}>
           {/* "OVERALL RATING" renamed (2026-07-29, real user-reported
               confusion) — read as THE single verdict, directly competing
