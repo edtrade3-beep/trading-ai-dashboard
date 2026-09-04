@@ -187,6 +187,56 @@ async function scanSourceInventory() {
   }
 }
 
+// Real full photo gallery (explicit user request: "i want 20 images" /
+// "thats why i want to use website to scan") — the list page's own card
+// only ever has ONE photo (confirmed against real fetched HTML), but each
+// vehicle's own detail page (sourceUrl, already captured per card) has a
+// real multi-photo gallery — confirmed live against a real VDP page: 62
+// unique real photo URLs via the same data-src pattern. Only fetched for
+// vehicles that make it past the VIN dedup below (genuinely new, usually a
+// handful a day), never the full ~100-listing scan, and bounded to
+// MAX_PHOTOS at a time so this never becomes an unbounded crawl.
+const MAX_PHOTOS = 20;
+const VDP_FETCH_CONCURRENCY = 5;
+
+async function fetchVdpPhotos(sourceUrl) {
+  if (!sourceUrl) return [];
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  try {
+    const res = await fetch(sourceUrl, {
+      signal: controller.signal,
+      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36" },
+    });
+    if (!res.ok) return [];
+    const html = await res.text();
+    const urls = [...html.matchAll(/data-src=['"]([^'"]+)['"]/gi)]
+      .map((m) => m[1])
+      .filter((u) => /imagescdn\.dealercarsearch\.com\/Media\//i.test(u));
+    return [...new Set(urls)].slice(0, MAX_PHOTOS);
+  } catch {
+    return [];
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+// Bounded-concurrency map — VDP_FETCH_CONCURRENCY at a time, never all at
+// once (polite to the dealer's own site) and never one-at-a-time (too slow
+// if a real backlog of new vehicles ever shows up in one run).
+async function mapWithConcurrency(items, limit, fn) {
+  const results = new Array(items.length);
+  let next = 0;
+  async function worker() {
+    while (next < items.length) {
+      const i = next++;
+      results[i] = await fn(items[i], i);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return results;
+}
+
 // Emoji-decorated description (explicit user request: "make sure in
 // description use emojis") — deterministic and formulaic, same real
 // approach as vehicle-feed.js's own vehicleDescription() and the uploaded
@@ -245,10 +295,20 @@ async function runMorningInventoryScan() {
   const knownVins = new Set(existing.map((v) => String(v.vin || "").toUpperCase()));
   const genuinelyNew = scan.items.filter((v) => !knownVins.has(v.vin));
 
+  // Real full galleries, only for the genuinely-new ones — honest fallback
+  // to the one real photo already captured from the list card if a VDP
+  // fetch fails or the page genuinely has no gallery, never dropping to
+  // zero photos over a real single-vehicle fetch failure.
+  const galleries = await mapWithConcurrency(genuinelyNew, VDP_FETCH_CONCURRENCY, async (v) => {
+    const full = await fetchVdpPhotos(v.sourceUrl);
+    return full.length ? full : v.photos;
+  });
+
   const now = Date.now();
-  const drafts = genuinelyNew.map((v) => ({
+  const drafts = genuinelyNew.map((v, i) => ({
     id: `scan-${v.vin}-${now}`,
     ...v,
+    photos: galleries[i],
     status: "draft",
     description: buildDraftDescription(v),
     createdAt: now,
