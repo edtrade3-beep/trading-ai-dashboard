@@ -767,20 +767,7 @@ export default function TrendChart({ data, C, MONO, SANS, height, vcpOverlayOn }
       )}
       <div style={{ position: "relative", width: "100%", height: effectiveH }}>
         <div ref={elRef} style={{ width: "100%", height: effectiveH }} />
-        {/* Master technicals on/off — top-right corner of the chart itself
-            (this one genuinely doesn't collide with anything below it, a
-            single small pill, unlike the rating card above — left as-is). */}
-        <button onClick={toggleTechnicals} title={showTechnicals ? "Hide MA/Bollinger/EMA/VWAP overlays" : "Show MA/Bollinger/EMA/VWAP overlays"}
-          style={{ position: "absolute", top: 10, right: 12, zIndex: 5, fontFamily: MONO, fontSize: 9.5, fontWeight: 800,
-            letterSpacing: 0.3, padding: "5px 10px", borderRadius: 8, cursor: "pointer",
-            background: showTechnicals ? (C.card || "#fff") : (C.accent || "#2563eb"),
-            color: showTechnicals ? (C.textDim || "#888") : "#fff",
-            border: `1px solid ${showTechnicals ? C.border : C.accent}`, boxShadow: "0 2px 10px rgba(0,0,0,0.18)" }}>
-          {showTechnicals ? "📈 TECHNICALS ON" : "📈 TECHNICALS OFF"}
-        </button>
-        {/* Expand/fullscreen toggle (2026-09-04, see the state comment
-            above) — top-left so it never collides with the TECHNICALS
-            pill or the right-side price-scale labels. */}
+        {/* Expand/fullscreen toggle — top-left. */}
         <button onClick={toggleExpanded} title={expanded ? "Exit fullscreen" : "Expand chart to fullscreen"}
           style={{ position: "absolute", top: 10, left: 12, zIndex: 5, fontFamily: MONO, fontSize: 9.5, fontWeight: 800,
             letterSpacing: 0.3, padding: "5px 10px", borderRadius: 8, cursor: "pointer",
@@ -788,6 +775,20 @@ export default function TrendChart({ data, C, MONO, SANS, height, vcpOverlayOn }
             color: expanded ? "#fff" : (C.textDim || "#888"),
             border: `1px solid ${expanded ? C.accent : C.border}`, boxShadow: "0 2px 10px rgba(0,0,0,0.18)" }}>
           {expanded ? "✕ EXIT FULLSCREEN" : "⛶ EXPAND"}
+        </button>
+        {/* Master technicals on/off (2026-09-04, explicit user request with
+            an annotated screenshot: move it off the right-side price scale,
+            where it permanently collided with the T1/T2/PRICE/STOP/BASE LOW
+            price-line tags lightweight-charts renders there). Moved from
+            top-right to stack under the EXPAND button on the left — the one
+            zone of the chart the right price scale never reaches into. */}
+        <button onClick={toggleTechnicals} title={showTechnicals ? "Hide MA/Bollinger/EMA/VWAP overlays" : "Show MA/Bollinger/EMA/VWAP overlays"}
+          style={{ position: "absolute", top: 46, left: 12, zIndex: 5, fontFamily: MONO, fontSize: 9.5, fontWeight: 800,
+            letterSpacing: 0.3, padding: "5px 10px", borderRadius: 8, cursor: "pointer",
+            background: showTechnicals ? (C.card || "#fff") : (C.accent || "#2563eb"),
+            color: showTechnicals ? (C.textDim || "#888") : "#fff",
+            border: `1px solid ${showTechnicals ? C.border : C.accent}`, boxShadow: "0 2px 10px rgba(0,0,0,0.18)" }}>
+          {showTechnicals ? "📈 TECHNICALS ON" : "📈 TECHNICALS OFF"}
         </button>
       </div>
     </>
