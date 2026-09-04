@@ -145,8 +145,19 @@ export default function TradeGpsCard({
         </div>
       </div>
 
-      <Metric label="SCORE" value={Number.isFinite(tradeGps?.score) ? tradeGps.score : "—"} sub={tradeGps?.band || null} C={C} MONO={MONO} />
+      <Metric label="SCORE" value={Number.isFinite(tradeGps?.score) ? tradeGps.score : "—"} sub={decision?.scoreValidation || tradeGps?.band || null} C={C} MONO={MONO} />
       <Metric label="CONFIDENCE" value={Number.isFinite(decision?.confidence) ? `${decision.confidence}%` : "—"} C={C} MONO={MONO} />
+      {/* Win probability / expected value (2026-09-04, Phase 0 audit
+          finding: the score above must never be read as a probability —
+          these are the REAL, separate, honestly-nullable numbers
+          [institutional-scoring.js's bucketed historical win rate,
+          opportunity-engine.js's EV-after-costs formula] that already
+          existed but never reached this card before now). Honest "—" on
+          insufficient real sample, never a fabricated percentage. */}
+      <Metric label="WIN PROB" value={Number.isFinite(decision?.winProbability) ? `${decision.winProbability}%` : "—"}
+        sub={Number.isFinite(decision?.winProbabilitySampleSize) ? `n=${decision.winProbabilitySampleSize}` : null} C={C} MONO={MONO} />
+      <Metric label="EXP. VALUE" value={Number.isFinite(decision?.expectedValuePct) ? `${decision.expectedValuePct >= 0 ? "+" : ""}${decision.expectedValuePct}%` : "—"}
+        sub="after costs" C={C} MONO={MONO} />
       <Metric label="ENTRY" value={money(entry)} C={C} MONO={MONO} />
       <Metric label="CONFIRMATION" value={confirmationText} C={C} MONO={MONO} />
       <Metric label="STOP" value={money(stop)} danger C={C} MONO={MONO} />

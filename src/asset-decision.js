@@ -98,6 +98,21 @@ function buildAssetDecision({ opportunity, marketRegime, dataHealth, positionSta
     newsScore: opportunity.breakdown?.catalyst ?? null, eventRiskScore: eventRisk?.score ?? null,
     valuationScore: opportunity.fingerprint?.valuation ?? null, setupScore: opportunity.entryScore ?? null,
     opportunityStage: standardizeOpportunityStage(opportunity), opportunityScore: opportunity.score ?? null,
+    // Score transparency (2026-09-04, Phase 0 audit finding: "an
+    // unvalidated score must be labeled HEURISTIC," and the 0-100 score
+    // above must never be read as a probability). am-core-engine.js's own
+    // header already discloses this score is a hand-weighted judgment
+    // call, not backtested/quant-optimized — scoreValidation says so
+    // explicitly rather than leaving a consumer to assume otherwise.
+    // winProbability/expectedValue were ALREADY computed as real,
+    // honestly-nullable fields on `opportunity` (institutional-scoring.js's
+    // real bucketed historical win rate, and opportunity-engine.js's real
+    // EV-after-costs formula) — they just never reached this final
+    // contract before now. Not new computation, just no longer dropped.
+    scoreValidation: "HEURISTIC",
+    winProbability: opportunity.probability ?? null,
+    winProbabilitySampleSize: opportunity.probabilitySampleCount ?? null,
+    expectedValuePct: opportunity.expectedValue ?? null,
     confidence: Number.isFinite(confidenceBase) ? Math.round(confidenceBase * healthMultiplier) : null,
     entry: entryPlan.entryPrice ?? null, stop: entryPlan.stop ?? null,
     targets: [entryPlan.target1, entryPlan.target2].filter(Number.isFinite), riskReward: entryPlan.rr ?? derivedRr,
