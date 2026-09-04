@@ -792,14 +792,24 @@ export default function TrendChart({ data, C, MONO, SANS, height, vcpOverlayOn }
       </div>
     </>
   );
-  if (!expanded) return chartBody;
-  // Fullscreen overlay — same fixed/inset0/zIndex-stacking pattern as this
-  // codebase's other modals (e.g. the glossary popup just above uses the
-  // same z-index-layering idea at a smaller scale). Real background token
-  // (not transparent) so it fully covers the page underneath, matching the
-  // artifact-safety convention this app already follows elsewhere.
+  // Real live bug (user report: "chart has bug keep disappearing") —
+  // an earlier version returned chartBody directly (a bare Fragment) when
+  // not expanded, and only wrapped it in a <div> for the fullscreen case.
+  // That changes the RETURNED TREE'S ROOT TYPE (Fragment vs div) every
+  // time `expanded` toggles, which forces React to unmount and remount
+  // the entire subtree — destroying and recreating elRef's canvas DOM
+  // node and the lightweight-charts instance on it, on every single
+  // toggle, and losing zoom/pan state even when it did recover. Fix: the
+  // wrapper is now ALWAYS present (stable tree shape, no remount ever) —
+  // only its CSS changes. display:"contents" makes it invisible to the
+  // parent's layout in the normal (non-expanded) case, matching the old
+  // bare-Fragment behavior exactly; the fullscreen case swaps in the
+  // fixed/inset0/zIndex overlay style instead. Real background token (not
+  // transparent) so the overlay fully covers the page underneath.
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: C.bg || "#fff", padding: "16px 20px", overflow: "auto" }}>
+    <div style={expanded
+      ? { position: "fixed", inset: 0, zIndex: 9999, background: C.bg || "#fff", padding: "16px 20px", overflow: "auto" }
+      : { display: "contents" }}>
       {chartBody}
     </div>
   );
