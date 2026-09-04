@@ -6,6 +6,7 @@ const { sendTelegramMessage, isConfigured: telegramConfigured } = require("../te
 const { buildVehicleFeedCsv } = require("./vehicle-feed");
 const { savePhotosForVehicle, deletePhotosForVehicle } = require("./photo-store");
 const { loadInventory, saveInventory } = require("../inventory-store");
+const { runMorningInventoryScan, loadScanLog } = require("./inventory-scanner");
 
 // Resolve the Anthropic key from runtime override → env → config (lets the UI set it).
 const anthropicKey = () => getKey("ANTHROPIC_API_KEY", ANTHROPIC_API_KEY);
@@ -451,6 +452,24 @@ async function handleDealership(req, res, requestUrl) {
     });
     const handled = await handleFbHub(req, res, pathname, searchParams, body || "{}");
     if (handled !== null) return;
+  }
+
+  // Morning Inventory Scan — explicit user request (2026-09-04): "every
+  // morning to scan website an create new vehicles only put them in draft
+  // ... fill out all ad boxes". Scheduled at 7:00 AM ET (server.js's own
+  // daily-time block); GET returns the last run's summary for the UI, POST
+  // lets the dealer trigger it on demand too instead of only waiting for
+  // the schedule.
+  if (pathname === "/api/dealer/scan/status" && req.method === "GET") {
+    return writeJson(res, 200, { ok: true, ...loadScanLog() });
+  }
+  if (pathname === "/api/dealer/scan/run" && req.method === "POST") {
+    try {
+      const log = await runMorningInventoryScan();
+      return writeJson(res, 200, { ok: true, ...log });
+    } catch (err) {
+      return writeJson(res, 500, { ok: false, error: err instanceof Error ? err.message : "Scan failed" });
+    }
   }
 
   // Marketplace Posting Assistant — fires once a listing has everything

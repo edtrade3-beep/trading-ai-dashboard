@@ -766,6 +766,96 @@ function AdMakerTool({ C, MONO, SANS }) {
   );
 }
 
+// Morning Inventory Scan — explicit user request (2026-09-04, uploaded the
+// "Dixie Motors Marketplace Assistant" browser extension's own source as
+// reference): "the idea every morning to scan website an create new
+// vehicles only put them in draft make sure in description use emojis
+// fill out all ad boxes." Server-side scan (src/dealership/inventory-
+// scanner.js) runs automatically at 7:00 AM ET every day and only ever
+// APPENDS genuinely new (by real VIN) vehicles as status:"draft" — this
+// panel is a daily digest of what that found, plus a manual "Scan Now" for
+// on-demand checks. Never posts anywhere itself — same "never clicks
+// Publish" safety line the uploaded extension already drew.
+function ArrivalCard({ C, MONO, SANS, v }) {
+  return (
+    <div style={{ display: "flex", gap: 10, padding: 10, background: C.card, border: `1px solid ${C.border}`, borderRadius: 10 }}>
+      <div style={{
+        width: 84, height: 63, flex: "none", borderRadius: 7, backgroundColor: C.surface,
+        backgroundImage: v.photos?.[0] ? `url(${v.photos[0]})` : "none", backgroundSize: "cover", backgroundPosition: "center",
+      }} />
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+          <span style={{ fontFamily: SANS, fontWeight: 700, fontSize: 13, color: C.text }}>{v.year} {v.make} {v.model}</span>
+          <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, letterSpacing: 0.4, padding: "1px 6px", borderRadius: 4, background: C.amberBg, color: C.amber }}>DRAFT</span>
+        </div>
+        {v.trim && <div style={{ fontSize: 11.5, color: C.textSec }}>{v.trim}</div>}
+        <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginTop: 3 }}>
+          {v.price ? `$${Number(v.price).toLocaleString()}` : "Call for price"}
+          {v.mileage ? ` · ${Number(v.mileage).toLocaleString()} mi` : ""}
+        </div>
+        <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 2 }}>{v.vin}</div>
+      </div>
+    </div>
+  );
+}
+
+function NewArrivalsTool({ C, MONO, SANS }) {
+  const [log, setLog] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [scanning, setScanning] = useState(false);
+  const [error, setError] = useState(null);
+
+  const load = useCallback(() => {
+    setLoading(true); setError(null);
+    fetch("/api/dealer/scan/status").then((r) => r.json())
+      .then((d) => { if (d.ok) setLog(d); else setError(d.error || "Failed to load scan status."); })
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  const scanNow = () => {
+    setScanning(true); setError(null);
+    fetch("/api/dealer/scan/run", { method: "POST" }).then((r) => r.json())
+      .then((d) => { if (d.ok) setLog(d); else setError(d.error || "Scan failed."); })
+      .catch((e) => setError(e.message))
+      .finally(() => setScanning(false));
+  };
+
+  const recent = log?.recentNew || [];
+
+  return (
+    <Section C={C} MONO={MONO} SANS={SANS} title="🌅 Morning Inventory Scan"
+      subtitle="Scans the dealer's real source site every morning at 7:00 AM ET for genuinely new stock (matched by real VIN) and drops each one in as a DRAFT — full fields, emoji description, never auto-posted anywhere. Review and publish from the dealer portal's own inventory list.">
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
+        <button onClick={scanNow} disabled={scanning} style={{
+          fontFamily: MONO, fontSize: 12, fontWeight: 700, padding: "8px 14px", borderRadius: 8,
+          border: `1px solid ${C.accent}`, background: scanning ? C.card : C.accent, color: scanning ? C.accent : "#fff",
+          cursor: scanning ? "default" : "pointer",
+        }}>{scanning ? "Scanning…" : "🔎 Scan Now"}</button>
+        {!loading && log?.lastRunAt && (
+          <span style={{ fontSize: 11.5, color: C.textDim }}>
+            Last run {new Date(log.lastRunAt).toLocaleString()} — {log.lastScannedCount} listing{log.lastScannedCount === 1 ? "" : "s"} checked, {log.lastNewCount} new
+          </span>
+        )}
+        {!loading && !log?.lastRunAt && <span style={{ fontSize: 11.5, color: C.textDim }}>Hasn't run yet — first automatic run is 7:00 AM ET, or click Scan Now.</span>}
+      </div>
+
+      {error && <div style={{ fontSize: 13, color: C.red, background: C.redBg, borderRadius: 8, padding: "10px 14px", marginBottom: 14 }}>{error}</div>}
+      {!error && log?.error && <div style={{ fontSize: 12.5, color: C.amber, background: C.amberBg, borderRadius: 8, padding: "10px 14px", marginBottom: 14 }}>⚠️ Last run failed: {log.error}</div>}
+
+      {!loading && recent.length > 0 && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 10 }}>
+          {recent.map((v) => <ArrivalCard key={v.id} C={C} MONO={MONO} SANS={SANS} v={v} />)}
+        </div>
+      )}
+      {!loading && log?.lastRunAt && !log?.error && recent.length === 0 && (
+        <div style={{ fontSize: 12.5, color: C.textDim }}>No genuinely new vehicles found on the source site the last time this ran.</div>
+      )}
+    </Section>
+  );
+}
+
 export default function CarBusinessTab({ C, MONO, SANS }) {
   const [intel, setIntel] = useState(null);
   const [inventory, setInventory] = useState([]);
@@ -834,6 +924,7 @@ export default function CarBusinessTab({ C, MONO, SANS }) {
       <div style={{ display: "flex", gap: 6, marginBottom: 20, borderBottom: `1px solid ${C.border}` }}>
         {[
           { id: "research", label: "📊 Research" },
+          { id: "arrivals", label: "🌅 New Arrivals" },
           { id: "facebook", label: "📘 Facebook" },
         ].map((t) => (
           <button key={t.id} onClick={() => setSubTab(t.id)} style={{
@@ -851,6 +942,8 @@ export default function CarBusinessTab({ C, MONO, SANS }) {
           <AdMakerTool C={C} MONO={MONO} SANS={SANS} />
         </>
       )}
+
+      {subTab === "arrivals" && <NewArrivalsTool C={C} MONO={MONO} SANS={SANS} />}
 
       {subTab === "research" && <RepricingTool C={C} MONO={MONO} SANS={SANS} />}
 

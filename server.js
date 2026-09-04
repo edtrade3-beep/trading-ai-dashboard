@@ -62,6 +62,7 @@ const { buildMarketWrap } = require("./src/market-wrap-ai");
 const { buildCurblineIntel } = require("./src/curbline-intel-ai");
 const { buildMoneyIdeas } = require("./src/money-ideas-ai");
 const { buildCarBusinessIntel } = require("./src/car-business-ai");
+const { runMorningInventoryScan } = require("./src/dealership/inventory-scanner");
 const { runPredictionTracker } = require("./src/prediction-tracker");
 const { revertMisgradedXIntelShorts } = require("./src/predictions-store");
 const { runAutopilotRecap } = require("./src/alpaca-recap");
@@ -201,7 +202,7 @@ server.listen(PORT, HOST, () => {
 
   // AI Morning Game Plan (~9:40 AM ET) + AI Trade Coach (~4:15 PM ET) — weekdays, server-side.
   // Autopilot recap (~4:05 PM ET) — what the Alpaca paper autopilot did today.
-  let _gpSent = null, _coachSent = null, _recapAP = null, _weeklySent = null, _monthlyReview = null, _mrvPaper = null, _mrvSummary = null, _apexSent = null, _ceoSent = null, _aplusSnapshot = null, _cmdCenterSent = null, _ivSnapshot = null, _edgeDecaySnapshot = null, _researchIntelSent = null, _carBusinessSent = null, _marketWrapSent = null, _curblineIntelSent = null, _moneyIdeasSent = null;
+  let _gpSent = null, _coachSent = null, _recapAP = null, _weeklySent = null, _monthlyReview = null, _mrvPaper = null, _mrvSummary = null, _apexSent = null, _ceoSent = null, _aplusSnapshot = null, _cmdCenterSent = null, _ivSnapshot = null, _edgeDecaySnapshot = null, _researchIntelSent = null, _carBusinessSent = null, _marketWrapSent = null, _curblineIntelSent = null, _moneyIdeasSent = null, _dealerScanSent = null;
   setInterval(() => {
     const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
     const h = et.getHours(), m = et.getMinutes(), day = et.getDay();
@@ -213,6 +214,13 @@ server.listen(PORT, HOST, () => {
     // acquisition opportunities) doesn't pause on Sat/Sun the way the
     // trading-day jobs below correctly do.
     if (h === 18 && m >= 5 && m < 11 && _carBusinessSent !== today) { _carBusinessSent = today; buildCarBusinessIntel().catch(() => {}); }
+    // Dealership Morning Inventory Scan 7:00 AM ET — explicit user request
+    // (2026-09-04): "the idea every morning to scan website an create new
+    // vehicles only put them in draft ... fill out all ad boxes". Same
+    // real reasoning as Car Business Intelligence above for sitting before
+    // the weekday-only guard below — a dealer's source site can genuinely
+    // get new stock added any day, not just Mon-Fri.
+    if (h === 7 && m >= 0 && m < 6 && _dealerScanSent !== today) { _dealerScanSent = today; runMorningInventoryScan().catch(() => {}); }
     if (day < 1 || day > 5) return;
     // Morning Brief 8:00 ET / CEO AI 8:10 ET — moved earlier from 9:15/9:25 at
     // the user's request so there's real pre-market reading time (80 min
