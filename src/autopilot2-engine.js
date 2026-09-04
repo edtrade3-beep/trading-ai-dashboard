@@ -618,14 +618,28 @@ async function fetchDaytradeUniverseCandidates(alreadyScannedSymbols) {
 // found scan concurrency fixed at 6 workers against a single unofficial
 // provider, so this reaches full real coverage over several ticks instead
 // of depending on that concurrency limit being raised first.
+// Real diagnostic (2026-09-04, live production question: confirmed via
+// /api/health that a real market-hours tick runs clean every 5 min, yet
+// the dynamic-universe rotation cursor never advances — no way to see
+// WHY from outside the process, since this function's own try/catch
+// honestly swallows any real error rather than crashing the tick). Never
+// changes real behavior — same honest-empty-on-failure return either
+// way, this just also records what actually happened so it can be read
+// back via /api/health instead of guessed at.
+let _lastDynamicUniverseAttempt = null;
+function getLastDynamicUniverseAttempt() { return _lastDynamicUniverseAttempt; }
+
 const DYNAMIC_UNIVERSE_BATCH_SIZE = Number(process.env.AUTOPILOT2_DYNAMIC_BATCH) || 40;
 async function fetchDynamicUniverseCandidates(alreadyScannedSymbols) {
+  const attempt = { ts: new Date().toISOString(), called: true };
   try {
     const { SCAN_UNIVERSE } = require("./advisor-ai");
     const { getUniverseRotationBatch } = require("./universe-builder");
     const batch = getUniverseRotationBatch(DYNAMIC_UNIVERSE_BATCH_SIZE);
+    attempt.batchSize = batch.length;
     const extraSymbols = symbolsToScan(batch, SCAN_UNIVERSE, alreadyScannedSymbols);
-    if (!extraSymbols.length) return { bullish: [], bearish: [] };
+    attempt.extraSymbolsCount = extraSymbols.length;
+    if (!extraSymbols.length) { attempt.result = "no extra symbols after dedup"; _lastDynamicUniverseAttempt = attempt; return { bullish: [], bearish: [] }; }
 
     const { screenTrendTemplate, fetchMarketQuotes } = require("./routes/market");
     const { computeCanonicalAssetDecision } = require("./canonical-decision-pipeline");
@@ -644,8 +658,15 @@ async function fetchDynamicUniverseCandidates(alreadyScannedSymbols) {
     const bullish = opportunities
       .filter((o) => hasExecutableFinalVerdict(o))
       .sort((a, b) => (BULLISH_RANK[a.verdict] - BULLISH_RANK[b.verdict]) || ((b.expectedValue ?? -Infinity) - (a.expectedValue ?? -Infinity)));
+    attempt.rowsFetched = (rows || []).length;
+    attempt.bullishCount = bullish.length;
+    attempt.result = "ok";
+    _lastDynamicUniverseAttempt = attempt;
     return { bullish, bearish: [] };
-  } catch {
+  } catch (err) {
+    attempt.result = "error";
+    attempt.error = err instanceof Error ? err.message : String(err);
+    _lastDynamicUniverseAttempt = attempt;
     return { bullish: [], bearish: [] }; // honest empty result on any real failure — never a fabricated candidate
   }
 }
@@ -1016,6 +1037,7 @@ async function _tickImpl() {
 module.exports = {
   tick, sizeEntry, sizeOptionEntry, sizeCryptoEntry, fetchLightBoxCandidates, fetchCryptoCandidates,
   fetchWatchlistCandidates, fetchDaytradeUniverseCandidates, fetchDynamicUniverseCandidates, symbolsToScan,
+  getLastDynamicUniverseAttempt,
   CRYPTO_UNIVERSE, RISK_PCT_PER_TRADE, MAX_TRADE_RISK_DOLLARS, MAX_OPEN_POSITIONS, MAX_PER_SECTOR,
   MAX_OPEN_RISK_PCT, CALL_DTE_EXIT_FLOOR, DAILY_LOSS_LOCK_DOLLARS, DAILY_LOSS_PCT,
   MAX_CONSECUTIVE_LOSSES,

@@ -44,7 +44,9 @@ async function handleHealth(req, res) {
     const { getDynamicUniverse, CURSOR_PATH } = require("../universe-builder");
     const u = getDynamicUniverse();
     const cursor = readJsonSafe(CURSOR_PATH, null);
-    dynamicUniverse = { universeSize: u.universe.length, builtAt: u.builtAt ? new Date(u.builtAt).toISOString() : null, stale: u.stale, cursor };
+    let lastAttempt = null;
+    try { lastAttempt = require("../autopilot2-engine").getLastDynamicUniverseAttempt(); } catch { /* optional */ }
+    dynamicUniverse = { universeSize: u.universe.length, builtAt: u.builtAt ? new Date(u.builtAt).toISOString() : null, stale: u.stale, cursor, lastAttempt };
   } catch (err) { dynamicUniverse = { error: err instanceof Error ? err.message : String(err) }; }
   return writeJson(res, 200, {
     ok: true, version: "market-v2", build: BUILD, startedAt: STARTED_AT,
