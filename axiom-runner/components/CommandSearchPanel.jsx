@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { computeKeyLevels } from "./market-helpers.js";
+import { clickableProps } from "./ui-helpers.js";
 
 // CommandSearchPanel — Command Center's left column, the real Opportunity
 // Inbox (Market Opportunity Engine Phase 1, 2026-08-25 — user's 36-section
@@ -294,26 +295,44 @@ export default function CommandSearchPanel({ symbol, onSelectSymbol, onOpenDaytr
             {!top.length && (
               <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, padding: "2px 0" }}>No high-quality opportunity right now.</div>
             )}
-            {top.map((o, i) => {
-              const meta = TIER_META[o.tier.toLowerCase()] || TIER_META.wait;
-              return (
-                <button
-                  key={o.symbol}
-                  onClick={() => onSelectSymbol(o.symbol)}
-                  style={{
-                    width: "100%", display: "flex", alignItems: "center", gap: 6, cursor: "pointer", textAlign: "left",
-                    background: "transparent", border: "none", padding: "3px 0", fontFamily: MONO, fontSize: 11.5,
-                  }}
-                >
-                  <span>{meta.icon}</span>
-                  <b style={{ color: C.text }}>{o.symbol}</b>
-                  <span style={{ color: meta.color, fontWeight: 700, fontSize: 10 }}>{meta.label}</span>
-                  {o.edgeVelocity?.status === "ACCELERATING" && <span style={{ color: "#0d9465", fontSize: 10 }}>▲</span>}
-                  {o.edgeVelocity?.status === "DECAYING" && <span style={{ color: "#c8282a", fontSize: 10 }}>▼</span>}
-                  <span style={{ marginLeft: "auto", color: C.textDim, fontSize: 10, fontWeight: 700 }}>{i === 0 ? "BEST" : i === 1 ? "2ND" : "3RD"}</span>
-                </button>
-              );
-            })}
+            {top.length > 0 && (
+              // Table layout (2026-09-04, explicit user request: "make it
+              // fix that space instead of adding lines add them next to
+              // each other to save time ... use table instead with
+              // colors") — was one full-width row per opportunity; now a
+              // real <table> so symbol/verdict/rank line up in aligned
+              // columns instead of each taking its own padded line, with
+              // the tier color carried on a left-border accent + the
+              // verdict cell instead of an emoji icon.
+              <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: MONO, fontSize: 11.5 }}>
+                <tbody>
+                  {top.map((o, i) => {
+                    const meta = TIER_META[o.tier.toLowerCase()] || TIER_META.wait;
+                    const pick = () => onSelectSymbol(o.symbol);
+                    return (
+                      <tr
+                        key={o.symbol}
+                        onClick={pick}
+                        {...clickableProps(pick)}
+                        style={{ cursor: "pointer", borderTop: i > 0 ? `1px solid ${C.border}` : "none" }}
+                      >
+                        <td style={{ padding: "4px 6px 4px 8px", borderLeft: `3px solid ${meta.color}` }}>
+                          <b style={{ color: C.text }}>{o.symbol}</b>
+                        </td>
+                        <td style={{ padding: "4px 6px", color: meta.color, fontWeight: 700, fontSize: 10 }}>
+                          {meta.label}
+                          {o.edgeVelocity?.status === "ACCELERATING" && <span style={{ marginLeft: 4, color: "#0d9465" }}>▲</span>}
+                          {o.edgeVelocity?.status === "DECAYING" && <span style={{ marginLeft: 4, color: "#c8282a" }}>▼</span>}
+                        </td>
+                        <td style={{ padding: "4px 8px 4px 6px", textAlign: "right", color: C.textDim, fontSize: 10, fontWeight: 700 }}>
+                          {i === 0 ? "BEST" : i === 1 ? "2ND" : "3RD"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
           </div>
         );
       })()}
