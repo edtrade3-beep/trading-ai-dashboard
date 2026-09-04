@@ -74,6 +74,21 @@ export default function TrendChart({ data, C, MONO, SANS, height, vcpOverlayOn }
     if (el.parentElement) el.parentElement.style.height = h + "px";
   };
   const [showInfo, setShowInfo] = React.useState(false);
+  // Collapsible rating card (2026-09-04, explicit user request with a
+  // screenshot of this exact card: "make it smaller so chart expand or
+  // you can hide \just show score") — same localStorage-toggle convention
+  // as TradeDeskEvidence.jsx's own collapse. Included in the chart-
+  // creation effect's own deps below (same list H is already in) so
+  // toggling recomputes cardH and gives the freed/reclaimed space
+  // straight to the canvas, not just a lighter card.
+  const [collapsed, setCollapsed] = React.useState(() => {
+    try { return localStorage.getItem("trendchart_rating_collapsed") === "on"; } catch { return false; }
+  });
+  const toggleCollapsed = () => setCollapsed((v) => {
+    const nv = !v;
+    try { localStorage.setItem("trendchart_rating_collapsed", nv ? "on" : "off"); } catch {}
+    return nv;
+  });
   // Persisted (2026-08-31, "IN CHART MAKES ALL TECHNICALS TOOLS ON AND
   // OFF") — same localStorage-toggle convention this codebase already uses
   // elsewhere (e.g. Autopilot2Tab.jsx's "how it trades" pill).
@@ -259,7 +274,7 @@ export default function TrendChart({ data, C, MONO, SANS, height, vcpOverlayOn }
       el.removeEventListener("wheel", onWheel);
       chart.remove(); chartRef.current = null; seriesRef.current = null;
     };
-  }, [data && data.symbol, C, H, SANS]);
+  }, [data && data.symbol, C, H, SANS, collapsed]);
 
   // Push data + overlays whenever `data` changes (keeps zoom on live refresh).
   React.useEffect(() => {
@@ -638,62 +653,85 @@ export default function TrendChart({ data, C, MONO, SANS, height, vcpOverlayOn }
         // chart's own height={H} sizing (used by lightweight-charts to
         // size its canvas) is completely untouched below.
         <div ref={cardRef} style={{ marginBottom: 8, display: "inline-block",
-          background: C.card || "#fff", border: `1px solid ${rColor}`, borderRadius: 12, padding: "8px 14px", boxShadow: "0 1px 4px rgba(0,0,0,0.10)", minWidth: 132 }}>
+          background: C.card || "#fff", border: `1px solid ${rColor}`, borderRadius: 12,
+          padding: collapsed ? "4px 10px" : "8px 14px", boxShadow: "0 1px 4px rgba(0,0,0,0.10)", minWidth: collapsed ? 0 : 132 }}>
           {/* "OVERALL RATING" renamed (2026-07-29, real user-reported
               confusion) — read as THE single verdict, directly competing
               with the AI Score Card's own recommendation above even though
               they're two different real scores that can legitimately
               disagree. See the glossary entry (ⓘ) for the full explanation. */}
           <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-            <span style={{ fontFamily: SANS, fontSize: 9, fontWeight: 700, color: C.textDim, letterSpacing: 1 }}>TREND & BASE RATING</span>
-            {/* ⓘ hover glossary — moved inline here (2026-08-03, real live
-                confusion) from a floating top-right button, which sat
-                directly over the right price-scale axis, right where
-                PIVOT/T1/PRICE's own labels render, reading as if it were
-                attached to one of them. Now anchored to the exact metric it
-                explains. pointerEvents:auto overrides the card's own
-                pointerEvents:none (kept there so the card never blocks
-                chart mouse/scroll interaction underneath it). */}
-            <span style={{ position: "relative", display: "inline-flex", pointerEvents: "auto" }}>
-              <span
-                onMouseEnter={() => setShowInfo(true)} onMouseLeave={() => setShowInfo(false)}
-                onClick={() => setShowInfo(v => !v)}
-                style={{ cursor: "help", width: 14, height: 14, borderRadius: "50%", border: `1px solid ${C.textDim}`,
-                  color: C.textDim, fontFamily: SANS, fontSize: 9, fontWeight: 800,
-                  display: "flex", alignItems: "center", justifyContent: "center" }}>
-                ⓘ
-              </span>
-              {showInfo && (
-                <div style={{ position: "absolute", top: 18, left: 0, width: 288, textAlign: "left", cursor: "default",
-                  background: (C.card || "#fff"), border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 12px",
-                  boxShadow: "0 6px 24px rgba(0,0,0,0.28)", zIndex: 6 }}>
-                  <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.text, marginBottom: 6 }}>CHART LEVELS</div>
-                  {glossary.map(([k, v]) => (
-                    <div key={k} style={{ marginBottom: 6 }}>
-                      <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.text }}>{k}</span>
-                      <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.textSec, lineHeight: 1.45 }}>{v}</div>
+            {collapsed ? (
+              // Collapsed: just the score, inline with the toggle — the
+              // user's own words ("just show score"), and it hands the
+              // rest of that vertical space straight to the chart via the
+              // cardH-driven canvas resize above.
+              <>
+                <span style={{ fontFamily: SANS, fontSize: 16, fontWeight: 900, color: rColor, lineHeight: 1 }}>{rating}</span>
+                <span style={{ fontFamily: SANS, fontSize: 10, fontWeight: 800, color: rColor }}>{rWord}</span>
+                {verdict && <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: "#fff", background: vColor, borderRadius: 4, padding: "1px 6px" }}>{verdict}</span>}
+              </>
+            ) : (
+              <>
+                <span style={{ fontFamily: SANS, fontSize: 9, fontWeight: 700, color: C.textDim, letterSpacing: 1 }}>TREND & BASE RATING</span>
+                {/* ⓘ hover glossary — moved inline here (2026-08-03, real live
+                    confusion) from a floating top-right button, which sat
+                    directly over the right price-scale axis, right where
+                    PIVOT/T1/PRICE's own labels render, reading as if it were
+                    attached to one of them. Now anchored to the exact metric it
+                    explains. pointerEvents:auto overrides the card's own
+                    pointerEvents:none (kept there so the card never blocks
+                    chart mouse/scroll interaction underneath it). */}
+                <span style={{ position: "relative", display: "inline-flex", pointerEvents: "auto" }}>
+                  <span
+                    onMouseEnter={() => setShowInfo(true)} onMouseLeave={() => setShowInfo(false)}
+                    onClick={() => setShowInfo(v => !v)}
+                    style={{ cursor: "help", width: 14, height: 14, borderRadius: "50%", border: `1px solid ${C.textDim}`,
+                      color: C.textDim, fontFamily: SANS, fontSize: 9, fontWeight: 800,
+                      display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    ⓘ
+                  </span>
+                  {showInfo && (
+                    <div style={{ position: "absolute", top: 18, left: 0, width: 288, textAlign: "left", cursor: "default",
+                      background: (C.card || "#fff"), border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 12px",
+                      boxShadow: "0 6px 24px rgba(0,0,0,0.28)", zIndex: 6 }}>
+                      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.text, marginBottom: 6 }}>CHART LEVELS</div>
+                      {glossary.map(([k, v]) => (
+                        <div key={k} style={{ marginBottom: 6 }}>
+                          <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.text }}>{k}</span>
+                          <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.textSec, lineHeight: 1.45 }}>{v}</div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  )}
+                </span>
+              </>
+            )}
+            <button onClick={toggleCollapsed} title={collapsed ? "Show full rating card" : "Shrink to just the score — gives the chart more room"}
+              style={{ marginLeft: "auto", cursor: "pointer", background: "transparent", border: "none", padding: 0, color: C.textDim, fontFamily: SANS, fontSize: 11, fontWeight: 800, lineHeight: 1 }}>
+              {collapsed ? "▸" : "▾"}
+            </button>
+          </div>
+          {!collapsed && (
+            <>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                <span style={{ fontFamily: SANS, fontSize: 30, fontWeight: 900, color: rColor, lineHeight: 1 }}>{rating}</span>
+                <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 800, color: rColor, letterSpacing: 0.5 }}>{rWord}</span>
+              </div>
+              {verdict && (
+                <div style={{ display: "inline-block", marginTop: 6, fontFamily: MONO, fontSize: 10, fontWeight: 800, color: "#fff", background: vColor, borderRadius: 5, padding: "2px 8px" }}>
+                  {verdict === "GO" ? "🟢 GO" : verdict === "WAIT" ? "🟡 WAIT" : "🔴 AVOID"}
                 </div>
               )}
-            </span>
-          </div>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-            <span style={{ fontFamily: SANS, fontSize: 30, fontWeight: 900, color: rColor, lineHeight: 1 }}>{rating}</span>
-            <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 800, color: rColor, letterSpacing: 0.5 }}>{rWord}</span>
-          </div>
-          {verdict && (
-            <div style={{ display: "inline-block", marginTop: 6, fontFamily: MONO, fontSize: 10, fontWeight: 800, color: "#fff", background: vColor, borderRadius: 5, padding: "2px 8px" }}>
-              {verdict === "GO" ? "🟢 GO" : verdict === "WAIT" ? "🟡 WAIT" : "🔴 AVOID"}
-            </div>
-          )}
-          {upside != null && <div style={{ fontFamily: MONO, fontSize: 10, color: "#f59e0b", marginTop: 5 }}>🎯 {upside > 0 ? "+" : ""}{upside}% to target</div>}
-          {/* Minervini's template is a daily/weekly method — the rating and
-              price levels above are always the real daily computation, even
-              while you're looking at an intraday candle granularity. Say so
-              rather than let it look like a live intraday rating. */}
-          {data.intervalUsed && data.intervalUsed !== "1d" && (
-            <div style={{ fontFamily: SANS, fontSize: 9, color: C.textDim, marginTop: 5, fontStyle: "italic" }}>Rating reflects the daily setup</div>
+              {upside != null && <div style={{ fontFamily: MONO, fontSize: 10, color: "#f59e0b", marginTop: 5 }}>🎯 {upside > 0 ? "+" : ""}{upside}% to target</div>}
+              {/* Minervini's template is a daily/weekly method — the rating and
+                  price levels above are always the real daily computation, even
+                  while you're looking at an intraday candle granularity. Say so
+                  rather than let it look like a live intraday rating. */}
+              {data.intervalUsed && data.intervalUsed !== "1d" && (
+                <div style={{ fontFamily: SANS, fontSize: 9, color: C.textDim, marginTop: 5, fontStyle: "italic" }}>Rating reflects the daily setup</div>
+              )}
+            </>
           )}
         </div>
       )}
