@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { RH_UNIVERSE, rhScreenProgressive } from "./rhpro-shared.jsx";
+import { clickableProps } from "./ui-helpers.js";
 import { computeRegime, computeInstitutionalGrade, computeAPlusScore, computePrediction, SECTOR_ETFS, STOCK_TO_SECTOR } from "./market-helpers.js";
 import { mapToAiAction } from "./ai-actions.js";
 // Cortex slide-over (2026-08-14, same linked-panel treatment SmartScanTab.jsx
@@ -194,7 +195,7 @@ export default function RhProWatchlists({ C, MONO, SANS, setActiveTab, macroData
             <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: C.text }}>{l.icon} {l.title}</div>
             <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginBottom: 8 }}>{l.desc}</div>
             {l.items.length ? l.items.map(r => (
-              <div key={r.symbol} onClick={() => analyze(r.symbol)} title="Analyze"
+              <div key={r.symbol} onClick={() => analyze(r.symbol)} {...clickableProps(() => analyze(r.symbol))} title="Analyze"
                 style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 6px", borderRadius: 6, cursor: "pointer", fontFamily: MONO, fontSize: 12.5 }}
                 onMouseEnter={e => e.currentTarget.style.background = C.surface} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                 <span style={{ fontWeight: 800, color: C.text }}>{r.symbol}</span>

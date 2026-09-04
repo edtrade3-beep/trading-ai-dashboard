@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { clickableProps } from "./ui-helpers.js";
 
 // Manual, localStorage-backed trade journal. Promoted to its own real
 // sidebar destination ("Journal", institutional redesign, 2026-07-29) —
@@ -162,7 +163,7 @@ export default function RhProJournal({ C, MONO, SANS }) {
                 <td style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, padding: "7px 8px", borderTop: `1px solid ${C.border}` }}>{t.aiScore || "—"}</td>
                 <td style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, padding: "7px 8px", borderTop: `1px solid ${C.border}`, maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.emotion}</td>
                 <td style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, padding: "7px 8px", borderTop: `1px solid ${C.border}`, maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.mistakes}</td>
-                <td style={{ padding: "7px 8px", borderTop: `1px solid ${C.border}` }}><span onClick={() => del(t.id)} style={{ cursor: "pointer", color: C.textDim, fontSize: 12 }}>🗑</span></td>
+                <td style={{ padding: "7px 8px", borderTop: `1px solid ${C.border}` }}><span onClick={() => del(t.id)} {...clickableProps(() => del(t.id))} aria-label="Delete trade" style={{ cursor: "pointer", color: C.textDim, fontSize: 12 }}>🗑</span></td>
               </tr>
             ))}
             {!trades.length && <tr><td colSpan="11" style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, textAlign: "center", padding: 20 }}>No trades logged yet. Log your Robinhood trades above — the AI Coach and Performance dashboard read from here.</td></tr>}

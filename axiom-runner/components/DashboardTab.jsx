@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { fetchSharedQuotes } from "./quote-store.js";
+import { clickableProps } from "./ui-helpers.js";
 import MonitorSection from "./MonitorSection.jsx";
 import FedInterpreter from "./FedInterpreter.jsx";
 import FedWatchWidget from "./FedWatchWidget.jsx";
@@ -206,7 +207,7 @@ function MarketCommandCenterStrip({ C, MONO, SANS, macroData, distData, sectorDa
   const nextEvent = (eventCountdowns || [])[0];
 
   const cell = (label, value, color, onClick) => (
-    <div onClick={onClick} style={{ minWidth: 110, cursor: onClick ? "pointer" : "default" }}>
+    <div onClick={onClick} {...(onClick ? clickableProps(onClick) : {})} style={{ minWidth: 110, cursor: onClick ? "pointer" : "default" }}>
       <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 3 }}>{label}</div>
       <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: color || C.text, lineHeight: 1.2, fontVariantNumeric: "tabular-nums" }}>{value}</div>
     </div>
@@ -327,7 +328,7 @@ function WatchlistCard({ C, MONO, SANS, watchlistData, sigData, setTerminalSymbo
           const sig = sigOf(q.symbol);
           const action = sig ? TRADE_SIGNAL_ACTION[sig.action] : null;
           return (
-            <div key={q.symbol} onClick={() => { setTerminalSymbol(q.symbol); setActiveTab("mterminal"); }}
+            <div key={q.symbol} onClick={() => { setTerminalSymbol(q.symbol); setActiveTab("mterminal"); }} {...clickableProps(() => { setTerminalSymbol(q.symbol); setActiveTab("mterminal"); })}
               style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 4px", borderRadius: 6, cursor: "pointer" }}>
               <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent, minWidth: 55 }}>{q.symbol}</span>
               <span style={{ fontFamily: MONO, fontSize: 12, color: C.text }}>${Number(q.price || 0).toFixed(2)}</span>
@@ -398,6 +399,7 @@ function CopilotInsightsCard({ C, MONO, SANS, watchlistData, setActiveTab, setTe
     <Card C={C} title="AI COPILOT INSIGHTS">
       {topPick && (
         <div onClick={() => { setTerminalSymbol?.(topPick.symbol); try { localStorage.setItem("mterminal_load_sym", topPick.symbol); } catch {} setActiveTab?.("mterminal"); }}
+          {...clickableProps(() => { setTerminalSymbol?.(topPick.symbol); try { localStorage.setItem("mterminal_load_sym", topPick.symbol); } catch {} setActiveTab?.("mterminal"); })}
           style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", background: C.card, border: `1px solid ${C.border}`, borderLeft: `3px solid ${C.gold}`, borderRadius: 8, marginBottom: 10, cursor: "pointer" }}>
           <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.gold }}>{topPick.symbol}</span>
           <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>top pick · A+ {topPick._aplus?.score ?? "—"}</span>
@@ -476,14 +478,14 @@ export function MarketPulseCard({ C, MONO, SANS, rotationRank, flowBias, flowCal
           <>
             <div style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 800, color: C.textDim, letterSpacing: "0.05em", marginBottom: 4 }}>LEADERS</div>
             {leaders.length ? leaders.map(q => (
-              <div key={q.symbol} onClick={() => goToChart(q.symbol)} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", cursor: "pointer" }}>
+              <div key={q.symbol} onClick={() => goToChart(q.symbol)} {...clickableProps(() => goToChart(q.symbol))} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", cursor: "pointer" }}>
                 <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>{q.symbol}</span>
                 <span style={{ fontFamily: MONO, fontSize: 12, color: C.green }}>+{q.relVsSpy.toFixed(2)}%</span>
               </div>
             )) : <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>None ≥1% vs SPY today</div>}
             <div style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 800, color: C.textDim, letterSpacing: "0.05em", margin: "8px 0 4px" }}>LAGGARDS</div>
             {laggers.map(q => (
-              <div key={q.symbol} onClick={() => goToChart(q.symbol)} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", cursor: "pointer" }}>
+              <div key={q.symbol} onClick={() => goToChart(q.symbol)} {...clickableProps(() => goToChart(q.symbol))} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", cursor: "pointer" }}>
                 <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>{q.symbol}</span>
                 <span style={{ fontFamily: MONO, fontSize: 12, color: C.red }}>{q.relVsSpy.toFixed(2)}%</span>
               </div>
@@ -505,7 +507,7 @@ export function MarketPulseCard({ C, MONO, SANS, rotationRank, flowBias, flowCal
 
       <Card C={C} title="🚫 STOCKS TO AVOID" accent={C.red}>
         {avoidList.length > 0 ? avoidList.map(a => (
-          <div key={a.symbol} onClick={() => goToChart(a.symbol)} style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "4px 0", borderBottom: `1px solid ${C.border}33`, cursor: "pointer" }}>
+          <div key={a.symbol} onClick={() => goToChart(a.symbol)} {...clickableProps(() => goToChart(a.symbol))} style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "4px 0", borderBottom: `1px solid ${C.border}33`, cursor: "pointer" }}>
             <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>{a.symbol} <span style={{ color: C.textDim, fontWeight: 400 }}>{a.score}</span></span>
             <span style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, textAlign: "right" }}>{a.reason}</span>
           </div>
@@ -622,7 +624,7 @@ function TopSectorsTodayCard({ C, MONO, SANS, sectorData, setActiveTab, setTermi
           {rows.map(r => {
             const rs = relStrength(r.chg);
             return (
-              <div key={r.symbol} onClick={() => { setTerminalSymbol?.(r.symbol); try { localStorage.setItem("mterminal_load_sym", r.symbol); } catch {} setActiveTab?.("mterminal"); }}
+              <div key={r.symbol} onClick={() => { setTerminalSymbol?.(r.symbol); try { localStorage.setItem("mterminal_load_sym", r.symbol); } catch {} setActiveTab?.("mterminal"); }} {...clickableProps(() => { setTerminalSymbol?.(r.symbol); try { localStorage.setItem("mterminal_load_sym", r.symbol); } catch {} setActiveTab?.("mterminal"); })}
                 style={{ display: "grid", gridTemplateColumns: "1fr auto 60px 70px", gap: 10, alignItems: "center", cursor: "pointer" }}>
                 <span style={{ fontFamily: SANS, fontSize: 12.5, color: C.text }}>{r.name}</span>
                 <span style={{ fontFamily: MONO, fontSize: 13, color: r.chg >= 0 ? C.green : C.red }}>{r.chg >= 0 ? "▲" : "▼"}</span>
@@ -713,7 +715,7 @@ function AiTopOpportunitiesCard({ C, MONO, SANS, fullScan, setActiveTab, setTerm
             // Buy/Sell/Watch enums with one shared reducer.
             const action = mapToAiAction({ institutionalScore: r._aplus.score });
             return (
-              <div key={r.symbol} onClick={() => { setTerminalSymbol?.(r.symbol); try { localStorage.setItem("mterminal_load_sym", r.symbol); } catch {} setActiveTab?.("mterminal"); }}
+              <div key={r.symbol} onClick={() => { setTerminalSymbol?.(r.symbol); try { localStorage.setItem("mterminal_load_sym", r.symbol); } catch {} setActiveTab?.("mterminal"); }} {...clickableProps(() => { setTerminalSymbol?.(r.symbol); try { localStorage.setItem("mterminal_load_sym", r.symbol); } catch {} setActiveTab?.("mterminal"); })}
                 style={{ display: "grid", gridTemplateColumns: "26px 1fr 60px 90px auto 70px 60px", gap: 8, alignItems: "center", padding: "7px 0", borderTop: `1px solid ${C.border}55`, cursor: "pointer", fontVariantNumeric: "tabular-nums" }}>
                 <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{i + 1}</span>
                 <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text }}>{r.symbol}</span>

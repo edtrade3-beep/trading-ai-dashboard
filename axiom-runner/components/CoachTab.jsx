@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { clickableProps } from "./ui-helpers.js";
 
 // ─── DAILY COACH — discipline, wealth, wisdom, leadership, family ────────────
 const COACH_KEY = "axiom_coach_v1";
@@ -590,7 +591,7 @@ export default function CoachTab({ C, MONO, SANS }) {
             return (
               <div key={g.pillar} style={{ marginBottom: 14 }}>
                 {/* Category header */}
-                <div onClick={() => setCollapsedCats(p => ({ ...p, [g.pillar]: !p[g.pillar] }))}
+                <div onClick={() => setCollapsedCats(p => ({ ...p, [g.pillar]: !p[g.pillar] }))} {...clickableProps(() => setCollapsedCats(p => ({ ...p, [g.pillar]: !p[g.pillar] })))}
                   style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer",
                     background: `${g.color}12`, border: `1px solid ${g.color}44`, borderRight: `5px solid ${g.color}`,
                     borderRadius: 10, padding: "10px 14px", marginBottom: 8 }}>
@@ -714,7 +715,7 @@ export default function CoachTab({ C, MONO, SANS }) {
             const done = todayHabits[h.id];
             const streak = habitStreak(h.id);
             return (
-              <div key={h.id} onClick={() => toggleHabit(h.id)}
+              <div key={h.id} onClick={() => toggleHabit(h.id)} {...clickableProps(() => toggleHabit(h.id))}
                 style={{ display: "flex", alignItems: "center", gap: 12, background: done ? `${h.color}12` : C.card,
                   border: `1px solid ${done ? h.color+"55" : C.border}`, borderRight: `4px solid ${h.color}`,
                   borderRadius: 10, padding: "12px 16px", marginBottom: 8, cursor: "pointer" }}>
@@ -740,7 +741,7 @@ export default function CoachTab({ C, MONO, SANS }) {
             const clean = todayHabits[h.id];
             const streak = habitStreak(h.id);
             return (
-              <div key={h.id} onClick={() => toggleHabit(h.id)}
+              <div key={h.id} onClick={() => toggleHabit(h.id)} {...clickableProps(() => toggleHabit(h.id))}
                 style={{ display: "flex", alignItems: "center", gap: 12, background: clean ? `${h.color}12` : C.card,
                   border: `1px solid ${clean ? h.color+"55" : C.border}`, borderRight: `4px solid ${h.color}`,
                   borderRadius: 10, padding: "12px 16px", marginBottom: 8, cursor: "pointer" }}>

@@ -3,6 +3,7 @@ import { fetchSharedQuotes } from "./quote-store.js";
 import SmartMoneyDecisionPanel from "./SmartMoneyDecisionPanel.jsx";
 import TrendChart from "./TrendChart.jsx";
 import VcpStatusPanel from "./VcpStatusPanel.jsx";
+import { clickableProps } from "./ui-helpers.js";
 
 // Trend & Base Rating overlay — collapsed to a small pill by default
 // (2026-08-05, real user report with a screenshot: the full card was
@@ -97,7 +98,7 @@ function JournalNotesPanel({ sym, C, MONO, SANS, setActiveTab }) {
       {!entries.length ? (
         <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: "14px 16px", background: C.card, fontFamily: SANS, fontSize: 12, color: C.textDim }}>
           No journal notes yet for {sym}.{" "}
-          <span onClick={() => setActiveTab("rhpro-journal")} style={{ color: C.accent, cursor: "pointer", fontWeight: 700 }}>Log one →</span>
+          <span onClick={() => setActiveTab("rhpro-journal")} {...clickableProps(() => setActiveTab("rhpro-journal"))} style={{ color: C.accent, cursor: "pointer", fontWeight: 700 }}>Log one →</span>
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -118,7 +119,7 @@ function JournalNotesPanel({ sym, C, MONO, SANS, setActiveTab }) {
               {t.mistakes && <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.red, marginTop: 2 }}>Mistake: {t.mistakes}</div>}
             </div>
           ))}
-          <span onClick={() => setActiveTab("rhpro-journal")} style={{ fontFamily: MONO, fontSize: 11, color: C.accent, cursor: "pointer", fontWeight: 700, alignSelf: "flex-start" }}>Full journal →</span>
+          <span onClick={() => setActiveTab("rhpro-journal")} {...clickableProps(() => setActiveTab("rhpro-journal"))} style={{ fontFamily: MONO, fontSize: 11, color: C.accent, cursor: "pointer", fontWeight: 700, alignSelf: "flex-start" }}>Full journal →</span>
         </div>
       )}
     </div>
@@ -192,7 +193,7 @@ function AccordionSection({ id, icon, label, summary, tone, children, C, MONO, S
   const tc = tone === "gold" ? C.gold : C.accent;
   return (
     <div style={{ marginBottom: 14 }}>
-      <div onClick={() => setOpenSection(isOpen ? null : id)}
+      <div onClick={() => setOpenSection(isOpen ? null : id)} {...clickableProps(() => setOpenSection(isOpen ? null : id))}
         style={{ display: "flex", alignItems: "center", gap: 10, paddingBottom: 7, marginBottom: isOpen ? 10 : 0, borderBottom: `2px solid ${tc}`, cursor: "pointer" }}>
         <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 22, height: 22,
           borderRadius: 6, background: `${tc}1c`, fontSize: 12, flexShrink: 0 }}>{icon}</span>
@@ -1492,14 +1493,14 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             const rvol = r.volRatio != null ? r.volRatio : (trend?.volRatio ?? null);
             const aplus = computeAPlusScore(trend || {}, regime);
             return (
-            <div key={r.symbol} onClick={() => { loadSym(r.symbol); scrollToChart(); }}
+            <div key={r.symbol} onClick={() => { loadSym(r.symbol); scrollToChart(); }} {...clickableProps(() => { loadSym(r.symbol); scrollToChart(); })}
               style={{ display: "grid", gridTemplateColumns: "1.2fr 0.9fr 0.9fr 0.7fr 0.6fr", padding: "9px 12px", alignItems: "center", cursor: "pointer",
                 borderBottom: i < rows.length - 1 ? `1px solid ${C.border}` : "none",
                 background: r.symbol === sym ? "rgba(34,212,126,0.10)" : (i % 2 ? "transparent" : "rgba(127,127,127,0.03)") }}>
               <div style={{ display: "flex", alignItems: "center", gap: 4, minWidth: 0 }}>
                 <span style={{ fontFamily: SANS, fontWeight: 800, fontSize: 13, color: r.symbol === sym ? "#22d47e" : C.text, overflow: "hidden", textOverflow: "ellipsis" }}>{r.symbol}</span>
                 {source === "watchlist" && (
-                  <span onClick={(e) => { e.stopPropagation(); removeFromWatchlist(r.symbol); }} title="Remove from watchlist"
+                  <span onClick={(e) => { e.stopPropagation(); removeFromWatchlist(r.symbol); }} {...clickableProps((e) => { e.stopPropagation(); removeFromWatchlist(r.symbol); })} aria-label={`Remove ${r.symbol} from watchlist`} title="Remove from watchlist"
                     style={{ cursor: "pointer", color: C.textDim, fontWeight: 800, fontSize: 12, flexShrink: 0, padding: "0 2px" }}>×</span>
                 )}
               </div>
@@ -1900,7 +1901,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                       setActiveTab && setActiveTab("tradeplanner");
                     };
                     return (
-                      <div key={stageKey} onClick={loadZone}
+                      <div key={stageKey} onClick={loadZone} {...(clickable ? clickableProps(loadZone) : {})}
                         title={clickable ? `Size a plan around this ${label} zone — opens Trade Planner` : undefined}
                         style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", fontFamily: MONO, fontSize: 11.5, padding: "3px 0", opacity: active ? 1 : 0.55, cursor: clickable ? "pointer" : "default" }}>
                         <span style={{ color: active ? C.text : C.textDim, fontWeight: active ? 800 : 400 }}>{active ? "▶ " : ""}{label}</span>
@@ -2224,7 +2225,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
           {SECTIONS.map((s) => (
             <span key={s.id} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
               <span style={{ color: C.textDim }}>→</span>
-              <span onClick={() => setOpenSection(openSection === s.id ? null : s.id)}
+              <span onClick={() => setOpenSection(openSection === s.id ? null : s.id)} {...clickableProps(() => setOpenSection(openSection === s.id ? null : s.id))}
                 style={{ cursor: "pointer", fontWeight: openSection === s.id ? 900 : 600, color: openSection === s.id ? C.accent : C.textDim }}>
                 {s.label}
               </span>
@@ -3013,7 +3014,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
           <COTPanel C={C} MONO={MONO} SANS={SANS} />
         </div>
         <div style={{ marginTop: 10 }}>
-          <span onClick={() => setDTab("flow")} style={{ fontFamily: MONO, fontSize: 11, color: C.accent, cursor: "pointer", fontWeight: 700 }}>Full Options Flow detail →</span>
+          <span onClick={() => setDTab("flow")} {...clickableProps(() => setDTab("flow"))} style={{ fontFamily: MONO, fontSize: 11, color: C.accent, cursor: "pointer", fontWeight: 700 }}>Full Options Flow detail →</span>
         </div>
         </AccordionSection>
 
@@ -3066,7 +3067,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
           <div>
             <SectionHeader icon="📊" label="FUNDAMENTALS" C={C} SANS={SANS} />
             <FundamentalsPanel symbol={sym} C={C} MONO={MONO} SANS={SANS} />
-            <span onClick={() => setDTab("valuation")} style={{ fontFamily: MONO, fontSize: 11, color: C.accent, cursor: "pointer", fontWeight: 700, display: "inline-block", marginTop: 8 }}>Full Fundamentals & Valuation →</span>
+            <span onClick={() => setDTab("valuation")} {...clickableProps(() => setDTab("valuation"))} style={{ fontFamily: MONO, fontSize: 11, color: C.accent, cursor: "pointer", fontWeight: 700, display: "inline-block", marginTop: 8 }}>Full Fundamentals & Valuation →</span>
           </div>
         )}
         </AccordionSection>
@@ -3123,11 +3124,11 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             No dedicated backtest/similar-setup history engine exists yet for individual symbols — the closest real record is this symbol's own journal notes.
           </div>
           <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-            <span onClick={() => setActiveTab && setActiveTab("rhpro-journal")} style={{ fontFamily: MONO, fontSize: 11, color: C.accent, cursor: "pointer", fontWeight: 700 }}>Journal history →</span>
-            <span onClick={() => setDTab("company")} style={{ fontFamily: MONO, fontSize: 11, color: C.accent, cursor: "pointer", fontWeight: 700 }}>Company profile →</span>
-            <span onClick={() => setDTab("investors")} style={{ fontFamily: MONO, fontSize: 11, color: C.accent, cursor: "pointer", fontWeight: 700 }}>Institutional ownership →</span>
-            <span onClick={() => setDTab("social")} style={{ fontFamily: MONO, fontSize: 11, color: C.accent, cursor: "pointer", fontWeight: 700 }}>Social/analyst chatter →</span>
-            <span onClick={() => setDTab("news")} style={{ fontFamily: MONO, fontSize: 11, color: C.accent, cursor: "pointer", fontWeight: 700 }}>News & journal →</span>
+            <span onClick={() => setActiveTab && setActiveTab("rhpro-journal")} {...clickableProps(() => setActiveTab && setActiveTab("rhpro-journal"))} style={{ fontFamily: MONO, fontSize: 11, color: C.accent, cursor: "pointer", fontWeight: 700 }}>Journal history →</span>
+            <span onClick={() => setDTab("company")} {...clickableProps(() => setDTab("company"))} style={{ fontFamily: MONO, fontSize: 11, color: C.accent, cursor: "pointer", fontWeight: 700 }}>Company profile →</span>
+            <span onClick={() => setDTab("investors")} {...clickableProps(() => setDTab("investors"))} style={{ fontFamily: MONO, fontSize: 11, color: C.accent, cursor: "pointer", fontWeight: 700 }}>Institutional ownership →</span>
+            <span onClick={() => setDTab("social")} {...clickableProps(() => setDTab("social"))} style={{ fontFamily: MONO, fontSize: 11, color: C.accent, cursor: "pointer", fontWeight: 700 }}>Social/analyst chatter →</span>
+            <span onClick={() => setDTab("news")} {...clickableProps(() => setDTab("news"))} style={{ fontFamily: MONO, fontSize: 11, color: C.accent, cursor: "pointer", fontWeight: 700 }}>News & journal →</span>
           </div>
         </div>
         </AccordionSection>

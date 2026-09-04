@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { computeRegime } from "./market-helpers.js";
+import { clickableProps } from "./ui-helpers.js";
 import { computeGreenLight } from "./trading-utils.js";
 import { findWeakestPosition } from "./portfolio-rotation-engine.js";
 import { AI_ACTIONS } from "./ai-actions.js";
@@ -117,7 +118,7 @@ export default function ActivePositionsCard({ C, MONO, SANS, setTerminalSymbol, 
             const rNow = risk ? (Number(p.current || 0) - p.plannedEntry) / risk : null;
             const rTarget = (risk && p.plannedTarget > 0) ? (p.plannedTarget - p.plannedEntry) / risk : null;
             return (
-              <div key={p.symbol} onClick={() => { setTerminalSymbol?.(p.symbol); setActiveTab?.("mterminal"); }}
+              <div key={p.symbol} onClick={() => { setTerminalSymbol?.(p.symbol); setActiveTab?.("mterminal"); }} {...clickableProps(() => { setTerminalSymbol?.(p.symbol); setActiveTab?.("mterminal"); })}
                 style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 4px", borderRadius: 6, cursor: "pointer", gap: 8 }}>
                 <div>
                   <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent, display: "flex", alignItems: "center", gap: 6 }}>

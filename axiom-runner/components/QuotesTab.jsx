@@ -1,5 +1,6 @@
 import { Badge, ScoreBar, TrendTag, formatNum } from "./ui-atoms.jsx";
 import { LAYOUT } from "./theme.js";
+import { clickableProps } from "./ui-helpers.js";
 import { computeScores, classifyTrend, computeMTFSignal, computeRvol } from "./trading-utils.js";
 // A+ Score — a real, deliberately SEPARATE second signal from this tab's own
 // Composite/Tech/Fund system (2026-07-27, explicit user request, same
@@ -360,7 +361,7 @@ export default function QuotesTab({
                       {top3.map((q) => {
                         const chg = getChg(q);
                         return (
-                          <div key={`mv-t-${q.symbol}`} onClick={() => { setTerminalSymbol(q.symbol); try { localStorage.setItem("mterminal_load_sym", q.symbol); } catch {} setActiveTab("mterminal"); }} style={{ background: `${C.green}18`, border: `1px solid ${C.green}44`, borderRadius: 6, padding: "6px 10px", cursor: "pointer" }}>
+                          <div key={`mv-t-${q.symbol}`} onClick={() => { setTerminalSymbol(q.symbol); try { localStorage.setItem("mterminal_load_sym", q.symbol); } catch {} setActiveTab("mterminal"); }} {...clickableProps(() => { setTerminalSymbol(q.symbol); try { localStorage.setItem("mterminal_load_sym", q.symbol); } catch {} setActiveTab("mterminal"); })} style={{ background: `${C.green}18`, border: `1px solid ${C.green}44`, borderRadius: 6, padding: "6px 10px", cursor: "pointer" }}>
                             <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent }}>{q.symbol}</div>
                             <div style={{ fontFamily: MONO, fontSize: 12, color: C.green, fontWeight: 700 }}>+{chg.toFixed(2)}%</div>
                             <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{isExt ? <span style={{ color: extColor, fontWeight: 700 }}>{extLabel} </span> : null}${(q.price || 0).toFixed(2)}</div>
@@ -370,7 +371,7 @@ export default function QuotesTab({
                       {bot3.map((q) => {
                         const chg = getChg(q);
                         return (
-                          <div key={`mv-b-${q.symbol}`} onClick={() => { setTerminalSymbol(q.symbol); try { localStorage.setItem("mterminal_load_sym", q.symbol); } catch {} setActiveTab("mterminal"); }} style={{ background: `${C.red}18`, border: `1px solid ${C.red}44`, borderRadius: 6, padding: "6px 10px", cursor: "pointer" }}>
+                          <div key={`mv-b-${q.symbol}`} onClick={() => { setTerminalSymbol(q.symbol); try { localStorage.setItem("mterminal_load_sym", q.symbol); } catch {} setActiveTab("mterminal"); }} {...clickableProps(() => { setTerminalSymbol(q.symbol); try { localStorage.setItem("mterminal_load_sym", q.symbol); } catch {} setActiveTab("mterminal"); })} style={{ background: `${C.red}18`, border: `1px solid ${C.red}44`, borderRadius: 6, padding: "6px 10px", cursor: "pointer" }}>
                             <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent }}>{q.symbol}</div>
                             <div style={{ fontFamily: MONO, fontSize: 12, color: C.red, fontWeight: 700 }}>{chg.toFixed(2)}%</div>
                             <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{isExt ? <span style={{ color: extColor, fontWeight: 700 }}>{extLabel} </span> : null}${(q.price || 0).toFixed(2)}</div>

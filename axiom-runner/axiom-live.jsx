@@ -9,6 +9,7 @@ import MarketTerminalTab from "./components/MarketTerminalTab.jsx";
 import AiTradeSessionPanel from "./components/AiTradeSessionPanel.jsx";
 import { computeRegime, computeAPlusScore, STOCK_TO_SECTOR, SECTOR_ETFS, computeFibLevels } from "./components/market-helpers.js";
 import { fetchSharedQuotes } from "./components/quote-store.js";
+import { clickableProps } from "./components/ui-helpers.js";
 import { FIVEX_DATA, FIVEX_REF } from "./components/fivex-data.js";
 import { qUrl, QURAN_RECITERS, SURAH_LIST } from "./components/quran-data.js";
 import QuranTab from "./components/QuranTab.jsx";
@@ -6254,7 +6255,7 @@ export default function App() {
 
             {/* ── 2. Performance snapshot — "how am I doing right now" ── */}
             {portfolioSummary.totalCost > 0 && portfolioSummary.totalValue > 0 && (
-              <div onClick={() => setActiveTab("portfolio")} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 6,
+              <div onClick={() => setActiveTab("portfolio")} {...clickableProps(() => setActiveTab("portfolio"))} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 6,
                 border: `1px solid ${portfolioSummary.totalPnl >= 0 ? C.green : C.red}44`,
                 background: portfolioSummary.totalPnl >= 0 ? `${C.green}0e` : `${C.red}0e`, cursor: "pointer" }}>
                 <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>PORT</span>
@@ -6277,7 +6278,7 @@ export default function App() {
               const todayPnl = todayClosed.reduce((s, e) => s + e.pnl, 0);
               const color = todayPnl >= 0 ? C.green : C.red;
               return (
-                <div onClick={() => setActiveTab("journal")} style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 9px", borderRadius: 6, border: `1px solid ${color}44`, background: `${color}0e`, cursor: "pointer" }}>
+                <div onClick={() => setActiveTab("journal")} {...clickableProps(() => setActiveTab("journal"))} style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 9px", borderRadius: 6, border: `1px solid ${color}44`, background: `${color}0e`, cursor: "pointer" }}>
                   <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>TODAY</span>
                   <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color }}>{todayPnl >= 0 ? "+" : ""}${Math.round(todayPnl)}</span>
                 </div>
@@ -6395,7 +6396,7 @@ export default function App() {
             </button>
 
             {athanHijri && (
-              <div onClick={() => setActiveTab("athan")} style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 8px", background: "#c9a84c0e", borderRadius: 6, border: "1px solid #c9a84c2a", cursor: "pointer", direction: "rtl" }}>
+              <div onClick={() => setActiveTab("athan")} {...clickableProps(() => setActiveTab("athan"))} style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 8px", background: "#c9a84c0e", borderRadius: 6, border: "1px solid #c9a84c2a", cursor: "pointer", direction: "rtl" }}>
                 <span style={{ fontSize: 12, fontFamily: "Arial, sans-serif", color: "#c9a84c", fontWeight: 700 }}>
                   {athanHijri.day} {athanHijri.month?.ar} {athanHijri.year} هـ
                 </span>
@@ -6919,7 +6920,7 @@ export default function App() {
                     above; this is the one actionable control (manual
                     override), which belongs right next to that status. */}
                 {tiltEnabled && (
-                  <div onClick={() => tiltLocked && setTiltLocked(false)} style={{ marginTop: 10, cursor: "pointer", fontFamily: MONO, fontSize: 13, fontWeight: 800, color: tiltLocked ? C.red : tiltStreak >= 2 ? C.amber : C.green }}>
+                  <div onClick={() => tiltLocked && setTiltLocked(false)} {...(tiltLocked ? clickableProps(() => setTiltLocked(false)) : {})} style={{ marginTop: 10, cursor: "pointer", fontFamily: MONO, fontSize: 13, fontWeight: 800, color: tiltLocked ? C.red : tiltStreak >= 2 ? C.amber : C.green }}>
                     {tiltLocked ? "🔒 LOCKED — click to override" : tiltStreak === 0 ? "✅ 0 consecutive losses today" : `⚠ ${tiltStreak}/3 consecutive losses`}
                   </div>
                 )}

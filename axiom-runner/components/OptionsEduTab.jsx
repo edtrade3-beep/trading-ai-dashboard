@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import OptionsPayoffTool from "./OptionsPayoffTool.jsx";
+import { clickableProps } from "./ui-helpers.js";
 
 const OPTIONS_LESSONS = [
   { icon:"📘", color:"#3b82f6", title:"1. What an option actually is",
@@ -219,7 +220,7 @@ export default function OptionsEduTab({ C, MONO, SANS }) {
       <OptionsPayoffTool C={C} MONO={MONO} SANS={SANS} />
       {OPTIONS_LESSONS.map((l, i) => (
         <div key={i} style={{ background: C.card, border: `1px solid ${C.border}`, borderLeft: `4px solid ${l.color}`, borderRadius: 10, marginBottom: 8, overflow: "hidden" }}>
-          <div onClick={() => setOpen(open === i ? null : i)}
+          <div onClick={() => setOpen(open === i ? null : i)} {...clickableProps(() => setOpen(open === i ? null : i))}
             style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", cursor: "pointer" }}>
             <span style={{ fontSize: 18 }}>{l.icon}</span>
             <span style={{ flex: 1, fontFamily: SANS, fontSize: 15, fontWeight: 800, color: C.text }}>{l.title}</span>

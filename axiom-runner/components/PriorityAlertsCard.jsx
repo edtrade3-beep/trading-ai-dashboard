@@ -2,6 +2,8 @@
 // sorted/capped combinedAlerts list (built once in App() from TradingView
 // webhooks, auto-risk econ events, macro events, watchlist momentum/volume,
 // and options flow). No new scoring logic — just surfaces what already exists.
+import { clickableProps } from "./ui-helpers.js";
+
 export default function PriorityAlertsCard({ C, MONO, SANS, alerts, setTerminalSymbol, setActiveTab }) {
   const top = (alerts || []).slice(0, 5);
   const colorFor = (type) => type === "risk" ? "#c8282a" : type === "opportunity" ? "#0d9465" : type === "flow" ? "#7c5cff" : "#d6a312";
@@ -21,7 +23,7 @@ export default function PriorityAlertsCard({ C, MONO, SANS, alerts, setTerminalS
             const col = colorFor(a.type);
             const clickable = a.symbol && a.symbol !== "MKT";
             return (
-              <div key={i} onClick={() => go(a)}
+              <div key={i} onClick={() => go(a)} {...(clickable ? clickableProps(() => go(a)) : {})}
                 style={{ display: "flex", gap: 10, alignItems: "center", padding: "7px 10px", borderRadius: 8,
                   cursor: clickable ? "pointer" : "default", marginBottom: i === top.length - 1 ? 0 : 4 }}>
                 <span style={{ width: 7, height: 7, borderRadius: "50%", background: col, flexShrink: 0 }} />

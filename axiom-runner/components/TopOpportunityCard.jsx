@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { NUM } from "./theme.js";
+import { clickableProps } from "./ui-helpers.js";
 import { computeRegime, computeAPlusScore } from "./market-helpers.js";
 import { FINAL_VERDICT_META } from "./final-decision-meta.js";
 import { BEST_OPP_UNIVERSE } from "./terminal-panels.jsx";
@@ -68,7 +69,7 @@ export default function TopOpportunityCard({ C, MONO, SANS, macroData, setActive
         const next = FINAL_VERDICT_META[row.assetDecision?.verdict] || { label: "LOADING…", color: C.textDim };
         const ac = row._aplus.score >= 80 ? "#0d9465" : row._aplus.score >= 60 ? "#d6a312" : "#c8282a";
         return (
-          <div onClick={goToChart} style={{ display: "flex", gap: 14, alignItems: "center", padding: "10px 16px 14px", cursor: "pointer", flexWrap: "wrap" }}>
+          <div onClick={goToChart} {...clickableProps(goToChart)} style={{ display: "flex", gap: 14, alignItems: "center", padding: "10px 16px 14px", cursor: "pointer", flexWrap: "wrap" }}>
             <div style={{ minWidth: 90 }}>
               <div style={{ fontFamily: SANS, fontSize: 20, fontWeight: 900, color: C.text }}>{row.symbol}</div>
               <div style={{ fontFamily: NUM, fontSize: 16, fontWeight: 700, color: C.textDim }}>${row.entry}</div>

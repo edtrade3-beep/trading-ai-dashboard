@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { ACADEMY_COURSES, ACADEMY_QUIZ } from "./academy-data.js";
+import { clickableProps } from "./ui-helpers.js";
 
 export default function CoursesTab({ C, MONO, SANS }) {
   const allLessonIds = useMemo(() => {
@@ -44,7 +45,7 @@ export default function CoursesTab({ C, MONO, SANS }) {
             const modDone = modLessonIds.filter(id => done[id]).length;
             return (
               <div key={mi} style={{ borderTop: `1px solid ${C.border}` }}>
-                <div onClick={() => setOpenMod(p => ({ ...p, [modKey]: !p[modKey] }))}
+                <div onClick={() => setOpenMod(p => ({ ...p, [modKey]: !p[modKey] }))} {...clickableProps(() => setOpenMod(p => ({ ...p, [modKey]: !p[modKey] })))}
                   style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", cursor: "pointer", background: modOpen ? `${C.accent}08` : "transparent" }}>
                   <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{modOpen ? "▼" : "▸"}</span>
                   <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: C.text, flex: 1 }}>{mod.title}</span>
@@ -56,8 +57,8 @@ export default function CoursesTab({ C, MONO, SANS }) {
                   const isDone = done[id];
                   return (
                     <div key={li} style={{ borderTop: `1px solid ${C.border}22`, padding: "0 16px" }}>
-                      <div onClick={() => setOpenLesson(p => ({ ...p, [id]: !p[id] }))} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0", cursor: "pointer" }}>
-                        <div onClick={(e) => toggleDone(id, e)} title="Mark complete"
+                      <div onClick={() => setOpenLesson(p => ({ ...p, [id]: !p[id] }))} {...clickableProps(() => setOpenLesson(p => ({ ...p, [id]: !p[id] })))} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0", cursor: "pointer" }}>
+                        <div onClick={(e) => toggleDone(id, e)} {...clickableProps((e) => toggleDone(id, e))} role="checkbox" aria-checked={isDone} aria-label="Mark complete" title="Mark complete"
                           style={{ width: 20, height: 20, borderRadius: 5, flex: "0 0 20px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
                             border: `1.5px solid ${isDone ? C.green : C.border}`, background: isDone ? `${C.green}22` : "transparent", color: C.green, fontSize: 13, fontWeight: 800 }}>{isDone ? "✓" : ""}</div>
                         <span style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 600, color: isDone ? C.textDim : C.text, flex: 1, textDecoration: isDone ? "line-through" : "none" }}>{ls.t}</span>
@@ -89,7 +90,7 @@ export default function CoursesTab({ C, MONO, SANS }) {
                           const correct = oi === qz.a;
                           const col = !isPicked ? C.border : correct ? C.green : (picked === oi ? C.red : C.border);
                           return (
-                            <div key={oi} onClick={() => { if (picked == null) setQuizPick(p => ({ ...p, [modKey]: oi })); }}
+                            <div key={oi} onClick={() => { if (picked == null) setQuizPick(p => ({ ...p, [modKey]: oi })); }} {...(picked == null ? clickableProps(() => setQuizPick(p => ({ ...p, [modKey]: oi }))) : {})}
                               style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 7, cursor: isPicked ? "default" : "pointer",
                                 border: `1px solid ${col}`, background: isPicked && (correct || picked === oi) ? `${col}14` : "transparent",
                                 fontFamily: SANS, fontSize: 12.5, color: C.text }}>

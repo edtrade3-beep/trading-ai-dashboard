@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import ColoredIntradayChart from "./ColoredIntradayChart.jsx";
+import { clickableProps } from "./ui-helpers.js";
 import SmartScanPanel from "./SmartScanPanel.jsx";
 import TrendSetupPanel from "./TrendSetupPanel.jsx";
 import { cardStyle, buttonChrome, colorForChange, formatPct } from "./ui-helpers.js";
@@ -163,7 +164,7 @@ export default function DayTradeTab({ C, MONO, SANS, onDeepDive }) {
             <div>SYMBOL</div><div style={{ textAlign: "right" }}>PRICE</div><div style={{ textAlign: "right" }}>DAY %</div><div style={{ textAlign: "right" }}>GAP</div><div style={{ textAlign: "right" }}>RVOL</div><div style={{ textAlign: "right" }}>SIGNALS</div>
           </div>
           {rows.slice(0, 15).map((r, i) => (
-            <div key={r.symbol} onClick={() => { setSel(r.symbol); setSelRow(r); }}
+            <div key={r.symbol} onClick={() => { setSel(r.symbol); setSelRow(r); }} {...clickableProps(() => { setSel(r.symbol); setSelRow(r); })}
               style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr 1fr 0.9fr 1fr 1.3fr", padding: "10px 14px", alignItems: "center", cursor: "pointer", borderBottom: i < 14 ? `1px solid ${C.border}` : "none", background: i % 2 ? "transparent" : "rgba(127,127,127,0.03)" }}>
               <div style={{ fontFamily: SANS, fontWeight: 800, fontSize: 14, color: C.text }}>{r.symbol}</div>
               <div style={{ textAlign: "right", fontFamily: MONO, fontSize: 12, color: C.text }}>${r.price.toFixed(2)}</div>

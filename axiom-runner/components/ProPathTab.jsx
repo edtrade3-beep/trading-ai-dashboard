@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { PRO_PATH } from "./academy-data.js";
+import { clickableProps } from "./ui-helpers.js";
 
 export default function ProPathTab({ C, MONO, SANS, setActiveTab }) {
   const allKeys = useMemo(() => PRO_PATH.flatMap((s, si) => s.steps.map((_, i) => `${si}-${i}`)), []);
@@ -43,7 +44,7 @@ export default function ProPathTab({ C, MONO, SANS, setActiveTab }) {
             {s.steps.map((step, i) => {
               const k = `${si}-${i}`; const isDone = done[k];
               return (
-                <div key={i} onClick={() => toggle(k)} style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "6px 0", cursor: "pointer",
+                <div key={i} onClick={() => toggle(k)} {...clickableProps(() => toggle(k))} style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "6px 0", cursor: "pointer",
                   borderTop: i ? `1px solid ${C.border}22` : "none" }}>
                   <div style={{ width: 19, height: 19, borderRadius: 5, flex: "0 0 19px", display: "flex", alignItems: "center", justifyContent: "center", marginTop: 1,
                     fontSize: 12, fontWeight: 800, border: `1.5px solid ${isDone ? C.green : C.border}`, background: isDone ? `${C.green}22` : "transparent", color: C.green }}>{isDone ? "✓" : ""}</div>

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { clickableProps } from "./ui-helpers.js";
 
 // ── Opportunity Queue — promotes market-scanner.js's real composite-scored
 // signal engine (GET /api/scanner/status, ~150-symbol universe) onto the
@@ -97,7 +98,7 @@ export default function OpportunityQueueCard({ C, MONO, SANS, setTerminalSymbol,
         const isWhyOpen = whyOpen === h.symbol;
         return (
           <div key={h.symbol}>
-            <div onClick={() => { setTerminalSymbol?.(h.symbol); setActiveTab?.("mterminal"); }}
+            <div onClick={() => { setTerminalSymbol?.(h.symbol); setActiveTab?.("mterminal"); }} {...clickableProps(() => { setTerminalSymbol?.(h.symbol); setActiveTab?.("mterminal"); })}
               style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 4px", borderBottom: isWhyOpen ? "none" : `1px solid ${C.border}`, cursor: "pointer" }}>
               <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: h.signal === "BUY" ? C.green : C.red, minWidth: 32 }}>{h.signal === "BUY" ? "🟢" : "🔴"}</span>
               <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent, minWidth: 55 }}>{h.symbol}</span>

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import RhProScanner from "./RhProScanner.jsx";
+import { clickableProps } from "./ui-helpers.js";
 import SmartScanTab from "./SmartScanTab.jsx";
 import MarketTerminalTab from "./MarketTerminalTab.jsx";
 
@@ -217,7 +218,7 @@ export default function ScanTerminalHub({
                 🧠 Ask Cortex
               </button>
             )}
-            <span style={{ color: C.accent, cursor: "pointer" }} onClick={() => setDetailOpen(v => !v)}>{detailOpen ? "▴ Hide" : "▾ Show"}</span>
+            <span style={{ color: C.accent, cursor: "pointer" }} onClick={() => setDetailOpen(v => !v)} {...clickableProps(() => setDetailOpen(v => !v))}>{detailOpen ? "▴ Hide" : "▾ Show"}</span>
           </span>
         </div>
         {detailOpen && (

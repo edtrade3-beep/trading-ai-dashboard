@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { NUM } from "./theme.js";
+import { clickableProps } from "./ui-helpers.js";
 import { PanelErrorBoundary } from "./ui-atoms.jsx";
 
 // FutureWalletTab.jsx — rebuilt 2026-08-19 (explicit user feedback: "dont
@@ -216,7 +217,7 @@ export default function FutureWalletTab({ C, MONO, SANS }) {
             const hasAgents = r.agents.length > 0;
             return (
               <div key={r.ticker} style={{ borderBottom: `1px solid ${C.border}` }}>
-                <div onClick={() => setExpanded(isOpen ? null : r.ticker)}
+                <div onClick={() => setExpanded(isOpen ? null : r.ticker)} {...clickableProps(() => setExpanded(isOpen ? null : r.ticker))}
                   style={{ display: "grid", gridTemplateColumns: "70px 1fr 140px 110px 100px 40px", gap: 8, padding: "10px 14px", cursor: "pointer", alignItems: "center", background: isOpen ? `${C.accent}08` : "transparent" }}>
                   <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.accent }}>{r.ticker}</span>
                   <span style={{ minWidth: 0 }}>

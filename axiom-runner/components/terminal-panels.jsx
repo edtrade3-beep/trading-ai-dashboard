@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { NUM } from "./theme.js";
+import { clickableProps } from "./ui-helpers.js";
 import { fetchSharedQuotes } from "./quote-store.js";
 import { computeRegime, computeAPlusScore, isUnifiedGo, STOCK_TO_SECTOR, SECTOR_ETFS, SCAN_UNIVERSE, computeFundamentalsRead, computeValuationVerdict } from "./market-helpers.js";
 import { computeTradeStats, MIN_TRADES_FOR_EDGE } from "./trading-utils.js";
@@ -1159,7 +1160,7 @@ export function BestOpportunities({ C, MONO, SANS, onPick, macroData, setActiveT
             const isWhyOpen = whyOpen === r.symbol;
             return (
               <div key={r.symbol} style={{ marginBottom: 8 }}>
-                <div onClick={() => onPick && onPick(r.symbol)}
+                <div onClick={() => onPick && onPick(r.symbol)} {...(onPick ? clickableProps(() => onPick(r.symbol)) : {})}
                   style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", padding: "11px 12px", cursor: "pointer", borderRadius: isWhyOpen ? "10px 10px 0 0" : 10, background: C.bg, border: `1px solid ${r._new ? "#7c5cff" : C.border}`, boxShadow: r._new ? "0 0 0 3px rgba(124,92,255,0.15)" : "none" }}>
                   <div style={{ fontFamily: NUM, fontSize: 26, fontWeight: 700, color: C.textDim, minWidth: 26 }}>{i + 1}</div>
                   <div style={{ flex: "1 1 180px", minWidth: 180 }}>

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { computeRegime, computeAPlusScore, STOCK_TO_SECTOR } from "./market-helpers.js";
+import { clickableProps } from "./ui-helpers.js";
 import {
   computeScores, computeGreenLight, computeDayTradeSignal, logTradeNote, addPaperTrade,
   addPaperOption, alpacaOption,
@@ -1404,7 +1405,7 @@ export default function GreenLightTab({ C, MONO, SANS, watchlistData, macroData,
             <button onClick={() => setCandOpen(null)} style={{ width: "100%", marginTop: -8, fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim, background: "transparent", border: "none", cursor: "pointer", padding: "2px 0" }}>▲ collapse</button>
           </div>
         ) : (
-          <div key={r.symbol} onClick={() => setCandOpen(r.symbol)} title="Click to expand full setup"
+          <div key={r.symbol} onClick={() => setCandOpen(r.symbol)} {...clickableProps(() => setCandOpen(r.symbol))} title="Click to expand full setup"
             style={{ padding: "6px 8px", borderRadius: 7, marginBottom: 5, cursor: "pointer", background: ok ? `${tint}12` : C.surface, border: `1px solid ${ok ? tint + "55" : C.border}` }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
               <div style={{ display: "flex", alignItems: "baseline", gap: 5, minWidth: 0, overflow: "hidden" }}>

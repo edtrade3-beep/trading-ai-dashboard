@@ -1,3 +1,5 @@
+import { clickableProps } from "./ui-helpers.js";
+
 export default function DpHeatmapTab({
   C, MONO, SANS, dpHeatData, setDpHeatData, dpLoad, setDpLoad, setTerminalSymbol, setActiveTab,
 }) {
@@ -30,7 +32,7 @@ export default function DpHeatmapTab({
                     const intensity = Math.min(1, s.value / Math.max(...dpHeatData.stocks.map(x=>x.value)));
                     const col = intensity > 0.7 ? C.accent : intensity > 0.4 ? C.green : "#4caf50";
                     return (
-                      <div key={i} onClick={() => { setTerminalSymbol(s.sym); try { localStorage.setItem("mterminal_load_sym", s.sym); } catch {} setActiveTab("mterminal"); }}
+                      <div key={i} onClick={() => { setTerminalSymbol(s.sym); try { localStorage.setItem("mterminal_load_sym", s.sym); } catch {} setActiveTab("mterminal"); }} {...clickableProps(() => { setTerminalSymbol(s.sym); try { localStorage.setItem("mterminal_load_sym", s.sym); } catch {} setActiveTab("mterminal"); })}
                         style={{ padding: "12px 14px", borderRadius: 8, cursor: "pointer",
                           background: `${col}${Math.round(intensity * 30).toString(16).padStart(2,"0")}`,
                           border: `1px solid ${col}${Math.round(intensity * 60).toString(16).padStart(2,"0")}` }}>

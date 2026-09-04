@@ -1,3 +1,5 @@
+import { clickableProps } from "./ui-helpers.js";
+
 export default function GapScanner({ C, MONO, SANS }) {
   const [stocks,      setStocks]      = React.useState([]);
   const [loading,     setLoading]     = React.useState(false);
@@ -181,7 +183,7 @@ export default function GapScanner({ C, MONO, SANS }) {
               { label: "SECTOR", key: null },
               { label: "SETUP",  key: null },
             ].map(({ label, key }) => (
-              <span key={label} className={key ? "gap-sort-btn" : ""} onClick={() => key && setSortBy(key)}
+              <span key={label} className={key ? "gap-sort-btn" : ""} onClick={() => key && setSortBy(key)} {...(key ? clickableProps(() => setSortBy(key)) : {})}
                 style={{ fontSize: 12, color: sortBy === key ? C.accent : C.textDim, letterSpacing: "0.1em", cursor: key ? "pointer" : "default" }}>
                 {label}{key && sortBy === key ? " ▲" : ""}
               </span>
@@ -207,7 +209,7 @@ export default function GapScanner({ C, MONO, SANS }) {
               const isSel  = selected === s.ticker;
               const sc     = SETUP_COLORS[s.setupType] || SETUP_COLORS["Gap Fill Risk"];
               return (
-                <div key={s.ticker} className={`gap-row ${fClass}`} onClick={() => setSelected(isSel ? null : s.ticker)}
+                <div key={s.ticker} className={`gap-row ${fClass}`} onClick={() => setSelected(isSel ? null : s.ticker)} {...clickableProps(() => setSelected(isSel ? null : s.ticker))}
                   style={{ display: "grid", gridTemplateColumns: "72px 66px 80px 72px 72px 60px 70px 80px 100px", padding: "9px 16px", borderBottom: `1px solid ${C.border}44`, background: isSel ? C.surface : "transparent", alignItems: "center" }}>
                   <div>
                     <div style={{ fontFamily: BEBAS, fontSize: 14, letterSpacing: "0.06em", color: C.text }}>{s.ticker}</div>

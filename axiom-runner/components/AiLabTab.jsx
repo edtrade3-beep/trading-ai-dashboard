@@ -1,3 +1,5 @@
+import { clickableProps } from "./ui-helpers.js";
+
 export default function AiLabTab({
   C, MONO, SANS,
   ailabSection, setAilabSection,
@@ -152,7 +154,7 @@ export default function AiLabTab({
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                   {checklistItems.map(item => (
-                    <div key={item.id} onClick={() => setChecklistItems(prev => prev.map(c => c.id === item.id ? { ...c, done: !c.done } : c))}
+                    <div key={item.id} onClick={() => setChecklistItems(prev => prev.map(c => c.id === item.id ? { ...c, done: !c.done } : c))} {...clickableProps(() => setChecklistItems(prev => prev.map(c => c.id === item.id ? { ...c, done: !c.done } : c)))}
                       style={{ ...card({ padding: "12px 16px" }), display: "flex", alignItems: "center", gap: 12, cursor: "pointer", borderLeft: `4px solid ${item.done ? C.green : C.border}`, opacity: item.done ? 0.85 : 1 }}>
                       <div style={{ width: 20, height: 20, borderRadius: 6, border: `2px solid ${item.done ? C.green : C.border}`, background: item.done ? C.green : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                         {item.done && <span style={{ color: "#fff", fontSize: 12, lineHeight: 1 }}>✓</span>}

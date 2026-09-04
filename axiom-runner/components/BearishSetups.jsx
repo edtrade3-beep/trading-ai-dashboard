@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { computeRegime } from "./market-helpers.js";
+import { clickableProps } from "./ui-helpers.js";
 
 // Best Bearish Setups Now — the real counterpart to BestOpportunities
 // (terminal-panels.jsx): "market is bullish -> what to buy" already had a
@@ -97,7 +98,7 @@ export function BearishSetups({ C, MONO, SANS, onPick, macroData, setActiveTab }
   };
 
   const Row = ({ r, dim }) => (
-    <div key={r.sym} onClick={() => onPick && onPick(r.sym)}
+    <div key={r.sym} onClick={() => onPick && onPick(r.sym)} {...(onPick ? clickableProps(() => onPick(r.sym)) : {})}
       style={{ marginBottom: 8, padding: "11px 12px", cursor: "pointer", borderRadius: 10,
         background: C.bg, border: `1px solid ${dim ? C.border : "#c8282a55"}`, opacity: dim ? 0.85 : 1 }}>
       <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>

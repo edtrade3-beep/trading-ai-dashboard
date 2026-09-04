@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { computeGreenLight, computeRvol } from "./trading-utils.js";
+import { clickableProps } from "./ui-helpers.js";
 import { smartScanZoneOf, exportSmartScanZonePDF } from "./smartscan-shared.js";
 import { FIVEX_REF } from "./fivex-data.js";
 import { computeAPlusScore, computeRegime, computePrediction } from "./market-helpers.js";
@@ -636,7 +637,7 @@ export default function SmartScanTab({
                             color: C.accent, background: `${C.accent}18`, border: `1px solid ${C.accent}44`,
                             borderRadius: 6, padding: "3px 8px", display: "flex", alignItems: "center", gap: 4 }}>
                             {sym}
-                            <span onClick={() => removeTicker(sym)}
+                            <span onClick={() => removeTicker(sym)} {...clickableProps(() => removeTicker(sym))} aria-label={`Remove ${sym}`}
                               style={{ cursor: "pointer", color: C.red, fontWeight: 900, fontSize: 12, lineHeight: 1 }}>
                               ×
                             </span>
@@ -2930,14 +2931,14 @@ export default function SmartScanTab({
                       </span>
                       <div style={{ display: "flex", gap: 5, flex: 1, flexWrap: "wrap" }}>
                         {h.topBuys.map(s => (
-                          <span key={s.ticker} onClick={() => { setTerminalSymbol(s.ticker); setActiveTab("smartscan"); }}
+                          <span key={s.ticker} onClick={() => { setTerminalSymbol(s.ticker); setActiveTab("smartscan"); }} {...clickableProps(() => { setTerminalSymbol(s.ticker); setActiveTab("smartscan"); })}
                             style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.green,
                               background: `${C.green}14`, borderRadius: 4, padding: "1px 6px", cursor: "pointer" }}>
                             🟢 {s.ticker} {s.score}
                           </span>
                         ))}
                         {h.topSells.map(s => (
-                          <span key={s.ticker} onClick={() => { setTerminalSymbol(s.ticker); setActiveTab("smartscan"); }}
+                          <span key={s.ticker} onClick={() => { setTerminalSymbol(s.ticker); setActiveTab("smartscan"); }} {...clickableProps(() => { setTerminalSymbol(s.ticker); setActiveTab("smartscan"); })}
                             style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.red,
                               background: `${C.red}12`, borderRadius: 4, padding: "1px 6px", cursor: "pointer" }}>
                             🔴 {s.ticker} {s.score}

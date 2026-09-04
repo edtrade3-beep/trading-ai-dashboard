@@ -26,6 +26,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { parseCarfaxText } from "./carfax-parse.js";
+import { clickableProps } from "./ui-helpers.js";
 
 const SECTION_COLOR = (C) => ({ STRONG: C.green, NORMAL: C.accent, WEAKENING: C.amber, HIGH_RISK: C.red });
 const SECTION_ICON = { STRONG: "🟢", NORMAL: "🟡", WEAKENING: "🟠", HIGH_RISK: "🔴" };
@@ -546,7 +547,7 @@ function DealerInfoTool({ C, MONO, SANS }) {
         {loading && <div style={{ fontSize: 12.5, color: C.textDim }}>Loading…</div>}
         {!loading && info && (
           <>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }} onClick={() => setOpen((o) => !o)}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }} onClick={() => setOpen((o) => !o)} {...clickableProps(() => setOpen((o) => !o))}>
               <div style={{ fontSize: 12.5, color: C.text }}>
                 <b>{info.name}</b> · {info.address} · {info.phone}
               </div>

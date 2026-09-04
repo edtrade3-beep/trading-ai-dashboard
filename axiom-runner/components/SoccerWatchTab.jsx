@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { clickableProps } from "./ui-helpers.js";
 
 function SoccerIPTVPlayer({ C, MONO, SANS }) {
   const videoRef    = React.useRef(null);
@@ -208,7 +209,7 @@ function SoccerIPTVPlayer({ C, MONO, SANS }) {
         )}
         {playerErr && (
           <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#c0392b", padding: "8px 14px", fontFamily: MONO, fontSize: 12, color: "#fff" }}>
-            ⚠ {playerErr} — <span style={{ cursor: "pointer", textDecoration: "underline" }} onClick={() => setPlayerErr(null)}>dismiss</span>
+            ⚠ {playerErr} — <span style={{ cursor: "pointer", textDecoration: "underline" }} onClick={() => setPlayerErr(null)} {...clickableProps(() => setPlayerErr(null))}>dismiss</span>
           </div>
         )}
         {activeName && !playerErr && (

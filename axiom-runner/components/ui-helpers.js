@@ -29,3 +29,24 @@ export function colorForChange(C, v) {
 export function formatPct(v) {
   return v == null ? "—" : (v > 0 ? "+" : "") + v.toFixed(2) + "%";
 }
+
+// Real keyboard-operability helper for a <div>/<span> that behaves like a
+// button but isn't a real <button> element (2026-09-04, Phase 0 audit
+// finding: WCAG 2.2 SC 2.1.1 — a mouse-only click target). Spread the
+// result onto the element alongside its existing onClick:
+//   <div onClick={handler} {...clickableProps(handler)}>
+// Never replaces onClick — this only adds the keyboard path (tab focus +
+// Enter/Space activation) on top of it. Pass the exact same handler
+// reference/expression already used for onClick.
+export function clickableProps(onActivate) {
+  return {
+    role: "button",
+    tabIndex: 0,
+    onKeyDown: (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        onActivate(e);
+      }
+    },
+  };
+}

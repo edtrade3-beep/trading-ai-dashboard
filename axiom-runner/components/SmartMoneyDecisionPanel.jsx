@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import RadialGauge from "./RadialGauge.jsx";
+import { clickableProps } from "./ui-helpers.js";
 import SmartMoneyPanel from "./SmartMoneyPanel.jsx";
 import { computeInstitutionalSummary, computeBestInstitutionalZone } from "./market-helpers.js";
 
@@ -211,7 +212,7 @@ export default function SmartMoneyDecisionPanel({ symbol, C, MONO, SANS, setActi
                 </div>
               </div>
             ) : (
-              <div onClick={() => setShowFullVerdict(true)} title="Click for confidence, bias, market control, win probability"
+              <div onClick={() => setShowFullVerdict(true)} {...clickableProps(() => setShowFullVerdict(true))} title="Click for confidence, bias, market control, win probability"
                 style={{ marginBottom: 14, border: `1px solid ${verdictColor}55`, borderRadius: 10, padding: "10px 16px", background: `${verdictColor}0d`, cursor: "pointer",
                   display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                 <span style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: verdictColor, display: "flex", alignItems: "center", gap: 6 }}>{verdictIcon}{verdictLabel}</span>

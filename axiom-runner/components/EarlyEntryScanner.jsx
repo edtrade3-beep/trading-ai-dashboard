@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { C, MONO, SANS } from "./theme.js";
+import { clickableProps } from "./ui-helpers.js";
 
 // ═══════════════════════════════════════════════════════════════
 // EARLY ENTRY SCANNER
@@ -320,7 +321,7 @@ Risk small and follow the stop.`
   };
 
   const SummaryCard = ({ label, value, sub, color, onClick }) => (
-    <div onClick={onClick} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 16px", cursor: onClick ? "pointer" : "default", minWidth: 130, flex: "1 1 130px" }}>
+    <div onClick={onClick} {...(onClick ? clickableProps(onClick) : {})} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 16px", cursor: onClick ? "pointer" : "default", minWidth: 130, flex: "1 1 130px" }}>
       <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.07em", marginBottom: 4 }}>{label}</div>
       <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 800, color: color || C.text, lineHeight: 1.1 }}>{value}</div>
       {sub && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginTop: 3 }}>{sub}</div>}

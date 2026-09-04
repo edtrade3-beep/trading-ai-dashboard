@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { C, MONO, SANS } from "./theme.js";
+import { clickableProps } from "./ui-helpers.js";
 import { computeScores } from "./trading-utils.js";
 import { STOCK_TO_SECTOR, computeRegime, computeAPlusScore } from "./market-helpers.js";
 import { FINAL_VERDICT_META } from "./final-decision-meta.js";
@@ -576,7 +577,7 @@ export default function TerminalWorkspace({
                 const qc = Number(q.changesPercentage || 0);
                 const [qs, qcol] = primaryVerdictFor(trendMap[q.symbol], regime);
                 return (
-                  <div key={q.symbol} onClick={() => onSelectSymbol(q.symbol)}
+                  <div key={q.symbol} onClick={() => onSelectSymbol(q.symbol)} {...clickableProps(() => onSelectSymbol(q.symbol))}
                     style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 0", borderBottom: `1px solid ${C.border}22`, cursor: "pointer" }}>
                     <div>
                       <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: q.symbol === selected.symbol ? C.accent : C.text }}>{q.symbol}</span>

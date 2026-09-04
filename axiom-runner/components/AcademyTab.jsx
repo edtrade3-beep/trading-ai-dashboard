@@ -1,3 +1,5 @@
+import { clickableProps } from "./ui-helpers.js";
+
 export default function AcademyTab({
   C, MONO, SANS, isTablet,
   activeLesson, setActiveLesson,
@@ -263,7 +265,7 @@ export default function AcademyTab({
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "1fr 1fr", gap: 12 }}>
                   {LESSONS.map(l => (
-                    <div key={l.id} onClick={() => setActiveLesson(l.id)}
+                    <div key={l.id} onClick={() => setActiveLesson(l.id)} {...clickableProps(() => setActiveLesson(l.id))}
                       style={{ background: C.card, border: `1px solid ${l.color}33`,
                         borderLeft: `4px solid ${l.color}`, borderRadius: 10,
                         padding: "16px 18px", cursor: "pointer",
