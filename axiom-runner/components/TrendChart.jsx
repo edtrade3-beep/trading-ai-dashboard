@@ -321,6 +321,26 @@ export default function TrendChart({ data, C, MONO, SANS, height, vcpOverlayOn }
       const dim = (b.close >= b.open ? C.green : C.red) + "66";
       return { ...base, color: dim, borderColor: dim, wickColor: dim };
     }));
+    // Real fix (2026-09-04, direct user screenshot: right-axis gridlines
+    // reading 400.00/0.00/-400.00 — the library's own default "nice round
+    // number" auto-scale steps evenly past the real data's actual low,
+    // landing on gridlines below zero for a series that can never be
+    // negative. autoscaleInfoProvider overrides that with the real bar
+    // high/low range (a real stock over a real ~10x run, like MU this
+    // year, needs real headroom — 5% padding, floored at 0, never a
+    // fabricated bound). Recomputed on every real data refresh alongside
+    // setData above, not just once at chart creation.
+    {
+      const highs = bars.map(b => b.high).filter(Number.isFinite);
+      const lows = bars.map(b => b.low).filter(Number.isFinite);
+      if (highs.length && lows.length) {
+        const maxV = Math.max(...highs), minV = Math.min(...lows);
+        const pad = (maxV - minV) * 0.05;
+        s.candle.applyOptions({
+          autoscaleInfoProvider: () => ({ priceRange: { minValue: Math.max(0, minV - pad), maxValue: maxV + pad } }),
+        });
+      }
+    }
     // Volume dry-up (2026-08-24, VCP Visual Analysis Layer) — bars inside
     // the real detected base (from vcp.points[0].i, the same real base-
     // start index the price-line/marker logic below already uses) get a
