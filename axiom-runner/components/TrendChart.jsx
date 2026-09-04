@@ -589,15 +589,19 @@ export default function TrendChart({ data, C, MONO, SANS, height, vcpOverlayOn }
     ["🚀 VCP BREAKOUT", "The real candle where price first closed above the VCP engine's own pivot on this chart's data — a different real signal from the green MA50-reclaim BUY arrow above."],
   ];
   return (
-    <div style={{ position: "relative", width: "100%", height: H }}>
-      <div ref={elRef} style={{ width: "100%", height: H }} />
+    <>
       {data && (
-        // Top-LEFT so it never collides with the right price axis or the AI-TARGET label.
-        // Fully opaque background (not ~95%) — the chart's horizontal price-
-        // level reference lines span the full width and were faintly visible
-        // through the card, crossing right through the rating text.
-        <div style={{ position: "absolute", top: 10, left: 12, pointerEvents: "none", zIndex: 5,
-          background: C.card || "#fff", border: `1px solid ${rColor}`, borderRadius: 12, padding: "8px 14px", boxShadow: "0 2px 10px rgba(0,0,0,0.18)", minWidth: 132 }}>
+        // Real positioning fix (2026-09-04, direct user report with a
+        // screenshot: this card sat position:absolute over the chart
+        // canvas — same "on top of" complaint already fixed once for
+        // MarketTerminalTab.jsx's own TrendRatingOverlay, this is a
+        // SEPARATE second implementation of the same real card that
+        // needed the identical fix). Rendered as its own normal-flow
+        // strip above the chart instead of floating over it — the
+        // chart's own height={H} sizing (used by lightweight-charts to
+        // size its canvas) is completely untouched below.
+        <div style={{ marginBottom: 8, display: "inline-block",
+          background: C.card || "#fff", border: `1px solid ${rColor}`, borderRadius: 12, padding: "8px 14px", boxShadow: "0 1px 4px rgba(0,0,0,0.10)", minWidth: 132 }}>
           {/* "OVERALL RATING" renamed (2026-07-29, real user-reported
               confusion) — read as THE single verdict, directly competing
               with the AI Score Card's own recommendation above even though
@@ -656,16 +660,20 @@ export default function TrendChart({ data, C, MONO, SANS, height, vcpOverlayOn }
           )}
         </div>
       )}
-      {/* Master technicals on/off — top-right, mirrors the top-left rating
-          card's corner so neither collides with the right price axis. */}
-      <button onClick={toggleTechnicals} title={showTechnicals ? "Hide MA/Bollinger/EMA/VWAP overlays" : "Show MA/Bollinger/EMA/VWAP overlays"}
-        style={{ position: "absolute", top: 10, right: 12, zIndex: 5, fontFamily: MONO, fontSize: 9.5, fontWeight: 800,
-          letterSpacing: 0.3, padding: "5px 10px", borderRadius: 8, cursor: "pointer",
-          background: showTechnicals ? (C.card || "#fff") : (C.accent || "#2563eb"),
-          color: showTechnicals ? (C.textDim || "#888") : "#fff",
-          border: `1px solid ${showTechnicals ? C.border : C.accent}`, boxShadow: "0 2px 10px rgba(0,0,0,0.18)" }}>
-        {showTechnicals ? "📈 TECHNICALS ON" : "📈 TECHNICALS OFF"}
-      </button>
-    </div>
+      <div style={{ position: "relative", width: "100%", height: H }}>
+        <div ref={elRef} style={{ width: "100%", height: H }} />
+        {/* Master technicals on/off — top-right corner of the chart itself
+            (this one genuinely doesn't collide with anything below it, a
+            single small pill, unlike the rating card above — left as-is). */}
+        <button onClick={toggleTechnicals} title={showTechnicals ? "Hide MA/Bollinger/EMA/VWAP overlays" : "Show MA/Bollinger/EMA/VWAP overlays"}
+          style={{ position: "absolute", top: 10, right: 12, zIndex: 5, fontFamily: MONO, fontSize: 9.5, fontWeight: 800,
+            letterSpacing: 0.3, padding: "5px 10px", borderRadius: 8, cursor: "pointer",
+            background: showTechnicals ? (C.card || "#fff") : (C.accent || "#2563eb"),
+            color: showTechnicals ? (C.textDim || "#888") : "#fff",
+            border: `1px solid ${showTechnicals ? C.border : C.accent}`, boxShadow: "0 2px 10px rgba(0,0,0,0.18)" }}>
+          {showTechnicals ? "📈 TECHNICALS ON" : "📈 TECHNICALS OFF"}
+        </button>
+      </div>
+    </>
   );
 }
