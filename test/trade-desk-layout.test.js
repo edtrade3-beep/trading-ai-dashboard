@@ -75,6 +75,14 @@ ok("TradeDeskTab.jsx's grid columns default to a distinct width at tablet width 
   assert.match(tradeDeskSrc, /isTablet\s*\?\s*220\s*:\s*280/);
 });
 
+console.log("\nChecking news-feed consolidation phase 1 (RegimeNewsPanel retirement)…");
+ok("axiom-live.jsx no longer imports the retired, unmounted RegimeNewsPanel", () => {
+  assert.doesNotMatch(axiomLiveSrc, /RegimeNewsPanel/);
+});
+ok("RegimeNewsPanel.jsx has been deleted", () => {
+  assert.ok(!fs.existsSync(path.join(__dirname, "..", "axiom-runner", "components", "RegimeNewsPanel.jsx")));
+});
+
 console.log(`\n${passed} checks passed.`);
 if (process.exitCode) console.error("TRADE-DESK-LAYOUT TEST FAILED");
 else console.log("TRADE-DESK-LAYOUT TEST OK");

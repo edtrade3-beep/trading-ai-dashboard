@@ -116,7 +116,6 @@ import MacroEventsWidget from "./components/MacroEventsWidget.jsx";
 import RiskTrafficLight from "./components/RiskTrafficLight.jsx";
 import FedWatchWidget from "./components/FedWatchWidget.jsx";
 import FedInterpreter from "./components/FedInterpreter.jsx";
-import RegimeNewsPanel from "./components/RegimeNewsPanel.jsx";
 import PriorityAlertsCard from "./components/PriorityAlertsCard.jsx";
 import PortfolioRiskCard from "./components/PortfolioRiskCard.jsx";
 import TradingLessonCard from "./components/TradingLessonCard.jsx";
