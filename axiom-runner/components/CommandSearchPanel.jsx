@@ -120,7 +120,7 @@ export function KeyLevelsCard({ chart, C, MONO, SANS }) {
     </div>
   );
   return (
-    <div style={{ padding: "0 10px 10px", borderBottom: `1px solid ${C.border}`, marginBottom: 4 }}>
+    <div style={{ padding: "0 10px 14px", borderBottom: `1px solid ${C.border}`, marginBottom: 10 }}>
       <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: 0.6, marginBottom: 6 }}>📐 KEY LEVELS</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
         {resistance.map((v, i) => ({ v, label: `R${i + 1}` })).reverse().map(({ v, label }) => row(label, v, "#8b5cf6"))}
@@ -288,7 +288,7 @@ export default function CommandSearchPanel({ symbol, onSelectSymbol, onOpenDaytr
       {data && (() => {
         const top = pickTopOpportunities(tiers, 3);
         return (
-          <div style={{ padding: "0 10px 10px", borderBottom: `1px solid ${C.border}`, marginBottom: 4 }}>
+          <div style={{ padding: "10px 10px", borderBottom: `1px solid ${C.border}`, marginBottom: 4 }}>
             <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: 0.6, marginBottom: 6 }}>
               {top.length ? `🔭 I FOUND ${top.length} OPPORTUNIT${top.length === 1 ? "Y" : "IES"}` : "🔭 OPPORTUNITIES"}
             </div>
