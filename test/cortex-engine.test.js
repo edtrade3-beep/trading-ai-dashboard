@@ -14,7 +14,7 @@ let passed = 0;
 function ok(name, fn) { try { fn(); passed++; console.log(`  ✓ ${name}`); } catch (e) { console.error(`  ✗ ${name}\n    ${e.message}`); process.exitCode = 1; } }
 
 (async () => {
-  const { computeHeatRisk, computeCortexVerdict } = await import("../axiom-runner/components/cortex-engine.js");
+  const { computeHeatRisk, computeCortexVerdict, parseCortexQuery } = await import("../axiom-runner/components/cortex-engine.js");
 
   console.log("Checking computeHeatRisk — real antiChase-band-driven chase risk (regression, 2026-08-26)…");
 
@@ -105,6 +105,49 @@ function ok(name, fn) { try { fn(); passed++; console.log(`  ✓ ${name}`); } ca
   ok("a non-broken entryPlanStage / non-bearish dailyBias never forces AVOID on its own", () => {
     const r = computeCortexVerdict({ sniper: { action: "ENTER_LONG" }, heat: { state: "HEALTHY_STRENGTH" }, aplusScore: 90, entryPlanStage: "CONFIRMED_UPTREND", dailyBias: "BULLISH" });
     assert.strictEqual(r.verdict, "BUY ZONE");
+  });
+
+  console.log("Checking parseCortexQuery — real bare-ticker search vs. sentence-context symbol extraction (2026-09-05)…");
+
+  const knownSymbols = new Set(["AAPL", "NVDA"]); // deliberately NOT including MARA/BTBT, matching the real reported bug
+
+  ok("regression: a real bare ticker NOT in the curated knownSymbols set (e.g. MARA) still resolves to intent:symbol", () => {
+    const r = parseCortexQuery("MARA", knownSymbols);
+    assert.strictEqual(r.intent, "symbol");
+    assert.strictEqual(r.symbol, "MARA");
+  });
+
+  ok("regression: same fix for BTBT, and case-insensitive input", () => {
+    const r = parseCortexQuery("btbt", knownSymbols);
+    assert.strictEqual(r.intent, "symbol");
+    assert.strictEqual(r.symbol, "BTBT");
+  });
+
+  ok("a bare ticker search still works with trailing punctuation (a real user habit, e.g. \"MARA?\")", () => {
+    const r = parseCortexQuery("MARA?", knownSymbols);
+    assert.strictEqual(r.intent, "symbol");
+    assert.strictEqual(r.symbol, "MARA");
+  });
+
+  ok("a real known symbol in the curated set still works as a bare search (unchanged)", () => {
+    const r = parseCortexQuery("NVDA", knownSymbols);
+    assert.strictEqual(r.intent, "symbol");
+    assert.strictEqual(r.symbol, "NVDA");
+  });
+
+  ok("regression guard: the original 'MAKE' sentence-context false positive this filter exists for is still prevented", () => {
+    const r = parseCortexQuery("what would MAKE it a buy?", knownSymbols);
+    assert.notStrictEqual(r.symbol, "MAKE");
+  });
+
+  ok("a real multi-word query naming an unknown ticker still honestly falls through (sentence context still requires the curated set)", () => {
+    const r = parseCortexQuery("why is MARA moving today", knownSymbols);
+    assert.strictEqual(r.intent, "unknown");
+  });
+
+  ok("a bare query that's just a real stopword (e.g. \"BUY\") is never treated as a ticker", () => {
+    const r = parseCortexQuery("BUY", knownSymbols);
+    assert.notStrictEqual(r.intent, "symbol");
   });
 
   console.log(`\n${passed} checks passed.`);

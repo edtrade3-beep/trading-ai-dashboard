@@ -44,13 +44,26 @@ const STOPWORDS = new Set([
 function extractSymbols(q, knownSymbols) {
   const tokens = (q.toUpperCase().match(/\b[A-Z]{1,5}\b/g) || []).filter((t) => !STOPWORDS.has(t));
   if (!knownSymbols) return tokens;
-  // Real, known tickers ONLY when a real knownSymbols set was supplied —
-  // never fall back to unvalidated raw tokens (Cortex Follow-Up Memory
-  // fix, 2026-08-23: this used to return every non-stopword all-caps
-  // token when none matched a real symbol, so a genuine follow-up like
-  // "what would MAKE it a buy?" silently misfired as intent:"symbol"
-  // with a bogus ticker "MAKE" instead of correctly falling through to
-  // "unknown" — the exact case Follow-Up Memory exists to handle).
+  // Real fix (2026-09-05, user report: "some stocks i can not search for
+  // it like mara. btbt" — real, live, tradable tickers, just absent from
+  // the curated knownSymbols set (RH_UNIVERSE ∪ watchlist), so a bare
+  // search for them silently fell through to intent:"unknown" even
+  // though real quote/decision data exists for both). A query that is
+  // JUST one bare ticker-shaped token — nothing else typed — can never
+  // collide with the sentence-context false positive this filter exists
+  // to prevent (see the "MAKE" case below): there's no surrounding
+  // sentence to misparse, so it's trusted directly rather than requiring
+  // it be in the curated set.
+  const bareMatch = q.trim().toUpperCase().match(/^([A-Z]{1,5})[?.!]?$/);
+  if (bareMatch && !STOPWORDS.has(bareMatch[1])) return [bareMatch[1]];
+  // Real, known tickers ONLY once real sentence context is present —
+  // never fall back to unvalidated raw tokens there (Cortex Follow-Up
+  // Memory fix, 2026-08-23: this used to return every non-stopword
+  // all-caps token when none matched a real symbol, so a genuine
+  // follow-up like "what would MAKE it a buy?" silently misfired as
+  // intent:"symbol" with a bogus ticker "MAKE" instead of correctly
+  // falling through to "unknown" — the exact case Follow-Up Memory
+  // exists to handle).
   return tokens.filter((t) => knownSymbols.has(t));
 }
 
