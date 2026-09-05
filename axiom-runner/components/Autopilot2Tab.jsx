@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { sectionLabelStyle } from "./ui-atoms.jsx";
 
 // ADOL22 Autopilot 2.0 — Command Center. A real internal $100k simulated
 // paper account (src/autopilot2-account.js) run by a real autonomous
@@ -107,7 +108,7 @@ function CryptoWatch({ C, MONO, SANS }) {
   return (
     <div style={{ padding: "14px 16px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 12 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
-        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: 0.5 }}>
+        <div style={sectionLabelStyle()}>
           CRYPTO WATCH — scanned unconditionally, 24/7, every 5 min
         </div>
         {rows && (
@@ -203,7 +204,7 @@ function StockWatch({ C, MONO, SANS }) {
   return (
     <div style={{ padding: "14px 16px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 12 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
-        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: 0.5 }}>
+        <div style={sectionLabelStyle()}>
           STOCK WATCH — same real Opportunity Engine scan Autopilot 2.0 trades off, market hours only, long only
         </div>
         {all && (
@@ -284,7 +285,7 @@ function BacktestSection({ C, MONO, SANS }) {
     <div style={{ padding: "14px 16px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 12 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 10, flexWrap: "wrap" }}>
         <div>
-          <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 3 }}>BACKTEST — DOES THIS ENGINE ACTUALLY HAVE AN EDGE?</div>
+          <div style={sectionLabelStyle({ marginBottom: 3 })}>BACKTEST — DOES THIS ENGINE ACTUALLY HAVE AN EDGE?</div>
           <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.textDim, maxWidth: 480 }}>
             Real historical replay of this exact entry engine (long stock only) against 15 real symbols. Not a live trade, not a guarantee — a real, honest read of what this engine's real logic would have done.
           </div>
@@ -524,7 +525,7 @@ export default function Autopilot2Tab({ C, MONO, SANS }) {
 
       {/* Best opportunity */}
       <div style={{ padding: "14px 16px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 12 }}>
-        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 8 }}>BEST OPPORTUNITY RIGHT NOW</div>
+        <div style={sectionLabelStyle({ marginBottom: 8 })}>BEST OPPORTUNITY RIGHT NOW</div>
         {best ? (
           <div style={{ display: "flex", gap: 20, rowGap: 8, flexWrap: "wrap", alignItems: "baseline" }}>
             <span style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: C.accent }}>{best.symbol}</span>
@@ -555,7 +556,7 @@ export default function Autopilot2Tab({ C, MONO, SANS }) {
 
       {/* Open positions */}
       <div style={{ padding: "14px 16px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 12 }}>
-        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 8 }}>OPEN POSITIONS</div>
+        <div style={sectionLabelStyle({ marginBottom: 8 })}>OPEN POSITIONS</div>
         {acct.openPositions?.length ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {acct.openPositions.map(p => (
@@ -592,7 +593,7 @@ export default function Autopilot2Tab({ C, MONO, SANS }) {
 
       {/* Activity feed */}
       <div style={{ padding: "14px 16px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 12 }}>
-        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 8 }}>AUTOPILOT ACTIVITY</div>
+        <div style={sectionLabelStyle({ marginBottom: 8 })}>AUTOPILOT ACTIVITY</div>
         {data.activity?.length ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 4, maxHeight: 320, overflowY: "auto" }}>
             {data.activity.map((a, i) => {
@@ -617,7 +618,7 @@ export default function Autopilot2Tab({ C, MONO, SANS }) {
           src/missed-opportunity-tracker.js. Observability only — never
           feeds back into the entry decision. */}
       <div style={{ padding: "14px 16px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 12 }}>
-        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 8 }}>MISSED OPPORTUNITIES — WHAT SKIPPED TRADES DID AFTERWARD</div>
+        <div style={sectionLabelStyle({ marginBottom: 8 })}>MISSED OPPORTUNITIES — WHAT SKIPPED TRADES DID AFTERWARD</div>
         {missed?.available ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>

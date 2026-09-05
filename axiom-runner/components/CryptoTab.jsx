@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { sectionLabelStyle } from "./ui-atoms.jsx";
 import TrendChart from "./TrendChart.jsx";
 
 // ─── CryptoScanTrade — real scan + chart + paper buy/sell ───────────────────
@@ -25,7 +26,7 @@ const toAlpacaSymbol = (yahooSym) => yahooSym.replace("-", "/");
 const coinOf = (yahooSym) => yahooSym.split("-")[0];
 
 function CryptoScanTrade({ C, MONO, SANS }) {
-  const sectionLabel = { fontFamily: MONO, fontSize: 10.5, fontWeight: 700, color: C.textDim, letterSpacing: "0.09em", textTransform: "uppercase" };
+  const sectionLabel = sectionLabelStyle({ textTransform: "uppercase" });
   const neutralCard = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 8 };
   const num = { fontVariantNumeric: "tabular-nums" };
 
@@ -769,7 +770,7 @@ function CryptoNews({ C, MONO, SANS }) {
       .finally(() => setLoading(false));
   }, []);
 
-  const card = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.08)" };
+  const card = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden", boxShadow: C.shadow };
 
   return (
     <div style={card}>

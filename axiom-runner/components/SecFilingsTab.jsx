@@ -20,7 +20,7 @@ export default function SecFilingsTab({ C, MONO, SANS, watchlistSymbols }) {
 
   useEffect(() => { load(symbol); }, [symbol]);
 
-  const card = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.08)" };
+  const card = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden", boxShadow: C.shadow };
   const typeColor = (t) => {
     if (t === "4") return C.amber;
     if (t === "8-K") return C.accent;

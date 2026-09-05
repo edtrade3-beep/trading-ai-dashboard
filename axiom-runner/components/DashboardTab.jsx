@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { fetchSharedQuotes } from "./quote-store.js";
 import { clickableProps } from "./ui-helpers.js";
+import { sectionLabelStyle } from "./ui-atoms.jsx";
 import MonitorSection from "./MonitorSection.jsx";
 import FedInterpreter from "./FedInterpreter.jsx";
 import FedWatchWidget from "./FedWatchWidget.jsx";
@@ -43,7 +44,7 @@ export function Card({ C, title, children, style, accent }) {
       ...(accent ? { borderTop: `2px solid ${accent}` } : {}),
       ...style,
     }}>
-      {title && <div style={{ fontFamily: "inherit", fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 10 }}>{title}</div>}
+      {title && <div style={sectionLabelStyle({ fontFamily: "inherit", marginBottom: 10 })}>{title}</div>}
       {children}
     </div>
   );
@@ -143,7 +144,7 @@ function MarketRegimeCard({ C, MONO, SANS, macroData, distData, factors, bias, b
         </div>
       )}
       <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "2px 0 10px" }}>
-        <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: "0.08em", whiteSpace: "nowrap" }}>SUPPORTING DETAIL</div>
+        <div style={sectionLabelStyle({ whiteSpace: "nowrap" })}>SUPPORTING DETAIL</div>
         <div style={{ flex: 1, height: 1, background: C.border }} />
       </div>
       <RadialGauge C={C} MONO={MONO} value={regime.score} label={regLabel} sublabel="regime score" color={regColor} />
@@ -476,14 +477,14 @@ export function MarketPulseCard({ C, MONO, SANS, rotationRank, flowBias, flowCal
       <Card C={C} title="🔄 MOMENTUM LEADERS" accent={C.accent}>
         {rr.length > 0 ? (
           <>
-            <div style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 800, color: C.textDim, letterSpacing: "0.05em", marginBottom: 4 }}>LEADERS</div>
+            <div style={sectionLabelStyle({ marginBottom: 4 })}>LEADERS</div>
             {leaders.length ? leaders.map(q => (
               <div key={q.symbol} onClick={() => goToChart(q.symbol)} {...clickableProps(() => goToChart(q.symbol))} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", cursor: "pointer" }}>
                 <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>{q.symbol}</span>
                 <span style={{ fontFamily: MONO, fontSize: 12, color: C.green }}>+{q.relVsSpy.toFixed(2)}%</span>
               </div>
             )) : <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>None ≥1% vs SPY today</div>}
-            <div style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 800, color: C.textDim, letterSpacing: "0.05em", margin: "8px 0 4px" }}>LAGGARDS</div>
+            <div style={sectionLabelStyle({ margin: "8px 0 4px" })}>LAGGARDS</div>
             {laggers.map(q => (
               <div key={q.symbol} onClick={() => goToChart(q.symbol)} {...clickableProps(() => goToChart(q.symbol))} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", cursor: "pointer" }}>
                 <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>{q.symbol}</span>
