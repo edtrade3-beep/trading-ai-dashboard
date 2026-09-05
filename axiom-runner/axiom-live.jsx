@@ -4000,12 +4000,26 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [watchlistSymbols, themeMode]);
 
+  // Real fix (2026-09-05, user report: "in discover works to search but
+  // not working in trade desk," reproduced with a screenshot — searching
+  // a real symbol not on the watchlist, e.g. MARA, silently reverted
+  // back to the previous symbol). This effect's real intent is narrow:
+  // if the user's WATCHLIST changes and the symbol currently being
+  // viewed was just removed from it, fall back to a real remaining
+  // watchlist symbol instead of showing a now-dangling one. Depending on
+  // `terminalSymbol` too made it re-run on EVERY symbol change, not just
+  // watchlist edits — so any explicit search for a real, valid symbol
+  // that simply isn't on the watchlist (Trade Desk's own free-text
+  // search, CommandSearchPanel.jsx, has no such restriction) got
+  // silently reverted the instant it was set, via TradeDeskTab.jsx's own
+  // terminalSymbol-follows re-sync effect. Now only re-validates when
+  // the watchlist itself actually changes.
   useEffect(() => {
     if (!watchlistSymbols.length) return;
     if (!watchlistSymbols.includes(terminalSymbol)) {
       setTerminalSymbol(watchlistSymbols[0]);
     }
-  }, [watchlistSymbols, terminalSymbol]);
+  }, [watchlistSymbols]);
 
   useEffect(() => {
     if (!watchlistSymbols.length) return;
