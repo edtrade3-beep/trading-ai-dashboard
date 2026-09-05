@@ -10,7 +10,7 @@ const { normalizeBatch } = require("./normalizer");
 const { dedupeBatch } = require("./dedupe");
 const { classifyCatalyst } = require("./classifier");
 const { classifySentiment } = require("./sentiment");
-const { computeImpactScore, deriveVerdict, deriveNewsSignal } = require("./scorer");
+const { computeImpactScore, deriveVerdict, deriveNewsSignal, computeAssetImpact } = require("./scorer");
 const { confirmationFromRow, fetchConfirmationRows } = require("./confirmation");
 const { insertNewsItems, isReady, pruneOld } = require("./store");
 
@@ -72,6 +72,18 @@ async function runIngestionTick() {
     raw = raw.concat(marketRaw.map((item) => ({ ...item, ticker: "MARKET" })));
   } catch { /* best-effort secondary leg */ }
 
+  // Broader source coverage (News Intelligence Engine V1, 2026-09-05, see
+  // .claude/plans/proud-yawning-unicorn.md) — real, live, $0/keyless RSS
+  // feeds beyond the Finnhub/Polygon/Yahoo/Google chain above. Same
+  // "MARKET"-tagged, best-effort, never-blocks-the-primary-leg treatment
+  // as the SPY/QQQ/DIA leg just above — a source outage here never
+  // affects per-ticker news at all.
+  try {
+    const { fetchFedPressReleases, fetchMarketWatchTopStories } = require("../providers/global-market-rss");
+    const [fedRaw, mwRaw] = await Promise.all([fetchFedPressReleases(15), fetchMarketWatchTopStories(15)]);
+    raw = raw.concat([...fedRaw, ...mwRaw].map((item) => ({ ...item, ticker: "MARKET" })));
+  } catch { /* best-effort tertiary leg */ }
+
   const normalized = normalizeBatch(raw);
   const deduped = dedupeBatch(normalized);
   if (!deduped.length) {
@@ -88,10 +100,14 @@ async function runIngestionTick() {
   });
 
   const uniqueTickers = [...new Set(classified.map((i) => i.ticker))];
-  const { rowsBySymbol, spyChg } = await fetchConfirmationRows(uniqueTickers).catch(() => ({ rowsBySymbol: {}, spyChg: null }));
+  const { rowsBySymbol, spyChg, qqqChg } = await fetchConfirmationRows(uniqueTickers).catch(() => ({ rowsBySymbol: {}, spyChg: null, qqqChg: null }));
 
   const enriched = classified.map((item) => {
-    const confirmation = confirmationFromRow(rowsBySymbol[item.ticker], spyChg, item.sentiment);
+    const confirmation = confirmationFromRow(rowsBySymbol[item.ticker], spyChg, item.sentiment, qqqChg);
+    // Multi-asset verdict (News Intelligence Engine V1, 2026-09-05) —
+    // nested into the existing confirmation JSONB field rather than a
+    // new top-level column, so no schema migration is needed.
+    confirmation.assetImpact = computeAssetImpact({ ticker: item.ticker, sentiment: item.sentiment, confirmation });
     const impact = computeImpactScore(item, confirmation);
     const verdict = deriveVerdict({ sentiment: item.sentiment, impactScore: impact.impactScore, confirmation });
     const newsSignal = deriveNewsSignal({ sentiment: item.sentiment, confirmation });

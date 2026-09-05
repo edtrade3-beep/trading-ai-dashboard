@@ -27,6 +27,7 @@ import OptionsStrategyRankPanel from "./OptionsStrategyRankPanel.jsx";
 import MarketContextCard from "./MarketContextCard.jsx";
 import ExtendedHoursMovers from "./ExtendedHoursMovers.jsx";
 import CanonicalVerdictStrip from "./CanonicalVerdictStrip.jsx";
+import MarketNowStrip from "./MarketNowStrip.jsx";
 import TradeDeskEvidence from "./TradeDeskEvidence.jsx";
 import TradeGpsCard from "./TradeGpsCard.jsx";
 import TradeGpsWhyPanel from "./TradeGpsWhyPanel.jsx";
@@ -798,6 +799,7 @@ export default function TradeDeskTab({
           </button>
         </div>
 
+        <MarketNowStrip onOpen={() => openTickerTab("news")} C={TD} MONO={MONO} SANS={SANS} />
         <CanonicalVerdictStrip decision={canonicalDecision} loading={decisionLoading} error={decisionError} C={TD} MONO={MONO} SANS={SANS} />
         <TradeGpsCard
           symbol={symbol} decision={canonicalDecision} loading={decisionLoading}

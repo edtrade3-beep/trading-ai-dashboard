@@ -12,7 +12,35 @@
 // every other composite score in this codebase.
 "use strict";
 
+const { etfOf } = require("../sector-theme-map");
+
 const WEIGHTS = { catalyst: 0.35, freshness: 0.20, source: 0.15, sentiment: 0.15, confirmation: 0.15 };
+
+// Multi-asset verdict (News Intelligence Engine V1, 2026-09-05, spec
+// §10/11 — "do NOT assign one universal bullish/bearish verdict"). A
+// small, real per-asset directional read derived from the item's own
+// already-computed sentiment tier and its confirmation's divergence
+// flag (confirmation.js's detectNewsDivergence) — no new quote fetch, no
+// second scoring formula. Broad "MARKET"-tagged items (no real single
+// ticker) skip the ticker/sector-ETF rows and report SPY/QQQ only.
+function computeAssetImpact({ ticker, sentiment, confirmation }) {
+  const bullish = sentiment === "BULLISH" || sentiment === "STRONGLY_BULLISH";
+  const bearish = sentiment === "BEARISH" || sentiment === "STRONGLY_BEARISH";
+  const direction = bullish ? "BULLISH" : bearish ? "BEARISH" : "NEUTRAL";
+  const diverged = confirmation && confirmation.divergence === "NEWS_PRICE_DIVERGENCE";
+  const marketDirection = diverged ? "MIXED" : direction;
+  const marketNote = diverged ? "Real price action (SPY/QQQ) diverges from this headline's sentiment read — see divergenceReason." : null;
+
+  const assets = [];
+  if (ticker && ticker !== "MARKET") {
+    assets.push({ symbol: ticker, direction, note: null });
+    const etf = etfOf(ticker);
+    if (etf) assets.push({ symbol: etf, direction, note: `Sector proxy for ${ticker}.` });
+  }
+  assets.push({ symbol: "SPY", direction: marketDirection, note: marketNote });
+  assets.push({ symbol: "QQQ", direction: marketDirection, note: marketNote });
+  return assets;
+}
 
 // Small, real, static credibility table — not a claim about editorial
 // quality, just a rough real-world reach/reliability ranking used
@@ -125,4 +153,4 @@ function deriveNewsSignal({ sentiment, confirmation }) {
   return "DEVELOPING";
 }
 
-module.exports = { computeImpactScore, freshnessScore, sourceCredibility, impactClassification, deriveVerdict, deriveNewsSignal };
+module.exports = { computeImpactScore, freshnessScore, sourceCredibility, impactClassification, deriveVerdict, deriveNewsSignal, computeAssetImpact };

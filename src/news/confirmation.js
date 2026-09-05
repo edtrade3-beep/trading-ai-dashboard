@@ -14,9 +14,37 @@
 // re-scoring one item on demand).
 "use strict";
 
-function confirmationFromRow(row, spyChg, sentimentTier) {
+// News/price divergence (News Intelligence Engine V1, 2026-09-05, spec
+// §12/13 — "News Verdict vs Market Confirmation" / "Contradiction
+// Engine"). Same reasoning src/market-context-engine.js's
+// detectDivergence already applies to a Fed-signal-vs-price comparison
+// (bothUp/bothDown against a directional read) — NOT a literal call into
+// that function, since its input is a specific `fedSignal` enum, not a
+// news sentiment tier; this is the same pattern applied to news
+// sentiment vs. SPY/QQQ instead of Fed signal vs. SPY/QQQ. A neutral-
+// sentiment item has no directional read to compare, so it's honestly
+// NOT_APPLICABLE rather than forced into ALIGNED/divergent.
+function detectNewsDivergence({ sentimentTier, spyChg, qqqChg }) {
+  const bullish = sentimentTier === "BULLISH" || sentimentTier === "STRONGLY_BULLISH";
+  const bearish = sentimentTier === "BEARISH" || sentimentTier === "STRONGLY_BEARISH";
+  if (!bullish && !bearish) return { divergence: "NOT_APPLICABLE", reason: "Sentiment is neutral — no directional read to compare against real price action." };
+  if (!Number.isFinite(spyChg) || !Number.isFinite(qqqChg)) return { divergence: "UNKNOWN", reason: "Real SPY/QQQ data unavailable right now." };
+
+  const bothUp = spyChg > 0.15 && qqqChg > 0.15;
+  const bothDown = spyChg < -0.15 && qqqChg < -0.15;
+  if (bearish && bothUp) {
+    return { divergence: "NEWS_PRICE_DIVERGENCE", reason: "Bearish-read headline, but SPY and QQQ are both real up right now — the market may already be pricing this in, or a stronger factor is dominating. Not a confirmed bearish move." };
+  }
+  if (bullish && bothDown) {
+    return { divergence: "NEWS_PRICE_DIVERGENCE", reason: "Bullish-read headline, but SPY and QQQ are both real down right now — the market isn't confirming this catalyst." };
+  }
+  return { divergence: "ALIGNED", reason: "Market direction is consistent with this headline's real sentiment read." };
+}
+
+function confirmationFromRow(row, spyChg, sentimentTier, qqqChg) {
+  const divergence = detectNewsDivergence({ sentimentTier, spyChg, qqqChg });
   if (!row) {
-    return { available: false, confirmed: null, reasons: ["Real intraday VWAP/RVOL data unavailable for this ticker right now."] };
+    return { available: false, confirmed: null, divergence: divergence.divergence, divergenceReason: divergence.reason, reasons: ["Real intraday VWAP/RVOL data unavailable for this ticker right now."] };
   }
   const priceDir = Number(row.chg) > 0 ? "up" : Number(row.chg) < 0 ? "down" : "flat";
   const rvol = Number.isFinite(Number(row.rvol)) ? Number(row.rvol) : null;
@@ -36,12 +64,15 @@ function confirmationFromRow(row, spyChg, sentimentTier) {
   } else {
     reasons.push("Sentiment is neutral — no directional read to confirm against.");
   }
+  if (divergence.divergence === "NEWS_PRICE_DIVERGENCE") reasons.push(divergence.reason);
 
-  return { available: true, confirmed, priceDir, volumeStrong, aboveVwap, marketSupportive, rvol, reasons };
+  return { available: true, confirmed, priceDir, volumeStrong, aboveVwap, marketSupportive, rvol, divergence: divergence.divergence, divergenceReason: divergence.reason, reasons };
 }
 
 // One real batched fetch for every unique ticker in a news batch, not one
-// fetch per headline.
+// fetch per headline. Fetches QQQ alongside SPY (News Intelligence
+// Engine V1, 2026-09-05) in the SAME batched fetchMarketQuotes call —
+// one more symbol, not a new fetch — for the divergence check above.
 async function fetchConfirmationRows(tickers) {
   const { fetchDayTradeScanRows, fetchMarketQuotes } = require("../routes/market");
   const { resolveProviderKeys } = require("../config");
@@ -49,22 +80,25 @@ async function fetchConfirmationRows(tickers) {
 
   let rowsBySymbol = {};
   let spyChg = null;
+  let qqqChg = null;
   try {
     const { rows } = await fetchDayTradeScanRows(tickers);
     for (const r of rows || []) rowsBySymbol[r.symbol] = r;
   } catch { /* honest-empty below */ }
   try {
-    const quotes = await fetchMarketQuotes(["SPY"], keys);
-    const spy = (quotes || [])[0];
+    const quotes = await fetchMarketQuotes(["SPY", "QQQ"], keys);
+    const spy = (quotes || []).find((q) => String(q.symbol).toUpperCase() === "SPY");
+    const qqq = (quotes || []).find((q) => String(q.symbol).toUpperCase() === "QQQ");
     if (spy) spyChg = Number(spy.changesPercentage ?? spy.delta1d ?? 0);
+    if (qqq) qqqChg = Number(qqq.changesPercentage ?? qqq.delta1d ?? 0);
   } catch { /* honest-null below */ }
 
-  return { rowsBySymbol, spyChg };
+  return { rowsBySymbol, spyChg, qqqChg };
 }
 
 async function computeConfirmation(ticker, sentimentTier) {
-  const { rowsBySymbol, spyChg } = await fetchConfirmationRows([ticker]);
-  return confirmationFromRow(rowsBySymbol[ticker], spyChg, sentimentTier);
+  const { rowsBySymbol, spyChg, qqqChg } = await fetchConfirmationRows([ticker]);
+  return confirmationFromRow(rowsBySymbol[ticker], spyChg, sentimentTier, qqqChg);
 }
 
-module.exports = { computeConfirmation, confirmationFromRow, fetchConfirmationRows };
+module.exports = { computeConfirmation, confirmationFromRow, fetchConfirmationRows, detectNewsDivergence };
