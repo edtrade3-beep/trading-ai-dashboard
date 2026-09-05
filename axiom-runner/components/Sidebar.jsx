@@ -39,6 +39,15 @@ export const SIDEBAR_ITEMS = [
   // 2026-07-29 PORTFOLIO/SCANNER repoint.
   { id: "dashboard", label: "Market", icon: "🏠", tab: "dashboard" },
 
+  // Crypto — restored to the rail (2026-09-05, explicit user request: "add
+  // crypto to tabs"), reversing the 2026-08-09 decision that dropped it as
+  // "a distinct vertical, not one of the core trading-workflow questions."
+  // Same real component/data as before (activeTab "crypto") — it never
+  // moved, it just had no permanent row; the existing CRYPTO command-
+  // palette alias still works too, now redundant with this row the same
+  // way every other sidebar tab's alias is.
+  { id: "crypto", label: "Crypto", icon: "🪙", tab: "crypto" },
+
   // Trade Navigator dropped from the rail (2026-09-05 nav consolidation).
   // TradeNavigatorTab.jsx (activeTab "trade-navigator") is fully untouched
   // — one keystroke away via the new NAVIGATOR command-palette alias.
