@@ -88,6 +88,13 @@ ok("axiom-live.jsx's news sentiment effect no longer calls the unauthorized-scra
 ok("axiom-live.jsx's news sentiment effect reads the real classified pipeline's MARKET aggregate", () => {
   assert.match(axiomLiveSrc, /api\/news\/ticker\/MARKET/);
 });
+const finvizSrc = read("src", "routes", "finviz.js");
+ok("finviz.js's unauthorized news-scraping (news.ashx + RSS fallback) is gone; quote/chart untouched", () => {
+  assert.doesNotMatch(finvizSrc, /news\.ashx/);
+  assert.doesNotMatch(finvizSrc, /RSS_FEEDS/);
+  assert.match(finvizSrc, /api\/finviz\/quote/);
+  assert.match(finvizSrc, /api\/finviz\/chart/);
+});
 
 console.log(`\n${passed} checks passed.`);
 if (process.exitCode) console.error("TRADE-DESK-LAYOUT TEST FAILED");

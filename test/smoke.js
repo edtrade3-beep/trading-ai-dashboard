@@ -1273,9 +1273,11 @@ console.log("Checking institutional-redesign presentation-layer modules (ESM, lo
   console.log(`\n${passed} checks passed.`);
   if (process.exitCode) console.error("SMOKE TEST FAILED"); else console.log("SMOKE TEST OK");
 
-  // Force-exit: requiring router.js pulls in modules (e.g. finviz.js's
-  // setInterval(refreshNews, 5min)) that keep the event loop alive
-  // indefinitely without this — the test's own checks are done, so don't
-  // wait on background timers that belong to the real running server.
+  // Force-exit: requiring router.js pulls in route modules, and a future
+  // one could add a module-level setInterval (finviz.js used to, before
+  // its unauthorized news-scrape was retired in the 2026-09-05 news-feed
+  // consolidation) that would keep the event loop alive indefinitely
+  // without this — the test's own checks are done, so don't wait on
+  // background timers that belong to the real running server.
   process.exit(process.exitCode || 0);
 })();
