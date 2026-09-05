@@ -96,11 +96,17 @@ async function getFeed({ ticker, category, sentiment, minImpact, sinceMinutes, l
   return { ok: true, rows };
 }
 
-async function getTickerAggregation(ticker) {
+async function getTickerAggregation(ticker, { sinceMinutes } = {}) {
   if (!pool) return { ok: false, reason: "DEGRADED" };
+  const params = [String(ticker).toUpperCase()];
+  let sinceClause = "";
+  if (Number.isFinite(sinceMinutes)) {
+    params.push(sinceMinutes);
+    sinceClause = `AND received_at >= now() - ($${params.length} || ' minutes')::interval`;
+  }
   const { rows } = await pool.query(
-    `SELECT * FROM news_items WHERE ticker = $1 ORDER BY received_at DESC LIMIT 25`,
-    [String(ticker).toUpperCase()]
+    `SELECT * FROM news_items WHERE ticker = $1 ${sinceClause} ORDER BY received_at DESC LIMIT 25`,
+    params
   );
   if (!rows.length) return { ok: true, ticker, articleCount: 0, bullish: 0, bearish: 0, avgImpact: null, latestCatalyst: null, trend: "NO_MATERIAL_NEWS" };
   const bullish = rows.filter((r) => r.sentiment === "BULLISH" || r.sentiment === "STRONGLY_BULLISH").length;

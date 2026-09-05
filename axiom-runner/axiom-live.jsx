@@ -2683,31 +2683,29 @@ export default function App() {
   }, [watchlistData]);
 
   // ── News sentiment scoring (for next-day direction) ──────────────────────────
+  // Phase 1 news-feed consolidation (2026-09-05): was an independent BULL/BEAR
+  // keyword-count heuristic over the finviz news-scrape endpoint — an
+  // unauthorized HTML scrape (see src/news/provider.js's header comment). Now reads the real
+  // classified/scored pipeline's "MARKET" aggregate (same tag the pipeline
+  // already applies to SPY/QQQ/DIA + Fed/MarketWatch RSS items), so this
+  // feeds off real 5-tier sentiment instead of a word-count guess. Same
+  // output shape as before, so DashboardTab.jsx's consumers need no changes.
   useEffect(() => {
     let alive = true;
-    const BULL = ["surge","soar","jump","rally","gain","rise","beat","beats","record","high","boom","upgrade","bullish","strong","growth","optimis","recover","rebound","outperform","tops","exceed","profit","breakthrough","deal","approval","cut rate","rate cut","soft landing","cools","cooling"];
-    const BEAR = ["plunge","crash","tumble","fall","drop","slump","sink","miss","misses","loss","losses","weak","cut","layoff","recession","fear","selloff","sell-off","downgrade","bearish","warn","warning","slowdown","decline","slip","sinks","hike","inflation","tariff","crisis","default","bankrupt","probe","lawsuit","slumps","craters","slides"];
     const score = () => {
-      fetch("/api/finviz/news?limit=40").then(r => r.json()).then(d => {
+      fetch("/api/news/ticker/MARKET?sinceMinutes=240").then(r => r.json()).then(d => {
         if (!alive) return;
-        const items = d.items || [];
-        if (!items.length) { setNewsSentiment(null); return; }
-        let bull = 0, bear = 0;
-        const headlines = [];
-        items.forEach(n => {
-          const t = (n.title || "").toLowerCase();
-          let s = 0;
-          BULL.forEach(w => { if (t.includes(w)) s += 1; });
-          BEAR.forEach(w => { if (t.includes(w)) s -= 1; });
-          if (s > 0) bull++; else if (s < 0) bear++;
-          if (s !== 0) headlines.push({ title: n.title, s });
-        });
+        if (!d.ok || d.status === "DEGRADED" || !d.articleCount) { setNewsSentiment(null); return; }
+        const bull = Number(d.bullish || 0), bear = Number(d.bearish || 0);
         const total = bull + bear;
         const netPct = total ? Math.round(((bull - bear) / total) * 100) : 0;
         const label = netPct >= 25 ? "BULLISH" : netPct >= 8 ? "LEAN BULLISH" : netPct <= -25 ? "BEARISH" : netPct <= -8 ? "LEAN BEARISH" : "MIXED";
+        const rows = d.rows || [];
+        const isBull = r => r.sentiment === "BULLISH" || r.sentiment === "STRONGLY_BULLISH";
+        const isBear = r => r.sentiment === "BEARISH" || r.sentiment === "STRONGLY_BEARISH";
         setNewsSentiment({ bull, bear, netPct, label,
-          topBull: headlines.filter(h=>h.s>0).slice(0,2).map(h=>h.title),
-          topBear: headlines.filter(h=>h.s<0).slice(0,2).map(h=>h.title) });
+          topBull: rows.filter(isBull).slice(0, 2).map(r => r.headline),
+          topBear: rows.filter(isBear).slice(0, 2).map(r => r.headline) });
       }).catch(() => {});
     };
     score();

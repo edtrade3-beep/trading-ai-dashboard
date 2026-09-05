@@ -82,6 +82,12 @@ ok("axiom-live.jsx no longer imports the retired, unmounted RegimeNewsPanel", ()
 ok("RegimeNewsPanel.jsx has been deleted", () => {
   assert.ok(!fs.existsSync(path.join(__dirname, "..", "axiom-runner", "components", "RegimeNewsPanel.jsx")));
 });
+ok("axiom-live.jsx's news sentiment effect no longer calls the unauthorized-scrape finviz news endpoint", () => {
+  assert.doesNotMatch(axiomLiveSrc, /finviz\/news/);
+});
+ok("axiom-live.jsx's news sentiment effect reads the real classified pipeline's MARKET aggregate", () => {
+  assert.match(axiomLiveSrc, /api\/news\/ticker\/MARKET/);
+});
 
 console.log(`\n${passed} checks passed.`);
 if (process.exitCode) console.error("TRADE-DESK-LAYOUT TEST FAILED");

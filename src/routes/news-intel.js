@@ -29,8 +29,9 @@ async function handleNewsIntel(req, res, requestUrl) {
     const ticker = pathname.split("/").pop();
     if (!ticker) return writeJson(res, 400, { ok: false, error: "Ticker is required." });
     if (!isReady()) return writeJson(res, 200, { ok: true, status: "DEGRADED", ticker: ticker.toUpperCase(), articleCount: 0 });
+    const sinceMinutes = searchParams.get("sinceMinutes") ? Number(searchParams.get("sinceMinutes")) : undefined;
     try {
-      const result = await getTickerAggregation(ticker);
+      const result = await getTickerAggregation(ticker, { sinceMinutes });
       return writeJson(res, 200, result);
     } catch (err) {
       return writeJson(res, 502, { ok: false, error: err instanceof Error ? err.message : "Ticker news aggregation failed." });
