@@ -15,6 +15,7 @@ const {
 const { evaluateAccountGate } = require("./autopilot-risk-gate");
 const { startOrder: shadowStartOrder, transition: shadowTransition } = require("./autopilot-order-store");
 const { withSymbolLock } = require("./autopilot-idempotency");
+const { getRecentClosedTrades } = require("./trade-gps-audit-store");
 
 // Shadow-mode instrumentation guard (Unified Autopilot merge, Stage 3) —
 // this brand-new transition-logging path is purely observational and
@@ -93,9 +94,18 @@ async function runServerAutopilot() {
   // shares the one real weekStartEquity/peakEquity file
   // (data/autopilot-risk-state.json) with lightbox-autopilot-execute.js,
   // exactly as it already did before this extraction.
+  // $1,000-or-2% daily lock + a real consecutive-loss breaker (Unified
+  // Autopilot merge, Stage 6, 2026-09-04) — the $1,000 absolute floor is
+  // the platform's own standing constraint (previously only Autopilot
+  // 2.0's separate simulated account actually enforced it; this file had
+  // 2%-only). recentTrades comes from the real Alpaca closed-trade feed
+  // (Stage 4) scoped to source:"alpaca-real" — the SAME shared account
+  // this file and lightbox-autopilot-execute.js both trade, so a losing
+  // streak on either one correctly locks out the other too.
   const gate = evaluateAccountGate({
     equity, cash: Number(acct.cash) || 0, tradingBlocked: acct.trading_blocked, accountBlocked: acct.account_blocked,
-    startOfDayEquity: lastEq, dailyMaxLossPct: 2, weeklyMaxLossPct: 5, maxDrawdownPct: 15,
+    startOfDayEquity: lastEq, dailyMaxLossPct: 2, dailyMaxLossAbs: 1000, weeklyMaxLossPct: 5, maxDrawdownPct: 15,
+    recentTrades: getRecentClosedTrades({ window: 3, source: "alpaca-real" }), maxConsecutiveLosses: 3,
   });
   if (!gate.ok) return;
 

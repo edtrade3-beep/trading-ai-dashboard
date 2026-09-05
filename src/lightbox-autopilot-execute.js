@@ -38,6 +38,7 @@ const {
 const { evaluateAccountGate } = require("./autopilot-risk-gate");
 const { startOrder: shadowStartOrder, transition: shadowTransition } = require("./autopilot-order-store");
 const { withSymbolLock } = require("./autopilot-idempotency");
+const { getRecentClosedTrades } = require("./trade-gps-audit-store");
 
 // Shadow-mode instrumentation guard (Unified Autopilot merge, Stage 3) —
 // purely observational; must never affect a real order. Swallows and
@@ -151,18 +152,27 @@ async function validateAndSize(symbol) {
   // (still this file's own env-var overrides); specific error text
   // preserved per code so nothing user-facing changes.
   const maxLossPct = Number(process.env.LIGHTBOX_AUTOPILOT_DAILY_MAXLOSS) || 2;
+  const maxLossAbs = Number(process.env.LIGHTBOX_AUTOPILOT_DAILY_MAXLOSS_ABS) || 1000;
   const weeklyMaxLossPct = Number(process.env.LIGHTBOX_AUTOPILOT_WEEKLY_MAXLOSS) || 5;
   const maxDrawdownPct = Number(process.env.LIGHTBOX_AUTOPILOT_MAX_DRAWDOWN) || 15;
+  const maxConsecutiveLosses = Number(process.env.LIGHTBOX_AUTOPILOT_MAX_CONSECUTIVE_LOSSES) || 3;
+  // $1,000-or-2% daily lock + a real consecutive-loss breaker (Unified
+  // Autopilot merge, Stage 6, 2026-09-04) — see the matching comment in
+  // server-autopilot.js. Same shared source:"alpaca-real" feed, same
+  // shared account, so a losing streak on either file correctly locks
+  // out the other too.
   const gate = evaluateAccountGate({
     equity, cash: Number(acct.cash) || 0, tradingBlocked: acct.trading_blocked, accountBlocked: acct.account_blocked,
-    startOfDayEquity: lastEq, dailyMaxLossPct: maxLossPct, weeklyMaxLossPct, maxDrawdownPct,
+    startOfDayEquity: lastEq, dailyMaxLossPct: maxLossPct, dailyMaxLossAbs: maxLossAbs, weeklyMaxLossPct, maxDrawdownPct,
+    recentTrades: getRecentClosedTrades({ window: maxConsecutiveLosses, source: "alpaca-real" }), maxConsecutiveLosses,
   });
   if (!gate.ok) {
     const messages = {
       ACCOUNT_UNHEALTHY: `Account not healthy: ${gate.reason}.`,
-      DAILY_LOSS_BREAKER: `Daily loss breaker tripped (−${maxLossPct}%) — no new entries today.`,
+      DAILY_LOSS_BREAKER: `Daily loss breaker tripped (−${maxLossPct}% or $${maxLossAbs}) — no new entries today.`,
       WEEKLY_LOSS_BREAKER: `Weekly loss breaker tripped (−${weeklyMaxLossPct}%) — no new entries this week.`,
       DRAWDOWN_BREAKER: `Total drawdown breaker tripped (−${maxDrawdownPct}% off peak) — no new entries.`,
+      CONSECUTIVE_LOSS_BREAKER: gate.reason,
     };
     return { ok: false, error: messages[gate.code] || gate.reason };
   }

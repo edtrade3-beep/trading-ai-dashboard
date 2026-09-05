@@ -83,6 +83,43 @@ ok("weekly loss breaker trips when the daily breaker alone would not", () => {
   assert.strictEqual(r.code, "WEEKLY_LOSS_BREAKER");
 });
 
+console.log("\nChecking the consecutive-loss breaker (Unified Autopilot merge, Stage 6)…");
+
+ok("recentTrades omitted entirely -> consecutive-loss check is skipped, never affects the result", () => {
+  resetRiskState();
+  const r = evaluateAccountGate({ equity: 100000, cash: 100000, startOfDayEquity: 100000, dailyMaxLossPct: 2 });
+  assert.strictEqual(r.ok, true);
+});
+
+ok("3 real consecutive losses trips CONSECUTIVE_LOSS_BREAKER even though every $/% breaker still passes", () => {
+  resetRiskState();
+  const r = evaluateAccountGate({
+    equity: 100000, cash: 100000, startOfDayEquity: 100000, dailyMaxLossPct: 2,
+    recentTrades: [{ pnl: -10 }, { pnl: -20 }, { pnl: -5 }], maxConsecutiveLosses: 3,
+  });
+  assert.strictEqual(r.ok, false);
+  assert.strictEqual(r.code, "CONSECUTIVE_LOSS_BREAKER");
+});
+
+ok("a real win anywhere in the trailing window resets the streak — gate passes", () => {
+  resetRiskState();
+  const r = evaluateAccountGate({
+    equity: 100000, cash: 100000, startOfDayEquity: 100000, dailyMaxLossPct: 2,
+    recentTrades: [{ pnl: -10 }, { pnl: 15 }, { pnl: -5 }], maxConsecutiveLosses: 3,
+  });
+  assert.strictEqual(r.ok, true);
+});
+
+ok("the daily-loss breaker still fires first even when a consecutive-loss streak is ALSO present", () => {
+  resetRiskState();
+  const r = evaluateAccountGate({
+    equity: 97000, cash: 97000, startOfDayEquity: 100000, dailyMaxLossPct: 2,
+    recentTrades: [{ pnl: -10 }, { pnl: -20 }, { pnl: -5 }], maxConsecutiveLosses: 3,
+  });
+  assert.strictEqual(r.ok, false);
+  assert.strictEqual(r.code, "DAILY_LOSS_BREAKER");
+});
+
 resetRiskState();
 console.log(`\n${passed} checks passed.`);
 if (process.exitCode) console.error("AUTOPILOT-RISK-GATE TEST FAILED");

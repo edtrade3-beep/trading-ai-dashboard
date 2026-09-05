@@ -22,7 +22,7 @@ const { writeJsonAtomic, readJsonSafe } = require("./atomic-write");
 const { isEmergencyStopActive } = require("./emergency-stop");
 const {
   checkAccountHealth, dailyLossBreakerTripped, weeklyLossBreakerTripped,
-  totalDrawdownBreakerTripped, updateWeeklyDrawdownState,
+  totalDrawdownBreakerTripped, updateWeeklyDrawdownState, consecutiveLossBreakerTripped,
 } = require("./risk-guardrails");
 
 const RISK_STATE_PATH = path.join(ROOT, "data", "autopilot-risk-state.json");
@@ -48,10 +48,16 @@ function writeRiskState(state) { writeJsonAtomic(RISK_STATE_PATH, state); }
 // place) — real state, mutated and returned either way, but only auto-
 // persisted here for the shared-file case; a caller-supplied riskState
 // remains that caller's own object to persist however it already does.
+// `recentTrades`/`maxConsecutiveLosses` (Unified Autopilot merge, Stage 6,
+// 2026-09-04) — optional, checked LAST (after every $/%-based breaker),
+// same real streak-based logic Autopilot 2.0 already proved out. Omit
+// `recentTrades` entirely to skip this check (e.g. a caller with no real
+// closed-trade history to evaluate yet) — only passing it opts in, this
+// never silently changes behavior for a caller that doesn't supply it.
 function evaluateAccountGate({
   equity, cash, tradingBlocked, accountBlocked, startOfDayEquity,
   dailyMaxLossPct, dailyMaxLossAbs, weeklyMaxLossPct = 5, maxDrawdownPct = 15,
-  riskState: callerRiskState,
+  riskState: callerRiskState, recentTrades, maxConsecutiveLosses = 3,
 }) {
   if (isEmergencyStopActive()) {
     return { ok: false, code: "EMERGENCY_STOP", reason: "Emergency Stop is active." };
@@ -77,6 +83,10 @@ function evaluateAccountGate({
   }
   if (totalDrawdownBreakerTripped({ equity, peakEquity: riskState.peakEquity, maxDrawdownPct })) {
     return { ok: false, code: "DRAWDOWN_BREAKER", reason: "Total drawdown limit reached — no new entries." };
+  }
+
+  if (recentTrades !== undefined && consecutiveLossBreakerTripped({ recentTrades, maxConsecutiveLosses })) {
+    return { ok: false, code: "CONSECUTIVE_LOSS_BREAKER", reason: `${maxConsecutiveLosses} real consecutive losses — new entries locked. Step away, don't force the next trade.` };
   }
 
   return { ok: true, equity, riskState };
