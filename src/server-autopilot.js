@@ -14,6 +14,7 @@ const {
 } = require("./risk-guardrails");
 const { evaluateAccountGate } = require("./autopilot-risk-gate");
 const { startOrder: shadowStartOrder, transition: shadowTransition } = require("./autopilot-order-store");
+const { withSymbolLock } = require("./autopilot-idempotency");
 
 // Shadow-mode instrumentation guard (Unified Autopilot merge, Stage 3) —
 // this brand-new transition-logging path is purely observational and
@@ -210,38 +211,48 @@ async function runServerAutopilot() {
       continue;
     }
     shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "RISK_APPROVED"));
-    const order = {
-      symbol: r.symbol, qty: String(qty), side: "buy", type: "market", time_in_force: "day",
-      order_class: "bracket",
-      take_profit: { limit_price: String(target) },
-      stop_loss: { stop_price: String(+stop.toFixed(2)) },
-      // Idempotency: one buy per symbol per day — a retry can't duplicate it.
-      client_order_id: `sap-${r.symbol}-${new Date().toISOString().slice(0, 10)}`,
-    };
-    shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "ORDER_PENDING"));
-    const res = await apca("/v2/orders", "POST", order);
-    if (res && res.ok) {
-      slots--; placed++; availCash -= qty * entry;
-      heldPositions.push({ symbol: r.symbol, qty, avgEntryPrice: entry });
-      // Journal the setup tags so we can later see which setups actually win.
-      // sector: added for AI-Memory-style pattern mining (journal-analytics.js)
-      // — "which sector do I actually trade well" was previously uncomputed
-      // anywhere in the app despite sectorOf() already existing for the
-      // sector-cap guardrail above.
-      appendJournal({ ts: Date.now(), symbol: r.symbol, tier: r.tier, side: "long", qty,
-        entry, stop, target, passCount: r.passCount, rsRating: r.rsRating || null, source: "server",
-        sector: sectorOf(r.symbol) });
-      if (isConfigured()) sendTelegramMessage(
-        `🤖 SERVER AUTOPILOT — BUY ${r.symbol} (Tier ${r.tier})\n${qty} sh @ ~$${entry} (paper · bracket)\nStop $${stop} · Target $${target}\n(no browser needed · ${riskFrac.toFixed(2)}% risk)`
-      ).catch(() => {});
-      // FILLED is optimistic here — this is a market order and Alpaca's
-      // own response doesn't confirm an actual fill synchronously; real
-      // fill/partial-fill polling is a later stage (see the plan's
-      // restart-reconciliation stage), not part of this shadow-only pass.
-      shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "FILLED", { meta: { orderId: res.data?.id } }));
-    } else {
-      shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "FAILED", { reason: "broker order call failed" }));
-    }
+    // Real, atomic duplicate-order protection (Unified Autopilot merge,
+    // Stage 5, 2026-09-04) — this file and lightbox-autopilot-execute.js
+    // trade the SAME shared Alpaca account on different triggers (a timer
+    // vs. a human tap), so a genuine race is possible if both try to
+    // enter the same symbol at nearly the same real moment. Everything
+    // from here through the order call and its bookkeeping now runs
+    // inside one real per-symbol lock — a different symbol is never
+    // blocked by this.
+    await withSymbolLock(r.symbol, async () => {
+      const order = {
+        symbol: r.symbol, qty: String(qty), side: "buy", type: "market", time_in_force: "day",
+        order_class: "bracket",
+        take_profit: { limit_price: String(target) },
+        stop_loss: { stop_price: String(+stop.toFixed(2)) },
+        // Idempotency: one buy per symbol per day — a retry can't duplicate it.
+        client_order_id: `sap-${r.symbol}-${new Date().toISOString().slice(0, 10)}`,
+      };
+      shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "ORDER_PENDING"));
+      const res = await apca("/v2/orders", "POST", order);
+      if (res && res.ok) {
+        slots--; placed++; availCash -= qty * entry;
+        heldPositions.push({ symbol: r.symbol, qty, avgEntryPrice: entry });
+        // Journal the setup tags so we can later see which setups actually win.
+        // sector: added for AI-Memory-style pattern mining (journal-analytics.js)
+        // — "which sector do I actually trade well" was previously uncomputed
+        // anywhere in the app despite sectorOf() already existing for the
+        // sector-cap guardrail above.
+        appendJournal({ ts: Date.now(), symbol: r.symbol, tier: r.tier, side: "long", qty,
+          entry, stop, target, passCount: r.passCount, rsRating: r.rsRating || null, source: "server",
+          sector: sectorOf(r.symbol) });
+        if (isConfigured()) sendTelegramMessage(
+          `🤖 SERVER AUTOPILOT — BUY ${r.symbol} (Tier ${r.tier})\n${qty} sh @ ~$${entry} (paper · bracket)\nStop $${stop} · Target $${target}\n(no browser needed · ${riskFrac.toFixed(2)}% risk)`
+        ).catch(() => {});
+        // FILLED is optimistic here — this is a market order and Alpaca's
+        // own response doesn't confirm an actual fill synchronously; real
+        // fill/partial-fill polling is a later stage (see the plan's
+        // restart-reconciliation stage), not part of this shadow-only pass.
+        shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "FILLED", { meta: { orderId: res.data?.id } }));
+      } else {
+        shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "FAILED", { reason: "broker order call failed" }));
+      }
+    });
   }
   if (placed) console.log(`[Server autopilot] placed ${placed} order(s)`);
 }

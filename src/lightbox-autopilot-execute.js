@@ -37,6 +37,7 @@ const {
 } = require("./risk-guardrails");
 const { evaluateAccountGate } = require("./autopilot-risk-gate");
 const { startOrder: shadowStartOrder, transition: shadowTransition } = require("./autopilot-order-store");
+const { withSymbolLock } = require("./autopilot-idempotency");
 
 // Shadow-mode instrumentation guard (Unified Autopilot merge, Stage 3) —
 // purely observational; must never affect a real order. Swallows and
@@ -264,40 +265,48 @@ async function placeOrder(symbol) {
   shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "RISK_APPROVED"));
   const { position, direction, qty, entry, stop, target, riskPct } = v;
 
-  const clientOrderId = `${CLIENT_ORDER_PREFIX}${symbol}-${Date.now()}`;
-  const order = {
-    symbol, qty: String(qty), side: direction === "SHORT" ? "sell" : "buy", type: "market", time_in_force: "day",
-    order_class: "bracket",
-    take_profit: { limit_price: String(target) },
-    stop_loss: { stop_price: String(+stop.toFixed(2)) },
-    client_order_id: clientOrderId,
-  };
-  shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "ORDER_PENDING"));
-  const res = await apca("/v2/orders", "POST", order);
-  if (!res || !res.ok) {
-    shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "FAILED", { reason: "broker rejected the order" }));
-    return { ok: false, error: `Alpaca rejected the order${res?.data?.message ? `: ${res.data.message}` : "."}` };
-  }
-  // FILLED is optimistic here — a market order's real fill isn't
-  // synchronously confirmed by this response; real fill polling is a
-  // later stage (restart-reconciliation), not part of this shadow pass.
-  shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "FILLED", { meta: { orderId: res.data?.id } }));
+  // Real, atomic duplicate-order protection (Unified Autopilot merge,
+  // Stage 5, 2026-09-04) — this file and server-autopilot.js trade the
+  // SAME shared Alpaca account on different triggers (a human tap vs. a
+  // timer), so a genuine race is possible on the same symbol. Everything
+  // from here through the order call and its bookkeeping now runs inside
+  // one real per-symbol lock.
+  return withSymbolLock(symbol, async () => {
+    const clientOrderId = `${CLIENT_ORDER_PREFIX}${symbol}-${Date.now()}`;
+    const order = {
+      symbol, qty: String(qty), side: direction === "SHORT" ? "sell" : "buy", type: "market", time_in_force: "day",
+      order_class: "bracket",
+      take_profit: { limit_price: String(target) },
+      stop_loss: { stop_price: String(+stop.toFixed(2)) },
+      client_order_id: clientOrderId,
+    };
+    shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "ORDER_PENDING"));
+    const res = await apca("/v2/orders", "POST", order);
+    if (!res || !res.ok) {
+      shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "FAILED", { reason: "broker rejected the order" }));
+      return { ok: false, error: `Alpaca rejected the order${res?.data?.message ? `: ${res.data.message}` : "."}` };
+    }
+    // FILLED is optimistic here — a market order's real fill isn't
+    // synchronously confirmed by this response; real fill polling is a
+    // later stage (restart-reconciliation), not part of this shadow pass.
+    shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "FILLED", { meta: { orderId: res.data?.id } }));
 
-  upsertPosition(symbol, {
-    orderId: res.data?.id || clientOrderId,
-    orderPlacedForTs: position.detectedAt,
-    orderQty: qty, orderEntry: entry,
+    upsertPosition(symbol, {
+      orderId: res.data?.id || clientOrderId,
+      orderPlacedForTs: position.detectedAt,
+      orderQty: qty, orderEntry: entry,
+    });
+    const verb = direction === "SHORT" ? "SHORT SELL" : "BUY";
+    logActivity({ symbol, state: "ORDER_PLACED", direction, quality: position.quality, note: `Real ASSIST order — ${verb} ${qty} sh @ ~$${entry} (paper · bracket, stop $${stop.toFixed(2)}, target $${target.toFixed(2)})` });
+    appendJournal({ ts: Date.now(), symbol, tier: "DAYTRADE", side: direction === "SHORT" ? "short" : "long", qty, entry, stop, target, source: "lightbox-assist" });
+    incrementDailyTrades();
+    if (isConfigured()) {
+      sendTelegramMessage(
+        `✅ LIGHT BOX AUTOPILOT — ${verb} ORDER PLACED (${symbol})\n${qty} sh @ ~$${entry.toFixed(2)} (paper · bracket)\nStop $${stop.toFixed(2)} · Target $${target.toFixed(2)}\n(${riskPct}% risk · you confirmed this in-app)`
+      ).catch(() => {});
+    }
+    return { ok: true, symbol, direction, qty, entry, stop, target, orderId: res.data?.id || clientOrderId };
   });
-  const verb = direction === "SHORT" ? "SHORT SELL" : "BUY";
-  logActivity({ symbol, state: "ORDER_PLACED", direction, quality: position.quality, note: `Real ASSIST order — ${verb} ${qty} sh @ ~$${entry} (paper · bracket, stop $${stop.toFixed(2)}, target $${target.toFixed(2)})` });
-  appendJournal({ ts: Date.now(), symbol, tier: "DAYTRADE", side: direction === "SHORT" ? "short" : "long", qty, entry, stop, target, source: "lightbox-assist" });
-  incrementDailyTrades();
-  if (isConfigured()) {
-    sendTelegramMessage(
-      `✅ LIGHT BOX AUTOPILOT — ${verb} ORDER PLACED (${symbol})\n${qty} sh @ ~$${entry.toFixed(2)} (paper · bracket)\nStop $${stop.toFixed(2)} · Target $${target.toFixed(2)}\n(${riskPct}% risk · you confirmed this in-app)`
-    ).catch(() => {});
-  }
-  return { ok: true, symbol, direction, qty, entry, stop, target, orderId: res.data?.id || clientOrderId };
 }
 
 // Real end-of-day flatten — closes any still-open position this module
