@@ -101,7 +101,26 @@ async function handleRequest(req, res) {
       // mode flips whether ASSIST is armed, neither should be reachable
       // with zero auth either. /status and /mode(GET) are read-only and
       // stay open (not POST/DELETE, never reach this branch).
-      pathname.startsWith("/api/autopilot/")
+      pathname.startsWith("/api/autopilot/") ||
+      // Autopilot 2.0 control routes (start/pause/resume/off/tick-now/reset)
+      // — found unauthenticated during the 2026-09-04 platform audit. This
+      // engine never touches a real broker (it only mutates its own
+      // internal simulated ledger), so it can't move real money, but with
+      // zero auth anyone with the URL could freely start/stop/reset the
+      // live paper scheduler or trigger on-demand ticks that burn real,
+      // metered market-data/Anthropic API calls. /status,
+      // /missed-opportunities, /backtest are GET-only and stay open.
+      pathname.startsWith("/api/autopilot2/") ||
+      // Dealer scraper API key set/toggle — found unauthenticated during
+      // the 2026-09-04 platform audit. Never echoes the key back (see the
+      // route's own comment), but anyone with the URL could otherwise
+      // silently overwrite a live scraper credential.
+      pathname === "/api/dealer/ai-key" ||
+      // Website-inventory import — found unauthenticated during the
+      // 2026-09-04 platform audit performing a server-side fetch() of any
+      // caller-supplied URL (SSRF shape), validated only by a bare
+      // http(s):// regex. Gated for that reason, not a money-movement one.
+      pathname === "/api/inventory/import-website"
     )) {
       if (!AUTH_TOKEN) return writeJson(res, 401, { ok: false, error: "unauthorized — API_AUTH_TOKEN is not configured on the server" });
       const tok = req.headers["x-api-token"] || "";

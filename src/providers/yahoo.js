@@ -116,12 +116,32 @@ function parseYahooChartBars(payload) {
   const q = result?.indicators?.quote?.[0];
   const timestamps = result?.timestamp || [];
   if (!q || !timestamps.length) return [];
+  // Real live bug fix (2026-09-04, platform audit) — this only ever read
+  // raw open/high/low/close, while fetchAlpacaBars (this same function's
+  // own preferred source, tried first above) requests adjustment=all
+  // (split+dividend-adjusted). Since fetchYahooBars silently falls
+  // through to whichever provider actually answered, the exact same
+  // caller could get adjusted bars from Alpaca one call and raw bars from
+  // Yahoo the next — every indicator built on top (EMA/RSI/MACD/VWAP)
+  // inherited that inconsistency across a real split/dividend boundary.
+  // Yahoo's own chart response carries a real adjclose array alongside
+  // quote (confirmed live against a real symbol) — scale the whole OHLC
+  // bar by the real per-bar adjclose/close ratio, the standard way to
+  // adjust a candle (not just its close), so Yahoo-sourced bars carry the
+  // same real adjustment convention Alpaca already does.
+  const adjCloseArr = result?.indicators?.adjclose?.[0]?.adjclose;
   const bars = [];
   for (let i = 0; i < timestamps.length; i++) {
     const open = q.open?.[i], high = q.high?.[i], low = q.low?.[i], close = q.close?.[i];
     const volume = q.volume?.[i] ?? 0;
     if ([open, high, low, close].some(v => v == null)) continue;
-    bars.push({ time: timestamps[i] * 1000, open, high, low, close, volume });
+    const adjClose = adjCloseArr?.[i];
+    const factor = Number.isFinite(adjClose) && close ? adjClose / close : 1;
+    bars.push({
+      time: timestamps[i] * 1000,
+      open: open * factor, high: high * factor, low: low * factor, close: close * factor,
+      volume,
+    });
   }
   return bars;
 }
@@ -467,8 +487,6 @@ async function fetchYahooQuotes(symbols) {
       const lows = bars.map((b) => b.low || 0);
       const vols = bars.map((b) => b.volume || 0);
       const avg20 = average(vols.slice(-20));
-      const avg50 = average(bars.slice(-5).map((b) => b.close));
-      const avg200 = average(bars.slice(-5).map((b) => b.close));
       const chgPctBars = prev?.close ? ((latest.close - prev.close) / prev.close) * 100 : 0;
       const weekRef = bars.at(-6) || prev;
       const weekPct = weekRef?.close ? ((latest.close - weekRef.close) / weekRef.close) * 100 : 0;
@@ -505,8 +523,17 @@ async function fetchYahooQuotes(symbols) {
         pe: Number.isFinite(Number(live?.trailingPE)) && Number(live?.trailingPE) > 0 ? round2(Number(live.trailingPE)) : 0,
         eps: Number.isFinite(Number(live?.epsTrailingTwelveMonths)) && Number(live?.epsTrailingTwelveMonths) > 0 ? round2(Number(live.epsTrailingTwelveMonths)) : 0,
         sharesOutstanding: Number.isFinite(Number(live?.sharesOutstanding)) ? Number(live.sharesOutstanding) : 0,
-        priceAvg50: round2(avg50 || 0),
-        priceAvg200: round2(avg200 || 0),
+        // Real live bug fix (2026-09-04, platform audit) — this used to
+        // compute both "50-day" and "200-day" averages from the exact
+        // same 5 most-recent closes (this function only ever fetches a
+        // 5-day bar window, so neither could ever be real regardless of
+        // the slice used). Yahoo's own v7 quote object already carries
+        // real fiftyDayAverage/twoHundredDayAverage fields (same source
+        // fiftyTwoWeekHigh/Low below already reads) — use those directly.
+        // Honest 0 (never a fabricated average) when Yahoo doesn't return
+        // them for a given symbol.
+        priceAvg50: round2(Number.isFinite(Number(live?.fiftyDayAverage)) ? Number(live.fiftyDayAverage) : 0),
+        priceAvg200: round2(Number.isFinite(Number(live?.twoHundredDayAverage)) ? Number(live.twoHundredDayAverage) : 0),
         preMarketPrice: round2(Number(live?.preMarketPrice) || 0),
         postMarketPrice: round2(Number(live?.postMarketPrice) || 0),
         preMarketChangePercent: round2(Number(live?.preMarketChangePercent) || 0),
