@@ -19,10 +19,9 @@ const { writeJsonAtomic, readJsonSafe } = require("../atomic-write");
 const { sendTelegramMessage, isConfigured: telegramConfigured } = require("../telegram");
 const broker = require("../tradier-broker");
 const {
-  isMarketHoursET, checkAccountHealth, dailyLossBreakerTripped,
-  weeklyLossBreakerTripped, totalDrawdownBreakerTripped, updateWeeklyDrawdownState,
-  openRiskPct, sectorCapExceeded, sizePositionByRisk,
+  isMarketHoursET, openRiskPct, sectorCapExceeded, sizePositionByRisk,
 } = require("../risk-guardrails");
+const { evaluateAccountGate } = require("../autopilot-risk-gate");
 
 // ET calendar date (YYYY-MM-DD), not UTC — see the comment on maybeResetDaily
 // below for why this matters here specifically.
@@ -132,40 +131,39 @@ function normalizePositions(positions) {
 // balances API doesn't expose blocked/restricted flags the way Alpaca's
 // does, so tradingBlocked/accountBlocked are always false here — the real
 // protection is the equity/cash/daily-loss checks, which Tradier does give us.
+// Unified Autopilot merge, Stage 2 (2026-09-04, see
+// .claude/plans/proud-yawning-unicorn.md) — the emergency-stop/health/
+// daily/weekly/drawdown cascade below used to be inlined here; it's now
+// the same shared src/autopilot-risk-gate.js sequence server-autopilot.js
+// and lightbox-autopilot-execute.js also call, in the exact same order,
+// with the exact same thresholds this file already used (maxLossAbs only
+// for daily — Tradier's own flat-dollar convention, unchanged; 5%/15% for
+// weekly/drawdown). Pure extraction — nothing about this file's real
+// behavior changes.
 async function checkTradeGuardrails(cfg) {
-  // Emergency Stop (2026-08-24) — the one real, global kill switch shared
-  // across all 4 automated-execution systems. Checked first, before any
-  // real broker call — if engaged, no real order gets anywhere near
-  // submission regardless of what else passes.
-  const { isEmergencyStopActive } = require("../emergency-stop");
-  if (isEmergencyStopActive()) return { ok: false, reason: "emergency stop active" };
+  // Emergency Stop checked first, before any real broker call — cheap
+  // synchronous local read; evaluateAccountGate() below checks it again
+  // as part of its own bundled sequence (harmless — a kill switch is safe
+  // to check more than once), but this early copy is what actually keeps
+  // it ahead of the balance fetch below, exactly as before this
+  // extraction.
+  if (require("../emergency-stop").isEmergencyStopActive()) return { ok: false, reason: "emergency stop active" };
   const balances = await broker.getBalances().catch(() => null);
   const equity = Number(balances && balances.totalEquity) || 0;
   const cash = balances ? Number(balances.totalCash) || 0 : null;
-  const health = checkAccountHealth({ equity, cash, tradingBlocked: false, accountBlocked: false });
-  if (!health.ok) return { ok: false, reason: health.reason, balances, equity };
-  if (dailyLossBreakerTripped({ equity, startOfDayEquity: cfg.startOfDayEquity, maxLossAbs: cfg.maxDailyLoss })) {
-    return { ok: false, reason: "daily loss limit reached", balances, equity };
-  }
 
-  // Weekly + total drawdown breakers (Master Build Spec §16-17, 2026-08-23)
-  // — real, persisted weekStartEquity/peakEquity, updated here since this
-  // is the one place every trade-gating path (automated + manual override)
-  // already has a real equity read. weekStartEquity resets on the first
-  // real check of a new ET week; peakEquity is a continuously-updated
-  // all-time high-water mark, never reset. 5%/15% match the user's own
-  // chosen thresholds (roughly 2.5x/7.5x the existing 2%-equivalent daily
-  // breaker).
-  if (equity > 0) {
-    updateWeeklyDrawdownState(cfg, equity);
-    writeConfig(cfg);
-  }
-  if (weeklyLossBreakerTripped({ equity, weekStartEquity: cfg.weekStartEquity, maxLossPct: 5 })) {
-    return { ok: false, reason: "weekly loss limit reached", balances, equity };
-  }
-  if (totalDrawdownBreakerTripped({ equity, peakEquity: cfg.peakEquity, maxDrawdownPct: 15 })) {
-    return { ok: false, reason: "total drawdown limit reached", balances, equity };
-  }
+  // riskState: cfg — this system's weekStartEquity/peakEquity live
+  // directly on its own persisted config, a separate Tradier-account
+  // store, never the shared Alpaca risk-state file. evaluateAccountGate
+  // mutates cfg in place (same object) and leaves persisting it to us,
+  // matching the exact write timing this file already had.
+  const gate = evaluateAccountGate({
+    equity, cash, tradingBlocked: false, accountBlocked: false,
+    startOfDayEquity: cfg.startOfDayEquity, dailyMaxLossAbs: cfg.maxDailyLoss,
+    weeklyMaxLossPct: 5, maxDrawdownPct: 15, riskState: cfg,
+  });
+  if (equity > 0) writeConfig(cfg);
+  if (!gate.ok) return { ok: false, reason: gate.reason, balances, equity };
 
   return { ok: true, reason: null, balances, equity };
 }

@@ -29,17 +29,13 @@
 // least 1 real share.
 "use strict";
 
-const path = require("node:path");
-const { ROOT } = require("./config");
-const { writeJsonAtomic, readJsonSafe } = require("./atomic-write");
 const { sendTelegramMessage, isConfigured } = require("./telegram");
 const { appendJournal } = require("./autopilot-journal");
 const { fetchAlpacaQuotes } = require("./providers/alpaca-data");
 const {
-  isMarketHoursET, checkAccountHealth, dailyLossBreakerTripped,
-  weeklyLossBreakerTripped, totalDrawdownBreakerTripped, updateWeeklyDrawdownState,
-  openRiskPct, sectorCapExceeded, sizePositionByRisk,
+  isMarketHoursET, openRiskPct, sectorCapExceeded, sizePositionByRisk,
 } = require("./risk-guardrails");
+const { evaluateAccountGate } = require("./autopilot-risk-gate");
 const {
   getMode, getPosition, upsertPosition, logActivity,
   getLastFlattenDate, setLastFlattenDate, incrementDailyTrades,
@@ -65,16 +61,13 @@ async function apca(reqPath, method = "GET", body = null) {
 
 // Shared with server-autopilot.js (Autopilot goal audit, 2026-08-30) — this
 // file and server-autopilot.js trade the SAME real Alpaca paper account
-// (see emergency-stop.js's own comment confirming the shared account), but
-// used to persist weekStartEquity/peakEquity in two separate files and
-// could independently disagree about whether that one real account's
-// weekly/drawdown breaker had tripped. One real account gets one real
-// breaker anchor. Positions/order placement stay fully independent — only
-// the equity high-water-mark tracking is now shared.
-const RISK_STATE_PATH = path.join(ROOT, "data", "autopilot-risk-state.json");
-const DEFAULT_RISK_STATE = { weekAnchorDate: "", weekStartEquity: 0, peakEquity: 0 };
-function readRiskState() { return { ...DEFAULT_RISK_STATE, ...readJsonSafe(RISK_STATE_PATH, null) }; }
-function writeRiskState(state) { writeJsonAtomic(RISK_STATE_PATH, state); }
+// (see emergency-stop.js's own comment confirming the shared account), so
+// they anchor the weekly/drawdown breaker off the same real equity high-
+// water mark instead of two files independently disagreeing about the
+// same account's real state. The shared file (data/autopilot-risk-
+// state.json) and its read/write helpers now live in src/autopilot-risk-
+// gate.js (Unified Autopilot merge, Stage 2, 2026-09-04) — this file just
+// calls evaluateAccountGate() above.
 
 function todayET() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date());
@@ -86,9 +79,14 @@ function todayET() {
 // then places the order, never a separately-hand-rolled estimate.
 async function validateAndSize(symbol) {
   // Emergency Stop (2026-08-24) — the one real, global kill switch shared
-  // across all 4 automated-execution systems, checked first — even ASSIST
-  // (which already requires a human tap) refuses to even preview an order
-  // while engaged.
+  // across all 4 automated-execution systems, checked first, before any
+  // real broker call — even ASSIST (which already requires a human tap)
+  // refuses to even preview an order while engaged. Cheap synchronous
+  // local read; evaluateAccountGate() below checks it again as part of
+  // its own bundled sequence, which is harmless (a kill switch is safe to
+  // check more than once) — this early copy exists specifically so
+  // Emergency Stop is caught before this function does any real network
+  // work at all, not just before the order is placed.
   if (require("./emergency-stop").isEmergencyStopActive()) {
     return { ok: false, error: "Emergency Stop is active — automated execution is halted until manually re-armed." };
   }
@@ -137,24 +135,29 @@ async function validateAndSize(symbol) {
   const equity = Number(acct.equity) || 0;
   const lastEq = Number(acct.last_equity) || equity;
   const cash = Math.max(0, Number(acct.cash) || 0);
-  const health = checkAccountHealth({ equity, cash: Number(acct.cash) || 0, tradingBlocked: acct.trading_blocked, accountBlocked: acct.account_blocked });
-  if (!health.ok) return { ok: false, error: `Account not healthy: ${health.reason}.` };
-
+  // Account health -> daily -> weekly -> drawdown, in that order — same
+  // shared src/autopilot-risk-gate.js sequence server-autopilot.js and
+  // routes/autoexec.js also call (Unified Autopilot merge, Stage 2,
+  // 2026-09-04). No riskState param: this system shares the one real
+  // weekStartEquity/peakEquity file (data/autopilot-risk-state.json) with
+  // server-autopilot.js, exactly as it already did. Thresholds unchanged
+  // (still this file's own env-var overrides); specific error text
+  // preserved per code so nothing user-facing changes.
   const maxLossPct = Number(process.env.LIGHTBOX_AUTOPILOT_DAILY_MAXLOSS) || 2;
-  if (dailyLossBreakerTripped({ equity, startOfDayEquity: lastEq, maxLossPct })) {
-    return { ok: false, error: `Daily loss breaker tripped (−${maxLossPct}%) — no new entries today.` };
-  }
-
-  const riskState = readRiskState();
-  updateWeeklyDrawdownState(riskState, equity);
-  writeRiskState(riskState);
   const weeklyMaxLossPct = Number(process.env.LIGHTBOX_AUTOPILOT_WEEKLY_MAXLOSS) || 5;
   const maxDrawdownPct = Number(process.env.LIGHTBOX_AUTOPILOT_MAX_DRAWDOWN) || 15;
-  if (weeklyLossBreakerTripped({ equity, weekStartEquity: riskState.weekStartEquity, maxLossPct: weeklyMaxLossPct })) {
-    return { ok: false, error: `Weekly loss breaker tripped (−${weeklyMaxLossPct}%) — no new entries this week.` };
-  }
-  if (totalDrawdownBreakerTripped({ equity, peakEquity: riskState.peakEquity, maxDrawdownPct })) {
-    return { ok: false, error: `Total drawdown breaker tripped (−${maxDrawdownPct}% off peak) — no new entries.` };
+  const gate = evaluateAccountGate({
+    equity, cash: Number(acct.cash) || 0, tradingBlocked: acct.trading_blocked, accountBlocked: acct.account_blocked,
+    startOfDayEquity: lastEq, dailyMaxLossPct: maxLossPct, weeklyMaxLossPct, maxDrawdownPct,
+  });
+  if (!gate.ok) {
+    const messages = {
+      ACCOUNT_UNHEALTHY: `Account not healthy: ${gate.reason}.`,
+      DAILY_LOSS_BREAKER: `Daily loss breaker tripped (−${maxLossPct}%) — no new entries today.`,
+      WEEKLY_LOSS_BREAKER: `Weekly loss breaker tripped (−${weeklyMaxLossPct}%) — no new entries this week.`,
+      DRAWDOWN_BREAKER: `Total drawdown breaker tripped (−${maxDrawdownPct}% off peak) — no new entries.`,
+    };
+    return { ok: false, error: messages[gate.code] || gate.reason };
   }
 
   const posR = await apca("/v2/positions");

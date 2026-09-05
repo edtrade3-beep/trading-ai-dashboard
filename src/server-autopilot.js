@@ -3,37 +3,26 @@
 // stay browser-side for safety). Mirrors the client guards: market-hours only,
 // daily-loss breaker, max positions, total open-risk ceiling, no re-buying a
 // symbol already held. PAPER only — never live.
-const path = require("node:path");
 const { sendTelegramMessage, isConfigured } = require("./telegram");
-const { PORT, ROOT } = require("./config");
+const { PORT } = require("./config");
 const { appendJournal } = require("./autopilot-journal");
 const { getClosedTrades } = require("./routes/alpaca");
 const { computeLearningGates, isAllowed } = require("./learning-engine");
 const { isOn } = require("./utils");
-const { writeJsonAtomic, readJsonSafe } = require("./atomic-write");
 const {
-  isMarketHoursET, checkAccountHealth, dailyLossBreakerTripped,
-  weeklyLossBreakerTripped, totalDrawdownBreakerTripped, updateWeeklyDrawdownState,
-  openRiskPct, sectorCapExceeded, sizePositionByRisk, sectorOf,
+  isMarketHoursET, openRiskPct, sectorCapExceeded, sizePositionByRisk, sectorOf,
 } = require("./risk-guardrails");
+const { evaluateAccountGate } = require("./autopilot-risk-gate");
 
-// Weekly + total drawdown breakers (Master Build Spec §16-17, 2026-08-23).
-// server-autopilot.js has no persisted state today (its daily breaker
-// uses Alpaca's own native last_equity field, no snapshot needed) — this
-// is a new, small, durable store using the same real atomic-write.js
-// primitives every other data/*.json store in this app already uses
-// (transparently Postgres-backed when DATABASE_URL is set — see
-// atomic-write.js's own header for why raw fs writes would silently lose
-// this on every Render restart).
-// Shared with lightbox-autopilot-execute.js (Autopilot goal audit,
-// 2026-08-30) — both trade the same real Alpaca paper account (see
-// emergency-stop.js's comment), so they now anchor the weekly/drawdown
-// breaker off the same real equity high-water mark instead of two files
-// independently disagreeing about the same account's real state.
-const RISK_STATE_PATH = path.join(ROOT, "data", "autopilot-risk-state.json");
-const DEFAULT_RISK_STATE = { weekAnchorDate: "", weekStartEquity: 0, peakEquity: 0 };
-function readRiskState() { return { ...DEFAULT_RISK_STATE, ...readJsonSafe(RISK_STATE_PATH, null) }; }
-function writeRiskState(state) { writeJsonAtomic(RISK_STATE_PATH, state); }
+// Weekly + total drawdown breakers (Master Build Spec §16-17, 2026-08-23)
+// — real, persisted weekStartEquity/peakEquity, shared with lightbox-
+// autopilot-execute.js since both trade the same real Alpaca paper
+// account (see emergency-stop.js's comment): the two files anchor off
+// the same real equity high-water mark instead of independently
+// disagreeing about the same account's real state. The shared file
+// (data/autopilot-risk-state.json) and its read/write helpers now live
+// in src/autopilot-risk-gate.js (Unified Autopilot merge, Stage 2,
+// 2026-09-04) — this file just calls evaluateAccountGate() below.
 
 // Curated liquid market leaders — the kind of names the Trend Template works best
 // on. Added to your watchlist so there are always candidates to find trades.
@@ -72,8 +61,9 @@ async function getJson(path) { try { const r = await fetch(`${BASE()}${path}`); 
 async function runServerAutopilot() {
   if (!isOn(process.env.SERVER_AUTOPILOT)) return;
   // Emergency Stop (2026-08-24) — the one real, global kill switch shared
-  // across all 4 automated-execution systems, checked first.
-  if (require("./emergency-stop").isEmergencyStopActive()) return;
+  // across all 4 automated-execution systems, checked first (now inside
+  // the shared evaluateAccountGate call below — Unified Autopilot merge,
+  // Stage 2, 2026-09-04, see .claude/plans/proud-yawning-unicorn.md).
   const { id, secret } = keys();
   if (!id || !secret) return;
   if (!isMarketHoursET()) return;
@@ -87,24 +77,19 @@ async function runServerAutopilot() {
   // money). Cash-only means the account can never lever up on the long side.
   const cash     = Math.max(0, Number(acct.cash) || 0);
   const buyPower = cash;
-  // Account health gate — never trade a blown, debit, or restricted account.
-  const health = checkAccountHealth({ equity, cash: Number(acct.cash) || 0, tradingBlocked: acct.trading_blocked, accountBlocked: acct.account_blocked });
-  if (!health.ok) return;
 
-  // Daily-loss circuit breaker: stop opening new trades after −2% on the day.
-  if (dailyLossBreakerTripped({ equity, startOfDayEquity: lastEq, maxLossPct: 2 })) return;
-
-  // Weekly + total drawdown breakers (Master Build Spec §16-17, 2026-08-23)
-  // — real, persisted weekStartEquity/peakEquity (RISK_STATE_PATH above).
-  // weekStartEquity resets on the first real check of a new ET week;
-  // peakEquity is a continuously-updated all-time high-water mark, never
-  // reset. 5%/15% match the user's own chosen thresholds (roughly
-  // 2.5x/7.5x the daily breaker above).
-  const riskState = readRiskState();
-  updateWeeklyDrawdownState(riskState, equity);
-  writeRiskState(riskState);
-  if (weeklyLossBreakerTripped({ equity, weekStartEquity: riskState.weekStartEquity, maxLossPct: 5 })) return;
-  if (totalDrawdownBreakerTripped({ equity, peakEquity: riskState.peakEquity, maxDrawdownPct: 15 })) return;
+  // Emergency stop -> account health -> daily -2% -> weekly -5%/total
+  // drawdown -15%, in that order — same real cascade lightbox-autopilot-
+  // execute.js and routes/autoexec.js also run, now living in one place
+  // (src/autopilot-risk-gate.js). No riskState param passed: this system
+  // shares the one real weekStartEquity/peakEquity file
+  // (data/autopilot-risk-state.json) with lightbox-autopilot-execute.js,
+  // exactly as it already did before this extraction.
+  const gate = evaluateAccountGate({
+    equity, cash: Number(acct.cash) || 0, tradingBlocked: acct.trading_blocked, accountBlocked: acct.account_blocked,
+    startOfDayEquity: lastEq, dailyMaxLossPct: 2, weeklyMaxLossPct: 5, maxDrawdownPct: 15,
+  });
+  if (!gate.ok) return;
 
   const posR = await apca("/v2/positions");
   const positions = (posR && posR.ok && Array.isArray(posR.data)) ? posR.data : [];
