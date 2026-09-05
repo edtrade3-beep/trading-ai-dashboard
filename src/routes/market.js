@@ -4139,6 +4139,23 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
     }
   }
 
+  // "Why Is It Moving?" (A+ Market Intelligence, spec §7, 2026-09-05,
+  // see .claude/plans/proud-yawning-unicorn.md) — real, on-demand,
+  // button-triggered (not polled). src/why-is-it-moving.js aggregates
+  // already-existing data (recent scored news, sector rotation, broad-
+  // market quotes); this route just calls it.
+  if (pathname === "/api/market/why-moving") {
+    const symbol = (searchParams.get("symbol") || "").trim().toUpperCase();
+    if (!symbol) return writeJson(res, 400, { ok: false, error: "symbol required" });
+    try {
+      const { computeWhyIsItMoving } = require("../why-is-it-moving");
+      const result = await computeWhyIsItMoving(symbol);
+      return writeJson(res, 200, result);
+    } catch (err) {
+      return writeJson(res, 502, { ok: false, error: err instanceof Error ? err.message : "Why-is-it-moving lookup failed." });
+    }
+  }
+
   if (pathname === "/api/market/news") {
     const tickers = (searchParams.get("tickers") || "")
       .split(",").map((s) => s.trim().toUpperCase()).filter(Boolean);

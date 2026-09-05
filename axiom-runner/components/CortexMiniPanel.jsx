@@ -174,6 +174,56 @@ function AiUpdateBanner({ whatChanged, currentScore, currentVerdict, C, MONO, SA
 // RS: analysis.row.rsRating (real, already on every trend-screen row) plus
 // a real day%-vs-SPY/QQQ comparison from macroData (already polled
 // app-wide) — no new fetch.
+// "Why Is It Moving?" (A+ Market Intelligence, spec §7, 2026-09-05, see
+// .claude/plans/proud-yawning-unicorn.md) — real, on-demand (button-
+// triggered, not polled) call to GET /api/market/why-moving. Confidence
+// values shown are the SAME real numbers the backend already computed
+// (a news item's own impact score, or a real ratio of how much of the
+// move a sector/market benchmark could explain) — never re-derived or
+// dressed up here. Zero real qualifying drivers shows the spec's own
+// mandatory "UNEXPLAINED MOVE" state, never a forced guess.
+function WhyIsItMovingButton({ symbol, C, MONO, SANS }) {
+  const [state, setState] = useState(null); // null = not asked yet | "loading" | {ok, drivers, unexplained, error}
+
+  const check = async () => {
+    setState("loading");
+    try {
+      const r = await fetch(`/api/market/why-moving?symbol=${encodeURIComponent(symbol)}`);
+      setState(await r.json());
+    } catch (e) {
+      setState({ ok: false, error: e.message });
+    }
+  };
+
+  return (
+    <div style={{ paddingTop: 8, marginTop: 8, borderTop: `1px solid ${C.border}` }}>
+      {!state && (
+        <button onClick={check} style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 800, color: C.accent || C.text, background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, padding: "4px 10px", cursor: "pointer" }}>
+          ⚡ WHY IS IT MOVING?
+        </button>
+      )}
+      {state === "loading" && <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>Checking real news, sector, and market data…</div>}
+      {state && state !== "loading" && !state.ok && (
+        <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>{state.error || "Unable to check right now."}</div>
+      )}
+      {state && state.ok && state.unexplained && (
+        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.amber }}>⚠️ UNEXPLAINED MOVE — no credible real catalyst found.</div>
+      )}
+      {state && state.ok && !state.unexplained && (
+        <div>
+          <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.6, marginBottom: 5 }}>LIKELY DRIVERS</div>
+          {state.drivers.map((d, i) => (
+            <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 8, fontFamily: SANS, fontSize: 11, color: C.text, marginBottom: 3 }}>
+              <span>{i + 1}. {d.label}</span>
+              <b style={{ fontFamily: MONO, color: C.textDim, flexShrink: 0 }}>{d.confidence}%</b>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function FinalDecisionAndRS({ analysis, opp, macroData, C, MONO, SANS }) {
   const row = analysis.row;
   const aiTrade = row ? computeAiTradeScore({ row }) : null;
@@ -230,6 +280,10 @@ function FinalDecisionAndRS({ analysis, opp, macroData, C, MONO, SANS }) {
           </div>
         </div>
       )}
+      {/* key={analysis.symbol} forces a fresh instance per symbol — its
+          own internal state must never persist a stale result across a
+          symbol switch. */}
+      {analysis.symbol && <WhyIsItMovingButton key={analysis.symbol} symbol={analysis.symbol} C={C} MONO={MONO} SANS={SANS} />}
     </div>
   );
 }
