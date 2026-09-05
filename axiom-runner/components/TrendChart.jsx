@@ -321,6 +321,27 @@ export default function TrendChart({ data, C, MONO, SANS, height, vcpOverlayOn }
       const el = elRef.current, c = chartRef.current;
       if (!el || !c) return;
       if (fillToViewport) { const h = computeFillHeight(); applyHeight(h); c.applyOptions({ height: h }); }
+      else {
+        // Real fix (2026-09-05, user screenshot: rating card overlapping
+        // the chart/buttons) — this effect already re-runs on every real
+        // data refresh for the same symbol, but until now only the
+        // fill-to-viewport branch above ever re-measured cardH and
+        // re-applied height. In the fixed-height case (Trade Desk's own
+        // caller-supplied pixel budget), a newly-selected symbol's card
+        // can grow after the initial mount — e.g. the verdict badge/
+        // upside line resolving slightly later than the first paint —
+        // with nothing re-measuring cardH in response. The chart's own
+        // applied height stayed stale (computed off the card's earlier,
+        // shorter box), so the corrected space the resize-only effect
+        // (collapsed/expanded) already knows how to give back never got
+        // applied here. Same real cardH/canvasHeight math as that effect
+        // and as chart-creation above, just re-run on every real data
+        // change too, not only on symbol switch or collapse/expand.
+        const cardH = cardRef.current ? cardRef.current.offsetHeight : 0;
+        const canvasHeight = Math.max(200, effectiveH - cardH);
+        applyHeight(canvasHeight);
+        c.applyOptions({ height: canvasHeight });
+      }
       c.applyOptions({ width: el.clientWidth || 800 });
     };
     settleCorrect();
