@@ -4183,7 +4183,23 @@ export default function App() {
       // MACRO used to mean standalone (MACRO alias kept pointing at its own
       // still-real standalone tab too, "hide don't delete").
       CHARTS: "mterminal",
-      MARKET: "market",
+      // MARKET repointed 2026-09-05 (nav consolidation) — the sidebar's
+      // "Market" row now means the Dashboard page (Sidebar.jsx relabeled
+      // "Market Overview" -> "Market"), so this keyword follows it, same
+      // "sidebar label matches palette word" convention as the 2026-07-29
+      // PORTFOLIO/SCANNER repoint. ECONOMY below is the new one-keystroke
+      // path to where MARKET used to point (Economy's own dropped row).
+      MARKET: "dashboard",
+      ECONOMY: "market",
+      // CORTEX/MARKETWRAP/NAVIGATOR/PHOTOBANNERS added 2026-09-05 (nav
+      // consolidation, Sidebar.jsx dropped from 19 rows to 7) — each of
+      // these lost its permanent rail row and needed a new palette keyword;
+      // every other dropped row already had one (see Sidebar.jsx's own
+      // per-item comments for the full list).
+      CORTEX: "cortex",
+      MARKETWRAP: "marketwrap",
+      NAVIGATOR: "trade-navigator",
+      PHOTOBANNERS: "photobanners",
       SETTINGS: "settings",
       MACRO: "macro",
       NEWS: "news",

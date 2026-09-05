@@ -1,28 +1,25 @@
 // Persistent left sidebar nav. Collapsed 2026-08-09 (sidebar/IA redesign)
-// from the prior 11-item flat list — Dashboard/Market/Scanner/Watchlists/
-// Charts/Options Flow/Portfolio/Crypto/News/Calendar/Journal — down to the
-// 7 real "what deserves a permanent nav slot" surfaces below, plus Settings.
-// Every dropped item is a merge or a demotion, never a deletion:
-//   - Scanner + Watchlists + Options Flow → merged into one Discover
-//     destination (same 3 real components, unchanged, now sharing one
-//     PageSubNav header — see axiom-live.jsx around the rhpro-scan/
-//     rhpro-lists/flow activeTab blocks) instead of competing for 3
-//     separate nav rows that all answered the same question ("what should
-//     I trade").
-//   - Green Light/My Trades → promoted OUT of hiding (was reachable only
-//     via the GREENLIGHT palette alias or buried in a Dashboard sub-tab)
-//     into its own top-level Autopilot destination — this app already had
-//     a real broker-status/risk-engine/pause-resume control surface, it
-//     just had no front door.
-//   - Market / Crypto / Calendar dropped from the visible rail — not
-//     deleted, still fully real and still one keystroke away via the
-//     Command Palette (MARKET / CRYPTO / CALENDAR). Home's Market Status
-//     block already surfaces the daily-relevant slice of Market/Calendar
-//     (regime, next event) so most day-to-day need for those two doesn't
-//     require leaving Home at all; Crypto is a distinct vertical, not one
-//     of the 7 core trading-workflow questions, same reasoning Bloomberg-
-//     style terminals give FX/commodities their own desk rather than a
-//     permanent rail slot next to equities.
+// from the prior 11-item flat list down to 7, then grew back to 19 real
+// top-level rows over the following month as new features each got their
+// own permanent slot. Collapsed again 2026-09-05 (explicit user request:
+// "combine tabs minimize tabs," completing the nav-consolidation item from
+// this session's original platform-architect audit) down to the 5-tab spec
+// (TRADE DESK / MARKET / AUTOPILOT / JOURNAL / SETTINGS) plus 2 explicit
+// exceptions the user asked to keep visible (Car Business + Dealership —
+// real day-to-day dealership-business tools, not part of the trading
+// workflow, with their own standing requirement to never read as a
+// sub-view of the trading tabs).
+//
+// Every dropped item is a demotion, never a deletion — the exact same
+// "hide, don't delete" pattern this file already used 7 times before
+// (Discover, Sniper AI, Light Box, Market/Crypto/Calendar, Curbline): the
+// real component/route/data is completely untouched, only the permanent
+// rail row disappears, replaced by a one-keystroke command-palette path
+// (axiom-live.jsx's runPaletteCommand `toTab` alias table). See each
+// dropped item's own comment below for its specific palette keyword.
+//
+// "Dashboard" is relabeled "Market" here (2026-09-05) — it's now the one
+// real MARKET destination in the 5-tab spec, unchanged underneath.
 // Single flat list, no section grouping — 7 items don't need one.
 export const SIDEBAR_ITEMS = [
   // Trade Desk — one unified screen (2026-08-25, explicit user request:
@@ -33,27 +30,31 @@ export const SIDEBAR_ITEMS = [
   // Center (CommandCenterTab.jsx, activeTab "command-center").
   { id: "trade-desk", label: "Trade Desk", icon: "🎛️", tab: "trade-desk" },
 
-  // Trade Navigator (2026-09-03, explicit user spec: "10-Second Trade
-  // Navigator") — a new, dedicated market-wide radar screen, distinct
-  // from Trade Desk's own per-symbol-first design. See
-  // TradeNavigatorTab.jsx's own header for the full design.
-  { id: "trade-navigator", label: "Trade Navigator", icon: "🧭", tab: "trade-navigator" },
+  // "Market" (2026-09-05 nav consolidation) — a straight relabel of the
+  // former "Market Overview" row, activeTab unchanged ("dashboard"). This
+  // is the one real MARKET destination the 5-tab spec asks for; the
+  // palette's own MARKET keyword now points here too (repointed from
+  // "market"/Economy, see the ECONOMY alias below for where that went) —
+  // same "sidebar label matches palette word" convention as the
+  // 2026-07-29 PORTFOLIO/SCANNER repoint.
+  { id: "dashboard", label: "Market", icon: "🏠", tab: "dashboard" },
 
-  { id: "dashboard", label: "Market Overview", icon: "🏠", tab: "dashboard" },
-  { id: "scanner", label: "Scanner", icon: "📡", tab: "scanner" },
-  { id: "economy", label: "Economy", icon: "📈", tab: "market" },
+  // Trade Navigator dropped from the rail (2026-09-05 nav consolidation).
+  // TradeNavigatorTab.jsx (activeTab "trade-navigator") is fully untouched
+  // — one keystroke away via the new NAVIGATOR command-palette alias.
 
-  // Cortex — "ask anything" intelligence layer (2026-08-11, explicit user
-  // request: "AM CORTEX — AI TRADING INTELLIGENCE ENGINE"). A genuinely new
-  // front door, not a Discover sub-view — it answers free-text questions
-  // ("why is X moving", "find undervalued stocks") by routing to this
-  // app's real existing engines (Sniper Decision, A+ Score, Institutional
-  // Grade, Future/Value scoring), never a second chatbot (that's
-  // TradingCopilot, unchanged). Given its own top-level slot despite the
-  // "7 real surfaces" rule above because it's the single largest,
-  // most-requested feature of its kind so far — same reasoning Autopilot
-  // got promoted out of hiding for.
-  { id: "cortex", label: "Cortex", icon: "🧠", tab: "cortex" },
+  // Scanner dropped from the rail (2026-09-05 nav consolidation). Same
+  // real component (activeTab "scanner") — already reachable via the
+  // existing OLDSCANNER command-palette alias (distinct from SCANNER,
+  // which points at Discover's own ranked scan).
+
+  // Economy dropped from the rail (2026-09-05 nav consolidation). Same
+  // real component (activeTab "market") — reachable via the new ECONOMY
+  // command-palette alias now that MARKET itself points at the row above.
+
+  // Cortex dropped from the rail (2026-09-05 nav consolidation).
+  // CortexTab (activeTab "cortex") is fully untouched — one keystroke
+  // away via the new CORTEX command-palette alias.
 
   // Discover dropped from the rail (2026-08-25, explicit user request: "i
   // want discover inside trade desk linked not as a tab on side"). The
@@ -75,36 +76,39 @@ export const SIDEBAR_ITEMS = [
   // "sniper-ai" are fully intact, still one keystroke away via the
   // existing SNIPER command-palette alias.
 
-  // Portfolio — "how am I performing?" Unchanged from before.
-  { id: "portfolio", label: "Portfolio",  icon: "💼", tab: "portfolio-tab" },
+  // Portfolio dropped from the rail (2026-09-05 nav consolidation). Same
+  // real component (activeTab "portfolio-tab") — already reachable via
+  // the existing PORTFOLIO command-palette alias.
 
   // Autopilot — "what is the AI doing for me?" Real broker connection
   // status, risk engine, pause/resume, open positions (GreenLightTab +
-  // MyTradesTab, axiom-live.jsx activeTab "greenlight") — this already
-  // existed and was already fully wired, it just never had a sidebar row
-  // of its own before. Still reachable via the palette (GREENLIGHT/GREEN).
+  // MyTradesTab, axiom-live.jsx activeTab "greenlight"), plus the Unified
+  // Autopilot panel (2026-09-05) showing the shared order log/
+  // reconciliation status across server-autopilot.js/lightbox-autopilot-
+  // execute.js. Still reachable via the palette (GREENLIGHT/GREEN).
   { id: "autopilot", label: "Autopilot",  icon: "🤖", tab: "greenlight" },
 
-  // ADOL22 Autopilot 2.0 (Phase 1, 2026-08-27) — a genuinely different
-  // real destination from "Autopilot" above: a real internal $100k
-  // simulated paper account run by its own fully autonomous scan->enter
-  // ->manage->exit loop (autopilot2-engine.js), separate from the
-  // existing Green Light system (which trades the real Alpaca paper
-  // account). Given its own row rather than folded into "Autopilot"
-  // above, same "genuinely new standalone tool" reasoning as Future
-  // Wallet/Photo Banners below — explicit distinct icon (🚀, matching the
-  // user's own spec header) so the two "Autopilot"-named rows are never
-  // confused for the same destination.
-  { id: "autopilot2", label: "Autopilot 2.0", icon: "🚀", tab: "autopilot2" },
+  // ADOL22 Autopilot 2.0 dropped from the rail (2026-09-05 nav
+  // consolidation). A genuinely different real destination from
+  // "Autopilot" above — a real internal $100k simulated paper account run
+  // by its own fully autonomous scan->enter->manage->exit loop
+  // (autopilot2-engine.js), deliberately kept a separate ledger from the
+  // real Alpaca account (see .claude/plans/proud-yawning-unicorn.md's
+  // Unified Autopilot merge — only the risk-gate vocabulary is shared).
+  // Same real component (activeTab "autopilot2") — already reachable via
+  // the existing AUTOPILOT2/ADOL22AUTOPILOT command-palette aliases.
 
-  // News — "what changed?" Unchanged from before.
-  { id: "news",      label: "News",       icon: "📰", tab: "news" },
+  // News dropped from the rail (2026-09-05 nav consolidation). Same real
+  // component (activeTab "news") — already reachable via the existing
+  // NEWS command-palette alias.
 
   { id: "journal", label: "Journal", icon: "📓", tab: "journal" },
-  { id: "alerts", label: "Alerts", icon: "🔔", tab: "alerts" },
-
   // Journal remains a direct destination so historical trade records stay
   // discoverable; its existing component and data path are unchanged.
+
+  // Alerts dropped from the rail (2026-09-05 nav consolidation). Same
+  // real component (activeTab "alerts") — already reachable via the
+  // existing ALERTS command-palette alias.
 
   // Light Box dropped from the rail (2026-08-25, explicit user request:
   // "link light box to as a branch to trade desk as well as discover as
@@ -114,19 +118,13 @@ export const SIDEBAR_ITEMS = [
   // aliases, same "hide, don't delete" treatment as Discover/Sniper AI/
   // Journal above.
 
-  // Future Wallet — the real Future Wallet 100 market-regime + candidate-
-  // research report (2026-08-16 build, 2026-08-17 explicit request to
-  // surface it "in my platform" after it existed only as a separate
-  // published artifact). Given a real row, same as Light Box above —
-  // explicit standalone request confirmed via AskUserQuestion, not a
-  // sub-view of an existing tab.
-  { id: "futurewallet", label: "Future Wallet", icon: "💰", tab: "futurewallet" },
+  // Future Wallet dropped from the rail (2026-09-05 nav consolidation).
+  // Same real component (activeTab "futurewallet") — already reachable
+  // via the existing FUTUREWALLET/WALLET command-palette aliases.
 
-  // Photo Banners — explicit user request (2026-08-26: "build tab so i can
-  // give image and ask to add banners by ai"). Given its own row, same
-  // reasoning as Light Box/Future Wallet above — a genuinely new
-  // standalone tool, not a sub-view of an existing tab.
-  { id: "photobanners", label: "Photo Banners", icon: "🎨", tab: "photobanners" },
+  // Photo Banners dropped from the rail (2026-09-05 nav consolidation).
+  // Same real component (activeTab "photobanners") — reachable via the
+  // new PHOTOBANNERS command-palette alias.
 
   // BTC + HPC Deep Scan dropped from the rail (2026-08-30, explicit user
   // request: "i want btc+hpc inside future wallet as a sub tab use same
@@ -139,35 +137,25 @@ export const SIDEBAR_ITEMS = [
   // drop the front door" treatment prior merges in this file used) — the
   // BTCHPC/HPC command-palette aliases now point at Future Wallet instead.
 
-  // Research — macro/valuation/AI-capex research report, explicit user
-  // request (2026-08-30: "put it inside platform in research tab") after a
-  // 5-stream live-research pass was synthesized into a published artifact.
-  // Given its own row, same reasoning as Future Wallet above — a genuinely
-  // new standalone report surfaced in-app, not a sub-view of an existing
-  // tab. A point-in-time snapshot (ResearchTab.jsx), not a live data
-  // pipeline into am-core-engine.js/opportunity-engine.js — the user
-  // explicitly chose "Research report" over "live platform integration"
-  // when asked.
-  { id: "research",  label: "Research",    icon: "🧭",  tab: "research" },
+  // Research dropped from the rail (2026-09-05 nav consolidation). Same
+  // real component (activeTab "research") — already reachable via the
+  // existing RESEARCH/MACRORESEARCH command-palette aliases.
 
-  // Market Wrap — daily 4:30 PM ET end-of-day deep scan (explicit user
-  // request, 2026-08-31: "i also want to do research about stock
-  // markets update daily at 4:30 pm i want deep scan deep analysis what
-  // stocks moving up or down what big news what big events how healthy
-  // is spy and qqq and other ETF and also sectors what next move").
-  // Given its own row for the same reason Research got one — a genuinely
-  // distinct daily report, not a sub-view of Research (that one runs
-  // pre-market at 8:35 AM and hunts early opportunities; this one runs
-  // after close and recaps the real session that just happened).
-  { id: "marketwrap", label: "Market Wrap", icon: "🌇",  tab: "marketwrap" },
+  // Market Wrap dropped from the rail (2026-09-05 nav consolidation).
+  // Same real component (activeTab "marketwrap") — reachable via the new
+  // MARKETWRAP command-palette alias.
 
   // Car Business — a completely separate automotive-business decision
   // system, explicit user /goal (2026-08-30: "Create a NEW standalone
-  // CAR BUSINESS tab... DO NOT MIX IT WITH THE TRADING ENGINE."). Given
-  // its own top-level row for exactly that reason — it must never read
-  // as a sub-view of the trading tabs. Reuses this app's real dealer
-  // backend (inventory-store.js, dealership/fb-hub.js's CRM) rather than
-  // duplicating it; no am-core-engine.js/opportunity-engine.js involved.
+  // CAR BUSINESS tab... DO NOT MIX IT WITH THE TRADING ENGINE."). Kept
+  // visible alongside the 5-tab trading rail (2026-09-05 nav
+  // consolidation, explicit user choice) rather than demoted to the
+  // palette — a real day-to-day business tool, not a trading-workflow
+  // surface, so it doesn't compete for one of the 5 trading slots but
+  // still shouldn't require a command-palette lookup for daily use.
+  // Reuses this app's real dealer backend (inventory-store.js,
+  // dealership/fb-hub.js's CRM) rather than duplicating it — no
+  // am-core-engine.js/opportunity-engine.js involved.
   { id: "carbusiness", label: "Car Business", icon: "🚗", tab: "carbusiness" },
 
   // Curbline dropped from the rail (2026-09-01 platform audit) — same
@@ -175,30 +163,27 @@ export const SIDEBAR_ITEMS = [
   // above. It's still a concept preview for a productized version of Car
   // Business's Facebook Ad Maker (explicit user request 2026-08-31), but
   // per its own header comment it's a static pitch page only — no multi-
-  // tenant backend exists yet, so it never calls a real API. This app's
-  // own stated bar for a permanent nav slot is "7 real 'what deserves a
-  // permanent slot' surfaces" (see this file's own top comment) — a non-
-  // functional preview page doesn't clear that today. CurblineTab.jsx and
-  // the real curbline-intel-*.js engine behind its one working feature
+  // tenant backend exists yet, so it never calls a real API. CurblineTab.jsx
+  // and the real curbline-intel-*.js engine behind its one working feature
   // (the daily competitor-intel scan) are untouched — still reachable via
   // the CURBLINE command-palette alias (axiom-live.jsx). Revisit a real
   // sidebar row once/if it gets a real multi-tenant backend.
 
   // Dealership — the real, already-built operational dealer portal
   // (inventory management, AI CRM inbox, photo tools, price beater —
-  // src/dealership/routes.js/fb-hub.js) has existed since before this
-  // session but was only ever reachable via a direct URL (/dealer),
-  // never a sidebar row. Explicit user request (2026-08-30: "Add
-  // dealership tab under new tab"), placed directly under Car Business
-  // since the two are closely related (Car Business is the AI research/
-  // strategy layer, this is the day-to-day operational tool it reasons
-  // about). A genuinely separate app/bundle (client/dealer/index.html,
-  // not part of this React app) — real full-page navigation via `href`,
-  // opened in a new tab so the trading platform's own session/state
-  // isn't lost, same convention as any real cross-app link.
+  // src/dealership/routes.js/fb-hub.js). Explicit user request (2026-08-30:
+  // "Add dealership tab under new tab"), placed directly under Car
+  // Business since the two are closely related (Car Business is the AI
+  // research/strategy layer, this is the day-to-day operational tool it
+  // reasons about). Kept visible in the 2026-09-05 nav consolidation for
+  // the same explicit-exception reasoning as Car Business above. A
+  // genuinely separate app/bundle (client/dealer/index.html, not part of
+  // this React app) — real full-page navigation via `href`, opened in a
+  // new tab so the trading platform's own session/state isn't lost, same
+  // convention as any real cross-app link.
   { id: "dealership", label: "Dealership", icon: "🏪", href: "/dealer" },
 
-  // Settings — not one of the 7 "question" surfaces (it doesn't answer a
+  // Settings — not one of the 5 "question" surfaces (it doesn't answer a
   // daily trading question, it configures the app), kept as a permanent
   // utility row rather than folded into the palette so account/risk/coach
   // settings stay one click away.
