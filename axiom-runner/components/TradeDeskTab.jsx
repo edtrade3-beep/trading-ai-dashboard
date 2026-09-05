@@ -14,6 +14,7 @@ import NewsTab from "./NewsTab.jsx";
 import ScannerTab from "./ScannerTab.jsx";
 import VcpStatusPanel from "./VcpStatusPanel.jsx";
 import AutopilotPanel from "./AutopilotPanel.jsx";
+import UnifiedAutopilotPanel from "./UnifiedAutopilotPanel.jsx";
 import RhProScanner from "./RhProScanner.jsx";
 import MarketTerminalTab from "./MarketTerminalTab.jsx";
 import LightBoxTab from "./LightBoxTab.jsx";
@@ -116,6 +117,15 @@ const DOCK_MODULES = [
   // the real Autopilot 2.0 tab. Key unchanged (dockModule === "autopilot"
   // still works everywhere) — only the user-visible label changed.
   { key: "autopilot", label: "LB ASSIST", color: "#0284c7" },
+  // Unified Autopilot merge, Stage 10 (2026-09-05, see .claude/plans/
+  // proud-yawning-unicorn.md) — the real "AUTOPILOT" label is available
+  // again now that Light Box's own panel above is unambiguously
+  // "LB ASSIST". This dock module is the shared execution plumbing
+  // server-autopilot.js and lightbox-autopilot-execute.js now both run
+  // through (UnifiedAutopilotPanel.jsx) — the first visible surface for
+  // Stages 2-8's risk gate/state machine/order log/reconciliation work,
+  // none of which had a UI anywhere before this.
+  { key: "unified", label: "AUTOPILOT", color: "#059669" },
 ];
 
 export default function TradeDeskTab({
@@ -670,6 +680,7 @@ export default function TradeDeskTab({
         ? <VcpStatusPanel data={chart} C={C} MONO={MONO} SANS={SANS} />
         : <div style={{ padding: 20, fontFamily: SANS, fontSize: 12, color: C.textDim }}>Select a symbol to see its VCP status.</div>)}
       {dockModule === "autopilot" && <AutopilotPanel C={C} MONO={MONO} SANS={SANS} />}
+      {dockModule === "unified" && <UnifiedAutopilotPanel C={C} MONO={MONO} SANS={SANS} />}
     </>
   );
 
