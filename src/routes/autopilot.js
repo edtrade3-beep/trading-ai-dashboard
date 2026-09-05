@@ -6,6 +6,7 @@
 const { writeJson, readRequestBody } = require("../utils");
 const { VALID_MODES, getMode, setMode, getStatus } = require("../autopilot-store");
 const { executionStatus } = require("../execution-authority");
+const { getRecentOrders } = require("../autopilot-order-store");
 
 async function readSymbol(req) {
   const raw = await readRequestBody(req);
@@ -20,6 +21,16 @@ async function handleAutopilot(req, res, requestUrl) {
 
   if (pathname === "/api/autopilot/mode" && req.method === "GET") {
     return writeJson(res, 200, { ok: true, mode: getMode(), validModes: VALID_MODES });
+  }
+
+  // Read-only view into the Unified Autopilot merge's shadow-mode
+  // transition log (Stage 3, 2026-09-04, see .claude/plans/proud-
+  // yawning-unicorn.md's own verification requirement — checking these
+  // real records against Alpaca's own order history is how this stage
+  // gets verified before anything depends on it).
+  if (pathname === "/api/autopilot/order-log" && req.method === "GET") {
+    const { symbol, source, window } = Object.fromEntries(requestUrl.searchParams);
+    return writeJson(res, 200, { ok: true, orders: getRecentOrders({ symbol: symbol || null, source: source || null, window: Number(window) || 100 }) });
   }
 
   if (pathname === "/api/autopilot/mode" && req.method === "POST") {
