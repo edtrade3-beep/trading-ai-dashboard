@@ -27,24 +27,38 @@
 function detectNewsDivergence({ sentimentTier, spyChg, qqqChg }) {
   const bullish = sentimentTier === "BULLISH" || sentimentTier === "STRONGLY_BULLISH";
   const bearish = sentimentTier === "BEARISH" || sentimentTier === "STRONGLY_BEARISH";
-  if (!bullish && !bearish) return { divergence: "NOT_APPLICABLE", reason: "Sentiment is neutral — no directional read to compare against real price action." };
-  if (!Number.isFinite(spyChg) || !Number.isFinite(qqqChg)) return { divergence: "UNKNOWN", reason: "Real SPY/QQQ data unavailable right now." };
+  if (!bullish && !bearish) return { divergence: "NOT_APPLICABLE", rejectionLabel: null, reason: "Sentiment is neutral — no directional read to compare against real price action." };
+  if (!Number.isFinite(spyChg) || !Number.isFinite(qqqChg)) return { divergence: "UNKNOWN", rejectionLabel: null, reason: "Real SPY/QQQ data unavailable right now." };
 
   const bothUp = spyChg > 0.15 && qqqChg > 0.15;
   const bothDown = spyChg < -0.15 && qqqChg < -0.15;
   if (bearish && bothUp) {
-    return { divergence: "NEWS_PRICE_DIVERGENCE", reason: "Bearish-read headline, but SPY and QQQ are both real up right now — the market may already be pricing this in, or a stronger factor is dominating. Not a confirmed bearish move." };
+    return {
+      divergence: "NEWS_PRICE_DIVERGENCE",
+      // rejectionLabel (A+ Market Intelligence V1.1, 2026-09-05) —
+      // additive alongside `divergence`, so nothing that already reads
+      // `divergence`/`divergenceReason` (V1's shipped code and tests)
+      // breaks. Sharper, spec-matching framing (§8/§9's "MARKET
+      // REJECTING BULLISH NEWS" / "BEARISH NEWS REJECTED") for direct
+      // display, distinguishing which direction was rejected.
+      rejectionLabel: "BEARISH_NEWS_REJECTED",
+      reason: "Bearish-read headline, but SPY and QQQ are both real up right now — the market may already be pricing this in, or a stronger factor is dominating. Not a confirmed bearish move.",
+    };
   }
   if (bullish && bothDown) {
-    return { divergence: "NEWS_PRICE_DIVERGENCE", reason: "Bullish-read headline, but SPY and QQQ are both real down right now — the market isn't confirming this catalyst." };
+    return {
+      divergence: "NEWS_PRICE_DIVERGENCE",
+      rejectionLabel: "BULLISH_NEWS_REJECTED",
+      reason: "Bullish-read headline, but SPY and QQQ are both real down right now — the market isn't confirming this catalyst.",
+    };
   }
-  return { divergence: "ALIGNED", reason: "Market direction is consistent with this headline's real sentiment read." };
+  return { divergence: "ALIGNED", rejectionLabel: null, reason: "Market direction is consistent with this headline's real sentiment read." };
 }
 
 function confirmationFromRow(row, spyChg, sentimentTier, qqqChg) {
   const divergence = detectNewsDivergence({ sentimentTier, spyChg, qqqChg });
   if (!row) {
-    return { available: false, confirmed: null, divergence: divergence.divergence, divergenceReason: divergence.reason, reasons: ["Real intraday VWAP/RVOL data unavailable for this ticker right now."] };
+    return { available: false, confirmed: null, divergence: divergence.divergence, rejectionLabel: divergence.rejectionLabel, divergenceReason: divergence.reason, reasons: ["Real intraday VWAP/RVOL data unavailable for this ticker right now."] };
   }
   const priceDir = Number(row.chg) > 0 ? "up" : Number(row.chg) < 0 ? "down" : "flat";
   const rvol = Number.isFinite(Number(row.rvol)) ? Number(row.rvol) : null;
@@ -66,7 +80,7 @@ function confirmationFromRow(row, spyChg, sentimentTier, qqqChg) {
   }
   if (divergence.divergence === "NEWS_PRICE_DIVERGENCE") reasons.push(divergence.reason);
 
-  return { available: true, confirmed, priceDir, volumeStrong, aboveVwap, marketSupportive, rvol, divergence: divergence.divergence, divergenceReason: divergence.reason, reasons };
+  return { available: true, confirmed, priceDir, volumeStrong, aboveVwap, marketSupportive, rvol, divergence: divergence.divergence, rejectionLabel: divergence.rejectionLabel, divergenceReason: divergence.reason, reasons };
 }
 
 // One real batched fetch for every unique ticker in a news batch, not one

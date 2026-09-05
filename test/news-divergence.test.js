@@ -48,6 +48,33 @@ ok("missing real SPY/QQQ data is an honest UNKNOWN, never assumed ALIGNED", () =
   assert.strictEqual(r.divergence, "UNKNOWN");
 });
 
+console.log("\nChecking rejectionLabel — sharper Market Rejection / Bad-News-Good-Price framing (A+ V1.1)…");
+
+ok("bearish news + real market up -> BEARISH_NEWS_REJECTED", () => {
+  const r = detectNewsDivergence({ sentimentTier: "BEARISH", spyChg: 0.6, qqqChg: 0.9 });
+  assert.strictEqual(r.rejectionLabel, "BEARISH_NEWS_REJECTED");
+});
+
+ok("bullish news + real market down -> BULLISH_NEWS_REJECTED", () => {
+  const r = detectNewsDivergence({ sentimentTier: "BULLISH", spyChg: -0.5, qqqChg: -0.7 });
+  assert.strictEqual(r.rejectionLabel, "BULLISH_NEWS_REJECTED");
+});
+
+ok("an aligned read has no rejection label, never fabricated", () => {
+  const r = detectNewsDivergence({ sentimentTier: "BULLISH", spyChg: 0.5, qqqChg: 0.6 });
+  assert.strictEqual(r.rejectionLabel, null);
+});
+
+ok("neutral/unknown cases also carry an honest null rejectionLabel, never undefined", () => {
+  assert.strictEqual(detectNewsDivergence({ sentimentTier: "NEUTRAL", spyChg: 1, qqqChg: 1 }).rejectionLabel, null);
+  assert.strictEqual(detectNewsDivergence({ sentimentTier: "BEARISH", spyChg: null, qqqChg: null }).rejectionLabel, null);
+});
+
+ok("rejectionLabel flows through confirmationFromRow's real confirmation object", () => {
+  const c = confirmationFromRow({ chg: -1.2, rvol: 2.1, aboveVwap: false }, 0.6, "BEARISH", 0.9);
+  assert.strictEqual(c.rejectionLabel, "BEARISH_NEWS_REJECTED");
+});
+
 console.log("\nChecking confirmationFromRow — divergence flows through into the real confirmation object…");
 
 ok("a real confirmation object carries the divergence + divergenceReason fields", () => {

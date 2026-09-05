@@ -1,5 +1,12 @@
 import { useEffect, useState } from "react";
 
+// Superseded 2026-09-05 by MarketCommandCenter.jsx (A+ Market
+// Intelligence V1.1) — same mount point in TradeDeskTab.jsx, same
+// collapsed one-line default, now with a click-to-expand fuller read
+// (pressure, sectors, catalyst, risk). Left on disk, unreferenced,
+// same "leave the file, drop the front door" convention this codebase
+// already uses elsewhere for a reversible retirement.
+//
 // MarketNowStrip — News Intelligence Engine V1 (2026-09-05, see
 // .claude/plans/proud-yawning-unicorn.md). The spec's "open Trade Desk,
 // understand the market narrative in seconds" ask, delivered as a

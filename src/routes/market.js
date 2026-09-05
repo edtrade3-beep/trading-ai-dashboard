@@ -4122,6 +4122,23 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
     }
   }
 
+  // A+ Market Intelligence V1.1 (2026-09-05, see .claude/plans/proud-
+  // yawning-unicorn.md) — the Market Command Center panel's one real
+  // data source: regime + bull/bear pressure + sector rotation + biggest
+  // news/divergence + earnings catalyst/expectation-gap, all aggregated
+  // from already-existing engines in src/market-command-center.js. Thin
+  // route over real computation, same pattern every other route here
+  // already uses.
+  if (pathname === "/api/market/command-center") {
+    try {
+      const { computeMarketCommandCenter } = require("../market-command-center");
+      const result = await computeMarketCommandCenter();
+      return writeJson(res, 200, result);
+    } catch (err) {
+      return writeJson(res, 502, { ok: false, error: err instanceof Error ? err.message : "Market Command Center computation failed." });
+    }
+  }
+
   if (pathname === "/api/market/news") {
     const tickers = (searchParams.get("tickers") || "")
       .split(",").map((s) => s.trim().toUpperCase()).filter(Boolean);
