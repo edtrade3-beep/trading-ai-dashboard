@@ -13,6 +13,13 @@ const {
   isMarketHoursET, openRiskPct, sectorCapExceeded, sizePositionByRisk, sectorOf,
 } = require("./risk-guardrails");
 const { evaluateAccountGate } = require("./autopilot-risk-gate");
+const { startOrder: shadowStartOrder, transition: shadowTransition } = require("./autopilot-order-store");
+
+// Shadow-mode instrumentation guard (Unified Autopilot merge, Stage 3) —
+// this brand-new transition-logging path is purely observational and
+// must never be able to affect a real order. Swallows and logs any
+// exception rather than letting it propagate into the real trading loop.
+function shadow(fn) { try { fn(); } catch (err) { console.error("[Server autopilot] shadow state-machine logging failed (non-fatal):", err.message); } }
 
 // Weekly + total drawdown breakers (Master Build Spec §16-17, 2026-08-23)
 // — real, persisted weekStartEquity/peakEquity, shared with lightbox-
@@ -170,18 +177,39 @@ async function runServerAutopilot() {
   let availCash = buyPower;   // running cash budget — decremented as buys are placed
   for (const r of eligibleAfterLearning) {
     if (slots <= 0) break;
-    if (sectorCapExceeded({ positions: heldPositions, symbol: r.symbol, maxPerSector })) continue;
+    // Shadow-mode transition log (Unified Autopilot merge, Stage 3,
+    // 2026-09-04, see .claude/plans/proud-yawning-unicorn.md) — purely
+    // observational, alongside this real order placement, never gating
+    // it. Every call is wrapped so a bug in this brand-new logging path
+    // can NEVER affect a real trade: shadow() below swallows and logs any
+    // exception rather than letting it propagate.
+    let shadowOrder = null;
+    shadow(() => { shadowOrder = shadowStartOrder({ symbol: r.symbol, source: "server-autopilot" }); });
+    shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "VALIDATING"));
+    if (sectorCapExceeded({ positions: heldPositions, symbol: r.symbol, maxPerSector })) {
+      shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "REJECTED", { reason: "sector cap exceeded" }));
+      continue;
+    }
     const sectorGate = sectorGates[sectorOf(r.symbol)];
-    if (!isAllowed(sectorGate)) { console.log(`[Server autopilot] Learning Engine paused sector for ${r.symbol}: ${sectorGate.reason}`); continue; }
+    if (!isAllowed(sectorGate)) {
+      console.log(`[Server autopilot] Learning Engine paused sector for ${r.symbol}: ${sectorGate.reason}`);
+      shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "REJECTED", { reason: `learning engine: ${sectorGate.reason}` }));
+      continue;
+    }
     const entry = Number(r.assetDecision.entry), stop = Number(r.assetDecision.stop);
     const target = Number(r.assetDecision.targets?.[0]);
     if (!(entry > 0) || !(stop > 0) || !(target > entry) || entry <= stop) {
       console.log(`[Server autopilot] rejected ${r.symbol}: canonical setup levels unavailable or invalid`);
+      shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "REJECTED", { reason: "invalid entry/stop/target" }));
       continue;
     }
     const riskFrac = r.tier === "A" ? riskPct : riskPct * 0.5;   // Tier B trades at half size
     const qty = sizePositionByRisk({ equity, riskPct: riskFrac, entry, stop, availCash, maxNamePct: 20 });
-    if (qty < 1) continue;
+    if (qty < 1) {
+      shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "REJECTED", { reason: "sizing produced qty < 1" }));
+      continue;
+    }
+    shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "RISK_APPROVED"));
     const order = {
       symbol: r.symbol, qty: String(qty), side: "buy", type: "market", time_in_force: "day",
       order_class: "bracket",
@@ -190,6 +218,7 @@ async function runServerAutopilot() {
       // Idempotency: one buy per symbol per day — a retry can't duplicate it.
       client_order_id: `sap-${r.symbol}-${new Date().toISOString().slice(0, 10)}`,
     };
+    shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "ORDER_PENDING"));
     const res = await apca("/v2/orders", "POST", order);
     if (res && res.ok) {
       slots--; placed++; availCash -= qty * entry;
@@ -205,6 +234,13 @@ async function runServerAutopilot() {
       if (isConfigured()) sendTelegramMessage(
         `🤖 SERVER AUTOPILOT — BUY ${r.symbol} (Tier ${r.tier})\n${qty} sh @ ~$${entry} (paper · bracket)\nStop $${stop} · Target $${target}\n(no browser needed · ${riskFrac.toFixed(2)}% risk)`
       ).catch(() => {});
+      // FILLED is optimistic here — this is a market order and Alpaca's
+      // own response doesn't confirm an actual fill synchronously; real
+      // fill/partial-fill polling is a later stage (see the plan's
+      // restart-reconciliation stage), not part of this shadow-only pass.
+      shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "FILLED", { meta: { orderId: res.data?.id } }));
+    } else {
+      shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "FAILED", { reason: "broker order call failed" }));
     }
   }
   if (placed) console.log(`[Server autopilot] placed ${placed} order(s)`);

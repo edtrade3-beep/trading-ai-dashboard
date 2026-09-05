@@ -36,6 +36,12 @@ const {
   isMarketHoursET, openRiskPct, sectorCapExceeded, sizePositionByRisk,
 } = require("./risk-guardrails");
 const { evaluateAccountGate } = require("./autopilot-risk-gate");
+const { startOrder: shadowStartOrder, transition: shadowTransition } = require("./autopilot-order-store");
+
+// Shadow-mode instrumentation guard (Unified Autopilot merge, Stage 3) —
+// purely observational; must never affect a real order. Swallows and
+// logs any exception rather than letting it propagate.
+function shadow(fn) { try { fn(); } catch (err) { console.error("[Light Box ASSIST] shadow state-machine logging failed (non-fatal):", err.message); } }
 const {
   getMode, getPosition, upsertPosition, logActivity,
   getLastFlattenDate, setLastFlattenDate, incrementDailyTrades,
@@ -238,8 +244,24 @@ async function previewOrder(symbol) {
 // (never trusts client-supplied qty/price) so nothing can go stale between
 // the preview tap and the confirm tap.
 async function placeOrder(symbol) {
+  // Shadow-mode transition log (Unified Autopilot merge, Stage 3,
+  // 2026-09-04, see .claude/plans/proud-yawning-unicorn.md) — purely
+  // observational, never gating this real order. validateAndSize()
+  // bundles real field-validation and real risk-approval into one call,
+  // so a single success there is honestly logged as VALIDATING then
+  // RISK_APPROVED back to back, rather than inventing a split this
+  // function doesn't actually have.
+  let shadowOrder = null;
+  shadow(() => { shadowOrder = shadowStartOrder({ symbol, source: "lightbox-assist" }); });
+
   const v = await validateAndSize(symbol);
-  if (!v.ok) return v;
+  if (!v.ok) {
+    shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "VALIDATING"));
+    shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "REJECTED", { reason: v.error }));
+    return v;
+  }
+  shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "VALIDATING"));
+  shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "RISK_APPROVED"));
   const { position, direction, qty, entry, stop, target, riskPct } = v;
 
   const clientOrderId = `${CLIENT_ORDER_PREFIX}${symbol}-${Date.now()}`;
@@ -250,10 +272,16 @@ async function placeOrder(symbol) {
     stop_loss: { stop_price: String(+stop.toFixed(2)) },
     client_order_id: clientOrderId,
   };
+  shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "ORDER_PENDING"));
   const res = await apca("/v2/orders", "POST", order);
   if (!res || !res.ok) {
+    shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "FAILED", { reason: "broker rejected the order" }));
     return { ok: false, error: `Alpaca rejected the order${res?.data?.message ? `: ${res.data.message}` : "."}` };
   }
+  // FILLED is optimistic here — a market order's real fill isn't
+  // synchronously confirmed by this response; real fill polling is a
+  // later stage (restart-reconciliation), not part of this shadow pass.
+  shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "FILLED", { meta: { orderId: res.data?.id } }));
 
   upsertPosition(symbol, {
     orderId: res.data?.id || clientOrderId,
