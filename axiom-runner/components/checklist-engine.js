@@ -16,11 +16,17 @@
 // labels it exactly that rather than claiming to be the intraday VWAP a
 // day-trader means by "VWAP".
 
+// Real live bug fix (2026-09-04, platform audit) — this seeded EMA with
+// the SMA of the first `period` values, genuinely diverging from
+// src/indicators.js's canonical values[0]-seeded formula used server-side
+// (same indicator, different real numbers on the same bars). Seeding
+// convention aligned here to match; insufficient-data contract (null)
+// unchanged.
 function ema(values, period) {
   if (!Array.isArray(values) || values.length < period) return null;
   const k = 2 / (period + 1);
-  let e = values.slice(0, period).reduce((a, b) => a + b, 0) / period;
-  for (let i = period; i < values.length; i++) e = values[i] * k + e * (1 - k);
+  let e = values[0];
+  for (let i = 1; i < values.length; i++) e = values[i] * k + e * (1 - k);
   return e;
 }
 

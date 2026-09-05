@@ -7,6 +7,7 @@
 
 const { writeJson } = require("../utils");
 const { fetchYahooBars, fetchYahooFundamentals, fetchQuoteBatchWithFallback } = require("../providers/yahoo");
+const { computeEMA, computeRSI } = require("../indicators");
 
 const _cacheByPrice = new Map(); // maxPrice -> { results, ts }
 const TTL = 5 * 60 * 1000; // 5 min — shorter so results stay fresh
@@ -58,23 +59,20 @@ async function fetchSymbolData(sym) {
   return { sym, bars, fund };
 }
 
+// Real live bug fix (2026-09-04, platform audit) — both of these used to
+// hand-roll their own EMA (SMA-seeded) and RSI (last-N-window, non-Wilder)
+// formulas, genuinely diverging from src/indicators.js's canonical
+// implementations. Now delegates to that one formula; the insufficient-
+// data sentinel (0/50) and rounding this file's own callers expect are
+// preserved here.
 function calcEMA(closes, n) {
   if (closes.length < n) return 0;
-  const k = 2 / (n + 1);
-  let e = closes.slice(0, n).reduce((a, b) => a + b, 0) / n;
-  for (let i = n; i < closes.length; i++) e = closes[i] * k + e * (1 - k);
-  return Math.round(e * 100) / 100;
+  return Math.round(computeEMA(closes, n) * 100) / 100;
 }
 
 function calcRSI(closes, n = 14) {
   if (closes.length < n + 1) return 50;
-  let gains = 0, losses = 0;
-  for (let i = closes.length - n; i < closes.length; i++) {
-    const d = closes[i] - closes[i - 1];
-    d > 0 ? gains += d : losses += Math.abs(d);
-  }
-  const rs = losses === 0 ? 100 : gains / n / (losses / n);
-  return Math.round(100 - 100 / (1 + rs));
+  return Math.round(computeRSI(closes, n));
 }
 
 function scoreStock(sym, quoteRow, fund, bars, maxPrice = DEFAULT_MAX_PRICE) {

@@ -8,6 +8,7 @@
 const { sendTelegramMessage, isConfigured } = require("./telegram");
 const { shouldSendAlert } = require("./telegram-bot");
 const { nextRotatedSlice } = require("./scan-rotation");
+const { computeEMA } = require("./indicators");
 
 // ── Universe ──────────────────────────────────────────────────────────────────
 const SCAN_UNIVERSE = [
@@ -63,12 +64,13 @@ async function fetchYahooCandles(sym, interval, range) {
 }
 
 // ── Technical calculations ────────────────────────────────────────────────────
+// Real live bug fix (2026-09-04, platform audit) — was its own SMA-seeded
+// EMA, genuinely diverging from src/indicators.js's canonical
+// values[0]-seeded formula. Now delegates to it; insufficient-data
+// sentinel (0) and rounding preserved.
 function calcEMA(closes, period) {
   if (closes.length < period) return 0;
-  const k = 2 / (period + 1);
-  let ema = closes.slice(0, period).reduce((a, b) => a + b, 0) / period;
-  for (let i = period; i < closes.length; i++) ema = closes[i] * k + ema * (1 - k);
-  return Math.round(ema * 100) / 100;
+  return Math.round(computeEMA(closes, period) * 100) / 100;
 }
 
 function calcVWAP(bars) {

@@ -4,6 +4,7 @@ const { writeJson, readRequestBody } = require("../utils");
 const { sendTelegramMessage, isConfigured: telegramConfigured } = require("../telegram");
 const { callAnthropicApi } = require("../anthropic");
 const { ANTHROPIC_API_KEY } = require("../config");
+const { computeEMA, computeRSI } = require("../indicators");
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const fmt2  = (n) => Number(n || 0).toFixed(2);
@@ -48,25 +49,22 @@ function sma(arr, n) {
   const slice = arr.slice(-n);
   return slice.reduce((a, b) => a + b, 0) / n;
 }
+// Real live bug fix (2026-09-04, platform audit) — this used to hand-roll
+// its own EMA (SMA-seeded) and RSI (last-N-window, non-Wilder) here,
+// genuinely diverging from the canonical src/indicators.js formulas
+// (values[0]-seeded EMA, real Wilder-smoothed RSI) used by the more
+// central engines — same indicator name, different real numbers. Now
+// delegates to that one canonical implementation; the null-on-
+// insufficient-data contract this file's own callers expect is preserved
+// here, matching the same consolidation pattern already applied to ATR
+// (see foundation-engine.js/future-wallet-quant.js).
 function ema(arr, n) {
   if (arr.length < n) return null;
-  const k = 2 / (n + 1);
-  let e = arr.slice(0, n).reduce((a, b) => a + b, 0) / n;
-  for (let i = n; i < arr.length; i++) e = arr[i] * k + e * (1 - k);
-  return e;
+  return computeEMA(arr, n);
 }
 function calcRSI(closes, period = 14) {
   if (closes.length < period + 1) return null;
-  const recent = closes.slice(-period - 1);
-  let gains = 0, losses = 0;
-  for (let i = 1; i < recent.length; i++) {
-    const diff = recent[i] - recent[i - 1];
-    if (diff > 0) gains += diff; else losses += Math.abs(diff);
-  }
-  const avgGain = gains / period, avgLoss = losses / period;
-  if (avgLoss === 0) return 100;
-  const rs = avgGain / avgLoss;
-  return 100 - 100 / (1 + rs);
+  return computeRSI(closes, period);
 }
 function detectPatterns(bars) {
   if (!bars || bars.length < 20) return [];

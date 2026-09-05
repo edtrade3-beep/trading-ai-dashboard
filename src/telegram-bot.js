@@ -27,6 +27,7 @@ const { sendTelegramMessage, isConfigured }     = require("./telegram");
 const { runScan, getScannerStatus, sendMacroReport, saveConfig, analyzeSymbol, computeMacroRegime, SCHEDULED_SCAN_TIMES_ET } = require("./market-scanner");
 const { loadPriceAlerts, savePriceAlerts }       = require("./price-alert-store");
 const { loadSettings }                           = require("./settings-store");
+const { computeEMA, computeRSI } = require("./indicators");
 const { fetchYahooBars, fetchYahooChartMeta, fetchYahooQuoteBatch } = require("./providers/yahoo");
 const { fetchTrending: stTrending, fetchSentiment: stSentiment }    = require("./providers/stocktwits");
 const { fetchFinanceNews, fetchTechNews, fetchAllNews, fetchSubreddit: fetchRedditSub, FINANCE_SUBS, TECH_SUBS } = require("./providers/reddit-news");
@@ -1698,12 +1699,13 @@ const COMMANDS = {
       const chg    = Number(quoteRows[0]?.regularMarketChangePercent || 0);
       const closes = bars.map(b => b.c);
 
-      const ema = (n, arr) => { const k = 2/(n+1); let e = arr.slice(0,n).reduce((s,v)=>s+v,0)/n; for (let i=n;i<arr.length;i++) e = arr[i]*k+e*(1-k); return round2(e); };
+      // Real live bug fix (2026-09-04, platform audit) — this used its own
+      // SMA-seeded EMA and a simple last-14-bar (non-Wilder) RSI, genuinely
+      // diverging from src/indicators.js's canonical formulas used
+      // elsewhere. Now delegates to that one implementation.
+      const ema = (n, arr) => round2(computeEMA(arr, n));
       const ema9 = ema(9, closes), ema21 = ema(21, closes), ema50 = ema(Math.min(50, closes.length), closes);
-
-      let gains = 0, losses = 0;
-      for (let i = bars.length - 14; i < bars.length; i++) { const d = bars[i].c - (bars[i-1]?.c || 0); d > 0 ? gains += d : losses += Math.abs(d); }
-      const rsi = round2(losses === 0 ? 100 : 100 - 100/(1 + gains/14/(losses/14)));
+      const rsi = round2(computeRSI(closes, 14));
 
       const trend = price > ema50 && ema50 > ema21 ? "STRONG BULL" : price > ema21 ? "BULL" : price < ema21 ? "BEAR" : "NEUTRAL";
 
