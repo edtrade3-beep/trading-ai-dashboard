@@ -7,6 +7,7 @@ const { writeJson, readRequestBody } = require("../utils");
 const { VALID_MODES, getMode, setMode, getStatus } = require("../autopilot-store");
 const { executionStatus } = require("../execution-authority");
 const { getRecentOrders } = require("../autopilot-order-store");
+const { getLastReconciliationResult } = require("../autopilot-reconciliation");
 
 async function readSymbol(req) {
   const raw = await readRequestBody(req);
@@ -31,6 +32,15 @@ async function handleAutopilot(req, res, requestUrl) {
   if (pathname === "/api/autopilot/order-log" && req.method === "GET") {
     const { symbol, source, window } = Object.fromEntries(requestUrl.searchParams);
     return writeJson(res, 200, { ok: true, orders: getRecentOrders({ symbol: symbol || null, source: source || null, window: Number(window) || 100 }) });
+  }
+
+  // Read-only view of the one-time boot-time broker reconciliation
+  // (Unified Autopilot merge, Stage 8, 2026-09-05) — what real Alpaca
+  // positions/orders this process's ORDER_PENDING backlog got checked
+  // against on startup, and what (if anything) got resolved. Returns
+  // ok:true, ran:null before the boot check has run at all yet.
+  if (pathname === "/api/autopilot/reconciliation" && req.method === "GET") {
+    return writeJson(res, 200, { ok: true, ...(getLastReconciliationResult() || { ran: null }) });
   }
 
   if (pathname === "/api/autopilot/mode" && req.method === "POST") {

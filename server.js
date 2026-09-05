@@ -455,6 +455,16 @@ server.listen(PORT, HOST, () => {
   registerJob("Alpaca Closed-Trade Sync", 20 * 60_000, () => require("./src/alpaca-closed-trade-feed").syncAlpacaClosedTrades());
   console.log("[Trade Autopsy] Post-trade plan-vs-actual grading active — every 15 min, market hours only");
 
+  // Unified Autopilot merge, Stage 8 (2026-09-05, see .claude/plans/
+  // proud-yawning-unicorn.md) — one-time boot check, not a recurring
+  // registerJob: closes out any order-log record left stuck at
+  // ORDER_PENDING by a crash/redeploy mid-order, against Alpaca's real
+  // current positions/open orders. Never places, cancels, or modifies a
+  // real order — only corrects this app's own bookkeeping to match
+  // reality. Fire-and-forget: must never delay or block server startup.
+  require("./src/autopilot-reconciliation").reconcileOnBoot()
+    .catch((err) => console.error("[autopilot-reconciliation] boot check failed:", err.message));
+
   // Best Opportunities "new GO" alerts (explicit user request, 2026-08-03:
   // "alert me on go not working" — the existing button is a browser
   // Notification, which silently fails once permission is denied or the tab
