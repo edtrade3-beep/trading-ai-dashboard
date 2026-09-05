@@ -230,6 +230,21 @@ async function maybeAutoExecute({ symbol, signal, composite, price, support, res
 
   const side = "buy";
 
+  // Real live bug fix (2026-09-04, platform audit) — support/resistance
+  // were only ever used to SIZE the position (sizePositionByRisk below);
+  // the actual order placed at the broker was a bare single-leg order
+  // with no stop attached at all, and nothing else in this codebase
+  // watched the resulting position — once filled, it had zero automated
+  // exit. Both are validated as real, sane levels (stop below entry,
+  // target above it) before any order is placed at all, matching the
+  // same "structurally impossible to enter without a stop" principle
+  // server-autopilot.js/autopilot2-engine.js already enforce — this
+  // system just never actually attached its own already-computed stop to
+  // the real order until now.
+  const hasValidStop = Number.isFinite(Number(support)) && Number(support) > 0 && Number(support) < price;
+  const hasValidTarget = Number.isFinite(Number(resistance)) && Number(resistance) > price;
+  if (!hasValidStop || !hasValidTarget) return null;
+
   // Risk-based sizing for the long (BUY) path — entry/stop come from the
   // scanner's support level, same convention market-scanner.js already uses
   // for its Telegram "Stop $X" message. If a valid stop can't be derived,
@@ -244,7 +259,12 @@ async function maybeAutoExecute({ symbol, signal, composite, price, support, res
     orderPrice = Math.round(price * (1 + cfg.limitSlippage) * 100) / 100;
   }
 
-  const orderOpts = { side, symbol, quantity: qty, type: cfg.orderType, price: orderPrice, duration: "day" };
+  // stop/takeProfit carried through here so both the direct autopilot
+  // path below and the assistant-approval path (handleAutoExec's
+  // /pending/:id/approve, which places this exact same orderOpts object)
+  // both get a real broker-side bracket, not just the sizing-only values
+  // these used to be.
+  const orderOpts = { side, symbol, quantity: qty, type: cfg.orderType, price: orderPrice, duration: "day", stop: support, takeProfit: resistance };
 
   // Observer mode — run the exact same scoring/guardrail pipeline as
   // autopilot, but never place the order. Reports what it WOULD have done.

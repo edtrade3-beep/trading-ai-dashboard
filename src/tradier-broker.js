@@ -129,23 +129,60 @@ async function getOrders() {
  * @param {number} [opts.price]    — required for limit orders
  * @param {"day"|"gtc"} [opts.duration]
  */
-async function placeEquityOrder({ side, symbol, quantity, type = "market", price = null, duration = "day" }) {
+// Real live bug fix (2026-09-04, platform audit) — this only ever
+// submitted a bare single-leg equity order. autoexec.js (the only real
+// caller for autopilot-mode entries) already computes a real stop price
+// for position SIZING (sizePositionByRisk's own `stop` param) but never
+// attached it to the actual order — once filled, nothing in this
+// codebase watched the position for a stop breach at all. stop/
+// takeProfit here are optional for backward compatibility with any other
+// caller, but autoexec.js's autopilot-mode entry (below) now always
+// supplies both and refuses to place an order without a real stop.
+//
+// Tradier's own documented multi-leg order format for a same-underlying
+// bracket is class=otoco: the entry leg [0] plus a stop-loss leg [1] and
+// a take-profit leg [2], submitted together so the two exit legs are
+// live at the broker the instant the entry fills (one fill cancels the
+// other) — this is Tradier's own real feature, not something invented
+// here.
+async function placeEquityOrder({ side, symbol, quantity, type = "market", price = null, duration = "day", stop = null, takeProfit = null }) {
   const acct = getAccountId();
   if (!acct) throw new Error("TRADIER_ACCOUNT_ID not set");
   if (!["buy", "sell"].includes(side)) throw new Error(`Invalid side: ${side}`);
   if (!symbol || !quantity || quantity <= 0) throw new Error("symbol and quantity required");
 
-  const body = {
-    class:    "equity",
-    symbol:   symbol.toUpperCase(),
-    side,
-    quantity: String(Math.round(quantity)),
-    type,
-    duration,
-  };
-  if (type === "limit") {
-    if (!price) throw new Error("limit order requires price");
-    body.price = String(price);
+  const qty = String(Math.round(quantity));
+  const exitSide = side === "buy" ? "sell" : "buy";
+  const hasStop = Number.isFinite(Number(stop)) && Number(stop) > 0;
+  const hasTarget = Number.isFinite(Number(takeProfit)) && Number(takeProfit) > 0;
+
+  let body;
+  if (hasStop && hasTarget) {
+    body = {
+      class: "otoco",
+      symbol: symbol.toUpperCase(),
+      duration,
+      "side[0]": side, "quantity[0]": qty, "type[0]": type,
+      "side[1]": exitSide, "quantity[1]": qty, "type[1]": "stop", "stop[1]": String(stop), "duration[1]": "gtc",
+      "side[2]": exitSide, "quantity[2]": qty, "type[2]": "limit", "price[2]": String(takeProfit), "duration[2]": "gtc",
+    };
+    if (type === "limit") {
+      if (!price) throw new Error("limit order requires price");
+      body["price[0]"] = String(price);
+    }
+  } else {
+    body = {
+      class:    "equity",
+      symbol:   symbol.toUpperCase(),
+      side,
+      quantity: qty,
+      type,
+      duration,
+    };
+    if (type === "limit") {
+      if (!price) throw new Error("limit order requires price");
+      body.price = String(price);
+    }
   }
 
   const data = await tradierFetch(`/accounts/${acct}/orders`, "POST", body);
@@ -158,6 +195,7 @@ async function placeEquityOrder({ side, symbol, quantity, type = "market", price
     quantity,
     type,
     price,
+    bracketed: hasStop && hasTarget,
     live: LIVE,
   };
 }
