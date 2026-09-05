@@ -158,8 +158,26 @@ export default function AutoPilotEngine({ watchlistData, macroData, scanResults 
   }, []);
 
   // AUTO-BUY: every 15s, paper-buy any stock the real Core Engine verdict qualifies (once/day each)
+  //
+  // NEW ENTRIES DISABLED (Unified Autopilot merge, Stage 1, 2026-09-04) —
+  // this was the only one of the platform's real order-placing systems
+  // with zero shared risk-gate coverage at all (no risk-guardrails.js
+  // import, own hand-rolled daily-loss/open-risk logic) and the only one
+  // that only runs while a specific browser tab happens to be open,
+  // making its behavior non-reproducible and untestable. The existing
+  // serverAutoRef/emergencyStopRef checks below were a real mutual-
+  // exclusion mechanism, but only held while some OTHER system happened
+  // to be active — not a standing guarantee on their own. New automated
+  // entries now route through the server-side systems being unified
+  // instead; this component still manages/exits any position it already
+  // opened (the code below this tick, and the rest of this file, is
+  // untouched) so nothing already open gets orphaned without its exit
+  // logic. Flip back to false only as a deliberate, reviewed, redeployed
+  // code change — never a runtime toggle.
+  const NEW_ENTRIES_DISABLED = true;
   useEffect(() => {
     const tick = () => {
+      if (NEW_ENTRIES_DISABLED) return;
       if (localStorage.getItem("axiom_autopilot") !== "on") return;
       if (emergencyStopRef.current) return;   // Emergency Stop engaged — no new automated entries
       if (serverAutoRef.current) return;   // server autopilot is trading — don't double up from the browser
