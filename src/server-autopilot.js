@@ -14,6 +14,7 @@ const {
 } = require("./risk-guardrails");
 const { evaluateAccountGate } = require("./autopilot-risk-gate");
 const { startOrder: shadowStartOrder, transition: shadowTransition } = require("./autopilot-order-store");
+const { REJECTION_CODES } = require("./autopilot-rejection-codes");
 const { withSymbolLock } = require("./autopilot-idempotency");
 const { getRecentClosedTrades } = require("./trade-gps-audit-store");
 
@@ -198,26 +199,26 @@ async function runServerAutopilot() {
     shadow(() => { shadowOrder = shadowStartOrder({ symbol: r.symbol, source: "server-autopilot" }); });
     shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "VALIDATING"));
     if (sectorCapExceeded({ positions: heldPositions, symbol: r.symbol, maxPerSector })) {
-      shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "REJECTED", { reason: "sector cap exceeded" }));
+      shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "REJECTED", { reason: "sector cap exceeded", meta: { code: REJECTION_CODES.SECTOR_CAP_EXCEEDED } }));
       continue;
     }
     const sectorGate = sectorGates[sectorOf(r.symbol)];
     if (!isAllowed(sectorGate)) {
       console.log(`[Server autopilot] Learning Engine paused sector for ${r.symbol}: ${sectorGate.reason}`);
-      shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "REJECTED", { reason: `learning engine: ${sectorGate.reason}` }));
+      shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "REJECTED", { reason: `learning engine: ${sectorGate.reason}`, meta: { code: REJECTION_CODES.LEARNING_ENGINE_VETO } }));
       continue;
     }
     const entry = Number(r.assetDecision.entry), stop = Number(r.assetDecision.stop);
     const target = Number(r.assetDecision.targets?.[0]);
     if (!(entry > 0) || !(stop > 0) || !(target > entry) || entry <= stop) {
       console.log(`[Server autopilot] rejected ${r.symbol}: canonical setup levels unavailable or invalid`);
-      shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "REJECTED", { reason: "invalid entry/stop/target" }));
+      shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "REJECTED", { reason: "invalid entry/stop/target", meta: { code: REJECTION_CODES.INVALID_STRUCTURE } }));
       continue;
     }
     const riskFrac = r.tier === "A" ? riskPct : riskPct * 0.5;   // Tier B trades at half size
     const qty = sizePositionByRisk({ equity, riskPct: riskFrac, entry, stop, availCash, maxNamePct: 20 });
     if (qty < 1) {
-      shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "REJECTED", { reason: "sizing produced qty < 1" }));
+      shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "REJECTED", { reason: "sizing produced qty < 1", meta: { code: REJECTION_CODES.SIZE_TOO_SMALL } }));
       continue;
     }
     shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "RISK_APPROVED"));
@@ -260,7 +261,7 @@ async function runServerAutopilot() {
         // restart-reconciliation stage), not part of this shadow-only pass.
         shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "FILLED", { meta: { orderId: res.data?.id } }));
       } else {
-        shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "FAILED", { reason: "broker order call failed" }));
+        shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "FAILED", { reason: "broker order call failed", meta: { code: REJECTION_CODES.BROKER_ERROR } }));
       }
     });
   }

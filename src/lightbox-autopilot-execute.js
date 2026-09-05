@@ -37,6 +37,7 @@ const {
 } = require("./risk-guardrails");
 const { evaluateAccountGate } = require("./autopilot-risk-gate");
 const { startOrder: shadowStartOrder, transition: shadowTransition } = require("./autopilot-order-store");
+const { REJECTION_CODES } = require("./autopilot-rejection-codes");
 const { withSymbolLock } = require("./autopilot-idempotency");
 const { getRecentClosedTrades } = require("./trade-gps-audit-store");
 
@@ -268,7 +269,7 @@ async function placeOrder(symbol) {
   const v = await validateAndSize(symbol);
   if (!v.ok) {
     shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "VALIDATING"));
-    shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "REJECTED", { reason: v.error }));
+    shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "REJECTED", { reason: v.error, meta: { code: REJECTION_CODES.VALIDATION_FAILED } }));
     return v;
   }
   shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "VALIDATING"));
@@ -293,7 +294,7 @@ async function placeOrder(symbol) {
     shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "ORDER_PENDING"));
     const res = await apca("/v2/orders", "POST", order);
     if (!res || !res.ok) {
-      shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "FAILED", { reason: "broker rejected the order" }));
+      shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "FAILED", { reason: "broker rejected the order", meta: { code: REJECTION_CODES.BROKER_ERROR } }));
       return { ok: false, error: `Alpaca rejected the order${res?.data?.message ? `: ${res.data.message}` : "."}` };
     }
     // FILLED is optimistic here — a market order's real fill isn't
