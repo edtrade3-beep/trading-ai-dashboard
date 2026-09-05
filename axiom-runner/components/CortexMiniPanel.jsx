@@ -7,6 +7,7 @@ import WhyBreakdownPanel from "./WhyBreakdownPanel.jsx";
 import EdgeTimelineSparkline from "./EdgeTimelineSparkline.jsx";
 import { DAYTRADE_STATE_LABEL, DAYTRADE_STATE_COLOR, EDGE_MONITOR_META } from "./ActivePositionsCard.jsx";
 import { computeAiTradeScore } from "./market-helpers.js";
+import { sectionLabelStyle } from "./ui-atoms.jsx";
 
 // CortexMiniPanel — Command Center's right column (2026-08-25, explicit
 // user request: unified one-screen layout, "ask anything" + "AI VERDICT"
@@ -211,7 +212,7 @@ function WhyIsItMovingButton({ symbol, C, MONO, SANS }) {
       )}
       {state && state.ok && !state.unexplained && (
         <div>
-          <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.6, marginBottom: 5 }}>LIKELY DRIVERS</div>
+          <div style={sectionLabelStyle({ marginBottom: 5 })}>LIKELY DRIVERS</div>
           {state.drivers.map((d, i) => (
             <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 8, fontFamily: SANS, fontSize: 11, color: C.text, marginBottom: 3 }}>
               <span>{i + 1}. {d.label}</span>
@@ -242,7 +243,7 @@ function FinalDecisionAndRS({ analysis, opp, macroData, C, MONO, SANS }) {
   if (!Number.isFinite(rsRating) && !aiTrade) return null;
   return (
     <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 12px", marginBottom: 12 }}>
-      <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.6, marginBottom: 6 }}>FINAL DECISION</div>
+      <div style={sectionLabelStyle({ marginBottom: 6 })}>FINAL DECISION</div>
       {analysis.row?.assetDecision?.verdict && (
         <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11, marginBottom: 4 }}>
           <span style={{ color: C.textDim }}>STOCK</span>

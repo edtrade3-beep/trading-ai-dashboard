@@ -70,6 +70,38 @@ export const TrendTag = ({ trend }) => {
   return <Badge color={c}>{i} {trend}</Badge>;
 };
 
+// Visual consistency pass (2026-09-05, explicit user request: "best and
+// easiest way to organize my platform and make it pro"). Confirmed via
+// direct audit before writing this: colors/fonts are already unified
+// app-wide through theme.js's C/MONO/SANS, but card chrome (border/
+// radius/shadow/padding) and the small uppercase "section label" header
+// text (e.g. "KEY LEVELS", "FINAL DECISION") were not — dozens of
+// near-duplicate hand-typed literals platform-wide, including C.shadow
+// (already a real theme token) getting bypassed by hand-rolled duplicate
+// shadow strings even in files that otherwise use the shared theme.
+//
+// sectionLabelStyle codifies the convention already shared by the most
+// recently-built Trade Desk panels (MarketCommandCenter.jsx,
+// AutopilotPanel.jsx, UnifiedAutopilotPanel.jsx: fontSize 10/fontWeight
+// 800/letterSpacing "0.06em") rather than inventing a new one — adopting
+// it elsewhere converges toward what was already trending, and these 3
+// files' own look doesn't change at all.
+export const sectionLabelStyle = (extra) => ({
+  fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: "0.06em", color: C.textDim, ...extra,
+});
+
+// cardStyle matches AutopilotPanel.jsx/UnifiedAutopilotPanel.jsx's own
+// already-identical self-contained-card chrome (radius 8, the real
+// C.shadow token, "10px 14px" padding) — a real, safe consolidation of
+// two files that had already independently converged on the same look,
+// not a new invention. Only for components that are ALREADY styled as a
+// standalone bordered/shadowed card — full-width strip components
+// (MarketCommandCenter.jsx, CanonicalVerdictStrip.jsx) are a
+// deliberately different, valid pattern and don't use this.
+export const cardStyle = (extra) => ({
+  background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, boxShadow: C.shadow, padding: "10px 14px", ...extra,
+});
+
 export const formatNum = (n) => {
   if (!n && n !== 0) return "—";
   if (n >= 1e12) return `$${(n / 1e12).toFixed(2)}T`;

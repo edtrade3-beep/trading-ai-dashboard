@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { sectionLabelStyle, cardStyle } from "./ui-atoms.jsx";
 
 // UnifiedAutopilotPanel — Unified Autopilot merge, Stage 10 (see
 // .claude/plans/proud-yawning-unicorn.md). Before this, the real merge
@@ -59,7 +60,7 @@ export default function UnifiedAutopilotPanel({ C, MONO, SANS }) {
   const recent = [...orders].reverse(); // newest first — the store appends oldest-first
 
   return (
-    <div style={{ marginBottom: 14, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, boxShadow: C.shadow, padding: "10px 14px" }}>
+    <div style={cardStyle({ marginBottom: 14 })}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: C.text }}>🔗 UNIFIED AUTOPILOT</span>
@@ -90,7 +91,7 @@ export default function UnifiedAutopilotPanel({ C, MONO, SANS }) {
       )}
 
       <div style={{ marginTop: 10, paddingTop: 8, borderTop: `1px solid ${C.border}` }}>
-        <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 6 }}>
+        <div style={sectionLabelStyle({ marginBottom: 6 })}>
           RECENT ORDER ATTEMPTS (BOTH SYSTEMS, ONE LOG)
         </div>
         {!recent.length && <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>No order attempts recorded yet.</div>}

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { sectionLabelStyle } from "./ui-atoms.jsx";
 
 // MarketCommandCenter — A+ Market Intelligence V1.1 (2026-09-05, see
 // .claude/plans/proud-yawning-unicorn.md). Replaces MarketNowStrip.jsx
@@ -75,7 +76,7 @@ export default function MarketCommandCenter({ onOpenNews, C, MONO, SANS }) {
         title="Market Command Center — click to expand"
         style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 14px", cursor: "pointer", overflow: "hidden" }}
       >
-        <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", flexShrink: 0 }}>{expanded ? "▾" : "▸"} MARKET NOW</span>
+        <span style={sectionLabelStyle({ flexShrink: 0 })}>{expanded ? "▾" : "▸"} MARKET NOW</span>
         {regime?.regime && (
           <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: REGIME_COLOR(C, regime.regime), flexShrink: 0 }}>
             {String(regime.regime).replace(/_/g, " ")}

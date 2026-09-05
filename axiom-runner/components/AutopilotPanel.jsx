@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { sectionLabelStyle, cardStyle } from "./ui-atoms.jsx";
 
 // ── Autopilot Panel — "AM TRADING — LIGHT BOX + AUTOPILOT" spec §31-32
 // (explicit user request, 2026-08-19). A separate, third autopilot system
@@ -103,7 +104,7 @@ export default function AutopilotPanel({ C, MONO, SANS }) {
   });
 
   return (
-    <div style={{ marginBottom: 14, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, boxShadow: C.shadow, padding: "10px 14px" }}>
+    <div style={cardStyle({ marginBottom: 14 })}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {/* Relabeled from "AUTOPILOT" (2026-08-31 audit fix) — this panel
@@ -142,7 +143,7 @@ export default function AutopilotPanel({ C, MONO, SANS }) {
         if (!ready.length && !preview && !orderResult) return null;
         return (
           <div style={{ marginTop: 10, paddingTop: 8, borderTop: `1px solid ${C.border}` }}>
-            <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 6 }}>
+            <div style={sectionLabelStyle({ marginBottom: 6 })}>
               REAL ENTRY_READY (LONG + SHORT) — TAP TO PREVIEW, THEN CONFIRM
             </div>
             {ready.map((p) => (

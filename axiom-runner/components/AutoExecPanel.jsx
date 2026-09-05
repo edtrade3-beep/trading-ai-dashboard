@@ -1,3 +1,5 @@
+import { sectionLabelStyle, cardStyle } from "./ui-atoms.jsx";
+
 // ── Auto-Execute Panel ────────────────────────────────────────────────────────
 export default function AutoExecPanel({ C, MONO, SANS }) {
   const [cfg,       setCfg]       = React.useState(null);
@@ -79,7 +81,7 @@ export default function AutoExecPanel({ C, MONO, SANS }) {
     loadPending();
   }, [loadPending]);
 
-  const card  = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "14px 18px", marginBottom: 12 };
+  const card  = cardStyle({ padding: "14px 18px", marginBottom: 12 });
   const label = { fontFamily: MONO, fontSize: 12, color: C.textDim, display: "block", marginBottom: 4 };
   const input = { background: C.surface, border: `1px solid ${C.border}`, color: C.text, borderRadius: 6, padding: "6px 10px", fontFamily: MONO, fontSize: 12, width: "100%", outline: "none", boxSizing: "border-box" };
   const btn   = (active, color) => ({ fontFamily: MONO, fontSize: 12, fontWeight: 700, border: `1px solid ${color || C.border}`, borderRadius: 6, padding: "5px 12px", cursor: "pointer", background: active ? (color || C.accent) : "transparent", color: active ? "#fff" : (color || C.text) });
@@ -148,7 +150,7 @@ export default function AutoExecPanel({ C, MONO, SANS }) {
       {tab === "settings" && (
         <div>
           <div style={card}>
-            <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 12, letterSpacing: "0.06em" }}>TRADE PARAMETERS</div>
+            <div style={sectionLabelStyle({ marginBottom: 12 })}>TRADE PARAMETERS</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
               <div>
                 <span style={label}>POSITION SIZE ($)</span>
@@ -180,7 +182,7 @@ export default function AutoExecPanel({ C, MONO, SANS }) {
           </div>
 
           <div style={card}>
-            <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 12, letterSpacing: "0.06em" }}>SIGNAL FILTERS</div>
+            <div style={sectionLabelStyle({ marginBottom: 12 })}>SIGNAL FILTERS</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
               <div>
                 <span style={label}>MIN SCORE (default 88)</span>

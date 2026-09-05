@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { computeKeyLevels } from "./market-helpers.js";
 import { clickableProps } from "./ui-helpers.js";
+import { sectionLabelStyle } from "./ui-atoms.jsx";
 
 // CommandSearchPanel — Command Center's left column, the real Opportunity
 // Inbox (Market Opportunity Engine Phase 1, 2026-08-25 — user's 36-section
@@ -121,7 +122,7 @@ export function KeyLevelsCard({ chart, C, MONO, SANS }) {
   );
   return (
     <div style={{ padding: "0 10px 14px", borderBottom: `1px solid ${C.border}`, marginBottom: 10 }}>
-      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: 0.6, marginBottom: 6 }}>📐 KEY LEVELS</div>
+      <div style={sectionLabelStyle({ marginBottom: 6 })}>📐 KEY LEVELS</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
         {resistance.map((v, i) => ({ v, label: `R${i + 1}` })).reverse().map(({ v, label }) => row(label, v, "#8b5cf6"))}
         {row("PRICE", curPrice, C.text)}
@@ -262,7 +263,7 @@ export default function CommandSearchPanel({ symbol, onSelectSymbol, onOpenDaytr
           the dead header markup — one real, visible search entry point. */}
       {!hideSearch && (
         <div style={{ padding: "10px 10px 8px" }}>
-          <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: 0.6, marginBottom: 6 }}>🔎 SEARCH</div>
+          <div style={sectionLabelStyle({ marginBottom: 6 })}>🔎 SEARCH</div>
           <div style={{ display: "flex", gap: 6 }}>
             <input
               value={query}
@@ -289,7 +290,7 @@ export default function CommandSearchPanel({ symbol, onSelectSymbol, onOpenDaytr
         const top = pickTopOpportunities(tiers, 3);
         return (
           <div style={{ padding: "10px 10px", borderBottom: `1px solid ${C.border}`, marginBottom: 4 }}>
-            <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: 0.6, marginBottom: 6 }}>
+            <div style={sectionLabelStyle({ marginBottom: 6 })}>
               {top.length ? `🔭 I FOUND ${top.length} OPPORTUNIT${top.length === 1 ? "Y" : "IES"}` : "🔭 OPPORTUNITIES"}
             </div>
             {!top.length && (
@@ -339,7 +340,7 @@ export default function CommandSearchPanel({ symbol, onSelectSymbol, onOpenDaytr
 
       {lightbox && (
         <div style={{ padding: "0 10px 10px", borderBottom: `1px solid ${C.border}`, marginBottom: 4 }}>
-          <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: 0.6, marginBottom: 6 }}>
+          <div style={sectionLabelStyle({ marginBottom: 6 })}>
             🚦 DAY TRADE{buySignals.length ? ` — ${buySignals.length} BUY` : ""}
           </div>
           {!buySignals.length && (
@@ -365,7 +366,7 @@ export default function CommandSearchPanel({ symbol, onSelectSymbol, onOpenDaytr
       )}
 
       <div style={{ padding: "4px 10px 6px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: 0.6 }}>OPPORTUNITIES</div>
+        <div style={sectionLabelStyle()}>OPPORTUNITIES</div>
         <button onClick={load} disabled={loading} title="Refresh Opportunity Engine scan" style={{ border: "none", background: "transparent", color: C.textDim, cursor: loading ? "not-allowed" : "pointer", fontFamily: MONO, fontSize: 11 }}>
           {loading ? "⏳" : "↻"}
         </button>
