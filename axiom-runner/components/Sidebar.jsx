@@ -107,9 +107,13 @@ export const SIDEBAR_ITEMS = [
   // Same real component (activeTab "autopilot2") — already reachable via
   // the existing AUTOPILOT2/ADOL22AUTOPILOT command-palette aliases.
 
-  // News dropped from the rail (2026-09-05 nav consolidation). Same real
-  // component (activeTab "news") — already reachable via the existing
-  // NEWS command-palette alias.
+  // News — restored to the rail (2026-09-05, explicit user request: "Add
+  // it to side bar," right after the News Intelligence Engine V1 work).
+  // Same real component/data as before (activeTab "news") — it never
+  // moved, it just had no permanent row for a few hours; the existing
+  // NEWS command-palette alias still works too, now redundant with this
+  // row the same way every other sidebar tab's alias is.
+  { id: "news", label: "News", icon: "📰", tab: "news" },
 
   { id: "journal", label: "Journal", icon: "📓", tab: "journal" },
   // Journal remains a direct destination so historical trade records stay
