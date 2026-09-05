@@ -8,7 +8,10 @@
 // maybeAutoExecute calls, not a hand-copied approximation of it.
 // Same minimal style as risk-guardrails.test.js — no framework, no new dep.
 const assert = require("node:assert");
-const { isCryptoPairSymbol } = require("../src/routes/autoexec");
+const path = require("node:path");
+const fs = require("node:fs");
+const { isCryptoPairSymbol, handleAutoExec, getAutoexecMode } = require("../src/routes/autoexec");
+const { ROOT } = require("../src/config");
 
 let passed = 0;
 function ok(name, fn) { try { fn(); passed++; console.log(`  ✓ ${name}`); } catch (e) { console.error(`  ✗ ${name}\n    ${e.message}`); process.exitCode = 1; } }
@@ -35,5 +38,70 @@ ok("empty/missing input never throws, never flags", () => {
   assert.strictEqual(isCryptoPairSymbol(undefined), false);
 });
 
-console.log(`\n${passed} checks passed.`);
-console.log("AUTOEXEC TEST OK");
+console.log("\nChecking Tradier autopilot/assistant mode retirement (Unified Autopilot merge, Stage 9)…");
+
+const CONFIG_PATH = path.join(ROOT, "data", "autoexec-config.json");
+let _configBackup = null;
+function backupConfig() { try { _configBackup = fs.readFileSync(CONFIG_PATH, "utf8"); } catch { _configBackup = null; } }
+function restoreConfig() { if (_configBackup != null) fs.writeFileSync(CONFIG_PATH, _configBackup); else { try { fs.unlinkSync(CONFIG_PATH); } catch {} } }
+
+function fakeReq(bodyObj) {
+  const chunks = [Buffer.from(JSON.stringify(bodyObj))];
+  return { method: "POST", [Symbol.asyncIterator]: async function* () { for (const c of chunks) yield c; } };
+}
+function fakeRes() {
+  const res = { statusCode: null, body: null };
+  res.writeHead = (code) => { res.statusCode = code; };
+  res.end = (body) => { res.body = body; };
+  return res;
+}
+async function postConfig(bodyObj) {
+  const res = fakeRes();
+  await handleAutoExec(fakeReq(bodyObj), res, new URL("http://x/api/autoexec/config"));
+  return { status: res.statusCode, json: JSON.parse(res.body) };
+}
+
+(async () => {
+  backupConfig();
+  try {
+    ok("a config already on disk with mode:\"autopilot\" is downgraded to \"observer\" on read, not trusted as-is", () => {
+      fs.writeFileSync(CONFIG_PATH, JSON.stringify({ mode: "autopilot" }));
+      assert.strictEqual(getAutoexecMode(), "observer");
+    });
+
+    fs.writeFileSync(CONFIG_PATH, JSON.stringify({ mode: "off" }));
+    await (async () => {
+      try {
+        const r = await postConfig({ mode: "autopilot" });
+        assert.strictEqual(r.status, 400);
+        assert.ok(/retired/i.test(r.json.error));
+        passed++; console.log("  ✓ POST /api/autoexec/config refuses mode:\"autopilot\" with a real 400, never silently re-enables it");
+      } catch (e) { console.error(`  ✗ POST /api/autoexec/config refuses mode:"autopilot"...\n    ${e.message}`); process.exitCode = 1; }
+    })();
+
+    fs.writeFileSync(CONFIG_PATH, JSON.stringify({ mode: "off" }));
+    await (async () => {
+      try {
+        const r = await postConfig({ mode: "assistant" });
+        assert.strictEqual(r.status, 400);
+        passed++; console.log("  ✓ POST /api/autoexec/config refuses mode:\"assistant\" the same way");
+      } catch (e) { console.error(`  ✗ POST /api/autoexec/config refuses mode:"assistant"...\n    ${e.message}`); process.exitCode = 1; }
+    })();
+
+    fs.writeFileSync(CONFIG_PATH, JSON.stringify({ mode: "off" }));
+    await (async () => {
+      try {
+        const r = await postConfig({ mode: "observer" });
+        assert.strictEqual(r.status, 200);
+        assert.strictEqual(r.json.config.mode, "observer");
+        passed++; console.log("  ✓ POST /api/autoexec/config still accepts \"observer\" — the one real automated mode left");
+      } catch (e) { console.error(`  ✗ POST /api/autoexec/config still accepts "observer"...\n    ${e.message}`); process.exitCode = 1; }
+    })();
+  } finally {
+    restoreConfig();
+  }
+
+  console.log(`\n${passed} checks passed.`);
+  if (process.exitCode) console.error("AUTOEXEC TEST FAILED");
+  else console.log("AUTOEXEC TEST OK");
+})();

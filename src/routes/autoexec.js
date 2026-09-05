@@ -31,15 +31,23 @@ const CONFIG_PATH = path.join(ROOT, "data", "autoexec-config.json");
 const PENDING_PATH = path.join(ROOT, "data", "pending-trades.json");
 
 const DEFAULT_CONFIG = {
-  // mode: "off" | "observer" | "assistant" | "autopilot"
+  // mode: "off" | "observer" (Unified Autopilot merge, Stage 9, 2026-09-05
+  // — see .claude/plans/proud-yawning-unicorn.md: "retire Tradier's
+  // autonomous modes; keep observer and manual order placement only.")
   //   off       — no scoring, no orders, no notifications (was enabled:false)
   //   observer  — runs the full pipeline, never places an order, just reports
   //               what it would have done (Execution AI's "Observer" mode)
-  //   assistant — runs the full pipeline, proposes a trade and waits for
-  //               explicit approval via /api/autoexec/pending instead of
-  //               placing it automatically ("Assistant" mode)
-  //   autopilot — places the order automatically, exactly as this always did
-  //               (was enabled:true)
+  // "assistant" (propose + approve) and "autopilot" (fully automatic) are
+  // retired — a real, separate Tradier paper ledger auto-trading beside
+  // the one unified Autopilot contradicted the entire point of merging
+  // 7 systems into one. Manual order placement (POST /api/autoexec/order,
+  // a human-initiated action, never scored/triggered by this pipeline)
+  // is untouched. The code for both retired modes is deliberately left in
+  // place below rather than deleted (same "leave the file, drop the front
+  // door" precedent as autopilot2-engine.js's own retired short-crypto
+  // path) — reversible, but no longer reachable: readConfig() below
+  // downgrades any config already on disk in one of those two modes, and
+  // POST /api/autoexec/config refuses to set either again.
   mode:           "off",
   positionSize:   500,         // $ per trade — fallback only, used if risk-based sizing can't be computed
   maxPositions:   3,           // max open auto positions at once
@@ -73,6 +81,16 @@ function readConfig() {
   // current on/off state on first load after this change.
   if (raw.mode === undefined && raw.enabled !== undefined) {
     cfg.mode = raw.enabled ? "autopilot" : "off";
+  }
+  // Unified Autopilot merge, Stage 9 (2026-09-05) — a config already on
+  // disk from before this change may still say "autopilot" or
+  // "assistant". Downgrade to "observer" (never silently to "off" — that
+  // would hide activity the account owner may still want visibility
+  // into) rather than trusting a mode this file no longer executes.
+  if (cfg.mode === "autopilot" || cfg.mode === "assistant") {
+    console.log(`[autoexec] retired mode "${cfg.mode}" found on disk — downgrading to "observer" (Unified Autopilot merge, Stage 9)`);
+    cfg.mode = "observer";
+    writeConfig(cfg); // one-time real migration, not just an in-memory patch — never re-logs after this
   }
   return cfg;
 }
@@ -336,11 +354,22 @@ async function handleAutoExec(req, res, requestUrl) {
       if (updates[k] !== undefined) cfg[k] = updates[k];
     }
     // Back-compat: a UI still sending the old `enabled` boolean maps it to
-    // mode (off/autopilot) unless the request also explicitly set `mode`.
+    // mode (off/observer) unless the request also explicitly set `mode`.
+    // "autopilot" retired (Stage 9) — mapping a truthy `enabled` to it
+    // would silently re-enable a mode this file no longer executes as
+    // automated; "observer" preserves visibility without a real order.
     if (updates.mode === undefined && updates.enabled !== undefined) {
-      cfg.mode = updates.enabled ? "autopilot" : "off";
+      cfg.mode = updates.enabled ? "observer" : "off";
     }
-    if (!["off", "observer", "assistant", "autopilot"].includes(cfg.mode)) cfg.mode = "off";
+    // "assistant"/"autopilot" retired (Unified Autopilot merge, Stage 9,
+    // 2026-09-05) — only "off"/"observer" are selectable now. An explicit
+    // request for either retired mode is refused rather than silently
+    // reinterpreted, so the caller (Settings UI) can surface a real error
+    // instead of getting a mode it didn't ask for.
+    if (updates.mode === "assistant" || updates.mode === "autopilot") {
+      return writeJson(res, 400, { error: `mode "${updates.mode}" has been retired — Tradier auto-execution is now observer-only under the unified Autopilot. Use "observer" or "off".` });
+    }
+    if (!["off", "observer"].includes(cfg.mode)) cfg.mode = "off";
     writeConfig(cfg);
     return writeJson(res, 200, { ok: true, config: cfg });
   }

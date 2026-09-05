@@ -38,8 +38,8 @@ const {
 const { evaluateAccountGate } = require("./autopilot-risk-gate");
 const { startOrder: shadowStartOrder, transition: shadowTransition } = require("./autopilot-order-store");
 const { REJECTION_CODES } = require("./autopilot-rejection-codes");
-const { withSymbolLock } = require("./autopilot-idempotency");
 const { getRecentClosedTrades } = require("./trade-gps-audit-store");
+const { apca, keys, placeGatedBracketOrder } = require("./unified-autopilot-engine");
 
 // Shadow-mode instrumentation guard (Unified Autopilot merge, Stage 3) —
 // purely observational; must never affect a real order. Swallows and
@@ -53,20 +53,12 @@ const {
 const CLIENT_ORDER_PREFIX = "lba-"; // "Light Box Autopilot" — real idempotency + real ownership marker on every order this file places
 function canExecuteFinalVerdict(verdict) { return verdict === "STRONG_BUY" || verdict === "BUY"; }
 
-const { resolveAlpacaKeys, alpacaTradingRequest } = require("./providers/alpaca-client");
-const keys = resolveAlpacaKeys;
-// Local shim preserving this file's original real contract (returns null
-// on no-key or any fetch error) while delegating the actual request to the
-// real shared client — same pattern trailing-stops.js already established
-// (Execution Bot Architecture Audit Phase 3, 2026-08-24: this file was one
-// of 2 remaining real duplicates).
-async function apca(reqPath, method = "GET", body = null) {
-  try {
-    const res = await alpacaTradingRequest(reqPath, method, body);
-    if (res._noKey) return null;
-    return { ok: res.ok, status: res.status, data: res.data };
-  } catch { return null; }
-}
+// apca()/keys() now live in ./unified-autopilot-engine — this file and
+// server-autopilot.js each used to carry a byte-identical copy (flagged
+// back in the Execution Bot Architecture Audit, 2026-08-24, as "one of 2
+// remaining real duplicates"); Unified Autopilot merge, Stage 7
+// (2026-09-05) finally collapses that into the one shared module both
+// files import.
 
 // Shared with server-autopilot.js (Autopilot goal audit, 2026-08-30) — this
 // file and server-autopilot.js trade the SAME real Alpaca paper account
@@ -276,48 +268,37 @@ async function placeOrder(symbol) {
   shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "RISK_APPROVED"));
   const { position, direction, qty, entry, stop, target, riskPct } = v;
 
-  // Real, atomic duplicate-order protection (Unified Autopilot merge,
-  // Stage 5, 2026-09-04) — this file and server-autopilot.js trade the
-  // SAME shared Alpaca account on different triggers (a human tap vs. a
-  // timer), so a genuine race is possible on the same symbol. Everything
-  // from here through the order call and its bookkeeping now runs inside
-  // one real per-symbol lock.
-  return withSymbolLock(symbol, async () => {
-    const clientOrderId = `${CLIENT_ORDER_PREFIX}${symbol}-${Date.now()}`;
-    const order = {
-      symbol, qty: String(qty), side: direction === "SHORT" ? "sell" : "buy", type: "market", time_in_force: "day",
-      order_class: "bracket",
-      take_profit: { limit_price: String(target) },
-      stop_loss: { stop_price: String(+stop.toFixed(2)) },
-      client_order_id: clientOrderId,
-    };
-    shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "ORDER_PENDING"));
-    const res = await apca("/v2/orders", "POST", order);
-    if (!res || !res.ok) {
-      shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "FAILED", { reason: "broker rejected the order", meta: { code: REJECTION_CODES.BROKER_ERROR } }));
-      return { ok: false, error: `Alpaca rejected the order${res?.data?.message ? `: ${res.data.message}` : "."}` };
-    }
-    // FILLED is optimistic here — a market order's real fill isn't
-    // synchronously confirmed by this response; real fill polling is a
-    // later stage (restart-reconciliation), not part of this shadow pass.
-    shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "FILLED", { meta: { orderId: res.data?.id } }));
-
-    upsertPosition(symbol, {
-      orderId: res.data?.id || clientOrderId,
-      orderPlacedForTs: position.detectedAt,
-      orderQty: qty, orderEntry: entry,
-    });
-    const verb = direction === "SHORT" ? "SHORT SELL" : "BUY";
-    logActivity({ symbol, state: "ORDER_PLACED", direction, quality: position.quality, note: `Real ASSIST order — ${verb} ${qty} sh @ ~$${entry} (paper · bracket, stop $${stop.toFixed(2)}, target $${target.toFixed(2)})` });
-    appendJournal({ ts: Date.now(), symbol, tier: "DAYTRADE", side: direction === "SHORT" ? "short" : "long", qty, entry, stop, target, source: "lightbox-assist" });
-    incrementDailyTrades();
-    if (isConfigured()) {
-      sendTelegramMessage(
-        `✅ LIGHT BOX AUTOPILOT — ${verb} ORDER PLACED (${symbol})\n${qty} sh @ ~$${entry.toFixed(2)} (paper · bracket)\nStop $${stop.toFixed(2)} · Target $${target.toFixed(2)}\n(${riskPct}% risk · you confirmed this in-app)`
-      ).catch(() => {});
-    }
-    return { ok: true, symbol, direction, qty, entry, stop, target, orderId: res.data?.id || clientOrderId };
+  // Real, atomic duplicate-order protection (Stage 5) still applies —
+  // this file and server-autopilot.js trade the SAME shared Alpaca
+  // account on different triggers (a human tap vs. a timer), so a
+  // genuine race is possible on the same symbol; the per-symbol lock now
+  // lives inside placeGatedBracketOrder() itself (Stage 7, 2026-09-05 —
+  // the same shared function server-autopilot.js calls, instead of each
+  // file independently building an order object and writing its own
+  // transition).
+  const clientOrderId = `${CLIENT_ORDER_PREFIX}${symbol}-${Date.now()}`;
+  const verb = direction === "SHORT" ? "SHORT SELL" : "BUY";
+  const result = await placeGatedBracketOrder({
+    symbol, side: direction === "SHORT" ? "sell" : "buy", qty, entry, stop, target,
+    clientOrderId, orderRecordId: shadowOrder?.id,
+    onFilled: async (res) => {
+      upsertPosition(symbol, {
+        orderId: res.data?.id || clientOrderId,
+        orderPlacedForTs: position.detectedAt,
+        orderQty: qty, orderEntry: entry,
+      });
+      logActivity({ symbol, state: "ORDER_PLACED", direction, quality: position.quality, note: `Real ASSIST order — ${verb} ${qty} sh @ ~$${entry} (paper · bracket, stop $${stop.toFixed(2)}, target $${target.toFixed(2)})` });
+      appendJournal({ ts: Date.now(), symbol, tier: "DAYTRADE", side: direction === "SHORT" ? "short" : "long", qty, entry, stop, target, source: "lightbox-assist" });
+      incrementDailyTrades();
+      if (isConfigured()) {
+        sendTelegramMessage(
+          `✅ LIGHT BOX AUTOPILOT — ${verb} ORDER PLACED (${symbol})\n${qty} sh @ ~$${entry.toFixed(2)} (paper · bracket)\nStop $${stop.toFixed(2)} · Target $${target.toFixed(2)}\n(${riskPct}% risk · you confirmed this in-app)`
+        ).catch(() => {});
+      }
+    },
   });
+  if (!result.ok) return { ok: false, error: `Alpaca rejected the order${result.res?.data?.message ? `: ${result.res.data.message}` : "."}` };
+  return { ok: true, symbol, direction, qty, entry, stop, target, orderId: result.res.data?.id || clientOrderId };
 }
 
 // Real end-of-day flatten — closes any still-open position this module

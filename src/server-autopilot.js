@@ -15,8 +15,8 @@ const {
 const { evaluateAccountGate } = require("./autopilot-risk-gate");
 const { startOrder: shadowStartOrder, transition: shadowTransition } = require("./autopilot-order-store");
 const { REJECTION_CODES } = require("./autopilot-rejection-codes");
-const { withSymbolLock } = require("./autopilot-idempotency");
 const { getRecentClosedTrades } = require("./trade-gps-audit-store");
+const { apca, keys, placeGatedBracketOrder } = require("./unified-autopilot-engine");
 
 // Shadow-mode instrumentation guard (Unified Autopilot merge, Stage 3) —
 // this brand-new transition-logging path is purely observational and
@@ -50,21 +50,12 @@ function tierForFinalDecision(assetDecision) {
 }
 
 const BASE = () => process.env.RENDER_EXTERNAL_URL || `http://127.0.0.1:${PORT}`;
-const { resolveAlpacaKeys, alpacaTradingRequest } = require("./providers/alpaca-client");
-const keys = resolveAlpacaKeys;
-// Local shim preserving this file's original real contract (returns null
-// on no-key or any fetch error — this is a background tick, it must never
-// throw and break the interval on a transient network blip) while
-// delegating the actual request to the real shared client — same pattern
-// trailing-stops.js already established (Execution Bot Architecture Audit
-// Phase 3, 2026-08-24: this file was one of 2 remaining real duplicates).
-async function apca(path, method = "GET", body = null) {
-  try {
-    const res = await alpacaTradingRequest(path, method, body);
-    if (res._noKey) return null;
-    return { ok: res.ok, status: res.status, data: res.data };
-  } catch { return null; }
-}
+// apca()/keys() now live in ./unified-autopilot-engine — this file and
+// lightbox-autopilot-execute.js each used to carry a byte-identical copy
+// (flagged back in the Execution Bot Architecture Audit, 2026-08-24, as
+// "one of 2 remaining real duplicates"); Unified Autopilot merge, Stage 7
+// (2026-09-05) finally collapses that into the one shared module both
+// files import.
 async function getJson(path) { try { const r = await fetch(`${BASE()}${path}`); return await r.json(); } catch { return null; }
 }
 
@@ -222,26 +213,24 @@ async function runServerAutopilot() {
       continue;
     }
     shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "RISK_APPROVED"));
-    // Real, atomic duplicate-order protection (Unified Autopilot merge,
-    // Stage 5, 2026-09-04) — this file and lightbox-autopilot-execute.js
-    // trade the SAME shared Alpaca account on different triggers (a timer
-    // vs. a human tap), so a genuine race is possible if both try to
-    // enter the same symbol at nearly the same real moment. Everything
-    // from here through the order call and its bookkeeping now runs
-    // inside one real per-symbol lock — a different symbol is never
-    // blocked by this.
-    await withSymbolLock(r.symbol, async () => {
-      const order = {
-        symbol: r.symbol, qty: String(qty), side: "buy", type: "market", time_in_force: "day",
-        order_class: "bracket",
-        take_profit: { limit_price: String(target) },
-        stop_loss: { stop_price: String(+stop.toFixed(2)) },
-        // Idempotency: one buy per symbol per day — a retry can't duplicate it.
-        client_order_id: `sap-${r.symbol}-${new Date().toISOString().slice(0, 10)}`,
-      };
-      shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "ORDER_PENDING"));
-      const res = await apca("/v2/orders", "POST", order);
-      if (res && res.ok) {
+    // Real, atomic duplicate-order protection (Stage 5) still applies —
+    // this file and lightbox-autopilot-execute.js trade the SAME shared
+    // Alpaca account on different triggers (a timer vs. a human tap), so
+    // a genuine race is possible on the same symbol; the per-symbol lock
+    // now lives inside placeGatedBracketOrder() itself (below).
+    // Unified Autopilot merge, Stage 7 (2026-09-05) — the lock, the
+    // broker call, and the real ORDER_PENDING/FILLED/FAILED transition
+    // all now live in the one shared placeGatedBracketOrder() this file
+    // and lightbox-autopilot-execute.js both call, instead of each
+    // independently building an order object and writing its own
+    // transition (Stage 3's shadow copy). onFilled below is this file's
+    // own post-fill bookkeeping — unchanged from before.
+    const result = await placeGatedBracketOrder({
+      symbol: r.symbol, side: "buy", qty, entry, stop, target,
+      // Idempotency: one buy per symbol per day — a retry can't duplicate it.
+      clientOrderId: `sap-${r.symbol}-${new Date().toISOString().slice(0, 10)}`,
+      orderRecordId: shadowOrder?.id,
+      onFilled: async () => {
         slots--; placed++; availCash -= qty * entry;
         heldPositions.push({ symbol: r.symbol, qty, avgEntryPrice: entry });
         // Journal the setup tags so we can later see which setups actually win.
@@ -255,15 +244,9 @@ async function runServerAutopilot() {
         if (isConfigured()) sendTelegramMessage(
           `🤖 SERVER AUTOPILOT — BUY ${r.symbol} (Tier ${r.tier})\n${qty} sh @ ~$${entry} (paper · bracket)\nStop $${stop} · Target $${target}\n(no browser needed · ${riskFrac.toFixed(2)}% risk)`
         ).catch(() => {});
-        // FILLED is optimistic here — this is a market order and Alpaca's
-        // own response doesn't confirm an actual fill synchronously; real
-        // fill/partial-fill polling is a later stage (see the plan's
-        // restart-reconciliation stage), not part of this shadow-only pass.
-        shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "FILLED", { meta: { orderId: res.data?.id } }));
-      } else {
-        shadow(() => shadowOrder && shadowTransition(shadowOrder.id, "FAILED", { reason: "broker order call failed", meta: { code: REJECTION_CODES.BROKER_ERROR } }));
-      }
+      },
     });
+    if (!result.ok) console.log(`[Server autopilot] order failed for ${r.symbol}: ${result.error}`);
   }
   if (placed) console.log(`[Server autopilot] placed ${placed} order(s)`);
 }

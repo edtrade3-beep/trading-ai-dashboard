@@ -101,15 +101,17 @@ export default function AutoExecPanel({ C, MONO, SANS }) {
         </div>
       </div>
 
-      {/* Mode selector — off / observer (log only) / assistant (approve each trade) /
-          autopilot (places orders automatically). Replaces the old on/off toggle now
-          that the auto-executor supports the AI-OS Execution modes. */}
+      {/* Mode selector — off / observer (log only). "Assistant" (propose +
+          approve) and "Autopilot" (fully automatic) were retired here
+          (Unified Autopilot merge, Stage 9, 2026-09-05): a separate
+          Tradier paper ledger auto-trading beside the one unified
+          Autopilot defeated the point of merging 7 systems into one.
+          Manual order placement below is unaffected — it's a real,
+          human-initiated action, never scored/triggered by this panel. */}
       <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
         {[
           { m: "off",       lbl: "○ OFF",       color: C.red },
           { m: "observer",  lbl: "👁 OBSERVER",  color: C.textDim },
-          { m: "assistant", lbl: "🟡 ASSISTANT", color: C.amber },
-          { m: "autopilot", lbl: "● AUTOPILOT",  color: C.green },
         ].map(({ m, lbl, color }) => (
           <button key={m} onClick={() => save({ mode: m })}
             style={{ ...btn(cfg.mode === m, color), flex: 1, fontSize: 12, padding: "8px 6px" }}>
@@ -120,8 +122,7 @@ export default function AutoExecPanel({ C, MONO, SANS }) {
       <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginTop: -10, marginBottom: 16, lineHeight: 1.5 }}>
         {cfg.mode === "off"       && "Auto-execute is off — no scoring, no orders, no notifications."}
         {cfg.mode === "observer"  && "Runs the full scoring/guardrail pipeline and reports what it WOULD trade via Telegram — never places an order."}
-        {cfg.mode === "assistant" && "Proposes trades that pass every guardrail and waits for your approval below — never places an order on its own."}
-        {cfg.mode === "autopilot" && "Places qualifying trades automatically, exactly as before."}
+        {(cfg.mode === "assistant" || cfg.mode === "autopilot") && "This account was migrated to Observer — automatic Tradier order placement is retired now that Autopilot is unified on the Alpaca account. Use the manual order form below to trade Tradier directly."}
       </div>
 
       {!cfg.brokerConfigured && (

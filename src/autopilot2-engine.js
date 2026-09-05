@@ -16,6 +16,7 @@ const {
   sectorCapExceeded, sizePositionByRisk,
 } = require("./risk-guardrails");
 const { isEmergencyStopActive } = require("./emergency-stop");
+const { REJECTION_CODES } = require("./autopilot-rejection-codes");
 const { getAccountSnapshot, openPosition, closePosition, partialClosePosition, updateStop, openOptionPosition, closeOptionPosition } = require("./autopilot2-account");
 const { chooseExpression } = require("./autopilot2-expression");
 const { loadState, setState, appendActivity } = require("./autopilot2-store");
@@ -862,7 +863,7 @@ async function _tickImpl() {
   const health = checkAccountHealth({ equity: snapshot.equity, cash: snapshot.cash });
   if (!health.ok) {
     if (autopilotState.state !== "SAFE_MODE") setState("SAFE_MODE", `account health check failed: ${health.reason}`);
-    appendActivity({ type: "SAFE_MODE", reason: `account health: ${health.reason}` });
+    appendActivity({ type: "SAFE_MODE", reason: `account health: ${health.reason}`, code: REJECTION_CODES.ACCOUNT_UNHEALTHY });
     return { ran: false, reason: "account health failed — SAFE_MODE" };
   }
 
@@ -871,10 +872,16 @@ async function _tickImpl() {
   await managePositions(snapshot);
   const freshSnapshot = await getAccountSnapshot();
 
+  // Unified Autopilot merge, Stage 9 (2026-09-05) — each breaker now also
+  // carries the SAME fixed code src/autopilot-rejection-codes.js already
+  // gives the real Alpaca account's own breakers (autopilot-risk-gate.js),
+  // for one consistent cross-account rejection vocabulary. Purely
+  // additive: every existing label string and the underlying trip
+  // conditions are byte-identical to before this change.
   const breakers = [
-    dailyLossBreakerTripped({ equity: freshSnapshot.equity, startOfDayEquity: freshSnapshot.dailyStartEquity, maxLossPct: DAILY_LOSS_PCT, maxLossAbs: DAILY_LOSS_LOCK_DOLLARS }) && "daily loss breaker",
-    weeklyLossBreakerTripped({ equity: freshSnapshot.equity, weekStartEquity: freshSnapshot.weekStartEquity, maxLossPct: WEEKLY_LOSS_PCT }) && "weekly loss breaker",
-    totalDrawdownBreakerTripped({ equity: freshSnapshot.equity, peakEquity: freshSnapshot.peakEquity, maxDrawdownPct: TOTAL_DRAWDOWN_PCT }) && "total drawdown breaker",
+    dailyLossBreakerTripped({ equity: freshSnapshot.equity, startOfDayEquity: freshSnapshot.dailyStartEquity, maxLossPct: DAILY_LOSS_PCT, maxLossAbs: DAILY_LOSS_LOCK_DOLLARS }) && { label: "daily loss breaker", code: REJECTION_CODES.DAILY_LOSS_BREAKER },
+    weeklyLossBreakerTripped({ equity: freshSnapshot.equity, weekStartEquity: freshSnapshot.weekStartEquity, maxLossPct: WEEKLY_LOSS_PCT }) && { label: "weekly loss breaker", code: REJECTION_CODES.WEEKLY_LOSS_BREAKER },
+    totalDrawdownBreakerTripped({ equity: freshSnapshot.equity, peakEquity: freshSnapshot.peakEquity, maxDrawdownPct: TOTAL_DRAWDOWN_PCT }) && { label: "total drawdown breaker", code: REJECTION_CODES.DRAWDOWN_BREAKER },
     // source:null (Unified Autopilot merge, Stage 4, 2026-09-04) — scopes
     // this to Autopilot 2.0's own simulated-account outcomes only, now
     // that the real Alpaca account's own closed trades also feed this
@@ -882,26 +889,28 @@ async function _tickImpl() {
     // streak on the real account would trip THIS engine's simulated-
     // account breaker, and vice versa — two different real accounts,
     // never meant to share one streak counter.
-    consecutiveLossBreakerTripped({ recentTrades: getRecentClosedTrades({ window: MAX_CONSECUTIVE_LOSSES, source: null }), maxConsecutiveLosses: MAX_CONSECUTIVE_LOSSES }) && "consecutive loss breaker",
+    consecutiveLossBreakerTripped({ recentTrades: getRecentClosedTrades({ window: MAX_CONSECUTIVE_LOSSES, source: null }), maxConsecutiveLosses: MAX_CONSECUTIVE_LOSSES }) && { label: "consecutive loss breaker", code: REJECTION_CODES.CONSECUTIVE_LOSS_BREAKER },
   ].filter(Boolean);
   if (breakers.length) {
+    const labels = breakers.map((b) => b.label);
+    const codes = breakers.map((b) => b.code);
     if (autopilotState.state !== "SAFE_MODE") {
-      setState("SAFE_MODE", `real risk breaker tripped: ${breakers.join(", ")}`);
-      if (breakers.includes("daily loss breaker")) {
+      setState("SAFE_MODE", `real risk breaker tripped: ${labels.join(", ")}`);
+      if (labels.includes("daily loss breaker")) {
         notifyMaterialStateChange({
           symbol: "ACCOUNT", newState: "DAILY_RISK_LOCKED",
           decision: { reasonOneLine: `Daily loss limit ($${DAILY_LOSS_LOCK_DOLLARS}) reached — new entries locked for the rest of the day. Equity: ${Number.isFinite(freshSnapshot.equity) ? "$" + freshSnapshot.equity.toFixed(2) : "n/a"}.` },
         }).catch(() => {});
       }
-      if (breakers.includes("consecutive loss breaker")) {
+      if (labels.includes("consecutive loss breaker")) {
         notifyMaterialStateChange({
           symbol: "ACCOUNT", newState: "CONSECUTIVE_LOSS_LOCKED",
           decision: { reasonOneLine: `${MAX_CONSECUTIVE_LOSSES} real consecutive losses — new entries locked. Step away, don't force the next trade.` },
         }).catch(() => {});
       }
     }
-    appendActivity({ type: "SAFE_MODE", reason: `risk breaker tripped: ${breakers.join(", ")}` });
-    return { ran: true, entered: 0, reason: `breaker tripped — SAFE_MODE: ${breakers.join(", ")}` };
+    appendActivity({ type: "SAFE_MODE", reason: `risk breaker tripped: ${labels.join(", ")}`, codes });
+    return { ran: true, entered: 0, reason: `breaker tripped — SAFE_MODE: ${labels.join(", ")}`, codes };
   }
 
   // New entries require RUNNING + no active global Emergency Stop. PAUSED
