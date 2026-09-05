@@ -95,17 +95,25 @@ import TradeDeskTabs from "./TradeDeskTabs.jsx";
 // "ALERTS is red" as a bearish signal. Fixed hex (not theme-swapped) since
 // mid-saturation hues at this lightness hold up against both the light
 // and dark surface colors.
+// Grouped 2026-09-05 (explicit user request: "trade desk needs to be
+// more easier more effecient" — narrowed via follow-up to include "hard
+// to find the right dock module"). Same 12 destinations, nothing cut or
+// merged — each just carries a `group` now so the dock row below can
+// cluster them instead of showing one flat, equally-weighted list.
+// "SCANNER" relabeled "SMART SCAN" (its own real PDF-export title, see
+// ScannerTab.jsx) — sitting directly next to "FULL SCAN" in the same
+// TRADE group made the old generic name read as a duplicate.
 const DOCK_MODULES = [
-  { key: "discover", label: "DISCOVER", color: "#6366f1" },
-  { key: "scanlist", label: "FULL SCAN", color: "#2563eb" },
-  { key: "lightbox", label: "LIGHT BOX", color: "#f59e0b" },
-  { key: "portfolio", label: "PORTFOLIO", color: "#0891b2" },
-  { key: "watchlist", label: "WATCHLIST", color: "#7c3aed" },
-  { key: "alerts", label: "ALERTS", color: "#db2777" },
-  { key: "options", label: "OPTIONS", color: "#ea580c" },
-  { key: "news", label: "NEWS", color: "#0d9488" },
-  { key: "scanner", label: "SCANNER", color: "#4f46e5" },
-  { key: "vcp", label: "VCP", color: "#9333ea" },
+  { key: "discover", label: "DISCOVER", color: "#6366f1", group: "TRADE" },
+  { key: "scanlist", label: "FULL SCAN", color: "#2563eb", group: "TRADE" },
+  { key: "scanner", label: "SMART SCAN", color: "#4f46e5", group: "TRADE" },
+  { key: "lightbox", label: "LIGHT BOX", color: "#f59e0b", group: "TRADE" },
+  { key: "portfolio", label: "PORTFOLIO", color: "#0891b2", group: "ACCOUNT" },
+  { key: "watchlist", label: "WATCHLIST", color: "#7c3aed", group: "ACCOUNT" },
+  { key: "alerts", label: "ALERTS", color: "#db2777", group: "ACCOUNT" },
+  { key: "options", label: "OPTIONS", color: "#ea580c", group: "ANALYSIS" },
+  { key: "news", label: "NEWS", color: "#0d9488", group: "ANALYSIS" },
+  { key: "vcp", label: "VCP", color: "#9333ea", group: "ANALYSIS" },
   // Relabeled from "AUTOPILOT" (2026-08-31 audit fix, finding #2) — this
   // dock module is Light Box's own real order-assist panel
   // (AutopilotPanel.jsx: preview/confirm real Alpaca paper orders off
@@ -116,7 +124,7 @@ const DOCK_MODULES = [
   // "LIGHT BOX" tab, read as if it were the same category of thing as
   // the real Autopilot 2.0 tab. Key unchanged (dockModule === "autopilot"
   // still works everywhere) — only the user-visible label changed.
-  { key: "autopilot", label: "LB ASSIST", color: "#0284c7" },
+  { key: "autopilot", label: "LB ASSIST", color: "#0284c7", group: "EXECUTION" },
   // Unified Autopilot merge, Stage 10 (2026-09-05, see .claude/plans/
   // proud-yawning-unicorn.md) — the real "AUTOPILOT" label is available
   // again now that Light Box's own panel above is unambiguously
@@ -125,8 +133,18 @@ const DOCK_MODULES = [
   // through (UnifiedAutopilotPanel.jsx) — the first visible surface for
   // Stages 2-8's risk gate/state machine/order log/reconciliation work,
   // none of which had a UI anywhere before this.
-  { key: "unified", label: "AUTOPILOT", color: "#059669" },
+  { key: "unified", label: "AUTOPILOT", color: "#059669", group: "EXECUTION" },
 ];
+// Grouped for the dock row's rendering — Map preserves first-seen order
+// (TRADE, ACCOUNT, ANALYSIS, EXECUTION), matching the array order above.
+const DOCK_GROUPS = (() => {
+  const map = new Map();
+  for (const m of DOCK_MODULES) {
+    if (!map.has(m.group)) map.set(m.group, []);
+    map.get(m.group).push(m);
+  }
+  return [...map.entries()].map(([name, modules]) => ({ name, modules }));
+})();
 
 export default function TradeDeskTab({
   C, MONO, SANS, macroData, sectorData, alpacaPositions, terminalSymbol, setTerminalSymbol,
@@ -766,6 +784,18 @@ export default function TradeDeskTab({
             <span>{autopilot2Running ? "🟢" : "🔴"}</span>
             <span style={{ color: TD.textDim }}>AP2 {autopilot2Running ? "RUNNING" : "STOPPED"}</span>
           </span>
+          {/* Real fix (2026-09-05, explicit user request: "trade desk needs
+              to be more easier more effecient") — toggleViewMode has always
+              existed (see its own declaration above) but no button ever
+              called it; the only way viewMode ever changed was a side
+              effect of clicking an unrelated ticker sub-tab, which flips it
+              to "full" and persists that to localStorage with no visible
+              way back. This is that missing way back, always here. */}
+          <button onClick={toggleViewMode} title="Toggle between a focused Simple view and the full Workspace Grid + dock"
+            style={{ ...pill, marginLeft: "auto", cursor: "pointer", border: `1px solid ${TD.border}`, borderRadius: 6, padding: "3px 10px", background: "transparent", color: TD.textSec }}>
+            <span>{viewMode === "full" ? "🗗" : "🗖"}</span>
+            <span>{viewMode === "full" ? "FULL" : "SIMPLE"}</span>
+          </button>
         </div>
 
         <CanonicalVerdictStrip decision={canonicalDecision} loading={decisionLoading} error={decisionError} C={TD} MONO={MONO} SANS={SANS} />
@@ -796,7 +826,7 @@ export default function TradeDeskTab({
                 is Sniper (CortexMiniPanel) alone now, taking the full
                 real height instead of sharing it with a collapsed strip. */}
             <div style={{ borderLeft: `1px solid ${TD.border}`, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column", background: TD.bg }}>
-              <CortexMiniPanel symbol={symbol} onSelectSymbol={selectSymbol} setActiveTab={setActiveTab} dayTradeHandoff={dayTradeHandoff} macroData={macroData} C={TD} MONO={MONO} SANS={SANS} />
+              <CortexMiniPanel symbol={symbol} onSelectSymbol={selectSymbol} setActiveTab={setActiveTab} dayTradeHandoff={dayTradeHandoff} macroData={macroData} fundamentals={fundamentals} C={TD} MONO={MONO} SANS={SANS} />
             </div>
           </div>
         )}
@@ -838,7 +868,7 @@ export default function TradeDeskTab({
         </div>
       )}
 
-      {/* Bottom dock — 10 modules, one shared panel, only the selected one
+      {/* Bottom dock — 12 modules, one shared panel, only the selected one
           mounts. A plain sibling of the core zone above, not inside it —
           opening a module adds real page height/scroll instead of
           squeezing the chart. Gated behind Full view (2026-08-31, "I WANT
@@ -846,24 +876,37 @@ export default function TradeDeskTab({
           core zone above (header, search/opportunities, chart, AI
           verdict). Switching back to Simple with a dock module open would
           otherwise leave it mounted with nothing to open it from again,
-          so it's explicitly closed on the way out. */}
+          so it's explicitly closed on the way out.
+          Grouped into TRADE/ACCOUNT/ANALYSIS/EXECUTION clusters
+          (2026-09-05, see DOCK_GROUPS above) — each cluster is its own
+          flex column (a tiny uppercase label, then its buttons in a row),
+          so labels align naturally without needing matching button
+          widths. Same 12 destinations, same components, purely a
+          scanability fix. */}
       {viewMode === "full" && (
         <div style={{ borderTop: `1px solid ${C.border}` }}>
           <div style={{ display: "flex", overflowX: "auto" }}>
-            {DOCK_MODULES.map((m) => (
-              <button
-                key={m.key}
-                onClick={() => openDockModule(m.key)}
-                style={{
-                  flex: isMobile ? "0 0 auto" : 1, padding: "8px 10px", border: "none",
-                  borderBottom: dockModule === m.key ? `2px solid ${m.color}` : "2px solid transparent",
-                  background: dockModule === m.key ? `${m.color}1a` : "transparent",
-                  color: m.color, opacity: dockModule === m.key ? 1 : 0.8,
-                  fontFamily: MONO, fontSize: 10.5, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap",
-                }}
-              >
-                {m.label}
-              </button>
+            {DOCK_GROUPS.map((group, gi) => (
+              <div key={group.name} style={{ display: "flex", flexDirection: "column", flex: isMobile ? "0 0 auto" : 1, borderLeft: gi > 0 ? `1px solid ${C.border}` : "none" }}>
+                <div style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, color: C.textDim, letterSpacing: "0.08em", padding: "3px 10px 0" }}>{group.name}</div>
+                <div style={{ display: "flex" }}>
+                  {group.modules.map((m) => (
+                    <button
+                      key={m.key}
+                      onClick={() => openDockModule(m.key)}
+                      style={{
+                        flex: isMobile ? "0 0 auto" : 1, padding: "5px 10px 8px", border: "none",
+                        borderBottom: dockModule === m.key ? `2px solid ${m.color}` : "2px solid transparent",
+                        background: dockModule === m.key ? `${m.color}1a` : "transparent",
+                        color: m.color, opacity: dockModule === m.key ? 1 : 0.8,
+                        fontFamily: MONO, fontSize: 10.5, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap",
+                      }}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
           {dockModule && (
@@ -1008,7 +1051,7 @@ function MobileTradeDeskBody({ symbol, selectSymbol, chart, chartError, symbolQu
             )}
           </div>
         )}
-        {view === "cortex" && <CortexMiniPanel symbol={symbol} onSelectSymbol={selectSymbol} setActiveTab={setActiveTab} dayTradeHandoff={dayTradeHandoff} macroData={macroData} C={C} MONO={MONO} SANS={SANS} />}
+        {view === "cortex" && <CortexMiniPanel symbol={symbol} onSelectSymbol={selectSymbol} setActiveTab={setActiveTab} dayTradeHandoff={dayTradeHandoff} macroData={macroData} fundamentals={fundamentals} C={C} MONO={MONO} SANS={SANS} />}
       </div>
     </div>
   );

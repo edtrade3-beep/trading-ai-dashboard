@@ -19,10 +19,14 @@ const read = (...parts) => fs.readFileSync(path.join(__dirname, "..", ...parts),
 console.log("Checking Trade Desk request timeouts (Cortex 'Analyzing…' / opportunities 'Scanning…' must never hang forever)…");
 
 const cortexSrc = read("axiom-runner", "components", "CortexMiniPanel.jsx");
-ok("CortexMiniPanel.jsx's analysis fetch uses an AbortController with a timeout", () => {
+ok("CortexMiniPanel.jsx's news fetch (the one real fetch it still owns solely) uses an AbortController with a timeout", () => {
   assert.match(cortexSrc, /new AbortController\(\)/);
   assert.match(cortexSrc, /setTimeout\(\(\) => controller\.abort\(\), 15_000\)/);
   assert.match(cortexSrc, /signal:\s*controller\.signal/);
+});
+ok("CortexMiniPanel.jsx's decision fetch (shared via decision-store.js, 2026-09-05 perf fix) never hangs forever either — raced against a 15s timeout instead of an AbortController, since aborting the shared in-flight fetch would wrongly cancel it for other consumers (e.g. TradeDeskTab.jsx) too", () => {
+  assert.match(cortexSrc, /Promise\.race\(\[\s*fetchDecision\(symbol\)/);
+  assert.match(cortexSrc, /setTimeout\(\(\) => reject\(new Error\("timeout"\)\), 15_000\)/);
 });
 ok("CortexMiniPanel.jsx surfaces a Retry action on error, not a permanent 'Analyzing…'", () => {
   assert.match(cortexSrc, /setRetryTick/);

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { getCachedDecision, fetchDecision } from "./decision-store.js";
 import { computeSniperDecision } from "./sniper-decision.js";
 import { FINAL_VERDICT_META } from "./final-decision-meta.js";
 import { parseCortexQuery } from "./cortex-engine.js";
@@ -233,7 +234,7 @@ function FinalDecisionAndRS({ analysis, opp, macroData, C, MONO, SANS }) {
   );
 }
 
-export default function CortexMiniPanel({ symbol, onSelectSymbol, setActiveTab, dayTradeHandoff, macroData, C, MONO, SANS }) {
+export default function CortexMiniPanel({ symbol, onSelectSymbol, setActiveTab, dayTradeHandoff, macroData, fundamentals, C, MONO, SANS }) {
   const [query, setQuery] = useState("");
   const [analysis, setAnalysis] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -310,33 +311,58 @@ export default function CortexMiniPanel({ symbol, onSelectSymbol, setActiveTab, 
     // a background refresh failing quietly is correct; it must not fight
     // whatever the user is currently looking at with a flicker or a
     // spurious error banner.
+    //
+    // Routed through decision-store.js (2026-09-05 perf fix — see
+    // .claude/plans/proud-yawning-unicorn.md's Trade Desk plan) instead of
+    // its own raw fetch to the identical /api/market/trend-screen
+    // endpoint. TradeDeskTab.jsx already fetches this same symbol's
+    // canonical decision through this exact shared cache — this panel used
+    // to independently re-fetch it every symbol change AND every 5-minute
+    // poll, a real duplicate of TradeDeskTab.jsx's own comment claiming
+    // this was already deduped. `fundamentals` is now a prop (TradeDeskTab
+    // already fetches it too) instead of its own independent fetch — only
+    // `news` remains a real fetch owned solely by this panel.
     const loadAnalysis = async (silent) => {
       if (!silent) { setLoading(true); setError(null); setNotice(null); }
-      // 15s frontend timeout (matches this app's one existing precedent,
-      // axiom-live.jsx's deals-search AbortController) — the button/panel
-      // must never hang forever on a slow or dead request.
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 15_000);
       try {
-        // Publish the canonical decision as soon as the decision endpoint
-        // returns. Optional fundamentals/news must not hold the verdict in a
-        // misleading "Analyzing" state while the left Trade Desk already
-        // shows the same symbol's opportunity.
-        const screenJ = await fetch(`/api/market/trend-screen?symbols=${encodeURIComponent(symbol)}&withDecision=1&withOptions=1`, { signal: controller.signal }).then((r) => r.json());
+        // Paint immediately from whatever's already cached (same
+        // "paint fast, refresh behind it" pattern TradeDeskTab.jsx itself
+        // uses for canonicalDecision) — genuinely helps perceived latency
+        // when TradeDeskTab already resolved this exact symbol.
+        const cached = getCachedDecision(symbol);
+        if (cached.row && !cached.loading) {
+          const sniperCached = computeSniperDecision(cached.row);
+          setAnalysis({ symbol, row: cached.row, sniper: sniperCached, fundamentals: fundamentals || null, news: null });
+          if (!silent) setLoading(false);
+        }
+
+        // fetchDecision's own underlying fetch is shared with other
+        // consumers (TradeDeskTab.jsx) via decision-store.js's in-flight
+        // dedup — an AbortController here would wrongly cancel it for
+        // them too. Race it against a timeout instead: on timeout, THIS
+        // panel gives up and shows an error, but the shared request keeps
+        // running underneath and still populates the cache for whoever
+        // else (or a later retry) is waiting on it.
+        const entry = await Promise.race([
+          fetchDecision(symbol),
+          new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 15_000)),
+        ]).catch((e) => ({ row: null, error: e.message === "timeout" ? "Request timed out." : "Unable to load market data." }));
         if (cancelled || reqRef.current !== symbol) return;
-        const row = (screenJ.results || [])[0];
-        if (!row || row.error) { if (!silent) { setError(`No real market data available for ${symbol}.`); setAnalysis(null); } return; }
-        const sniper = computeSniperDecision(row);
-        setAnalysis({ symbol, row, sniper, fundamentals: null, news: null });
+        if (!entry.row || entry.error) { if (!silent) { setError(entry.error === "Request timed out." ? entry.error : `No real market data available for ${symbol}.`); setAnalysis(null); } return; }
+        const sniper = computeSniperDecision(entry.row);
+        setAnalysis((current) => ({ symbol, row: entry.row, sniper, fundamentals: fundamentals || null, news: current?.symbol === symbol ? current.news : null }));
         if (!silent) setLoading(false);
-        const [fundJ, newsJ] = await Promise.all([
-          fetch(`/api/market/fundamentals?symbol=${encodeURIComponent(symbol)}`).then((r) => r.json()).catch(() => null),
-          fetch(`/api/news/ticker/${encodeURIComponent(symbol)}`).then((r) => r.json()).catch(() => null),
-        ]);
+
+        // 15s frontend timeout (matches this app's one existing precedent,
+        // axiom-live.jsx's deals-search AbortController) — news is the one
+        // real fetch still owned solely by this panel, so it's the one
+        // that still needs its own timeout guard.
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 15_000);
+        const newsJ = await fetch(`/api/news/ticker/${encodeURIComponent(symbol)}`, { signal: controller.signal }).then((r) => r.json()).catch(() => null);
+        clearTimeout(timer);
         if (!cancelled && reqRef.current === symbol) {
-          setAnalysis((current) => current && current.symbol === symbol
-            ? { ...current, fundamentals: fundJ && !fundJ.error ? fundJ : null, news: newsJ }
-            : current);
+          setAnalysis((current) => current && current.symbol === symbol ? { ...current, news: newsJ } : current);
         }
       } catch (e) {
         if (!cancelled && !silent) {
@@ -344,7 +370,6 @@ export default function CortexMiniPanel({ symbol, onSelectSymbol, setActiveTab, 
           setAnalysis(null);
         }
       } finally {
-        clearTimeout(timer);
         if (!cancelled && !silent) setLoading(false);
       }
     };
@@ -356,6 +381,16 @@ export default function CortexMiniPanel({ symbol, onSelectSymbol, setActiveTab, 
     const iv = setInterval(() => loadAnalysis(true), 5 * 60_000);
     return () => { cancelled = true; clearInterval(iv); };
   }, [symbol, retryTick]);
+
+  // Real fix (2026-09-05, Trade Desk perf pass): `fundamentals` is now a
+  // prop (TradeDeskTab.jsx's own already-in-flight fetch, no independent
+  // request here anymore) that can resolve AFTER the effect above already
+  // ran and closed over an earlier value. Patch it into the current
+  // analysis as soon as it arrives, rather than waiting for the next
+  // symbol change or 5-minute poll to pick it up.
+  useEffect(() => {
+    setAnalysis((current) => (current && current.symbol === symbol ? { ...current, fundamentals: fundamentals || null } : current));
+  }, [fundamentals, symbol]);
 
   const submit = () => {
     const parsed = parseCortexQuery(query, null);

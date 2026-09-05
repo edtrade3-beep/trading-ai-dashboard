@@ -38,6 +38,11 @@ function emptyEntry(symbol) {
     // canonical pipeline result; every consumer that only reads
     // assetDecision is unaffected.
     tradeGps: null, tradeStructure: null, trapShield: null, marketAgreement: null, tradeGpsVerdict: null, dangerEvent: null, whyNow: null,
+    // row (2026-09-05) — the full raw trend-screen row, additive, for a
+    // consumer (CortexMiniPanel) that needs more than the picked-out
+    // fields above (e.g. computeSniperDecision's own real inputs) without
+    // firing its own independent request for the identical data.
+    row: null,
     fetchedAt: null, loading: true, error: null,
   };
 }
@@ -114,6 +119,7 @@ export function fetchDecision(symbol) {
         dangerEvent: row?.dangerEvent || null,
         whyNow: row?.whyNow || null,
         tradeGpsVerdict: row?.tradeGpsVerdict || null,
+        row: row || null,
         fetchedAt: Date.now(),
         loading: false,
         error,
@@ -125,6 +131,7 @@ export function fetchDecision(symbol) {
       const entry = {
         symbol: key, assetDecision: null, marketRegime: null, dataHealth: null,
         tradeGps: null, tradeStructure: null, trapShield: null, marketAgreement: null, tradeGpsVerdict: null, dangerEvent: null, whyNow: null,
+        row: null,
         fetchedAt: Date.now(), loading: false, error: err.message,
       };
       _decisionCache.set(key, { entry, ts: Date.now(), promise: null });
