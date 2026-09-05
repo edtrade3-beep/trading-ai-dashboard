@@ -29,13 +29,23 @@ function recordSetupEvent({
   symbol = null, engineVersion = null, regime = null, inputTimestamps = null, scoreBreakdown = null,
   tradeStructure = null, verdict = null, riskDecision = null, stateTransition = null,
   outcome = null, slippage = null, optionSpreadCost = null, qualifyReason = null,
-  openedAt = null, followUp = null, nowMs = Date.now(),
+  openedAt = null, followUp = null, nowMs = Date.now(), source = null,
 } = {}) {
   if (!symbol) return null; // honest no-op — never fabricates a record for an unknown symbol
   const record = {
     id: `${symbol}-${nowMs}-${Math.random().toString(36).slice(2, 8)}`,
     symbol, at: nowMs, engineVersion, regime, inputTimestamps, scoreBreakdown,
     tradeStructure, verdict, riskDecision, stateTransition, outcome, slippage, optionSpreadCost, qualifyReason,
+    // Unified Autopilot merge, Stage 4 (2026-09-04) — additive discriminator
+    // distinguishing which real account a closed-trade record came from.
+    // Every record before this stage (and every Autopilot 2.0 record
+    // going forward, since its own call sites don't pass this) has
+    // source:null — a real, disclosed simulated-account trade. Only the
+    // new Alpaca closed-trade feed passes source:"alpaca-real". Never
+    // omit this distinction when reading records for a real breaker —
+    // see getRecentClosedTrades' own source filter below, added for
+    // exactly this reason.
+    source,
     // Trade Navigator Stage 5 (2026-09-03) — the real position-open
     // timestamp (autopilot2-account.js's own real entryAt), additive.
     // Trade Replay Brain's own per-hour analysis needs WHEN a trade was
@@ -103,8 +113,17 @@ function getPerformanceViews({ window = 50, groupBy = null, startingEquity = 100
 // store's own natural append order), not an aggregated view.
 // getPerformanceViews() above answers "how has this performed," this
 // answers "what actually just happened, in order."
-function getRecentClosedTrades({ window = 20 } = {}) {
-  return readStore().map(toBacktestTrade).filter(Boolean).slice(-Math.max(1, Number(window) || 20));
+// `source` is intentionally undefined-by-default vs. null-able: pass it
+// explicitly (Stage 4, 2026-09-04) to scope the trailing window to one
+// real account's own outcomes only (e.g. source:null for Autopilot 2.0's
+// existing simulated-account records, source:"alpaca-real" for the real
+// Alpaca account) — omitting it entirely preserves the original
+// unfiltered behavior for any caller that genuinely wants every record
+// regardless of account.
+function getRecentClosedTrades({ window = 20, source } = {}) {
+  let records = readStore();
+  if (source !== undefined) records = records.filter((r) => r.source === source);
+  return records.map(toBacktestTrade).filter(Boolean).slice(-Math.max(1, Number(window) || 20));
 }
 
 // Real closed records with their full real context (openedAt/
@@ -148,8 +167,17 @@ function getRecordsByQualifyReason(qualifyReason) {
   return readStore().filter((r) => r?.qualifyReason === qualifyReason);
 }
 
+// Raw, untransformed records for one real source (Unified Autopilot
+// merge, Stage 4, 2026-09-04) — src/alpaca-closed-trade-feed.js's own
+// dedup pass needs full fidelity (closedAt/qty/exit, not
+// getClosedRecordsForAnalysis' stripped shape) to tell whether a given
+// real Alpaca fill has already been recorded.
+function getRawRecordsBySource(source, { window = 2000 } = {}) {
+  return readStore().filter((r) => r.source === source).slice(-Math.max(1, Number(window) || 2000));
+}
+
 module.exports = {
   recordSetupEvent, getPerformanceViews, getRecentClosedTrades, getClosedRecordsForAnalysis,
-  updateAuditRecord, getRecordsByQualifyReason,
+  updateAuditRecord, getRecordsByQualifyReason, getRawRecordsBySource,
   STORE_PATH, MAX_RECORDS,
 };

@@ -8,7 +8,7 @@
 "use strict";
 const assert = require("node:assert");
 const { writeJsonAtomic, readJsonSafe } = require("../src/atomic-write");
-const { recordSetupEvent, getPerformanceViews, getRecentClosedTrades, getClosedRecordsForAnalysis, STORE_PATH } = require("../src/trade-gps-audit-store");
+const { recordSetupEvent, getPerformanceViews, getRecentClosedTrades, getClosedRecordsForAnalysis, getRawRecordsBySource, STORE_PATH } = require("../src/trade-gps-audit-store");
 
 let passed = 0;
 function ok(name, fn) { try { fn(); passed++; console.log(`  ✓ ${name}`); } catch (e) { console.error(`  ✗ ${name}\n    ${e.message}`); process.exitCode = 1; } }
@@ -150,6 +150,42 @@ try {
     recordSetupEvent({ symbol: "E", tradeStructure: "STOCK", outcome: { pnl: 5 } });
     const r = getClosedRecordsForAnalysis({ window: 50 });
     assert.strictEqual(r[0].openedAt, null);
+  });
+
+  console.log("\nChecking the source discriminator (Unified Autopilot merge, Stage 4)…");
+
+  ok("a record with no source given defaults to null — Autopilot 2.0's own existing convention, unchanged", () => {
+    writeJsonAtomic(STORE_PATH, { records: [] });
+    const rec = recordSetupEvent({ symbol: "F", outcome: { pnl: 1 } });
+    assert.strictEqual(rec.source, null);
+  });
+
+  ok("getRecentClosedTrades with no source param returns every real record regardless of account — original behavior preserved", () => {
+    writeJsonAtomic(STORE_PATH, { records: [] });
+    recordSetupEvent({ symbol: "G", outcome: { pnl: 10 }, source: null });
+    recordSetupEvent({ symbol: "G", outcome: { pnl: 20 }, source: "alpaca-real" });
+    assert.strictEqual(getRecentClosedTrades({ window: 20 }).length, 2);
+  });
+
+  ok("getRecentClosedTrades(source:'alpaca-real') excludes source:null records, and vice versa", () => {
+    writeJsonAtomic(STORE_PATH, { records: [] });
+    recordSetupEvent({ symbol: "H", outcome: { pnl: -10 }, source: null });
+    recordSetupEvent({ symbol: "H", outcome: { pnl: 30 }, source: "alpaca-real" });
+    const real = getRecentClosedTrades({ window: 20, source: "alpaca-real" });
+    assert.strictEqual(real.length, 1);
+    assert.strictEqual(real[0].pnl, 30);
+    const sim = getRecentClosedTrades({ window: 20, source: null });
+    assert.strictEqual(sim.length, 1);
+    assert.strictEqual(sim[0].pnl, -10);
+  });
+
+  ok("getRawRecordsBySource returns full-fidelity records for one real source only", () => {
+    writeJsonAtomic(STORE_PATH, { records: [] });
+    recordSetupEvent({ symbol: "I", outcome: { pnl: 5, qty: 10, exit: 100 }, source: "alpaca-real" });
+    recordSetupEvent({ symbol: "I", outcome: { pnl: 5 }, source: null });
+    const raw = getRawRecordsBySource("alpaca-real");
+    assert.strictEqual(raw.length, 1);
+    assert.strictEqual(raw[0].outcome.qty, 10);
   });
 } finally {
   writeJsonAtomic(STORE_PATH, original);

@@ -875,7 +875,14 @@ async function _tickImpl() {
     dailyLossBreakerTripped({ equity: freshSnapshot.equity, startOfDayEquity: freshSnapshot.dailyStartEquity, maxLossPct: DAILY_LOSS_PCT, maxLossAbs: DAILY_LOSS_LOCK_DOLLARS }) && "daily loss breaker",
     weeklyLossBreakerTripped({ equity: freshSnapshot.equity, weekStartEquity: freshSnapshot.weekStartEquity, maxLossPct: WEEKLY_LOSS_PCT }) && "weekly loss breaker",
     totalDrawdownBreakerTripped({ equity: freshSnapshot.equity, peakEquity: freshSnapshot.peakEquity, maxDrawdownPct: TOTAL_DRAWDOWN_PCT }) && "total drawdown breaker",
-    consecutiveLossBreakerTripped({ recentTrades: getRecentClosedTrades({ window: MAX_CONSECUTIVE_LOSSES }), maxConsecutiveLosses: MAX_CONSECUTIVE_LOSSES }) && "consecutive loss breaker",
+    // source:null (Unified Autopilot merge, Stage 4, 2026-09-04) — scopes
+    // this to Autopilot 2.0's own simulated-account outcomes only, now
+    // that the real Alpaca account's own closed trades also feed this
+    // same store tagged source:"alpaca-real". Without this, a losing
+    // streak on the real account would trip THIS engine's simulated-
+    // account breaker, and vice versa — two different real accounts,
+    // never meant to share one streak counter.
+    consecutiveLossBreakerTripped({ recentTrades: getRecentClosedTrades({ window: MAX_CONSECUTIVE_LOSSES, source: null }), maxConsecutiveLosses: MAX_CONSECUTIVE_LOSSES }) && "consecutive loss breaker",
   ].filter(Boolean);
   if (breakers.length) {
     if (autopilotState.state !== "SAFE_MODE") {

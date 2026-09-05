@@ -446,6 +446,13 @@ server.listen(PORT, HOST, () => {
   // immediately per trade (not routed through the morning digest — a
   // one-off receipt, not a recurring opportunity scan).
   registerJob("Trade Autopsy", 15 * 60_000, () => require("./src/trade-autopsy").checkTradeAutopsy());
+  // Unified Autopilot merge, Stage 4 (2026-09-04, see
+  // .claude/plans/proud-yawning-unicorn.md) — syncs the real Alpaca paper
+  // account's own closed trades into the canonical audit store, tagged
+  // source:"alpaca-real". Doesn't gate anything yet; this just lets real
+  // closed-trade history accumulate ahead of Stage 6's consecutive-loss
+  // breaker, which needs real data to evaluate, not a cold start.
+  registerJob("Alpaca Closed-Trade Sync", 20 * 60_000, () => require("./src/alpaca-closed-trade-feed").syncAlpacaClosedTrades());
   console.log("[Trade Autopsy] Post-trade plan-vs-actual grading active — every 15 min, market hours only");
 
   // Best Opportunities "new GO" alerts (explicit user request, 2026-08-03:
