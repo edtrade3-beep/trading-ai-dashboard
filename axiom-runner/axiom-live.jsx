@@ -2683,7 +2683,7 @@ export default function App() {
   }, [watchlistData]);
 
   // ── News sentiment scoring (for next-day direction) ──────────────────────────
-  // Phase 1 news-feed consolidation (2026-09-05): was an independent BULL/BEAR
+  // Phase 2 news-feed consolidation (2026-09-05): was an independent BULL/BEAR
   // keyword-count heuristic over the finviz news-scrape endpoint — an
   // unauthorized HTML scrape (see src/news/provider.js's header comment). Now reads the real
   // classified/scored pipeline's "MARKET" aggregate (same tag the pipeline
