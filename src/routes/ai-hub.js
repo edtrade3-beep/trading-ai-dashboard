@@ -29,6 +29,14 @@ const { PORT, ANTHROPIC_API_KEY } = require("../config");
 const {
   sectorOf, checkAccountHealth, dailyLossBreakerTripped, openRiskPct,
 } = require("../risk-guardrails");
+// Real, canonical caps — same constants server-autopilot.js/quick-trade-
+// service.js's own preTradeCheck() actually gates orders on (Risk Command
+// Center consolidation, 2026-09-06). Previously buildRiskSnapshot below
+// hardcoded its own maxLossPct:2 literal and PortfolioRiskCard.jsx
+// separately hardcoded riskCap:6 and a sector-bar threshold of 3 — three
+// independent copies of the same three numbers, exactly the "one risk
+// engine" duplication the platform charter flags. Now there is one source.
+const { MAX_LOSS_PCT, MAX_RISK_PCT, MAX_PER_SECTOR, DAILY_LOSS_LOCK_DOLLARS } = require("../quick-trade-service");
 const { callAnthropicApi, MODELS } = require("../anthropic");
 const { load: loadLessonStore, saveLesson } = require("../trading-lesson-store");
 
@@ -86,8 +94,10 @@ async function buildRiskSnapshot() {
   const normPositions = positions.map(p => ({ symbol: p.symbol, qty: p.qty, avgEntryPrice: p.avgEntry }));
   const openRisk = openRiskPct({ positions: normPositions, equity });
   // Same convention server-autopilot.js:68 already uses: prior-close equity as
-  // the start-of-day baseline for the daily-loss breaker.
-  const dailyBreakerTripped = dailyLossBreakerTripped({ equity, startOfDayEquity: account.lastEquity, maxLossPct: 2 });
+  // the start-of-day baseline for the daily-loss breaker. Uses the same real
+  // MAX_LOSS_PCT/DAILY_LOSS_LOCK_DOLLARS constants that actually gate orders
+  // (quick-trade-service.js), not a locally-hardcoded copy.
+  const dailyBreakerTripped = dailyLossBreakerTripped({ equity, startOfDayEquity: account.lastEquity, maxLossPct: MAX_LOSS_PCT, maxLossAbs: DAILY_LOSS_LOCK_DOLLARS });
 
   // Pure display aggregation (not a risk decision) — how many positions per
   // sector, reusing sectorOf() so it stays consistent with the sector-cap
@@ -113,17 +123,43 @@ async function buildRiskSnapshot() {
     ? Math.round((Math.max(0, ...positions.map((p) => Number(p.marketValue) || 0)) / totalValue) * 1000) / 10
     : 0;
 
+  const dailyPnl = equity - (Number(account.lastEquity) || equity);
+  // Real effective daily-loss ceiling in dollars — the breaker trips on
+  // WHICHEVER of the two real limits binds first (dailyLossBreakerTripped's
+  // own OR logic above), so the honest displayed limit is the smaller of
+  // the two, never just one of them in isolation.
+  // Real bug fix (code review, 2026-09-06) — the real breaker two lines
+  // above computes its percentage threshold off startOfDayEquity
+  // (account.lastEquity), not current equity; this used equity, so the
+  // displayed limit could disagree with the dailyBreakerTripped boolean
+  // rendered right next to it whenever intraday equity has moved.
+  const startOfDayEquity = Number(account.lastEquity) || equity;
+  const dailyLossLimitDollars = Math.min(startOfDayEquity * (MAX_LOSS_PCT / 100), DAILY_LOSS_LOCK_DOLLARS);
+  const dailyLossUsedDollars = Math.max(0, -dailyPnl);
+  const roundedOpenRiskPct = Math.round(openRisk * 10) / 10;
+
   return {
     ok: true,
     equity, cash, buyingPower: account.buyingPower,
-    dailyPnl: equity - (Number(account.lastEquity) || equity),
+    dailyPnl,
     accountHealth: health,
-    openRiskPct: Math.round(openRisk * 10) / 10,
+    openRiskPct: roundedOpenRiskPct,
     dailyBreakerTripped,
     positionCount: positions.length,
     sectorConcentration: bySector,
     topPositionPct,
     concentrationFlags,
+    // Real canonical caps (Risk Command Center consolidation, 2026-09-06) —
+    // the exact numbers quick-trade-service.js's preTradeCheck() gates
+    // orders on, not a display-only re-derivation.
+    maxRiskPct: MAX_RISK_PCT,
+    maxPerSector: MAX_PER_SECTOR,
+    riskBudgetRemainingPct: Math.max(0, Math.round((MAX_RISK_PCT - roundedOpenRiskPct) * 10) / 10),
+    riskBudgetRemainingDollars: Math.max(0, Math.round(equity * (MAX_RISK_PCT - roundedOpenRiskPct) / 100)),
+    dailyLossLimitPct: MAX_LOSS_PCT,
+    dailyLossLimitDollars: Math.round(dailyLossLimitDollars),
+    dailyLossUsedDollars: Math.round(dailyLossUsedDollars),
+    dailyLossRemainingDollars: Math.max(0, Math.round(dailyLossLimitDollars - dailyLossUsedDollars)),
   };
 }
 

@@ -79,7 +79,22 @@ export default function PortfolioRiskCard({ C, MONO, SANS, distData }) {
   if (state === "loading") return <div style={card}>{title}<div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Loading…</div></div>;
   if (state === "error" || !snap) return <div style={card}>{title}<div style={{ fontFamily: MONO, fontSize: 12, color: C.red }}>Couldn't load risk snapshot.</div></div>;
 
-  const riskCap = 6; // matches the maxRiskPct default used by both autopilot engines
+  // Real, canonical caps from the server (src/routes/ai-hub.js's
+  // buildRiskSnapshot, sourced from quick-trade-service.js's own real
+  // order-gating constants) — Risk Command Center consolidation,
+  // 2026-09-06. Was a locally-hardcoded riskCap:6 that could silently
+  // drift from the real cap; a hardcoded fallback here only covers an
+  // older cached snapshot shape, never a live divergence.
+  // Real bug fix (code review, 2026-09-06): the API always returns both
+  // fields together now, so `?? 6`/`?? 3` only fires for a stale cached
+  // client hitting an older server shape or a malformed response — an edge
+  // case, but silently rendering the old hardcoded default as if it were
+  // live would recreate the exact "looks authoritative, isn't confirmed"
+  // drift this consolidation set out to eliminate. capsAreLive marks the
+  // two text labels below honestly rather than hiding the fallback.
+  const capsAreLive = snap.maxRiskPct != null && snap.maxPerSector != null;
+  const riskCap = snap.maxRiskPct ?? 6;
+  const sectorCap = snap.maxPerSector ?? 3;
   const riskPct = Math.min(100, (snap.openRiskPct / riskCap) * 100);
   const riskColor = snap.openRiskPct >= riskCap ? C.red : snap.openRiskPct >= riskCap * 0.7 ? C.amber : C.green;
   const sectors = Object.entries(snap.sectorConcentration || {}).sort((a, b) => b[1] - a[1]);
@@ -106,7 +121,7 @@ export default function PortfolioRiskCard({ C, MONO, SANS, distData }) {
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
         <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>OPEN RISK</span>
-        <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: riskColor, ...num }}>{snap.openRiskPct}% <span style={{ color: C.textDim, fontWeight: 400 }}>/ {riskCap}% cap</span></span>
+        <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: riskColor, ...num }}>{snap.openRiskPct}% <span style={{ color: C.textDim, fontWeight: 400 }}>/ {riskCap}% cap{!capsAreLive && " (default)"}</span></span>
       </div>
       <div style={{ height: 6, borderRadius: 3, background: C.border, overflow: "hidden", marginBottom: 12 }}>
         <div style={{ height: "100%", width: `${riskPct}%`, background: riskColor, borderRadius: 3 }} />
@@ -123,6 +138,36 @@ export default function PortfolioRiskCard({ C, MONO, SANS, distData }) {
       <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11, marginBottom: 10 }}>
         <span style={{ color: C.textDim }}>Open positions</span>
         <span style={{ fontWeight: 700, color: C.text, ...num }}>{snap.positionCount}</span>
+      </div>
+
+      {/* Real Account Equity/Cash/Daily P&L/Risk Budget — Risk Command
+          Center consolidation (2026-09-06). Every field here was already
+          computed by buildRiskSnapshot (ai-hub.js) but never rendered
+          anywhere; zero new data, zero new fetch. Mapped over an array
+          (code review, 2026-09-06) instead of 4 copy-pasted blocks — same
+          pattern the sector-concentration list below already uses. */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 10, padding: "8px 10px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}` }}>
+        {[
+          { label: "Equity", value: `$${Math.round(snap.equity).toLocaleString()}` },
+          { label: "Buying power", value: `$${Math.round(snap.buyingPower ?? snap.cash).toLocaleString()}` },
+          { label: "Daily P/L", value: `${snap.dailyPnl >= 0 ? "+" : "-"}$${Math.round(Math.abs(snap.dailyPnl)).toLocaleString()}`, color: snap.dailyPnl >= 0 ? C.green : C.red },
+          { label: "Risk budget left", value: <>${snap.riskBudgetRemainingDollars?.toLocaleString() ?? "—"} <span style={{ color: C.textDim, fontWeight: 400 }}>({snap.riskBudgetRemainingPct}%)</span></> },
+        ].map((row) => (
+          <div key={row.label} style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11 }}>
+            <span style={{ color: C.textDim }}>{row.label}</span>
+            <span style={{ fontWeight: 700, color: row.color || C.text, ...num }}>{row.value}</span>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
+        <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>DAILY LOSS LIMIT</span>
+        <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: snap.dailyLossUsedDollars >= snap.dailyLossLimitDollars * 0.7 ? C.amber : C.text, ...num }}>
+          ${snap.dailyLossUsedDollars?.toLocaleString()} <span style={{ color: C.textDim, fontWeight: 400 }}>/ ${snap.dailyLossLimitDollars?.toLocaleString()} used</span>
+        </span>
+      </div>
+      <div style={{ height: 6, borderRadius: 3, background: C.border, overflow: "hidden", marginBottom: 12 }}>
+        <div style={{ height: "100%", width: `${snap.dailyLossLimitDollars ? Math.min(100, (snap.dailyLossUsedDollars / snap.dailyLossLimitDollars) * 100) : 0}%`, background: snap.dailyBreakerTripped ? C.red : C.amber, borderRadius: 3 }} />
       </div>
 
       {snap.topPositionPct > 0 && (
@@ -143,13 +188,13 @@ export default function PortfolioRiskCard({ C, MONO, SANS, distData }) {
 
       {sectors.length > 0 && (
         <>
-          <div style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 700, color: C.textDim, letterSpacing: "0.09em", textTransform: "uppercase", marginBottom: 6 }}>Sector Concentration</div>
+          <div style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 700, color: C.textDim, letterSpacing: "0.09em", textTransform: "uppercase", marginBottom: 6 }}>Sector Concentration <span style={{ fontWeight: 400, textTransform: "none" }}>(cap: {sectorCap}/sector{!capsAreLive && ", default"})</span></div>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             {sectors.map(([sec, count]) => (
               <div key={sec} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <span style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, minWidth: 70 }}>{sec}</span>
                 <div style={{ flex: 1, height: 5, borderRadius: 3, background: C.border, overflow: "hidden" }}>
-                  <div style={{ height: "100%", width: `${(count / maxSectorCount) * 100}%`, background: count >= 3 ? C.amber : C.accent, borderRadius: 3 }} />
+                  <div style={{ height: "100%", width: `${(count / maxSectorCount) * 100}%`, background: count >= sectorCap ? C.amber : C.accent, borderRadius: 3 }} />
                 </div>
                 <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, minWidth: 14, textAlign: "right", ...num }}>{count}</span>
               </div>
