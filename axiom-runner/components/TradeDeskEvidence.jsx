@@ -49,8 +49,36 @@ export default function TradeDeskEvidence({ decision, chart, C, MONO, SANS }) {
             <Row label="Risk / reward" value={value(rr, rr != null ? "R" : "")} C={C} MONO={MONO} />
             <Row label="Invalidation" value={value(invalidation && `$${Number(invalidation).toFixed(2)}`)} C={C} MONO={MONO} danger={invalidation != null} />
           </Panel>
-          <Panel title="WHY / WHAT CHANGES IT" color={C.amber} C={C} MONO={MONO} SANS={SANS}>
-            <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, lineHeight: 1.4 }}>{decision?.reasons?.[0] || decision?.blockers?.[0] || "No explanation available."}</div>
+          {/* Real bug fix (2026-09-06, platform-consolidation Part 4/6 —
+              "WHY THIS TRADE" and "WHY NOT THIS TRADE" as two distinct
+              lists shown together). This panel used to show only
+              decision.reasons[0] OR decision.blockers[0] — whichever
+              existed, picking blockers only as a fallback when reasons was
+              empty — so a real trade with BOTH supporting evidence and a
+              real risk-override blocker only ever showed one or the other,
+              never both. Both are already real, already-deduped arrays on
+              every AssetDecision (asset-decision.js); this was a rendering
+              gap, not a missing data source. */}
+          <Panel title="WHY / WHY NOT" color={C.amber} C={C} MONO={MONO} SANS={SANS}>
+            {decision?.reasons?.length ? (
+              <div style={{ marginBottom: decision?.blockers?.length ? 8 : 0 }}>
+                <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.green, marginBottom: 3 }}>WHY</div>
+                {decision.reasons.slice(0, 3).map((r, i) => (
+                  <div key={i} style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, lineHeight: 1.4 }}>✓ {r}</div>
+                ))}
+              </div>
+            ) : null}
+            {decision?.blockers?.length ? (
+              <div>
+                <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.red, marginBottom: 3 }}>WHY NOT</div>
+                {decision.blockers.slice(0, 3).map((b, i) => (
+                  <div key={i} style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, lineHeight: 1.4 }}>⚠ {b}</div>
+                ))}
+              </div>
+            ) : null}
+            {!decision?.reasons?.length && !decision?.blockers?.length && (
+              <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, fontStyle: "italic" }}>No explanation available.</div>
+            )}
             {decision?.changeMyMind?.[0] && <div style={{ marginTop: 6, fontFamily: SANS, fontSize: 11, color: C.amber }}><b>Changes if:</b> {decision.changeMyMind[0]}</div>}
           </Panel>
           <Panel title="CHART STATUS" color={C.text} C={C} MONO={MONO}>
