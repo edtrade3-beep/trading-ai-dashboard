@@ -8,6 +8,7 @@ import CortexMiniPanel from "./CortexMiniPanel.jsx";
 import { PortfolioSnapshotCard } from "./DashboardTab.jsx";
 import ActivePositionsCard from "./ActivePositionsCard.jsx";
 import RhProWatchlists from "./RhProWatchlists.jsx";
+import WhatChangedPanel from "./WhatChangedPanel.jsx";
 import AlertsTab from "./AlertsTab.jsx";
 import OptionsChainTab from "./OptionsChainTab.jsx";
 import NewsTab from "./NewsTab.jsx";
@@ -785,6 +786,19 @@ export default function TradeDeskTab({
             <span>{autopilot2Running ? "🟢" : "🔴"}</span>
             <span style={{ color: TD.textDim }}>AP2 {autopilot2Running ? "RUNNING" : "STOPPED"}</span>
           </span>
+          {/* Global What-Changed engine (platform-consolidation Part 7,
+              2026-09-06) — real "since open"/"since last refresh" material
+              changes (regime, VIX, data health, market news sentiment, real
+              candidate verdict transitions), pulled from what it already
+              recorded off the real opportunities scan.
+              Real bug fix (code review, same day): marginLeft:"auto" was
+              previously passed via pillStyle onto the inner <button>, but
+              the actual flex item in this row is WhatChangedPanel's own
+              outer wrapper div, which carried no margin of its own — the
+              button's margin had no effect on this row's layout. Passed
+              via containerStyle onto that wrapper instead, so this (and the
+              view toggle after it) actually sit flush right as intended. */}
+          <WhatChangedPanel C={TD} MONO={MONO} SANS={SANS} pillStyle={pill} containerStyle={{ marginLeft: "auto" }} />
           {/* Real fix (2026-09-05, explicit user request: "trade desk needs
               to be more easier more effecient") — toggleViewMode has always
               existed (see its own declaration above) but no button ever
@@ -793,7 +807,7 @@ export default function TradeDeskTab({
               to "full" and persists that to localStorage with no visible
               way back. This is that missing way back, always here. */}
           <button onClick={toggleViewMode} title="Toggle between a focused Simple view and the full Workspace Grid + dock"
-            style={{ ...pill, marginLeft: "auto", cursor: "pointer", border: `1px solid ${TD.border}`, borderRadius: 6, padding: "3px 10px", background: "transparent", color: TD.textSec }}>
+            style={{ ...pill, cursor: "pointer", border: `1px solid ${TD.border}`, borderRadius: 6, padding: "3px 10px", background: "transparent", color: TD.textSec }}>
             <span>{viewMode === "full" ? "🗗" : "🗖"}</span>
             <span>{viewMode === "full" ? "FULL" : "SIMPLE"}</span>
           </button>

@@ -2210,7 +2210,32 @@ async function computeAllOpportunities() {
   const canonicalRegime = canonicalSample
     ? computeCanonicalAssetDecision({ symbol: canonicalSample.symbol, row: canonicalSample, macroQuotes: macroData, nowMs, marketHours, researchContext })
     : null;
-  return { tiers, dataQuality, dataHealth: canonicalRegime?.dataHealth || null, marketRegime: canonicalRegime?.marketRegime || null, researchContext };
+  const dataHealth = canonicalRegime?.dataHealth || null;
+  const marketRegime = canonicalRegime?.marketRegime || null;
+
+  // Global What-Changed engine (platform-consolidation Part 7, 2026-09-06)
+  // — real bug fix (code review, same day): this used to live in the route
+  // handler AFTER the cached()/Promise.race wrapper below, so it re-ran on
+  // every HTTP GET to this route including cache hits serving an identical,
+  // already-recorded scan — "since last refresh" ended up reflecting the
+  // time of the last poll, not the last actual scan, defeating the
+  // feature. Moved inside this function (the thing cached() actually
+  // memoizes) so it only runs once per real fresh compute, exactly like
+  // the per-symbol recordOpportunitySnapshots below already effectively
+  // gets via its own internal per-symbol throttle. Additive/non-fatal:
+  // reuses the news pipeline's already-real MARKET aggregate (a local DB
+  // read, not a new external fetch); a failure here (e.g. DB not
+  // configured) just means an honest null trend, never blocks the real
+  // opportunities response.
+  try {
+    const { buildGlobalSnapshot } = require("../what-changed-engine");
+    const { recordAndDiff } = require("../what-changed-store");
+    const { getTickerAggregation } = require("../news/store");
+    const newsAggregation = await getTickerAggregation("MARKET", { sinceMinutes: 240 }).catch(() => null);
+    recordAndDiff(buildGlobalSnapshot({ marketRegime, tiers, dataHealth, newsAggregation }));
+  } catch {}
+
+  return { tiers, dataQuality, dataHealth, marketRegime, researchContext };
 }
 
 async function handleMarket(req, res, requestUrl) {
@@ -3210,6 +3235,22 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
       return writeJson(res, 200, { ok: true, symbol, samples, edgeVelocity: computeEdgeVelocity(samples) });
     } catch (err) {
       return writeJson(res, 502, { ok: false, error: err instanceof Error ? err.message : "Timeline unavailable." });
+    }
+  }
+
+  // GET /api/market/what-changed — real global "since open" / "since last
+  // refresh" material-change diff (platform-consolidation Part 7,
+  // 2026-09-06). Reads whatever the most recent /api/market/opportunities
+  // scan already recorded via what-changed-store.js — no recompute, no new
+  // fetch. Honest null diffs until at least one/two real scans have
+  // happened today.
+  if (pathname === "/api/market/what-changed" && req.method === "GET") {
+    try {
+      const { getLastWhatChanged } = require("../what-changed-store");
+      const result = getLastWhatChanged();
+      return writeJson(res, 200, { ok: true, sinceOpen: null, sinceLastRefresh: null, ...(result || {}) });
+    } catch (err) {
+      return writeJson(res, 200, { ok: false, error: err instanceof Error ? err.message : "What-changed unavailable." });
     }
   }
 
