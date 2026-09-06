@@ -142,21 +142,48 @@ export default function AutopilotPanel({ C, MONO, SANS }) {
         const ready = positions.filter((p) => p.state === "ENTRY_READY" && (p.direction === "LONG" || p.direction === "SHORT") && !(p.orderId && p.orderPlacedForTs === p.detectedAt));
         if (!ready.length && !preview && !orderResult) return null;
         return (
-          <div style={{ marginTop: 10, paddingTop: 8, borderTop: `1px solid ${C.border}` }}>
+          // Real bug fix (2026-09-06, user report + screenshot: "can not
+          // click on preview" on a phone) — this list has no right-side
+          // clearance for the app's always-on fixed "⚡" FAB-expand toggle
+          // (axiom-live.jsx, position:fixed, bottom:10+statusBarH, right:10,
+          // zIndex:9999, "always visible on every screen size" per its own
+          // comment there). Whichever row happens to scroll into that
+          // button's fixed screen coordinates has its flush-right PREVIEW
+          // button's taps captured by the FAB instead — same class of bug
+          // this codebase has hit and fixed before for other lists/panels
+          // (DashboardTab.jsx's DashSubNav, MarketTerminalTab.jsx's chart
+          // price scale), just not yet applied here. paddingRight on this
+          // container (not just the button) insets every row, including
+          // the right-aligned PREVIEW button, out from under that column —
+          // matching the MarketTerminalTab.jsx clearance convention.
+          <div style={{ marginTop: 10, paddingTop: 8, paddingRight: 56, borderTop: `1px solid ${C.border}` }}>
             <div style={sectionLabelStyle({ marginBottom: 6 })}>
               REAL ENTRY_READY (LONG + SHORT) — TAP TO PREVIEW, THEN CONFIRM
             </div>
+            {/* Mobile-usability pass, same fix (explicit user request:
+                "make sure its easy to use in mobile") — was one dense
+                single-line row (symbol + badge + why-text + button all
+                sharing one line via flex:1), which squeezed the tap target
+                on narrow phones and forced the button to vertically-center
+                against a wrapped 2-line "why" string. Symbol/badge/button
+                now share a fixed-height top line (button never shrinks,
+                flexShrink:0, real ~36px tap height), "why" text is its own
+                full-width line below so it can wrap freely without
+                affecting the button's size or position. */}
             {ready.map((p) => (
-              <div key={p.symbol} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "5px 0", fontFamily: MONO, fontSize: 11 }}>
-                <span style={{ color: p.direction === "SHORT" ? C.red : C.text, fontWeight: 800 }}>{p.symbol}</span>
-                <span style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 800, color: p.direction === "SHORT" ? C.red : C.green, border: `1px solid ${p.direction === "SHORT" ? C.red : C.green}55`, borderRadius: 4, padding: "1px 5px" }}>
-                  {p.direction === "SHORT" ? "SHORT" : "LONG"}
-                </span>
-                <span style={{ color: C.textDim, fontFamily: SANS, fontSize: 10.5, flex: 1 }}>{p.why}</span>
-                <button onClick={() => previewOrder(p.symbol)} disabled={orderBusy}
-                  style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 800, padding: "4px 10px", borderRadius: 6, border: `1px solid ${C.green}`, background: `${C.green}18`, color: C.green, cursor: orderBusy ? "not-allowed" : "pointer" }}>
-                  PREVIEW
-                </button>
+              <div key={p.symbol} style={{ padding: "8px 0", borderBottom: `1px solid ${C.border}44`, fontFamily: MONO, fontSize: 11 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ color: p.direction === "SHORT" ? C.red : C.text, fontWeight: 800 }}>{p.symbol}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 800, color: p.direction === "SHORT" ? C.red : C.green, border: `1px solid ${p.direction === "SHORT" ? C.red : C.green}55`, borderRadius: 4, padding: "1px 5px", flexShrink: 0 }}>
+                    {p.direction === "SHORT" ? "SHORT" : "LONG"}
+                  </span>
+                  <span style={{ flex: 1 }} />
+                  <button onClick={() => previewOrder(p.symbol)} disabled={orderBusy}
+                    style={{ flexShrink: 0, minHeight: 36, fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "8px 16px", borderRadius: 6, border: `1px solid ${C.green}`, background: `${C.green}18`, color: C.green, cursor: orderBusy ? "not-allowed" : "pointer" }}>
+                    PREVIEW
+                  </button>
+                </div>
+                <div style={{ color: C.textDim, fontFamily: SANS, fontSize: 10.5, marginTop: 3 }}>{p.why}</div>
               </div>
             ))}
 
