@@ -52,8 +52,14 @@ function registerJob(name, intervalMs, fn) {
         if (Date.now() - lastAlertMs > ALERT_COOLDOWN_MS) {
           hb[name].lastAlertedAt = new Date().toISOString();
           saveHeartbeats(hb);
+          // priority: "P0" (alert-priority-tiers, 2026-09-06) — a
+          // repeatedly-failing scheduled job is exactly Part 17's "stale
+          // critical data" P0 example: the one alert that must never itself
+          // be silently dropped by the same global cooldown a flood of
+          // routine alerts could exhaust.
           sendTelegramMessage(
-            `⚠️ *${name}* has failed ${consecutiveFailures} times in a row.\nLast error: ${lastError}\nThis job's real alerts have gone silent — check Render logs.`
+            `⚠️ *${name}* has failed ${consecutiveFailures} times in a row.\nLast error: ${lastError}\nThis job's real alerts have gone silent — check Render logs.`,
+            { priority: "P0" }
           ).catch(() => {});
         }
       }

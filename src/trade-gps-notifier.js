@@ -9,7 +9,7 @@
 // triggered/active dedup.
 const path = require("path");
 const { sendTelegramMessage } = require("./telegram");
-const { shouldSendAlert } = require("./telegram-bot");
+const { shouldSendAlert, priorityFor } = require("./telegram-bot");
 const { readJsonSafe, writeJsonAtomic } = require("./atomic-write");
 
 const STATE_PATH = path.join(__dirname, "..", "data", "trade-gps-notify-state.json");
@@ -68,9 +68,17 @@ async function notifyMaterialStateChange({ symbol = null, prevState = null, newS
   const persisted = readJsonSafe(STATE_PATH, {});
   if (persisted[symbol]?.lastState === newState) return { sent: false, reason: "duplicate" };
 
-  if (!shouldSendAlert({ category: categoryFor(newState) })) return { sent: false, reason: "gated" };
+  const category = categoryFor(newState);
+  if (!shouldSendAlert({ category })) return { sent: false, reason: "gated" };
 
-  const result = await sendTelegramMessage(formatMessage({ symbol, newState, decision }));
+  // Real bug fix (code review, 2026-09-06) — categoryFor's "trade-gps-critical"
+  // states (ENTER_NOW/EXIT/HARD_EXIT/the daily-risk-lock trip) are mapped P0
+  // in telegram-bot.js's ALERT_PRIORITY, so shouldSendAlert above already
+  // bypasses the category budget for them — but without this, the actual
+  // send still hit telegram.js's separate global 40/day cap and 60s
+  // cooldown, so the P0 label was only half-wired: a genuine HARD_EXIT could
+  // still be silently dropped by unrelated recent Telegram traffic.
+  const result = await sendTelegramMessage(formatMessage({ symbol, newState, decision }), { priority: priorityFor(category) });
 
   persisted[symbol] = { lastState: newState, at: Date.now() };
   writeJsonAtomic(STATE_PATH, persisted);

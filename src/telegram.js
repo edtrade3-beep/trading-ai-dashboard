@@ -78,21 +78,51 @@ const MAX_DAILY_TOTAL = 40;     // hard ceiling across every category combined, 
 // text mention. reply_markup is a separate JSON field from parse_mode, so
 // this stays safe with the existing no-Markdown convention. Optional —
 // every existing caller passes nothing and behaves exactly as before.
+// Pure, unit-testable throttle decision (alert-priority-tiers,
+// 2026-09-06). Extracted out of sendTelegramMessage so the one real P0
+// exception — a genuine emergency (daily risk limit hit, broker/execution
+// failure, a scheduled job stalling out) must never be silently swallowed
+// by routine lower-priority volume — is directly testable without a real
+// Telegram token/network call. Every other priority (including no
+// priority at all, the default for the ~19 files that call
+// sendTelegramMessage directly today) keeps the exact same global
+// cooldown/cap behavior as before; only opts.priority === "P0" bypasses it.
+function evaluateGlobalThrottle({ priority, dailyCount, lastSentAt, now, maxDailyTotal = MAX_DAILY_TOTAL, minIntervalMs = MIN_INTERVAL_MS }) {
+  if (priority === "P0") return { allowed: true };
+  if (dailyCount >= maxDailyTotal) return { allowed: false, reason: "daily-cap" };
+  if (now - lastSentAt < minIntervalMs) return { allowed: false, reason: "cooldown", retryInMs: minIntervalMs - (now - lastSentAt) };
+  return { allowed: true };
+}
+
+// A P0 send must never consume the shared budget either — same "never
+// counted against any budget" guarantee evaluateGlobalThrottle enforces on
+// the read side, enforced here on the write side.
+function shouldConsumeGlobalBudget(priority) { return priority !== "P0"; }
+
 async function sendTelegramMessage(text, opts = {}) {
   if (!isConfigured()) return { ok: false, reason: "not-configured" };
   const today = new Date().toLocaleDateString("en-US", { timeZone: "America/New_York" });
   if (today !== dailyDate) { dailyDate = today; dailyCount = 0; }
   const now = Date.now();
-  if (dailyCount >= MAX_DAILY_TOTAL) {
-    console.log("[Telegram] global daily cap reached — message dropped");
-    return { ok: false, reason: "daily-cap" };
+  const throttle = evaluateGlobalThrottle({ priority: opts.priority, dailyCount, lastSentAt, now });
+  if (!throttle.allowed) {
+    console.log(`[Telegram] global ${throttle.reason} — message dropped`);
+    return { ok: false, reason: throttle.reason, retryInMs: throttle.retryInMs };
   }
-  if (now - lastSentAt < MIN_INTERVAL_MS) {
-    console.log("[Telegram] global cooldown active — message dropped");
-    return { ok: false, reason: "cooldown", retryInMs: MIN_INTERVAL_MS - (now - lastSentAt) };
+  // Real bug fix (code review, 2026-09-06): P0 must never be "counted
+  // against any budget" (the documented/tested guarantee) — but this used
+  // to unconditionally bump the shared counters even for a P0 bypass, so
+  // enough P0 emergencies in one day could push dailyCount past the cap
+  // and start dropping the very next real P1 alert, or reset lastSentAt
+  // and cooldown-block one arriving within 60s of it. Extracted as its own
+  // pure, exported check (not just inlined) so this exact guarantee is
+  // directly unit-testable — sendTelegramMessage itself can't be, since it
+  // short-circuits on isConfigured() before reaching this line in every
+  // hermetic test env (no real token).
+  if (shouldConsumeGlobalBudget(opts.priority)) {
+    lastSentAt = now;
+    dailyCount++;
   }
-  lastSentAt = now;
-  dailyCount++;
   const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
   const body = { chat_id: TELEGRAM_CHAT_ID, text: String(text) };
   if (opts.url && opts.buttonText) {
@@ -163,4 +193,4 @@ async function sendTelegramVoice(speak, caption) {
   }
 }
 
-module.exports = { sendTelegramAlert, sendTelegramMessage, sendTelegramVoice, isConfigured };
+module.exports = { sendTelegramAlert, sendTelegramMessage, sendTelegramVoice, isConfigured, evaluateGlobalThrottle, shouldConsumeGlobalBudget };

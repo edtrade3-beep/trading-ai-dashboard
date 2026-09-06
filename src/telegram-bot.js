@@ -87,7 +87,42 @@ const ALWAYS_ALLOW_CATEGORIES = new Set([
   // TAKE_PARTIAL route through the normal "trade-gps-info" budget below,
   // per trade-gps-notifier.js's own categoryFor().
   "trade-gps-critical",
+  // Real bug fix (code review, 2026-09-06): "emergency-stop"/"job-stalled"
+  // were previously listed here too, but neither emergency-stop.js nor
+  // job-heartbeat.js ever calls shouldSendAlert — both call
+  // sendTelegramMessage directly with { priority: "P0" } (telegram.js's
+  // own bypass). Listing them here was dead: shouldSendAlert's own P0
+  // short-circuit below (via priorityFor) already returns true for them
+  // before this set is ever consulted, for any hypothetical future caller
+  // too. Removed rather than left as a misleading no-op entry — see
+  // ALERT_PRIORITY below for where these two are actually classified.
 ]);
+
+// Explicit P0-P3 taxonomy (platform-consolidation Part 17, 2026-09-06),
+// layered on top of the two budgets that already existed above rather than
+// replacing them — real, disclosed scope: P0/P1 both draw from the
+// existing MAX_DAILY_PRIORITY_MSGS budget except P0, which additionally
+// bypasses it entirely (see shouldSendAlert below) since a genuine
+// emergency must never be dropped just because 20 lower-severity P1
+// alerts already fired today. P2/P3 both still share the one
+// MAX_DAILY_INFO_MSGS budget — this file doesn't yet enforce them
+// separately, an honest, disclosed simplification, not a fabricated
+// second cap.
+const ALERT_PRIORITY = {
+  // P0 CRITICAL — never dropped, never counted against any budget.
+  "portfolio-risk": "P0", "auto-exec": "P0", "trade-gps-critical": "P0",
+  "emergency-stop": "P0", "job-stalled": "P0",
+  // P1 ACTIONABLE — the existing generous-but-capped priority budget.
+  "opportunity": "P1", "regime-change": "P1", "economic-event": "P1",
+  "stop-trigger": "P1", "target-hit": "P1", "breaking-news": "P1",
+  "budget-warning": "P1",
+  // P2 IMPORTANT — shares the informational budget with P3 today.
+  "position-reversal": "P2", "institutional": "P2", "sectorRotation": "P2",
+  "relativeStrength": "P2", "catalyst": "P2",
+  // P3 INFORMATIONAL — everything else (ai-coach, recap, general news/
+  // technical/trend/volume/options chatter) defaults here.
+};
+function priorityFor(category) { return ALERT_PRIORITY[category] || "P3"; }
 
 // These used to be truly unlimited/day by design ("never gated, regardless
 // of volume") — but a real per-symbol/per-type cooldown on each source
@@ -101,6 +136,11 @@ let priorityMsgDate  = "";
 const MAX_DAILY_PRIORITY_MSGS = 20;
 
 function shouldSendAlert({ category }) {
+  // P0 CRITICAL (alert-priority-tiers, 2026-09-06) — never counted against
+  // any budget, never dropped. Deliberately checked before either budget
+  // below: a genuine emergency must go through even on a day where 20 P1
+  // alerts already exhausted the shared priority budget.
+  if (priorityFor(category) === "P0") return true;
   const today = new Date().toLocaleDateString("en-US", { timeZone: "America/New_York" });
   if (ALWAYS_ALLOW_CATEGORIES.has(category)) {
     if (today !== priorityMsgDate) { priorityMsgDate = today; priorityMsgCount = 0; }
@@ -2139,4 +2179,4 @@ function startTelegramBot() {
 
 function stopTelegramBot() { _polling = false; }
 
-module.exports = { startTelegramBot, stopTelegramBot, enqueueScanAlert, isQuietHours, getAlertLevel, checkDailyBudget, incrementDailyCount, shouldSendAlert };
+module.exports = { startTelegramBot, stopTelegramBot, enqueueScanAlert, isQuietHours, getAlertLevel, checkDailyBudget, incrementDailyCount, shouldSendAlert, priorityFor, ALERT_PRIORITY };

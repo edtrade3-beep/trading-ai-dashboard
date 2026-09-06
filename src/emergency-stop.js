@@ -102,8 +102,14 @@ async function activateEmergencyStop({ reason, activatedBy }) {
   saveState(state); // flag engages immediately — every system's next check sees it even if order cancellation below is slow/partial
   const cancelResults = await cancelAllOpenOrders();
   if (isConfigured()) {
+    // priority: "P0" (alert-priority-tiers, 2026-09-06) — this is exactly
+    // Part 17's "P0 CRITICAL" example ("unexpected open exposure" /
+    // account-safety event). Previously this call was subject to the same
+    // 60s/40-per-day global cooldown as any routine alert and could be
+    // silently dropped by a busy day's chatter; P0 bypasses that.
     sendTelegramMessage(
-      `🛑 EMERGENCY STOP ACTIVATED\nBy: ${state.activatedBy}\nReason: ${state.reason}\n\nAll 4 automated-execution systems will refuse new entries until manually re-armed (/rearm). Open positions were NOT closed — only pending orders were cancelled.\nAlpaca: ${cancelResults.alpaca?.ok ? "cancelled" : cancelResults.alpaca?.reason || cancelResults.alpaca?.error || "n/a"}\nTradier: ${cancelResults.tradier?.ok ? `${cancelResults.tradier.cancelled} cancelled` : cancelResults.tradier?.reason || cancelResults.tradier?.error || "n/a"}`
+      `🛑 EMERGENCY STOP ACTIVATED\nBy: ${state.activatedBy}\nReason: ${state.reason}\n\nAll 4 automated-execution systems will refuse new entries until manually re-armed (/rearm). Open positions were NOT closed — only pending orders were cancelled.\nAlpaca: ${cancelResults.alpaca?.ok ? "cancelled" : cancelResults.alpaca?.reason || cancelResults.alpaca?.error || "n/a"}\nTradier: ${cancelResults.tradier?.ok ? `${cancelResults.tradier.cancelled} cancelled` : cancelResults.tradier?.reason || cancelResults.tradier?.error || "n/a"}`,
+      { priority: "P0" }
     ).catch(() => {});
   }
   return { ok: true, state, cancelResults };
@@ -117,7 +123,7 @@ function deactivateEmergencyStop({ rearmedBy }) {
   state.rearmedBy = rearmedBy || "unknown";
   saveState(state);
   if (isConfigured()) {
-    sendTelegramMessage(`✅ Emergency Stop re-armed by ${state.rearmedBy}. Automated systems may resume new entries.`).catch(() => {});
+    sendTelegramMessage(`✅ Emergency Stop re-armed by ${state.rearmedBy}. Automated systems may resume new entries.`, { priority: "P0" }).catch(() => {});
   }
   return { ok: true, state };
 }
