@@ -24,6 +24,7 @@ const { sendTelegramMessage, isConfigured: telegramConfigured } = require("./tel
 const { isMarketHoursET } = require("./risk-guardrails");
 const { readJournal } = require("./autopilot-journal");
 const { journalMatchFor } = require("./journal-analytics");
+const { classifyTradeOutcome, TRADE_OUTCOMES } = require("./trade-outcome-classifier");
 
 const STORE_PATH = path.join(ROOT, "data", "trade-autopsy-state.json");
 const STOP_TOLERANCE = 0.02;   // 2% — normal slippage past a real stop still counts as "honored"
@@ -103,6 +104,14 @@ function gradeTrade(t, match) {
 
   if (c.rMultiple != null) base.push(`R: ${c.rMultiple >= 0 ? "+" : ""}${c.rMultiple.toFixed(1)}R`);
 
+  // Decision-vs-outcome taxonomy (Part 13, 2026-09-06) — additive, doesn't
+  // replace the exit-quality verdict below (that answers "was the plan
+  // followed"; this answers "was the original decision + the outcome each
+  // good or bad, independent of each other"). See trade-outcome-classifier.js
+  // for the real, disclosed scope of what this can and can't classify.
+  const outcome = classifyTradeOutcome(t, match, c);
+  if (outcome.outcome !== "UNCLASSIFIED") base.push(`Classification: ${outcome.outcome}`);
+
   if (c.verdict === "target_hit") {
     base.push("Exit at/near the real target — plan followed.");
   } else if (c.verdict === "stop_violated") {
@@ -156,4 +165,21 @@ async function checkTradeAutopsy() {
   return { ok: true, checked: trades.length, graded: graded.map((g) => ({ symbol: g.symbol, closedAt: g.closedAt })) };
 }
 
-module.exports = { checkTradeAutopsy, classifyExit };
+// Real rollup over every real closed trade (Part 13, 2026-09-06) — same
+// journalMatchFor join tierStats/journalMatchFor already use, so "how many
+// of my trades were genuinely good decisions vs. just lucky/unlucky" is a
+// queryable stat, not just a one-off Telegram line per trade.
+function tallyTradeOutcomes(closedTrades, journalOverride) {
+  const journal = journalOverride || readJournal();
+  const counts = {};
+  for (const outcome of TRADE_OUTCOMES) counts[outcome] = 0;
+  for (const t of (closedTrades || [])) {
+    const match = journalMatchFor(t, journal);
+    const exit = classifyExit(t, match);
+    const { outcome } = classifyTradeOutcome(t, match, exit);
+    counts[outcome] = (counts[outcome] || 0) + 1;
+  }
+  return counts;
+}
+
+module.exports = { checkTradeAutopsy, classifyExit, tallyTradeOutcomes };

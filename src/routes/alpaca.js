@@ -2,6 +2,7 @@
 // Set ALPACA_KEY_ID and ALPACA_SECRET_KEY in the environment (use PAPER keys).
 const { writeJson } = require("../utils");
 const { tierStats, appendJournal, readJournal } = require("../autopilot-journal");
+const { tallyTradeOutcomes } = require("../trade-autopsy");
 const { computeLearningGates } = require("../learning-engine");
 const { sectorOf } = require("../risk-guardrails");
 const { resolveAlpacaKeys, alpacaTradingRequest } = require("../providers/alpaca-client");
@@ -147,6 +148,20 @@ async function handleAlpaca(req, res, requestUrl) {
       avgR: s.rN ? +(s.rSum / s.rN).toFixed(2) : null,
     })).sort((a, b) => (b.avgR ?? -Infinity) - (a.avgR ?? -Infinity));
     return writeJson(res, 200, { ok: true, tiers, totalTrades: trades.length });
+  }
+
+  // Journal Learning Engine — decision-vs-outcome taxonomy (Part 13,
+  // 2026-09-06): real counts of GOOD/BAD_TRADE x GOOD/BAD_OUTCOME plus
+  // EXECUTION_ERROR, over the same closed-trade + setup-tagged-journal
+  // join tier-stats above uses. See trade-outcome-classifier.js for the
+  // real, disclosed scope (SYSTEM_ERROR/MARKET_RANDOMNESS are never
+  // auto-assigned; UNCLASSIFIED covers trades with no real plan/tier on
+  // file rather than guessing).
+  if (pathname === "/api/alpaca/outcome-taxonomy" && req.method === "GET") {
+    if (!configured) return writeJson(res, 200, { ok: false, reason: "no-alpaca-key", counts: {} });
+    const { ok, trades, error } = await getClosedTrades();
+    if (!ok) return writeJson(res, 200, { ok: false, counts: {}, error });
+    return writeJson(res, 200, { ok: true, counts: tallyTradeOutcomes(trades), totalTrades: trades.length });
   }
 
   // Learning Engine — real tier/sector allow-gates derived from the same
