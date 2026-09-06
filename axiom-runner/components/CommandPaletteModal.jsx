@@ -37,6 +37,15 @@ const SUGGESTED_COMMANDS = [
   { label: "Predictions", hint: "weekly/monthly/yearly targets + real win rate", cmd: "PREDICTIONS GO" },
   { label: "Autopilot 2.0", hint: "real $100k autonomous paper account", cmd: "AUTOPILOT2 GO" },
   { label: "Review my portfolio", hint: "ask the AI copilot", cmd: "REVIEW MY PORTFOLIO GO" },
+  // Command Palette query intelligence (Part 14, 2026-09-06) — real,
+  // deterministic reads (no AI call), same discoverability treatment as
+  // every command above.
+  { label: "Best trade now", hint: "top real BUY-family candidate", cmd: "BEST TRADE NOW GO" },
+  { label: "What changed?", hint: "since open / since last scan", cmd: "WHAT CHANGED GO" },
+  { label: "Trades waiting for entry", hint: "real WAIT/DEVELOPING candidates", cmd: "SHOW TRADES WAITING FOR ENTRY GO" },
+  { label: "Portfolio weaknesses", hint: "real risk/concentration snapshot", cmd: "SHOW PORTFOLIO WEAKNESSES GO" },
+  { label: "Stale data check", hint: "real data-health blockers/warnings", cmd: "SHOW STALE DATA GO" },
+  { label: "Rejected trades", hint: "real AVOID-verdict candidates", cmd: "SHOW REJECTED TRADES GO" },
 ];
 
 const TICKER_RE = /^[A-Z.\-]{1,10}$/;

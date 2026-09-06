@@ -1346,6 +1346,23 @@ function PageSubNav({ C, MONO, tabs, active, setActive }) {
   );
 }
 
+// Command Palette query intelligence (platform-consolidation Part 14,
+// 2026-09-06) — deterministic, zero-AI-cost answers built purely from
+// real, already-computed data (the canonical opportunities scan, the real
+// risk snapshot, the What-Changed engine), reusing the exact same
+// deferAnswer + "open-ai-copilot"/"ai-copilot-answer" event pair the
+// existing WHY <SYMBOL> handler already established below. No new AI
+// call, no hallucination risk — every line here is a real number/string
+// read off a real API response, formatted, never invented.
+function dispatchDeterministicAnswer(raw, buildAnswer) {
+  window.dispatchEvent(new CustomEvent("open-ai-copilot", { detail: { query: raw.trim(), deferAnswer: true } }));
+  buildAnswer().then((answer) => {
+    window.dispatchEvent(new CustomEvent("ai-copilot-answer", { detail: { answer } }));
+  }).catch((e) => {
+    window.dispatchEvent(new CustomEvent("ai-copilot-answer", { detail: { answer: `⚠ ${e.message}` } }));
+  });
+}
+
 export default function App() {
   // First-run defaults: route autopilot to the Alpaca paper account and turn it ON.
   // Only sets when unset, so it never overrides a choice you've made. (Paper only — no real money.)
@@ -4524,6 +4541,91 @@ export default function App() {
         }));
       }).catch(e => {
         window.dispatchEvent(new CustomEvent("ai-copilot-answer", { detail: { answer: `⚠ ${e.message}` } }));
+      });
+      return;
+    }
+
+    // Command Palette query intelligence (Part 14, 2026-09-06) — real,
+    // deterministic reads over the canonical opportunities scan / real
+    // risk snapshot / What-Changed engine, zero AI cost, zero
+    // hallucination risk. Routed before the generic fallback for the same
+    // "the app understood me" reason as the dedicated intents below.
+    if (/^WHAT\s+CHANGED/.test(normalized)) {
+      const wantOpen = /OPEN/.test(normalized) && !/REFRESH/.test(normalized);
+      dispatchDeterministicAnswer(raw, async () => {
+        const d = await fetch("/api/market/what-changed").then((r) => r.json());
+        const diff = wantOpen ? d.sinceOpen : (d.sinceLastRefresh || d.sinceOpen);
+        const label = wantOpen ? "since open" : "since the last scan";
+        if (!diff) return `No real comparison available yet ${label} — check back after the next scan.`;
+        const lines = [
+          ...(diff.changes || []).map((c) => `${c.label}: ${c.from} → ${c.to}`),
+          ...(diff.candidateTransitions || []).map((t) => `${t.symbol}: ${t.from} → ${t.to}`),
+        ];
+        return lines.length ? `What changed ${label}:\n` + lines.map((l) => `• ${l}`).join("\n") : `No material changes ${label}.`;
+      });
+      return;
+    }
+    if (/^BEST\s+TRADE(\s+NOW)?\s*$/.test(normalized)) {
+      dispatchDeterministicAnswer(raw, async () => {
+        const d = await fetch("/api/market/opportunities").then((r) => r.json());
+        const rows = [...(d.tiers?.actionable || []), ...(d.tiers?.developing || [])]
+          .filter((r) => ["STRONG_BUY", "BUY"].includes(r.assetDecision?.verdict))
+          .sort((a, b) => (b.assetDecision.opportunityScore || 0) - (a.assetDecision.opportunityScore || 0));
+        if (!rows.length) return "No real BUY-family candidate right now — nothing qualifies.";
+        const r = rows[0], a = r.assetDecision;
+        return [
+          `${r.symbol} — ${a.verdict} (${a.opportunityScore}/100, ${a.opportunityStage})`,
+          a.entry != null ? `Entry: $${a.entry}` : null,
+          a.stop != null ? `Stop: $${a.stop}` : null,
+          a.targets?.length ? `Targets: ${a.targets.map((t) => `$${t}`).join(", ")}` : null,
+          a.riskReward != null ? `R:R: ${Number(a.riskReward).toFixed(1)}` : null,
+          a.reasons?.length ? `Why: ${a.reasons.slice(0, 3).join("; ")}` : null,
+        ].filter(Boolean).join("\n");
+      });
+      return;
+    }
+    if (/^SHOW\s+(TRADES\s+)?WAITING(\s+FOR\s+ENTRY)?\s*$/.test(normalized)) {
+      dispatchDeterministicAnswer(raw, async () => {
+        const d = await fetch("/api/market/opportunities").then((r) => r.json());
+        const rows = [...(d.tiers?.wait || []), ...(d.tiers?.developing || [])]
+          .sort((a, b) => (b.assetDecision?.opportunityScore || 0) - (a.assetDecision?.opportunityScore || 0)).slice(0, 8);
+        if (!rows.length) return "No real candidates waiting for entry right now.";
+        return rows.map((r) => `• ${r.symbol} — ${r.assetDecision?.verdict || "?"} (${r.assetDecision?.opportunityScore ?? "?"}/100)`).join("\n");
+      });
+      return;
+    }
+    if (/^SHOW\s+(REJECTED|AVOIDED)(\s+TRADES)?\s*$/.test(normalized)) {
+      dispatchDeterministicAnswer(raw, async () => {
+        const d = await fetch("/api/market/opportunities").then((r) => r.json());
+        const rows = Object.values(d.tiers || {}).flat().filter((r) => r.assetDecision?.verdict === "AVOID").slice(0, 10);
+        if (!rows.length) return "No real AVOID-verdict candidates right now.";
+        return rows.map((r) => `• ${r.symbol} — ${(r.assetDecision.reasons || [])[0] || "AVOID"}`).join("\n");
+      });
+      return;
+    }
+    if (/^SHOW\s+STALE(\s+DATA)?\s*$/.test(normalized)) {
+      dispatchDeterministicAnswer(raw, async () => {
+        const d = await fetch("/api/market/opportunities").then((r) => r.json());
+        const health = d.dataHealth;
+        if (!health) return "No real data-health report available right now.";
+        const lines = [...(health.blockers || []).map((b) => `🔴 ${b}`), ...(health.warnings || []).map((w) => `🟡 ${w}`)];
+        return lines.length ? lines.join("\n") : `All real tracked data sources are healthy (status: ${health.status}).`;
+      });
+      return;
+    }
+    if (/^SHOW\s+(PORTFOLIO\s+WEAKNESS(ES)?|POSITIONS?\s+AT\s+RISK)\s*$/.test(normalized)) {
+      dispatchDeterministicAnswer(raw, async () => {
+        const s = await fetch("/api/ai-hub/risk-snapshot").then((r) => r.json());
+        if (!s.ok) return "Real risk snapshot unavailable (no Alpaca account configured).";
+        const lines = [
+          `Open risk: ${s.openRiskPct}% / ${s.maxRiskPct}% cap`,
+          `Daily loss: $${s.dailyLossUsedDollars} / $${s.dailyLossLimitDollars} limit${s.dailyBreakerTripped ? " — BREAKER TRIPPED" : ""}`,
+        ];
+        if (s.topPositionPct >= 20) lines.push(`Largest position is ${s.topPositionPct}% of the account — single-name concentration`);
+        (s.concentrationFlags || []).forEach((f) => lines.push(`${f.symbol} is ${f.pct}% of the account`));
+        Object.entries(s.sectorConcentration || {}).filter(([, c]) => c >= s.maxPerSector).forEach(([sec, c]) => lines.push(`${sec} sector: ${c} positions — at/above the ${s.maxPerSector}-position cap`));
+        if (!s.accountHealth?.ok) lines.push(`Account health: ${s.accountHealth?.reason || "blocked"}`);
+        return lines.join("\n");
       });
       return;
     }
