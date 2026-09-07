@@ -47,23 +47,54 @@ async function generateWithOpenAi(prompt, { size = "1024x1536" } = {}) {
   return { b64, url };
 }
 
-// UNTESTED (no Replicate token in this environment) — real request shape
-// per Replicate's own current documented API (verified live via fetched
-// docs, 2026-09-07 — the original version of this function had two real
-// bugs found that way before ever being tried against a live account:
-// (1) Authorization used "Token", Replicate's own current docs show
-// "Bearer"; (2) POSTing to /v1/predictions with version:"owner/model" (no
-// hash) is genuinely ambiguous per Replicate's own docs — the documented
-// "official models" endpoint below (/v1/models/{owner}/{model}/predictions)
-// is the unambiguous, version-hash-free way to call a well-known public
-// model by name). Uses "Prefer: wait" to get a synchronous response
-// (Flux "schnell" = German for "fast", designed to complete in a couple
-// seconds — well within the wait window) rather than building a separate
-// polling loop for the async job status. Downloads the real resulting
-// image and returns it as base64 so this provider matches OpenAI's own
-// {b64} shape — the job runner (story-ai-job-runner.js) stays provider-
-// agnostic rather than branching on which image provider produced the
-// result, which is the actual point of this abstraction.
+const REPLICATE_POLL_INTERVAL_MS = 2000;
+const REPLICATE_MAX_POLL_ATTEMPTS = 30; // ~60s of extra polling on top of the initial wait
+
+// Real bug found and fixed live (2026-09-07, via a direct curl test run
+// against the real API while diagnosing a user report): "Prefer: wait" is
+// NOT a guarantee of a finished result — Replicate itself only waits up
+// to its own server-side cap (observed: the real test call returned
+// HTTP 202 status:"processing" after that window elapsed, error:null, no
+// credit/auth problem at all). The original code treated any non-
+// "succeeded" status as a hard failure ("did not complete in time"),
+// which would incorrectly fail perfectly healthy generations that simply
+// took a little longer than Replicate's own initial wait window —
+// exactly what the live test reproduced. Real fix: poll the prediction's
+// own real status URL (returned in the initial response) until it
+// actually finishes, succeeds, or fails, instead of giving up at the
+// first non-terminal status.
+async function pollReplicatePrediction(getUrl) {
+  for (let i = 0; i < REPLICATE_MAX_POLL_ATTEMPTS; i++) {
+    await new Promise((resolve) => setTimeout(resolve, REPLICATE_POLL_INTERVAL_MS));
+    const res = await fetch(getUrl, {
+      headers: { Authorization: `Bearer ${REPLICATE_API_TOKEN}` },
+      signal: AbortSignal.timeout(15000),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.detail || `Replicate API error while polling (${res.status})`);
+    if (data.status === "succeeded") return data;
+    if (data.status === "failed" || data.status === "canceled") throw new Error(data.error || `Replicate prediction ${data.status}.`);
+    // still "starting"/"processing" — keep polling
+  }
+  throw new Error("Replicate prediction did not finish within the real polling window.");
+}
+
+// Real request shape per Replicate's own current documented API (verified
+// live via fetched docs, 2026-09-07 — the original version of this
+// function had two real bugs found that way before ever being tried
+// against a live account: (1) Authorization used "Token", Replicate's own
+// current docs show "Bearer"; (2) POSTing to /v1/predictions with
+// version:"owner/model" (no hash) is genuinely ambiguous per Replicate's
+// own docs — the documented "official models" endpoint below
+// (/v1/models/{owner}/{model}/predictions) is the unambiguous, version-
+// hash-free way to call a well-known public model by name). Still sends
+// "Prefer: wait" as a real optimization (often returns already-succeeded
+// for a fast model like Flux "schnell"), but now falls back to real
+// polling (above) rather than assuming that header guarantees completion.
+// Downloads the real resulting image and returns it as base64 so this
+// provider matches OpenAI's own {b64} shape — the job runner
+// (story-ai-job-runner.js) stays provider-agnostic rather than branching
+// on which image provider produced the result.
 async function generateWithReplicate(prompt) {
   const res = await fetch("https://api.replicate.com/v1/models/black-forest-labs/flux-schnell/predictions", {
     method: "POST",
@@ -71,9 +102,14 @@ async function generateWithReplicate(prompt) {
     body: JSON.stringify({ input: { prompt, aspect_ratio: "9:16", output_format: "png" } }),
     signal: AbortSignal.timeout(60000),
   });
-  const data = await res.json().catch(() => ({}));
+  let data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.detail || `Replicate API error (${res.status})`);
-  if (data.status !== "succeeded") throw new Error(`Replicate prediction did not complete in time (status: ${data.status || "unknown"}).`);
+  if (data.status === "failed" || data.status === "canceled") throw new Error(data.error || `Replicate prediction ${data.status}.`);
+  if (data.status !== "succeeded") {
+    const getUrl = data?.urls?.get;
+    if (!getUrl) throw new Error(`Replicate prediction is still ${data.status || "processing"} and returned no status URL to poll.`);
+    data = await pollReplicatePrediction(getUrl);
+  }
   const imageUrl = Array.isArray(data.output) ? data.output[0] : data.output;
   if (!imageUrl) throw new Error("Replicate returned no image output.");
   const imgRes = await fetch(imageUrl, { signal: AbortSignal.timeout(30000) });
