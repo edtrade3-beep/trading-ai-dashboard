@@ -16,9 +16,10 @@ async function handleNewsIntel(req, res, requestUrl) {
     const sentiment = searchParams.get("sentiment") || undefined;
     const minImpact = searchParams.get("minImpact") ? Number(searchParams.get("minImpact")) : undefined;
     const sinceMinutes = searchParams.get("sinceMinutes") ? Number(searchParams.get("sinceMinutes")) : undefined;
+    const q = searchParams.get("q") || undefined;
     const limit = searchParams.get("limit") ? Number(searchParams.get("limit")) : 50;
     try {
-      const result = await getFeed({ ticker, category, sentiment, minImpact, sinceMinutes, limit });
+      const result = await getFeed({ ticker, category, sentiment, minImpact, sinceMinutes, q, limit });
       // Duplicate News Compression (2026-09-07, §11) — a read-time, non-
       // destructive grouping pass over the SAME already-fetched real rows
       // (no second query, no re-scoring). Additive field only: `rows`

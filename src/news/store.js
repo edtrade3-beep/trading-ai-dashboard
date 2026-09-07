@@ -78,7 +78,7 @@ async function insertNewsItems(items) {
   return { inserted, insertedItems };
 }
 
-async function getFeed({ ticker, category, sentiment, minImpact, sinceMinutes, limit = 50 } = {}) {
+async function getFeed({ ticker, category, sentiment, minImpact, sinceMinutes, q, limit = 50 } = {}) {
   if (!pool) return { ok: false, reason: "DEGRADED", rows: [] };
   const clauses = [];
   const params = [];
@@ -87,6 +87,15 @@ async function getFeed({ ticker, category, sentiment, minImpact, sinceMinutes, l
   if (sentiment && sentiment !== "ALL") { params.push(sentiment); clauses.push(`sentiment = $${params.length}`); }
   if (Number.isFinite(minImpact)) { params.push(minImpact); clauses.push(`impact_score >= $${params.length}`); }
   if (Number.isFinite(sinceMinutes)) { params.push(sinceMinutes); clauses.push(`received_at >= now() - ($${params.length} || ' minutes')::interval`); }
+  // News Search (2026-09-07, platform-unification prompt) — real
+  // case-insensitive substring match against headline OR summary.
+  // Parameterized ($N placeholder, the search text is never concatenated
+  // into the SQL string) — the same injection-safe pattern every other
+  // clause here already uses. A real, disclosed limit: this is a plain
+  // ILIKE scan (no pg_trgm/full-text index), fine at this table's real
+  // 14-day-retention scale, not built for a large corpus.
+  const trimmedQ = typeof q === "string" ? q.trim() : "";
+  if (trimmedQ) { params.push(`%${trimmedQ}%`); clauses.push(`(headline ILIKE $${params.length} OR summary ILIKE $${params.length})`); }
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
   params.push(Math.max(1, Math.min(200, limit)));
   const { rows } = await pool.query(

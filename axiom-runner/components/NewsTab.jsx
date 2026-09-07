@@ -43,6 +43,16 @@ export default function NewsTab({
   const [intelSentiment, setIntelSentiment] = useState("ALL");
   const [intelFreshness, setIntelFreshness] = useState(null); // minutes, null = no filter
   const [intelMinImpact, setIntelMinImpact] = useState(0);
+  // News Search (2026-09-07, platform-unification prompt) — real keyword
+  // search over the same scored feed, debounced 400ms so typing doesn't
+  // fire a request per keystroke (same debounce cadence AskAiBar.jsx uses
+  // for its own live-typing fetch).
+  const [intelSearch, setIntelSearch] = useState("");
+  const [intelSearchDebounced, setIntelSearchDebounced] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setIntelSearchDebounced(intelSearch.trim()), 400);
+    return () => clearTimeout(t);
+  }, [intelSearch]);
   const [tickerLookup, setTickerLookup] = useState("");
   const [tickerIntel, setTickerIntel] = useState(null);
   const [tickerIntelLoading, setTickerIntelLoading] = useState(false);
@@ -63,12 +73,13 @@ export default function NewsTab({
     if (intelSentiment !== "ALL") params.set("sentiment", intelSentiment);
     if (intelFreshness != null) params.set("sinceMinutes", String(intelFreshness));
     if (intelMinImpact > 0) params.set("minImpact", String(intelMinImpact));
+    if (intelSearchDebounced) params.set("q", intelSearchDebounced);
     params.set("limit", "60");
     fetch(`/api/news/feed?${params.toString()}`).then(r => r.json())
       .then(d => { if (alive && d.ok) { setIntelRows(d.rows || []); setIntelClusters(d.clusters || []); } })
       .catch(() => {}).finally(() => { if (alive) setIntelLoading(false); });
     return () => { alive = false; };
-  }, [viewMode, intelCategory, intelSentiment, intelFreshness, intelMinImpact]);
+  }, [viewMode, intelCategory, intelSentiment, intelFreshness, intelMinImpact, intelSearchDebounced]);
 
   const runTickerLookup = () => {
     const sym = tickerLookup.trim().toUpperCase();
@@ -308,6 +319,14 @@ export default function NewsTab({
                   <button onClick={runTickerLookup} disabled={tickerIntelLoading}
                     style={chipBtn(false)}>{tickerIntelLoading ? "LOOKING UP…" : "LOOK UP"}</button>
                   {tickerIntel && <button onClick={() => { setTickerIntel(null); setTickerLookup(""); }} style={chipBtn(false)}>CLEAR</button>}
+                  {/* News Search (2026-09-07) — real keyword search across
+                      headline+summary (news/store.js's getFeed `q` param),
+                      distinct from the Ticker Intelligence lookup above
+                      (that's a per-symbol aggregation, not a text search). */}
+                  <input value={intelSearch} onChange={(e) => setIntelSearch(e.target.value)}
+                    placeholder="Search news — e.g. rate cut, ETF approval"
+                    style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 12, padding: "5px 8px", width: 220, borderRadius: 6 }} />
+                  {intelSearch && <button onClick={() => setIntelSearch("")} style={chipBtn(false)}>CLEAR</button>}
                 </div>
 
                 {tickerIntel && tickerIntel.status === "DEGRADED" && (
