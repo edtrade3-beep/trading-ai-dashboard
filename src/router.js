@@ -39,6 +39,7 @@ const { handleMarketWrap } = require("./routes/market-wrap");
 const { handleCurblineIntel } = require("./routes/curbline-intel");
 const { handleMoneyIdeas } = require("./routes/money-ideas");
 const { handleCarBusiness } = require("./routes/car-business");
+const { handleStoryAi } = require("./routes/story-ai");
 const { handlePaperPositions } = require("./routes/paper-positions");
 const { handleLiquidations } = require("./routes/liquidations");
 const { handleMonitorExtras } = require("./routes/monitor-extras");
@@ -238,6 +239,14 @@ async function handleRequest(req, res) {
 
     if (pathname.startsWith("/api/car-business/")) {
       return await handleCarBusiness(req, res, requestUrl);
+    }
+
+    // Arabic Story AI — a self-contained, additive module (STORY_AI_ENABLED-
+    // gated inside the handler itself). Kept logically separate from the
+    // trading backend: its own src/story-ai-*.js services, its own
+    // data/story-ai/ storage, zero shared state with any trading route.
+    if (pathname.startsWith("/api/story-ai/")) {
+      return await handleStoryAi(req, res, requestUrl);
     }
 
     if (pathname.startsWith("/api/paper-positions")) {

@@ -196,6 +196,15 @@ export const SIDEBAR_ITEMS = [
   // convention as any real cross-app link.
   { id: "dealership", label: "Dealership", icon: "🏪", href: "/dealer" },
 
+  // Story AI — Arabic AI storytelling studio (2026-09-07, explicit user
+  // request: "add a completely new major tab... self-contained module").
+  // Same explicit-exception placement as Car Business/Dealership above: a
+  // genuinely separate, non-trading vertical that still deserves a
+  // permanent one-keystroke slot rather than a palette-only lookup.
+  // StoryAiTab.jsx and every src/story-ai-*.js service behind it are
+  // fully additive — zero shared state with any trading route/engine.
+  { id: "storyai", label: "Story AI", icon: "🎬", tab: "storyai" },
+
   // Settings — not one of the 5 "question" surfaces (it doesn't answer a
   // daily trading question, it configures the app), kept as a permanent
   // utility row rather than folded into the palette so account/risk/coach

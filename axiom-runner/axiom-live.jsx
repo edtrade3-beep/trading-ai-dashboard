@@ -189,6 +189,7 @@ import FutureWalletTab from "./components/FutureWalletTab.jsx";
 import ResearchTab from "./components/ResearchTab.jsx";
 import MarketWrapTab from "./components/MarketWrapTab.jsx";
 import CarBusinessTab from "./components/CarBusinessTab.jsx";
+import StoryAiTab from "./components/StoryAiTab.jsx";
 import CurblineTab from "./components/CurblineTab.jsx";
 import PhotoBannerTab from "./components/PhotoBannerTab.jsx";
 
@@ -4302,6 +4303,8 @@ export default function App() {
       CARBUSINESS: "carbusiness",
       DEALER: "carbusiness",
       CARS: "carbusiness",
+      STORYAI: "storyai",
+      STORY: "storyai",
       // Curbline dropped from the sidebar rail (2026-09-01 platform audit,
       // see Sidebar.jsx's own comment) — same "hide, don't delete"
       // convention as SNIPER/MARKET/CRYPTO above. Real tab (CurblineTab.jsx,
@@ -7597,6 +7600,7 @@ export default function App() {
       {activeTab === "research" && <ResearchTab C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "marketwrap" && <MarketWrapTab C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "carbusiness" && <CarBusinessTab C={C} MONO={MONO} SANS={SANS} />}
+      {activeTab === "storyai" && <StoryAiTab C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "curbline" && <CurblineTab C={C} MONO={MONO} SANS={SANS} />}
       {/* SETTINGS — composite sidebar destination (institutional redesign,
           2026-07-29) folding Coach/Learn/Quran/account-risk settings into
