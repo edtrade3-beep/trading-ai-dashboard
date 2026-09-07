@@ -30,6 +30,7 @@ const { buildEvFromRow } = require("./setup-evidence");
 const { winProbFor } = require("./institutional-scoring");
 const { getUpcomingMacroEvents } = require("./macro-calendar");
 const { computeReversalDetector, computeReversalTopRisk } = require("./sniper-decision");
+const { computePartyStageProfile } = require("./party-stage-engine");
 
 function round2(n) { return Number.isFinite(n) ? Math.round(n * 100) / 100 : null; }
 
@@ -419,6 +420,19 @@ function computeOpportunity({ symbol, row, regime, marketRegime, sectorInfo = nu
     || ev.dailyBias === "BEARISH";
   const tier = classifyOpportunityTier({ verdict: deep.verdict, entryStage: entryPlan.stage, antiChaseBand: ev.antiChase?.band, structurallyInvalid, reversalTopRisk: !!(reversal && reversal.isTop) });
   const options = checkOptionsConfirmsStructure({ optionsFlow, verdict: deep.verdict });
+  // Party Stage / "Before It Pops" (2026-09-07) — pure additive refinement
+  // over the exact same real fields already computed above (entryStage,
+  // tier, chaseRisk band, reversalTopRisk, RS rating, volume ratio,
+  // options confirmation). No new fetch, no second scan. Institutional
+  // accumulation / catalyst-proximity components of the Pressure score are
+  // honestly omitted here (Stage-A/B of this app's own staged-scanning
+  // architecture — those are Stage-C, expensive-per-symbol data only
+  // fetched for already-qualified candidates elsewhere) — party-stage-
+  // engine.js discloses them as unavailable rather than guessing.
+  const partyStageProfile = computePartyStageProfile({
+    entryStage: entryPlan.stage, tier, chaseRisk: ev.antiChase?.band, reversalTopRisk: !!(reversal && reversal.isTop),
+    rsRating: row.rsRating, volRatio: row.volRatio, optionsStatus: options.status, weekChangePct: row.weekChangePct,
+  });
 
   const fingerprint = buildMarketFingerprint({
     regime, sectorInfo, entryStage: entryPlan.stage, row, vwap20: ev.vwap20, riskPct: row.riskPct,
@@ -465,6 +479,7 @@ function computeOpportunity({ symbol, row, regime, marketRegime, sectorInfo = nu
     target: entryPlan.target1,
     invalidation: entryPlan.invalidation,
     options,
+    partyStage: partyStageProfile,
     fingerprint,
     counterfactual,
     criticalFlags: redFlagResult.criticalCount,

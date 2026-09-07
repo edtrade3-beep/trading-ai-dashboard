@@ -3222,6 +3222,42 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
     }
   }
 
+  // GET /api/market/before-it-pops — "3-Second AI Decision System" spec
+  // (2026-09-07), §3: a dedicated early-opportunity surface. Zero new
+  // scanning: reuses the SAME cached "all-opportunities" scan
+  // /api/market/opportunities already computes (party-stage-engine.js's
+  // profile is now computed additively inside computeOpportunity itself),
+  // filtered down to genuinely early (Party Stage 1-2), low-crowding
+  // candidates and ranked by real Pressure Building Score — never a
+  // second, differently-computed candidate list.
+  if (pathname === "/api/market/before-it-pops" && req.method === "GET") {
+    try {
+      const { tiers } = await Promise.race([
+        cached("all-opportunities", WATCHLIST_SCREEN_CACHE_TTL_MS, computeAllOpportunities),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("Opportunity scan timed out.")), 18000)),
+      ]);
+      const all = Object.values(tiers).flat();
+      const candidates = all
+        .filter((o) => o?.partyStage?.partyStage === 1 || o?.partyStage?.partyStage === 2)
+        .filter((o) => Number.isFinite(o.partyStage?.pressure?.score))
+        .sort((a, b) => b.partyStage.pressure.score - a.partyStage.pressure.score)
+        .slice(0, 10)
+        .map((o) => ({
+          symbol: o.symbol, price: o.price,
+          partyStage: o.partyStage.partyStage, partyStageIcon: o.partyStage.partyStageIcon, partyStageLabel: o.partyStage.partyStageLabel,
+          partyStageReasons: o.partyStage.partyStageReasons,
+          pressure: o.partyStage.pressure, crowdingScore: o.partyStage.crowdingScore, extensionScore: o.partyStage.extensionScore,
+          entryTimingScore: o.partyStage.entryTimingScore, opportunityRemaining: o.partyStage.opportunityRemaining,
+          timingVerdict: o.partyStage.timingVerdict, timingIcon: o.partyStage.timingIcon, timingLabel: o.partyStage.timingLabel,
+          earlyPressure: o.partyStage.earlyPressure,
+          entry: o.executableEntry ?? o.entry, stop: o.stop, target: o.target,
+        }));
+      return writeJson(res, 200, { ok: true, generatedAt: new Date().toISOString(), candidates });
+    } catch (err) {
+      return writeJson(res, 502, { ok: false, error: err instanceof Error ? err.message : "Before-It-Pops scan failed." });
+    }
+  }
+
   // GET /api/market/opportunity-timeline?symbol=X — real, same-session
   // read of today's real Opportunity Object samples for one symbol
   // (opportunity-timeline-store.js). Honest empty array when nothing has

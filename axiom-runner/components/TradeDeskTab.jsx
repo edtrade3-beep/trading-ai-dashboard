@@ -30,6 +30,7 @@ import ExtendedHoursMovers from "./ExtendedHoursMovers.jsx";
 import MarketCommandCenter from "./MarketCommandCenter.jsx";
 import TradeDeskEvidence from "./TradeDeskEvidence.jsx";
 import TradeGpsCard from "./TradeGpsCard.jsx";
+import BeforeItPopsPanel from "./BeforeItPopsPanel.jsx";
 import TradeGpsWhyPanel from "./TradeGpsWhyPanel.jsx";
 import TradeDeskTabs from "./TradeDeskTabs.jsx";
 
@@ -832,6 +833,8 @@ export default function TradeDeskTab({
           account={autopilotStatus?.account}
           C={TD} MONO={MONO} SANS={SANS}
         />
+
+        <BeforeItPopsPanel C={TD} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
 
         {/* Middle: 3-pane on desktop, stacked segmented view on mobile — never
             force the fixed-column grid on a narrow screen (ScanTerminalHub's
