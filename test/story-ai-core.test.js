@@ -1,15 +1,23 @@
-// Real tests for the Arabic Story AI module's pure/testable logic — no
-// ANTHROPIC_API_KEY, image, or TTS credentials exist in any environment
-// this runs in, so every Claude-agent function (story/verification/
-// director/social) is NOT covered here (they'd need real network calls
-// or a mocking layer this codebase's existing test convention doesn't
-// use elsewhere either — see PLATFORM_MASTER_PROMPT_REPORT.md's "Test
-// results" section for the full, honest breakdown of what is and isn't
-// covered). This file covers everything that IS real, deterministic,
-// dependency-free logic: JSON extraction, subtitle generation, quality
-// control, cost estimation, and the project store (including its path-
-// traversal defense). Same minimal no-framework style as
-// test/news-divergence.test.js.
+// Real tests for the Arabic Story AI module's pure/testable logic. The
+// Claude-agent functions (story/verification/director/social) are NOT
+// covered here — they'd need a real network call or a mocking layer this
+// codebase's existing test convention doesn't use elsewhere either. This
+// file covers everything that IS real, deterministic, dependency-free
+// logic: JSON extraction, subtitle generation, quality control, cost
+// estimation, and the project store (including its path-traversal
+// defense). Same minimal no-framework style as test/news-divergence.test.js.
+//
+// Real bug fixed 2026-09-07: this file originally hard-asserted that no
+// image/TTS/ffmpeg were configured/installed — true on the machine it was
+// written on, NOT true on Render's real deploy environment (which has
+// real TTS credentials and ffmpeg already available), so the hard
+// assertion failed npm test and blocked an entire deploy over a test
+// environment-coupling bug, not a real feature bug. Every check below
+// that touches provider/ffmpeg presence now checks whichever real state
+// this environment actually has and asserts the correspondingly correct
+// behavior for it, and — critically — never makes a real (paid, external)
+// API call during the test run even when a provider happens to be
+// configured.
 "use strict";
 const assert = require("node:assert");
 const { extractJson } = require("../src/story-ai-claude");
@@ -162,17 +170,35 @@ await ok("the real cost ledger accumulates entries from real agent calls", () =>
   assert.strictEqual(ledger.totalUSD, 0.03);
 });
 
-console.log("\nChecking provider abstractions — real NOT_CONFIGURED fallback (no image/TTS credentials in any test environment)…");
+console.log("\nChecking provider abstractions — real NOT_CONFIGURED fallback…");
 
-await ok("generateImage returns an honest NOT_CONFIGURED result with no real network attempt", async () => {
-  assert.strictEqual(imageProvider.isConfigured(), false);
+// Real bug fix (2026-09-07): these two tests originally hard-asserted
+// isConfigured() === false, true on the machine this was written on but
+// NOT a portable fact — Render's own deploy environment turned out to
+// already have real TTS credentials set, so the hard assertion failed
+// npm test and blocked the entire deploy (the actual feature code was
+// fine; the test was coupled to one specific environment's absence of
+// config, which is exactly the kind of test that should never gate a
+// real build). Fixed to check WHICHEVER real state this environment
+// actually has and assert the correspondingly correct behavior for it —
+// critically, when a real key IS configured, this must never place a
+// real (paid, external) API call during an automated test/build run, so
+// that branch only verifies isConfigured() reports true and stops there.
+await ok("generateImage's NOT_CONFIGURED path is honest and makes no real network attempt (only reachable if this environment truly has no image credentials)", async () => {
+  if (imageProvider.isConfigured()) {
+    console.log("    (skipped network-path assertion — this environment has real image credentials configured)");
+    return;
+  }
   const r = await imageProvider.generateImage("a wise old man");
   assert.strictEqual(r.ok, false);
   assert.strictEqual(r.reason, "NOT_CONFIGURED");
 });
 
-await ok("generateSpeech returns an honest NOT_CONFIGURED result with no real network attempt", async () => {
-  assert.strictEqual(ttsProvider.isConfigured(), false);
+await ok("generateSpeech's NOT_CONFIGURED path is honest and makes no real network attempt (only reachable if this environment truly has no TTS credentials)", async () => {
+  if (ttsProvider.isConfigured()) {
+    console.log("    (skipped network-path assertion — this environment has real TTS credentials configured)");
+    return;
+  }
   const r = await ttsProvider.generateSpeech("مرحبا");
   assert.strictEqual(r.ok, false);
   assert.strictEqual(r.reason, "NOT_CONFIGURED");
@@ -180,8 +206,13 @@ await ok("generateSpeech returns an honest NOT_CONFIGURED result with no real ne
 
 console.log("\nChecking the Video Engine — real ffmpeg-availability probe + pure command construction…");
 
-await ok("checkFfmpegAvailable reports the real state of this environment (ffmpeg is not installed here)", async () => {
-  assert.strictEqual(await checkFfmpegAvailable(), false);
+await ok("checkFfmpegAvailable returns a real boolean reflecting whatever this environment actually has, never throws", async () => {
+  // Same fix as above — ffmpeg's presence is genuinely environment-
+  // dependent (absent on the machine this was written on, present on
+  // Render's build image), so this only asserts the real, portable
+  // contract: a boolean, no exception, whichever way it goes.
+  const result = await checkFfmpegAvailable();
+  assert.strictEqual(typeof result, "boolean");
 });
 
 await ok("buildSceneClipArgs produces a real, well-formed ffmpeg argv for a Ken-Burns still-image clip", () => {
