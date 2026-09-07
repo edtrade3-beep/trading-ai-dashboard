@@ -567,7 +567,15 @@ export default function CortexMiniPanel({ symbol, onSelectSymbol, setActiveTab, 
         {opp && <AiUpdateBanner whatChanged={opp.whatChanged} currentScore={analysis?.row?.assetDecision?.opportunityScore ?? opp.score} currentVerdict={analysis?.row?.assetDecision?.verdict || null} C={C} MONO={MONO} SANS={SANS} />}
         {analysis && verdictMeta && (
           <div style={{ border: `1px solid ${verdictMeta.color}55`, background: `${verdictMeta.color}12`, borderRadius: 10, padding: 14, textAlign: "center", marginBottom: 12 }}>
-            <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.6 }}>AI VERDICT — {analysis.symbol}</div>
+            {/* Renamed from "AI VERDICT" (2026-09-07, "3-Second AI
+                Decision" spec — competing-verdicts audit finding): this
+                reads am-core-engine.js's coreVerdict, a SETUP-QUALITY
+                classification, not Trade GPS's own execution verdict
+                (Trade Desk's TradeGpsCard, now the one place a user should
+                read "what do I do right now"). Same field/color/reason as
+                before, just labeled for what it actually answers so it
+                doesn't read as a second, competing trade call. */}
+            <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.textSec, letterSpacing: 0.6 }}>SETUP QUALITY — {analysis.symbol}</div>
             <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: verdictMeta.color, margin: "4px 0" }}>{verdictMeta.icon} {verdictMeta.label}</div>
             {analysis.row.coreReason && <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, marginTop: 4 }}>{analysis.row.coreReason}</div>}
             {opp && (
