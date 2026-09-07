@@ -6169,6 +6169,24 @@ export default function App() {
           width: 32, height: 32, borderRadius: "50%", cursor: "pointer", border: "none",
           background: mobileFabsExpanded ? C.textDim : C.accent, color: "#fff", fontSize: 14,
           boxShadow: "0 6px 20px rgba(0,0,0,0.3)",
+          // Real bug fix (2026-09-06/07, user report + live-browser-
+          // confirmed on two separate screens: Light Box Assist's PREVIEW
+          // list AND the Start Here onboarding card, both with this
+          // always-on fixed FAB sitting on top of a real button). Without
+          // clipPath, this button's actual clickable hit-box is the full
+          // 32x32 square (border-radius only rounds what's PAINTED, not
+          // what receives pointer events) — so even the square's corners,
+          // visually outside the circle, were capturing taps meant for
+          // whatever real content happened to render underneath at that
+          // scroll position. clip-path constrains hit-testing to the
+          // visual circle itself (supported in every browser this app
+          // targets), freeing the four corner triangles (~21% of the
+          // square) back to underlying content. Doesn't fully eliminate
+          // collisions dead-center under the circle — see
+          // AutopilotPanel.jsx's own dedicated padding fix for that real
+          // remaining case — but reduces the hazard on every other screen
+          // in the app with zero layout risk.
+          clipPath: "circle(50%)",
         }}
       >{mobileFabsExpanded ? "✕" : "⚡"}</button>
       <TradingCopilot C={C} MONO={MONO} SANS={SANS} macroData={macroData} watchlistSymbols={watchlistSymbols} statusBarH={mobileFabStatusBarH} fabFading={fabFading} isMobile={isMobile} />
