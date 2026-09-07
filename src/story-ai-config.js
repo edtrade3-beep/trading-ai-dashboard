@@ -31,6 +31,18 @@ const ELEVENLABS_VOICE_MALE = (process.env.ELEVENLABS_VOICE_ID_MALE_AR || "").tr
 const ELEVENLABS_VOICE_FEMALE = (process.env.ELEVENLABS_VOICE_ID_FEMALE_AR || "").trim();
 const AZURE_SPEECH_KEY = (process.env.AZURE_SPEECH_KEY || "").trim();
 const AZURE_SPEECH_REGION = (process.env.AZURE_SPEECH_REGION || "").trim();
+// Google Cloud TTS (added 2026-09-07, explicit user request: "cheapest
+// way" — Google's free tier is far more generous than ElevenLabs' for
+// this app's real per-video character volume). Uses the simple REST
+// API-key auth (?key=...), not a service-account JSON file — avoids
+// needing file upload/storage handling for a credential, consistent with
+// every other provider in this app being a single env-var string. Voice
+// names are real, disclosed defaults (Google's own ar-XA WaveNet voices),
+// not invented — but Google's own voice catalog can change, so both are
+// env-overridable rather than hardcoded assumptions.
+const GOOGLE_TTS_API_KEY = (process.env.GOOGLE_TTS_API_KEY || "").trim();
+const GOOGLE_TTS_VOICE_MALE = (process.env.GOOGLE_TTS_VOICE_MALE_AR || "ar-XA-Wavenet-B").trim();
+const GOOGLE_TTS_VOICE_FEMALE = (process.env.GOOGLE_TTS_VOICE_FEMALE_AR || "ar-XA-Wavenet-A").trim();
 
 // Budget/limits — real, disclosed defaults, all overridable. Enforced by
 // story-ai-job-runner.js before any paid step, never silently ignored.
@@ -49,6 +61,7 @@ function imageProviderConfigured() {
 function ttsProviderConfigured() {
   if (TTS_PROVIDER === "elevenlabs") return Boolean(ELEVENLABS_API_KEY);
   if (TTS_PROVIDER === "azure") return Boolean(AZURE_SPEECH_KEY && AZURE_SPEECH_REGION);
+  if (TTS_PROVIDER === "google") return Boolean(GOOGLE_TTS_API_KEY);
   return false;
 }
 
@@ -57,6 +70,7 @@ module.exports = {
   IMAGE_PROVIDER, OPENAI_API_KEY, REPLICATE_API_TOKEN,
   TTS_PROVIDER, ELEVENLABS_API_KEY, ELEVENLABS_VOICE_MALE, ELEVENLABS_VOICE_FEMALE,
   AZURE_SPEECH_KEY, AZURE_SPEECH_REGION,
+  GOOGLE_TTS_API_KEY, GOOGLE_TTS_VOICE_MALE, GOOGLE_TTS_VOICE_FEMALE,
   MAX_COST_PER_VIDEO_USD, MAX_SCENE_COUNT, MAX_RETRIES_PER_STEP,
   MAX_TOPIC_LENGTH, MAX_NOTES_LENGTH, MAX_DURATION_SECONDS,
   imageProviderConfigured, ttsProviderConfigured,

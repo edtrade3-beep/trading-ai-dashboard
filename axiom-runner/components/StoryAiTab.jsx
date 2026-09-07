@@ -454,7 +454,7 @@ function SettingsView({ C, MONO, SANS, status }) {
         <ConnStatus label={`Voice (${status.voice.provider})`} status={status.voice.status} C={C} MONO={MONO} />
         <ConnStatus label="FFmpeg" status={status.ffmpeg.status} C={C} MONO={MONO} />
         <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, marginTop: 8 }}>
-          Set ANTHROPIC_API_KEY, OPENAI_API_KEY or REPLICATE_API_TOKEN, ELEVENLABS_API_KEY or AZURE_SPEECH_KEY/AZURE_SPEECH_REGION in your environment to connect each service. Never enter API keys in this UI — they are server-side only.
+          Set ANTHROPIC_API_KEY, OPENAI_API_KEY or REPLICATE_API_TOKEN (images), and for voice: ELEVENLABS_API_KEY, AZURE_SPEECH_KEY/AZURE_SPEECH_REGION, or (cheapest — Google's free tier) STORY_AI_TTS_PROVIDER=google + GOOGLE_TTS_API_KEY. Never enter API keys in this UI — they are server-side only.
         </div>
       </div>
       <div style={cardStyle()}>
