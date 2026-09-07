@@ -35,6 +35,29 @@ const path = require("node:path");
 const STEP_ORDER = ["story", "verification", "scenes", "images", "voice", "subtitles", "video", "quality"];
 const running = new Set(); // in-memory guard — one active run per project at a time
 
+// Real speed fix (2026-09-07, explicit user request: "how to make it
+// faster"). Images/voice previously generated one scene at a time in a
+// plain sequential loop — for a real 16-20 scene video, each provider
+// call taking several seconds (or, per the real Replicate polling fix,
+// up to ~2 minutes worst case) made this the dominant wall-clock cost.
+// Each scene's image/audio is fully independent of every other scene, so
+// this is a genuinely safe place to parallelize — bounded to a small
+// concurrency (not Promise.all on everything at once, which risks real
+// 429 rate-limit errors from the provider) rather than either extreme.
+const IMAGE_VOICE_CONCURRENCY = 4;
+async function mapWithConcurrency(items, concurrency, fn) {
+  const results = new Array(items.length);
+  let next = 0;
+  async function worker() {
+    while (next < items.length) {
+      const i = next++;
+      results[i] = await fn(items[i], i);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, worker));
+  return results;
+}
+
 function setStep(project, step, status, extra = {}) {
   project.job.steps[step] = { status, at: new Date().toISOString(), ...extra };
 }
@@ -102,17 +125,15 @@ async function runImagesStep(project) {
   }
   const dir = path.join(assetsDirFor(project.id), "images");
   fs.mkdirSync(dir, { recursive: true });
-  const results = [];
-  for (const scene of project.scenes) {
+  const results = await mapWithConcurrency(project.scenes, IMAGE_VOICE_CONCURRENCY, async (scene) => {
     const result = await generateImage(scene.image_prompt_en, {});
     if (result.ok && result.b64) {
       const filePath = path.join(dir, `${scene.scene_number}.png`);
       fs.writeFileSync(filePath, Buffer.from(result.b64, "base64"));
-      results.push({ sceneNumber: scene.scene_number, ok: true, path: filePath });
-    } else {
-      results.push({ sceneNumber: scene.scene_number, ok: false, reason: result.reason || "PROVIDER_ERROR", error: result.error || null });
+      return { sceneNumber: scene.scene_number, ok: true, path: filePath };
     }
-  }
+    return { sceneNumber: scene.scene_number, ok: false, reason: result.reason || "PROVIDER_ERROR", error: result.error || null };
+  });
   project.images = results;
   const anyOk = results.some((r) => r.ok);
   // Real bug fix (2026-09-07): a real failure only ever surfaced the
@@ -141,17 +162,15 @@ async function runVoiceStep(project) {
   }
   const dir = path.join(assetsDirFor(project.id), "audio");
   fs.mkdirSync(dir, { recursive: true });
-  const results = [];
-  for (const scene of project.scenes) {
+  const results = await mapWithConcurrency(project.scenes, IMAGE_VOICE_CONCURRENCY, async (scene) => {
     const result = await generateSpeech(scene.narration_ar, { voice: project.voice === "female" ? "female" : "male" });
     if (result.ok && result.audioBuffer) {
       const filePath = path.join(dir, `${scene.scene_number}.mp3`);
       fs.writeFileSync(filePath, result.audioBuffer);
-      results.push({ sceneNumber: scene.scene_number, ok: true, path: filePath });
-    } else {
-      results.push({ sceneNumber: scene.scene_number, ok: false, reason: result.reason || "PROVIDER_ERROR", error: result.error || null });
+      return { sceneNumber: scene.scene_number, ok: true, path: filePath };
     }
-  }
+    return { sceneNumber: scene.scene_number, ok: false, reason: result.reason || "PROVIDER_ERROR", error: result.error || null };
+  });
   project.audio = results;
   const anyOk = results.some((r) => r.ok);
   // Same real-detail fix as runImagesStep above.
@@ -317,4 +336,4 @@ async function retryStep(projectId, step, apiKey) {
 
 function isRunning(projectId) { return running.has(projectId); }
 
-module.exports = { runPipeline, retryStep, isRunning, STEP_ORDER };
+module.exports = { runPipeline, retryStep, isRunning, STEP_ORDER, mapWithConcurrency, IMAGE_VOICE_CONCURRENCY };

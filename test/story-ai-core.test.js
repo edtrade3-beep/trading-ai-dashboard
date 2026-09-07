@@ -28,6 +28,7 @@ const { createProject, getProject, saveProject, listProjects, deleteProject, dup
 const { buildSceneClipArgs, buildFinalMuxArgs, checkFfmpegAvailable } = require("../src/story-ai-video-assembly");
 const imageProvider = require("../src/story-ai-image-provider");
 const ttsProvider = require("../src/story-ai-tts-provider");
+const { mapWithConcurrency, IMAGE_VOICE_CONCURRENCY } = require("../src/story-ai-job-runner");
 
 let passed = 0;
 async function ok(name, fn) {
@@ -262,6 +263,40 @@ await ok("duplicateProject copies the real script/scenes forward as a new Draft,
 await ok("a path-traversal attempt against the store is rejected, never touches the filesystem", () => {
   assert.throws(() => assertSafeId("../../../etc/passwd"));
   assert.throws(() => getProject("../../../etc/passwd"));
+});
+
+console.log("\nChecking mapWithConcurrency — real bounded-parallelism speed fix (2026-09-07, images/voice generation)…");
+
+await ok("results preserve original item order regardless of real completion order", async () => {
+  const items = Array.from({ length: 10 }, (_, i) => i);
+  const results = await mapWithConcurrency(items, 4, async (item) => {
+    await new Promise((r) => setTimeout(r, (10 - item) % 5)); // deliberately uneven real delays
+    return item * 2;
+  });
+  assert.deepStrictEqual(results, items.map((i) => i * 2));
+});
+
+await ok("real concurrency never exceeds the configured limit", async () => {
+  const items = Array.from({ length: 12 }, (_, i) => i);
+  let concurrent = 0, maxConcurrent = 0;
+  await mapWithConcurrency(items, 4, async () => {
+    concurrent++;
+    maxConcurrent = Math.max(maxConcurrent, concurrent);
+    await new Promise((r) => setTimeout(r, 15));
+    concurrent--;
+  });
+  assert.ok(maxConcurrent <= 4, `observed ${maxConcurrent} concurrent calls, expected at most 4`);
+  assert.ok(maxConcurrent >= 2, "should genuinely run some calls in parallel, not silently serialize");
+});
+
+await ok("a concurrency limit greater than the item count never over-spawns real workers", async () => {
+  const items = [1, 2, 3];
+  const results = await mapWithConcurrency(items, 10, async (item) => item + 1);
+  assert.deepStrictEqual(results, [2, 3, 4]);
+});
+
+await ok("IMAGE_VOICE_CONCURRENCY is a real, sane positive limit, not accidentally 0/1/unbounded", () => {
+  assert.ok(Number.isInteger(IMAGE_VOICE_CONCURRENCY) && IMAGE_VOICE_CONCURRENCY >= 2 && IMAGE_VOICE_CONCURRENCY <= 10);
 });
 
 console.log(`\n${passed} checks passed.`);
