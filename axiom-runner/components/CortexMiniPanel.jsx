@@ -183,7 +183,11 @@ function AiUpdateBanner({ whatChanged, currentScore, currentVerdict, C, MONO, SA
 // move a sector/market benchmark could explain) — never re-derived or
 // dressed up here. Zero real qualifying drivers shows the spec's own
 // mandatory "UNEXPLAINED MOVE" state, never a forced guess.
-function WhyIsItMovingButton({ symbol, C, MONO, SANS }) {
+// Named export (2026-09-07, Why-Is-It-Moving extended to crypto) — CryptoTab
+// reuses this exact component (backend now branches internally for BTC/ETH/
+// SOL, see src/why-is-it-moving.js's computeCryptoWhyIsItMoving) rather than
+// duplicating the same button/driver-list UI a second time.
+export function WhyIsItMovingButton({ symbol, C, MONO, SANS }) {
   const [state, setState] = useState(null); // null = not asked yet | "loading" | {ok, drivers, unexplained, error}
 
   const check = async () => {

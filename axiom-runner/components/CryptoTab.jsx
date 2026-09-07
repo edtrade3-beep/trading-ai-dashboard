@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { sectionLabelStyle } from "./ui-atoms.jsx";
 import TrendChart from "./TrendChart.jsx";
+import { WhyIsItMovingButton } from "./CortexMiniPanel.jsx";
 
 // ─── CryptoScanTrade — real scan + chart + paper buy/sell ───────────────────
 // Explicit user request (2026-08-03, "add crypto trading", scoped via
@@ -88,6 +89,10 @@ function CryptoMacroPanel({ C, MONO, SANS }) {
             }}>{c}</button>
           ))}
         </div>
+      </div>
+
+      <div style={{ marginBottom: 4 }}>
+        <WhyIsItMovingButton key={coin} symbol={coin} C={C} MONO={MONO} SANS={SANS} />
       </div>
 
       {error && <div style={{ color: C.red, fontFamily: MONO, fontSize: 12, marginBottom: 10 }}>⚠ {error}</div>}

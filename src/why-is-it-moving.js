@@ -29,7 +29,7 @@ function explanatoryRatio(tickerChg, benchmarkChg) {
 // getFeed({ticker}) shape — impact_score, category, headline, sentiment).
 // sectorChg/marketChg: real % change of the ticker's own sector ETF and
 // of SPY (or QQQ, whichever moved more) today.
-function rankMoveDrivers({ tickerChg, sectorName, sectorChg, marketChg, newsItems = [] }) {
+function rankMoveDrivers({ tickerChg, sectorName, sectorChg, marketChg, newsItems = [], marketLabel = "Broad market move" }) {
   const candidates = [];
 
   for (const item of newsItems) {
@@ -46,7 +46,7 @@ function rankMoveDrivers({ tickerChg, sectorName, sectorChg, marketChg, newsItem
 
   const marketRatio = explanatoryRatio(tickerChg, marketChg);
   if (marketRatio >= RATIO_THRESHOLD) {
-    candidates.push({ type: "MARKET", label: `Broad market move (${marketChg > 0 ? "+" : ""}${marketChg.toFixed(2)}%)`, confidence: marketRatio, detail: null, url: null });
+    candidates.push({ type: "MARKET", label: `${marketLabel} (${marketChg > 0 ? "+" : ""}${marketChg.toFixed(2)}%)`, confidence: marketRatio, detail: null, url: null });
   }
 
   candidates.sort((a, b) => b.confidence - a.confidence);
@@ -54,7 +54,79 @@ function rankMoveDrivers({ tickerChg, sectorName, sectorChg, marketChg, newsItem
   return { drivers, unexplained: drivers.length === 0 };
 }
 
+// Crypto has no sector ETF, no confirmation.js divergence check (built for
+// equity price-vs-headline confirmation), and its news isn't in this app's
+// stock-oriented news/store.js pipeline (src/news/ticker-matcher.js has no
+// crypto matching at all) — so it needs its own real data path rather than
+// reusing computeWhyIsItMoving's equity fetch. It DOES reuse the same real
+// classifier/sentiment/scorer pipeline (news/classifier.js, sentiment.js,
+// scorer.js) and the same rankMoveDrivers ranking/threshold logic — just a
+// "CRYPTO_MARKET" comparison (total real crypto market-cap % change) in
+// place of the equity SECTOR/SPY-QQQ comparisons.
+const CRYPTO_NAME = { BTC: "Bitcoin", ETH: "Ethereum", SOL: "Solana" };
+function isCryptoSymbol(symbol) { return Object.prototype.hasOwnProperty.call(CRYPTO_NAME, String(symbol || "").toUpperCase()); }
+
+async function computeCryptoWhyIsItMoving(symbol) {
+  const { resolveProviderKeys, PORT } = require("./config");
+  const { fetchFmpCryptoNews } = require("./providers/fmp");
+  const { classifyCatalyst } = require("./news/classifier");
+  const { classifySentiment } = require("./news/sentiment");
+  const { computeImpactScore } = require("./news/scorer");
+  const keys = resolveProviderKeys(new URLSearchParams());
+
+  const base = () => process.env.RENDER_EXTERNAL_URL || `http://127.0.0.1:${PORT}`;
+  const getJson = async (p) => { try { const r = await fetch(`${base()}${p}`); return await r.json(); } catch { return null; } };
+
+  const [cryptoData, rawNews] = await Promise.all([
+    getJson("/api/market/crypto"),
+    keys.fmp ? fetchFmpCryptoNews(keys.fmp, 40).catch(() => []) : Promise.resolve([]),
+  ]);
+
+  const coin = (cryptoData?.coins || []).find((c) => c.symbol === symbol);
+  const tickerChg = Number(coin?.changesPercentage);
+  if (!coin || !Number.isFinite(tickerChg)) {
+    return { ok: false, symbol, error: "Real price/change data unavailable for this coin right now." };
+  }
+  const marketChg = Number(cryptoData?.globalMacro?.marketCapChange24h);
+
+  // Real, disclosed relevance filter — FMP's crypto-news feed isn't
+  // reliably ticker-tagged, so this matches the coin's own symbol/name in
+  // the real headline+summary text rather than trusting a `symbol` field
+  // that's frequently blank for general crypto-market stories.
+  const name = CRYPTO_NAME[symbol];
+  const relevant = (rawNews || []).filter((item) => {
+    const text = `${item.headline || ""} ${item.summary || ""}`.toLowerCase();
+    return text.includes(symbol.toLowerCase()) || text.includes(name.toLowerCase());
+  }).slice(0, 8);
+
+  const newsItems = relevant.map((item) => {
+    const { category, catalystWeight } = classifyCatalyst(item);
+    const { sentiment } = classifySentiment(item);
+    // No real price-vs-news confirmation source exists for crypto in this
+    // app (confirmation.js's detectNewsDivergence is built on equity SPY/
+    // QQQ context) — pass null, same honest "confirmation unavailable,
+    // real mid-point" path computeImpactScore already has for that case.
+    const { impactScore } = computeImpactScore({ ...item, catalystWeight, sentiment }, null);
+    return { impact_score: impactScore, headline: item.headline, category, url: item.url };
+  });
+
+  const { drivers, unexplained } = rankMoveDrivers({
+    tickerChg,
+    sectorName: null, sectorChg: null, // no real sector concept for crypto
+    marketChg: Number.isFinite(marketChg) ? marketChg : null,
+    marketLabel: "Broad crypto market move",
+    newsItems,
+  });
+
+  return {
+    ok: true, symbol, tickerChg, drivers, unexplained,
+    ...(keys.fmp ? {} : { newsNote: "No FMP API key configured — crypto news drivers are unavailable, real price/market-move drivers only." }),
+  };
+}
+
 async function computeWhyIsItMoving(symbol) {
+  if (isCryptoSymbol(symbol)) return computeCryptoWhyIsItMoving(String(symbol).toUpperCase());
+
   const { fetchMarketQuotes } = require("./routes/market");
   const { getFeed, isReady } = require("./news/store");
   const { resolveProviderKeys, PORT } = require("./config");
@@ -98,4 +170,4 @@ async function computeWhyIsItMoving(symbol) {
   return { ok: true, symbol: String(symbol).toUpperCase(), tickerChg, drivers, unexplained };
 }
 
-module.exports = { computeWhyIsItMoving, rankMoveDrivers, explanatoryRatio, NEWS_IMPACT_THRESHOLD, RATIO_THRESHOLD };
+module.exports = { computeWhyIsItMoving, computeCryptoWhyIsItMoving, isCryptoSymbol, rankMoveDrivers, explanatoryRatio, NEWS_IMPACT_THRESHOLD, RATIO_THRESHOLD };

@@ -6,7 +6,8 @@
 // percentage, and the mandatory honest "unexplained" fallback.
 "use strict";
 const assert = require("node:assert");
-const { rankMoveDrivers, explanatoryRatio } = require("../src/why-is-it-moving");
+const { rankMoveDrivers, explanatoryRatio, isCryptoSymbol } = require("../src/why-is-it-moving");
+const { classifyCatalyst } = require("../src/news/classifier");
 
 let passed = 0;
 function ok(name, fn) { try { fn(); passed++; console.log(`  ✓ ${name}`); } catch (e) { console.error(`  ✗ ${name}\n    ${e.message}`); process.exitCode = 1; } }
@@ -80,6 +81,42 @@ ok("results are capped to the top 4 real candidates", () => {
   const { drivers } = rankMoveDrivers({ tickerChg: 5, sectorName: null, sectorChg: null, marketChg: null, newsItems });
   assert.strictEqual(drivers.length, 4);
   assert.strictEqual(drivers[0].confidence, 90);
+});
+
+ok("rankMoveDrivers: a custom marketLabel (crypto path) replaces the default equity wording", () => {
+  const { drivers } = rankMoveDrivers({ tickerChg: 5, sectorName: null, sectorChg: null, marketChg: 4, marketLabel: "Broad crypto market move", newsItems: [] });
+  assert.strictEqual(drivers[0].label, "Broad crypto market move (+4.00%)");
+});
+ok("rankMoveDrivers: marketLabel defaults to the original equity wording when omitted (no regression)", () => {
+  const { drivers } = rankMoveDrivers({ tickerChg: 5, sectorName: null, sectorChg: null, marketChg: 4, newsItems: [] });
+  assert.strictEqual(drivers[0].label, "Broad market move (+4.00%)");
+});
+
+console.log("\nChecking isCryptoSymbol — real routing gate between the equity and crypto Why-Is-It-Moving paths…");
+ok("recognizes the real supported crypto symbols", () => {
+  assert.strictEqual(isCryptoSymbol("BTC"), true);
+  assert.strictEqual(isCryptoSymbol("eth"), true);
+  assert.strictEqual(isCryptoSymbol("SOL"), true);
+});
+ok("never misroutes a real equity symbol into the crypto path", () => {
+  assert.strictEqual(isCryptoSymbol("AAPL"), false);
+  assert.strictEqual(isCryptoSymbol(""), false);
+  assert.strictEqual(isCryptoSymbol(undefined), false);
+});
+
+console.log("\nChecking news/classifier.js's crypto-native catalyst categories (additive, 2026-09-07)…");
+ok("a real ETF approval headline classifies as CRYPTO_REGULATORY, not a weak OTHER fallback", () => {
+  const r = classifyCatalyst({ headline: "SEC approves spot Bitcoin ETF applications" });
+  assert.strictEqual(r.category, "CRYPTO_REGULATORY");
+  assert.ok(r.catalystWeight >= 80);
+});
+ok("a real exchange-hack headline classifies as CRYPTO_SECURITY", () => {
+  const r = classifyCatalyst({ headline: "Major exchange hacked, $200M in crypto stolen" });
+  assert.strictEqual(r.category, "CRYPTO_SECURITY");
+});
+ok("an unrelated equity headline is unaffected by the new crypto rules (no regression)", () => {
+  const r = classifyCatalyst({ headline: "Company reports quarterly earnings, beats EPS estimates" });
+  assert.strictEqual(r.category, "EARNINGS");
 });
 
 console.log(`\n${passed} checks passed.`);
