@@ -61,6 +61,14 @@ async function buildScenes({ story, apiKey, targetSceneCount }) {
     // meaningfully more headroom than Story/Verification's shorter,
     // single-paragraph outputs.
     maxTokens: 8000,
+    // Real bug found live immediately after the maxTokens bump above
+    // (2026-09-07, next real generation): the default 60s timeout
+    // (story-ai-claude.js) was tuned for Story/Verification's much
+    // shorter outputs — an 8000-token real generation genuinely needs
+    // more wall-clock time to complete than that, and hit "Anthropic API
+    // timeout" instead of finishing. 120s gives real headroom for the
+    // largest output this pipeline asks Claude for.
+    timeoutMs: 120000,
     feature: "story-ai-director",
   });
 
