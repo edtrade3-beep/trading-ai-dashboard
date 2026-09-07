@@ -7,6 +7,7 @@ import FedInterpreter from "./FedInterpreter.jsx";
 import FedWatchWidget from "./FedWatchWidget.jsx";
 import MacroEventsWidget from "./MacroEventsWidget.jsx";
 import FedWatchTab from "./FedWatchTab.jsx";
+import { useMacroRegime } from "./MacroStatusStrip.jsx";
 import SniperAITab from "./SniperAITab.jsx";
 import GreenLightTab from "./GreenLightTab.jsx";
 import MyTradesTab from "./MyTradesTab.jsx";
@@ -799,6 +800,7 @@ function AiCopilotLauncherCard({ C, MONO, SANS }) {
 const DASH_TABS = [
   { id: "opportunities", label: "OPPORTUNITIES" },
   { id: "overview",    label: "OVERVIEW" },
+  { id: "cross-asset", label: "CROSS-ASSET" },
   { id: "watchlist",   label: "WATCHLIST & CHART" },
   { id: "sniper",       label: "AI SNIPER" },
   { id: "greenlight",   label: "GREEN LIGHT" },
@@ -807,6 +809,153 @@ const DASH_TABS = [
   { id: "fedwatch",    label: "FED / FOMC" },
   { id: "portfolio",   label: "PORTFOLIO" },
 ];
+
+// ─── Cross-Asset Dashboard (platform-unification prompt, 2026-09-07, §20)
+// ───────────────────────────────────────────────────────────────────────
+// "One screen showing Trade Desk/Crypto/Macro/Rates/News side by side."
+// Deliberately zero new backend computation — every real number here
+// comes from an endpoint this session already built and shipped
+// (macro-regime's real regime+narrative, crypto-macro's real BTC/ETH/SOL
+// rate-relationship+score, news/feed's real clustered high-impact
+// stories). This is a pure aggregation/summary layer with drill-in links
+// to each tab's own full depth, not a second copy of any of them.
+const CROSS_ASSET_COINS = ["BTC", "ETH", "SOL"];
+
+function CrossAssetMacroCard({ C, MONO, SANS, macroRegime }) {
+  return (
+    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14 }}>
+      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 8 }}>MACRO REGIME &amp; NARRATIVE</div>
+      {!macroRegime ? (
+        <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>Loading real regime data…</div>
+      ) : (
+        <>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+            <span>{macroRegime.icon}</span>
+            <span style={{ fontFamily: MONO, fontSize: 15, fontWeight: 800, color: macroRegime.color }}>{macroRegime.label}</span>
+            <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>{macroRegime.score}/100</span>
+          </div>
+          {macroRegime.narrative && (
+            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+              <span>{macroRegime.narrative.icon}</span>
+              <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: macroRegime.narrative.color }}>{macroRegime.narrative.label}</span>
+              {macroRegime.narrative.shifted && macroRegime.narrative.previousLabel && (
+                <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>(shifted from {macroRegime.narrative.previousLabel})</span>
+              )}
+            </div>
+          )}
+          {macroRegime.credit?.momentum?.status && (
+            <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 6 }}>Credit: {macroRegime.credit.momentum.status}</div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function CrossAssetCryptoCard({ C, MONO, SANS, cryptoMacro, setActiveTab }) {
+  return (
+    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14 }}>
+      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 8 }}>CRYPTO ↔ MACRO SCORE</div>
+      {CROSS_ASSET_COINS.map((sym) => {
+        const d = cryptoMacro[sym];
+        const score = d?.macroScore?.score;
+        const col = !Number.isFinite(score) ? C.textDim : score >= 55 ? C.green : score <= 45 ? C.red : C.amber;
+        return (
+          <div key={sym} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 0", borderBottom: `1px solid ${C.border}` }}>
+            <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>{sym}</span>
+            {d ? (
+              <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>{d.rateRelationship?.rateRegime?.replace(/_/g, " ") || "—"}</span>
+                <b style={{ fontFamily: MONO, fontSize: 13, color: col }}>{Number.isFinite(score) ? score : "—"}</b>
+              </span>
+            ) : <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>Loading…</span>}
+          </div>
+        );
+      })}
+      <button onClick={() => setActiveTab?.("crypto")} style={{ marginTop: 8, fontFamily: MONO, fontSize: 10, color: C.accent, background: "none", border: "none", cursor: "pointer", padding: 0 }}>View crypto detail →</button>
+    </div>
+  );
+}
+
+function CrossAssetNewsCard({ C, MONO, SANS, clusters, newsStatus, setActiveTab }) {
+  return (
+    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, gridColumn: "span 2" }}>
+      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 8 }}>TOP HIGH-IMPACT NEWS (GROUPED)</div>
+      {newsStatus && newsStatus !== "OK" ? (
+        <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>News store {newsStatus.toLowerCase()} — no real scored stories to show right now.</div>
+      ) : !clusters.length ? (
+        <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>No real high-impact stories in the last day.</div>
+      ) : (
+        clusters.slice(0, 6).map((cl, i) => (
+          <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "5px 0", borderBottom: i < clusters.length - 1 ? `1px solid ${C.border}` : "none" }}>
+            <span style={{ fontFamily: SANS, fontSize: 12, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <b style={{ fontFamily: MONO, color: C.accent }}>{cl.ticker}</b> {cl.representativeHeadline}
+            </span>
+            <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, flexShrink: 0 }}>{cl.sourceCount > 1 ? `${cl.sourceCount} sources` : cl.sources[0] || ""}</span>
+          </div>
+        ))
+      )}
+      <button onClick={() => setActiveTab?.("news")} style={{ marginTop: 8, fontFamily: MONO, fontSize: 10, color: C.accent, background: "none", border: "none", cursor: "pointer", padding: 0 }}>View all news →</button>
+    </div>
+  );
+}
+
+function CrossAssetDashboard({ C, MONO, SANS, fullScan, setActiveTab, setTerminalSymbol }) {
+  const macroRegime = useMacroRegime();
+  const [cryptoMacro, setCryptoMacro] = useState({ BTC: null, ETH: null, SOL: null });
+  const [newsClusters, setNewsClusters] = useState([]);
+  const [newsStatus, setNewsStatus] = useState(null);
+
+  useEffect(() => {
+    let alive = true;
+    Promise.all(CROSS_ASSET_COINS.map((sym) =>
+      fetch(`/api/market/crypto-macro?symbol=${sym}`).then((r) => r.json()).catch(() => null)
+    )).then(([btc, eth, sol]) => {
+      if (!alive) return;
+      setCryptoMacro({ BTC: btc?.ok ? btc : null, ETH: eth?.ok ? eth : null, SOL: sol?.ok ? sol : null });
+    });
+    fetch("/api/news/feed?minImpact=70&sinceMinutes=1440&limit=30").then((r) => r.json())
+      .then((d) => { if (alive) { setNewsClusters(d.clusters || []); setNewsStatus(d.status || (d.ok ? "OK" : "DEGRADED")); } })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
+
+  // Real shape here is screenTrendTemplate's scan row (symbol/price/
+  // _aplus.score), the SAME data AiTopOpportunitiesCard already shows on
+  // the Overview sub-tab — not a second, differently-shaped opportunity
+  // list. mapToAiAction is the same shared reducer that card uses.
+  const top3 = [...(fullScan || [])].filter((r) => Number.isFinite(r?._aplus?.score)).sort((a, b) => b._aplus.score - a._aplus.score).slice(0, 3);
+
+  return (
+    <div style={{ display: "grid", gap: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 }}>
+        <CrossAssetMacroCard C={C} MONO={MONO} SANS={SANS} macroRegime={macroRegime} />
+        <CrossAssetCryptoCard C={C} MONO={MONO} SANS={SANS} cryptoMacro={cryptoMacro} setActiveTab={setActiveTab} />
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14 }}>
+          <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 8 }}>TOP OPPORTUNITIES</div>
+          {top3.length ? top3.map((row) => {
+            const action = mapToAiAction({ institutionalScore: row._aplus.score });
+            // Same real "mterminal" destination every other Dashboard card
+            // in this file routes a symbol click to (AiTopOpportunitiesCard,
+            // WatchlistCard, TopSectorsTodayCard, etc.) — not trade-desk.
+            // Kept consistent rather than introducing a second, divergent
+            // click target for the same "go look at this symbol" action.
+            const goToRow = () => { setTerminalSymbol?.(row.symbol); try { localStorage.setItem("mterminal_load_sym", row.symbol); } catch {} setActiveTab?.("mterminal"); };
+            return (
+              <div key={row.symbol} onClick={goToRow} {...clickableProps(goToRow)}
+                style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: `1px solid ${C.border}`, cursor: "pointer" }}>
+                <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>{row.symbol}</span>
+                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "2px 6px", borderRadius: 5, background: `${action.color}18`, color: action.color }}>{action.label}</span>
+              </div>
+            );
+          }) : <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>No real scan results yet.</div>}
+          <button onClick={() => setActiveTab?.("mterminal")} style={{ marginTop: 8, fontFamily: MONO, fontSize: 10, color: C.accent, background: "none", border: "none", cursor: "pointer", padding: 0 }}>Open chart →</button>
+        </div>
+      </div>
+      <CrossAssetNewsCard C={C} MONO={MONO} SANS={SANS} clusters={newsClusters} newsStatus={newsStatus} setActiveTab={setActiveTab} />
+    </div>
+  );
+}
 
 function DashSubNav({ C, MONO, active, setActive }) {
   // Horizontal-scroll single row, not flexWrap — standardized across every
@@ -1007,6 +1156,16 @@ export default function DashboardTab({
           </div>
           <CopilotInsightsCard C={C} MONO={MONO} SANS={SANS} watchlistData={watchlistData} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} topPick={topPick} />
         </>
+      )}
+
+      {/* ── CROSS-ASSET ── one screen showing Trade Desk/Crypto/Macro/
+          Rates/News side by side (platform-unification prompt §20). Zero
+          new backend computation — pure aggregation over endpoints this
+          session already shipped (macro-regime+narrative, crypto-macro,
+          news/feed's clustered high-impact feed), each with a drill-in
+          link to its own full tab. */}
+      {dashTab === "cross-asset" && (
+        <CrossAssetDashboard C={C} MONO={MONO} SANS={SANS} fullScan={fullScan} setActiveTab={setActiveTab} setTerminalSymbol={setTerminalSymbol} />
       )}
 
       {/* ── WATCHLIST & CHART ── */}
