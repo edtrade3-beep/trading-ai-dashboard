@@ -20,8 +20,19 @@ const { IMAGE_PROVIDER, OPENAI_API_KEY, REPLICATE_API_TOKEN, imageProviderConfig
 function isConfigured() { return imageProviderConfigured(); }
 
 // UNTESTED (no OpenAI key in this environment) — real request shape per
-// OpenAI's documented Images API, not exercised end-to-end.
-async function generateWithOpenAi(prompt, { size = "1024x1792" } = {}) {
+// OpenAI's own current API docs (verified live via fetched docs,
+// 2026-09-07). Real bug found and fixed before ever being tried: the
+// original default size "1024x1792" is a DALL-E-3 size value, NOT valid
+// for gpt-image-1 (the model this actually calls) — gpt-image-1 only
+// accepts "1024x1024", "1536x1024", "1024x1536", or "auto", so the old
+// default would have failed with a real 400 on the very first attempt.
+// "1024x1536" (2:3 portrait) is the closest real supported size to this
+// app's 9:16 target — there's no exact 9:16-native size for this model,
+// an honest, disclosed compromise, not a silent inaccuracy. response_format
+// is deliberately omitted: per OpenAI's own docs it's DALL-E-only — GPT
+// image models always return base64 (the real b64_json field below)
+// without it.
+async function generateWithOpenAi(prompt, { size = "1024x1536" } = {}) {
   const res = await fetch("https://api.openai.com/v1/images/generations", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${OPENAI_API_KEY}` },
