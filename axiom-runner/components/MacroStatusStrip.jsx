@@ -87,6 +87,31 @@ export default function MacroStatusStrip({ C, MONO, macroData, distData, fred })
           <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{macroRegime.score}/100</span>
         </div>
       )}
+      {/* Narrative Shift Detector (2026-09-07, §17) — same useMacroRegime()
+          response, zero new fetches. Distinct from the MACRO pill above:
+          that's the numeric 8-state regime (can wobble tick to tick); this
+          is the stickier, journalistic-style dominant story (narrative-
+          engine.js + narrative-store.js), which only changes when the
+          underlying evidence genuinely crosses into a new real narrative. */}
+      {macroRegime?.narrative && (
+        <div title={(macroRegime.narrative.evidence || []).join(" · ")}
+          style={{
+            display: "flex", alignItems: "center", gap: 6, borderRadius: 20, padding: "6px 12px",
+            background: `${macroRegime.narrative.color}18`,
+            border: `1px solid ${macroRegime.narrative.color}`,
+            boxShadow: macroRegime.narrative.shifted ? `0 0 0 2px ${macroRegime.narrative.color}55` : "none",
+          }}>
+          <span style={{ fontSize: 11 }}>{macroRegime.narrative.icon}</span>
+          <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: macroRegime.narrative.color }}>
+            NARRATIVE: {macroRegime.narrative.label}
+          </span>
+          {macroRegime.narrative.shifted && macroRegime.narrative.previousLabel && (
+            <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>
+              (shifted from {macroRegime.narrative.previousLabel})
+            </span>
+          )}
+        </div>
+      )}
       {/* Real Treasury/Credit scores (Institutional Intelligence Phase 2,
           2026-08-23) — same useMacroRegime() response, zero new fetches.
           Score-banded color (no discrete regime label for these two, just

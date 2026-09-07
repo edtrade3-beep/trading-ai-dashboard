@@ -3718,11 +3718,35 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
         const marketBreadth = await cached("breadth-sectors", 30 * 60_000, () => computeMarketBreadth());
         const breadth = computeBreadthScore({ summary: marketBreadth.summary });
         const sectorRotation = rankSectors(marketBreadth.sectors);
+
+        // Narrative Shift Detector (2026-09-07, §17) — layered on the SAME
+        // real regime classification just computed above, not a second
+        // fetch. Persisted separately (narrative-store.js) since a real
+        // macro narrative can hold for weeks across many regime ticks —
+        // `shifted` only flips true the one tick the dominant LABEL itself
+        // changes, e.g. "Soft Landing" -> "Reacceleration".
+        const { classifyNarrative, NARRATIVE_META } = require("../narrative-engine");
+        const { recordNarrative } = require("../narrative-store");
+        const narrativeClass = classifyNarrative({
+          macroRegime: result.regime, factors: result.factors,
+          creditStressed: creditMomentum.status === "DETERIORATING",
+        });
+        const narrativeResult = recordNarrative(narrativeClass);
+        const narrativeMeta = NARRATIVE_META[narrativeResult.narrative] || {};
+        const narrative = {
+          ...narrativeResult,
+          label: narrativeMeta.label || narrativeResult.narrative,
+          icon: narrativeMeta.icon || null,
+          color: narrativeMeta.color || null,
+          previousLabel: narrativeResult.previous ? (NARRATIVE_META[narrativeResult.previous]?.label || narrativeResult.previous) : null,
+        };
+
         return {
           ...result, icon: meta.icon || null, label: meta.label || result.regime, color: meta.color || null,
           treasury, credit: { ...credit, momentum: creditMomentum },
           liquidity, employment,
           breadth, sectorRotation,
+          narrative,
           asOf: new Date().toISOString(),
         };
       });
