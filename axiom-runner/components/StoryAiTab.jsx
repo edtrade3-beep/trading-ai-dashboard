@@ -69,6 +69,23 @@ function CreateView({ C, MONO, SANS, status, onCreated }) {
   const [error, setError] = useState(null);
   const [ideas, setIdeas] = useState(null);
   const [ideasBusy, setIdeasBusy] = useState(false);
+  const topicInputRef = useRef(null);
+  const [topicFlash, setTopicFlash] = useState(false);
+
+  // Real UX fix (2026-09-07, user report: "these not working" re: the
+  // template chips) — clicking a template DID correctly set the topic
+  // (verified live: no bug in the click handler or state), but the topic
+  // input sits at the top of a long scrolled card while Templates is
+  // further down, so the actual change happened out of view with zero
+  // visible feedback near the click — indistinguishable from "broken" to
+  // a user who never sees it. This scrolls the real input into view and
+  // briefly highlights it so the state change is visibly confirmed.
+  const applyTemplate = (t) => {
+    setTopic(t);
+    topicInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    setTopicFlash(true);
+    setTimeout(() => setTopicFlash(false), 900);
+  };
 
   useEffect(() => {
     let alive = true;
@@ -117,8 +134,10 @@ function CreateView({ C, MONO, SANS, status, onCreated }) {
         <div style={sectionLabelStyle({ marginBottom: 10 })}>NEW STORY VIDEO</div>
 
         <label style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>Topic</label>
-        <input value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="مثال: الأمل بعد الفشل"
-          dir="rtl" style={{ width: "100%", marginTop: 4, marginBottom: 12, padding: "10px 12px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.bg, color: C.text, fontFamily: SANS, fontSize: 15 }} />
+        <input ref={topicInputRef} value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="مثال: الأمل بعد الفشل"
+          dir="rtl" style={{ width: "100%", marginTop: 4, marginBottom: 12, padding: "10px 12px", borderRadius: 8, transition: "border-color 0.2s, box-shadow 0.2s",
+            border: `1px solid ${topicFlash ? C.accent : C.border}`, boxShadow: topicFlash ? `0 0 0 3px ${C.accent}33` : "none",
+            background: C.bg, color: C.text, fontFamily: SANS, fontSize: 15 }} />
 
         <div style={{ display: "flex", flexWrap: "wrap", gap: 16, marginBottom: 12 }}>
           <div>
@@ -177,7 +196,7 @@ function CreateView({ C, MONO, SANS, status, onCreated }) {
       <div style={cardStyle()}>
         <div style={sectionLabelStyle({ marginBottom: 8 })}>TEMPLATES</div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-          {TEMPLATES.map((t) => <Pill key={t} C={C} MONO={SANS} onClick={() => setTopic(t)}>{t}</Pill>)}
+          {TEMPLATES.map((t) => <Pill key={t} C={C} MONO={SANS} onClick={() => applyTemplate(t)}>{t}</Pill>)}
         </div>
       </div>
 
@@ -189,7 +208,7 @@ function CreateView({ C, MONO, SANS, status, onCreated }) {
           </button>
         </div>
         {ideas && (ideas.length ? (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>{ideas.map((i, idx) => <Pill key={idx} C={C} MONO={SANS} onClick={() => setTopic(i.topic_ar)}>{i.topic_ar}</Pill>)}</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>{ideas.map((i, idx) => <Pill key={idx} C={C} MONO={SANS} onClick={() => applyTemplate(i.topic_ar)}>{i.topic_ar}</Pill>)}</div>
         ) : <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>No ideas returned — try again.</div>)}
       </div>
     </div>
