@@ -52,7 +52,15 @@ async function buildScenes({ story, apiKey, targetSceneCount }) {
     prompt,
     apiKey,
     tier: "sonnet",
-    maxTokens: 4000,
+    // Real bug found live (2026-09-07): 4000 was too tight — a real ~16-20
+    // scene breakdown (Arabic narration + visual_description_ar + an
+    // English image_prompt_en + camera/motion/transition/character_ids/
+    // location_id per scene, plus the character/location bible) genuinely
+    // exceeded it, truncating Claude's output mid-JSON and failing this
+    // step with a real (not synthetic) "no valid JSON" error. Scenes needs
+    // meaningfully more headroom than Story/Verification's shorter,
+    // single-paragraph outputs.
+    maxTokens: 8000,
     feature: "story-ai-director",
   });
 

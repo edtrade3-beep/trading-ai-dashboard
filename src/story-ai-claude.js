@@ -50,8 +50,21 @@ async function callStoryAiJson({ system, prompt, apiKey, tier = "sonnet", maxTok
   const text = (resp.content || []).filter((b) => b.type === "text").map((b) => b.text).join("");
   const json = extractJson(text);
   if (!json) {
-    const err = new Error("Claude returned no valid JSON for this step.");
+    // Real bug found live (2026-09-07, real user generation): a genuine
+    // JSON parse failure is frequently actually TRUNCATION — Claude hit
+    // maxTokens mid-object (stop_reason:"max_tokens"), so there's no real
+    // closing brace to find, not genuinely malformed output. The old
+    // generic message gave no way to tell truncation from a real
+    // malformed-JSON case; this makes the real cause visible in the UI
+    // (job.steps.<step>.reason) and in logs, so raising maxTokens for the
+    // specific agent that's actually running long is an informed fix, not
+    // a guess next time this happens for a different step/duration.
+    const truncated = resp.stop_reason === "max_tokens";
+    const err = new Error(truncated
+      ? `Claude's response was cut off before finishing (hit the ${maxTokens}-token limit for this step) — the output was too long to complete, not malformed.`
+      : "Claude returned no valid JSON for this step.");
     err.rawText = text.slice(0, 500);
+    err.truncated = truncated;
     throw err;
   }
   const costUSD = computeCallCost({ model, usage: resp.usage });
