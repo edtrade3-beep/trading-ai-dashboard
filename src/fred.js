@@ -58,7 +58,17 @@ function parseCsv(csv, seriesId) {
   const rows = csv.trim().split("\n").slice(1) // drop header
     .map(line => {
       const [date, raw] = line.split(",");
-      const value = Number(raw);
+      // Real bug found 2026-09-07 while building the Crypto-Macro engine:
+      // FRED's own CSV leaves a blank field (not always the literal ".")
+      // for a holiday/pending-revision date, and `Number("")` coerces to
+      // 0 (NOT NaN) — a real, invisible 0 value was silently passing this
+      // filter and corrupting the crypto-macro correlation calc, the
+      // first real consumer of the FULL series (existing callers only
+      // ever read `latest`/`prev`/window endpoints, which happened to
+      // never land on a blank day). Require a real non-empty string
+      // before coercing.
+      const trimmed = typeof raw === "string" ? raw.trim() : "";
+      const value = trimmed !== "" ? Number(trimmed) : NaN;
       return { date, value: Number.isFinite(value) ? value : null };
     })
     .filter(r => r.date);
@@ -88,7 +98,18 @@ function findYoyObservation(real, latestDate) {
 async function fetchFredSeries(seriesId, opts = {}) {
   const startDays = opts.startDays || 30;
   const yoy = !!opts.yoy;
-  const cacheKey = `${seriesId}:${startDays}:${yoy}`;
+  // includeSeries (2026-09-07, Crypto-Macro Relationship Engine) — real,
+  // additive opt-in: existing callers (fetchUS10Y/fetchUS2Y/etc.) are
+  // completely unchanged, same cached summary shape. When true, the
+  // result also carries the full real [{date,value}] observation array
+  // this function already parses internally but previously discarded
+  // after computing the summary stats — needed for a real historical
+  // correlation calc (crypto-macro-engine.js), not a new fetch/endpoint.
+  // includeSeries is part of the cache key specifically so a prior
+  // includeSeries:false call's cached (series-less) entry is never
+  // returned to a later includeSeries:true call for the same series.
+  const includeSeries = !!opts.includeSeries;
+  const cacheKey = `${seriesId}:${startDays}:${yoy}:${includeSeries}`;
   const cached = caches[cacheKey];
   if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) return cached;
 
@@ -122,6 +143,7 @@ async function fetchFredSeries(seriesId, opts = {}) {
     date: latest.date,
     fetchedAt: Date.now(),
   };
+  if (includeSeries) result.series = real;
   caches[cacheKey] = result;
   return result;
 }
@@ -159,6 +181,7 @@ const fetchPayrolls        = () => fetchFredSeries(SERIES.PAYROLLS, { startDays:
 const fetchWages           = () => fetchFredSeries(SERIES.WAGES, { startDays: 400, yoy: true });
 
 module.exports = {
+  SERIES,
   fetchFredSeries, fetchUS10Y, fetchUS2Y, fetchBrentOil,
   fetchUS30Y, fetchRealYield10Y, fetchYieldCurve, fetchFedFunds,
   fetchCPI, fetchCoreCPI, fetchPCE, fetchCorePCE, fetchUnemployment, fetchJoblessClaims,

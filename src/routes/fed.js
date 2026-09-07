@@ -122,4 +122,9 @@ async function handleFed(req, res, requestUrl) {
   return writeJson(res, 200, { ok: true, source: "federalreserve.gov", title: stmt.title, date: stmt.date, ageDays: stmt.ageDays, stale, link: stmt.link, fullText: !!(fullBody && fullBody.length > 200), ...r });
 }
 
-module.exports = { handleFed };
+// Additive exports (2026-09-07, Crypto-Macro Relationship Engine) — the
+// crypto-macro route reuses this file's own real FOMC statement fetch +
+// dovish/hawkish scoring rather than re-fetching or re-scoring it, so a
+// crypto request and a fed-interpret request always see the same real
+// classification. handleFed's own behavior is completely unchanged.
+module.exports = { handleFed, fetchLatestFedStatement, fetchFullStatement, scoreText, detectRateAction };

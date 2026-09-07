@@ -4967,6 +4967,117 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
     }
   }
 
+  // GET /api/market/crypto-macro?symbol=BTC — Crypto-Macro Relationship
+  // Engine (2026-09-07, "Trade Desk/Crypto/Macro/Rates/News unification"
+  // prompt §1-2, user-selected starting point). Real, disclosed scope:
+  // wires BTC/ETH/SOL into the SAME real FRED series + real Fed statement
+  // scoring + real market regime this app already computes elsewhere
+  // (fred.js, routes/fed.js, market-regime-engine.js) — no new data
+  // sources, no separate/duplicate crypto intelligence tool. Pure
+  // computation lives in crypto-macro-engine.js so it's independently
+  // testable without touching any network.
+  if (pathname === "/api/market/crypto-macro" && req.method === "GET") {
+    const symbol = (searchParams.get("symbol") || "BTC").trim().toUpperCase();
+    const YAHOO_SYMBOL = { BTC: "BTC-USD", ETH: "ETH-USD", SOL: "SOL-USD" }[symbol];
+    if (!YAHOO_SYMBOL) return writeJson(res, 400, { ok: false, error: `Unsupported symbol "${symbol}". Supported: BTC, ETH, SOL.` });
+    try {
+      const data = await cached(`crypto-macro:${symbol}`, 30 * 60_000, async () => {
+        const fredMod = require("../fred");
+        const { computeMarketRegimeState } = require("../market-regime-engine");
+        const { fetchLatestFedStatement, fetchFullStatement, scoreText } = require("../routes/fed");
+        const {
+          computeMacroCorrelation, toDailySeries, sensitivityLabel, computeRateRelationship,
+          computeCryptoMacroScore, computeMomentumScore,
+        } = require("../crypto-macro-engine");
+
+        // Real ~7-month daily history — enough real overlapping observations
+        // for a meaningful correlation, short enough that the relationship
+        // reflects the current regime rather than a multi-year average.
+        const [cryptoBars, qqqBars, dxyBars, fedFunds, us10y, realYield10y, cpi, unemployment, fedBalanceSheet, reverseRepo, fedStmt] = await Promise.all([
+          fetchYahooBars(YAHOO_SYMBOL, "7mo", "1d").catch(() => []),
+          fetchYahooBars("QQQ", "7mo", "1d").catch(() => []),
+          fetchYahooBars("DX-Y.NYB", "7mo", "1d").catch(() => []),
+          fredMod.fetchFredSeries(fredMod.SERIES.FED_FUNDS, { startDays: 210, includeSeries: true }).catch(() => null),
+          fredMod.fetchFredSeries(fredMod.SERIES.US10Y, { startDays: 210, includeSeries: true }).catch(() => null),
+          fredMod.fetchRealYield10Y().catch(() => null),
+          fredMod.fetchCPI().catch(() => null),
+          fredMod.fetchUnemployment().catch(() => null),
+          fredMod.fetchFedBalanceSheet().catch(() => null),
+          fredMod.fetchReverseRepo().catch(() => null),
+          fetchLatestFedStatement().catch(() => null),
+        ]);
+
+        // Real market regime — same SPY/QQQ/VIX inputs and thresholds
+        // market-command-center.js already uses, not a re-derived one.
+        const providerKeys = resolveProviderKeys(new URLSearchParams());
+        const macroRows = await fetchMarketQuotes(["SPY", "QQQ", "VIXY"], providerKeys).catch(() => []);
+        const regimeState = computeMarketRegimeState({ macroQuotes: macroRows });
+
+        // Real Fed statement bias/action — same statement + same scoring
+        // routes/fed.js's own /api/market/fed-interpret endpoint uses.
+        let fedStatementAction = null, fedStatementBias = null, fedStatementMeta = null;
+        if (fedStmt) {
+          const fullBody = await fetchFullStatement(fedStmt.link).catch(() => "");
+          const scored = scoreText(fullBody && fullBody.length > 200 ? fullBody : fedStmt.text);
+          if (scored) {
+            fedStatementAction = scored.rateAction === "UNKNOWN" ? "HOLD" : scored.rateAction;
+            fedStatementBias = scored.bias;
+            // Same real staleness rule /api/market/fed-interpret already uses
+            // (older than 2 days = last meeting's statement, not fresh).
+            fedStatementMeta = { title: fedStmt.title, date: fedStmt.date, ageDays: fedStmt.ageDays, link: fedStmt.link, stale: fedStmt.ageDays != null && fedStmt.ageDays > 2 };
+          }
+        }
+
+        const rateRelationship = fedStatementAction
+          ? computeRateRelationship({
+              fedStatementAction, fedStatementBias,
+              fedFundsWindowChangePct: fedFunds?.windowChangePct ?? null,
+              marketRegimeLabel: regimeState.regime,
+              cpiYoyChangePct: cpi?.yoyChangePct ?? null,
+              unemploymentWindowChangePct: unemployment?.windowChangePct ?? null,
+              // Real, disclosed 2-input liquidity proxy: a rising Fed balance
+              // sheet is real expansion; a falling reverse-repo balance means
+              // real cash is leaving the Fed's own overnight facility back
+              // into the system — both point the same direction, so this
+              // subtracts rather than fabricating a separate index.
+              liquidityWindowChangePct: (Number.isFinite(fedBalanceSheet?.windowChangePct) && Number.isFinite(reverseRepo?.windowChangePct))
+                ? Number((fedBalanceSheet.windowChangePct - reverseRepo.windowChangePct).toFixed(2)) : null,
+            })
+          : null;
+
+        // Real correlations — honest null (never a fabricated coefficient)
+        // wherever either side lacks enough real overlapping observations.
+        const corrFedFunds = computeMacroCorrelation(cryptoBars, fedFunds?.series || []);
+        const corrUs10y = computeMacroCorrelation(cryptoBars, us10y?.series || []);
+        const corrNasdaq = computeMacroCorrelation(cryptoBars, toDailySeries(qqqBars));
+        const corrUsd = computeMacroCorrelation(cryptoBars, toDailySeries(dxyBars));
+
+        const sensitivity = {
+          fed: { correlation: corrFedFunds, label: sensitivityLabel(corrFedFunds) },
+          us10y: { correlation: corrUs10y, label: sensitivityLabel(corrUs10y) },
+          usd: { correlation: corrUsd, label: sensitivityLabel(corrUsd) },
+          nasdaq: { correlation: corrNasdaq, label: sensitivityLabel(corrNasdaq) },
+        };
+
+        const momentumScore = computeMomentumScore(cryptoBars);
+        const macroScore = computeCryptoMacroScore({
+          correlations: { fedFunds: corrFedFunds, usd: corrUsd, yields10y: corrUs10y, nasdaq: corrNasdaq },
+          rateRegime: rateRelationship?.rateRegime ?? null,
+          marketRegimeLabel: regimeState.regime,
+          momentumScore,
+        });
+
+        return {
+          symbol, marketRegime: regimeState.regime, fedStatement: fedStatementMeta,
+          rateRelationship, sensitivity, macroScore, generatedAt: new Date().toISOString(),
+        };
+      });
+      return writeJson(res, 200, { ok: true, ...data });
+    } catch (err) {
+      return writeJson(res, 502, { ok: false, error: err instanceof Error ? err.message : "Crypto-macro computation failed." });
+    }
+  }
+
   // GET /api/market/options?symbol=AAPL&expiry=2025-01-17
   // Uses Polygon.io (POLYGON_API_KEY) — free tier supported
   if (pathname === "/api/market/options" && req.method === "GET") {

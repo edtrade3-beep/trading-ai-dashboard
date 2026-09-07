@@ -25,6 +25,146 @@ const CRYPTO_SCAN_UNIVERSE = ["BTC-USD", "ETH-USD", "SOL-USD", "BNB-USD", "XRP-U
 const toAlpacaSymbol = (yahooSym) => yahooSym.replace("-", "/");
 const coinOf = (yahooSym) => yahooSym.split("-")[0];
 
+// ─── CryptoMacroPanel — real Crypto-Macro Relationship Engine ───────────────
+// Platform-unification prompt (2026-09-07), §1-2, user-selected starting
+// point: "Connect Crypto directly to Trade Desk" via the SAME real Fed
+// statement scoring, FRED macro series, and market regime engine the rest
+// of the platform already computes — /api/market/crypto-macro (routes/
+// market.js) + src/crypto-macro-engine.js. No separate/duplicate crypto
+// intelligence tool; this is a thin display over the one shared engine.
+const RATE_REGIME_LABEL = {
+  HIKE: "Hike", PAUSE: "Pause", HOLD_LONGER: "Hold Longer", DOVISH_HOLD: "Dovish Hold",
+  RATE_CUT_CYCLE: "Rate-Cut Cycle", EMERGENCY_EASING: "Emergency Easing",
+};
+const FLAVOR_LABEL = {
+  BULLISH_PAUSE: "Bullish Pause", BEARISH_PAUSE: "Bearish Pause",
+  RECESSIONARY_PAUSE: "Recessionary Pause", TRANSITIONAL_PAUSE: "Transitional Pause",
+  RECESSION_EMERGENCY_CUTS: "Recession/Emergency Cuts", LIQUIDITY_DRIVEN_EASING: "Liquidity-Driven Easing",
+  SOFT_LANDING_CUTS: "Soft-Landing Cuts", UNCERTAIN_CUT_REGIME: "Uncertain Cut Regime",
+};
+const MACRO_COINS = ["BTC", "ETH", "SOL"];
+
+function CryptoMacroPanel({ C, MONO, SANS }) {
+  const [coin, setCoin] = useState("BTC");
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const load = useCallback(async (symbol) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/market/crypto-macro?symbol=${symbol}`);
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error || "Crypto-macro fetch failed");
+      setData(json);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(coin); }, [coin, load]);
+  useEffect(() => {
+    const t = setInterval(() => load(coin), 5 * 60_000); // matches server's 30-min cache closely enough without hammering it
+    return () => clearInterval(t);
+  }, [coin, load]);
+
+  const card = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 18, boxSizing: "border-box" };
+  const sensRowColor = (label) => label === "EXTREME" ? C.red : label === "HIGH" ? C.amber : label === "MODERATE" ? C.accent : C.textDim;
+  const scoreColor = (score) => score >= 70 ? C.green : score >= 55 ? "#22c55e" : score >= 45 ? C.amber : score >= 30 ? "#f97316" : C.red;
+
+  return (
+    <div style={{ ...card, marginBottom: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
+        <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text, letterSpacing: "0.08em" }}>CRYPTO ↔ MACRO RELATIONSHIP</span>
+        <div style={{ display: "flex", gap: 6 }}>
+          {MACRO_COINS.map((c) => (
+            <button key={c} onClick={() => setCoin(c)} style={{
+              fontFamily: MONO, fontSize: 12, fontWeight: 700,
+              background: coin === c ? C.accent : C.surface, color: coin === c ? "#fff" : C.textDim,
+              border: `1px solid ${coin === c ? C.accent : C.border}`, borderRadius: 6, padding: "4px 12px", cursor: "pointer",
+            }}>{c}</button>
+          ))}
+        </div>
+      </div>
+
+      {error && <div style={{ color: C.red, fontFamily: MONO, fontSize: 12, marginBottom: 10 }}>⚠ {error}</div>}
+      {loading && !data && <div style={{ color: C.textDim, fontFamily: MONO, fontSize: 12 }}>Loading real macro relationship…</div>}
+
+      {data && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 }}>
+          {/* Rate Relationship */}
+          <div>
+            <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, letterSpacing: "0.06em", marginBottom: 8 }}>RATE RELATIONSHIP</div>
+            {data.rateRelationship ? (
+              <>
+                <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 800, color: C.text, marginBottom: 4 }}>
+                  {RATE_REGIME_LABEL[data.rateRelationship.rateRegime] || data.rateRelationship.rateRegime}
+                </div>
+                <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginBottom: 8 }}>
+                  Implied direction: <span style={{ color: C.text, fontWeight: 700 }}>{data.rateRelationship.impliedDirection.replace(/_/g, " ")}</span>
+                </div>
+                {data.rateRelationship.flavor && (
+                  <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: 10 }}>
+                    <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent, marginBottom: 4 }}>
+                      {FLAVOR_LABEL[data.rateRelationship.flavor.flavor] || data.rateRelationship.flavor.flavor}
+                    </div>
+                    <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginBottom: 6 }}>{data.rateRelationship.flavor.reason}</div>
+                    <div style={{ fontFamily: SANS, fontSize: 12, color: C.text }}>{data.rateRelationship.flavor.cryptoRead}</div>
+                  </div>
+                )}
+                {data.fedStatement && (
+                  <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginTop: 8 }}>
+                    Based on: {data.fedStatement.title} {data.fedStatement.stale ? <span style={{ color: C.amber }}>(stale — {data.fedStatement.ageDays}d old, awaiting next FOMC)</span> : null}
+                  </div>
+                )}
+              </>
+            ) : <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>No real Fed statement available to classify yet.</div>}
+          </div>
+
+          {/* Macro Sensitivity Panel */}
+          <div>
+            <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, letterSpacing: "0.06em", marginBottom: 8 }}>MACRO SENSITIVITY (real, computed)</div>
+            {[
+              ["Fed Funds", data.sensitivity.fed],
+              ["10Y Yield", data.sensitivity.us10y],
+              ["US Dollar (DXY)", data.sensitivity.usd],
+              ["Nasdaq (QQQ)", data.sensitivity.nasdaq],
+            ].map(([label, s]) => (
+              <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 0", borderBottom: `1px solid ${C.border}` }}>
+                <span style={{ fontFamily: SANS, fontSize: 13, color: C.textDim }}>{label}</span>
+                {s.label ? (
+                  <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>{s.correlation > 0 ? "+" : ""}{s.correlation}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: sensRowColor(s.label) }}>{s.label}</span>
+                  </span>
+                ) : <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Insufficient history</span>}
+              </div>
+            ))}
+          </div>
+
+          {/* Crypto Macro Score */}
+          <div>
+            <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, letterSpacing: "0.06em", marginBottom: 8 }}>CRYPTO MACRO SCORE</div>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 8 }}>
+              <span style={{ fontFamily: MONO, fontSize: 34, fontWeight: 900, color: scoreColor(data.macroScore.score) }}>{data.macroScore.score}</span>
+              <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: scoreColor(data.macroScore.score) }}>{data.macroScore.label}</span>
+            </div>
+            <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginBottom: 4 }}>Market regime: <span style={{ color: C.text }}>{data.marketRegime}</span></div>
+            {data.macroScore.unavailable?.length > 0 && (
+              <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 8 }}>
+                Not included (no real data source): {data.macroScore.unavailable.join(", ")}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CryptoScanTrade({ C, MONO, SANS }) {
   const sectionLabel = sectionLabelStyle({ textTransform: "uppercase" });
   const neutralCard = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 8 };
@@ -543,6 +683,11 @@ export default function CryptoTab({ C, MONO, SANS }) {
           news all in one tab") — same real trend-template engine Scanner/
           Green Light use, real Alpaca paper orders. */}
       <CryptoScanTrade C={C} MONO={MONO} SANS={SANS} />
+
+      {/* Real Crypto-Macro Relationship Engine (2026-09-07) — Rate
+          Relationship, Macro Sensitivity, Crypto Macro Score, wired into
+          the same Fed/FRED/regime engines Trade Desk already uses. */}
+      <CryptoMacroPanel C={C} MONO={MONO} SANS={SANS} />
 
       {/* Macro row: Fear & Greed + BTC Dom + ETH Dom + Volume */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, marginBottom: 16 }}>
