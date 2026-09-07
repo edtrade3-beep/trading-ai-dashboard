@@ -31,6 +31,13 @@ export default function NewsTab({
   // those two.
   const [newsStatus, setNewsStatus] = useState(null); // {status, reason?}
   const [intelRows, setIntelRows] = useState([]);
+  // Duplicate News Compression (2026-09-07, §11) — the SAME /api/news/feed
+  // response now additionally carries `clusters` (src/news/event-cluster.js,
+  // read-time grouping over the same real rows, no second fetch). This is
+  // purely a display toggle over data already fetched below.
+  const [intelClusters, setIntelClusters] = useState([]);
+  const [groupedView, setGroupedView] = useState(true);
+  const [expandedClusters, setExpandedClusters] = useState(() => new Set());
   const [intelLoading, setIntelLoading] = useState(false);
   const [intelCategory, setIntelCategory] = useState("ALL");
   const [intelSentiment, setIntelSentiment] = useState("ALL");
@@ -58,7 +65,7 @@ export default function NewsTab({
     if (intelMinImpact > 0) params.set("minImpact", String(intelMinImpact));
     params.set("limit", "60");
     fetch(`/api/news/feed?${params.toString()}`).then(r => r.json())
-      .then(d => { if (alive && d.ok) setIntelRows(d.rows || []); })
+      .then(d => { if (alive && d.ok) { setIntelRows(d.rows || []); setIntelClusters(d.clusters || []); } })
       .catch(() => {}).finally(() => { if (alive) setIntelLoading(false); });
     return () => { alive = false; };
   }, [viewMode, intelCategory, intelSentiment, intelFreshness, intelMinImpact]);
@@ -354,12 +361,67 @@ export default function NewsTab({
                     <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginRight: 4 }}>HIGH IMPACT</span>
                     <button onClick={() => setIntelMinImpact(intelMinImpact > 0 ? 0 : 80)} style={chipBtn(intelMinImpact > 0)}>≥80 ONLY</button>
                   </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center" }}>
+                    <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginRight: 4 }}>VIEW</span>
+                    <button onClick={() => setGroupedView(true)} style={chipBtn(groupedView)} title="Same real event from multiple outlets shown as one story">GROUPED</button>
+                    <button onClick={() => setGroupedView(false)} style={chipBtn(!groupedView)}>ALL ITEMS</button>
+                  </div>
                 </div>
 
                 <div style={{ display: "grid", gap: 10 }}>
                   {intelLoading && <div style={{ color: C.textDim, fontSize: 13, fontFamily: MONO }}>Loading real scored news feed…</div>}
                   {!intelLoading && !intelRows.length && <div style={{ color: C.textDim, fontSize: 13, fontFamily: MONO }}>No real news items matching these filters yet.</div>}
-                  {!intelLoading && intelRows.map((r) => {
+                  {!intelLoading && groupedView && intelClusters.map((cl) => {
+                    const impactColor = IMPACT_COLOR(cl.maxImpactScore || 0);
+                    const clusterId = `${cl.ticker}|${cl.category}|${cl.firstSeen}`;
+                    const isExpanded = expandedClusters.has(clusterId);
+                    const toggle = () => setExpandedClusters((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(clusterId)) next.delete(clusterId); else next.add(clusterId);
+                      return next;
+                    });
+                    return (
+                      <div key={clusterId} style={{ background: C.card, border: `1px solid ${C.border}`, borderLeft: `4px solid ${impactColor}`, borderRadius: 6, padding: 12 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 8, marginBottom: 6 }}>
+                          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                            <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.accent }}>{cl.ticker}</span>
+                            {(cl.maxImpactScore || 0) >= 80 && (
+                              <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: impactColor }}>🔥 {IMPACT_LABEL(cl.maxImpactScore)} IMPACT</span>
+                            )}
+                          </div>
+                          <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: "#fff", background: impactColor, borderRadius: 5, padding: "2px 7px" }}>{cl.maxImpactScore ?? "—"}</span>
+                        </div>
+                        <div style={{ fontSize: 13, color: C.text, fontWeight: 600, marginBottom: 6 }}>
+                          {cl.url ? <a href={cl.url} target="_blank" rel="noreferrer" style={{ color: "inherit", textDecoration: "none" }}>{cl.representativeHeadline}</a> : cl.representativeHeadline}
+                        </div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 14, fontFamily: MONO, fontSize: 11, color: C.textDim, marginBottom: 6 }}>
+                          <span style={{ color: SENTIMENT_COLOR(cl.sentiment), fontWeight: 700 }}>{cl.sentiment || "—"}</span>
+                          <span>Catalyst: {cl.category || "OTHER"}</span>
+                          {cl.itemCount > 1 ? (
+                            <button onClick={toggle} style={{ fontFamily: MONO, fontSize: 11, color: C.accent, background: "transparent", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline" }}>
+                              {cl.sourceCount} source{cl.sourceCount === 1 ? "" : "s"} · {cl.itemCount} article{cl.itemCount === 1 ? "" : "s"} {isExpanded ? "▲" : "▼"}
+                            </button>
+                          ) : (
+                            <span>{cl.sources[0] || "—"}</span>
+                          )}
+                        </div>
+                        {isExpanded && cl.itemCount > 1 && (
+                          <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 8, marginTop: 4, display: "grid", gap: 6 }}>
+                            {cl.items.map((it, i) => (
+                              <div key={it.id || i} style={{ display: "flex", justifyContent: "space-between", gap: 8, fontFamily: SANS, fontSize: 12, color: C.textDim }}>
+                                <span>{it.url ? <a href={it.url} target="_blank" rel="noreferrer" style={{ color: "inherit" }}>{it.headline}</a> : it.headline}</span>
+                                <span style={{ fontFamily: MONO, fontSize: 11, flexShrink: 0 }}>{it.source}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {!intelLoading && groupedView && !intelClusters.length && intelRows.length > 0 && (
+                    <div style={{ color: C.textDim, fontSize: 13, fontFamily: MONO }}>No real news items matching these filters yet.</div>
+                  )}
+                  {!intelLoading && !groupedView && intelRows.map((r) => {
                     const verdict = VERDICT_META[r.verdict] || null;
                     const impactColor = IMPACT_COLOR(r.impact_score || 0);
                     let confirmation = null;

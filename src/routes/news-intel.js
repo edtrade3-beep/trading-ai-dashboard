@@ -19,6 +19,15 @@ async function handleNewsIntel(req, res, requestUrl) {
     const limit = searchParams.get("limit") ? Number(searchParams.get("limit")) : 50;
     try {
       const result = await getFeed({ ticker, category, sentiment, minImpact, sinceMinutes, limit });
+      // Duplicate News Compression (2026-09-07, §11) — a read-time, non-
+      // destructive grouping pass over the SAME already-fetched real rows
+      // (no second query, no re-scoring). Additive field only: `rows`
+      // stays exactly what every existing consumer (MarketNowStrip.jsx,
+      // NewsTab.jsx's flat view, why-is-it-moving.js) already gets.
+      if (result.ok && result.rows?.length) {
+        const { clusterNewsItems } = require("../news/event-cluster");
+        result.clusters = clusterNewsItems(result.rows);
+      }
       return writeJson(res, 200, result);
     } catch (err) {
       return writeJson(res, 502, { ok: false, error: err instanceof Error ? err.message : "News feed query failed." });
