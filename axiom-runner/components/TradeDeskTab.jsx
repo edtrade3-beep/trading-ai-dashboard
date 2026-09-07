@@ -27,7 +27,6 @@ import CatalystCard from "./CatalystCard.jsx";
 import OptionsStrategyRankPanel from "./OptionsStrategyRankPanel.jsx";
 import MarketContextCard from "./MarketContextCard.jsx";
 import ExtendedHoursMovers from "./ExtendedHoursMovers.jsx";
-import CanonicalVerdictStrip from "./CanonicalVerdictStrip.jsx";
 import MarketCommandCenter from "./MarketCommandCenter.jsx";
 import TradeDeskEvidence from "./TradeDeskEvidence.jsx";
 import TradeGpsCard from "./TradeGpsCard.jsx";
@@ -814,9 +813,19 @@ export default function TradeDeskTab({
         </div>
 
         <MarketCommandCenter onOpenNews={() => openTickerTab("news")} C={TD} MONO={MONO} SANS={SANS} />
-        <CanonicalVerdictStrip decision={canonicalDecision} loading={decisionLoading} error={decisionError} C={TD} MONO={MONO} SANS={SANS} />
+        {/* "3-Second AI Decision" spec (2026-09-07) — removed CanonicalVerdictStrip
+            from this always-visible stack: it and TradeGpsCard were two
+            separate, differently-worded verdict displays for the SAME
+            underlying canonicalDecision stacked directly on top of each
+            other (real audit finding — "competing verdicts... one ticker,
+            one current action"). CanonicalVerdictStrip.jsx itself is kept
+            (hide, don't delete — matches this file's own established
+            convention), just no longer double-rendered here; its three
+            fields TradeGpsCard didn't already show (regime, data health,
+            opportunity stage) are now compact badges inside TradeGpsCard
+            itself, next to the one verdict. */}
         <TradeGpsCard
-          symbol={symbol} decision={canonicalDecision} loading={decisionLoading}
+          symbol={symbol} decision={canonicalDecision} loading={decisionLoading} error={decisionError}
           tradeGps={tradeGpsData?.tradeGps} tradeStructure={tradeGpsData?.tradeStructure}
           trapShield={tradeGpsData?.trapShield} marketAgreement={tradeGpsData?.marketAgreement}
           tradeGpsVerdict={tradeGpsData?.tradeGpsVerdict} dangerEvent={tradeGpsData?.dangerEvent} whyNow={tradeGpsData?.whyNow}

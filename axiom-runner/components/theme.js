@@ -69,7 +69,21 @@ export const THEME_DARK = {
   // Text — warm cream hierarchy (not cold blue-white)
   text:       "#e8dcc8",   // warm cream — much easier than blue-white over hours
   textSec:    "#9aaa95",   // warm mid-grey — secondary info
-  textDim:    "#5a6b70",   // muted warm — hints, captions
+  // Real, measured fix (2026-09-07, Trade Desk readability audit —
+  // explicit user report: "tiny gray lettering that is difficult to
+  // read"). The old #5a6b70 measured 3.35:1 against `bg` and as low as
+  // 2.78:1 against `card` (WCAG contrast formula, computed directly) —
+  // BELOW the 4.5:1 normal-text / 3:1 large-text minimums this app's own
+  // dark theme should meet, on the one token nearly every label in this
+  // app uses. This is the actual root cause of the eye-strain complaint,
+  // not just small font sizes. Same hue/saturation (a hue-preserving
+  // lightness increase, not a new color), now 4.83-5.81:1 across
+  // bg/surface/card — comfortably passing everywhere it's actually used.
+  // Genuinely low-priority/disabled metadata that WANTS to recede below
+  // even this now belongs on its own token, not this one — textDim is
+  // meant to still be real, readable secondary information per this
+  // app's own 4-color status system, never invisible.
+  textDim:    "#809399",
   // Accent — softer sky blue (less electric, still clear)
   accent:     "#5b9cf6",
   accentGlow: "rgba(91,156,246,0.22)",

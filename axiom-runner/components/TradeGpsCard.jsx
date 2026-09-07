@@ -73,7 +73,7 @@ function useCountdown(expiresAtMs) {
 
 export default function TradeGpsCard({
   symbol, decision, tradeGps, tradeStructure, trapShield, marketAgreement, tradeGpsVerdict,
-  dangerEvent, whyNow, account, loading, C, MONO, SANS,
+  dangerEvent, whyNow, account, loading, error, C, MONO, SANS,
 }) {
   const verdict = tradeGpsVerdict?.verdict || null;
   const label = loading ? "LOADING…" : (VERDICT_LABEL[verdict] || "—");
@@ -135,72 +135,129 @@ export default function TradeGpsCard({
   const canSendToQuickTrade = verdict === "BUY_STOCK" && Number.isFinite(entry) && Number.isFinite(stop)
     && Number.isFinite(firstTarget) && Number.isFinite(positionSize) && positionSize > 0;
 
+  // Readability redesign (2026-09-07, "3-Second AI Decision" spec —
+  // explicit user requirement: verdict 30-42px, important values 22-28px,
+  // primary labels 17-20px, never low-contrast gray for information the
+  // user must act on). This card is Trade Desk's ONE always-visible
+  // primary verdict now (CanonicalVerdictStrip's unique fields — regime/
+  // data health/stage — are folded in below as compact secondary badges
+  // rather than shown in a second, separate always-visible strip — see
+  // TradeDeskTab.jsx's own removal note). Two explicit tiers: PRIMARY
+  // (the spec's own required hierarchy — verdict, entry, stop, target,
+  // confidence) rendered large; SECONDARY (everything else a user might
+  // want but doesn't need in the first 3 seconds) rendered smaller but
+  // still real text on C.textSec, never the old label-as-afterthought
+  // 9px/textDim treatment.
+  const regime = decision?.marketRegime?.regime || null;
+  const dataHealthStatus = decision?.dataHealth?.status || null;
+  const dataHealthColor = dataHealthStatus === "HEALTHY" ? C.green : dataHealthStatus === "DEGRADED" || dataHealthStatus === "POOR" ? C.amber : dataHealthStatus === "BLOCKED" ? C.red : C.textDim;
+  // Carried over from the old CanonicalVerdictStrip (removed as a
+  // separate always-visible strip, see TradeDeskTab.jsx) — real stale/
+  // blocked-data disclosure must never silently disappear.
+  const isStale = decision?.dataHealth?.stale || decision?.dataHealth?.canTrade === false;
+
   return (
-    <section aria-label="Trade GPS primary opportunity" style={{ display: "flex", flexWrap: "wrap", alignItems: "stretch", gap: 14, padding: "12px 14px", background: C.surface, borderBottom: `1px solid ${C.border}` }}>
-      <div style={{ minWidth: 190, display: "flex", flexDirection: "column", justifyContent: "center" }}>
-        <div style={{ fontFamily: MONO, fontSize: 9, letterSpacing: 1, color: C.textDim }}>TRADE GPS · PAPER ONLY</div>
-        <div style={{ fontFamily: MONO, fontSize: 24, fontWeight: 900, color, lineHeight: 1.15 }}>{label}</div>
-        <div style={{ fontFamily: MONO, fontSize: 11, color: C.textSec, marginTop: 2 }}>
-          {symbol || "—"}{directionLabel ? ` · ${directionLabel}` : ""}{structure ? ` · ${structure.replace(/_/g, " ")}` : ""}
+    <section aria-label="Trade GPS primary opportunity" style={{ padding: "18px 20px", background: C.surface, borderBottom: `1px solid ${C.border}` }}>
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: 22, marginBottom: 14 }}>
+        <div style={{ minWidth: 220 }}>
+          <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, letterSpacing: 1, color: C.textSec }}>
+            {symbol || "—"}{directionLabel ? ` · ${directionLabel}` : ""}{structure ? ` · ${structure.replace(/_/g, " ")}` : ""} · PAPER
+          </div>
+          <div style={{ fontFamily: MONO, fontSize: 38, fontWeight: 900, color, lineHeight: 1.05 }}>{label}</div>
         </div>
-      </div>
-
-      <Metric label="SCORE" value={Number.isFinite(tradeGps?.score) ? tradeGps.score : "—"} sub={decision?.scoreValidation || tradeGps?.band || null} C={C} MONO={MONO} />
-      <Metric label="CONFIDENCE" value={Number.isFinite(decision?.confidence) ? `${decision.confidence}%` : "—"} C={C} MONO={MONO} />
-      {/* Win probability / expected value (2026-09-04, Phase 0 audit
-          finding: the score above must never be read as a probability —
-          these are the REAL, separate, honestly-nullable numbers
-          [institutional-scoring.js's bucketed historical win rate,
-          opportunity-engine.js's EV-after-costs formula] that already
-          existed but never reached this card before now). Honest "—" on
-          insufficient real sample, never a fabricated percentage. */}
-      <Metric label="WIN PROB" value={Number.isFinite(decision?.winProbability) ? `${decision.winProbability}%` : "—"}
-        sub={Number.isFinite(decision?.winProbabilitySampleSize) ? `n=${decision.winProbabilitySampleSize}` : null} C={C} MONO={MONO} />
-      <Metric label="EXP. VALUE" value={Number.isFinite(decision?.expectedValuePct) ? `${decision.expectedValuePct >= 0 ? "+" : ""}${decision.expectedValuePct}%` : "—"}
-        sub="after costs" C={C} MONO={MONO} />
-      <Metric label="ENTRY" value={money(entry)} C={C} MONO={MONO} />
-      <Metric label="CONFIRMATION" value={confirmationText} C={C} MONO={MONO} />
-      <Metric label="STOP" value={money(stop)} danger C={C} MONO={MONO} />
-      <Metric label="TARGETS" value={targets.length ? targets.filter(Number.isFinite).map((t) => money(t)).join(" · ") : "—"} C={C} MONO={MONO} />
-      <Metric label="R:R" value={Number.isFinite(rr) ? `${rr.toFixed(1)}R` : "—"} C={C} MONO={MONO} />
-      <Metric label="SIZE" value={positionSize != null ? `${positionSize} ${structure === "STOCK" || !structure ? "sh" : "ct"}` : "—"} sub={positionSize != null ? "preview" : null} C={C} MONO={MONO} />
-      <Metric label="MAX LOSS" value={maxLoss != null ? money(maxLoss) : (stopDistance != null ? `${money(stopDistance)}/sh` : "—")} danger C={C} MONO={MONO} />
-      <Metric label="INVALIDATION" value={money(invalidation)} C={C} MONO={MONO} />
-      <Metric label="EXPIRES" value={countdown || "—"} C={C} MONO={MONO} />
-      <Metric label="AGREEMENT" value={agreementText} C={C} MONO={MONO} />
-      {dangerText && <Metric label="DANGER" value={dangerText} danger C={C} MONO={MONO} />}
-      <div style={{ minWidth: 90, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center" }}>
-        <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: 0.6 }}>THESIS</div>
-        <div style={{ width: 10, height: 10, borderRadius: "50%", background: light.color, margin: "4px 0" }} />
-        <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: light.color }}>{light.label}</div>
-      </div>
-
-      {canSendToQuickTrade && (
-        <div style={{ display: "flex", alignItems: "center" }}>
+        {/* Folded in from the old always-visible CanonicalVerdictStrip —
+            regime/data-health/stage as compact badges next to the verdict,
+            not a second full-size strip competing for attention. */}
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", paddingBottom: 4 }}>
+          {regime && <Badge label="REGIME" value={regime.replace(/_/g, " ")} color={regime === "CRISIS" || regime === "RISK_OFF" ? C.red : regime === "RISK_ON" ? C.green : C.amber} C={C} MONO={MONO} />}
+          {dataHealthStatus && <Badge label="DATA" value={dataHealthStatus} color={dataHealthColor} C={C} MONO={MONO} />}
+          {decision?.opportunityStage && <Badge label="STAGE" value={decision.opportunityStage} color={C.textSec} C={C} MONO={MONO} />}
+        </div>
+        {canSendToQuickTrade && (
           <button
             onClick={() => window.dispatchEvent(new CustomEvent("open-quick-trade", { detail: { symbol, shares: positionSize, stopLoss: stop, takeProfit: firstTarget } }))}
             title="Prefills Quick Trade with this exact entry, stop, target, and size — still requires your own confirm/submit."
-            style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, padding: "9px 12px", borderRadius: 7, border: "none", background: color, color: "#fff", cursor: "pointer", whiteSpace: "nowrap" }}
+            style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 14, fontWeight: 800, padding: "12px 18px", borderRadius: 8, border: "none", background: color, color: "#fff", cursor: "pointer", whiteSpace: "nowrap" }}
           >
             SEND TO QUICK TRADE
           </button>
-        </div>
-      )}
+        )}
+      </div>
 
-      <div style={{ flex: 1, minWidth: 200, fontFamily: SANS, fontSize: 11.5, color: C.textSec, display: "flex", alignItems: "center" }}>
-        {whyNow?.primary?.label && <span style={{ color: C.text, fontWeight: 700, marginRight: 5 }}>Why now: {whyNow.primary.label}.</span>}
-        {tradeGpsVerdict?.reasonOneLine || (loading ? "Reading the canonical decision…" : (whyNow?.primary ? null : "No real explanation available yet."))}
+      {/* PRIMARY tier — the spec's own required 3-second hierarchy: entry,
+          stop, target, confidence. 22-24px values, 15-16px labels. */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 26, marginBottom: 14 }}>
+        <Metric label="ENTRY" value={money(entry)} size="primary" C={C} MONO={MONO} />
+        <Metric label="STOP" value={money(stop)} size="primary" danger C={C} MONO={MONO} />
+        <Metric label="TARGETS" value={targets.length ? targets.filter(Number.isFinite).map((t) => money(t)).join(" · ") : "—"} size="primary" C={C} MONO={MONO} />
+        <Metric label="R : R" value={Number.isFinite(rr) ? `${rr.toFixed(1)}R` : "—"} size="primary" C={C} MONO={MONO} />
+        <Metric label="CONFIDENCE" value={Number.isFinite(decision?.confidence) ? `${decision.confidence}%` : "—"} size="primary" C={C} MONO={MONO} />
+        <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", minWidth: 80 }}>
+          <div style={{ fontFamily: MONO, fontSize: 15, color: C.textSec, letterSpacing: 0.4 }}>THESIS</div>
+          <div style={{ width: 12, height: 12, borderRadius: "50%", background: light.color, margin: "5px 0" }} />
+          <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: light.color }}>{light.label}</div>
+        </div>
+      </div>
+
+      {/* WHY NOW — the spec's own required narrative line, sized as real
+          body text (was 11.5px). */}
+      <div style={{ fontFamily: SANS, fontSize: 16, lineHeight: 1.5, color: error || isStale ? C.amber : C.textSec, marginBottom: 14 }}>
+        {error ? `Decision unavailable: ${error}` : isStale ? `STALE / BLOCKED DATA: ${decision?.blockers?.[0] || "new exposure is blocked until required data is fresh"}` : (
+          <>
+            {whyNow?.primary?.label && <span style={{ color: C.text, fontWeight: 700 }}>Why now: {whyNow.primary.label}. </span>}
+            {tradeGpsVerdict?.reasonOneLine || (loading ? "Reading the canonical decision…" : (whyNow?.primary ? null : "No real explanation available yet."))}
+          </>
+        )}
+      </div>
+
+      {/* SECONDARY tier — real, readable, but visually recedes behind the
+          primary tier above (smaller, no card/border emphasis). Never the
+          old failing-contrast gray; C.textSec measures 7.6:1+ in both
+          themes. */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 18, paddingTop: 12, borderTop: `1px solid ${C.border}` }}>
+        <Metric label="SCORE" value={Number.isFinite(tradeGps?.score) ? tradeGps.score : "—"} sub={decision?.scoreValidation || tradeGps?.band || null} C={C} MONO={MONO} />
+        {/* Win probability / expected value (2026-09-04, Phase 0 audit
+            finding: the score above must never be read as a probability —
+            these are the REAL, separate, honestly-nullable numbers
+            [institutional-scoring.js's bucketed historical win rate,
+            opportunity-engine.js's EV-after-costs formula] that already
+            existed but never reached this card before now). Honest "—" on
+            insufficient real sample, never a fabricated percentage. */}
+        <Metric label="WIN PROB" value={Number.isFinite(decision?.winProbability) ? `${decision.winProbability}%` : "—"}
+          sub={Number.isFinite(decision?.winProbabilitySampleSize) ? `n=${decision.winProbabilitySampleSize}` : null} C={C} MONO={MONO} />
+        <Metric label="EXP. VALUE" value={Number.isFinite(decision?.expectedValuePct) ? `${decision.expectedValuePct >= 0 ? "+" : ""}${decision.expectedValuePct}%` : "—"}
+          sub="after costs" C={C} MONO={MONO} />
+        <Metric label="CONFIRMATION" value={confirmationText} C={C} MONO={MONO} />
+        <Metric label="SIZE" value={positionSize != null ? `${positionSize} ${structure === "STOCK" || !structure ? "sh" : "ct"}` : "—"} sub={positionSize != null ? "preview" : null} C={C} MONO={MONO} />
+        <Metric label="MAX LOSS" value={maxLoss != null ? money(maxLoss) : (stopDistance != null ? `${money(stopDistance)}/sh` : "—")} danger C={C} MONO={MONO} />
+        <Metric label="INVALIDATION" value={money(invalidation)} C={C} MONO={MONO} />
+        <Metric label="EXPIRES" value={countdown || "—"} C={C} MONO={MONO} />
+        <Metric label="AGREEMENT" value={agreementText} C={C} MONO={MONO} />
+        {dangerText && <Metric label="DANGER" value={dangerText} danger C={C} MONO={MONO} />}
       </div>
     </section>
   );
 }
 
-function Metric({ label, value, sub, danger, C, MONO }) {
+function Badge({ label, value, color, C, MONO }) {
   return (
-    <div style={{ minWidth: 84 }}>
-      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: 0.6 }}>{label}</div>
-      <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: danger ? C.red : C.text }}>{value}</div>
-      {sub && <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>{sub}</div>}
+    <div style={{ display: "flex", flexDirection: "column" }}>
+      <div style={{ fontFamily: MONO, fontSize: 11, color: C.textSec, letterSpacing: 0.6 }}>{label}</div>
+      <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 800, color: color || C.text }}>{value}</div>
+    </div>
+  );
+}
+
+// size="primary" -> the spec's required 22-28px value / 17-20px label
+// tier; default -> a smaller but still fully readable secondary tier
+// (never below 14px, never the low-contrast textDim role).
+function Metric({ label, value, sub, danger, size, C, MONO }) {
+  const isPrimary = size === "primary";
+  return (
+    <div style={{ minWidth: isPrimary ? 100 : 88 }}>
+      <div style={{ fontFamily: MONO, fontSize: isPrimary ? 15 : 13, color: C.textSec, letterSpacing: 0.5, fontWeight: 600 }}>{label}</div>
+      <div style={{ fontFamily: MONO, fontSize: isPrimary ? 24 : 16, fontWeight: 800, color: danger ? C.red : C.text }}>{value}</div>
+      {sub && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textSec }}>{sub}</div>}
     </div>
   );
 }
