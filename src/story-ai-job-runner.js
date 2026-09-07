@@ -115,7 +115,14 @@ async function runImagesStep(project) {
   }
   project.images = results;
   const anyOk = results.some((r) => r.ok);
-  setStep(project, "images", anyOk ? "passed" : "warning", anyOk ? {} : { reason: results[0]?.reason || "IMAGE PROVIDER NOT CONFIGURED" });
+  // Real bug fix (2026-09-07): a real failure only ever surfaced the
+  // generic bucket name ("PROVIDER_ERROR"), never the actual underlying
+  // message the provider returned (e.g. a real HTTP error, a missing
+  // model/voice id, a bad request) — the UI had no way to show WHY it
+  // failed, only THAT it failed. Now includes the real detail when one
+  // exists, alongside the bucket for anything that still wants to key off it.
+  const firstFail = results.find((r) => !r.ok);
+  setStep(project, "images", anyOk ? "passed" : "warning", anyOk ? {} : { reason: firstFail?.error ? `${firstFail.reason}: ${firstFail.error}` : (firstFail?.reason || "IMAGE PROVIDER NOT CONFIGURED") });
 }
 
 async function runVoiceStep(project) {
@@ -147,7 +154,9 @@ async function runVoiceStep(project) {
   }
   project.audio = results;
   const anyOk = results.some((r) => r.ok);
-  setStep(project, "voice", anyOk ? "passed" : "warning", anyOk ? {} : { reason: results[0]?.reason || "TTS PROVIDER NOT CONFIGURED" });
+  // Same real-detail fix as runImagesStep above.
+  const firstFail = results.find((r) => !r.ok);
+  setStep(project, "voice", anyOk ? "passed" : "warning", anyOk ? {} : { reason: firstFail?.error ? `${firstFail.reason}: ${firstFail.error}` : (firstFail?.reason || "TTS PROVIDER NOT CONFIGURED") });
 }
 
 function runSubtitlesStep(project) {
@@ -261,6 +270,18 @@ async function retryStep(projectId, step, apiKey) {
   running.add(projectId);
   const project = getProject(projectId);
   if (!project) { running.delete(projectId); return { ok: false, error: "Project not found." }; }
+  // Real bug found live (2026-09-07): retryStep never cleared the
+  // top-level project.status/job.error left over from the PRIOR failed
+  // attempt, unlike runPipeline which does this at its own start. A user
+  // watching a retry in progress saw real completed steps (Scenes,
+  // Subtitles, Video) sitting right below a stale "Failed — Anthropic API
+  // timeout" banner from the earlier run that hadn't happened this time —
+  // confusing and misleading mid-retry, even though the final state (once
+  // the retry actually finished) would have been correct either way.
+  project.status = "Generating";
+  project.job.status = "running";
+  project.job.error = null;
+  saveProject(project);
   try {
     const startIdx = STEP_ORDER.indexOf(step);
     for (const laterStep of STEP_ORDER.slice(startIdx + 1)) {
