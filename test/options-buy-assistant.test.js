@@ -1,6 +1,6 @@
 "use strict";
 const assert = require("node:assert");
-const { buildRobinhoodOrderTicket, classifyEntryTiming, computeBreakevens, slippageBuffer } = require("../src/options-buy-assistant");
+const { buildRobinhoodOrderTicket, classifyEntryTiming, computeBreakevens, slippageBuffer, comparePriceCheck } = require("../src/options-buy-assistant");
 
 let passed = 0;
 function ok(name, fn) { try { fn(); passed++; console.log(`  ✓ ${name}`); } catch (e) { console.error(`  ✗ ${name}\n    ${e.message}`); process.exitCode = 1; } }
@@ -152,6 +152,45 @@ ok("no real party-stage data -> honest UNKNOWN, never a guessed timing", () => {
   const t = classifyEntryTiming({});
   assert.strictEqual(t.stage, null);
   assert.ok(/unknown/i.test(t.label));
+});
+
+console.log("\nChecking comparePriceCheck — the spec's §13 'has the premium moved since I calculated this' guard…");
+
+const originalDebitTicket = {
+  available: true, strategy: "Bull Call Spread", expiration: "2026-10-16", isCredit: false,
+  targetPrice: 5.2, boundaryPrice: 5.41,
+  legs: [{ action: "BUY", type: "call", strike: 450 }, { action: "SELL", type: "call", strike: 470 }],
+};
+
+ok("real price still within the original boundary -> SAFE", () => {
+  const fresh = { ...originalDebitTicket, targetPrice: 5.3 };
+  const r = comparePriceCheck({ original: originalDebitTicket, fresh });
+  assert.strictEqual(r.status, "SAFE");
+});
+ok("real price has moved PAST the original debit boundary -> PRICE_CHANGED, do not buy", () => {
+  const fresh = { ...originalDebitTicket, targetPrice: 5.85 };
+  const r = comparePriceCheck({ original: originalDebitTicket, fresh });
+  assert.strictEqual(r.status, "PRICE_CHANGED");
+  assert.strictEqual(r.current, 5.85);
+});
+ok("a real credit ticket flags PRICE_CHANGED in the OPPOSITE direction — receiving less credit is the bad outcome, not more", () => {
+  const originalCredit = { available: true, strategy: "Iron Condor", expiration: "2026-10-16", isCredit: true, targetPrice: 4.7, boundaryPrice: 4.51, legs: originalDebitTicket.legs };
+  const freshWorse = { ...originalCredit, targetPrice: 4.2 }; // less credit than the real minimum acceptable
+  const freshBetter = { ...originalCredit, targetPrice: 5.0 }; // MORE credit is never bad for a credit trade
+  assert.strictEqual(comparePriceCheck({ original: originalCredit, fresh: freshWorse }).status, "PRICE_CHANGED");
+  assert.strictEqual(comparePriceCheck({ original: originalCredit, fresh: freshBetter }).status, "SAFE");
+});
+ok("the real ranked structure itself changed (different strikes/expiration) -> RECOMMENDATION_CHANGED, never silently compared as if it were the same trade", () => {
+  const fresh = { ...originalDebitTicket, legs: [{ action: "BUY", type: "call", strike: 455 }, { action: "SELL", type: "call", strike: 475 }] };
+  const r = comparePriceCheck({ original: originalDebitTicket, fresh });
+  assert.strictEqual(r.status, "RECOMMENDATION_CHANGED");
+});
+ok("a real failed re-check (chain unavailable) -> honest STALE, never silently treated as SAFE", () => {
+  const r = comparePriceCheck({ original: originalDebitTicket, fresh: { available: false, reason: "chain fetch failed" } });
+  assert.strictEqual(r.status, "STALE");
+});
+ok("no real original ticket to compare against -> honest UNKNOWN", () => {
+  assert.strictEqual(comparePriceCheck({ original: null, fresh: originalDebitTicket }).status, "UNKNOWN");
 });
 
 console.log(`\n${passed} checks passed.`);

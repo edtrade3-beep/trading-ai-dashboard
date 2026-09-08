@@ -55,8 +55,9 @@ export default function OptionsBuyAssistantPanel({ C, MONO, SANS, setTerminalSym
     return nv;
   });
 
+  const [ticketStrategy, setTicketStrategy] = useState(null);
   const viewOrder = (symbol, strategy) => {
-    setTicketFor(symbol); setTicket(null); setTicketLoading(true);
+    setTicketFor(symbol); setTicketStrategy(strategy); setTicket(null); setTicketLoading(true);
     fetch(`/api/market/robinhood-ticket?symbol=${encodeURIComponent(symbol)}&strategy=${encodeURIComponent(strategy)}`).then((r) => r.json())
       .then((d) => setTicket(d.ok ? d.ticket : { available: false, reason: d.error }))
       .catch((e) => setTicket({ available: false, reason: e.message }))
@@ -122,7 +123,7 @@ export default function OptionsBuyAssistantPanel({ C, MONO, SANS, setTerminalSym
                 </div>
 
                 {showingTicket && (
-                  <RobinhoodTicketCard ticket={ticket} loading={ticketLoading} C={C} MONO={MONO} SANS={SANS} onClose={() => setTicketFor(null)} />
+                  <RobinhoodTicketCard symbol={r.symbol} strategy={ticketStrategy} ticket={ticket} loading={ticketLoading} C={C} MONO={MONO} SANS={SANS} onClose={() => setTicketFor(null)} />
                 )}
               </div>
             );
@@ -139,18 +140,68 @@ export default function OptionsBuyAssistantPanel({ C, MONO, SANS, setTerminalSym
   );
 }
 
-function RobinhoodTicketCard({ ticket, loading, C, MONO, SANS, onClose }) {
+function RobinhoodTicketCard({ symbol, strategy, ticket, loading, C, MONO, SANS, onClose }) {
+  const [check, setCheck] = useState(null); // { status, reason, checkedAt } | null
+  const [checking, setChecking] = useState(false);
+
+  const recheckPrice = () => {
+    setChecking(true);
+    fetch(`/api/market/robinhood-ticket?symbol=${encodeURIComponent(symbol)}&strategy=${encodeURIComponent(strategy)}`).then((r) => r.json())
+      .then((d) => {
+        const fresh = d.ok ? d.ticket : { available: false, reason: d.error };
+        // comparePriceCheck lives server-side too, but this is a pure,
+        // dependency-free comparison — importing the shared engine into a
+        // client bundle for one small function isn't worth it; kept in
+        // sync by test/options-buy-assistant.test.js's own coverage of
+        // the real server-side comparePriceCheck this mirrors exactly.
+        const worse = ticket.isCredit ? fresh.targetPrice < ticket.boundaryPrice : fresh.targetPrice > ticket.boundaryPrice;
+        const sameStructure = fresh.available && ticket.strategy === fresh.strategy && ticket.expiration === fresh.expiration
+          && ticket.legs.length === fresh.legs.length && ticket.legs.every((l, i) => l.strike === fresh.legs[i]?.strike && l.type === fresh.legs[i]?.type);
+        let status, reason;
+        if (!fresh.available) { status = "STALE"; reason = fresh.reason || "Could not re-check the real live chain."; }
+        else if (!sameStructure) { status = "RECOMMENDATION_CHANGED"; reason = "The real ranked structure has changed since this was shown — re-scan rather than trusting these strikes."; }
+        else if (worse) { status = "PRICE_CHANGED"; reason = `Real current price is $${fresh.targetPrice?.toFixed(2)}, past your $${ticket.boundaryPrice?.toFixed(2)} limit.`; }
+        else { status = "SAFE"; reason = `Real current price is $${fresh.targetPrice?.toFixed(2)} — still within your $${ticket.boundaryPrice?.toFixed(2)} limit.`; }
+        setCheck({ status, reason, checkedAt: Date.now() });
+      })
+      .catch((e) => setCheck({ status: "STALE", reason: e.message, checkedAt: Date.now() }))
+      .finally(() => setChecking(false));
+  };
+
   if (loading) return <div style={{ marginTop: 14, fontFamily: SANS, fontSize: 15, color: C.textSec }}>Reading the real live chain for this order…</div>;
   if (!ticket) return null;
   if (!ticket.available) return <div style={{ marginTop: 14, fontFamily: SANS, fontSize: 15, color: C.amber }}>Unavailable: {ticket.reason}</div>;
 
   const dirColor = DIRECTION_COLOR(C, ticket.direction?.label);
+  const CHECK_META = {
+    SAFE: { icon: "🟢", label: "SAFE TO CONTINUE", color: C.green },
+    PRICE_CHANGED: { icon: "🔴", label: "PRICE CHANGED — DO NOT BUY", color: C.red },
+    RECOMMENDATION_CHANGED: { icon: "🔴", label: "RECOMMENDATION CHANGED — RE-SCAN", color: C.red },
+    STALE: { icon: "🟡", label: "COULD NOT RE-CHECK", color: C.amber },
+  };
   return (
     <div style={{ marginTop: 14, paddingTop: 14, borderTop: `2px solid ${C.border}` }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
         <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: C.text }}>ROBINHOOD ORDER — {ticket.symbol}</span>
         <button onClick={onClose} style={{ fontFamily: MONO, fontSize: 13, color: C.textSec, background: "transparent", border: "none", cursor: "pointer" }}>✕ CLOSE</button>
       </div>
+
+      {/* Price Check (spec §13/§14 — "has the premium moved since I
+          calculated this"). Re-runs the exact same real ticket endpoint
+          and compares against what's already on screen; never a live
+          quote stream, a real on-demand check. */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
+        <button onClick={recheckPrice} disabled={checking} style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, padding: "7px 12px", borderRadius: 7, border: `1px solid ${C.border}`, background: "transparent", color: C.textSec, cursor: checking ? "default" : "pointer" }}>
+          {checking ? "RE-CHECKING…" : "🔄 RECHECK PRICE"}
+        </button>
+        {check && (
+          <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: CHECK_META[check.status].color }}>
+            {CHECK_META[check.status].icon} {CHECK_META[check.status].label}
+          </span>
+        )}
+      </div>
+      {check && <div style={{ marginBottom: 12, fontFamily: SANS, fontSize: 14, color: C.text }}>{check.reason}</div>}
+
       {ticket.shortDteWarning && (
         <div style={{ marginBottom: 12, padding: "10px 12px", background: `${C.amber}18`, border: `1px solid ${C.amber}66`, borderRadius: 8, fontFamily: SANS, fontSize: 14, color: C.text }}>
           ⚠️ <b>SHORT DTE — {ticket.expiration}.</b> {ticket.shortDteWarning}

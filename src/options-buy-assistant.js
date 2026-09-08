@@ -157,4 +157,36 @@ function classifyEntryTiming(partyStageProfile) {
   return { stage, ...ENTRY_TIMING_META[stage] };
 }
 
-module.exports = { buildRobinhoodOrderTicket, classifyEntryTiming, computeBreakevens, slippageBuffer, ENTRY_TIMING_META };
+// Real price re-check before manual submission (spec §13: "Compare live
+// option quote to the original recommendation... prevents entering an
+// old recommendation after premium has already moved."). Pure comparison
+// of two real tickets (the one first shown, and a fresh one the caller
+// re-fetched from the exact same real endpoint right before submitting)
+// — never a live quote stream, never a guess about where the price
+// "probably" is now.
+function comparePriceCheck({ original, fresh }) {
+  if (!original?.available) return { status: "UNKNOWN", reason: "No original real ticket to compare against." };
+  if (!fresh?.available) return { status: "STALE", reason: fresh?.reason || "Could not re-check the real live chain right now — treat the original ticket as stale." };
+
+  const sameStructure = original.strategy === fresh.strategy
+    && original.expiration === fresh.expiration
+    && original.legs.length === fresh.legs.length
+    && original.legs.every((l, i) => l.strike === fresh.legs[i]?.strike && l.type === fresh.legs[i]?.type && l.action === fresh.legs[i]?.action);
+
+  if (!sameStructure) {
+    return { status: "RECOMMENDATION_CHANGED", reason: "The real ranked structure itself has changed since this was first shown — re-scan rather than trusting the original strikes/expiration.", fresh };
+  }
+
+  // Debit: paying MORE than the original boundary is bad (overpaying).
+  // Credit: receiving LESS than the original boundary is bad (underselling).
+  const worse = original.isCredit ? fresh.targetPrice < original.boundaryPrice : fresh.targetPrice > original.boundaryPrice;
+  if (worse) {
+    return {
+      status: "PRICE_CHANGED", reason: `Real current price ($${fresh.targetPrice?.toFixed(2)}) is past the original $${original.boundaryPrice?.toFixed(2)} limit — do not buy at the original numbers.`,
+      original: original.targetPrice, current: fresh.targetPrice, boundary: original.boundaryPrice,
+    };
+  }
+  return { status: "SAFE", reason: `Real current price ($${fresh.targetPrice?.toFixed(2)}) is still within the original $${original.boundaryPrice?.toFixed(2)} limit.`, original: original.targetPrice, current: fresh.targetPrice };
+}
+
+module.exports = { buildRobinhoodOrderTicket, classifyEntryTiming, computeBreakevens, slippageBuffer, comparePriceCheck, ENTRY_TIMING_META };
