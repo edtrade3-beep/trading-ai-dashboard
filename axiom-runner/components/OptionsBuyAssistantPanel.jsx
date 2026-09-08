@@ -18,6 +18,18 @@ import { useState, useEffect } from "react";
 // used elsewhere in the Workspace Grid.
 
 const DIRECTION_COLOR = (C, label) => (label === "BULLISH" ? C.green : label === "BEARISH" ? C.red : C.amber);
+// Robinhood Options Decision System (2026-09-08) — classifyIv/
+// classifyLiquidity/classifyRiskReward/classifyExpiration (src/options-
+// decision-engine.js) return a real named color ("green"/"amber"/
+// "orange"/"red"/"gray"), not a theme hex — this is the one place that
+// resolves it against the actual theme object, so every badge stays
+// consistent with the rest of the app's light/dark palette.
+const CLASS_COLOR = (C, name) => ({ green: C.green, amber: C.amber, orange: "#e07b1a", red: C.red, gray: C.textSec }[name] || C.textSec);
+const ENTRY_STATUS_META = {
+  ENTER_NOW: { icon: "🟢", label: "ENTER NOW" },
+  WAIT: { icon: "🟡", label: "WAIT" },
+  DO_NOT_ENTER: { icon: "🔴", label: "DO NOT ENTER" },
+};
 const TIMING_COLOR = (C, stage) => {
   if (stage == null) return C.textSec;
   if (stage <= 1) return "#9b6fd1"; // purple — developing
@@ -227,10 +239,27 @@ function CandidateCard({ r, C, MONO, SANS, setTerminalSymbol, ticketFor, ticketS
         <span style={{ fontFamily: MONO, fontSize: 14, color: C.textSec }}>Score <b style={{ color: C.text }}>{r.best.composite}/100</b></span>
         <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: TIMING_COLOR(C, timing.stage) }}>{timing.icon} {timing.label}</span>
       </div>
+      {/* Robinhood Options Decision System (2026-09-08, spec §14): six
+          compact status blocks — DIRECTION/IV/LIQUIDITY/R:R/DTE/ENTRY —
+          the "5-10 second glance" hierarchy. Every value here is a real
+          classification off fields this pipeline already computed
+          (options-decision-engine.js), never a re-derived read. */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 18, marginBottom: 10, padding: "10px 12px", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8 }}>
+        <StatusBlock label="DIRECTION" icon={dirLabel === "BULLISH" ? "🟢" : dirLabel === "BEARISH" ? "🔴" : "🟡"} value={dirLabel} color={dirColor} C={C} MONO={MONO} />
+        <StatusBlock label="IV" icon={r.ivClass?.icon} value={r.ivClass?.label} color={CLASS_COLOR(C, r.ivClass?.color)} C={C} MONO={MONO} />
+        <StatusBlock label="LIQUIDITY" icon={r.liquidityClass?.icon} value={r.liquidityClass?.label} color={CLASS_COLOR(C, r.liquidityClass?.color)} C={C} MONO={MONO} />
+        <StatusBlock label="R:R" icon={r.rrClass?.icon} value={r.rrClass?.label} color={CLASS_COLOR(C, r.rrClass?.color)} C={C} MONO={MONO} />
+        <StatusBlock label="DTE" icon={r.expirationClass?.icon} value={Number.isFinite(r.best?.construction?.legs?.[0]?.dte) ? r.best.construction.legs[0].dte : "—"} color={CLASS_COLOR(C, r.expirationClass?.color)} C={C} MONO={MONO} />
+        <StatusBlock label="ENTRY" icon={ENTRY_STATUS_META[r.entryStatus?.status]?.icon || "⚪"} value={ENTRY_STATUS_META[r.entryStatus?.status]?.label || "—"} color={r.entryStatus?.status === "ENTER_NOW" ? C.green : r.entryStatus?.status === "DO_NOT_ENTER" ? C.red : C.amber} C={C} MONO={MONO} />
+      </div>
+      {r.earningsExposure?.exposed && (
+        <div style={{ marginBottom: 10, padding: "8px 12px", background: `${C.amber}18`, border: `1px solid ${C.amber}66`, borderRadius: 7, fontFamily: SANS, fontSize: 14, color: C.text }}>
+          📅 <b>EARNINGS IN {r.earningsExposure.daysToEarnings}D — EXPOSURE: YES.</b> {r.earningsExposure.explanation}
+        </div>
+      )}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 20, marginBottom: 10, fontFamily: MONO, fontSize: 15 }}>
         <span style={{ color: C.textSec }}>Underlying <b style={{ color: C.text }}>${r.underlying}</b></span>
         <span style={{ color: C.textSec }}>POP <b style={{ color: C.text }}>{r.best.pop != null ? `${r.best.pop}%` : "—"}</b></span>
-        <span style={{ color: C.textSec }}>R:R <b style={{ color: C.text }}>{r.best.riskReward ?? "—"}</b></span>
         {r.best.construction?.netDebit != null && <span style={{ color: C.textSec }}>Est. Debit <b style={{ color: C.text }}>${r.best.construction.netDebit}</b></span>}
         {r.best.construction?.netCredit != null && <span style={{ color: C.textSec }}>Est. Credit <b style={{ color: C.text }}>${r.best.construction.netCredit}</b></span>}
         {r.maxLossDollars != null && <span style={{ color: C.textSec }}>Max Loss <b style={{ color: C.red }}>${r.maxLossDollars.toFixed(2)}</b></span>}
@@ -259,6 +288,8 @@ function CandidateCard({ r, C, MONO, SANS, setTerminalSymbol, ticketFor, ticketS
 function RobinhoodTicketCard({ symbol, strategy, ticket, loading, C, MONO, SANS, onClose }) {
   const [check, setCheck] = useState(null); // { status, reason, checkedAt } | null
   const [checking, setChecking] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showExit, setShowExit] = useState(false);
 
   const recheckPrice = () => {
     setChecking(true);
@@ -324,6 +355,27 @@ function RobinhoodTicketCard({ symbol, strategy, ticket, loading, C, MONO, SANS,
         </div>
       )}
 
+      {/* Robinhood Options Decision System (2026-09-08, spec §14) — same
+          real 6-block classification as the candidate card above, on the
+          actual ticket being reviewed. */}
+      {ticket.ivClass && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 18, marginBottom: 12, padding: "10px 12px", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8 }}>
+          <StatusBlock label="IV" icon={ticket.ivClass.icon} value={ticket.ivClass.label} color={CLASS_COLOR(C, ticket.ivClass.color)} C={C} MONO={MONO} />
+          <StatusBlock label="LIQUIDITY" icon={ticket.liquidityClass?.icon} value={ticket.liquidityClass?.label} color={CLASS_COLOR(C, ticket.liquidityClass?.color)} C={C} MONO={MONO} />
+          <StatusBlock label="R:R" icon={ticket.rrClass?.icon} value={ticket.rrClass?.label} color={CLASS_COLOR(C, ticket.rrClass?.color)} C={C} MONO={MONO} />
+          <StatusBlock label="DTE" icon={ticket.expirationClass?.icon} value={ticket.expirationClass?.label?.split(" —")[0] || "—"} color={CLASS_COLOR(C, ticket.expirationClass?.color)} C={C} MONO={MONO} />
+          <StatusBlock label="ENTRY" icon={ENTRY_STATUS_META[ticket.entryStatus?.status]?.icon || "⚪"} value={ENTRY_STATUS_META[ticket.entryStatus?.status]?.label || "—"} color={ticket.entryStatus?.status === "ENTER_NOW" ? C.green : ticket.entryStatus?.status === "DO_NOT_ENTER" ? C.red : C.amber} C={C} MONO={MONO} />
+        </div>
+      )}
+      {ticket.entryStatus?.reasons?.length > 0 && ticket.entryStatus.status !== "ENTER_NOW" && (
+        <div style={{ marginBottom: 12, fontFamily: SANS, fontSize: 14, color: C.textSec }}>{ticket.entryStatus.reasons.join(" · ")}</div>
+      )}
+      {ticket.earningsExposure?.exposed && (
+        <div style={{ marginBottom: 12, padding: "10px 12px", background: `${C.amber}18`, border: `1px solid ${C.amber}66`, borderRadius: 8, fontFamily: SANS, fontSize: 14, color: C.text }}>
+          📅 <b>EARNINGS IN {ticket.earningsExposure.daysToEarnings}D — EXPOSURE: YES.</b> {ticket.earningsExposure.explanation}
+        </div>
+      )}
+
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginBottom: 14, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: 14 }}>
         <Field label="Direction" value={`${ticket.direction.icon} ${ticket.direction.label}`} color={dirColor} C={C} MONO={MONO} />
         <Field label="Strategy" value={ticket.strategy} C={C} MONO={MONO} />
@@ -347,11 +399,86 @@ function RobinhoodTicketCard({ symbol, strategy, ticket, loading, C, MONO, SANS,
       </ol>
 
       <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 8 }}>VERIFY BEFORE SUBMITTING</div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 6, fontFamily: SANS, fontSize: 14 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 6, marginBottom: 14, fontFamily: SANS, fontSize: 14 }}>
         {Object.entries({ Ticker: ticket.verify.ticker, Expiration: ticket.verify.expiration, Strikes: ticket.verify.strikes, "Buy/Sell": ticket.verify.direction, Quantity: ticket.verify.quantity, "Limit Price": ticket.verify.limitPrice, "Max Risk": ticket.verify.maxRisk }).map(([k, v]) => (
           <div key={k} style={{ color: C.text }}>✅ <span style={{ color: C.textSec }}>{k}:</span> <b>{v}</b></div>
         ))}
       </div>
+
+      {/* Real exit plan — spec §8: "every BUY trade must have the exit
+          prepared BEFORE entry." Combines a real option-premium target/
+          stop with the real underlying invalidation Trade GPS already
+          computed (options-decision-engine.js's computeOptionExitPlan) —
+          never a fixed 20% for every trade. */}
+      {ticket.exitPlan?.available && (
+        <>
+          <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 8 }}>PLAN YOUR EXIT BEFORE YOU ENTER</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginBottom: 10, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: 14 }}>
+            <Field label="Take Profit 1" value={`$${ticket.exitPlan.takeProfit1} (+${ticket.exitPlan.takeProfit1Pct}%)`} color={C.green} C={C} MONO={MONO} />
+            <Field label="Take Profit 2" value={`$${ticket.exitPlan.takeProfit2} (+${ticket.exitPlan.takeProfit2Pct}%)`} color={C.green} C={C} MONO={MONO} />
+            <Field label="Option Stop" value={`$${ticket.exitPlan.optionStop} (-${ticket.exitPlan.optionStopPct}%)`} color={C.red} C={C} MONO={MONO} />
+            <Field label="Time Exit" value={`${ticket.exitPlan.timeExitDte} DTE`} C={C} MONO={MONO} />
+          </div>
+          {ticket.exitPlan.notes?.length > 0 && (
+            <div style={{ marginBottom: 14, fontFamily: SANS, fontSize: 13.5, color: C.textSec, lineHeight: 1.5 }}>{ticket.exitPlan.notes.join(" ")}</div>
+          )}
+        </>
+      )}
+
+      {/* Advanced Option Details — spec §16: hide Greeks/IV/OI/Volume/
+          spread behind a collapsible instead of cluttering the main
+          screen. Real per-leg numbers only — options-math.js's real
+          Black-Scholes gamma()/vega()/theta(), honest "—" wherever a
+          real input (e.g. no Polygon delta) is missing. */}
+      {ticket.advancedDetails?.length > 0 && (
+        <div style={{ marginBottom: 14 }}>
+          <button onClick={() => setShowAdvanced((v) => !v)} style={{ fontFamily: MONO, fontSize: 14, fontWeight: 700, color: C.textSec, background: "transparent", border: "none", cursor: "pointer", padding: 0, marginBottom: showAdvanced ? 8 : 0 }}>
+            {showAdvanced ? "▾" : "▸"} ADVANCED OPTION DETAILS
+          </button>
+          {showAdvanced && ticket.advancedDetails.map((d, i) => (
+            <div key={i} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 10, marginBottom: 8, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}>
+              <Field label="Strike / Type" value={`$${d.strike} ${d.type === "call" ? "Call" : "Put"}`} C={C} MONO={MONO} />
+              <Field label="Delta" value={d.delta != null ? d.delta.toFixed(3) : "—"} C={C} MONO={MONO} />
+              <Field label="Gamma" value={d.gamma != null ? d.gamma.toFixed(4) : "—"} C={C} MONO={MONO} />
+              <Field label="Theta" value={d.theta != null ? `$${d.theta}/day` : "—"} C={C} MONO={MONO} />
+              <Field label="Vega" value={d.vega != null ? d.vega.toFixed(3) : "—"} C={C} MONO={MONO} />
+              <Field label="IV" value={d.iv != null ? `${d.iv.toFixed(1)}%` : "—"} C={C} MONO={MONO} />
+              <Field label="Expected Move" value={d.expectedMove != null ? `±$${d.expectedMove}` : "—"} C={C} MONO={MONO} />
+              <Field label="Open Interest" value={d.openInterest ?? "—"} C={C} MONO={MONO} />
+              <Field label="Volume" value={d.volume ?? "—"} C={C} MONO={MONO} />
+              <Field label="Bid / Ask" value={d.bid != null && d.ask != null ? `$${d.bid} / $${d.ask}` : "—"} C={C} MONO={MONO} />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* SELL TO CLOSE — spec §9: explicit, never confused with opening a
+          new short. Always available on the ticket (not gated behind a
+          separate "mark as owned" flow — full position tracking is
+          PositionManagerTab.jsx's own real, existing surface once you
+          actually own it; this is the reference for closing THIS trade
+          when you do). */}
+      {ticket.sellToCloseInstructions?.length > 0 && (
+        <div>
+          <button onClick={() => setShowExit((v) => !v)} style={{ fontFamily: MONO, fontSize: 14, fontWeight: 700, color: C.textSec, background: "transparent", border: "none", cursor: "pointer", padding: 0, marginBottom: showExit ? 8 : 0 }}>
+            {showExit ? "▾" : "▸"} IF YOU ALREADY OWN THIS — HOW TO EXIT
+          </button>
+          {showExit && (
+            <ol style={{ margin: 0, paddingLeft: 22, fontFamily: SANS, fontSize: 15, color: C.text, lineHeight: 1.6 }}>
+              {ticket.sellToCloseInstructions.map((step, i) => <li key={i}>{step}</li>)}
+            </ol>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StatusBlock({ label, icon, value, color, C, MONO }) {
+  return (
+    <div style={{ minWidth: 78 }}>
+      <div style={{ fontFamily: MONO, fontSize: 11.5, color: C.textSec, letterSpacing: 0.5, fontWeight: 700 }}>{label}</div>
+      <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: color || C.text }}>{icon} {value ?? "—"}</div>
     </div>
   );
 }

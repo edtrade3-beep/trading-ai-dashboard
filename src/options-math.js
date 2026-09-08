@@ -106,6 +106,44 @@ function theta({ iv, strike, underlying, dte, isCall } = {}) {
   return Math.round((thetaPerYear / 365) * 100) / 100;
 }
 
+// Real Black-Scholes Gamma — same r=0 simplification/d1 formula
+// theta()/estimateDelta() already use for internal consistency. Gamma is
+// identical for calls and puts at the same strike/iv/dte under BS, so
+// isCall isn't a parameter (matches theta()'s own convention/comment).
+// Real inputs only; null (never fabricated) on anything missing.
+function gamma({ iv, strike, underlying, dte } = {}) {
+  if (
+    !Number.isFinite(iv) || iv <= 0 ||
+    !Number.isFinite(strike) || strike <= 0 ||
+    !Number.isFinite(underlying) || underlying <= 0 ||
+    !Number.isFinite(dte) || dte <= 0
+  ) return null;
+  const sigma = iv / 100;
+  const t = dte / 365;
+  const d1 = (Math.log(underlying / strike) + 0.5 * sigma * sigma * t) / (sigma * Math.sqrt(t));
+  const pdf = Math.exp((-d1 * d1) / 2) / Math.sqrt(2 * Math.PI);
+  const g = pdf / (underlying * sigma * Math.sqrt(t));
+  return Math.round(g * 100000) / 100000;
+}
+
+// Real Black-Scholes Vega — $ change in premium per 1 percentage-point
+// change in IV (the standard quoting convention, hence the /100). Same
+// r=0 d1 formula as theta()/gamma(); identical for calls and puts.
+function vega({ iv, strike, underlying, dte } = {}) {
+  if (
+    !Number.isFinite(iv) || iv <= 0 ||
+    !Number.isFinite(strike) || strike <= 0 ||
+    !Number.isFinite(underlying) || underlying <= 0 ||
+    !Number.isFinite(dte) || dte <= 0
+  ) return null;
+  const sigma = iv / 100;
+  const t = dte / 365;
+  const d1 = (Math.log(underlying / strike) + 0.5 * sigma * sigma * t) / (sigma * Math.sqrt(t));
+  const pdf = Math.exp((-d1 * d1) / 2) / Math.sqrt(2 * Math.PI);
+  const v = (underlying * pdf * Math.sqrt(t)) / 100;
+  return Math.round(v * 1000) / 1000;
+}
+
 // Real break-even underlying price at expiry — standard formula, no
 // model needed: a long call needs the underlying above strike+premium to
 // profit; a long put needs it below strike-premium. Real inputs only.
@@ -334,5 +372,5 @@ function interpretFlowRow(row) {
 module.exports = {
   normCdf, probabilityOfProfit, estimateDelta, expectedMove, spreadPct, liquidityScore,
   dteFromExpiry, expectedValue, rankContracts, gammaSqueezeProbability, ivCrushRisk, assignmentRisk,
-  interpretFlowRow, theta, breakEven,
+  interpretFlowRow, theta, breakEven, gamma, vega,
 };

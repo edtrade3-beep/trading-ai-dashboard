@@ -86,6 +86,13 @@ function leg(action, type, c) {
     // redesign Phase 2, options strategy ranking engine) — additive only,
     // every existing consumer of leg() ignores unknown fields.
     iv: c.iv ?? null, dte: c.dte ?? null,
+    // bid/ask/openInterest/volume — same real fields already on `c`
+    // (rankContracts computed liquidityScore FROM these, but never
+    // forwarded the raw numbers). Added for the Options Buy Assistant's
+    // "Advanced Option Details" panel (Robinhood Options Decision System,
+    // 2026-09-08) — a real Greeks/liquidity disclosure needs the actual
+    // real bid/ask/OI/volume, not just the derived 0-100 score.
+    bid: c.bid ?? null, ask: c.ask ?? null, openInterest: c.openInterest ?? null, volume: c.volume ?? null,
   };
 }
 

@@ -5661,6 +5661,11 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
         const { explainStrategy } = require("../strategy-explain");
         const { computePartyStageProfile } = require("../party-stage-engine");
         const { classifyEntryTiming, buildRobinhoodOrderTicket } = require("../options-buy-assistant");
+        const { ivRankFor } = require("../iv-history-store");
+        const {
+          classifyIv, classifyLiquidity, classifyRiskReward, classifyExpiration,
+          classifyEarningsExposure, computeEntryStatus, computeOptionExitPlan,
+        } = require("../options-decision-engine");
 
         // Real, already-cached full-universe opportunity scan — reused
         // ONLY for its own already-computed real Party Stage/entry-timing
@@ -5671,6 +5676,21 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
         try {
           const { tiers } = await cached("all-opportunities", WATCHLIST_SCREEN_CACHE_TTL_MS, computeAllOpportunities);
           for (const o of Object.values(tiers || {}).flat()) if (o?.symbol) partyStageBySymbol[o.symbol] = o.partyStage;
+        } catch {}
+
+        // Real earnings dates — Robinhood Options Decision System spec §23
+        // ("EARNINGS IN X DAYS... do not hide earnings risk"). ONE batched
+        // real Yahoo quote call for every symbol in this scan (the same
+        // lightweight quote screenTrendTemplate's own earningsDte already
+        // reads earningsTimestamp off — routes/market.js's own trend-
+        // screen block), never a per-symbol fetch.
+        let earningsDteBySymbol = {};
+        try {
+          const quotes = await fetchYahooQuoteBatch(symbols).catch(() => []);
+          for (const q of quotes) {
+            const ts = Number((Array.isArray(q?.earningsTimestamp) ? q.earningsTimestamp[0] : q?.earningsTimestamp) || 0);
+            earningsDteBySymbol[q.symbol] = ts ? Math.round((ts * 1000 - Date.now()) / 86400000) : null;
+          }
         } catch {}
 
         const perSymbol = await Promise.all(symbols.map(async (symbol) => {
@@ -5692,7 +5712,46 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
             // maxLoss/maxProfit at all (see that file's own comment).
             const ticket = buildRobinhoodOrderTicket({ symbol, rankedStrategy: best });
             const maxLossDollars = ticket.available && Number.isFinite(ticket.maxLoss) ? ticket.maxLoss : null;
-            return { symbol, ok: true, underlying, best: { ...best, explanation }, timing, selectedExpiry, dteFloorMet, maxLossDollars };
+
+            // Robinhood Options Decision System (2026-09-08) — real
+            // classification/entry-status/exit-plan layer over fields this
+            // exact pipeline already computed above, never a second
+            // scoring model. ivRank reuses the SAME real chain's own ATM
+            // IV against iv-history-store.js's real accumulated history
+            // (same convention as the trend-screen withOptions=1 block).
+            const firstLeg = best.construction?.legs?.[0] || null;
+            let atmIv = null, bestDist = Infinity;
+            for (const c of [...calls, ...puts]) {
+              const iv = Number(c.iv);
+              if (!Number.isFinite(iv) || iv <= 0) continue;
+              const dist = Math.abs(Number(c.strike) - underlying);
+              if (dist < bestDist) { bestDist = dist; atmIv = iv; }
+            }
+            const ivRankResult = atmIv != null ? ivRankFor(symbol, atmIv) : null;
+            const ivRank = ivRankResult?.available ? ivRankResult.rank : null;
+            const ivClass = classifyIv(ivRank, symbol);
+            const liquidityClass = classifyLiquidity(best.liquidity);
+            const rrClass = classifyRiskReward(best.riskReward);
+            const dte = firstLeg?.dte ?? null;
+            const expirationClass = classifyExpiration(dte);
+            const earningsDte = earningsDteBySymbol[symbol] ?? null;
+            const earningsExposure = classifyEarningsExposure({ dte, earningsDte });
+            const entryStatus = computeEntryStatus({
+              quoteAgeMinutes: 0, // this chain was just fetched, this request
+              spreadPct: firstLeg?.bid != null && firstLeg?.ask != null
+                ? Math.round(((firstLeg.ask - firstLeg.bid) / ((firstLeg.ask + firstLeg.bid) / 2)) * 10000) / 100 : null,
+              ivRank, riskReward: best.riskReward,
+              confirmed: timing.stage != null ? timing.stage >= 2 : null,
+              earningsExposed: earningsExposure.exposed,
+            });
+            const exitPlan = computeOptionExitPlan({
+              entryPremium: firstLeg?.premium ?? null, ivRank, dte,
+            });
+
+            return {
+              symbol, ok: true, underlying, best: { ...best, explanation }, timing, selectedExpiry, dteFloorMet, maxLossDollars,
+              ivRank, ivClass, liquidityClass, rrClass, expirationClass, earningsExposure, entryStatus, exitPlan,
+            };
           } catch (err) {
             return { symbol, ok: false, reason: err instanceof Error ? err.message : "Real chain fetch failed." };
           }
@@ -5739,6 +5798,11 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
     try {
       const { rankAllStrategies } = require("../strategy-ranking");
       const { buildRobinhoodOrderTicket } = require("../options-buy-assistant");
+      const { ivRankFor } = require("../iv-history-store");
+      const {
+        classifyIv, classifyLiquidity, classifyRiskReward, classifyExpiration,
+        classifyEarningsExposure, computeEntryStatus, computeOptionExitPlan, buildSellToCloseInstructions,
+      } = require("../options-decision-engine");
       const { underlying, calls, puts, selectedExpiry, dteFloorMet } = await fetchRankedChainForStrategy(symbol);
       if (!(underlying > 0) || (!calls.length && !puts.length)) {
         return writeJson(res, 200, { ok: true, symbol, ticket: { available: false, reason: "No real options chain available for this symbol right now." } });
@@ -5752,6 +5816,69 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
       if (ticket.available && !dteFloorMet) {
         ticket.shortDteWarning = `Only ${selectedExpiry} was available — every real expiry for this symbol is inside the normal 7-day minimum. Treat this as a separately-tested short-DTE trade, not a standard directional thesis.`;
       }
+
+      // Robinhood Options Decision System (2026-09-08) — same real
+      // classification/exit-plan/SELL-TO-CLOSE layer as best-options-now,
+      // attached to the one-symbol ticket view too so a caller landing
+      // here directly (Search Any Ticker, or a re-check) gets the same
+      // real disclosure, never a lesser view.
+      if (ticket.available) {
+        const firstLeg = rankedStrategy.construction?.legs?.[0] || null;
+        let atmIv = null, bestDist = Infinity;
+        for (const c of [...calls, ...puts]) {
+          const iv = Number(c.iv);
+          if (!Number.isFinite(iv) || iv <= 0) continue;
+          const dist = Math.abs(Number(c.strike) - underlying);
+          if (dist < bestDist) { bestDist = dist; atmIv = iv; }
+        }
+        const ivRankResult = atmIv != null ? ivRankFor(symbol, atmIv) : null;
+        const ivRank = ivRankResult?.available ? ivRankResult.rank : null;
+        const dte = firstLeg?.dte ?? null;
+        let earningsDte = null;
+        try {
+          const [q] = await fetchYahooQuoteBatch([symbol]).catch(() => []);
+          const ts = Number((Array.isArray(q?.earningsTimestamp) ? q.earningsTimestamp[0] : q?.earningsTimestamp) || 0);
+          earningsDte = ts ? Math.round((ts * 1000 - Date.now()) / 86400000) : null;
+        } catch {}
+        const earningsExposure = classifyEarningsExposure({ dte, earningsDte });
+        ticket.ivRank = ivRank;
+        ticket.ivClass = classifyIv(ivRank, symbol);
+        ticket.liquidityClass = classifyLiquidity(rankedStrategy.liquidity);
+        ticket.rrClass = classifyRiskReward(rankedStrategy.riskReward);
+        ticket.expirationClass = classifyExpiration(dte);
+        ticket.earningsExposure = earningsExposure;
+        ticket.entryStatus = computeEntryStatus({
+          quoteAgeMinutes: 0,
+          spreadPct: firstLeg?.bid != null && firstLeg?.ask != null
+            ? Math.round(((firstLeg.ask - firstLeg.bid) / ((firstLeg.ask + firstLeg.bid) / 2)) * 10000) / 100 : null,
+          ivRank, riskReward: rankedStrategy.riskReward, earningsExposed: earningsExposure.exposed,
+        });
+        ticket.exitPlan = computeOptionExitPlan({ entryPremium: firstLeg?.premium ?? null, ivRank, dte });
+        ticket.sellToCloseInstructions = buildSellToCloseInstructions({ symbol, legs: ticket.legs });
+
+        // Advanced Option Details (spec §16) — real per-leg Greeks off
+        // the SAME real iv/dte/strike this ticket's own legs already
+        // carry (rankedStrategy.construction.legs, not the stripped-down
+        // ticket.legs), using options-math.js's real Black-Scholes
+        // gamma()/vega()/theta() (added 2026-09-08 for this exact
+        // purpose — gamma/vega never existed anywhere in this codebase
+        // before now). Hidden by default in the UI, per spec's own
+        // "don't clutter the main screen" instruction.
+        const { theta: thetaFn, gamma: gammaFn, vega: vegaFn, expectedMove } = require("../options-math");
+        ticket.advancedDetails = (rankedStrategy.construction?.legs || []).map((l) => {
+          const isCall = l.type === "call";
+          return {
+            strike: l.strike, type: l.type, expiry: l.expiry,
+            delta: l.delta, iv: l.iv, dte: l.dte,
+            theta: thetaFn({ iv: l.iv, strike: l.strike, underlying, dte: l.dte, isCall }),
+            gamma: gammaFn({ iv: l.iv, strike: l.strike, underlying, dte: l.dte }),
+            vega: vegaFn({ iv: l.iv, strike: l.strike, underlying, dte: l.dte }),
+            expectedMove: expectedMove({ iv: l.iv, underlying, dte: l.dte }),
+            bid: l.bid, ask: l.ask, openInterest: l.openInterest, volume: l.volume,
+          };
+        });
+      }
+
       return writeJson(res, 200, { ok: true, symbol, underlying, ticket, generatedAt: new Date().toISOString() });
     } catch (err) {
       return writeJson(res, 502, { ok: false, error: err instanceof Error ? err.message : "Order ticket generation failed." });
