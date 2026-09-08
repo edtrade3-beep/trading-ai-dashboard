@@ -141,6 +141,25 @@ export default function TrendChart({ data, C, MONO, SANS, height, vcpOverlayOn }
     try { localStorage.setItem("trendchart_levels_visible", nv ? "on" : "off"); } catch {}
     return nv;
   });
+  // Hide Chart (2026-09-08, live user follow-up: "toggle to hide chart so
+  // i dont haave overlapping") — LEVELS ON/OFF only controls the price-
+  // line labels; this is the literal ask right after it, a real way to
+  // remove the candlestick canvas + its overlay buttons entirely rather
+  // than decluttering them. Collapsing to a small fixed placeholder
+  // (never the canvas's own effectiveH) is deliberate: TradeDeskTab's own
+  // fixed-height core zone has no overflow:hidden (see its own header
+  // comment on the runaway-growth bug class that caused), so shrinking
+  // this component's real rendered height can only ever leave harmless
+  // blank space below it in that budget — it can never overlap a sibling,
+  // which is the one thing a taller-than-expected child could do.
+  const [chartHidden, setChartHidden] = React.useState(() => {
+    try { return localStorage.getItem("trendchart_hidden") === "on"; } catch { return false; }
+  });
+  const toggleChartHidden = () => setChartHidden((v) => {
+    const nv = !v;
+    try { localStorage.setItem("trendchart_hidden", nv ? "on" : "off"); } catch {}
+    return nv;
+  });
   // Lightweight Charts needs a plain Unix-seconds timestamp (UTCTimestamp)
   // for anything with intraday precision — the {year,month,day} BusinessDay
   // form only carries date resolution, so every 5m/15m/30m/1h bar within the
@@ -823,8 +842,12 @@ export default function TrendChart({ data, C, MONO, SANS, height, vcpOverlayOn }
                 </span>
               </>
             )}
+            <button onClick={toggleChartHidden} title={chartHidden ? "Show the candlestick chart" : "Hide the candlestick chart entirely"}
+              style={{ marginLeft: "auto", cursor: "pointer", background: chartHidden ? (C.accent || "#2563eb") : "transparent", border: `1px solid ${chartHidden ? C.accent : C.border}`, borderRadius: 6, padding: "2px 8px", color: chartHidden ? "#fff" : C.textDim, fontFamily: SANS, fontSize: 10.5, fontWeight: 800, lineHeight: 1.6 }}>
+              {chartHidden ? "📉 SHOW CHART" : "🚫 HIDE CHART"}
+            </button>
             <button onClick={toggleCollapsed} title={collapsed ? "Show full rating card" : "Shrink to just the score — gives the chart more room"}
-              style={{ marginLeft: "auto", cursor: "pointer", background: "transparent", border: "none", padding: 0, color: C.textDim, fontFamily: SANS, fontSize: 11, fontWeight: 800, lineHeight: 1 }}>
+              style={{ cursor: "pointer", background: "transparent", border: "none", padding: 0, color: C.textDim, fontFamily: SANS, fontSize: 11, fontWeight: 800, lineHeight: 1 }}>
               {collapsed ? "▸" : "▾"}
             </button>
           </div>
@@ -851,8 +874,24 @@ export default function TrendChart({ data, C, MONO, SANS, height, vcpOverlayOn }
           )}
         </div>
       )}
-      <div style={{ position: "relative", width: "100%", height: effectiveH }}>
+      {/* Real height clip, never an unmount — elRef's own div (and the
+          lightweight-charts instance anchored to it) must stay mounted the
+          whole time; chart-creation only ever runs once on mount, so
+          removing this node while chartRef/seriesRef stay alive would
+          leave the library pointed at a detached element. Clipping the
+          OUTER wrapper down to a thin placeholder strip (overflow:hidden)
+          gets the exact same real "no chart taking up space" outcome
+          without touching that lifecycle — same principle TradeDeskTab's
+          own fixed-height zone relies on: a shrunk child can only ever
+          leave harmless blank space, never overlap a sibling. */}
+      <div style={{ position: "relative", width: "100%", height: chartHidden ? 44 : effectiveH, overflow: "hidden" }}>
         <div ref={elRef} style={{ width: "100%", height: effectiveH }} />
+        {chartHidden && (
+          <button onClick={toggleChartHidden} style={{ position: "absolute", inset: 0, zIndex: 6, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+            background: C.card || "#fff", border: "none", cursor: "pointer", fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.textDim }}>
+            📉 Chart hidden — tap to show
+          </button>
+        )}
         {/* Expand/fullscreen toggle — top-left. */}
         <button onClick={toggleExpanded} title={expanded ? "Exit fullscreen" : "Expand chart to fullscreen"}
           style={{ position: "absolute", top: 10, left: 12, zIndex: 5, fontFamily: MONO, fontSize: 9.5, fontWeight: 800,
