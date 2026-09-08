@@ -875,7 +875,7 @@ export default function TradeDeskTab({
           fixed budget or overlapping anything after them. */}
       <BeforeItPopsPanel C={TD} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
       <HiddenGemPanel symbol={symbol} C={TD} MONO={MONO} SANS={SANS} />
-      <OptionsBuyAssistantPanel C={TD} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} />
+      <OptionsBuyAssistantPanel C={TD} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} account={account} setActiveTab={setActiveTab} />
 
       <TradeDeskEvidence decision={canonicalDecision} chart={chart} C={TD} MONO={MONO} SANS={SANS} />
       <TradeGpsWhyPanel tradeGps={tradeGpsData?.tradeGps} tradeStructure={tradeGpsData?.tradeStructure} trapShield={tradeGpsData?.trapShield} C={TD} MONO={MONO} SANS={SANS} />

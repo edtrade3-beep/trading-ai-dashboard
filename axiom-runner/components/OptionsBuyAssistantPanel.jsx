@@ -25,6 +25,24 @@ const DIRECTION_COLOR = (C, label) => (label === "BULLISH" ? C.green : label ===
 // resolves it against the actual theme object, so every badge stays
 // consistent with the rest of the app's light/dark palette.
 const CLASS_COLOR = (C, name) => ({ green: C.green, amber: C.amber, orange: "#e07b1a", red: C.red, gray: C.textSec }[name] || C.textSec);
+// Real, hand-ported mirror of options-decision-engine.js's own
+// sizeOptionPosition — same real 0.5%/$500 policy TradeGpsCard.jsx's own
+// previewPositionSize already uses for stock sizing (autopilot2-engine.js's
+// sizeEntry), re-expressed per-contract off a real max loss instead of a
+// real per-share stop distance. Client-side (not a fetch) because
+// `account` is already a real prop this component receives, same
+// established pattern as TradeGpsCard's own client-side sizing preview
+// and RobinhoodTicketCard's own comparePriceCheck mirror — kept in sync
+// via test/options-decision-engine.test.js's real server-side coverage
+// of the function this mirrors exactly.
+function sizeOptionPosition({ equity, cash, maxLossPerContract, riskPct = 0.5, maxTradeRiskDollars = 500 }) {
+  if (!Number.isFinite(equity) || !Number.isFinite(cash) || !Number.isFinite(maxLossPerContract) || maxLossPerContract <= 0) return null;
+  const riskBudget = Math.min(equity * (riskPct / 100), maxTradeRiskDollars);
+  let contracts = Math.floor(riskBudget / maxLossPerContract);
+  contracts = Math.min(contracts, Math.floor(cash / maxLossPerContract));
+  return Math.max(0, contracts);
+}
+
 const ENTRY_STATUS_META = {
   ENTER_NOW: { icon: "🟢", label: "ENTER NOW" },
   WAIT: { icon: "🟡", label: "WAIT" },
@@ -40,7 +58,7 @@ const TIMING_COLOR = (C, stage) => {
   return C.red; // overextended
 };
 
-export default function OptionsBuyAssistantPanel({ C, MONO, SANS, setTerminalSymbol }) {
+export default function OptionsBuyAssistantPanel({ C, MONO, SANS, setTerminalSymbol, account, setActiveTab }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -143,7 +161,7 @@ export default function OptionsBuyAssistantPanel({ C, MONO, SANS, setTerminalSym
       .finally(() => setTicketLoading(false));
   };
 
-  const ticketProps = { ticketFor, ticketStrategy, ticket, ticketLoading, viewOrder, onCloseTicket: () => setTicketFor(null) };
+  const ticketProps = { ticketFor, ticketStrategy, ticket, ticketLoading, viewOrder, onCloseTicket: () => setTicketFor(null), account, setActiveTab };
 
   return (
     <section aria-label="Options Buy Assistant" style={{ padding: "14px 20px", background: C.surface, borderBottom: `1px solid ${C.border}` }}>
@@ -226,7 +244,7 @@ export default function OptionsBuyAssistantPanel({ C, MONO, SANS, setTerminalSym
 // One real candidate's card — shared by both the default-universe scan
 // and the Search Any Ticker result above, so a searched symbol gets the
 // exact same real analysis/actions as a scanned one, never a lesser view.
-function CandidateCard({ r, C, MONO, SANS, setTerminalSymbol, ticketFor, ticketStrategy, ticket, ticketLoading, viewOrder, onCloseTicket }) {
+function CandidateCard({ r, C, MONO, SANS, setTerminalSymbol, ticketFor, ticketStrategy, ticket, ticketLoading, viewOrder, onCloseTicket, account, setActiveTab }) {
   const dirLabel = r.best.strategy === "Iron Condor" ? "NEUTRAL / RANGE" : r.best.strategy.includes("Put") ? "BEARISH" : "BULLISH";
   const dirColor = DIRECTION_COLOR(C, dirLabel);
   const timing = r.timing || {};
@@ -279,13 +297,13 @@ function CandidateCard({ r, C, MONO, SANS, setTerminalSymbol, ticketFor, ticketS
       </div>
 
       {showingTicket && (
-        <RobinhoodTicketCard symbol={r.symbol} strategy={ticketStrategy} ticket={ticket} loading={ticketLoading} C={C} MONO={MONO} SANS={SANS} onClose={onCloseTicket} />
+        <RobinhoodTicketCard symbol={r.symbol} strategy={ticketStrategy} ticket={ticket} loading={ticketLoading} C={C} MONO={MONO} SANS={SANS} onClose={onCloseTicket} account={account} setActiveTab={setActiveTab} />
       )}
     </div>
   );
 }
 
-function RobinhoodTicketCard({ symbol, strategy, ticket, loading, C, MONO, SANS, onClose }) {
+function RobinhoodTicketCard({ symbol, strategy, ticket, loading, C, MONO, SANS, onClose, account, setActiveTab }) {
   const [check, setCheck] = useState(null); // { status, reason, checkedAt } | null
   const [checking, setChecking] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -320,6 +338,16 @@ function RobinhoodTicketCard({ symbol, strategy, ticket, loading, C, MONO, SANS,
   if (!ticket.available) return <div style={{ marginTop: 14, fontFamily: SANS, fontSize: 15, color: C.amber }}>Unavailable: {ticket.reason}</div>;
 
   const dirColor = DIRECTION_COLOR(C, ticket.direction?.label);
+  // Real per-contract position sizing (spec §11: "Never let one options
+  // position risk an excessive amount of account equity"). Null (not 0)
+  // without a real account fetch yet — never confused with a genuinely
+  // zero-contract result.
+  const RISK_PCT = 0.5, MAX_TRADE_RISK = 500;
+  const maxTradeRiskDollars = Number.isFinite(account?.equity) ? Math.min(account.equity * (RISK_PCT / 100), MAX_TRADE_RISK) : null;
+  const positionSize = Number.isFinite(ticket.maxLoss)
+    ? sizeOptionPosition({ equity: account?.equity, cash: account?.cash, maxLossPerContract: ticket.maxLoss, riskPct: RISK_PCT, maxTradeRiskDollars: MAX_TRADE_RISK })
+    : null;
+  const plannedLossIfStopHit = positionSize != null && Number.isFinite(ticket.maxLoss) ? Math.round(positionSize * ticket.maxLoss * 100) / 100 : null;
   const CHECK_META = {
     SAFE: { icon: "🟢", label: "SAFE TO CONTINUE", color: C.green },
     PRICE_CHANGED: { icon: "🔴", label: "PRICE CHANGED — DO NOT BUY", color: C.red },
@@ -393,6 +421,24 @@ function RobinhoodTicketCard({ symbol, strategy, ticket, loading, C, MONO, SANS,
         {ticket.breakevens?.length > 0 && <Field label="Break-even" value={ticket.breakevens.map((b) => `$${b}`).join(" / ")} C={C} MONO={MONO} />}
       </div>
 
+      {/* Position sizing — spec §11. Real, off the SAME account object
+          TradeGpsCard.jsx already fetches, never a fabricated equity
+          number; honestly blank until the real account has loaded. */}
+      {Number.isFinite(account?.equity) && Number.isFinite(ticket.maxLoss) && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginBottom: 14, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: 14 }}>
+          <Field label="Account" value={`$${Math.round(account.equity).toLocaleString()}`} C={C} MONO={MONO} />
+          <Field label="Max Trade Risk" value={maxTradeRiskDollars != null ? `$${maxTradeRiskDollars.toFixed(2)}` : "—"} C={C} MONO={MONO} />
+          <Field label="Contract Cost" value={ticket.estimatedCost != null ? `$${ticket.estimatedCost}` : `$${ticket.maxLoss}`} C={C} MONO={MONO} />
+          <Field label="Planned Loss If Stop Hit" value={plannedLossIfStopHit != null ? `$${plannedLossIfStopHit}` : "—"} color={C.red} C={C} MONO={MONO} />
+          <Field label="Position Size" value={positionSize != null ? `${positionSize} contract${positionSize === 1 ? "" : "s"}` : "—"} color={positionSize === 0 ? C.amber : C.text} C={C} MONO={MONO} />
+        </div>
+      )}
+      {Number.isFinite(account?.equity) && positionSize === 0 && (
+        <div style={{ marginBottom: 14, fontFamily: SANS, fontSize: 13.5, color: C.amber }}>
+          A single real contract's own max loss (${ticket.maxLoss}) exceeds your real ${maxTradeRiskDollars?.toFixed(2)} risk budget for this trade — sizing to zero rather than rounding up into an oversized position.
+        </div>
+      )}
+
       <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 8 }}>HOW TO ENTER IN ROBINHOOD</div>
       <ol style={{ margin: "0 0 14px", paddingLeft: 22, fontFamily: SANS, fontSize: 16, color: C.text, lineHeight: 1.7 }}>
         {ticket.instructions.map((step, i) => <li key={i}>{step}</li>)}
@@ -464,9 +510,24 @@ function RobinhoodTicketCard({ symbol, strategy, ticket, loading, C, MONO, SANS,
             {showExit ? "▾" : "▸"} IF YOU ALREADY OWN THIS — HOW TO EXIT
           </button>
           {showExit && (
-            <ol style={{ margin: 0, paddingLeft: 22, fontFamily: SANS, fontSize: 15, color: C.text, lineHeight: 1.6 }}>
-              {ticket.sellToCloseInstructions.map((step, i) => <li key={i}>{step}</li>)}
-            </ol>
+            <>
+              <ol style={{ margin: "0 0 10px", paddingLeft: 22, fontFamily: SANS, fontSize: 15, color: C.text, lineHeight: 1.6 }}>
+                {ticket.sellToCloseInstructions.map((step, i) => <li key={i}>{step}</li>)}
+              </ol>
+              {/* Real cross-link (2026-09-08) to Position Manager's own
+                  existing real P/L + Hold/Scale Out/Move Stop/Exit Now
+                  engine (position-manager-engine.js) — a deliberate
+                  bridge, not a merge: that engine already tracks the
+                  actual entered position (entry premium, qty, live
+                  updates) which this scan-time card has no state for.
+                  Cross-linking avoids two competing, divergent "what do
+                  I do now" reads for the same real open position. */}
+              {setActiveTab && (
+                <button onClick={() => setActiveTab("position-manager")} style={{ fontFamily: MONO, fontSize: 13.5, fontWeight: 700, color: C.accent, background: "transparent", border: `1px solid ${C.accent}`, borderRadius: 7, padding: "7px 12px", cursor: "pointer" }}>
+                  Already entered this trade? Track it in Position Manager →
+                </button>
+              )}
+            </>
           )}
         </div>
       )}
