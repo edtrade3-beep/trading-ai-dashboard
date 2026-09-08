@@ -881,7 +881,24 @@ export default function TradeDeskTab({
           <MobileTradeDeskBody symbol={symbol} selectSymbol={selectSymbol} chart={chart} chartError={chartError} symbolQuote={symbolQuote} fundamentals={fundamentals} applyLightboxHandoff={applyLightboxHandoff} dayTradeHandoff={dayTradeHandoff} loadingChart={loadingChart} vcpOn={vcpOn} setVcpOn={setVcpOn} setActiveTab={setActiveTab} macroData={macroData} C={TD} MONO={MONO} SANS={SANS} />
         ) : (
           <div ref={gridRef} style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: `${leftColW}px 6px 1fr 6px ${rightColW}px` }}>
-            <div style={{ borderRight: `1px solid ${TD.border}`, minHeight: 0, overflow: "hidden", background: TD.bg }}>
+            {/* Real fix (2026-09-08, live user screenshot: two circled
+                overlaps, one on each side of this row) — this app has two
+                always-on fixed FABs that this exact class of bug has hit
+                before (see AutopilotPanel.jsx's own real paddingRight fix
+                for the identical right-side "⚡" quick-actions toggle,
+                axiom-live.jsx, position:fixed, bottom:10+statusBarH,
+                right:10, zIndex:9999, "always visible on every screen
+                size"): QuickTradePanel's own separate orange "⚡" launcher
+                sits at left:sidebarWidth+18 (fabLeft = sidebarFabLeft+18,
+                QuickTradePanel.jsx), spanning ~18-58px into whatever
+                renders immediately right of the sidebar — exactly this
+                column, which starts flush against it with no gap. Real
+                paddingLeft here clears that FAB's real footprint from
+                CommandSearchPanel's own flush-left content (Key Levels,
+                "I found N opportunities"), same convention as the
+                paddingRight fix on the right column below for the OTHER
+                always-on FAB. */}
+            <div style={{ borderRight: `1px solid ${TD.border}`, minHeight: 0, overflow: "hidden", background: TD.bg, paddingLeft: 60 }}>
               <CommandSearchPanel symbol={symbol} onSelectSymbol={selectSymbol} onOpenDaytrade={applyLightboxHandoff} chart={chart} symbolQuote={symbolQuote} fundamentals={fundamentals} C={TD} MONO={MONO} SANS={SANS} />
             </div>
             <div title="Drag to resize" onMouseDown={startColDrag("left")} onTouchStart={startColDrag("left")} style={dragHandleStyle} />
@@ -890,8 +907,14 @@ export default function TradeDeskTab({
             {/* Right column (2026-08-27) — Market Context moved to its own
                 real top-level section above the core zone, so this column
                 is Sniper (CortexMiniPanel) alone now, taking the full
-                real height instead of sharing it with a collapsed strip. */}
-            <div style={{ borderLeft: `1px solid ${TD.border}`, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column", background: TD.bg }}>
+                real height instead of sharing it with a collapsed strip.
+                paddingRight:56 (2026-09-08) — real clearance for the
+                always-on fixed "⚡" quick-actions FAB (right:10, width:32),
+                same exact convention as AutopilotPanel.jsx's own real fix
+                for this identical bug class: live-confirmed the FAB was
+                sitting directly over CortexMiniPanel's own Edge Timeline
+                sparkline (its real last-reading label/data point). */}
+            <div style={{ borderLeft: `1px solid ${TD.border}`, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column", background: TD.bg, paddingRight: 56 }}>
               <CortexMiniPanel symbol={symbol} onSelectSymbol={selectSymbol} setActiveTab={setActiveTab} dayTradeHandoff={dayTradeHandoff} macroData={macroData} fundamentals={fundamentals} C={TD} MONO={MONO} SANS={SANS} />
             </div>
           </div>
