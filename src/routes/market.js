@@ -5493,9 +5493,23 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
   // engine's own new route doesn't duplicate this real Polygon/Yahoo
   // fetch — same real data, same real ranking, one route builds one
   // structure from it and the other builds all of them).
-  async function fetchRankedChainForStrategy(symbol) {
+  // minDte (2026-09-08, Options Buy Assistant §10 "Exact Option
+  // Filtering" — explicit user spec: "The scanner should automatically
+  // reject... extremely short DTE unless using a separately tested
+  // strategy"). Real bug found live: this always picked expiryDates[0]
+  // (the single nearest available date) with no floor, and a real test
+  // against MSFT's live chain came back 1 DTE — a same-week contract
+  // dominated by gamma/theta, not the multi-day directional thesis this
+  // app's own strategy-selector.js structures assume. Default floor is 7
+  // real calendar days; a caller that genuinely wants 0-DTE can pass
+  // minDte:0 explicitly. Honestly falls back to the real nearest expiry
+  // (disclosed via `dteFloorMet:false`) when literally every available
+  // real expiry is inside the floor — never throws away a real, if
+  // short-dated, chain just because no long-dated one exists yet.
+  async function fetchRankedChainForStrategy(symbol, { minDte = 7 } = {}) {
     const polyKey = process.env.POLYGON_API_KEY || "";
-    let underlying = 0, calls = [], puts = [];
+    let underlying = 0, calls = [], puts = [], dteFloorMet = true, selectedExpiry = null;
+    const realDte = (dateStr) => Math.round((Date.parse(dateStr) - Date.now()) / 86_400_000);
 
     if (polyKey) {
       const PH = { "Accept": "application/json" };
@@ -5513,14 +5527,17 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
         const results = contractsJson?.results || [];
         const expiryDates = [...new Set(results.map(r => r.details?.expiration_date).filter(Boolean))].sort();
         const nearestExpiry = expiryDates[0];
-        const forExpiry = results.filter(r => r.details?.expiration_date === nearestExpiry);
+        const qualifying = expiryDates.find((d) => realDte(d) >= minDte);
+        selectedExpiry = qualifying || nearestExpiry;
+        dteFloorMet = !!qualifying;
+        const forExpiry = results.filter(r => r.details?.expiration_date === selectedExpiry);
         const mapP = (r) => {
           const d = r.details || {}, day = r.day || {}, greeks = r.greeks || {};
           return {
             contractSymbol: d.ticker || r.ticker || "", strike: round2(d.strike_price || 0),
             lastPrice: round2(day.last_price || day.close || 0), bid: round2(r.last_quote?.bid || 0), ask: round2(r.last_quote?.ask || 0),
             volume: Number(day.volume) || 0, openInterest: Number(r.open_interest) || 0,
-            iv: round2((r.implied_volatility || 0) * 100), expiry: d.expiration_date || nearestExpiry,
+            iv: round2((r.implied_volatility || 0) * 100), expiry: d.expiration_date || selectedExpiry,
             delta: greeks.delta != null ? round2(greeks.delta) : null,
           };
         };
@@ -5528,12 +5545,16 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
         puts = rankContracts(forExpiry.filter(r => r.details?.contract_type === "put").map(mapP), { underlying, isCall: false });
       }
     } else {
-      const chain = await fetchYahooOptionsChain(symbol, null);
+      const first = await fetchYahooOptionsChain(symbol, null);
+      const qualifying = (first.expiryDates || []).find((d) => realDte(d) >= minDte);
+      dteFloorMet = !!qualifying;
+      const chain = qualifying && qualifying !== first.selectedExpiry ? await fetchYahooOptionsChain(symbol, qualifying) : first;
       underlying = chain.underlying;
+      selectedExpiry = chain.selectedExpiry;
       calls = rankContracts(chain.calls, { underlying, isCall: true });
       puts = rankContracts(chain.puts, { underlying, isCall: false });
     }
-    return { underlying, calls, puts, source: polyKey ? "polygon" : "yahoo" };
+    return { underlying, calls, puts, source: polyKey ? "polygon" : "yahoo", selectedExpiry, dteFloorMet, minDte };
   }
 
   if (pathname === "/api/market/strategy" && req.method === "GET") {
@@ -5580,7 +5601,7 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
     const character = searchParams.get("character") || null;
     try {
       const { rankAllStrategies } = require("../strategy-ranking");
-      const { underlying, calls, puts, source } = await fetchRankedChainForStrategy(symbol);
+      const { underlying, calls, puts, source, selectedExpiry, dteFloorMet } = await fetchRankedChainForStrategy(symbol);
       if (!(underlying > 0) || (!calls.length && !puts.length)) {
         return writeJson(res, 200, { ok: true, symbol, underlying, ranked: [], unavailable: [], best: null, reason: "No real options chain available for this symbol right now." });
       }
@@ -5603,7 +5624,7 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
       const { explainStrategy } = require("../strategy-explain");
       const explained = ranked.map((s) => ({ ...s, explanation: explainStrategy(s, ranked, { bias, character, technicals }) }));
 
-      return writeJson(res, 200, { ok: true, symbol, underlying, bias, character, ranked: explained, unavailable, best: explained[0] || null, source, generatedAt: new Date().toISOString() });
+      return writeJson(res, 200, { ok: true, symbol, underlying, bias, character, ranked: explained, unavailable, best: explained[0] || null, source, selectedExpiry, dteFloorMet, generatedAt: new Date().toISOString() });
     } catch (err) {
       return writeJson(res, 502, { ok: false, error: err instanceof Error ? err.message : "Strategy ranking failed." });
     }
@@ -5646,7 +5667,7 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
 
         const perSymbol = await Promise.all(symbols.map(async (symbol) => {
           try {
-            const { underlying, calls, puts } = await fetchRankedChainForStrategy(symbol);
+            const { underlying, calls, puts, selectedExpiry, dteFloorMet } = await fetchRankedChainForStrategy(symbol);
             if (!(underlying > 0) || (!calls.length && !puts.length)) {
               return { symbol, ok: false, reason: "No real options chain available right now." };
             }
@@ -5655,7 +5676,7 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
             const best = ranked[0];
             const explanation = explainStrategy(best, ranked, {});
             const timing = classifyEntryTiming(partyStageBySymbol[symbol] || null);
-            return { symbol, ok: true, underlying, best: { ...best, explanation }, timing };
+            return { symbol, ok: true, underlying, best: { ...best, explanation }, timing, selectedExpiry, dteFloorMet };
           } catch (err) {
             return { symbol, ok: false, reason: err instanceof Error ? err.message : "Real chain fetch failed." };
           }
@@ -5685,7 +5706,7 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
     try {
       const { rankAllStrategies } = require("../strategy-ranking");
       const { buildRobinhoodOrderTicket } = require("../options-buy-assistant");
-      const { underlying, calls, puts } = await fetchRankedChainForStrategy(symbol);
+      const { underlying, calls, puts, selectedExpiry, dteFloorMet } = await fetchRankedChainForStrategy(symbol);
       if (!(underlying > 0) || (!calls.length && !puts.length)) {
         return writeJson(res, 200, { ok: true, symbol, ticket: { available: false, reason: "No real options chain available for this symbol right now." } });
       }
@@ -5695,6 +5716,9 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
         return writeJson(res, 200, { ok: true, symbol, ticket: { available: false, reason: wantStrategy ? `"${wantStrategy}" isn't buildable from the current real chain.` : "No real structure could be built from the current chain." } });
       }
       const ticket = buildRobinhoodOrderTicket({ symbol, rankedStrategy });
+      if (ticket.available && !dteFloorMet) {
+        ticket.shortDteWarning = `Only ${selectedExpiry} was available — every real expiry for this symbol is inside the normal 7-day minimum. Treat this as a separately-tested short-DTE trade, not a standard directional thesis.`;
+      }
       return writeJson(res, 200, { ok: true, symbol, underlying, ticket, generatedAt: new Date().toISOString() });
     } catch (err) {
       return writeJson(res, 502, { ok: false, error: err instanceof Error ? err.message : "Order ticket generation failed." });

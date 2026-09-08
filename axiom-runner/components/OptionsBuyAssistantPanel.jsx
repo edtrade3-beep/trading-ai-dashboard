@@ -151,6 +151,11 @@ function RobinhoodTicketCard({ ticket, loading, C, MONO, SANS, onClose }) {
         <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 800, color: C.text }}>ROBINHOOD ORDER — {ticket.symbol}</span>
         <button onClick={onClose} style={{ fontFamily: MONO, fontSize: 13, color: C.textSec, background: "transparent", border: "none", cursor: "pointer" }}>✕ CLOSE</button>
       </div>
+      {ticket.shortDteWarning && (
+        <div style={{ marginBottom: 12, padding: "10px 12px", background: `${C.amber}18`, border: `1px solid ${C.amber}66`, borderRadius: 8, fontFamily: SANS, fontSize: 14, color: C.text }}>
+          ⚠️ <b>SHORT DTE — {ticket.expiration}.</b> {ticket.shortDteWarning}
+        </div>
+      )}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginBottom: 14, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: 14 }}>
         <Field label="Direction" value={`${ticket.direction.icon} ${ticket.direction.label}`} color={dirColor} C={C} MONO={MONO} />
