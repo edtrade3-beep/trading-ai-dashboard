@@ -842,12 +842,8 @@ export default function TrendChart({ data, C, MONO, SANS, height, vcpOverlayOn }
                 </span>
               </>
             )}
-            <button onClick={toggleChartHidden} title={chartHidden ? "Show the candlestick chart" : "Hide the candlestick chart entirely"}
-              style={{ marginLeft: "auto", cursor: "pointer", background: chartHidden ? (C.accent || "#2563eb") : "transparent", border: `1px solid ${chartHidden ? C.accent : C.border}`, borderRadius: 6, padding: "2px 8px", color: chartHidden ? "#fff" : C.textDim, fontFamily: SANS, fontSize: 10.5, fontWeight: 800, lineHeight: 1.6 }}>
-              {chartHidden ? "📉 SHOW CHART" : "🚫 HIDE CHART"}
-            </button>
             <button onClick={toggleCollapsed} title={collapsed ? "Show full rating card" : "Shrink to just the score — gives the chart more room"}
-              style={{ cursor: "pointer", background: "transparent", border: "none", padding: 0, color: C.textDim, fontFamily: SANS, fontSize: 11, fontWeight: 800, lineHeight: 1 }}>
+              style={{ marginLeft: "auto", cursor: "pointer", background: "transparent", border: "none", padding: 0, color: C.textDim, fontFamily: SANS, fontSize: 11, fontWeight: 800, lineHeight: 1 }}>
               {collapsed ? "▸" : "▾"}
             </button>
           </div>
@@ -929,6 +925,25 @@ export default function TrendChart({ data, C, MONO, SANS, height, vcpOverlayOn }
             color: showLevels ? (C.textDim || "#888") : "#fff",
             border: `1px solid ${showLevels ? C.border : C.accent}`, boxShadow: "0 2px 10px rgba(0,0,0,0.18)" }}>
           {showLevels ? "🏷️ LEVELS ON" : "🏷️ LEVELS OFF"}
+        </button>
+        {/* Real fix (2026-09-08, live user report right after shipping
+            this button: overlapping on both the left AND right Trade Desk
+            columns) — HIDE CHART originally lived in the rating card's own
+            inline header row (next to "TREND & BASE RATING ⓘ"), which is
+            fine at a wide viewport but has zero real spare width once that
+            row sits inside Trade Desk's narrower resizable side columns —
+            confirmed live at 900px: the button rendered directly on top of
+            the wrapped "RATING" text instead of the row growing to fit it.
+            Moved into this exact same absolutely-positioned top-left stack
+            as EXPAND/TECHNICALS/LEVELS instead — that stack already proved
+            it never collides with real column widths (it's independent of
+            the header row's own real text-flow width entirely). */}
+        <button onClick={toggleChartHidden} title="Hide the candlestick chart entirely"
+          style={{ position: "absolute", top: 118, left: 12, zIndex: 5, fontFamily: MONO, fontSize: 9.5, fontWeight: 800,
+            letterSpacing: 0.3, padding: "5px 10px", borderRadius: 8, cursor: "pointer",
+            background: (C.card || "#fff"), color: (C.textDim || "#888"),
+            border: `1px solid ${C.border}`, boxShadow: "0 2px 10px rgba(0,0,0,0.18)" }}>
+          🚫 HIDE CHART
         </button>
       </div>
     </>
