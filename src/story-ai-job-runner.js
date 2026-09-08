@@ -209,11 +209,36 @@ async function runVideoStep(project) {
   const ffmpegOk = await checkFfmpegAvailable();
   if (!ffmpegOk) { setStep(project, "video", "warning", { reason: "FFmpeg is not installed on this server." }); return; }
 
-  const imageByScene = new Map((project.images || []).filter((i) => i.ok).map((i) => [i.sceneNumber, i.path]));
-  const audioByScene = new Map((project.audio || []).filter((a) => a.ok).map((a) => [a.sceneNumber, a.path]));
+  // Real bug found live (2026-09-08): project.images/.audio's own `ok`
+  // flag reflects whether generation succeeded AT THE TIME IT RAN — it
+  // is not a live guarantee the file still exists on THIS disk right
+  // now. A real production case: scene 2 was recorded ok:true (its own
+  // generation call really did succeed) but the file was genuinely
+  // absent when Video ran later, and ffmpeg correctly hard-failed
+  // ("Error opening input file... No such file or directory") rather
+  // than silently producing a broken video — assembly must never trust
+  // stale metadata over the real, current filesystem state. Re-verifies
+  // with fs.existsSync here so a scene whose file has since gone missing
+  // (redeploy wiping ephemeral disk, manual cleanup, a partial original
+  // write, etc. — several real causes, one real fix regardless of which)
+  // is honestly dropped from assembly instead of crashing the whole step.
+  const realFile = (p) => { try { return p && fs.existsSync(p); } catch { return false; } };
+  const imageByScene = new Map((project.images || []).filter((i) => i.ok && realFile(i.path)).map((i) => [i.sceneNumber, i.path]));
+  const audioByScene = new Map((project.audio || []).filter((a) => a.ok && realFile(a.path)).map((a) => [a.sceneNumber, a.path]));
   const usableScenes = (project.scenes || []).filter((s) => imageByScene.has(s.scene_number) && audioByScene.has(s.scene_number));
+  const missingAssetScenes = (project.scenes || [])
+    .filter((s) => !usableScenes.includes(s))
+    .map((s) => {
+      const hadImageRecord = (project.images || []).some((i) => i.sceneNumber === s.scene_number && i.ok);
+      const hadAudioRecord = (project.audio || []).some((a) => a.sceneNumber === s.scene_number && a.ok);
+      const imageGone = hadImageRecord && !imageByScene.has(s.scene_number);
+      const audioGone = hadAudioRecord && !audioByScene.has(s.scene_number);
+      if (imageGone || audioGone) return `scene ${s.scene_number} (real ${[imageGone && "image", audioGone && "audio"].filter(Boolean).join("+")} file missing on disk)`;
+      return null;
+    })
+    .filter(Boolean);
   if (!usableScenes.length) {
-    setStep(project, "video", "warning", { reason: "No scene has both a real image and real narration audio — nothing to assemble." });
+    setStep(project, "video", "warning", { reason: missingAssetScenes.length ? `No usable scenes — ${missingAssetScenes.join(", ")}.` : "No scene has both a real image and real narration audio — nothing to assemble." });
     return;
   }
 
@@ -290,7 +315,7 @@ async function runVideoStep(project) {
     // before this real assembly step existed to ever populate it) —
     // matching that existing real contract, not inventing a new one.
     project.finalVideo = { path: outPath, sceneCount: usableScenes.length, totalDurationSeconds: Math.round(durations.reduce((a, b) => a + b, 0) * 100) / 100, skippedScenes: skippedCount };
-    setStep(project, "video", "passed", skippedCount > 0 ? { reason: `${skippedCount} scene(s) skipped — missing a real image or narration audio.` } : {});
+    setStep(project, "video", "passed", skippedCount > 0 ? { reason: `${skippedCount} scene(s) skipped — ${missingAssetScenes.length ? missingAssetScenes.join(", ") : "missing a real image or narration audio"}.` } : {});
   } catch (err) {
     setStep(project, "video", "warning", { reason: `Real ffmpeg assembly failed: ${err.message}` });
   }
