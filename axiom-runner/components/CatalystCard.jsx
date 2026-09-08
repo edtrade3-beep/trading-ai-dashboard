@@ -47,36 +47,36 @@ export default function CatalystCard({ symbol, C, MONO, SANS }) {
 
   return (
     <div style={{ border: `1px solid ${soon ? C.amber : C.border}`, borderRadius: 10, padding: "12px 14px", background: C.card }}>
-      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: 0.6, marginBottom: 8 }}>📅 CATALYST — {symbol}</div>
-      {!earnings && <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>Loading real earnings date…</div>}
-      {earnings && !earnings.available && <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>No real forward earnings date available for {symbol}.</div>}
+      <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.textSec, letterSpacing: 0.6, marginBottom: 10 }}>📅 CATALYST — {symbol}</div>
+      {!earnings && <div style={{ fontFamily: SANS, fontSize: 13, color: C.textSec }}>Loading real earnings date…</div>}
+      {earnings && !earnings.available && <div style={{ fontFamily: SANS, fontSize: 13, color: C.textSec }}>No real forward earnings date available for {symbol}.</div>}
       {earnings && earnings.available && (
         <>
           <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-            <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: soon ? C.amber : C.text }}>
+            <span style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: soon ? C.amber : C.text }}>
               {new Date(earnings.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
             </span>
-            <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>{earnings.timing}</span>
+            <span style={{ fontFamily: MONO, fontSize: 13, color: C.textSec }}>{earnings.timing}</span>
           </div>
-          <div style={{ fontFamily: SANS, fontSize: 11, color: soon ? C.amber : C.textSec, marginTop: 3 }}>
+          <div style={{ fontFamily: SANS, fontSize: 13, color: soon ? C.amber : C.textSec, marginTop: 4 }}>
             {earnings.dte >= 0 ? `Earnings in ${earnings.dte} day${earnings.dte === 1 ? "" : "s"}` : `Reported ${Math.abs(earnings.dte)} day${Math.abs(earnings.dte) === 1 ? "" : "s"} ago`}
             {soon && " — real elevated event risk into this print."}
           </div>
         </>
       )}
 
-      <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${C.border}` }}>
-        <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 6 }}>UPCOMING MACRO EVENTS</div>
-        {!econ && <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim }}>Loading…</div>}
-        {econ && econ.reason && <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim }}>{econ.reason}</div>}
-        {econ && !econ.reason && !econ.events.length && <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim }}>No real high-impact US macro releases scheduled in the next 21 days.</div>}
+      <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${C.border}` }}>
+        <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.textSec, letterSpacing: 0.5, marginBottom: 8 }}>UPCOMING MACRO EVENTS</div>
+        {!econ && <div style={{ fontFamily: SANS, fontSize: 13, color: C.textSec }}>Loading…</div>}
+        {econ && econ.reason && <div style={{ fontFamily: SANS, fontSize: 13, color: C.textSec }}>{econ.reason}</div>}
+        {econ && !econ.reason && !econ.events.length && <div style={{ fontFamily: SANS, fontSize: 13, color: C.textSec }}>No real high-impact US macro releases scheduled in the next 21 days.</div>}
         {econ && econ.events?.length > 0 && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {[...econ.events].sort((a, b) => Date.parse(a.date) - Date.parse(b.date)).slice(0, 6).map((e, i) => (
-              <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: MONO, fontSize: 10.5 }}>
-                <span style={{ color: C.textDim, width: 42 }}>{new Date(e.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: MONO, fontSize: 13 }}>
+                <span style={{ color: C.textSec, width: 44 }}>{new Date(e.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
                 <span style={{ color: e.tag === "FED" ? C.amber : C.text, fontWeight: e.tag === "FED" ? 800 : 500, flex: 1 }}>{e.event}</span>
-                {e.estimate != null && <span style={{ color: C.textDim }}>est {e.estimate}</span>}
+                {e.estimate != null && <span style={{ color: C.textSec }}>est {e.estimate}</span>}
               </div>
             ))}
           </div>

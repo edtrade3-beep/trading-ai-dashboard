@@ -5,7 +5,7 @@ const ALIGN_META = {
   CONFIRMS: { color: "#0d9465", label: "CONFIRMS" },
   CONFLICTS: { color: "#c8282a", label: "CONFLICTS" },
   NEUTRAL: { color: "#d6a312", label: "NEUTRAL" },
-  REFERENCE: { color: "#7a8699", label: "REFERENCE" },
+  REFERENCE: { color: "#94a1b0", label: "REFERENCE" }, // bumped from #7a8699, 2026-09-07 contrast audit
 };
 
 // MultiTimeframePanel — Trade Desk redesign Phase 2, §10 ("Multi-Timeframe
@@ -47,26 +47,26 @@ export default function MultiTimeframePanel({ symbol, chart, C, MONO, SANS }) {
 
   return (
     <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 14px", background: C.card }}>
-      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: 0.6, marginBottom: 8 }}>⏱ MULTI-TIMEFRAME — {symbol}</div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+      <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.textSec, letterSpacing: 0.6, marginBottom: 10 }}>⏱ MULTI-TIMEFRAME — {symbol}</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
         {rows.map((r) => {
           const meta = r.alignment ? ALIGN_META[r.alignment] : null;
           return (
-            <div key={r.tf} style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: MONO, fontSize: 11 }}>
-              <span style={{ width: 28, color: C.textDim, fontWeight: 800 }}>{r.tf}</span>
+            <div key={r.tf} style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: MONO, fontSize: 14 }}>
+              <span style={{ width: 30, color: C.textSec, fontWeight: 800 }}>{r.tf}</span>
               <span style={{ flex: 1, color: C.text }}>{r.read || "unavailable"}</span>
-              {meta && <span style={{ fontSize: 9.5, fontWeight: 800, color: meta.color, background: `${meta.color}18`, borderRadius: 999, padding: "1px 8px" }}>{meta.label}</span>}
+              {meta && <span style={{ fontSize: 12, fontWeight: 800, color: meta.color, background: `${meta.color}18`, borderRadius: 999, padding: "1px 8px" }}>{meta.label}</span>}
             </div>
           );
         })}
       </div>
       {knownCount > 0 && (
-        <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${C.border}`, fontFamily: MONO, fontSize: 10.5, fontWeight: 800, color: conflictCount > 0 ? "#c8282a" : confirmCount === knownCount ? "#0d9465" : C.textDim }}>
+        <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${C.border}`, fontFamily: MONO, fontSize: 13, fontWeight: 800, color: conflictCount > 0 ? "#c8282a" : confirmCount === knownCount ? "#0d9465" : C.textSec }}>
           {confirmCount}/{knownCount} REAL TIMEFRAMES CONFIRM THE {dailyBias || "DAILY"} BIAS
         </div>
       )}
       {!mtf && (
-        <div style={{ marginTop: 6, fontFamily: SANS, fontSize: 10, color: C.textDim, fontStyle: "italic" }}>Loading real 4H/1H/15M reads…</div>
+        <div style={{ marginTop: 6, fontFamily: SANS, fontSize: 13, color: C.textSec, fontStyle: "italic" }}>Loading real 4H/1H/15M reads…</div>
       )}
     </div>
   );

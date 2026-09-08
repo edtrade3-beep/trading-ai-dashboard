@@ -40,10 +40,10 @@ export default function OptionsIntelligencePanel({ symbol, C, MONO, SANS }) {
   }, [symbol]);
 
   const tile = (label, value, sub, color) => (
-    <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 10px", background: C.card, flex: "1 1 110px", minWidth: 100 }}>
-      <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim, letterSpacing: 0.5 }}>{label}</div>
-      <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: color || C.text }}>{value}</div>
-      {sub && <div style={{ fontFamily: SANS, fontSize: 9.5, color: C.textDim, marginTop: 1 }}>{sub}</div>}
+    <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, padding: "9px 11px", background: C.card, flex: "1 1 110px", minWidth: 100 }}>
+      <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.textSec, letterSpacing: 0.5 }}>{label}</div>
+      <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 800, color: color || C.text }}>{value}</div>
+      {sub && <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, marginTop: 2 }}>{sub}</div>}
     </div>
   );
 
@@ -56,29 +56,29 @@ export default function OptionsIntelligencePanel({ symbol, C, MONO, SANS }) {
 
   return (
     <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 14px", background: C.surface, marginBottom: 12 }}>
-      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: 0.6, marginBottom: 8 }}>
+      <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.textSec, letterSpacing: 0.6, marginBottom: 10 }}>
         🧬 OPTIONS INTELLIGENCE — {symbol}{loading && " · loading…"}
       </div>
 
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
         {tile("IV RANK", vol?.ivRankState?.available ? `${vol.ivRank}%` : "—", vol?.ivRankState?.available ? `${vol.ivPercentile}th pctile` : (vol?.ivRankState?.reason || "No real data yet"))}
         {tile("HV20 / HV60", vol ? `${vol.hv20 ?? "—"}% / ${vol.hv60 ?? "—"}%` : "—", "Real realized volatility")}
         {tile("SKEW", vol?.skew?.available ? `${vol.skew.skew > 0 ? "+" : ""}${vol.skew.skew}` : "—", vol?.skew?.available ? vol.skew.label : (vol?.skew?.reason || "Unavailable"),
-          vol?.skew?.available ? (vol.skew.skew > 3 ? C.red : vol.skew.skew < -3 ? C.green : C.textDim) : undefined)}
+          vol?.skew?.available ? (vol.skew.skew > 3 ? C.red : vol.skew.skew < -3 ? C.green : C.textSec) : undefined)}
         {tile("GAMMA FLIP", gamma?.available ? `$${gamma.gammaFlipPoint ?? "—"}` : "—", gamma?.available ? `Wall: $${gamma.callWall ?? "—"} / $${gamma.putWall ?? "—"}` : (gamma?.reason || "Unavailable"))}
       </div>
 
-      <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 8 }}>
-        <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 5 }}>REAL FLOW — evidence, not an automatic direction call</div>
+      <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 10 }}>
+        <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.textSec, letterSpacing: 0.5, marginBottom: 7 }}>REAL FLOW — evidence, not an automatic direction call</div>
         {flowTotal > 0 ? (
-          <div style={{ display: "flex", alignItems: "center", gap: 10, fontFamily: MONO, fontSize: 11.5 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, fontFamily: MONO, fontSize: 14 }}>
             <span style={{ color: C.green, fontWeight: 800 }}>${(callN / 1000).toFixed(0)}K calls</span>
-            <span style={{ color: C.textDim }}>vs</span>
+            <span style={{ color: C.textSec }}>vs</span>
             <span style={{ color: C.red, fontWeight: 800 }}>${(putN / 1000).toFixed(0)}K puts</span>
-            {bySymbolFlow?.callPutRatio != null && <span style={{ color: C.textDim }}>· C/P {bySymbolFlow.callPutRatio}</span>}
+            {bySymbolFlow?.callPutRatio != null && <span style={{ color: C.textSec }}>· C/P {bySymbolFlow.callPutRatio}</span>}
           </div>
         ) : (
-          <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>No real unusual options flow recorded for {symbol} right now.</div>
+          <div style={{ fontFamily: SANS, fontSize: 13, color: C.textSec }}>No real unusual options flow recorded for {symbol} right now.</div>
         )}
       </div>
     </div>

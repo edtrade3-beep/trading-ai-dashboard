@@ -37,21 +37,21 @@ export default function InstitutionalFlowCard({ symbol, C, MONO, SANS }) {
 
   return (
     <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 14px", background: C.card }}>
-      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: 0.6, marginBottom: 8 }}>🏦 INSTITUTIONAL FLOW — {symbol}</div>
-      {loading && !score && <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>Loading real dark-pool/options/insider/short-interest data…</div>}
-      {!loading && !score && <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>No real institutional data available for {symbol} right now.</div>}
+      <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.textSec, letterSpacing: 0.6, marginBottom: 10 }}>🏦 INSTITUTIONAL FLOW — {symbol}</div>
+      {loading && !score && <div style={{ fontFamily: SANS, fontSize: 13, color: C.textSec }}>Loading real dark-pool/options/insider/short-interest data…</div>}
+      {!loading && !score && <div style={{ fontFamily: SANS, fontSize: 13, color: C.textSec }}>No real institutional data available for {symbol} right now.</div>}
       {score && (
         <>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6 }}>
-            <span style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: score.score >= 60 ? C.green : score.score <= 40 ? C.red : C.amber }}>{score.score}<span style={{ fontSize: 11, color: C.textDim }}> /100</span></span>
-            <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "2px 9px", borderRadius: 999, color: score.score >= 60 ? C.green : score.score <= 40 ? C.red : C.amber, background: score.score >= 60 ? `${C.green}18` : score.score <= 40 ? `${C.red}18` : `${C.amber}18` }}>{score.label}</span>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 8 }}>
+            <span style={{ fontFamily: MONO, fontSize: 24, fontWeight: 900, color: score.score >= 60 ? C.green : score.score <= 40 ? C.red : C.amber }}>{score.score}<span style={{ fontSize: 13, color: C.textSec }}> /100</span></span>
+            <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "2px 9px", borderRadius: 999, color: score.score >= 60 ? C.green : score.score <= 40 ? C.red : C.amber, background: score.score >= 60 ? `${C.green}18` : score.score <= 40 ? `${C.red}18` : `${C.amber}18` }}>{score.label}</span>
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
             {score.reasons.map((r, i) => (
-              <div key={i} style={{ fontFamily: SANS, fontSize: 10.5, color: C.textSec }}>· {r}</div>
+              <div key={i} style={{ fontFamily: SANS, fontSize: 13, color: C.text }}>· {r}</div>
             ))}
           </div>
-          <div style={{ fontFamily: SANS, fontSize: 9.5, color: C.textDim, fontStyle: "italic", marginTop: 6 }}>{score.disclosure}</div>
+          <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, fontStyle: "italic", marginTop: 8 }}>{score.disclosure}</div>
         </>
       )}
     </div>
