@@ -20,6 +20,15 @@ async function handleNewsIntel(req, res, requestUrl) {
     const limit = searchParams.get("limit") ? Number(searchParams.get("limit")) : 50;
     try {
       const result = await getFeed({ ticker, category, sentiment, minImpact, sinceMinutes, q, limit });
+      // News Scope Classification + structured brief (2026-09-07, "3-Second
+      // AI Decision System" spec) — a read-time, non-destructive
+      // enrichment over the SAME already-fetched real rows (no second
+      // query, no re-scoring). Additive `brief` field per row; every
+      // existing field/consumer is unchanged.
+      if (result.ok && result.rows?.length) {
+        const { buildNewsBrief } = require("../news/scope-classifier");
+        result.rows = result.rows.map((row) => ({ ...row, brief: buildNewsBrief(row) }));
+      }
       // Duplicate News Compression (2026-09-07, §11) — a read-time, non-
       // destructive grouping pass over the SAME already-fetched real rows
       // (no second query, no re-scoring). Additive field only: `rows`

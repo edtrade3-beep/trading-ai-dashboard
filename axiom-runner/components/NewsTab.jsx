@@ -40,6 +40,13 @@ export default function NewsTab({
   const [expandedClusters, setExpandedClusters] = useState(() => new Set());
   const [intelLoading, setIntelLoading] = useState(false);
   const [intelCategory, setIntelCategory] = useState("ALL");
+  // News Scope Classification (2026-09-07, "3-Second AI Decision System"
+  // spec: "Do not dump hundreds of headlines into the primary screen").
+  // Client-side filter over the server's own real `brief.scope` field
+  // (news/scope-classifier.js) — defaults to hiding NOISE so the primary
+  // Intel view only shows real market/sector/ticker-moving stories;
+  // "SHOW ALL (INC. NOISE)" opts back into the unfiltered real feed.
+  const [intelScope, setIntelScope] = useState("MEANINGFUL");
   const [intelSentiment, setIntelSentiment] = useState("ALL");
   const [intelFreshness, setIntelFreshness] = useState(null); // minutes, null = no filter
   const [intelMinImpact, setIntelMinImpact] = useState(0);
@@ -385,6 +392,16 @@ export default function NewsTab({
                     <button onClick={() => setGroupedView(true)} style={chipBtn(groupedView)} title="Same real event from multiple outlets shown as one story">GROUPED</button>
                     <button onClick={() => setGroupedView(false)} style={chipBtn(!groupedView)}>ALL ITEMS</button>
                   </div>
+                  {!groupedView && (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center" }}>
+                      <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginRight: 4 }}>SCOPE</span>
+                      <button onClick={() => setIntelScope("MEANINGFUL")} style={chipBtn(intelScope === "MEANINGFUL")} title="Hides NOISE-classified stories">MEANINGFUL ONLY</button>
+                      <button onClick={() => setIntelScope("MARKET_MOVING")} style={chipBtn(intelScope === "MARKET_MOVING")}>MARKET</button>
+                      <button onClick={() => setIntelScope("SECTOR_MOVING")} style={chipBtn(intelScope === "SECTOR_MOVING")}>SECTOR</button>
+                      <button onClick={() => setIntelScope("TICKER_MOVING")} style={chipBtn(intelScope === "TICKER_MOVING")}>TICKER</button>
+                      <button onClick={() => setIntelScope("ALL")} style={chipBtn(intelScope === "ALL")}>SHOW ALL (INC. NOISE)</button>
+                    </div>
+                  )}
                 </div>
 
                 <div style={{ display: "grid", gap: 10 }}>
@@ -440,7 +457,9 @@ export default function NewsTab({
                   {!intelLoading && groupedView && !intelClusters.length && intelRows.length > 0 && (
                     <div style={{ color: C.textDim, fontSize: 13, fontFamily: MONO }}>No real news items matching these filters yet.</div>
                   )}
-                  {!intelLoading && !groupedView && intelRows.map((r) => {
+                  {!intelLoading && !groupedView && intelRows
+                    .filter((r) => intelScope === "ALL" || (intelScope === "MEANINGFUL" ? r.brief?.scope !== "NOISE" : r.brief?.scope === intelScope))
+                    .map((r) => {
                     const verdict = VERDICT_META[r.verdict] || null;
                     const impactColor = IMPACT_COLOR(r.impact_score || 0);
                     let confirmation = null;
@@ -450,8 +469,14 @@ export default function NewsTab({
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 8, marginBottom: 6 }}>
                           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                             <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.accent }}>{r.ticker}</span>
+                            {r.brief?.scope && (
+                              <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.textSec, border: `1px solid ${C.border}`, borderRadius: 5, padding: "1px 6px" }}>{r.brief.scope.replace(/_/g, " ")}</span>
+                            )}
                             {(r.impact_score || 0) >= 80 && (
                               <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: impactColor }}>🔥 {IMPACT_LABEL(r.impact_score)} IMPACT</span>
+                            )}
+                            {r.brief?.changesVerdict && (
+                              <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.gold, background: `${C.gold}18`, borderRadius: 5, padding: "1px 6px" }}>🚨 REVIEW VERDICT</span>
                             )}
                           </div>
                           <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: "#fff", background: impactColor, borderRadius: 5, padding: "2px 7px" }}>{r.impact_score ?? "—"}</span>
