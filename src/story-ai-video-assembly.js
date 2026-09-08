@@ -106,13 +106,35 @@ function buildFinalMuxArgs({ concatListPath, narrationAudioPath, musicPath, srtP
 // separate from the pure builders above precisely so the builders can be
 // unit-tested without a real ffmpeg binary, while this function is the
 // one real place actual process execution happens.
+// Real bug found live (2026-09-08): a real 15-scene production run
+// against this exact function hung for 10+ minutes with zero progress
+// and zero error — runVideoStep's own real per-scene loop calls this up
+// to 30+ times (audio-duration probes + clip builds + concat + mux), and
+// with no timeout at all, a single ffmpeg invocation that never emits
+// "exit" (a real stall — Render's shared/limited CPU, a specific input
+// triggering a real ffmpeg-side hang, anything) blocks the ENTIRE retry
+// forever, holding story-ai-job-runner.js's own `running` in-memory lock
+// open with no way to recover short of restarting the whole server.
+// Real, generous 5-minute per-invocation ceiling — comfortably above
+// any real single clip-build/probe/mux this app's own scene counts and
+// durations should need, but a genuine, disclosed bound rather than none.
+const FFMPEG_TIMEOUT_MS = 5 * 60_000;
 function runFfmpeg(args, { cwd } = {}) {
   return new Promise((resolve, reject) => {
     const proc = spawn(FFMPEG_BIN, args, { cwd });
     let stderr = "";
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      proc.kill("SIGKILL");
+      reject(new Error(`ffmpeg did not finish within ${FFMPEG_TIMEOUT_MS / 1000}s — killed as a real stalled process, not a guessed hang.`));
+    }, FFMPEG_TIMEOUT_MS);
     proc.stderr.on("data", (d) => { stderr += d.toString(); });
-    proc.on("error", (err) => reject(new Error(`ffmpeg failed to start: ${err.message}`)));
+    proc.on("error", (err) => { if (settled) return; settled = true; clearTimeout(timer); reject(new Error(`ffmpeg failed to start: ${err.message}`)); });
     proc.on("exit", (code) => {
+      if (settled) return;
+      settled = true; clearTimeout(timer);
       if (code === 0) resolve({ ok: true });
       else reject(new Error(`ffmpeg exited with code ${code}: ${stderr.slice(-2000)}`));
     });
@@ -133,9 +155,19 @@ function getAudioDurationSeconds(filePath) {
   return new Promise((resolve) => {
     const proc = spawn(FFMPEG_BIN, ["-i", filePath, "-f", "null", "-"]);
     let stderr = "";
+    let settled = false;
+    // Same real stalled-process protection as runFfmpeg above — this
+    // fully decodes the file (not just reads its header), so a real
+    // malformed real input could genuinely hang it. Resolves null
+    // (never throws, matching this function's own existing honest-null
+    // contract) rather than rejecting, so one stuck duration probe can't
+    // crash the whole per-scene loop.
+    const timer = setTimeout(() => { if (settled) return; settled = true; proc.kill("SIGKILL"); resolve(null); }, FFMPEG_TIMEOUT_MS);
     proc.stderr.on("data", (d) => { stderr += d.toString(); });
-    proc.on("error", () => resolve(null));
+    proc.on("error", () => { if (settled) return; settled = true; clearTimeout(timer); resolve(null); });
     proc.on("close", () => {
+      if (settled) return;
+      settled = true; clearTimeout(timer);
       const m = stderr.match(/Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/);
       if (!m) { resolve(null); return; }
       const seconds = Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]);
