@@ -216,9 +216,25 @@ function answerWhatChanges({ catalystScore, catalystLabel } = {}) {
 // with real entry timing. Never "undervalued" alone; always paired with
 // a real technical-timing read (party-stage-engine.js's entryTimingScore
 // or a caller-supplied equivalent).
-function answerWhen({ mispricingScore, entryTimingScore } = {}) {
+// Real bug found and fixed via this session's own adversarial audit
+// (Scenario 10 — "a hidden gem thesis deteriorates"): mispricingScore is
+// a WEIGHTED AVERAGE across ~10 components, only some of which (revenue/
+// EPS/margin/balance-sheet trend, ~33% of total weight) actually reflect
+// the real multi-quarter divergence trend — the rest (valuation, ROIC,
+// FCF quality, timing) are current-snapshot reads that don't move when
+// the trend reverses. A real, live test proved this: a name whose real
+// fundamentals fully reversed to 5/5 metrics deteriorating (a confirmed
+// classifyValueTrapRisk atRisk:true) still scored 58/100 on mispricing
+// alone — comfortably above the 55 floor — because answerWhen never
+// actually looked at the real value-trap flag before declaring
+// ACCUMULATE NOW. This is the exact "narrative defense" failure mode the
+// spec's own adversarial-agent section calls out by name. Fixed: a real
+// confirmed value-trap risk is now a hard gate, checked BEFORE the score
+// floor, regardless of how high mispricingScore still reads.
+function answerWhen({ mispricingScore, entryTimingScore, valueTrapRisk } = {}) {
   const hasQuality = Number.isFinite(mispricingScore);
   const hasTiming = Number.isFinite(entryTimingScore);
+  if (valueTrapRisk?.atRisk) return { verdict: "VALUE_TRAP_AVOID", icon: "🔴", label: "Value Trap — Avoid" };
   if (!hasQuality) return { verdict: "INSUFFICIENT_DATA", icon: "⚪", label: "Insufficient real data" };
   if (mispricingScore < 55) return { verdict: "NOT_A_GEM", icon: "⚪", label: "Not a real mispricing case right now" };
   if (!hasTiming || entryTimingScore < 40) return { verdict: "EXCELLENT_COMPANY_WAIT", icon: "🟡", label: "Excellent Company — Wait" };
@@ -240,7 +256,7 @@ function computeHiddenGemProfile(inputs = {}) {
   const divergence = computeFundamentalDivergence(inputs);
   const valueTrapRisk = classifyValueTrapRisk({ valueScore: inputs.valueScore, divergence });
   const mispricing = computeMispricingScore({ ...inputs, divergence }, inputs.weights);
-  const when = answerWhen({ mispricingScore: mispricing.score, entryTimingScore: inputs.relativeStrengthTiming });
+  const when = answerWhen({ mispricingScore: mispricing.score, entryTimingScore: inputs.relativeStrengthTiming, valueTrapRisk });
   return {
     divergence, valueTrapRisk, mispricing,
     why: answerWhy({ divergence }),

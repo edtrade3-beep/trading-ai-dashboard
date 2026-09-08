@@ -12,7 +12,7 @@ import { useState, useEffect } from "react";
 // Desk's core zone is a fixed, viewport-derived height shared with
 // ChartPane, so an always-open panel here would eat into that budget.
 
-const WHEN_COLOR = { ACCUMULATE_NOW: "green", EXCELLENT_COMPANY_WAIT: "amber", NOT_A_GEM: "textDim", INSUFFICIENT_DATA: "textDim" };
+const WHEN_COLOR = { ACCUMULATE_NOW: "green", EXCELLENT_COMPANY_WAIT: "amber", NOT_A_GEM: "textDim", INSUFFICIENT_DATA: "textDim", VALUE_TRAP_AVOID: "red" };
 
 export default function HiddenGemPanel({ symbol, C, MONO, SANS }) {
   const [data, setData] = useState(null);

@@ -144,6 +144,14 @@ ok("answerWhen: a real weak mispricing score is honestly 'not a gem', regardless
 ok("answerWhen: no real mispricing score at all -> honest insufficient-data, never guessed", () => {
   assert.strictEqual(answerWhen({}).verdict, "INSUFFICIENT_DATA");
 });
+ok("answerWhen: a real confirmed value-trap risk is a hard gate — never ACCUMULATE_NOW regardless of how high the score still reads (regression: found live via this session's own adversarial audit, Scenario 10)", () => {
+  const r = answerWhen({ mispricingScore: 90, entryTimingScore: 90, valueTrapRisk: { atRisk: true, reason: "real deteriorating fundamentals" } });
+  assert.strictEqual(r.verdict, "VALUE_TRAP_AVOID");
+});
+ok("answerWhen: no real value-trap risk present -> the score/timing gates behave exactly as before (no regression)", () => {
+  const r = answerWhen({ mispricingScore: 90, entryTimingScore: 90, valueTrapRisk: { atRisk: false } });
+  assert.strictEqual(r.verdict, "ACCUMULATE_NOW");
+});
 
 ok("answerWhatInvalidates always includes real technical and time-based invalidation, even with no fundamental risk", () => {
   const items = answerWhatInvalidates({ divergence: { metrics: {} }, valueTrapRisk: { atRisk: false } });
