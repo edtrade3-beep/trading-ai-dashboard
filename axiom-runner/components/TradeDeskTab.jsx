@@ -313,6 +313,30 @@ export default function TradeDeskTab({
   // to the page/scroll length when opened — the fixed bottom StatusBar
   // stays correctly pinned to the true viewport bottom regardless.
   const rootRef = useRef(null);
+  // Real fix (2026-09-08, live user report: "overlapping in both sides
+  // left and right"). Root cause, confirmed live (Playwright at a real
+  // 1400x750 short-browser-window size): rootHeight below is ONE fixed
+  // pixel number for the whole column (ticker/CASH-RISK bars +
+  // MarketCommandCenter + TradeGpsCard + this 3-pane row), split via
+  // flexbox — TradeGpsCard takes its own natural content height first,
+  // the 3-pane row absorbs whatever's left via flex:1/minHeight:0. That
+  // works fine at a tall window, but TradeGpsCard's real height doesn't
+  // shrink with a SHORT window (only with a narrower one, via its own
+  // flex-wrap) — so at a short window the leftover for this row collapsed
+  // to well under 100px, truncating SEARCH/CORTEX's own real content to a
+  // sliver flush against BeforeItPopsPanel right below, reading as
+  // "overlapping" even though nothing technically shared pixels.
+  // rootRef deliberately has NO overflow:hidden (see this file's own
+  // established reasoning below) — simply giving the 3-pane row a real
+  // minHeight would have made ITS rendered content taller than rootRef's
+  // own fixed height with nothing to clip it, spilling into
+  // BeforeItPopsPanel for real this time. The actual fix has to grow
+  // rootHeight itself: measure the real distance from rootRef's own top to
+  // this row's top (i.e., the real height everything ABOVE it is already
+  // taking), and never let rootHeight sit below that plus a real 320px
+  // floor for the row itself (roughly TrendChart's own rating-card header
+  // plus its own internal 200px canvas floor).
+  const gridRef = useRef(null);
   const [rootHeight, setRootHeight] = useState(null);
   useEffect(() => {
     const measure = () => {
@@ -321,14 +345,27 @@ export default function TradeDeskTab({
       const top = Math.max(0, el.getBoundingClientRect().top);
       // Leave room for the fixed status bar and browser zoomed layouts. A
       // 560px floor made the chart extend below the viewport at 125% zoom.
-      const h = Math.max(420, Math.floor(window.innerHeight - top - 90));
+      const viewportBased = Math.floor(window.innerHeight - top - 90);
+      let minForGrid = 0;
+      if (gridRef.current) {
+        const gridTop = gridRef.current.getBoundingClientRect().top;
+        minForGrid = Math.max(0, gridTop - el.getBoundingClientRect().top) + 320;
+      }
+      const h = Math.max(420, viewportBased, minForGrid);
       setRootHeight((prev) => (prev == null || Math.abs(prev - h) > 4 ? h : prev));
     };
     measure();
+    // Real second pass (2026-09-08) — TradeGpsCard's own real height can
+    // still be settling right after mount (its canonical-decision fetch
+    // is async; a "STOP TRADING"/stale-data message or extra wrapped row
+    // can add real height after the first measure already ran). Same
+    // settle-once-more convention TrendChart.jsx's own scroll-settle
+    // correction already uses elsewhere in this app.
+    const settle = setTimeout(measure, 1200);
     let t;
     const onResize = () => { clearTimeout(t); t = setTimeout(measure, 200); };
     window.addEventListener("resize", onResize);
-    return () => { window.removeEventListener("resize", onResize); clearTimeout(t); };
+    return () => { window.removeEventListener("resize", onResize); clearTimeout(t); clearTimeout(settle); };
   }, []);
   const selectSymbol = (s) => {
     const sym = String(s || "").trim().toUpperCase();
@@ -842,7 +879,7 @@ export default function TradeDeskTab({
         {isMobile ? (
           <MobileTradeDeskBody symbol={symbol} selectSymbol={selectSymbol} chart={chart} chartError={chartError} symbolQuote={symbolQuote} fundamentals={fundamentals} applyLightboxHandoff={applyLightboxHandoff} dayTradeHandoff={dayTradeHandoff} loadingChart={loadingChart} vcpOn={vcpOn} setVcpOn={setVcpOn} setActiveTab={setActiveTab} macroData={macroData} C={TD} MONO={MONO} SANS={SANS} />
         ) : (
-          <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: `${leftColW}px 6px 1fr 6px ${rightColW}px` }}>
+          <div ref={gridRef} style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: `${leftColW}px 6px 1fr 6px ${rightColW}px` }}>
             <div style={{ borderRight: `1px solid ${TD.border}`, minHeight: 0, overflow: "hidden", background: TD.bg }}>
               <CommandSearchPanel symbol={symbol} onSelectSymbol={selectSymbol} onOpenDaytrade={applyLightboxHandoff} chart={chart} symbolQuote={symbolQuote} fundamentals={fundamentals} C={TD} MONO={MONO} SANS={SANS} />
             </div>
