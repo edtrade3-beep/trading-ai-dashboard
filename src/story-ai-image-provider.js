@@ -9,35 +9,51 @@
 //
 // DISCLOSED: the OpenAI branch below is real, standard REST-call code
 // (same fetch/timeout/error-handling shape as this app's other HTTP
-// providers, e.g. providers/yahoo.js) but has never been exercised
-// against a real OpenAI key in this environment (none is configured
-// here) — it is UNTESTED beyond the NOT_CONFIGURED path, which IS fully
-// tested (see test/story-ai-core.test.js). Do not treat "the code
-// looks right" as "verified working."
+// providers, e.g. providers/yahoo.js). First real run against a real
+// OPENAI_API_KEY (2026-09-08) found and fixed a real bug (the 60s
+// timeout was too tight for gpt-image-1's real generation latency — see
+// generateWithOpenAi's own comment) — do not treat "the code looks
+// right" as "verified working" for anything not yet actually exercised
+// against a live key, this file's own history included.
 
 const { IMAGE_PROVIDER, OPENAI_API_KEY, REPLICATE_API_TOKEN, imageProviderConfigured } = require("./story-ai-config");
 
 function isConfigured() { return imageProviderConfigured(); }
 
-// UNTESTED (no OpenAI key in this environment) — real request shape per
-// OpenAI's own current API docs (verified live via fetched docs,
-// 2026-09-07). Real bug found and fixed before ever being tried: the
-// original default size "1024x1792" is a DALL-E-3 size value, NOT valid
-// for gpt-image-1 (the model this actually calls) — gpt-image-1 only
-// accepts "1024x1024", "1536x1024", "1024x1536", or "auto", so the old
-// default would have failed with a real 400 on the very first attempt.
-// "1024x1536" (2:3 portrait) is the closest real supported size to this
-// app's 9:16 target — there's no exact 9:16-native size for this model,
-// an honest, disclosed compromise, not a silent inaccuracy. response_format
-// is deliberately omitted: per OpenAI's own docs it's DALL-E-only — GPT
-// image models always return base64 (the real b64_json field below)
-// without it.
+// Real bug found live (2026-09-08, first real run against a real
+// OPENAI_API_KEY once the user configured one on Render): every scene
+// image failed with "PROVIDER_ERROR: The operation was aborted due to
+// timeout" — gpt-image-1 genuinely, routinely takes longer than 60s to
+// generate a single image at its default ("auto") quality, especially
+// with 4 real requests running concurrently (IMAGE_VOICE_CONCURRENCY,
+// story-ai-job-runner.js) all competing for the same real account rate
+// limit. 60s was a guess made before this was ever exercised against a
+// real key (see this file's own now-outdated "UNTESTED" framing below,
+// left in place as the honest history of what was/wasn't verified before
+// today); real observed gpt-image-1 latency runs from well under a
+// minute up past two, so 60s was simply too tight. Raised to a real 3
+// minutes — generous enough to cover the real distribution without
+// masking an actually-hung request forever.
+//
+// Real request shape per OpenAI's own current API docs (verified live
+// via fetched docs, 2026-09-07). Real bug found and fixed before ever
+// being tried: the original default size "1024x1792" is a DALL-E-3 size
+// value, NOT valid for gpt-image-1 (the model this actually calls) —
+// gpt-image-1 only accepts "1024x1024", "1536x1024", "1024x1536", or
+// "auto", so the old default would have failed with a real 400 on the
+// very first attempt. "1024x1536" (2:3 portrait) is the closest real
+// supported size to this app's 9:16 target — there's no exact 9:16-
+// native size for this model, an honest, disclosed compromise, not a
+// silent inaccuracy. response_format is deliberately omitted: per
+// OpenAI's own docs it's DALL-E-only — GPT image models always return
+// base64 (the real b64_json field below) without it.
+const OPENAI_IMAGE_TIMEOUT_MS = 180_000;
 async function generateWithOpenAi(prompt, { size = "1024x1536" } = {}) {
   const res = await fetch("https://api.openai.com/v1/images/generations", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${OPENAI_API_KEY}` },
     body: JSON.stringify({ model: "gpt-image-1", prompt, size, n: 1 }),
-    signal: AbortSignal.timeout(60000),
+    signal: AbortSignal.timeout(OPENAI_IMAGE_TIMEOUT_MS),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.error?.message || `OpenAI image API error (${res.status})`);
