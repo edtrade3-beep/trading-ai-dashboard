@@ -1,5 +1,14 @@
 import { computeKeyLevels } from "./market-helpers.js";
 
+// Single source of truth for the price series' real share of the chart's
+// vertical pixels (candles get squeezed into the top 70% so the volume
+// pane below has its own room — see the rightPriceScale/vol-scale split
+// further down). The price-line-label collision math (pl()'s minGap,
+// below) needs this exact same fraction to convert a real dollar gap into
+// a real on-screen pixel gap — a second, duplicated 0.70 would silently
+// drift from the actual scaleMargins if either ever changed alone.
+const PRICE_SCALE_MARGINS = { top: 0.08, bottom: 0.22 };
+
 // Lightweight-Charts candlestick chart with MA50/150/200, Bollinger Bands,
 // pivot/stop/target price lines, base-low line, AI-target line, and
 // BUY/EXIT markers, plus an "Overall Rating" derived from trend score + VCP
@@ -187,7 +196,7 @@ export default function TrendChart({ data, C, MONO, SANS, height, vcpOverlayOn }
       // alone wouldn't fix this (both scales are proportional margins, so
       // the same relative overlap persists at any height) — the real fix
       // is giving the two scales non-overlapping territory.
-      rightPriceScale: { borderColor: C.border || "#ccc", scaleMargins: { top: 0.08, bottom: 0.22 } },
+      rightPriceScale: { borderColor: C.border || "#ccc", scaleMargins: PRICE_SCALE_MARGINS },
       timeScale: { borderColor: C.border || "#ccc" },
       crosshair: { mode: LC.CrosshairMode ? LC.CrosshairMode.Normal : 1 },
       // Mouse-wheel scroll was hijacked by the chart's own zoom/pan (default
@@ -507,11 +516,29 @@ export default function TrendChart({ data, C, MONO, SANS, height, vcpOverlayOn }
     // support/resistance last) so the more actionable label always wins.
     const plRange = { max: Math.max(...bars.map(b => b.high)), min: Math.min(...bars.map(b => b.low)) };
     const plShown = [];
+    // Real fix (2026-09-07, live user report the 3.5%-of-range heuristic
+    // above didn't clear: "its overlapping" on a chart showing AI TARGET/
+    // PIVOT/PRICE/S2/BASE LOW bunched together). The old threshold treated
+    // "3.5% of the price range" as a proxy for "far enough apart on
+    // screen", but candles only ever occupy PRICE_SCALE_MARGINS' own
+    // usable fraction of the canvas (the rest is reserved for the volume
+    // pane below) — so the same dollar gap renders into FEWER real pixels
+    // than a flat range-fraction assumes. Converting through the actual
+    // measured canvas height + that real fraction gives a real
+    // pixels-per-dollar density, so the threshold can target an actual
+    // minimum label height instead of an arbitrary percentage.
+    const usableFraction = 1 - PRICE_SCALE_MARGINS.top - PRICE_SCALE_MARGINS.bottom;
+    const canvasPx = (elRef.current && elRef.current.clientHeight) || effectiveH;
+    const MIN_LABEL_PX = 15; // real price-line label box height at this font, plus a hair of breathing room
     const pl = (price, color, title, style) => {
       if (price == null || !isFinite(price)) return;
       if (price > plRange.max) plRange.max = price;
       if (price < plRange.min) plRange.min = price;
-      const minGap = Math.max(1e-6, plRange.max - plRange.min) * 0.035;
+      // Recomputed every call: plRange keeps widening as farther-out
+      // candidates (a projected AI TARGET above the real bar high, e.g.)
+      // get folded in, which changes the real pixels-per-dollar density.
+      const pxPerDollar = (canvasPx * usableFraction) / Math.max(1e-6, plRange.max - plRange.min);
+      const minGap = MIN_LABEL_PX / Math.max(1e-6, pxPerDollar);
       if (plShown.some(v => Math.abs(v - price) < minGap)) return;
       plShown.push(price);
       s.priceLines.push(s.candle.createPriceLine({ price, color, lineWidth: 1, lineStyle: style, axisLabelVisible: true, title }));
@@ -585,6 +612,24 @@ export default function TrendChart({ data, C, MONO, SANS, height, vcpOverlayOn }
       const { resistance, support } = computeKeyLevels(bars, curPrice);
       resistance.forEach((r, i) => pl(Math.round(r * 100) / 100, "#8b5cf6", `R${i + 1}`, LS.Dotted ?? 1));
       support.forEach((s, i) => pl(Math.round(s * 100) / 100, "#8b5cf6", `S${i + 1}`, LS.Dotted ?? 1));
+    }
+    // Real fix (2026-09-07, same live overlap report): the autoscale range
+    // set above (right after setData) only ever looked at real bar highs/
+    // lows — it never knew about AI TARGET, T2/T3, or the R/S swing levels
+    // computed here, all of which can sit ABOVE the real bar high (AI
+    // TARGET is a projected future price by definition) or below the real
+    // bar low. When one did, the library rendered that price line pinned
+    // to the very edge of the visible scale — bunching its label together
+    // with whatever else also sits near that edge instead of spread out
+    // across the real range. plRange (widened by every pl() call above,
+    // including candidates that lost the dedup check) is the real union of
+    // every price this chart is actually trying to plot, so re-apply the
+    // same 5%-padding formula against THAT instead of the narrower bars-
+    // only range.
+    {
+      const pad = (plRange.max - plRange.min) * 0.05;
+      const minValue = Math.max(0, plRange.min - pad), maxValue = plRange.max + pad;
+      s.candle.applyOptions({ autoscaleInfoProvider: () => ({ priceRange: { minValue, maxValue } }) });
     }
     // BUY = most recent reclaim of the rising 50-day MA; EXIT = first close back below it.
     const ma50s = data.series.ma50 || []; let buyIdx = -1;
