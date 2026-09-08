@@ -180,6 +180,59 @@ async function fetchFmpFundamentals(symbol, fmpKey) {
   };
 }
 
+// Real quarterly fundamentals HISTORY (2026-09-07, Mispricing/Fundamental
+// Divergence Engine — "3-Second AI Decision System" spec §4: "compare
+// ~90 days ago vs today"). Additive — fetchFmpFundamentals above is
+// completely unchanged and still the single-snapshot read every existing
+// caller uses; this is a NEW function for a genuinely new need (a real
+// trend, not just the latest reading), not a duplicate of it. FMP's own
+// `financial-growth` endpoint already returns one entry PER quarter, each
+// carrying that quarter's own real period-over-period growth rate — so
+// fetching it with limit=N directly gives the real "8% -> 11% -> 15%"
+// trend the spec's own example shows, no separate snapshot store needed.
+// Sorted oldest -> newest (FMP returns newest-first).
+async function fetchFmpFundamentalsHistory(symbol, fmpKey, quarters = 4) {
+  if (!fmpKey || !symbol) return null;
+  const k = encodeURIComponent(fmpKey), s = encodeURIComponent(symbol);
+  const n = Math.max(2, Math.min(8, Number(quarters) || 4));
+  const url = (p) => `https://financialmodelingprep.com/stable/${p}?symbol=${s}&period=quarter&limit=${n}&apikey=${k}`;
+  const [growthP, ratiosP, keyMetricsP, balanceSheetP] = await Promise.all([
+    fetchJsonSafe(url("financial-growth")),
+    fetchJsonSafe(url("ratios")),
+    fetchJsonSafe(url("key-metrics")),
+    fetchJsonSafe(url("balance-sheet-statement")),
+  ]);
+  const growthRows = Array.isArray(growthP) ? growthP : [];
+  const ratiosRows = Array.isArray(ratiosP) ? ratiosP : [];
+  const keyMetricsRows = Array.isArray(keyMetricsP) ? keyMetricsP : [];
+  const balanceRows = Array.isArray(balanceSheetP) ? balanceSheetP : [];
+  if (!growthRows.length && !ratiosRows.length) return null;
+  const nn = (v) => { const x = Number(v); return Number.isFinite(x) ? x : null; };
+  const byDate = (rows) => Object.fromEntries(rows.map((r) => [r.date, r]));
+  const ratiosByDate = byDate(ratiosRows), keyMetricsByDate = byDate(keyMetricsRows), balanceByDate = byDate(balanceRows);
+  const quarterlyRows = growthRows.length ? growthRows : ratiosRows;
+  const history = quarterlyRows.map((g) => {
+    const ratios = ratiosByDate[g.date] || null;
+    const km = keyMetricsByDate[g.date] || null;
+    const bs = balanceByDate[g.date] || null;
+    return {
+      date: g.date, fiscalYear: g.fiscalYear || null, period: g.period || null,
+      revenueGrowth: nn(g.revenueGrowth),
+      epsGrowth: nn(g.epsgrowth ?? g.netIncomeGrowth),
+      freeCashFlowGrowth: nn(g.freeCashFlowGrowth),
+      grossMargin: nn(ratios?.grossProfitMargin),
+      operatingMargin: nn(ratios?.operatingProfitMargin),
+      netMargin: nn(ratios?.netProfitMargin),
+      roic: nn(km?.returnOnInvestedCapital),
+      netDebtToEbitda: nn(km?.netDebtToEBITDA),
+      fcfYield: nn(km?.freeCashFlowYield),
+      totalDebt: nn(bs?.totalDebt),
+      netDebt: nn(bs?.netDebt),
+    };
+  }).filter((row) => row.date).sort((a, b) => new Date(a.date) - new Date(b.date));
+  return { symbol, quarters: history };
+}
+
 // Annual earnings history (past) + analyst estimates (forward). Returns
 // { annual: [{ year, revenue, eps, estimate }] } sorted oldest→newest, or null.
 async function fetchFmpEarnings(symbol, fmpKey) {
@@ -277,4 +330,4 @@ async function fetchFmpCryptoNews(fmpKey, limit = 30) {
   }).filter(Boolean);
 }
 
-module.exports = { normalizeFmpQuoteRow, fetchFmpQuotes, fetchFmpFundamentals, fetchFmpEarnings, fetchFmpLastEarnings, fetchFmpCryptoNews };
+module.exports = { normalizeFmpQuoteRow, fetchFmpQuotes, fetchFmpFundamentals, fetchFmpFundamentalsHistory, fetchFmpEarnings, fetchFmpLastEarnings, fetchFmpCryptoNews };

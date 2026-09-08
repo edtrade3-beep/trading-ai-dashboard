@@ -4392,6 +4392,65 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
     return writeJson(res, 200, { ok: true, symbol, fundamentals, lastEarnings });
   }
 
+  // GET /api/market/hidden-gem?symbol=X — "3-Second AI Decision System"
+  // spec (2026-09-07), §4: Hidden Gems / Undervalued Opportunities, one
+  // symbol at a time (Stage-C, on-demand — expensive real fundamental-
+  // history fetching is never run across a full scan universe, matching
+  // this app's own staged-scanning discipline). Reuses future-value-
+  // scoring.js's existing Quality/Growth/Value/Financial-Strength scores
+  // (zero re-implementation) and adds mispricing-engine.js's real
+  // Fundamental Divergence + configurable Mispricing Score + 5-question
+  // narrative on top. FMP-only (fetchFmpFundamentalsHistory needs FMP's
+  // own quarterly endpoints) — honest NO_FMP_KEY reason when unavailable,
+  // same convention as this app's other FMP-gated features.
+  if (pathname === "/api/market/hidden-gem" && req.method === "GET") {
+    const symbol = (searchParams.get("symbol") || "").trim().toUpperCase();
+    if (!symbol) return writeJson(res, 400, { ok: false, error: "symbol required" });
+    const keys = resolveProviderKeys(searchParams);
+    if (!keys.fmp) return writeJson(res, 200, { ok: true, symbol, reason: "NO_FMP_KEY", profile: null });
+    try {
+      const data = await cached(`hidden-gem:${symbol}`, 900_000, async () => {
+        const { fetchFmpFundamentalsHistory } = require("../providers/fmp");
+        const { computeFutureValueRead } = require("../future-value-scoring");
+        const { computeHiddenGemProfile } = require("../mispricing-engine");
+        const [fundamentals, history, tt, yearBars] = await Promise.all([
+          fetchMarketFundamentals(symbol, keys).catch(() => null),
+          fetchFmpFundamentalsHistory(symbol, keys.fmp, 4).catch(() => null),
+          buildTrendTemplate(symbol, {}).catch(() => null),
+          fetchYahooBars(symbol, "1y", "1d").catch(() => []),
+        ]);
+        if (!fundamentals) return { symbol, reason: "NO_FUNDAMENTALS_DATA", profile: null };
+        const valuation = computeFutureValueRead(fundamentals, tt?.price ?? null);
+        // Real price change over the SAME window as the fetched quarterly
+        // history (oldest available daily bar in the 1y range vs latest) —
+        // never a fabricated number when bars are unavailable.
+        const priceChangePct = Array.isArray(yearBars) && yearBars.length > 1 && yearBars[0].close
+          ? ((yearBars[yearBars.length - 1].close - yearBars[0].close) / yearBars[0].close) * 100
+          : null;
+        // Real, disclosed technical-timing proxy: RS Rating directly
+        // (not the fuller party-stage-engine.js entryTimingScore, which
+        // needs a full opportunity computation this on-demand single-
+        // symbol route doesn't otherwise run) — a real, defensible
+        // simplification, not a fabricated number.
+        const relativeStrengthTiming = Number.isFinite(tt?.rsRating) ? tt.rsRating : null;
+        const profile = computeHiddenGemProfile({
+          quarters: history?.quarters || [], priceChangePct,
+          valueScore: valuation?.valueScore ?? null, financialStrength: valuation?.financialStrength ?? null,
+          roic: Number.isFinite(fundamentals.roic) ? fundamentals.roic * 100 : null,
+          relativeStrengthTiming,
+          // Catalyst/institutional data genuinely not fetched by this
+          // route today (both are separately expensive per-symbol calls
+          // elsewhere in this app) — honestly omitted, not guessed;
+          // computeMispricingScore discloses both as unavailable.
+        });
+        return { symbol, price: tt?.price ?? null, valuation, profile };
+      });
+      return writeJson(res, 200, { ok: true, ...data });
+    } catch (err) {
+      return writeJson(res, 502, { ok: false, error: err instanceof Error ? err.message : "Hidden Gem analysis failed." });
+    }
+  }
+
   // ── Prediction markets (Polymarket) — odds for events that move stocks ──
   if (pathname === "/api/market/predictions") {
     try {
