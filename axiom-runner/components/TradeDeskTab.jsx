@@ -831,7 +831,7 @@ export default function TradeDeskTab({
           tradeGps={tradeGpsData?.tradeGps} tradeStructure={tradeGpsData?.tradeStructure}
           trapShield={tradeGpsData?.trapShield} marketAgreement={tradeGpsData?.marketAgreement}
           tradeGpsVerdict={tradeGpsData?.tradeGpsVerdict} dangerEvent={tradeGpsData?.dangerEvent} whyNow={tradeGpsData?.whyNow}
-          account={autopilotStatus?.account}
+          account={autopilotStatus?.account} dailyLossLocked={autopilotStatus?.dailyLossLocked}
           C={TD} MONO={MONO} SANS={SANS}
         />
 

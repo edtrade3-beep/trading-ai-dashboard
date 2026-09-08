@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { shouldStopTrading } from "./risk-gate-client.js";
 
 // Trade GPS (2026-09-03) — the spec's own "3-second primary card": one
 // real action, one real structure, one real score, one real trade plan.
@@ -73,11 +74,25 @@ function useCountdown(expiresAtMs) {
 
 export default function TradeGpsCard({
   symbol, decision, tradeGps, tradeStructure, trapShield, marketAgreement, tradeGpsVerdict,
-  dangerEvent, whyNow, account, loading, error, C, MONO, SANS,
+  dangerEvent, whyNow, account, loading, error, dailyLossLocked, C, MONO, SANS,
 }) {
   const verdict = tradeGpsVerdict?.verdict || null;
-  const label = loading ? "LOADING…" : (VERDICT_LABEL[verdict] || "—");
-  const color = verdictColor(verdict, C);
+  // Risk Engine override (2026-09-07, "3-Second AI Decision System" spec:
+  // "Risk management overrides opportunity scores. Never allow AI
+  // enthusiasm to override portfolio limits... STOP TRADING. No new
+  // positions. Management/exit functions remain available."). Real,
+  // already-computed signal (risk-guardrails.js's dailyLossBreakerTripped,
+  // already gating every AUTONOMOUS order-placing path — server-
+  // autopilot.js, lightbox-autopilot-execute.js, routes/autoexec.js — via
+  // autopilot-risk-gate.js's evaluateAccountGate) — this was a real gap:
+  // that same real breaker never reached the INTERACTIVE Trade Desk verdict
+  // a human reads before manually placing an order, so a tripped daily-
+  // loss lock was invisible here. Only overrides a NEW-ENTRY verdict
+  // (BUY_*) — EXIT/WAIT/NO_TRADE (management of an existing position)
+  // are intentionally unaffected, matching the spec's own carve-out.
+  const stopTradingActive = shouldStopTrading(verdict, dailyLossLocked);
+  const label = stopTradingActive ? "STOP TRADING" : loading ? "LOADING…" : (VERDICT_LABEL[verdict] || "—");
+  const color = stopTradingActive ? C.red : verdictColor(verdict, C);
   const structure = tradeGpsVerdict?.structure || tradeStructure?.structure || null;
   const light = thesisLight(trapShield?.warningLevel, C);
   const countdown = useCountdown(decision?.signalExpiresAt);
@@ -133,7 +148,7 @@ export default function TradeGpsCard({
   // CALL/PUT/spread structure it couldn't actually carry out.
   const firstTarget = targets.find(Number.isFinite);
   const canSendToQuickTrade = verdict === "BUY_STOCK" && Number.isFinite(entry) && Number.isFinite(stop)
-    && Number.isFinite(firstTarget) && Number.isFinite(positionSize) && positionSize > 0;
+    && Number.isFinite(firstTarget) && Number.isFinite(positionSize) && positionSize > 0 && !stopTradingActive;
 
   // Readability redesign (2026-09-07, "3-Second AI Decision" spec —
   // explicit user requirement: verdict 30-42px, important values 22-28px,
@@ -201,8 +216,9 @@ export default function TradeGpsCard({
 
       {/* WHY NOW — the spec's own required narrative line, sized as real
           body text (was 11.5px). */}
-      <div style={{ fontFamily: SANS, fontSize: 16, lineHeight: 1.5, color: error || isStale ? C.amber : C.textSec, marginBottom: 14 }}>
-        {error ? `Decision unavailable: ${error}` : isStale ? `STALE / BLOCKED DATA: ${decision?.blockers?.[0] || "new exposure is blocked until required data is fresh"}` : (
+      <div style={{ fontFamily: SANS, fontSize: 16, lineHeight: 1.5, color: stopTradingActive ? C.red : error || isStale ? C.amber : C.textSec, marginBottom: 14 }}>
+        {stopTradingActive ? "Your configured daily loss limit has been reached — no new positions until tomorrow. Existing positions can still be managed/exited normally."
+          : error ? `Decision unavailable: ${error}` : isStale ? `STALE / BLOCKED DATA: ${decision?.blockers?.[0] || "new exposure is blocked until required data is fresh"}` : (
           <>
             {whyNow?.primary?.label && <span style={{ color: C.text, fontWeight: 700 }}>Why now: {whyNow.primary.label}. </span>}
             {tradeGpsVerdict?.reasonOneLine || (loading ? "Reading the canonical decision…" : (whyNow?.primary ? null : "No real explanation available yet."))}
