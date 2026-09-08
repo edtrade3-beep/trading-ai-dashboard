@@ -12,7 +12,7 @@
 // providers, e.g. providers/yahoo.js) but has never been exercised
 // against a real OpenAI key in this environment (none is configured
 // here) — it is UNTESTED beyond the NOT_CONFIGURED path, which IS fully
-// tested (see test/story-ai-providers.test.js). Do not treat "the code
+// tested (see test/story-ai-core.test.js). Do not treat "the code
 // looks right" as "verified working."
 
 const { IMAGE_PROVIDER, OPENAI_API_KEY, REPLICATE_API_TOKEN, imageProviderConfigured } = require("./story-ai-config");
