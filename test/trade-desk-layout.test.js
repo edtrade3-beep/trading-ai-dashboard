@@ -72,7 +72,11 @@ console.log("\nChecking Trade Desk tablet breakpoint (isTablet was computed but 
 const tradeDeskSrc = read("axiom-runner", "components", "TradeDeskTab.jsx");
 ok("TradeDeskTab.jsx's grid columns default to a distinct width at tablet width (2026-09-04: now real, draggable, user-resizable state — isTablet only sets the real starting default, not a fixed layout)", () => {
   assert.match(tradeDeskSrc, /isTablet\s*\?\s*160\s*:\s*220/);
-  assert.match(tradeDeskSrc, /isTablet\s*\?\s*220\s*:\s*280/);
+  // Real fix (2026-09-08, live user report: "i do not like cortex column
+  // to small") — widened from 220/280 to 260/360; CORTEX's own real
+  // content (RS Rating/Fundamental/News/Options rows) was genuinely
+  // clipped at the old default, confirmed live via screenshot.
+  assert.match(tradeDeskSrc, /isTablet\s*\?\s*260\s*:\s*360/);
 });
 
 console.log("\nChecking news-feed consolidation phase 1 (RegimeNewsPanel retirement)…");

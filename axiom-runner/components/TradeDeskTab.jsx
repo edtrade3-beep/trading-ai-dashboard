@@ -178,7 +178,17 @@ export default function TradeDeskTab({
     try { return Number(localStorage.getItem("tradedesk_left_col_w")) || (isTablet ? 160 : 220); } catch { return isTablet ? 160 : 220; }
   });
   const [rightColW, setRightColW] = useState(() => {
-    try { return Number(localStorage.getItem("tradedesk_right_col_w")) || (isTablet ? 220 : 280); } catch { return isTablet ? 220 : 280; }
+    // Real fix (2026-09-08, live user report: "i do not like cortex
+    // column to small") — 280px genuinely clipped CORTEX's own real
+    // content (RS Rating/Fundamental/News/Options rows, confirmed live
+    // via screenshot showing a real horizontal scrollbar). Widened the
+    // real default AND clamped whatever's already saved in localStorage
+    // up to a real 260px floor — the old default (or a small accidental
+    // drag, likely given the resize handle used to render fully
+    // invisible, see dragHandleStyle below) could otherwise persist a
+    // too-narrow width forever even after this fix ships.
+    const floor = 260;
+    try { const saved = Number(localStorage.getItem("tradedesk_right_col_w")); return Number.isFinite(saved) && saved > 0 ? Math.max(floor, saved) : (isTablet ? 260 : 360); } catch { return isTablet ? 260 : 360; }
   });
   const startColDrag = (side) => (e) => {
     e.preventDefault();
@@ -189,7 +199,7 @@ export default function TradeDeskTab({
       const clientX = ev.touches ? ev.touches[0].clientX : ev.clientX;
       const delta = clientX - startX;
       const raw = side === "left" ? startW + delta : startW - delta;
-      currentW = Math.max(150, Math.min(520, raw));
+      currentW = Math.max(220, Math.min(520, raw));
       if (side === "left") setLeftColW(currentW); else setRightColW(currentW);
     };
     const onUp = () => {
@@ -208,7 +218,19 @@ export default function TradeDeskTab({
     window.addEventListener("touchmove", onMove, { passive: false });
     window.addEventListener("touchend", onUp);
   };
-  const dragHandleStyle = { width: 6, cursor: "col-resize", background: "transparent", touchAction: "none" };
+  // Real fix (2026-09-08, live user report: "drag chart to hide" — the
+  // resizable boundary already existed but rendered fully transparent,
+  // with zero visual affordance to find or grab it). A real always-
+  // visible thin divider + centered grip glyph, not just a hover state
+  // (this app has no CSS-in-JS hover support for a plain inline style),
+  // so a user can see there's something to drag without needing to
+  // already know it's there.
+  const dragHandleStyle = {
+    width: 6, cursor: "col-resize", touchAction: "none",
+    display: "flex", alignItems: "center", justifyContent: "center",
+    background: TD.border, opacity: 0.6,
+  };
+  const dragGripStyle = { fontFamily: MONO, fontSize: 10, color: TD.textDim, lineHeight: 1, letterSpacing: -1 };
   const [symbol, setSymbol] = useState(() => {
     try {
       const pending = localStorage.getItem("mterminal_load_sym");
@@ -901,9 +923,9 @@ export default function TradeDeskTab({
             <div style={{ borderRight: `1px solid ${TD.border}`, minHeight: 0, overflow: "hidden", background: TD.bg, paddingLeft: 60 }}>
               <CommandSearchPanel symbol={symbol} onSelectSymbol={selectSymbol} onOpenDaytrade={applyLightboxHandoff} chart={chart} symbolQuote={symbolQuote} fundamentals={fundamentals} C={TD} MONO={MONO} SANS={SANS} />
             </div>
-            <div title="Drag to resize" onMouseDown={startColDrag("left")} onTouchStart={startColDrag("left")} style={dragHandleStyle} />
+            <div title="Drag to resize" onMouseDown={startColDrag("left")} onTouchStart={startColDrag("left")} style={dragHandleStyle}><span style={dragGripStyle}>⋮</span></div>
           <ChartPane symbol={symbol} chart={chart} chartError={chartError} loadingChart={loadingChart} vcpOn={vcpOn} setVcpOn={setVcpOn} C={TD} MONO={MONO} SANS={SANS} chartTf={chartTf} setChartTf={setChartTf} />
-            <div title="Drag to resize" onMouseDown={startColDrag("right")} onTouchStart={startColDrag("right")} style={dragHandleStyle} />
+            <div title="Drag to resize" onMouseDown={startColDrag("right")} onTouchStart={startColDrag("right")} style={dragHandleStyle}><span style={dragGripStyle}>⋮</span></div>
             {/* Right column (2026-08-27) — Market Context moved to its own
                 real top-level section above the core zone, so this column
                 is Sniper (CortexMiniPanel) alone now, taking the full
