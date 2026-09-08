@@ -121,6 +121,26 @@ export default function TrendChart({ data, C, MONO, SANS, height, vcpOverlayOn }
     try { localStorage.setItem("trendchart_technicals_visible", nv ? "on" : "off"); } catch {}
     return nv;
   });
+  // Price Levels toggle (2026-09-08, live user report: "Chart in trade
+  // desk make it button to solve overlapping") — the pl() dedup fix
+  // earlier today (real pixel-density math, real autoscale range fix)
+  // stops truly-colliding labels from rendering on top of each other, but
+  // a real chart can still legitimately carry PIVOT/STOP/T1/T2/T3/BASE
+  // LOW/AI TARGET/VCP levels/R1-R3/S1-S3 all at once — a lot of real
+  // information even when none of it is literally overlapping. A manual
+  // on/off, same real persisted-toggle convention as showTechnicals just
+  // above, is the actual "solve it" the user asked for: hide every real
+  // trade-plan/VCP/support-resistance price line on demand, always
+  // keeping the one line that matters even decluttered (the live PRICE
+  // line itself, toggle-independent — see the pl(curPrice...) call below).
+  const [showLevels, setShowLevels] = React.useState(() => {
+    try { return localStorage.getItem("trendchart_levels_visible") !== "off"; } catch { return true; }
+  });
+  const toggleLevels = () => setShowLevels((v) => {
+    const nv = !v;
+    try { localStorage.setItem("trendchart_levels_visible", nv ? "on" : "off"); } catch {}
+    return nv;
+  });
   // Lightweight Charts needs a plain Unix-seconds timestamp (UTCTimestamp)
   // for anything with intraday precision — the {year,month,day} BusinessDay
   // form only carries date resolution, so every 5m/15m/30m/1h bar within the
@@ -553,7 +573,7 @@ export default function TrendChart({ data, C, MONO, SANS, height, vcpOverlayOn }
     const curPrice = Number(data.livePrice) || Number(data.price) || (lastBar ? lastBar.close : null);
     const priceLabel = data.marketState === "PRE" ? "PRE-MKT" : (data.marketState && data.marketState.startsWith("POST")) ? "AFTER-HRS" : "PRICE";
     if (curPrice != null) pl(curPrice, lastBar && lastBar.close >= lastBar.open ? C.green : C.red, priceLabel, LS.Solid ?? 0);
-    if (su) {
+    if (showLevels && su) {
       pl(su.entry, C.accent, "PIVOT", LS.Dashed ?? 2);
       if (su.actionable) {
         pl(su.stop, C.red, "STOP", LS.Dashed ?? 2);
@@ -580,7 +600,7 @@ export default function TrendChart({ data, C, MONO, SANS, height, vcpOverlayOn }
     // these two real values can legitimately differ). The existing pl()
     // dedup (± ~3.5% of the visible range) naturally collapses these into
     // one label when they're close, and shows both when they're not.
-    if (vcpOverlayOn && data.setup) {
+    if (showLevels && vcpOverlayOn && data.setup) {
       const vcpB = data.setup.breakout, vcp = data.setup.vcp;
       if (vcpB && vcpB.pivot && vcpB.pivot.price > 0) {
         pl(vcpB.pivot.price, "#9c5cff", "VCP PIVOT", LS.Dashed ?? 2);
@@ -608,7 +628,7 @@ export default function TrendChart({ data, C, MONO, SANS, height, vcpOverlayOn }
     // ~3.5%-gap dedup naturally collapses a level into the PIVOT/BASE LOW/
     // T-target lines above when they sit close together — R1/S1 most often
     // affected since they're nearest to price.
-    if (curPrice != null) {
+    if (showLevels && curPrice != null) {
       const { resistance, support } = computeKeyLevels(bars, curPrice);
       resistance.forEach((r, i) => pl(Math.round(r * 100) / 100, "#8b5cf6", `R${i + 1}`, LS.Dotted ?? 1));
       support.forEach((s, i) => pl(Math.round(s * 100) / 100, "#8b5cf6", `S${i + 1}`, LS.Dotted ?? 1));
@@ -671,7 +691,7 @@ export default function TrendChart({ data, C, MONO, SANS, height, vcpOverlayOn }
     // symbol leaves a stale zoom range from the old granularity otherwise).
     const viewKey = `${data.symbol}:${data.intervalUsed || "1d"}`;
     if (symRef.current !== viewKey) { chart.timeScale().fitContent(); symRef.current = viewKey; }
-  }, [data, C, vcpOverlayOn]);
+  }, [data, C, vcpOverlayOn, showLevels]);
 
   // Master technicals on/off (2026-08-31, explicit user request: "IN CHART
   // MAKES ALL TECHNICALS TOOLS ON AND OFF") — every one of these series was
@@ -855,6 +875,21 @@ export default function TrendChart({ data, C, MONO, SANS, height, vcpOverlayOn }
             color: showTechnicals ? (C.textDim || "#888") : "#fff",
             border: `1px solid ${showTechnicals ? C.border : C.accent}`, boxShadow: "0 2px 10px rgba(0,0,0,0.18)" }}>
           {showTechnicals ? "📈 TECHNICALS ON" : "📈 TECHNICALS OFF"}
+        </button>
+        {/* Price Levels on/off (2026-09-08, live user report: "make it
+            button to solve overlapping") — same real stacking convention
+            as EXPAND/TECHNICALS just above (top-left, 36px apart, the one
+            zone the right price scale never reaches into). Real, manual
+            control over PIVOT/STOP/T1/T2/T3/BASE LOW/AI TARGET/VCP levels/
+            R1-R3/S1-S3 all at once — the live PRICE line itself stays on
+            regardless (see the toggle-independent pl(curPrice...) call). */}
+        <button onClick={toggleLevels} title={showLevels ? "Hide trade-plan/VCP/support-resistance price levels" : "Show trade-plan/VCP/support-resistance price levels"}
+          style={{ position: "absolute", top: 82, left: 12, zIndex: 5, fontFamily: MONO, fontSize: 9.5, fontWeight: 800,
+            letterSpacing: 0.3, padding: "5px 10px", borderRadius: 8, cursor: "pointer",
+            background: showLevels ? (C.card || "#fff") : (C.accent || "#2563eb"),
+            color: showLevels ? (C.textDim || "#888") : "#fff",
+            border: `1px solid ${showLevels ? C.border : C.accent}`, boxShadow: "0 2px 10px rgba(0,0,0,0.18)" }}>
+          {showLevels ? "🏷️ LEVELS ON" : "🏷️ LEVELS OFF"}
         </button>
       </div>
     </>
