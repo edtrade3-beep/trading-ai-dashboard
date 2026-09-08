@@ -111,12 +111,31 @@ async function pollReplicatePrediction(getUrl) {
 // provider matches OpenAI's own {b64} shape — the job runner
 // (story-ai-job-runner.js) stays provider-agnostic rather than branching
 // on which image provider produced the result.
+//
+// Real bug found live (2026-09-08, first real run against a real
+// REPLICATE_API_TOKEN once the user switched off OpenAI over cost):
+// every scene failed with "PROVIDER_ERROR: The operation was aborted
+// due to timeout" — same real bug class as gpt-image-1's own earlier
+// 60s-was-too-tight fix. "Prefer: wait" (no explicit seconds value) can
+// hold the real HTTP connection open up to Replicate's own real max wait
+// window (documented up to 60s) — right at this function's own 60s
+// AbortSignal, a real race under any added network latency, and Flux
+// "schnell" (despite the name) can genuinely cold-start slower than that
+// the first time a model isn't already warm, especially with 4 real
+// concurrent requests (IMAGE_VOICE_CONCURRENCY) competing for the same
+// real account. Raised the initial-request timeout well past
+// Replicate's own real wait cap, and gave the polling/download requests
+// real breathing room too — the actual generation is still fast once it
+// starts; this just stops a slow real cold-start from being treated as a
+// hang.
+const REPLICATE_INITIAL_TIMEOUT_MS = 120_000;
+const REPLICATE_DOWNLOAD_TIMEOUT_MS = 60_000;
 async function generateWithReplicate(prompt) {
   const res = await fetch("https://api.replicate.com/v1/models/black-forest-labs/flux-schnell/predictions", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${REPLICATE_API_TOKEN}`, Prefer: "wait" },
     body: JSON.stringify({ input: { prompt, aspect_ratio: "9:16", output_format: "png" } }),
-    signal: AbortSignal.timeout(60000),
+    signal: AbortSignal.timeout(REPLICATE_INITIAL_TIMEOUT_MS),
   });
   let data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.detail || `Replicate API error (${res.status})`);
@@ -128,7 +147,7 @@ async function generateWithReplicate(prompt) {
   }
   const imageUrl = Array.isArray(data.output) ? data.output[0] : data.output;
   if (!imageUrl) throw new Error("Replicate returned no image output.");
-  const imgRes = await fetch(imageUrl, { signal: AbortSignal.timeout(30000) });
+  const imgRes = await fetch(imageUrl, { signal: AbortSignal.timeout(REPLICATE_DOWNLOAD_TIMEOUT_MS) });
   if (!imgRes.ok) throw new Error(`Failed to download the generated image (${imgRes.status}).`);
   const buf = Buffer.from(await imgRes.arrayBuffer());
   return { b64: buf.toString("base64") };
