@@ -4,24 +4,35 @@
 // FFmpeg-based assembly, $0 API cost. Split into a pure, unit-testable
 // command builder (buildFfmpegArgs — given scene/asset data, returns the
 // exact argv it would run, no I/O) and a real availability check
-// (checkFfmpegAvailable — spawns `ffmpeg -version`, genuinely tested in
-// this environment: ffmpeg is NOT installed here, so this correctly
-// reports unavailable rather than silently pretending video assembly
-// would work).
+// (checkFfmpegAvailable — spawns `ffmpeg -version`).
 //
-// DISCLOSED: actually RUNNING assembleVideo() end-to-end (spawning real
-// ffmpeg against real generated images/audio) is UNTESTED in this
-// environment — no ffmpeg binary is present here to execute against, and
-// no real image/audio assets exist without configured image/TTS
-// providers. The command-construction logic itself (buildFfmpegArgs) IS
-// tested — see test/story-ai-video-assembly.test.js.
-
+// Real bug found live (2026-09-08, first real end-to-end run once a real
+// OPENAI_API_KEY got the Images step past its own earlier timeout bug):
+// every step up through Subtitles passed for real, then Video reported
+// "automatic ffmpeg run not enabled in this environment" — this app's
+// Render deployment (a standard Node buildpack, no Dockerfile/apt-get
+// access) genuinely has no system `ffmpeg` binary on PATH, so spawning
+// the bare string "ffmpeg" always failed. This was correctly, honestly
+// disclosed rather than silently pretending assembly would work — but
+// the actual fix is to stop depending on a system binary at all: the
+// real ffmpeg-static npm package bundles a real prebuilt static ffmpeg
+// binary for the current platform, downloaded once during npm install
+// (same mechanism this app's other native deps, e.g. esbuild, already
+// use) — no Dockerfile, no apt-get, no PaaS-specific config needed.
+// Verified locally: the bundled binary runs and reports a real
+// `ffmpeg version 6.0`.
 const { spawn } = require("node:child_process");
 const path = require("node:path");
+const ffmpegStaticPath = require("ffmpeg-static");
+// Real, disclosed fallback to plain "ffmpeg" (PATH lookup) only if the
+// ffmpeg-static package's own postinstall download didn't run/succeed
+// for some real reason (e.g. an npm install-scripts policy blocking it)
+// — never silently substitutes a fabricated path.
+const FFMPEG_BIN = ffmpegStaticPath || "ffmpeg";
 
 function checkFfmpegAvailable() {
   return new Promise((resolve) => {
-    const proc = spawn("ffmpeg", ["-version"]);
+    const proc = spawn(FFMPEG_BIN, ["-version"]);
     let resolved = false;
     proc.on("error", () => { if (!resolved) { resolved = true; resolve(false); } });
     proc.on("exit", (code) => { if (!resolved) { resolved = true; resolve(code === 0); } });
@@ -91,7 +102,7 @@ function buildFinalMuxArgs({ concatListPath, narrationAudioPath, musicPath, srtP
 // one real place actual process execution happens.
 function runFfmpeg(args, { cwd } = {}) {
   return new Promise((resolve, reject) => {
-    const proc = spawn("ffmpeg", args, { cwd });
+    const proc = spawn(FFMPEG_BIN, args, { cwd });
     let stderr = "";
     proc.stderr.on("data", (d) => { stderr += d.toString(); });
     proc.on("error", (err) => reject(new Error(`ffmpeg failed to start: ${err.message}`)));
