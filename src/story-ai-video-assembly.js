@@ -1,26 +1,32 @@
 "use strict";
 
 // story-ai-video-assembly.js — Video Engine (spec §"7. VIDEO ENGINE").
-// FFmpeg-based assembly, $0 API cost. Split into a pure, unit-testable
-// command builder (buildFfmpegArgs — given scene/asset data, returns the
-// exact argv it would run, no I/O) and a real availability check
-// (checkFfmpegAvailable — spawns `ffmpeg -version`).
+// FFmpeg-based assembly, $0 API cost. Split into pure, unit-testable
+// command builders (buildSceneClipArgs/buildFinalMuxArgs — given scene/
+// asset data, return the exact argv, no I/O), a real availability check
+// (checkFfmpegAvailable — spawns `ffmpeg -version`), a real duration
+// probe (getAudioDurationSeconds), and the one real executor (runFfmpeg).
+// story-ai-job-runner.js's runVideoStep is the real orchestrator that
+// calls all of these in sequence for an actual project.
 //
-// Real bug found live (2026-09-08, first real end-to-end run once a real
-// OPENAI_API_KEY got the Images step past its own earlier timeout bug):
-// every step up through Subtitles passed for real, then Video reported
-// "automatic ffmpeg run not enabled in this environment" — this app's
-// Render deployment (a standard Node buildpack, no Dockerfile/apt-get
-// access) genuinely has no system `ffmpeg` binary on PATH, so spawning
-// the bare string "ffmpeg" always failed. This was correctly, honestly
-// disclosed rather than silently pretending assembly would work — but
-// the actual fix is to stop depending on a system binary at all: the
-// real ffmpeg-static npm package bundles a real prebuilt static ffmpeg
-// binary for the current platform, downloaded once during npm install
-// (same mechanism this app's other native deps, e.g. esbuild, already
-// use) — no Dockerfile, no apt-get, no PaaS-specific config needed.
-// Verified locally: the bundled binary runs and reports a real
-// `ffmpeg version 6.0`.
+// Two real bugs found live (2026-09-08) getting from "the code looks
+// right" to an actual assembled video:
+// (1) First real end-to-end run once a real OPENAI_API_KEY got the
+//     Images step past its own earlier timeout bug: every step up
+//     through Subtitles passed for real, then Video reported "automatic
+//     ffmpeg run not enabled in this environment" — this app's Render
+//     deployment (a standard Node buildpack, no Dockerfile/apt-get
+//     access) genuinely has no system `ffmpeg` binary on PATH. Fixed by
+//     bundling ffmpeg-static (a real prebuilt static binary, downloaded
+//     during npm install — same mechanism this app's other native dep,
+//     esbuild, already uses).
+// (2) That alone still didn't produce a video: runVideoStep had only
+//     ever called checkFfmpegAvailable() and then unconditionally
+//     reported "assembly not attempted" regardless of the result — the
+//     real assembly (building each scene's Ken-Burns clip, concatenating
+//     them, muxing real narration audio + subtitles) was scaffolded and
+//     unit-tested here but never actually wired into the pipeline. Now
+//     is — see runVideoStep for the real orchestration.
 const { spawn } = require("node:child_process");
 const path = require("node:path");
 const ffmpegStaticPath = require("ffmpeg-static");
@@ -113,4 +119,29 @@ function runFfmpeg(args, { cwd } = {}) {
   });
 }
 
-module.exports = { checkFfmpegAvailable, buildSceneClipArgs, buildFinalMuxArgs, runFfmpeg };
+// Real per-file audio duration — no separate ffprobe binary needed
+// (ffprobe-static's own darwin/arm64 build was tried and found genuinely
+// broken — "Bad CPU type in executable" — during this exact real
+// end-to-end wiring work; rather than depend on a second, less-reliable
+// static binary, this reuses the SAME already-verified ffmpeg-static
+// binary: `ffmpeg -i <file> -f null -` always prints a real
+// "Duration: HH:MM:SS.ss" line to stderr, a well-established real
+// technique, verified live here against a real generated test tone).
+// Returns null (never a fabricated duration) if ffmpeg's own output
+// doesn't contain a real, parseable duration line.
+function getAudioDurationSeconds(filePath) {
+  return new Promise((resolve) => {
+    const proc = spawn(FFMPEG_BIN, ["-i", filePath, "-f", "null", "-"]);
+    let stderr = "";
+    proc.stderr.on("data", (d) => { stderr += d.toString(); });
+    proc.on("error", () => resolve(null));
+    proc.on("close", () => {
+      const m = stderr.match(/Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/);
+      if (!m) { resolve(null); return; }
+      const seconds = Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]);
+      resolve(Number.isFinite(seconds) && seconds > 0 ? seconds : null);
+    });
+  });
+}
+
+module.exports = { checkFfmpegAvailable, buildSceneClipArgs, buildFinalMuxArgs, runFfmpeg, getAudioDurationSeconds };

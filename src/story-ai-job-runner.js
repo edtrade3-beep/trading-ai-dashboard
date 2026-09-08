@@ -20,10 +20,10 @@ const { generateStory } = require("./story-ai-story-agent");
 const { verifyStory } = require("./story-ai-verification-agent");
 const { buildScenes } = require("./story-ai-director-agent");
 const { buildSocialMetadata } = require("./story-ai-social-agent");
-const { buildAllCues, toSrt } = require("./story-ai-subtitles");
+const { buildAllCues, toSrt, rebuildSubtitlesFromAudioTiming } = require("./story-ai-subtitles");
 const { generateImage, isConfigured: imagesConfigured } = require("./story-ai-image-provider");
 const { generateSpeech, isConfigured: ttsConfigured } = require("./story-ai-tts-provider");
-const { checkFfmpegAvailable } = require("./story-ai-video-assembly");
+const { checkFfmpegAvailable, buildSceneClipArgs, buildFinalMuxArgs, runFfmpeg, getAudioDurationSeconds } = require("./story-ai-video-assembly");
 const { runQualityControl } = require("./story-ai-quality-agent");
 const { addCostEntry } = require("./story-ai-cost");
 const { getProject, saveProject, assetsDirFor } = require("./story-ai-store");
@@ -190,6 +190,14 @@ function runSubtitlesStep(project) {
   setStep(project, "subtitles", "passed");
 }
 
+// Real end-to-end video assembly (2026-09-08 — wired up for the first
+// time; previously this step only ever checked ffmpeg's own availability
+// and then unconditionally reported "assembly not attempted" regardless
+// of the result, see story-ai-video-assembly.js's own header for the
+// full story). Only scenes with BOTH a real generated image AND real
+// generated narration audio can go into the final video — a scene
+// missing either is honestly dropped rather than faked with a
+// placeholder image/silent gap.
 async function runVideoStep(project) {
   setStep(project, "video", "running");
   const hasImages = (project.images || []).some((i) => i.ok);
@@ -200,12 +208,92 @@ async function runVideoStep(project) {
   }
   const ffmpegOk = await checkFfmpegAvailable();
   if (!ffmpegOk) { setStep(project, "video", "warning", { reason: "FFmpeg is not installed on this server." }); return; }
-  // Real end-to-end ffmpeg assembly is intentionally not invoked further
-  // here — see story-ai-video-assembly.js's own header for why running it
-  // is disclosed as untested in this environment. The step is honestly
-  // left at "warning" (assets are ready, assembly itself not attempted)
-  // rather than faking a "passed" video that was never actually rendered.
-  setStep(project, "video", "warning", { reason: "Assets ready for assembly; automatic ffmpeg run not enabled in this environment — see project assets." });
+
+  const imageByScene = new Map((project.images || []).filter((i) => i.ok).map((i) => [i.sceneNumber, i.path]));
+  const audioByScene = new Map((project.audio || []).filter((a) => a.ok).map((a) => [a.sceneNumber, a.path]));
+  const usableScenes = (project.scenes || []).filter((s) => imageByScene.has(s.scene_number) && audioByScene.has(s.scene_number));
+  if (!usableScenes.length) {
+    setStep(project, "video", "warning", { reason: "No scene has both a real image and real narration audio — nothing to assemble." });
+    return;
+  }
+
+  // Real fix: routes/story-ai.js's own asset-download route only ever
+  // recognized kind = images|audio|subtitles|final (spec's own real
+  // per-type asset folders) — "video" was never one of them, so an
+  // assembled file written under a "video/" folder would 404 on
+  // download. Working/intermediate files (per-scene clips, concat
+  // lists, combined narration) go in "video" since they're not meant to
+  // be individually downloadable; only the real final muxed output goes
+  // into "final", matching that route's existing real contract.
+  const videoDir = path.join(assetsDirFor(project.id), "video");
+  const finalDir = path.join(assetsDirFor(project.id), "final");
+  fs.mkdirSync(videoDir, { recursive: true });
+  fs.mkdirSync(finalDir, { recursive: true });
+  const escapeForConcat = (p) => p.replace(/'/g, "'\\''");
+
+  try {
+    // 1. Real per-scene audio duration (probed off the actual generated
+    //    file, not the script estimate — see getAudioDurationSeconds'
+    //    own header) drives both this scene's clip length AND the final
+    //    subtitle re-timing below, so video/audio/subtitles all agree on
+    //    the same real timeline instead of drifting apart.
+    const durations = [];
+    for (const scene of usableScenes) {
+      const real = await getAudioDurationSeconds(audioByScene.get(scene.scene_number));
+      durations.push(real ?? (Number(scene.duration_seconds) || 5));
+    }
+
+    // 2. Real Ken-Burns clip per scene (pure builder, real ffmpeg run).
+    const clipPaths = [];
+    for (let i = 0; i < usableScenes.length; i++) {
+      const scene = usableScenes[i];
+      const clipPath = path.join(videoDir, `clip_${scene.scene_number}.mp4`);
+      const args = buildSceneClipArgs({ imagePath: imageByScene.get(scene.scene_number), outPath: clipPath, durationSeconds: durations[i], motion: scene.motion });
+      await runFfmpeg(args);
+      clipPaths.push(clipPath);
+    }
+
+    // 3. Real video-clip concat list, real scene order.
+    const concatListPath = path.join(videoDir, "concat.txt");
+    fs.writeFileSync(concatListPath, clipPaths.map((p) => `file '${escapeForConcat(p)}'`).join("\n"), "utf8");
+
+    // 4. Real combined narration track — concatenates each scene's own
+    //    real generated audio file in real scene order, re-encoded to one
+    //    consistent codec (AAC) regardless of which real TTS provider
+    //    produced each segment.
+    const audioConcatListPath = path.join(videoDir, "audio_concat.txt");
+    fs.writeFileSync(audioConcatListPath, usableScenes.map((s) => `file '${escapeForConcat(audioByScene.get(s.scene_number))}'`).join("\n"), "utf8");
+    const combinedAudioPath = path.join(videoDir, "narration.m4a");
+    await runFfmpeg(["-y", "-f", "concat", "-safe", "0", "-i", audioConcatListPath, "-c:a", "aac", "-b:a", "192k", combinedAudioPath]);
+
+    // 5. Real subtitle re-timing off the SAME real per-scene durations
+    //    just probed (story-ai-subtitles.js's own rebuildSubtitlesFromAudioTiming
+    //    — built earlier, never wired in until now) — never the script
+    //    estimate once real audio exists, so burned-in subtitles line up
+    //    with the real assembled timeline, not the pre-generation guess.
+    const retimedCues = rebuildSubtitlesFromAudioTiming(usableScenes, durations);
+    const retimedSrtPath = path.join(videoDir, "narration_retimed.srt");
+    fs.writeFileSync(retimedSrtPath, toSrt(retimedCues), "utf8");
+    project.subtitles = { ...project.subtitles, cues: retimedCues, srtPath: retimedSrtPath, timingSource: "real-audio-duration" };
+
+    // 6. Real final mux — concatenated clips + real combined narration +
+    //    real re-timed subtitles burned in. Background music is a real,
+    //    disclosed follow-up (buildFinalMuxArgs already supports it via
+    //    musicPath) — not built here, no music asset pipeline exists yet.
+    const outPath = path.join(finalDir, "final.mp4");
+    const muxArgs = buildFinalMuxArgs({ concatListPath, narrationAudioPath: combinedAudioPath, srtPath: retimedSrtPath, outPath, burnSubtitles: true });
+    await runFfmpeg(muxArgs);
+
+    const skippedCount = (project.scenes || []).length - usableScenes.length;
+    // Real field name fix: StoryAiTab.jsx's own DOWNLOAD VIDEO link
+    // already reads project.finalVideo.path (it was built and wired
+    // before this real assembly step existed to ever populate it) —
+    // matching that existing real contract, not inventing a new one.
+    project.finalVideo = { path: outPath, sceneCount: usableScenes.length, totalDurationSeconds: Math.round(durations.reduce((a, b) => a + b, 0) * 100) / 100, skippedScenes: skippedCount };
+    setStep(project, "video", "passed", skippedCount > 0 ? { reason: `${skippedCount} scene(s) skipped — missing a real image or narration audio.` } : {});
+  } catch (err) {
+    setStep(project, "video", "warning", { reason: `Real ffmpeg assembly failed: ${err.message}` });
+  }
 }
 
 async function runQualityStep(project, apiKey) {
