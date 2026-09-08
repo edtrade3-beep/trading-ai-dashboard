@@ -5646,13 +5646,21 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
   if (pathname === "/api/market/best-options-now" && req.method === "GET") {
     const symbolsParam = (searchParams.get("symbols") || "").trim();
     const symbols = symbolsParam ? symbolsParam.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean).slice(0, 20) : DEFAULT_OPTIONS_UNIVERSE;
+    // Maximum Amount to Risk (spec §1 filter, added 2026-09-07 — direct
+    // user request: "i want add maximum loss to give me what stocks to
+    // buy in options"). NOT part of the cache key: the expensive part per
+    // symbol is the real chain fetch + ranking, which doesn't depend on
+    // this number, so every real maxLoss value the user tries reuses the
+    // same 5-minute cache entry instead of re-fetching per threshold.
+    const maxLossParam = Number(searchParams.get("maxLoss"));
+    const maxLoss = Number.isFinite(maxLossParam) && maxLossParam > 0 ? maxLossParam : null;
     const cacheKey = `best-options-now:${symbols.slice().sort().join(",")}`;
     try {
       const data = await cached(cacheKey, 5 * 60_000, async () => {
         const { rankAllStrategies } = require("../strategy-ranking");
         const { explainStrategy } = require("../strategy-explain");
         const { computePartyStageProfile } = require("../party-stage-engine");
-        const { classifyEntryTiming } = require("../options-buy-assistant");
+        const { classifyEntryTiming, buildRobinhoodOrderTicket } = require("../options-buy-assistant");
 
         // Real, already-cached full-universe opportunity scan — reused
         // ONLY for its own already-computed real Party Stage/entry-timing
@@ -5676,17 +5684,42 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
             const best = ranked[0];
             const explanation = explainStrategy(best, ranked, {});
             const timing = classifyEntryTiming(partyStageBySymbol[symbol] || null);
-            return { symbol, ok: true, underlying, best: { ...best, explanation }, timing, selectedExpiry, dteFloorMet };
+            // Real max loss in dollars, off the SAME ticket-building math
+            // the Robinhood ticket itself uses (options-buy-assistant.js's
+            // buildRobinhoodOrderTicket) — never a second risk model. This
+            // is the one real fix for single-leg Long Calls/Puts, whose
+            // raw strategy-ranking.js construction doesn't carry
+            // maxLoss/maxProfit at all (see that file's own comment).
+            const ticket = buildRobinhoodOrderTicket({ symbol, rankedStrategy: best });
+            const maxLossDollars = ticket.available && Number.isFinite(ticket.maxLoss) ? ticket.maxLoss : null;
+            return { symbol, ok: true, underlying, best: { ...best, explanation }, timing, selectedExpiry, dteFloorMet, maxLossDollars };
           } catch (err) {
             return { symbol, ok: false, reason: err instanceof Error ? err.message : "Real chain fetch failed." };
           }
         }));
 
-        const ranked = perSymbol.filter((r) => r.ok).sort((a, b) => b.best.composite - a.best.composite).slice(0, 5);
+        const ranked = perSymbol.filter((r) => r.ok).sort((a, b) => b.best.composite - a.best.composite);
         const skipped = perSymbol.filter((r) => !r.ok);
         return { ranked, skipped, universe: symbols, generatedAt: new Date().toISOString() };
       });
-      return writeJson(res, 200, { ok: true, ...data });
+
+      // Apply the real max-loss budget AFTER the cache lookup (cheap,
+      // per-request) — every candidate already carries its own real
+      // maxLossDollars from the cached scan above, so filtering never
+      // needs a fresh chain fetch. A candidate with no real max-loss
+      // figure (ticket unavailable) is honestly excluded rather than
+      // silently let through a budget it was never checked against.
+      let ranked = data.ranked, budgetExcluded = [];
+      if (maxLoss != null) {
+        const withinBudget = [];
+        for (const r of ranked) {
+          if (Number.isFinite(r.maxLossDollars) && r.maxLossDollars <= maxLoss) withinBudget.push(r);
+          else budgetExcluded.push({ symbol: r.symbol, ok: false, reason: Number.isFinite(r.maxLossDollars) ? `Real max loss $${r.maxLossDollars.toFixed(2)} exceeds your $${maxLoss.toFixed(2)} budget.` : "No real max-loss figure available to check against your budget." });
+        }
+        ranked = withinBudget;
+      }
+      const top = ranked.slice(0, 5);
+      return writeJson(res, 200, { ok: true, ranked: top, skipped: [...data.skipped, ...budgetExcluded], universe: data.universe, generatedAt: data.generatedAt, maxLossFilter: maxLoss, matchedWithinBudget: ranked.length });
     } catch (err) {
       return writeJson(res, 502, { ok: false, error: err instanceof Error ? err.message : "Best Options Now scan failed." });
     }

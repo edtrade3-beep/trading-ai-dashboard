@@ -48,11 +48,30 @@ export default function OptionsBuyAssistantPanel({ C, MONO, SANS, setTerminalSym
   const [searchInput, setSearchInput] = useState("");
   const [searchResult, setSearchResult] = useState(null); // { symbol, row } | { symbol, error } | null
   const [searching, setSearching] = useState(false);
+
+  // Maximum Amount to Risk (spec §1 filter, 2026-09-07 — explicit user
+  // request: "i want add maximum loss to give me what stocks to buy in
+  // options"). Persisted like the collapsed state above so it survives a
+  // reload; purely a client-side query param onto the real server-side
+  // filter in /api/market/best-options-now, which does the actual honest
+  // exclusion off each candidate's real ticket-derived max loss.
+  const [maxLossInput, setMaxLossInput] = useState(() => {
+    try { return localStorage.getItem("tradedesk_options_max_loss") || ""; } catch { return ""; }
+  });
+  const setMaxLoss = (v) => {
+    setMaxLossInput(v);
+    try { localStorage.setItem("tradedesk_options_max_loss", v); } catch {}
+  };
+  const maxLossQS = () => {
+    const n = Number(maxLossInput);
+    return Number.isFinite(n) && n > 0 ? `&maxLoss=${encodeURIComponent(n)}` : "";
+  };
+
   const runSearch = () => {
     const symbol = searchInput.trim().toUpperCase();
     if (!symbol) return;
     setSearching(true); setSearchResult(null);
-    fetch(`/api/market/best-options-now?symbols=${encodeURIComponent(symbol)}`).then((r) => r.json())
+    fetch(`/api/market/best-options-now?symbols=${encodeURIComponent(symbol)}${maxLossQS()}`).then((r) => r.json())
       .then((d) => {
         if (!d.ok) { setSearchResult({ symbol, error: d.error || "Search failed" }); return; }
         const row = (d.ranked || [])[0] || (d.skipped || [])[0] || null;
@@ -65,7 +84,7 @@ export default function OptionsBuyAssistantPanel({ C, MONO, SANS, setTerminalSym
 
   const scan = () => {
     setLoading(true); setError(null);
-    fetch("/api/market/best-options-now").then((r) => r.json())
+    fetch(`/api/market/best-options-now?${maxLossQS().replace(/^&/, "")}`).then((r) => r.json())
       .then((d) => { if (d.ok) setData(d); else setError(d.error || "Scan failed"); })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
@@ -105,12 +124,22 @@ export default function OptionsBuyAssistantPanel({ C, MONO, SANS, setTerminalSym
               one caller-chosen symbol instead of the default universe. */}
           <div style={{ marginBottom: 16 }}>
             <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 700, color: C.textSec, marginBottom: 6 }}>WHAT DO YOU WANT TO TRADE?</div>
-            <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
               <input value={searchInput} onChange={(e) => setSearchInput(e.target.value.toUpperCase())} onKeyDown={(e) => e.key === "Enter" && runSearch()}
                 placeholder="e.g. TSLA" style={{ fontFamily: MONO, fontSize: 16, fontWeight: 700, padding: "9px 14px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.card, color: C.text, width: 180 }} />
               <button onClick={runSearch} disabled={searching || !searchInput.trim()} style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, padding: "9px 18px", borderRadius: 8, border: "none", background: C.accent, color: "#fff", cursor: searching ? "default" : "pointer", opacity: searching ? 0.6 : 1 }}>
                 {searching ? "SEARCHING…" : "GO"}
               </button>
+              <span style={{ width: 1, alignSelf: "stretch", background: C.border, margin: "0 2px" }} />
+              <label style={{ fontFamily: MONO, fontSize: 14, fontWeight: 700, color: C.textSec, display: "flex", alignItems: "center", gap: 8 }}>
+                MAX LOSS $
+                <input value={maxLossInput} onChange={(e) => setMaxLoss(e.target.value.replace(/[^0-9.]/g, ""))}
+                  onKeyDown={(e) => e.key === "Enter" && (searchInput.trim() ? runSearch() : scan())}
+                  placeholder="e.g. 250" inputMode="decimal" style={{ fontFamily: MONO, fontSize: 16, fontWeight: 700, padding: "9px 14px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.card, color: C.text, width: 100 }} />
+              </label>
+            </div>
+            <div style={{ fontFamily: SANS, fontSize: 13, color: C.textSec, marginTop: 6 }}>
+              {maxLossInput ? `Only real setups whose actual max loss is ≤ $${maxLossInput} per contract/spread will be shown.` : "Optional — leave blank to see every real ranked setup regardless of risk size."}
             </div>
           </div>
 
@@ -131,7 +160,9 @@ export default function OptionsBuyAssistantPanel({ C, MONO, SANS, setTerminalSym
           {loading && !data && <div style={{ fontFamily: SANS, fontSize: 15, color: C.textSec }}>Scanning the real options market — this checks a real live chain per symbol, may take a few seconds…</div>}
 
           {!loading && data?.ranked?.length === 0 && (
-            <div style={{ fontFamily: SANS, fontSize: 15, color: C.textSec }}>⚪ No real high-quality options setups right now — cash is a valid state.</div>
+            <div style={{ fontFamily: SANS, fontSize: 15, color: C.textSec }}>
+              ⚪ {data.maxLossFilter ? `No real setup right now stays within your $${data.maxLossFilter} max-loss budget — cash is a valid state.` : "No real high-quality options setups right now — cash is a valid state."}
+            </div>
           )}
 
           {data?.ranked?.map((r) => (
@@ -140,7 +171,7 @@ export default function OptionsBuyAssistantPanel({ C, MONO, SANS, setTerminalSym
 
           {data?.skipped?.length > 0 && (
             <div style={{ fontFamily: SANS, fontSize: 13, color: C.textSec, marginTop: 6 }}>
-              Skipped (no real tradeable chain): {data.skipped.map((s) => s.symbol).join(", ")}
+              {data.skipped.map((s) => `${s.symbol} (${s.reason})`).join(" · ")}
             </div>
           )}
         </>
@@ -171,6 +202,7 @@ function CandidateCard({ r, C, MONO, SANS, setTerminalSymbol, ticketFor, ticketS
         <span style={{ color: C.textSec }}>R:R <b style={{ color: C.text }}>{r.best.riskReward ?? "—"}</b></span>
         {r.best.construction?.netDebit != null && <span style={{ color: C.textSec }}>Est. Debit <b style={{ color: C.text }}>${r.best.construction.netDebit}</b></span>}
         {r.best.construction?.netCredit != null && <span style={{ color: C.textSec }}>Est. Credit <b style={{ color: C.text }}>${r.best.construction.netCredit}</b></span>}
+        {r.maxLossDollars != null && <span style={{ color: C.textSec }}>Max Loss <b style={{ color: C.red }}>${r.maxLossDollars.toFixed(2)}</b></span>}
       </div>
       {r.best.explanation?.whyThis?.[0] && (
         <div style={{ fontFamily: SANS, fontSize: 15, color: C.text, marginBottom: 10, lineHeight: 1.5 }}>
