@@ -39,6 +39,30 @@ export default function OptionsBuyAssistantPanel({ C, MONO, SANS, setTerminalSym
   const [ticket, setTicket] = useState(null);
   const [ticketLoading, setTicketLoading] = useState(false);
 
+  // Search Any Ticker (2026-09-08, explicit user request: "i want options
+  // buy assistance to be able to search every stock"). Zero new backend
+  // route — /api/market/best-options-now already accepts an arbitrary
+  // ?symbols= list (built for the default 12-name universe, but the real
+  // per-symbol pipeline underneath has no such restriction), so a single
+  // searched ticker gets the exact same real analysis as a scanned one.
+  const [searchInput, setSearchInput] = useState("");
+  const [searchResult, setSearchResult] = useState(null); // { symbol, row } | { symbol, error } | null
+  const [searching, setSearching] = useState(false);
+  const runSearch = () => {
+    const symbol = searchInput.trim().toUpperCase();
+    if (!symbol) return;
+    setSearching(true); setSearchResult(null);
+    fetch(`/api/market/best-options-now?symbols=${encodeURIComponent(symbol)}`).then((r) => r.json())
+      .then((d) => {
+        if (!d.ok) { setSearchResult({ symbol, error: d.error || "Search failed" }); return; }
+        const row = (d.ranked || [])[0] || (d.skipped || [])[0] || null;
+        if (!row) { setSearchResult({ symbol, error: "No real result returned." }); return; }
+        setSearchResult(row.ok === false ? { symbol, error: row.reason } : row);
+      })
+      .catch((e) => setSearchResult({ symbol, error: e.message }))
+      .finally(() => setSearching(false));
+  };
+
   const scan = () => {
     setLoading(true); setError(null);
     fetch("/api/market/best-options-now").then((r) => r.json())
@@ -64,6 +88,8 @@ export default function OptionsBuyAssistantPanel({ C, MONO, SANS, setTerminalSym
       .finally(() => setTicketLoading(false));
   };
 
+  const ticketProps = { ticketFor, ticketStrategy, ticket, ticketLoading, viewOrder, onCloseTicket: () => setTicketFor(null) };
+
   return (
     <section aria-label="Options Buy Assistant" style={{ padding: "14px 20px", background: C.surface, borderBottom: `1px solid ${C.border}` }}>
       <button onClick={toggleCollapsed} style={{ display: "flex", alignItems: "center", gap: 8, background: "transparent", border: "none", cursor: "pointer", padding: 0, marginBottom: collapsed ? 0 : 12 }}>
@@ -74,7 +100,27 @@ export default function OptionsBuyAssistantPanel({ C, MONO, SANS, setTerminalSym
 
       {!collapsed && (
         <>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+          {/* Search Any Ticker (spec §19: "WHAT DO YOU WANT TO TRADE?") —
+              the same real per-symbol pipeline as the scan below, just for
+              one caller-chosen symbol instead of the default universe. */}
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 700, color: C.textSec, marginBottom: 6 }}>WHAT DO YOU WANT TO TRADE?</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input value={searchInput} onChange={(e) => setSearchInput(e.target.value.toUpperCase())} onKeyDown={(e) => e.key === "Enter" && runSearch()}
+                placeholder="e.g. TSLA" style={{ fontFamily: MONO, fontSize: 16, fontWeight: 700, padding: "9px 14px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.card, color: C.text, width: 180 }} />
+              <button onClick={runSearch} disabled={searching || !searchInput.trim()} style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, padding: "9px 18px", borderRadius: 8, border: "none", background: C.accent, color: "#fff", cursor: searching ? "default" : "pointer", opacity: searching ? 0.6 : 1 }}>
+                {searching ? "SEARCHING…" : "GO"}
+              </button>
+            </div>
+          </div>
+
+          {searching && <div style={{ fontFamily: SANS, fontSize: 15, color: C.textSec, marginBottom: 14 }}>Reading the real live chain for {searchInput.trim().toUpperCase()}…</div>}
+          {searchResult?.error && <div style={{ fontFamily: SANS, fontSize: 15, color: C.amber, marginBottom: 14 }}>{searchResult.symbol}: {searchResult.error}</div>}
+          {searchResult && !searchResult.error && (
+            <CandidateCard r={searchResult} C={C} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} {...ticketProps} />
+          )}
+
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: searchResult ? 18 : 0, marginBottom: 14, paddingTop: searchResult ? 16 : 0, borderTop: searchResult ? `1px solid ${C.border}` : "none" }}>
             <button onClick={scan} disabled={loading} style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, padding: "8px 16px", borderRadius: 8, border: "none", background: C.accent, color: "#fff", cursor: loading ? "default" : "pointer", opacity: loading ? 0.6 : 1 }}>
               {loading ? "SCANNING…" : "🔍 SCAN NOW"}
             </button>
@@ -88,46 +134,9 @@ export default function OptionsBuyAssistantPanel({ C, MONO, SANS, setTerminalSym
             <div style={{ fontFamily: SANS, fontSize: 15, color: C.textSec }}>⚪ No real high-quality options setups right now — cash is a valid state.</div>
           )}
 
-          {data?.ranked?.map((r) => {
-            const dirLabel = r.best.strategy === "Iron Condor" ? "NEUTRAL / RANGE" : r.best.strategy.includes("Put") ? "BEARISH" : "BULLISH";
-            const dirColor = DIRECTION_COLOR(C, dirLabel);
-            const timing = r.timing || {};
-            const showingTicket = ticketFor === r.symbol;
-            return (
-              <div key={r.symbol} style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: "14px 16px", marginBottom: 12, background: C.card }}>
-                <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 14, marginBottom: 8 }}>
-                  <span style={{ fontFamily: MONO, fontSize: 26, fontWeight: 900, color: C.text }}>{r.symbol}</span>
-                  <span style={{ fontFamily: MONO, fontSize: 15, fontWeight: 800, color: dirColor }}>{dirLabel === "BULLISH" ? "🟢" : dirLabel === "BEARISH" ? "🔴" : "🟡"} {r.best.strategy.toUpperCase()}</span>
-                  <span style={{ fontFamily: MONO, fontSize: 14, color: C.textSec }}>Score <b style={{ color: C.text }}>{r.best.composite}/100</b></span>
-                  <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: TIMING_COLOR(C, timing.stage) }}>{timing.icon} {timing.label}</span>
-                </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 20, marginBottom: 10, fontFamily: MONO, fontSize: 15 }}>
-                  <span style={{ color: C.textSec }}>Underlying <b style={{ color: C.text }}>${r.underlying}</b></span>
-                  <span style={{ color: C.textSec }}>POP <b style={{ color: C.text }}>{r.best.pop != null ? `${r.best.pop}%` : "—"}</b></span>
-                  <span style={{ color: C.textSec }}>R:R <b style={{ color: C.text }}>{r.best.riskReward ?? "—"}</b></span>
-                  {r.best.construction?.netDebit != null && <span style={{ color: C.textSec }}>Est. Debit <b style={{ color: C.text }}>${r.best.construction.netDebit}</b></span>}
-                  {r.best.construction?.netCredit != null && <span style={{ color: C.textSec }}>Est. Credit <b style={{ color: C.text }}>${r.best.construction.netCredit}</b></span>}
-                </div>
-                {r.best.explanation?.whyThis?.[0] && (
-                  <div style={{ fontFamily: SANS, fontSize: 15, color: C.text, marginBottom: 10, lineHeight: 1.5 }}>
-                    <b>Why: </b>{r.best.explanation.whyThis[0]}
-                  </div>
-                )}
-                <div style={{ display: "flex", gap: 10 }}>
-                  <button onClick={() => viewOrder(r.symbol, r.best.strategy)} style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, padding: "9px 14px", borderRadius: 7, border: "none", background: dirColor, color: "#fff", cursor: "pointer" }}>
-                    VIEW ROBINHOOD ORDER
-                  </button>
-                  <button onClick={() => setTerminalSymbol?.(r.symbol)} style={{ fontFamily: MONO, fontSize: 14, fontWeight: 700, padding: "9px 14px", borderRadius: 7, border: `1px solid ${C.border}`, background: "transparent", color: C.textSec, cursor: "pointer" }}>
-                    OPEN CHART
-                  </button>
-                </div>
-
-                {showingTicket && (
-                  <RobinhoodTicketCard symbol={r.symbol} strategy={ticketStrategy} ticket={ticket} loading={ticketLoading} C={C} MONO={MONO} SANS={SANS} onClose={() => setTicketFor(null)} />
-                )}
-              </div>
-            );
-          })}
+          {data?.ranked?.map((r) => (
+            <CandidateCard key={r.symbol} r={r} C={C} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} {...ticketProps} />
+          ))}
 
           {data?.skipped?.length > 0 && (
             <div style={{ fontFamily: SANS, fontSize: 13, color: C.textSec, marginTop: 6 }}>
@@ -137,6 +146,50 @@ export default function OptionsBuyAssistantPanel({ C, MONO, SANS, setTerminalSym
         </>
       )}
     </section>
+  );
+}
+
+// One real candidate's card — shared by both the default-universe scan
+// and the Search Any Ticker result above, so a searched symbol gets the
+// exact same real analysis/actions as a scanned one, never a lesser view.
+function CandidateCard({ r, C, MONO, SANS, setTerminalSymbol, ticketFor, ticketStrategy, ticket, ticketLoading, viewOrder, onCloseTicket }) {
+  const dirLabel = r.best.strategy === "Iron Condor" ? "NEUTRAL / RANGE" : r.best.strategy.includes("Put") ? "BEARISH" : "BULLISH";
+  const dirColor = DIRECTION_COLOR(C, dirLabel);
+  const timing = r.timing || {};
+  const showingTicket = ticketFor === r.symbol;
+  return (
+    <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: "14px 16px", marginBottom: 12, background: C.card }}>
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 14, marginBottom: 8 }}>
+        <span style={{ fontFamily: MONO, fontSize: 26, fontWeight: 900, color: C.text }}>{r.symbol}</span>
+        <span style={{ fontFamily: MONO, fontSize: 15, fontWeight: 800, color: dirColor }}>{dirLabel === "BULLISH" ? "🟢" : dirLabel === "BEARISH" ? "🔴" : "🟡"} {r.best.strategy.toUpperCase()}</span>
+        <span style={{ fontFamily: MONO, fontSize: 14, color: C.textSec }}>Score <b style={{ color: C.text }}>{r.best.composite}/100</b></span>
+        <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: TIMING_COLOR(C, timing.stage) }}>{timing.icon} {timing.label}</span>
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 20, marginBottom: 10, fontFamily: MONO, fontSize: 15 }}>
+        <span style={{ color: C.textSec }}>Underlying <b style={{ color: C.text }}>${r.underlying}</b></span>
+        <span style={{ color: C.textSec }}>POP <b style={{ color: C.text }}>{r.best.pop != null ? `${r.best.pop}%` : "—"}</b></span>
+        <span style={{ color: C.textSec }}>R:R <b style={{ color: C.text }}>{r.best.riskReward ?? "—"}</b></span>
+        {r.best.construction?.netDebit != null && <span style={{ color: C.textSec }}>Est. Debit <b style={{ color: C.text }}>${r.best.construction.netDebit}</b></span>}
+        {r.best.construction?.netCredit != null && <span style={{ color: C.textSec }}>Est. Credit <b style={{ color: C.text }}>${r.best.construction.netCredit}</b></span>}
+      </div>
+      {r.best.explanation?.whyThis?.[0] && (
+        <div style={{ fontFamily: SANS, fontSize: 15, color: C.text, marginBottom: 10, lineHeight: 1.5 }}>
+          <b>Why: </b>{r.best.explanation.whyThis[0]}
+        </div>
+      )}
+      <div style={{ display: "flex", gap: 10 }}>
+        <button onClick={() => viewOrder(r.symbol, r.best.strategy)} style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, padding: "9px 14px", borderRadius: 7, border: "none", background: dirColor, color: "#fff", cursor: "pointer" }}>
+          VIEW ROBINHOOD ORDER
+        </button>
+        <button onClick={() => setTerminalSymbol?.(r.symbol)} style={{ fontFamily: MONO, fontSize: 14, fontWeight: 700, padding: "9px 14px", borderRadius: 7, border: `1px solid ${C.border}`, background: "transparent", color: C.textSec, cursor: "pointer" }}>
+          OPEN CHART
+        </button>
+      </div>
+
+      {showingTicket && (
+        <RobinhoodTicketCard symbol={r.symbol} strategy={ticketStrategy} ticket={ticket} loading={ticketLoading} C={C} MONO={MONO} SANS={SANS} onClose={onCloseTicket} />
+      )}
+    </div>
   );
 }
 
