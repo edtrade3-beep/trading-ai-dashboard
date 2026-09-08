@@ -62,6 +62,42 @@ function setStep(project, step, status, extra = {}) {
   project.job.steps[step] = { status, at: new Date().toISOString(), ...extra };
 }
 
+// Real bug found live (2026-09-08): a real production run passed Voice
+// for real, then sat at Subtitles — a pure, synchronous, no-network step
+// — for 108 real minutes with zero progress. runVideoStep's own ffmpeg
+// calls already got real timeout protection the same day (story-ai-
+// video-assembly.js), but that only covers ffmpeg specifically; this
+// stall happened BEFORE video even started, meaning something else in
+// the real chain (most likely a real stuck saveProject -> Postgres write
+// under this app's own atomic-write.js, though the exact mechanism
+// wasn't directly observable from outside the process) can hang with
+// nothing at all to catch it. Every step call in the real pipeline
+// needs the SAME class of protection ffmpeg just got, not just the one
+// place a hang happened to be found.
+//
+// Real, disclosed limitation: this races against the step, it does not
+// force-cancel whatever's actually stuck inside it (Node has no generic
+// way to abort an arbitrary already-running async call, especially a
+// stuck DB write) — same real tradeoff src/utils.js's own withTimeout
+// already accepts elsewhere in this codebase. A step that times out is
+// marked failed and the real in-memory `running` lock is released
+// (retryStep/runPipeline's own try/catch/finally already do this once
+// the promise rejects) so the NEXT retry isn't blocked forever; the
+// orphaned original call may still be running in the background and
+// could theoretically still complete afterward, but "eventually report
+// a real error and let the user retry" beats "hang forever with no way
+// to recover short of restarting the whole server."
+const STEP_TIMEOUT_MS = 8 * 60_000;
+function runStepWithTimeout(stepName, fn) {
+  return Promise.race([
+    Promise.resolve().then(fn),
+    new Promise((_, reject) => setTimeout(
+      () => reject(new Error(`Step "${stepName}" did not complete within ${STEP_TIMEOUT_MS / 1000}s — treated as a real stall, not a guessed hang.`)),
+      STEP_TIMEOUT_MS,
+    )),
+  ]);
+}
+
 async function withRetries(fn, retries = MAX_RETRIES_PER_STEP) {
   let lastErr;
   for (let attempt = 0; attempt <= retries; attempt++) {
@@ -345,16 +381,16 @@ async function runPipeline(projectId, apiKey) {
   saveProject(project);
 
   try {
-    await runStoryStep(project, apiKey); saveProject(project);
-    const approved = await runVerificationStep(project, apiKey); saveProject(project);
+    await runStepWithTimeout("story", () => runStoryStep(project, apiKey)); saveProject(project);
+    const approved = await runStepWithTimeout("verification", () => runVerificationStep(project, apiKey)); saveProject(project);
     if (!approved) { project.job.status = "paused"; saveProject(project); return { ok: true, project }; }
 
-    await runScenesStep(project, apiKey); saveProject(project);
-    await runImagesStep(project); saveProject(project);
-    await runVoiceStep(project); saveProject(project);
-    runSubtitlesStep(project); saveProject(project);
-    await runVideoStep(project); saveProject(project);
-    await runQualityStep(project, apiKey); saveProject(project);
+    await runStepWithTimeout("scenes", () => runScenesStep(project, apiKey)); saveProject(project);
+    await runStepWithTimeout("images", () => runImagesStep(project)); saveProject(project);
+    await runStepWithTimeout("voice", () => runVoiceStep(project)); saveProject(project);
+    await runStepWithTimeout("subtitles", () => runSubtitlesStep(project)); saveProject(project);
+    await runStepWithTimeout("video", () => runVideoStep(project)); saveProject(project);
+    await runStepWithTimeout("quality", () => runQualityStep(project, apiKey)); saveProject(project);
 
     project.status = project.quality?.approved ? "Ready" : "Needs Review";
     project.job.status = "done";
@@ -419,7 +455,7 @@ async function retryStep(projectId, step, apiKey) {
     for (const laterStep of STEP_ORDER.slice(startIdx + 1)) {
       project.job.steps[laterStep] = { status: "pending" };
     }
-    const result = await runner(project, apiKey);
+    const result = await runStepWithTimeout(step, () => runner(project, apiKey));
     if (step === "verification" && result === false) { saveProject(project); return { ok: true, project }; }
     // After a successful retry, re-run every downstream step so the
     // project stays internally consistent (e.g. editing the script and
@@ -427,7 +463,7 @@ async function retryStep(projectId, step, apiKey) {
     // on the old text) — spec's own "regenerate only the necessary
     // downstream assets" principle, applied at the step level.
     for (const laterStep of STEP_ORDER.slice(startIdx + 1)) {
-      await STEP_RUNNERS[laterStep](project, apiKey);
+      await runStepWithTimeout(laterStep, () => STEP_RUNNERS[laterStep](project, apiKey));
       saveProject(project);
     }
     project.status = project.quality?.approved ? "Ready" : "Needs Review";
