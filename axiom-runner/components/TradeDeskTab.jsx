@@ -836,10 +836,6 @@ export default function TradeDeskTab({
           C={TD} MONO={MONO} SANS={SANS}
         />
 
-        <BeforeItPopsPanel C={TD} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
-        <HiddenGemPanel symbol={symbol} C={TD} MONO={MONO} SANS={SANS} />
-        <OptionsBuyAssistantPanel C={TD} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} />
-
         {/* Middle: 3-pane on desktop, stacked segmented view on mobile — never
             force the fixed-column grid on a narrow screen (ScanTerminalHub's
             own history is the reason this is a deliberate, up-front choice). */}
@@ -863,6 +859,23 @@ export default function TradeDeskTab({
           </div>
         )}
       </div>
+
+      {/* Real bug fix (2026-09-08, live user report: "trade desk
+          overlapping"): these three panels were briefly mounted INSIDE
+          the fixed-height core zone above (rootRef), between TradeGpsCard
+          and the 3-pane grid. That zone's own header comment already
+          documents exactly why that's wrong — a variable-height sibling
+          (a collapsible panel that changes height on toggle) folded into
+          a fixed `height` flex column can overflow it with no clipping
+          (no overflow:hidden on rootRef), visually spilling into whatever
+          renders next in normal document flow. Moved here instead — plain
+          siblings BELOW the core zone, same real pattern this file
+          already uses for the Workspace Grid and TradeDeskEvidence, free
+          to add their own real height without competing for the chart's
+          fixed budget or overlapping anything after them. */}
+      <BeforeItPopsPanel C={TD} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
+      <HiddenGemPanel symbol={symbol} C={TD} MONO={MONO} SANS={SANS} />
+      <OptionsBuyAssistantPanel C={TD} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} />
 
       <TradeDeskEvidence decision={canonicalDecision} chart={chart} C={TD} MONO={MONO} SANS={SANS} />
       <TradeGpsWhyPanel tradeGps={tradeGpsData?.tradeGps} tradeStructure={tradeGpsData?.tradeStructure} trapShield={tradeGpsData?.trapShield} C={TD} MONO={MONO} SANS={SANS} />
