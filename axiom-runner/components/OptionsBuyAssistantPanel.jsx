@@ -83,9 +83,33 @@ export default function OptionsBuyAssistantPanel({ C, MONO, SANS, setTerminalSym
   };
 
   const scan = () => {
-    setLoading(true); setError(null);
+    setLoading(true); setError(null); setSource("universe");
     fetch(`/api/market/best-options-now?${maxLossQS().replace(/^&/, "")}`).then((r) => r.json())
       .then((d) => { if (d.ok) setData(d); else setError(d.error || "Scan failed"); })
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  };
+
+  // Filter by Watchlist (2026-09-08, explicit user request: "i can filter
+  // options assistance by watch and buy") — reuses the app's own real,
+  // primary watchlist store (data/watchlist.json via GET /api/watchlist,
+  // the exact same list MarketTerminalTab/QuotesTab/SmartScanTab/
+  // TrendTemplateTab already read from and "Add to Watchlist" writes to),
+  // never a second, separate watchlist. Runs the identical real
+  // best-options-now pipeline against those symbols instead of the
+  // hardcoded 12-name default universe — the resulting cards (including
+  // VIEW ROBINHOOD ORDER / OPEN CHART) are the exact same real "buy" flow
+  // either way, just scoped to a different symbol source.
+  const [source, setSource] = useState("universe"); // "universe" | "watchlist"
+  const scanWatchlist = () => {
+    setLoading(true); setError(null); setSource("watchlist");
+    fetch("/api/watchlist").then((r) => r.json())
+      .then((wl) => {
+        const symbols = (wl.symbols || []).slice(0, 20);
+        if (!symbols.length) { setError("Your watchlist is empty — add symbols to it first (⭐ Add to Watchlist elsewhere in the app), then filter by watchlist here."); setData(null); return null; }
+        return fetch(`/api/market/best-options-now?symbols=${encodeURIComponent(symbols.join(","))}${maxLossQS()}`).then((r) => r.json());
+      })
+      .then((d) => { if (d) { if (d.ok) setData(d); else setError(d.error || "Watchlist scan failed"); } })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   };
@@ -149,11 +173,16 @@ export default function OptionsBuyAssistantPanel({ C, MONO, SANS, setTerminalSym
             <CandidateCard r={searchResult} C={C} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} {...ticketProps} />
           )}
 
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: searchResult ? 18 : 0, marginBottom: 14, paddingTop: searchResult ? 16 : 0, borderTop: searchResult ? `1px solid ${C.border}` : "none" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginTop: searchResult ? 18 : 0, marginBottom: 14, paddingTop: searchResult ? 16 : 0, borderTop: searchResult ? `1px solid ${C.border}` : "none" }}>
             <button onClick={scan} disabled={loading} style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, padding: "8px 16px", borderRadius: 8, border: "none", background: C.accent, color: "#fff", cursor: loading ? "default" : "pointer", opacity: loading ? 0.6 : 1 }}>
-              {loading ? "SCANNING…" : "🔍 SCAN NOW"}
+              {loading && source === "universe" ? "SCANNING…" : "🔍 SCAN NOW"}
             </button>
-            <span style={{ fontFamily: SANS, fontSize: 13, color: C.textSec }}>Real liquid-options universe · top 5 ranked by real probability, risk/reward, and liquidity</span>
+            <button onClick={scanWatchlist} disabled={loading} style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, padding: "8px 16px", borderRadius: 8, border: `1px solid ${C.border}`, background: "transparent", color: C.text, cursor: loading ? "default" : "pointer", opacity: loading ? 0.6 : 1 }}>
+              {loading && source === "watchlist" ? "SCANNING…" : "⭐ SCAN MY WATCHLIST"}
+            </button>
+            <span style={{ fontFamily: SANS, fontSize: 13, color: C.textSec }}>
+              {source === "watchlist" ? "Your real watchlist symbols" : "Real liquid-options universe (12 default symbols)"} · top 5 ranked by real probability, risk/reward, and liquidity
+            </span>
           </div>
 
           {error && <div style={{ fontFamily: SANS, fontSize: 15, color: C.amber, marginBottom: 10 }}>Unavailable right now: {error}</div>}
@@ -161,7 +190,9 @@ export default function OptionsBuyAssistantPanel({ C, MONO, SANS, setTerminalSym
 
           {!loading && data?.ranked?.length === 0 && (
             <div style={{ fontFamily: SANS, fontSize: 15, color: C.textSec }}>
-              ⚪ {data.maxLossFilter ? `No real setup right now stays within your $${data.maxLossFilter} max-loss budget — cash is a valid state.` : "No real high-quality options setups right now — cash is a valid state."}
+              ⚪ {data.maxLossFilter
+                ? `No real setup ${source === "watchlist" ? "in your watchlist" : "right now"} stays within your $${data.maxLossFilter} max-loss budget — cash is a valid state.`
+                : source === "watchlist" ? "No real high-quality options setups in your watchlist right now — cash is a valid state." : "No real high-quality options setups right now — cash is a valid state."}
             </div>
           )}
 
