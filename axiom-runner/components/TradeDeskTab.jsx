@@ -32,6 +32,7 @@ import TradeDeskEvidence from "./TradeDeskEvidence.jsx";
 import TradeGpsCard from "./TradeGpsCard.jsx";
 import BeforeItPopsPanel from "./BeforeItPopsPanel.jsx";
 import HiddenGemPanel from "./HiddenGemPanel.jsx";
+import OptionsBuyAssistantPanel from "./OptionsBuyAssistantPanel.jsx";
 import TradeGpsWhyPanel from "./TradeGpsWhyPanel.jsx";
 import TradeDeskTabs from "./TradeDeskTabs.jsx";
 
@@ -837,6 +838,7 @@ export default function TradeDeskTab({
 
         <BeforeItPopsPanel C={TD} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
         <HiddenGemPanel symbol={symbol} C={TD} MONO={MONO} SANS={SANS} />
+        <OptionsBuyAssistantPanel C={TD} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} />
 
         {/* Middle: 3-pane on desktop, stacked segmented view on mobile — never
             force the fixed-column grid on a narrow screen (ScanTerminalHub's

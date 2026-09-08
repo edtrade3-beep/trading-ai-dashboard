@@ -5609,6 +5609,98 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
     }
   }
 
+  // GET /api/market/best-options-now — Options Buy Assistant (2026-09-07,
+  // new Trade Desk primary section), §1-2: "Search the market... find
+  // best underlyings... present the TOP 3-5." Reuses the exact same real
+  // per-symbol pipeline /api/market/strategy-rank already runs (real
+  // options chain -> strategy-selector.js's real legs -> strategy-
+  // ranking.js's real POP/R:R/liquidity/composite) across a small, bounded
+  // real universe — a real Polygon options-chain fetch per symbol is
+  // genuine cost, so this deliberately does NOT scan the full ~100-symbol
+  // SCAN_UNIVERSE (matches this app's own staged-scanning discipline).
+  // Default universe is the same 12 real liquid mega-caps the Options Buy
+  // Assistant's own "My Favorites" section defaults to; a caller (the
+  // user's own edited favorites list) can override via ?symbols=.
+  const DEFAULT_OPTIONS_UNIVERSE = ["TSLA", "NVDA", "AMD", "META", "AAPL", "AMZN", "GOOGL", "MSFT", "AVGO", "MU", "SPY", "QQQ"];
+  if (pathname === "/api/market/best-options-now" && req.method === "GET") {
+    const symbolsParam = (searchParams.get("symbols") || "").trim();
+    const symbols = symbolsParam ? symbolsParam.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean).slice(0, 20) : DEFAULT_OPTIONS_UNIVERSE;
+    const cacheKey = `best-options-now:${symbols.slice().sort().join(",")}`;
+    try {
+      const data = await cached(cacheKey, 5 * 60_000, async () => {
+        const { rankAllStrategies } = require("../strategy-ranking");
+        const { explainStrategy } = require("../strategy-explain");
+        const { computePartyStageProfile } = require("../party-stage-engine");
+        const { classifyEntryTiming } = require("../options-buy-assistant");
+
+        // Real, already-cached full-universe opportunity scan — reused
+        // ONLY for its own already-computed real Party Stage/entry-timing
+        // read on whichever of these symbols it covers (zero new
+        // technical computation); a symbol this scan doesn't cover simply
+        // gets an honest null timing read below, never a guessed one.
+        let partyStageBySymbol = {};
+        try {
+          const { tiers } = await cached("all-opportunities", WATCHLIST_SCREEN_CACHE_TTL_MS, computeAllOpportunities);
+          for (const o of Object.values(tiers || {}).flat()) if (o?.symbol) partyStageBySymbol[o.symbol] = o.partyStage;
+        } catch {}
+
+        const perSymbol = await Promise.all(symbols.map(async (symbol) => {
+          try {
+            const { underlying, calls, puts } = await fetchRankedChainForStrategy(symbol);
+            if (!(underlying > 0) || (!calls.length && !puts.length)) {
+              return { symbol, ok: false, reason: "No real options chain available right now." };
+            }
+            const { ranked, unavailable } = rankAllStrategies({ calls, puts, underlying });
+            if (!ranked.length) return { symbol, ok: false, reason: unavailable[0]?.reason || "No real structure could be built from the current chain." };
+            const best = ranked[0];
+            const explanation = explainStrategy(best, ranked, {});
+            const timing = classifyEntryTiming(partyStageBySymbol[symbol] || null);
+            return { symbol, ok: true, underlying, best: { ...best, explanation }, timing };
+          } catch (err) {
+            return { symbol, ok: false, reason: err instanceof Error ? err.message : "Real chain fetch failed." };
+          }
+        }));
+
+        const ranked = perSymbol.filter((r) => r.ok).sort((a, b) => b.best.composite - a.best.composite).slice(0, 5);
+        const skipped = perSymbol.filter((r) => !r.ok);
+        return { ranked, skipped, universe: symbols, generatedAt: new Date().toISOString() };
+      });
+      return writeJson(res, 200, { ok: true, ...data });
+    } catch (err) {
+      return writeJson(res, 502, { ok: false, error: err instanceof Error ? err.message : "Best Options Now scan failed." });
+    }
+  }
+
+  // GET /api/market/robinhood-ticket?symbol=X&strategy=Y — Options Buy
+  // Assistant §3, the Robinhood Order Ticket. Re-runs the SAME real
+  // strategy-rank pipeline for one symbol (no separate state to go stale
+  // between "best options now" and "view order") and converts whichever
+  // real ranked structure the caller selected into options-buy-
+  // assistant.js's real ticket format. `strategy` is optional — omitted,
+  // this returns the real top-ranked pick's ticket.
+  if (pathname === "/api/market/robinhood-ticket" && req.method === "GET") {
+    const symbol = (searchParams.get("symbol") || "").trim().toUpperCase();
+    const wantStrategy = searchParams.get("strategy") || null;
+    if (!symbol) return writeJson(res, 400, { ok: false, error: "symbol required" });
+    try {
+      const { rankAllStrategies } = require("../strategy-ranking");
+      const { buildRobinhoodOrderTicket } = require("../options-buy-assistant");
+      const { underlying, calls, puts } = await fetchRankedChainForStrategy(symbol);
+      if (!(underlying > 0) || (!calls.length && !puts.length)) {
+        return writeJson(res, 200, { ok: true, symbol, ticket: { available: false, reason: "No real options chain available for this symbol right now." } });
+      }
+      const { ranked } = rankAllStrategies({ calls, puts, underlying });
+      const rankedStrategy = wantStrategy ? ranked.find((s) => s.strategy === wantStrategy) : ranked[0];
+      if (!rankedStrategy) {
+        return writeJson(res, 200, { ok: true, symbol, ticket: { available: false, reason: wantStrategy ? `"${wantStrategy}" isn't buildable from the current real chain.` : "No real structure could be built from the current chain." } });
+      }
+      const ticket = buildRobinhoodOrderTicket({ symbol, rankedStrategy });
+      return writeJson(res, 200, { ok: true, symbol, underlying, ticket, generatedAt: new Date().toISOString() });
+    } catch (err) {
+      return writeJson(res, 502, { ok: false, error: err instanceof Error ? err.message : "Order ticket generation failed." });
+    }
+  }
+
   // GET /api/market/sec?symbol=AAPL — recent SEC filings from EDGAR RSS
   if (pathname === "/api/market/sec" && req.method === "GET") {
     const symbol = (searchParams.get("symbol") || "").trim().toUpperCase();

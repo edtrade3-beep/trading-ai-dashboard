@@ -35,114 +35,114 @@ export default function OptionsStrategyRankPanel({ symbol, marketBias, C, MONO, 
 
   return (
     <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 14px", background: C.card }}>
-      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: 0.6, marginBottom: 8 }}>🧮 OPTIONS STRATEGY RANKING — WHY THIS TRADE? — {symbol}</div>
-      {loading && <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>Ranking real strategies off the live chain…</div>}
-      {!loading && data && data.reason && <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>{data.reason}</div>}
+      <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.textSec, letterSpacing: 0.6, marginBottom: 10 }}>🧮 OPTIONS STRATEGY RANKING — WHY THIS TRADE? — {symbol}</div>
+      {loading && <div style={{ fontFamily: SANS, fontSize: 13, color: C.textSec }}>Ranking real strategies off the live chain…</div>}
+      {!loading && data && data.reason && <div style={{ fontFamily: SANS, fontSize: 13, color: C.textSec }}>{data.reason}</div>}
       {!loading && data && !data.reason && !data.ranked.length && (
-        <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>No real structure could be built from the current chain — {(data.unavailable || []).map((u) => u.reason).filter(Boolean)[0] || "insufficient real chain depth."}</div>
+        <div style={{ fontFamily: SANS, fontSize: 13, color: C.textSec }}>No real structure could be built from the current chain — {(data.unavailable || []).map((u) => u.reason).filter(Boolean)[0] || "insufficient real chain depth."}</div>
       )}
       {!loading && data?.best && (
-        <div style={{ border: `1px solid ${GRADE_COLOR[data.best.setupQuality]}66`, background: `${GRADE_COLOR[data.best.setupQuality]}12`, borderRadius: 8, padding: "8px 10px", marginBottom: 10 }}>
-          <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.5 }}>BEST OPTIONS STRUCTURE</div>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 8, margin: "3px 0" }}>
-            <span style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.text }}>{data.best.strategy}</span>
-            <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: GRADE_COLOR[data.best.setupQuality] }}>Grade {data.best.setupQuality}</span>
-            <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>Confidence {data.best.confidence}%</span>
+        <div style={{ border: `1px solid ${GRADE_COLOR[data.best.setupQuality]}66`, background: `${GRADE_COLOR[data.best.setupQuality]}12`, borderRadius: 8, padding: "10px 12px", marginBottom: 12 }}>
+          <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.textSec, letterSpacing: 0.5 }}>BEST OPTIONS STRUCTURE</div>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 8, margin: "4px 0" }}>
+            <span style={{ fontFamily: MONO, fontSize: 17, fontWeight: 900, color: C.text }}>{data.best.strategy}</span>
+            <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: GRADE_COLOR[data.best.setupQuality] }}>Grade {data.best.setupQuality}</span>
+            <span style={{ fontFamily: MONO, fontSize: 13, color: C.textSec }}>Confidence {data.best.confidence}%</span>
           </div>
-          <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec }}>{data.best.reason}</div>
+          <div style={{ fontFamily: SANS, fontSize: 13, color: C.text }}>{data.best.reason}</div>
         </div>
       )}
       {!loading && data?.ranked?.length > 0 && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
           {data.ranked.map((s, i) => (
             <div key={s.strategy}>
               <button
                 onClick={() => setExpanded((e) => (e === s.strategy ? null : s.strategy))}
-                style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", border: `1px solid ${C.border}`, borderRadius: 6, background: i === 0 ? `${C.accent}0d` : "transparent", cursor: "pointer", fontFamily: MONO, fontSize: 11 }}
+                style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", border: `1px solid ${C.border}`, borderRadius: 6, background: i === 0 ? `${C.accent}0d` : "transparent", cursor: "pointer", fontFamily: MONO, fontSize: 13 }}
               >
-                <span style={{ color: C.textDim, width: 14 }}>#{i + 1}</span>
+                <span style={{ color: C.textSec, width: 16 }}>#{i + 1}</span>
                 <b style={{ color: C.text, flex: 1, textAlign: "left" }}>{s.strategy}</b>
-                <span style={{ color: C.textDim }}>POP {s.pop != null ? `${s.pop}%` : "—"}</span>
-                <span style={{ color: C.textDim }}>R:R {s.riskReward != null ? `${s.riskReward}` : "—"}</span>
+                <span style={{ color: C.textSec }}>POP {s.pop != null ? `${s.pop}%` : "—"}</span>
+                <span style={{ color: C.textSec }}>R:R {s.riskReward != null ? `${s.riskReward}` : "—"}</span>
                 <span style={{ fontWeight: 800, color: GRADE_COLOR[s.setupQuality] }}>{s.composite}</span>
-                <span style={{ color: C.textDim }}>{expanded === s.strategy ? "▾" : "▸"}</span>
+                <span style={{ color: C.textSec }}>{expanded === s.strategy ? "▾" : "▸"}</span>
               </button>
               {expanded === s.strategy && s.construction?.legs && (
-                <div style={{ padding: "8px 10px", border: `1px solid ${C.border}`, borderTop: "none", borderRadius: "0 0 6px 6px" }}>
+                <div style={{ padding: "10px 12px", border: `1px solid ${C.border}`, borderTop: "none", borderRadius: "0 0 6px 6px" }}>
                   <div style={{ overflowX: "auto" }}>
                     <table style={{ width: "100%", borderCollapse: "collapse" }}>
                       <thead>
                         <tr>{["ACTION", "TYPE", "STRIKE", "PREMIUM", "DELTA"].map((h) => (
-                          <th key={h} style={{ padding: "4px 6px", fontFamily: MONO, fontSize: 9.5, color: C.textDim, textAlign: "right" }}>{h}</th>
+                          <th key={h} style={{ padding: "5px 6px", fontFamily: MONO, fontSize: 12, color: C.textSec, textAlign: "right" }}>{h}</th>
                         ))}</tr>
                       </thead>
                       <tbody>
                         {s.construction.legs.map((l, li) => (
                           <tr key={li}>
-                            <td style={{ padding: "3px 6px", fontFamily: MONO, fontSize: 11, fontWeight: 800, color: l.action === "BUY" ? C.green : C.red, textAlign: "right" }}>{l.action}</td>
-                            <td style={{ padding: "3px 6px", fontFamily: MONO, fontSize: 11, color: C.text, textAlign: "right" }}>{l.type.toUpperCase()}</td>
-                            <td style={{ padding: "3px 6px", fontFamily: MONO, fontSize: 11, color: C.text, textAlign: "right" }}>${l.strike}</td>
-                            <td style={{ padding: "3px 6px", fontFamily: MONO, fontSize: 11, color: C.text, textAlign: "right" }}>${l.premium}</td>
-                            <td style={{ padding: "3px 6px", fontFamily: MONO, fontSize: 11, color: C.textDim, textAlign: "right" }}>{l.delta ?? "—"}</td>
+                            <td style={{ padding: "4px 6px", fontFamily: MONO, fontSize: 13, fontWeight: 800, color: l.action === "BUY" ? C.green : C.red, textAlign: "right" }}>{l.action}</td>
+                            <td style={{ padding: "4px 6px", fontFamily: MONO, fontSize: 13, color: C.text, textAlign: "right" }}>{l.type.toUpperCase()}</td>
+                            <td style={{ padding: "4px 6px", fontFamily: MONO, fontSize: 13, color: C.text, textAlign: "right" }}>${l.strike}</td>
+                            <td style={{ padding: "4px 6px", fontFamily: MONO, fontSize: 13, color: C.text, textAlign: "right" }}>${l.premium}</td>
+                            <td style={{ padding: "4px 6px", fontFamily: MONO, fontSize: 13, color: C.textSec, textAlign: "right" }}>{l.delta ?? "—"}</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
-                  <div style={{ display: "flex", gap: 12, marginTop: 6, fontFamily: MONO, fontSize: 10.5, flexWrap: "wrap" }}>
-                    {s.construction.netDebit != null && <span style={{ color: C.textDim }}>Net Debit <b style={{ color: C.text }}>${s.construction.netDebit}</b></span>}
-                    {s.construction.netCredit != null && <span style={{ color: C.textDim }}>Net Credit <b style={{ color: C.text }}>${s.construction.netCredit}</b></span>}
-                    {s.construction.maxProfit != null && <span style={{ color: C.textDim }}>Max Profit <b style={{ color: C.green }}>${s.construction.maxProfit}</b></span>}
-                    {s.construction.maxLoss != null && <span style={{ color: C.textDim }}>Max Loss <b style={{ color: C.red }}>${s.construction.maxLoss}</b></span>}
-                    <span style={{ color: C.textDim }}>Liquidity <b style={{ color: C.text }}>{s.liquidity ?? "—"}/100</b></span>
+                  <div style={{ display: "flex", gap: 12, marginTop: 8, fontFamily: MONO, fontSize: 13, flexWrap: "wrap" }}>
+                    {s.construction.netDebit != null && <span style={{ color: C.textSec }}>Net Debit <b style={{ color: C.text }}>${s.construction.netDebit}</b></span>}
+                    {s.construction.netCredit != null && <span style={{ color: C.textSec }}>Net Credit <b style={{ color: C.text }}>${s.construction.netCredit}</b></span>}
+                    {s.construction.maxProfit != null && <span style={{ color: C.textSec }}>Max Profit <b style={{ color: C.green }}>${s.construction.maxProfit}</b></span>}
+                    {s.construction.maxLoss != null && <span style={{ color: C.textSec }}>Max Loss <b style={{ color: C.red }}>${s.construction.maxLoss}</b></span>}
+                    <span style={{ color: C.textSec }}>Liquidity <b style={{ color: C.text }}>{s.liquidity ?? "—"}/100</b></span>
                   </div>
 
                   {/* WHY THIS TRADE? — real narrative over the exact same
                       real fields shown above, never fabricated (Central
                       Opportunity & Options Engine goal, 2026-08-30). */}
                   {s.explanation && (
-                    <div style={{ marginTop: 10, paddingTop: 8, borderTop: `1px solid ${C.border}` }}>
+                    <div style={{ marginTop: 12, paddingTop: 10, borderTop: `1px solid ${C.border}` }}>
                       {s.explanation.whyThis?.length > 0 && (
-                        <div style={{ marginBottom: 8 }}>
-                          <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 3 }}>WHY THIS TRADE</div>
-                          <ul style={{ margin: 0, paddingLeft: 16, fontFamily: SANS, fontSize: 11, color: C.textSec, lineHeight: 1.6 }}>
+                        <div style={{ marginBottom: 10 }}>
+                          <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.textSec, letterSpacing: 0.5, marginBottom: 4 }}>WHY THIS TRADE</div>
+                          <ul style={{ margin: 0, paddingLeft: 16, fontFamily: SANS, fontSize: 13, color: C.text, lineHeight: 1.6 }}>
                             {s.explanation.whyThis.map((b, bi) => <li key={bi}>{b}</li>)}
                           </ul>
                         </div>
                       )}
                       {s.explanation.marketConditionRequired && (
-                        <div style={{ marginBottom: 8, fontFamily: SANS, fontSize: 11, color: C.textSec }}>
-                          <b style={{ color: C.textDim, fontFamily: MONO, fontSize: 9, letterSpacing: 0.5 }}>REQUIRES: </b>{s.explanation.marketConditionRequired}
+                        <div style={{ marginBottom: 10, fontFamily: SANS, fontSize: 13, color: C.text }}>
+                          <b style={{ color: C.textSec, fontFamily: MONO, fontSize: 12, letterSpacing: 0.5 }}>REQUIRES: </b>{s.explanation.marketConditionRequired}
                         </div>
                       )}
-                      <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 8, fontFamily: SANS, fontSize: 11 }}>
-                        <div><span style={{ color: C.textDim }}>Max risk: </span><span style={{ color: C.text }}>{s.explanation.maxRisk}</span></div>
-                        <div><span style={{ color: C.textDim }}>Profit potential: </span><span style={{ color: C.text }}>{s.explanation.profitPotential}</span></div>
+                      <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 10, fontFamily: SANS, fontSize: 13 }}>
+                        <div><span style={{ color: C.textSec }}>Max risk: </span><span style={{ color: C.text }}>{s.explanation.maxRisk}</span></div>
+                        <div><span style={{ color: C.textSec }}>Profit potential: </span><span style={{ color: C.text }}>{s.explanation.profitPotential}</span></div>
                       </div>
                       {(s.explanation.ivImpact || s.explanation.thetaImpact) && (
-                        <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 8, fontFamily: SANS, fontSize: 10.5, color: C.textDim }}>
-                          {s.explanation.ivImpact && <span><b style={{ color: C.textSec }}>{s.explanation.ivImpact.stance}</b> — {s.explanation.ivImpact.note}</span>}
+                        <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 10, fontFamily: SANS, fontSize: 12.5, color: C.textSec }}>
+                          {s.explanation.ivImpact && <span><b style={{ color: C.text }}>{s.explanation.ivImpact.stance}</b> — {s.explanation.ivImpact.note}</span>}
                         </div>
                       )}
                       {s.explanation.thetaImpact && (
-                        <div style={{ marginBottom: 8, fontFamily: SANS, fontSize: 10.5, color: C.textDim }}>
-                          <b style={{ color: C.textSec }}>{s.explanation.thetaImpact.stance}</b> — {s.explanation.thetaImpact.note}
+                        <div style={{ marginBottom: 10, fontFamily: SANS, fontSize: 12.5, color: C.textSec }}>
+                          <b style={{ color: C.text }}>{s.explanation.thetaImpact.stance}</b> — {s.explanation.thetaImpact.note}
                         </div>
                       )}
                       {s.explanation.invalidation && (
-                        <div style={{ marginBottom: 8, fontFamily: SANS, fontSize: 11, color: C.textSec }}>
-                          <b style={{ color: C.red, fontFamily: MONO, fontSize: 9, letterSpacing: 0.5 }}>INVALIDATED IF: </b>{s.explanation.invalidation}
+                        <div style={{ marginBottom: 10, fontFamily: SANS, fontSize: 13, color: C.text }}>
+                          <b style={{ color: C.red, fontFamily: MONO, fontSize: 12, letterSpacing: 0.5 }}>INVALIDATED IF: </b>{s.explanation.invalidation}
                         </div>
                       )}
                       {s.explanation.whyNotAlternatives?.length > 0 && (
-                        <div style={{ marginBottom: 8 }}>
-                          <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 3 }}>WHY NOT THE ALTERNATIVES</div>
-                          <ul style={{ margin: 0, paddingLeft: 16, fontFamily: SANS, fontSize: 11, color: C.textSec, lineHeight: 1.6 }}>
+                        <div style={{ marginBottom: 10 }}>
+                          <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.textSec, letterSpacing: 0.5, marginBottom: 4 }}>WHY NOT THE ALTERNATIVES</div>
+                          <ul style={{ margin: 0, paddingLeft: 16, fontFamily: SANS, fontSize: 13, color: C.text, lineHeight: 1.6 }}>
                             {s.explanation.whyNotAlternatives.map((a, ai) => <li key={ai}>{a.whyNot}</li>)}
                           </ul>
                         </div>
                       )}
-                      <div style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim }}>
+                      <div style={{ fontFamily: MONO, fontSize: 12.5, color: C.textSec }}>
                         Options Confidence: <b style={{ color: s.explanation.optionsConfidence >= 85 ? C.green : s.explanation.optionsConfidence >= 50 ? C.amber : C.red }}>{s.explanation.optionsConfidence}/100</b>
                         {s.explanation.dataQualityNotes?.length > 0 && <span> — {s.explanation.dataQualityNotes.join("; ")}</span>}
                       </div>
@@ -155,7 +155,7 @@ export default function OptionsStrategyRankPanel({ symbol, marketBias, C, MONO, 
         </div>
       )}
       {!loading && data?.unavailable?.length > 0 && (
-        <div style={{ marginTop: 8, fontFamily: SANS, fontSize: 9.5, color: C.textDim }}>
+        <div style={{ marginTop: 10, fontFamily: SANS, fontSize: 12.5, color: C.textSec }}>
           Not buildable right now: {data.unavailable.map((u) => u.strategy).join(", ")}
         </div>
       )}
