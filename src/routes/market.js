@@ -4698,6 +4698,182 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
     return writeJson(res, 200, { ok: true, results, fetchedAt: new Date().toISOString() });
   }
 
+  // GET /api/market/smart-money-intel?symbol=X — Smart Money Intelligence
+  // panel (2026-09-08, user's own spec: "one Smart Money Intelligence
+  // panel... insider activity, institutional/fund activity, analyst
+  // intelligence, unusual options activity, sentiment, one verdict, why
+  // now, entry/stop/targets, options setup, a Smart Money Score combining
+  // insider+institutional+analyst+options+technical+fundamental+catalyst
+  // evidence"). NAMING NOTE: /api/market/smart-money (no -intel suffix,
+  // above in this same file) already exists for a DIFFERENT, older
+  // feature — "Smart Money Concepts" (ICT order blocks/FVGs/BOS-CHoCH), a
+  // pure technical-analysis framework, not insider/institutional/analyst
+  // tracking. Same word, unrelated concept — -intel avoids the collision
+  // rather than overloading that route's existing real payload shape.
+  //
+  // ANTI-DUPLICATION: every real data point here comes from an engine
+  // this app already has — fetchYahooInsiderTransactions/
+  // fetchSecInsiderTransactions (real Form 4s, same fallback chain
+  // /api/market/insider already uses), fetchYahooInstitutional (real
+  // 13F-derived per-symbol ownership, the one real source this app has —
+  // see providers/sec-edgar.js's own header on why SEC itself can't offer
+  // this per-symbol), fetchYahooAnalystRatings (real upgrade/downgrade
+  // history + price targets), fetchOptionsFlow (real flow, real
+  // evidence-based `unusual` flag), fetchDarkPoolPrints, computeCanonical
+  // AssetDecision (the SAME real Trade GPS pipeline every other Trade
+  // Desk surface reads — technical score + real entry/stop/targets +
+  // real stock-vs-option structure pick), computeFutureValueRead (real
+  // fundamental score), getTickerAggregation (real per-ticker news
+  // sentiment/catalyst read, news/store.js). smart-money-score.js is the
+  // one genuinely new piece — a real, configurable-weight composite over
+  // all of the above; smart-money-score-history.js logs today's real
+  // score and flags a real signal shift against yesterday's.
+  if (pathname === "/api/market/smart-money-intel" && req.method === "GET") {
+    const symbol = (searchParams.get("symbol") || "").trim().toUpperCase();
+    if (!symbol) return writeJson(res, 400, { ok: false, error: "symbol required" });
+    const keys = resolveProviderKeys(searchParams);
+    try {
+      const data = await cached(`smart-money-intel:${symbol}`, 5 * 60_000, async () => {
+        const { computeFutureValueRead } = require("../future-value-scoring");
+        const { getTickerAggregation } = require("../news/store");
+        const { computeCanonicalAssetDecision } = require("../canonical-decision-pipeline");
+        const {
+          scoreInsider, scoreInstitutional, scoreOptions, scoreAnalyst, computeSmartMoneyScore,
+        } = require("../smart-money-score");
+        const { logSnapshot, detectSignalShift } = require("../smart-money-score-history");
+        const { rankAllStrategies } = require("../strategy-ranking");
+        const { buildRobinhoodOrderTicket } = require("../options-buy-assistant");
+
+        const MACRO_SYMS = ["SPY", "QQQ", "^VIX"];
+        const bars1y = await _fetchBarsCached(symbol).catch(() => []);
+        const [
+          trend, macroQuotes, trackReport,
+          insiderTxnsRaw, institutional, analystRatings, darkpool,
+          fundamentals, newsAgg, optionsFlowPayload,
+        ] = await Promise.all([
+          _buildTrendTemplate(symbol, { bars: bars1y }).catch(() => null),
+          fetchYahooQuoteBatch([symbol, ...MACRO_SYMS]).catch(() => []),
+          _getTrackReportCached().catch(() => null),
+          fetchYahooInsiderTransactions(symbol).catch(() => ({ symbol, transactions: [], holders: [] })),
+          fetchYahooInstitutional(symbol).catch(() => ({ symbol, institutions: [], funds: [], insidersPct: 0, institutionsPct: 0 })),
+          fetchYahooAnalystRatings(symbol).catch(() => ({ symbol, history: [], trend: [] })),
+          fetchDarkPoolPrints(symbol).catch(() => ({ ok: false, prints: [] })),
+          fetchMarketFundamentals(symbol, keys).catch(() => null),
+          getTickerAggregation(symbol, { sinceMinutes: 3 * 24 * 60 }).catch(() => ({ ok: false })),
+          fetchOptionsFlow([symbol], { limit: 30, keys }).catch(() => null),
+        ]);
+
+        // Same real Yahoo-then-SEC-fallback discipline /api/market/insider
+        // already uses — an empty Yahoo response is worth double-checking
+        // directly against SEC rather than trusting it as "no filings."
+        let insiderTxns = insiderTxnsRaw, insiderSource = "yahoo";
+        if (!insiderTxns.transactions.length) {
+          const secTxns = await fetchSecInsiderTransactions(symbol).catch(() => null);
+          if (secTxns?.transactions.length) { insiderTxns = secTxns; insiderSource = "sec-edgar"; }
+        }
+
+        const symQuote = macroQuotes.find((q) => q.symbol === symbol) || null;
+        const price = Number(symQuote?.regularMarketPrice) || trend?.price || null;
+        const macroData = macroQuotes.map((q) => ({ symbol: q.symbol, price: q.regularMarketPrice, changesPercentage: q.regularMarketChangePercent }));
+
+        let canonical = null;
+        if (trend && !trend.error) {
+          const row = {
+            symbol, price: trend.price, entry: trend.setup?.entryPrice, pivot: trend.setup?.pivot,
+            stop: trend.setup?.stop, target2: trend.setup?.target2,
+            passCount: trend.passCount, stage: trend.stage, verdict: trend.setup?.verdict,
+            actionable: trend.setup?.actionable, extended: trend.setup?.extended,
+            volRatio: trend.volRatio, rsRating: trend.rsRating,
+          };
+          canonical = computeCanonicalAssetDecision({ symbol, row, macroQuotes: macroData, trackReport, nowMs: Date.now(), marketHours: false });
+        }
+
+        const futureValue = fundamentals ? computeFutureValueRead(fundamentals, price) : null;
+
+        // Real Options Flow unusual subset — same real `unusual` evidence
+        // flag interpretFlowRow already computes, never a re-derived guess.
+        const allFlowRows = (optionsFlowPayload?.bySymbol || []).flatMap((e) => e.topContracts || []);
+        const unusualRows = allFlowRows.filter((r) => r.unusual);
+        const flowSummary = optionsFlowPayload?.summary || { callNotional: 0, putNotional: 0 };
+
+        // Real Smart Money Score — combine sub-scores computed here from
+        // real fetched data with technical/fundamental scores already
+        // computed by real, existing engines above (zero new math on
+        // those two).
+        const insiderSub = scoreInsider(insiderTxns);
+        const institutionalSub = scoreInstitutional(institutional);
+        const optionsSub = scoreOptions(flowSummary, unusualRows);
+        const analystSub = scoreAnalyst(analystRatings);
+        const technicalSub = Number.isFinite(canonical?.tradeGps?.score)
+          ? { score: canonical.tradeGps.score, reason: `Real Trade GPS technical score: ${canonical.tradeGps.score}/100 (${canonical.tradeGps.band || "—"}).` }
+          : null;
+        const fundamentalSub = Number.isFinite(futureValue?.futureScore)
+          ? { score: futureValue.futureScore, reason: `Real fundamental composite (future-value-scoring.js): ${futureValue.futureScore}/100.` }
+          : null;
+        const catalystSub = (newsAgg?.ok && newsAgg.articleCount > 0 && Number.isFinite(newsAgg.avgImpact))
+          ? { score: newsAgg.avgImpact, reason: `Real recent news: ${newsAgg.articleCount} article(s), avg impact ${newsAgg.avgImpact}/100, ${newsAgg.bullish} bullish vs ${newsAgg.bearish} bearish, trend ${newsAgg.trend}.` }
+          : null;
+
+        const smartMoney = computeSmartMoneyScore({
+          insider: insiderSub, institutional: institutionalSub, options: optionsSub, analyst: analystSub,
+          technical: technicalSub, fundamental: fundamentalSub, catalyst: catalystSub,
+        });
+
+        // Real signal-shift detection — logs today's real score, then
+        // compares against yesterday's real logged score (never itself).
+        let signalShift = { shifted: false };
+        if (Number.isFinite(smartMoney.score)) {
+          signalShift = detectSignalShift(symbol, smartMoney.score, smartMoney.band, smartMoney.reasons);
+          logSnapshot(symbol, smartMoney.score, smartMoney.band);
+        }
+
+        // Real Best Options Structure — reuses Options Buy Assistant's own
+        // real ranking + ticket-building pipeline (strategy-ranking.js +
+        // options-buy-assistant.js), never a second/guessed options pick.
+        let bestOptionsStructure = { available: false, reason: "No real options chain lookup was requested for this symbol." };
+        try {
+          const { underlying, calls, puts } = await fetchRankedChainForStrategy(symbol);
+          if (underlying > 0 && (calls.length || puts.length)) {
+            const { ranked } = rankAllStrategies({ calls, puts, underlying });
+            if (ranked.length) bestOptionsStructure = buildRobinhoodOrderTicket({ symbol, rankedStrategy: ranked[0] });
+            else bestOptionsStructure = { available: false, reason: "No real structure could be built from the current chain." };
+          } else {
+            bestOptionsStructure = { available: false, reason: "No real options chain available right now." };
+          }
+        } catch (err) {
+          bestOptionsStructure = { available: false, reason: err instanceof Error ? err.message : "Real chain fetch failed." };
+        }
+
+        return {
+          symbol, price, companyName: symQuote?.longName || symQuote?.shortName || symbol,
+          changePct: round2(Number(symQuote?.regularMarketChangePercent) || 0),
+          marketCap: Number(symQuote?.marketCap) || null,
+          smartMoney,
+          signalShift,
+          insiders: { transactions: insiderTxns.transactions || [], source: insiderSource },
+          institutions: institutional,
+          analysts: analystRatings,
+          optionsFlow: { summary: flowSummary, rows: allFlowRows.slice(0, 20), unusualCount: unusualRows.length, source: optionsFlowPayload?.source || null },
+          darkPool: darkpool,
+          sentiment: newsAgg,
+          catalyst: newsAgg?.ok ? { latestCatalyst: newsAgg.latestCatalyst, latestHeadline: newsAgg.latestHeadline, trend: newsAgg.trend } : { ok: false },
+          technical: {
+            score: canonical?.tradeGps?.score ?? null, band: canonical?.tradeGps?.band ?? null,
+            entry: canonical?.assetDecision?.entry ?? null, stop: canonical?.assetDecision?.stop ?? null,
+            targets: canonical?.assetDecision?.targets ?? [], riskReward: canonical?.assetDecision?.riskReward ?? null,
+            verdict: canonical?.assetDecision?.verdict ?? null, structure: canonical?.tradeStructure?.structure ?? null,
+          },
+          fundamental: futureValue,
+          bestOptionsStructure,
+          generatedAt: new Date().toISOString(),
+        };
+      });
+      return writeJson(res, 200, { ok: true, ...data });
+    } catch (err) {
+      return writeJson(res, 502, { ok: false, error: err instanceof Error ? err.message : "Smart Money Intelligence lookup failed." });
+    }
+  }
+
   // GET /api/market/dividends?tickers=AAPL,MSFT
   if (pathname === "/api/market/dividends" && req.method === "GET") {
     const tickers = (searchParams.get("tickers") || "").split(",").map(s => s.trim().toUpperCase()).filter(Boolean).slice(0, 30);

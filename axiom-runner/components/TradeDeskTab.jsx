@@ -33,6 +33,7 @@ import TradeGpsCard from "./TradeGpsCard.jsx";
 import BeforeItPopsPanel from "./BeforeItPopsPanel.jsx";
 import HiddenGemPanel from "./HiddenGemPanel.jsx";
 import OptionsBuyAssistantPanel from "./OptionsBuyAssistantPanel.jsx";
+import SmartMoneyIntelPanel from "./SmartMoneyIntelPanel.jsx";
 import TradeGpsWhyPanel from "./TradeGpsWhyPanel.jsx";
 import TradeDeskTabs from "./TradeDeskTabs.jsx";
 
@@ -913,6 +914,7 @@ export default function TradeDeskTab({
       <BeforeItPopsPanel C={TD} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
       <HiddenGemPanel symbol={symbol} C={TD} MONO={MONO} SANS={SANS} />
       <OptionsBuyAssistantPanel C={TD} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} account={account} setActiveTab={setActiveTab} />
+      <SmartMoneyIntelPanel symbol={symbol} C={TD} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} />
 
       <TradeDeskEvidence decision={canonicalDecision} chart={chart} C={TD} MONO={MONO} SANS={SANS} />
       <TradeGpsWhyPanel tradeGps={tradeGpsData?.tradeGps} tradeStructure={tradeGpsData?.tradeStructure} trapShield={tradeGpsData?.trapShield} C={TD} MONO={MONO} SANS={SANS} />
