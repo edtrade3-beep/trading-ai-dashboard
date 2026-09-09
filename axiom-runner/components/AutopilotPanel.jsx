@@ -93,7 +93,27 @@ export default function AutopilotPanel({ C, MONO, SANS }) {
   if (!status) return null;
 
   const positions = Object.values(status.positions || {});
-  const openCount = positions.filter((p) => p.state && !["EXITED", "ENTRY_MISSED"].includes(p.state)).length;
+  // Real bug fix (2026-09-09, live user report: screenshot showing "Today:
+  // 0 trades" right next to "Open: 117" — impossible together if "Open"
+  // meant real live exposure). Root cause: autopilot-store.js's
+  // `positions` object is never pruned — every symbol that has EVER
+  // reached ENTRY_READY/ORDER_PLACED/FLATTENED since this store started
+  // existing keeps a permanent entry, keyed by symbol, only ever
+  // overwritten by that SAME symbol's own next real transition. This
+  // filter's exclusion list checked for a state called "EXITED", which
+  // is never written anywhere in this codebase (confirmed via a full
+  // grep — autopilot-engine.js's evaluateEntry only ever returns
+  // ENTRY_READY/ENTRY_MISSED/null; lightbox-autopilot-execute.js only
+  // ever writes ORDER_PLACED/FLATTENED) — so the only state that ever
+  // got excluded was ENTRY_MISSED, and every symbol that had EVER been
+  // ENTRY_READY (a candidate that was ready but nothing confirms it was
+  // ever acted on) or FLATTENED (a real position that's already CLOSED)
+  // stayed counted as "open" forever. Real open exposure is only
+  // ORDER_PLACED — an order this ASSIST flow actually placed that hasn't
+  // since been flattened (upsertPosition overwrites the same symbol's
+  // record in place, so a later FLATTENED write already replaces an
+  // earlier ORDER_PLACED one for that same symbol).
+  const openCount = positions.filter((p) => p.state === "ORDER_PLACED").length;
   const modeColor = status.mode === "OFF" ? C.textDim : C.green;
 
   const btn = (active, enabled) => ({
@@ -139,7 +159,19 @@ export default function AutopilotPanel({ C, MONO, SANS }) {
           meaningful in ASSIST mode; hidden otherwise so OFF/ALERT users
           never see order UI for a mode that can't place orders. */}
       {status.mode === "ASSIST" && (() => {
-        const ready = positions.filter((p) => p.state === "ENTRY_READY" && (p.direction === "LONG" || p.direction === "SHORT") && !(p.orderId && p.orderPlacedForTs === p.detectedAt));
+        // Same real "never pruned" bug as openCount above, applied to
+        // this list: a symbol whose ENTRY_READY signal was real weeks ago
+        // and never got a newer transition since stays in `positions`
+        // forever, with nothing here ever checking whether that signal is
+        // still actually today's. Light Box's own real day-trade signals
+        // are intraday by design (15m timeframe) — a week-old
+        // "ENTRY_READY" is not a real actionable-today setup. Gated on
+        // status.dailyStats.date (the SERVER's own "today", already in
+        // this exact response) rather than the browser's clock, so this
+        // can't disagree with a user in a different timezone.
+        const ready = positions.filter((p) => p.state === "ENTRY_READY" && (p.direction === "LONG" || p.direction === "SHORT")
+          && !(p.orderId && p.orderPlacedForTs === p.detectedAt)
+          && typeof p.detectedAt === "string" && p.detectedAt.slice(0, 10) === status.dailyStats.date);
         if (!ready.length && !preview && !orderResult) return null;
         return (
           // Real bug fix (2026-09-06, user report + screenshot: "can not
