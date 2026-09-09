@@ -535,6 +535,26 @@ server.listen(PORT, HOST, () => {
   registerJob("Light Box Confirm", 5 * 60_000, () => require("./src/lightbox-state-store").tickLightBox());
   console.log("[Light Box] Confirmation tick active — every 5 min (80 real symbols/tick, rotating across watchlist + DAYTRADE_UNIVERSE), 4 AM-8 PM ET weekdays");
 
+  // Real root-cause fix (2026-09-09, live user report: a Story AI project
+  // stuck at "Generating" for 24+ hours — job.status:"running" with
+  // video/quality both still "pending", never started). A server restart
+  // (redeploy, or any other real restart) mid-pipeline abandons the whole
+  // in-memory runPipeline/retryStep promise chain — the project file on
+  // disk is left exactly as the last save left it, indistinguishable from
+  // "genuinely still working" to anything reading it. Checked every 10
+  // min (not just at boot) so this also catches a restart that happens
+  // mid-session, not only the one right after a deploy — see story-ai-
+  // job-runner.js's own header on resumeOrphanedJobs for the real
+  // detection logic and its 2-attempt cap against retry-storming real
+  // API costs on a project that's stuck for a genuine, non-orphan reason.
+  // Same real "fire once immediately, not just on the recurring interval"
+  // fix as ADOL22 Autopilot 2.0 above — a project orphaned by THIS exact
+  // restart should resume within seconds of the new process coming up,
+  // not sit stuck for up to another 10 minutes waiting on the interval.
+  require("./src/story-ai-job-runner").resumeOrphanedJobs().catch((err) => console.error("[Story AI] initial orphaned-job resume failed:", err.message));
+  registerJob("Story AI Resume Orphaned Jobs", 10 * 60_000, () => require("./src/story-ai-job-runner").resumeOrphanedJobs());
+  console.log("[Story AI] Orphaned-job resume active — every 10 min (plus once at boot), catches a project abandoned mid-pipeline by a server restart");
+
   // Light Box outcome tracking (Market Opportunity Intelligence Engine
   // upgrade, 2026-08-26) — real forward-tracking of every logged BUY/SELL
   // event (lightbox-outcome-tracker.js). Runs every 15 min, not MTF

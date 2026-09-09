@@ -28,7 +28,7 @@ const { createProject, getProject, saveProject, listProjects, deleteProject, dup
 const { buildSceneClipArgs, buildFinalMuxArgs, checkFfmpegAvailable } = require("../src/story-ai-video-assembly");
 const imageProvider = require("../src/story-ai-image-provider");
 const ttsProvider = require("../src/story-ai-tts-provider");
-const { mapWithConcurrency, IMAGE_VOICE_CONCURRENCY } = require("../src/story-ai-job-runner");
+const { mapWithConcurrency, IMAGE_VOICE_CONCURRENCY, resumeOrphanedJobs, firstPendingStep, STEP_ORDER } = require("../src/story-ai-job-runner");
 
 let passed = 0;
 async function ok(name, fn) {
@@ -297,6 +297,73 @@ await ok("a concurrency limit greater than the item count never over-spawns real
 
 await ok("IMAGE_VOICE_CONCURRENCY is a real, sane positive limit, not accidentally 0/1/unbounded", () => {
   assert.ok(Number.isInteger(IMAGE_VOICE_CONCURRENCY) && IMAGE_VOICE_CONCURRENCY >= 2 && IMAGE_VOICE_CONCURRENCY <= 10);
+});
+
+console.log("\nChecking resumeOrphanedJobs — real fix for a job stuck at \"Generating\" forever after a server restart abandons the in-memory pipeline (2026-09-09, live bug: a real project's job.status stayed \"running\" 24+ hours with video/quality still \"pending\")…");
+
+function makeStepsThrough(passedThrough) {
+  const steps = {};
+  const idx = STEP_ORDER.indexOf(passedThrough);
+  STEP_ORDER.forEach((s, i) => { steps[s] = i <= idx ? { status: "passed", at: new Date().toISOString() } : { status: "pending" }; });
+  return steps;
+}
+
+await ok("firstPendingStep finds exactly the step after the last one marked passed — the real resume point", () => {
+  const project = { job: { steps: makeStepsThrough("subtitles") } };
+  assert.strictEqual(firstPendingStep(project), "video");
+});
+await ok("firstPendingStep returns null when every step already has a real status (nothing honestly pending — not a case this fix should guess at)", () => {
+  const project = { job: { steps: makeStepsThrough("quality") } };
+  assert.strictEqual(firstPendingStep(project), null);
+});
+
+await ok("resumeOrphanedJobs never guesses an API key and does nothing without one — no real step call, no real cost, on a machine with no ANTHROPIC_API_KEY configured", async () => {
+  const project = createProject({ topic: "orphan test — no key", durationSeconds: 30, style: "life_lesson", voice: "male" });
+  try {
+    project.status = "Generating";
+    project.job = { status: "running", error: null, steps: makeStepsThrough("subtitles") };
+    saveProject(project);
+    await resumeOrphanedJobs(undefined); // no apiKey arg, and this test env has none in process.env either
+    const after = getProject(project.id);
+    assert.strictEqual(after.job.status, "running", "must be left exactly as found — never silently marked failed/resumed without a real key");
+    assert.strictEqual(after.job.steps.video.status, "pending");
+  } finally { deleteProject(project.id); }
+});
+
+await ok("resumeOrphanedJobs stops retry-storming a project past MAX_AUTO_RESUME_ATTEMPTS and fails it with a real, disclosed reason instead of spending real API credits on every future restart forever", async () => {
+  const project = createProject({ topic: "orphan test — cap reached", durationSeconds: 30, style: "life_lesson", voice: "male" });
+  try {
+    project.status = "Generating";
+    project.job = { status: "running", error: null, steps: makeStepsThrough("subtitles"), resumeAttempts: 2 };
+    saveProject(project);
+    await resumeOrphanedJobs("test-fake-key-cap-check");
+    const after = getProject(project.id);
+    assert.strictEqual(after.status, "Failed");
+    assert.strictEqual(after.job.status, "failed");
+    assert.match(after.job.error, /2 automatic resume attempt/);
+    // Must NOT have touched the video step at all — the cap stops it
+    // before ever calling retryStep, not after a failed attempt.
+    assert.strictEqual(after.job.steps.video.status, "pending");
+  } finally { deleteProject(project.id); }
+});
+
+await ok("resumeOrphanedJobs leaves a genuinely still-running project alone — never double-runs a project this exact process is already working on", async () => {
+  const project = createProject({ topic: "orphan test — not actually orphaned", durationSeconds: 30, style: "life_lesson", voice: "male" });
+  try {
+    project.status = "Generating";
+    project.job = { status: "running", error: null, steps: makeStepsThrough("subtitles") };
+    saveProject(project);
+    // The module's own `running` Set is private (not exported) — probe it
+    // behaviorally instead: call resumeOrphanedJobs while retryStep is
+    // already in flight for this same project id and confirm it's left
+    // completely untouched (not attempted, not counted against the cap).
+    const { retryStep } = require("../src/story-ai-job-runner");
+    const inFlight = retryStep(project.id, "video", "test-fake-key-inflight-check");
+    await resumeOrphanedJobs("test-fake-key-inflight-check");
+    const during = getProject(project.id);
+    assert.strictEqual(during.job.resumeAttempts || 0, 0, "must not have incremented/attempted a resume while a real run is already in flight for this project");
+    await inFlight;
+  } finally { deleteProject(project.id); }
 });
 
 console.log(`\n${passed} checks passed.`);

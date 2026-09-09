@@ -26,7 +26,7 @@ const { generateSpeech, isConfigured: ttsConfigured } = require("./story-ai-tts-
 const { checkFfmpegAvailable, buildSceneClipArgs, buildFinalMuxArgs, runFfmpeg, getAudioDurationSeconds } = require("./story-ai-video-assembly");
 const { runQualityControl } = require("./story-ai-quality-agent");
 const { addCostEntry } = require("./story-ai-cost");
-const { getProject, saveProject, assetsDirFor } = require("./story-ai-store");
+const { getProject, saveProject, assetsDirFor, listProjects } = require("./story-ai-store");
 const { MAX_RETRIES_PER_STEP, MAX_COST_PER_VIDEO_USD } = require("./story-ai-config");
 const { estimateImageCostUSD, estimateTtsCostUSD } = require("./story-ai-cost");
 const fs = require("node:fs");
@@ -234,15 +234,27 @@ function runSubtitlesStep(project) {
 // generated narration audio can go into the final video — a scene
 // missing either is honestly dropped rather than faked with a
 // placeholder image/silent gap.
+// Detailed [VIDEO] logging (2026-09-09, explicit user request after this
+// exact project sat stuck at "Generating" — job.steps.subtitles: passed,
+// job.steps.video: still "pending", never even started, per a real GET
+// /api/story-ai/projects/:id check). Cheap, always-on (this step runs at
+// most once per real project run) — real console output on the actual
+// Render server, not a guess about what's happening from outside it.
+function logVideo(...args) { console.log("[VIDEO]", ...args); }
+
 async function runVideoStep(project) {
+  logVideo(`Starting assembly for ${project.id}`);
   setStep(project, "video", "running");
   const hasImages = (project.images || []).some((i) => i.ok);
   const hasAudio = (project.audio || []).some((a) => a.ok);
+  logVideo(`Images recorded ok: ${(project.images || []).filter((i) => i.ok).length}/${(project.images || []).length}, audio recorded ok: ${(project.audio || []).filter((a) => a.ok).length}/${(project.audio || []).length}`);
   if (!hasImages || !hasAudio) {
+    logVideo(`Aborting — ${!hasImages ? "no images" : "no audio"} recorded ok.`);
     setStep(project, "video", "warning", { reason: !hasImages ? "No real images available to assemble." : "No real narration audio available to assemble." });
     return;
   }
   const ffmpegOk = await checkFfmpegAvailable();
+  logVideo(`FFmpeg available: ${ffmpegOk}`);
   if (!ffmpegOk) { setStep(project, "video", "warning", { reason: "FFmpeg is not installed on this server." }); return; }
 
   // Real bug found live (2026-09-08): project.images/.audio's own `ok`
@@ -261,6 +273,9 @@ async function runVideoStep(project) {
   const realFile = (p) => { try { return p && fs.existsSync(p); } catch { return false; } };
   const imageByScene = new Map((project.images || []).filter((i) => i.ok && realFile(i.path)).map((i) => [i.sceneNumber, i.path]));
   const audioByScene = new Map((project.audio || []).filter((a) => a.ok && realFile(a.path)).map((a) => [a.sceneNumber, a.path]));
+  logVideo(`Found ${imageByScene.size}/${(project.images || []).length} images that still exist on disk, ${audioByScene.size}/${(project.audio || []).length} audio files that still exist on disk`);
+  for (const i of project.images || []) logVideo(`  image scene ${i.sceneNumber}: ${i.path || "(none)"} exists=${realFile(i.path)}`);
+  for (const a of project.audio || []) logVideo(`  audio scene ${a.sceneNumber}: ${a.path || "(none)"} exists=${realFile(a.path)}`);
   const usableScenes = (project.scenes || []).filter((s) => imageByScene.has(s.scene_number) && audioByScene.has(s.scene_number));
   const missingAssetScenes = (project.scenes || [])
     .filter((s) => !usableScenes.includes(s))
@@ -290,6 +305,9 @@ async function runVideoStep(project) {
   const finalDir = path.join(assetsDirFor(project.id), "final");
   fs.mkdirSync(videoDir, { recursive: true });
   fs.mkdirSync(finalDir, { recursive: true });
+  logVideo(`Temp dir: ${videoDir}`);
+  logVideo(`Output dir: ${finalDir}`);
+  logVideo(`Usable scenes: ${usableScenes.length}/${(project.scenes || []).length}${missingAssetScenes.length ? ` — dropped: ${missingAssetScenes.join(", ")}` : ""}`);
   const escapeForConcat = (p) => p.replace(/'/g, "'\\''");
 
   try {
@@ -300,7 +318,9 @@ async function runVideoStep(project) {
     //    the same real timeline instead of drifting apart.
     const durations = [];
     for (const scene of usableScenes) {
-      const real = await getAudioDurationSeconds(audioByScene.get(scene.scene_number));
+      const p = audioByScene.get(scene.scene_number);
+      const real = await getAudioDurationSeconds(p);
+      logVideo(`Voice file scene ${scene.scene_number}: ${p} exists=${realFile(p)} duration=${real ?? "(probe failed, using script estimate)"}s`);
       durations.push(real ?? (Number(scene.duration_seconds) || 5));
     }
 
@@ -310,6 +330,7 @@ async function runVideoStep(project) {
       const scene = usableScenes[i];
       const clipPath = path.join(videoDir, `clip_${scene.scene_number}.mp4`);
       const args = buildSceneClipArgs({ imagePath: imageByScene.get(scene.scene_number), outPath: clipPath, durationSeconds: durations[i], motion: scene.motion });
+      logVideo(`Running FFmpeg (scene ${scene.scene_number} clip): ffmpeg ${args.join(" ")}`);
       await runFfmpeg(args);
       clipPaths.push(clipPath);
     }
@@ -325,6 +346,7 @@ async function runVideoStep(project) {
     const audioConcatListPath = path.join(videoDir, "audio_concat.txt");
     fs.writeFileSync(audioConcatListPath, usableScenes.map((s) => `file '${escapeForConcat(audioByScene.get(s.scene_number))}'`).join("\n"), "utf8");
     const combinedAudioPath = path.join(videoDir, "narration.m4a");
+    logVideo(`Running FFmpeg (combine narration): ffmpeg -y -f concat -safe 0 -i ${audioConcatListPath} -c:a aac -b:a 192k ${combinedAudioPath}`);
     await runFfmpeg(["-y", "-f", "concat", "-safe", "0", "-i", audioConcatListPath, "-c:a", "aac", "-b:a", "192k", combinedAudioPath]);
 
     // 5. Real subtitle re-timing off the SAME real per-scene durations
@@ -335,6 +357,7 @@ async function runVideoStep(project) {
     const retimedCues = rebuildSubtitlesFromAudioTiming(usableScenes, durations);
     const retimedSrtPath = path.join(videoDir, "narration_retimed.srt");
     fs.writeFileSync(retimedSrtPath, toSrt(retimedCues), "utf8");
+    logVideo(`Subtitle file: ${retimedSrtPath} exists=${fs.existsSync(retimedSrtPath)}`);
     project.subtitles = { ...project.subtitles, cues: retimedCues, srtPath: retimedSrtPath, timingSource: "real-audio-duration" };
 
     // 6. Real final mux — concatenated clips + real combined narration +
@@ -343,21 +366,38 @@ async function runVideoStep(project) {
     //    musicPath) — not built here, no music asset pipeline exists yet.
     const outPath = path.join(finalDir, "final.mp4");
     const muxArgs = buildFinalMuxArgs({ concatListPath, narrationAudioPath: combinedAudioPath, srtPath: retimedSrtPath, outPath, burnSubtitles: true });
+    logVideo(`Running FFmpeg (final mux): ffmpeg ${muxArgs.join(" ")}`);
     await runFfmpeg(muxArgs);
+    logVideo(`FFmpeg exited 0 (runFfmpeg only resolves on a real exit code 0 — see story-ai-video-assembly.js)`);
+
+    const outExists = fs.existsSync(outPath);
+    const outSize = outExists ? fs.statSync(outPath).size : 0;
+    logVideo(`Output exists=${outExists}`);
+    logVideo(`Output size=${outSize} bytes`);
+    if (!outExists || outSize === 0) {
+      // Real, explicit failure — never silently mark a step "passed" over
+      // an output file that doesn't exist or is empty (ffmpeg can exit 0
+      // and still produce a truncated/zero-byte file in rare real cases,
+      // e.g. disk full mid-write).
+      throw new Error(`FFmpeg reported success but the output file is ${outExists ? "empty" : "missing"} at ${outPath}.`);
+    }
 
     const skippedCount = (project.scenes || []).length - usableScenes.length;
     // Real field name fix: StoryAiTab.jsx's own DOWNLOAD VIDEO link
     // already reads project.finalVideo.path (it was built and wired
     // before this real assembly step existed to ever populate it) —
     // matching that existing real contract, not inventing a new one.
-    project.finalVideo = { path: outPath, sceneCount: usableScenes.length, totalDurationSeconds: Math.round(durations.reduce((a, b) => a + b, 0) * 100) / 100, skippedScenes: skippedCount };
+    project.finalVideo = { path: outPath, sceneCount: usableScenes.length, totalDurationSeconds: Math.round(durations.reduce((a, b) => a + b, 0) * 100) / 100, skippedScenes: skippedCount, fileSizeBytes: outSize };
+    logVideo(`Marking video step complete (${usableScenes.length} scenes, ${project.finalVideo.totalDurationSeconds}s, ${outSize} bytes)`);
     setStep(project, "video", "passed", skippedCount > 0 ? { reason: `${skippedCount} scene(s) skipped — ${missingAssetScenes.length ? missingAssetScenes.join(", ") : "missing a real image or narration audio"}.` } : {});
   } catch (err) {
+    logVideo(`FAILED: ${err.message}`);
     setStep(project, "video", "warning", { reason: `Real ffmpeg assembly failed: ${err.message}` });
   }
 }
 
 async function runQualityStep(project, apiKey) {
+  console.log("[QUALITY] Starting");
   setStep(project, "quality", "running");
   project.quality = runQualityControl(project);
   try {
@@ -365,8 +405,10 @@ async function runQualityStep(project, apiKey) {
     project.social = metadata;
     addCostEntry(project.costLedger, { stage: "social", provider: "anthropic", costUSD });
   } catch (err) {
+    console.log(`[QUALITY] Social metadata generation failed (non-blocking): ${err.message}`);
     project.warnings.push(`Social metadata generation failed: ${err.message}`);
   }
+  console.log(`[QUALITY] ${project.quality.approved ? "Passed" : "Warning"}${project.quality.approved ? "" : ` — ${(project.quality.blocking_issues || [])[0] || "issues found"}`}`);
   setStep(project, "quality", project.quality.approved ? "passed" : "warning", project.quality.approved ? {} : { reason: (project.quality.blocking_issues || [])[0] || "Quality check found issues." });
 }
 
@@ -395,6 +437,7 @@ async function runPipeline(projectId, apiKey) {
     project.status = project.quality?.approved ? "Ready" : "Needs Review";
     project.job.status = "done";
     saveProject(project);
+    console.log(`[PROJECT] ${projectId} Status=${project.status} (job.status=done, video=${project.job.steps.video?.status}, quality=${project.job.steps.quality?.status})`);
     return { ok: true, project };
   } catch (err) {
     // Real bug fix (found via live integration testing with a deliberately
@@ -411,6 +454,7 @@ async function runPipeline(projectId, apiKey) {
     project.job.status = "failed";
     project.job.error = err.message;
     saveProject(project);
+    console.log(`[PROJECT] ${projectId} Status=Failed at step "${runningStep ? runningStep[0] : "?"}": ${err.message}`);
     return { ok: false, error: err.message, project };
   } finally {
     running.delete(projectId);
@@ -467,7 +511,9 @@ async function retryStep(projectId, step, apiKey) {
       saveProject(project);
     }
     project.status = project.quality?.approved ? "Ready" : "Needs Review";
+    project.job.status = "done";
     saveProject(project);
+    console.log(`[PROJECT] ${projectId} Status=${project.status} (retry from "${step}" — job.status=done, video=${project.job.steps.video?.status}, quality=${project.job.steps.quality?.status})`);
     return { ok: true, project };
   } catch (err) {
     // Same real fix as runPipeline's catch above — if the failure actually
@@ -476,7 +522,17 @@ async function retryStep(projectId, step, apiKey) {
     const runningStep = Object.entries(project.job.steps || {}).find(([, s]) => s.status === "running");
     setStep(project, runningStep ? runningStep[0] : step, "failed", { reason: err.message });
     project.status = "Failed";
+    // Real bug fix (2026-09-09) — this used to only ever set
+    // project.status, never project.job.status, unlike runPipeline's own
+    // identical catch block just above. A retry that genuinely throws
+    // here left job.status stuck at "running" forever (set at this
+    // function's own start) even though project.status correctly said
+    // "Failed" — the exact "running but nothing is actually running"
+    // inconsistency this whole fix is about, just from a different path.
+    project.job.status = "failed";
+    project.job.error = err.message;
     saveProject(project);
+    console.log(`[PROJECT] ${projectId} Status=Failed at step "${runningStep ? runningStep[0] : step}" (retry from "${step}"): ${err.message}`);
     return { ok: false, error: err.message, project };
   } finally {
     running.delete(projectId);
@@ -485,4 +541,75 @@ async function retryStep(projectId, step, apiKey) {
 
 function isRunning(projectId) { return running.has(projectId); }
 
-module.exports = { runPipeline, retryStep, isRunning, STEP_ORDER, mapWithConcurrency, IMAGE_VOICE_CONCURRENCY };
+// Real root cause of "stuck at Generating forever" (2026-09-09, found by
+// directly inspecting a real stuck project's own job.steps via GET
+// /api/story-ai/projects/:id): job.status can be "running" with NO actual
+// in-process run behind it. Every step call in runPipeline/retryStep is
+// a plain in-memory async chain guarded only by the `running` Set above —
+// if the WHOLE SERVER PROCESS restarts mid-run (a Render redeploy, or any
+// other real restart) at any point, including the split-second between
+// two awaited steps, that promise chain is abandoned with it. The
+// project file on disk is left exactly as the last real saveProject()
+// wrote it: job.status still "running", whichever step hadn't started
+// yet still "pending" — indistinguishable from "genuinely still working"
+// to anything reading the file, forever, since `running` (a fresh empty
+// Set on every new process) can never disprove it either. Confirmed live:
+// a real project's subtitles step passed, video/quality both sat at
+// "pending", job.status stayed "running" for over 24 hours with zero
+// further progress.
+//
+// Fix: on every real server boot, scan for exactly this signature
+// (project.status === "Generating" AND job.status === "running" AND NOT
+// in the in-memory `running` Set — always true right after a fresh boot)
+// and resume each one from its first real "pending" step via the SAME
+// retryStep() a manual RETRY STEP click would call — reusing every
+// already-passed step's real output (images/voice/subtitles already on
+// disk are never regenerated), not restarting the project from scratch.
+// Capped at 2 auto-resume attempts per project (persisted as
+// job.resumeAttempts) so a project that's stuck for a REAL reason (a
+// genuinely broken asset, not just an orphaned process) can't retry-storm
+// real Anthropic/image/TTS credits forever across every future restart —
+// past the cap it's left stuck with a real, disclosed error for a human
+// to look at, exactly like any other real failure.
+const MAX_AUTO_RESUME_ATTEMPTS = 2;
+function firstPendingStep(project) {
+  for (const step of STEP_ORDER) {
+    const s = project.job?.steps?.[step];
+    if (!s || s.status === "pending") return step;
+  }
+  return null;
+}
+async function resumeOrphanedJobs(apiKey) {
+  if (!apiKey) { try { ({ ANTHROPIC_API_KEY: apiKey } = require("./config")); } catch { /* fall through with undefined */ } }
+  if (!apiKey) return; // nothing this function can do without it — every real step needs it
+  let candidates;
+  try { candidates = listProjects().filter((p) => p.status === "Generating"); }
+  catch (err) { console.log(`[PROJECT] resumeOrphanedJobs: could not list projects: ${err.message}`); return; }
+  for (const summary of candidates) {
+    let project;
+    try { project = getProject(summary.id); } catch { continue; }
+    if (!project || project.job?.status !== "running" || running.has(project.id)) continue;
+    const resumeFrom = firstPendingStep(project);
+    if (!resumeFrom) {
+      console.log(`[PROJECT] ${project.id} looks orphaned (status=Generating, job.status=running) but every step already has a real status — leaving for manual review, not guessing where to resume.`);
+      continue;
+    }
+    const attempts = Number(project.job.resumeAttempts) || 0;
+    if (attempts >= MAX_AUTO_RESUME_ATTEMPTS) {
+      console.log(`[PROJECT] ${project.id} already auto-resumed ${attempts} time(s) and is still orphaned at "${resumeFrom}" — real, disclosed stop, not retrying again automatically.`);
+      project.status = "Failed";
+      project.job.status = "failed";
+      project.job.error = `Orphaned at step "${resumeFrom}" after ${attempts} automatic resume attempt(s) — a server restart likely interrupted this run each time. Use RETRY STEP manually to try again.`;
+      saveProject(project);
+      continue;
+    }
+    project.job.resumeAttempts = attempts + 1;
+    saveProject(project);
+    console.log(`[PROJECT] ${project.id} orphaned (job.status=running, no active in-process run — likely abandoned by a prior server restart) — auto-resuming from step "${resumeFrom}" (attempt ${attempts + 1}/${MAX_AUTO_RESUME_ATTEMPTS}).`);
+    retryStep(project.id, resumeFrom, apiKey).catch((err) => {
+      console.log(`[PROJECT] ${project.id} auto-resume from "${resumeFrom}" failed: ${err.message}`);
+    });
+  }
+}
+
+module.exports = { runPipeline, retryStep, isRunning, resumeOrphanedJobs, firstPendingStep, STEP_ORDER, mapWithConcurrency, IMAGE_VOICE_CONCURRENCY };

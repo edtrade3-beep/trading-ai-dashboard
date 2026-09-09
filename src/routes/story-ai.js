@@ -170,6 +170,12 @@ async function handleStoryAi(req, res, requestUrl) {
       if (!ANTHROPIC_API_KEY) return writeJson(res, 200, { ok: false, error: "ANTHROPIC_API_KEY not set." });
       let body; try { body = JSON.parse(await readRequestBody(req)); } catch { return badRequest(res, "Bad JSON body."); }
       if (isRunning(id)) return writeJson(res, 429, { ok: false, error: "This project is already generating." });
+      // A real human clicking RETRY STEP is a fresh, deliberate attempt —
+      // reset the auto-resume attempt counter (story-ai-job-runner.js's
+      // resumeOrphanedJobs) so it doesn't inherit a cap that was really
+      // counting unattended, automatic restarts, not real user actions.
+      const project = getProject(id);
+      if (project?.job) { project.job.resumeAttempts = 0; saveProject(project); }
       retryStep(id, body.step, ANTHROPIC_API_KEY).catch(() => {});
       return writeJson(res, 200, { ok: true, project: getProject(id) });
     }
