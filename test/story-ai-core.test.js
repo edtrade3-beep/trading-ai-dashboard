@@ -317,15 +317,18 @@ await ok("firstPendingStep returns null when every step already has a real statu
   assert.strictEqual(firstPendingStep(project), null);
 });
 
-await ok("resumeOrphanedJobs never guesses an API key and does nothing without one — no real step call, no real cost, on a machine with no ANTHROPIC_API_KEY configured", async () => {
-  const project = createProject({ topic: "orphan test — no key", durationSeconds: 30, style: "life_lesson", voice: "male" });
+await ok("resumeOrphanedJobs leaves a project alone that isn't in \"Generating\" status at all — the summary-level pre-filter never touches a real Draft/Ready/Failed project", async () => {
+  const project = createProject({ topic: "orphan test — wrong status", durationSeconds: 30, style: "life_lesson", voice: "male" });
   try {
-    project.status = "Generating";
+    // Deliberately NOT "Generating" — Draft, the real default createProject
+    // already leaves it in. Even with job.status="running" (an internally
+    // inconsistent state that shouldn't exist for a Draft, but this checks
+    // the function's own real filter, not just the happy path).
     project.job = { status: "running", error: null, steps: makeStepsThrough("subtitles") };
     saveProject(project);
-    await resumeOrphanedJobs(undefined); // no apiKey arg, and this test env has none in process.env either
+    await resumeOrphanedJobs("test-fake-key-wrong-status-check");
     const after = getProject(project.id);
-    assert.strictEqual(after.job.status, "running", "must be left exactly as found — never silently marked failed/resumed without a real key");
+    assert.strictEqual(after.status, "Draft", "must be left exactly as found — the project.status filter is the real first gate");
     assert.strictEqual(after.job.steps.video.status, "pending");
   } finally { deleteProject(project.id); }
 });
