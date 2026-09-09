@@ -139,6 +139,27 @@ const DOCK_MODULES = [
   // Stages 2-8's risk gate/state machine/order log/reconciliation work,
   // none of which had a UI anywhere before this.
   { key: "unified", label: "AUTOPILOT", color: "#059669", group: "EXECUTION" },
+  // INTEL group added 2026-09-09 (explicit user request: "TOO MUCH DATA
+  // IN TRADE DESK I WANT ONE PAGE ONLY THE REST JUST CONNECTION AS TABS
+  // IN SIDE BUT EACH TAB CONNECTED TO TRADE DESK") — these six used to
+  // render unconditionally on the page (the Key Levels/Targets/Key
+  // Metrics/Market Sentiment/Trade Setup/Detailed Analysis card grid,
+  // BeforeItPopsPanel, HiddenGemPanel, SmartMoneyIntelPanel,
+  // TradeGpsWhyPanel, ExtendedHoursMovers, and the old 7-card Workspace
+  // Grid), which was the real source of the "too much data" complaint —
+  // real, valuable content, just all forced onto the one page at once
+  // regardless of whether a user wanted it right now. Every one of them
+  // is still exactly as real and still scoped to the SAME active symbol
+  // (the user's own "each tab connected to Trade Desk" requirement) —
+  // only WHEN they render changed, from "always" to "when this tab is
+  // selected."
+  { key: "metrics",     label: "METRICS",     color: "#0ea5e9", group: "INTEL" },
+  { key: "beforeitpops",label: "BEFORE IT POPS", color: "#e11d48", group: "INTEL" },
+  { key: "hiddengem",   label: "HIDDEN GEM",  color: "#14b8a6", group: "INTEL" },
+  { key: "buyassistant",label: "BUY ASSISTANT", color: "#f43f5e", group: "INTEL" },
+  { key: "smartmoney",  label: "SMART MONEY", color: "#a855f7", group: "INTEL" },
+  { key: "moreintel",   label: "MORE INTEL",  color: "#84cc16", group: "INTEL" },
+  { key: "movers",      label: "MOVERS",      color: "#f59e0b", group: "INTEL" },
 ];
 // Grouped for the dock row's rendering — Map preserves first-seen order
 // (TRADE, ACCOUNT, ANALYSIS, EXECUTION), matching the array order above.
@@ -475,35 +496,19 @@ export default function TradeDeskTab({
     }
     setDockModule((prev) => (prev === key ? null : key));
   };
-  // Real bug fixed 2026-09-03 (user report: "these tabs not working"):
-  // TradeDeskTabs is always visible regardless of viewMode, but the real
-  // dockModule content it opens only ever rendered when viewMode==="full"
-  // (see the bottom-dock block below) — clicking Technicals/Options/News/
-  // Fundamentals in Simple view (the real default) set dockModule
-  // correctly, with zero visible result. Opening a real module from this
-  // row now also switches into Full view itself, same persisted
-  // localStorage convention as toggleViewMode's own switch; Overview
-  // mirrors toggleViewMode's own "closing the dock returns to Simple".
+  // Real bug fixed 2026-09-03 (user report: "these tabs not working");
+  // simplified 2026-09-09 (explicit user request: "TOO MUCH DATA IN
+  // TRADE DESK I WANT ONE PAGE ONLY THE REST JUST CONNECTION AS TABS IN
+  // SIDE" — the Simple/Full view-mode distinction this used to toggle is
+  // gone; the side tab rail below is always there, so opening a module
+  // from here needs no extra mode switch, just openDockModule itself.
   const openTickerTab = (key) => {
-    if (key === "overview") {
-      setDockModule(null);
-      setViewMode("simple");
-      try { localStorage.setItem("tradedesk_view_mode", "simple"); } catch {}
-      return;
-    }
+    if (key === "overview") { setDockModule(null); return; }
     if (symbol) {
       try { localStorage.setItem("mterminal_load_sym", symbol); } catch {}
     }
-    if (key === "journal") {
-      setActiveTab("journal");
-      return;
-    }
-    if (key === "cortex") {
-      setActiveTab("cortex");
-      return;
-    }
-    setViewMode("full");
-    try { localStorage.setItem("tradedesk_view_mode", "full"); } catch {}
+    if (key === "journal") { setActiveTab("journal"); return; }
+    if (key === "cortex") { setActiveTab("cortex"); return; }
     openDockModule(key);
   };
   // VCP overlay toggle (2026-08-25, explicit user request: "vcp make it on
@@ -515,27 +520,14 @@ export default function TradeDeskTab({
   // TrendChart on this same toggle), so here it's simply flipping the
   // real vcpOverlayOn prop.
   const [vcpOn, setVcpOn] = useState(false);
-  // Simple/Full view mode (2026-08-31, explicit user request: "I WANT
-  // TRADE DESK JUST LOOK AT AND TRADE EASY ANY IDEAS" -> agreed to build
-  // a reduced default view). Trade Desk otherwise always renders the
-  // 7-card Workspace Grid plus a 10-module bottom dock below the core
-  // zone — genuinely useful for a power user scanning everything at
-  // once, but a lot to land on for "just look and trade." Simple (the
-  // new default) keeps the core zone only — header, search/opportunities,
-  // chart, AI verdict (Cortex) — and hides the Workspace Grid + dock
-  // entirely; Full is exactly today's unchanged behavior, one click away.
-  // Persisted per-browser, same localStorage-toggle convention this
-  // codebase already uses elsewhere (e.g. Autopilot2Tab.jsx's "how it
-  // trades" pill).
-  const [viewMode, setViewMode] = useState(() => {
-    try { return localStorage.getItem("tradedesk_view_mode") === "full" ? "full" : "simple"; } catch { return "simple"; }
-  });
-  const toggleViewMode = () => setViewMode((v) => {
-    const nv = v === "simple" ? "full" : "simple";
-    if (nv === "simple") setDockModule(null); // no dock row to close it from in Simple
-    try { localStorage.setItem("tradedesk_view_mode", nv); } catch {}
-    return nv;
-  });
+  // Simple/Full view mode (2026-08-31) retired 2026-09-09 (explicit user
+  // request: "TOO MUCH DATA IN TRADE DESK I WANT ONE PAGE ONLY THE REST
+  // JUST CONNECTION AS TABS IN SIDE BUT EACH TAB CONNECTED TO TRADE
+  // DESK") — that toggle's own "Simple" state already WAS this exact
+  // idea (core zone only, everything else one click away), just gated
+  // behind a toggle a user had to know to press. The side tab rail below
+  // makes it the permanent, only layout instead of an opt-in mode, so
+  // there's no longer a second mode to toggle between.
   // Market Context promoted to a real top-level section above the core
   // zone (Phase 1, 2026-08-27) — replaces the old collapsed right-column
   // sub-panel (2026-08-26) now that it's the primary "top-level brain"
@@ -611,6 +603,40 @@ export default function TradeDeskTab({
         : <div style={{ padding: 20, fontFamily: SANS, fontSize: 12, color: C.textDim }}>Select a symbol to see its VCP status.</div>)}
       {dockModule === "autopilot" && <AutopilotPanel C={C} MONO={MONO} SANS={SANS} />}
       {dockModule === "unified" && <UnifiedAutopilotPanel C={C} MONO={MONO} SANS={SANS} />}
+      {/* INTEL group (2026-09-09, "too much data" fix) — real content,
+          same components as before, just moved from an always-on page
+          section into this one-click-away tab, still scoped to `symbol`. */}
+      {dockModule === "metrics" && (
+        <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(230px, 1fr))", gap: 12 }}>
+            <CardWrap C={C} MONO={MONO}><KeyLevelsCard chart={chart} C={C} MONO={MONO} SANS={SANS} /></CardWrap>
+            <CardWrap title="🎯 TARGETS" C={C} MONO={MONO}><TargetsCard decision={canonicalDecision} C={C} MONO={MONO} /></CardWrap>
+            <CardWrap title="📊 KEY METRICS" C={C} MONO={MONO}><KeyMetricsCard fundamentals={fundamentals} chart={chart} C={C} MONO={MONO} /></CardWrap>
+            <CardWrap title="🌡 MARKET SENTIMENT" C={C} MONO={MONO}><MarketSentimentCard regime={displayRegime} decision={canonicalDecision} C={C} MONO={MONO} /></CardWrap>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(230px, 1fr))", gap: 12, alignItems: "start" }}>
+            <CardWrap title="🏆 TRADE SETUP" C={C} MONO={MONO}><TradeSetupCard tradeGps={tradeGpsData?.tradeGps} tradeGpsVerdict={tradeGpsData?.tradeGpsVerdict} C={C} MONO={MONO} SANS={SANS} /></CardWrap>
+            <CardWrap C={C} MONO={MONO}><TradeDeskEvidence decision={canonicalDecision} chart={chart} C={C} MONO={MONO} SANS={SANS} /></CardWrap>
+          </div>
+          <TradeGpsWhyPanel tradeGps={tradeGpsData?.tradeGps} tradeStructure={tradeGpsData?.tradeStructure} trapShield={tradeGpsData?.trapShield} C={C} MONO={MONO} SANS={SANS} />
+        </div>
+      )}
+      {dockModule === "beforeitpops" && <BeforeItPopsPanel C={C} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />}
+      {dockModule === "hiddengem" && <HiddenGemPanel symbol={symbol} C={C} MONO={MONO} SANS={SANS} />}
+      {dockModule === "buyassistant" && <OptionsBuyAssistantPanel C={C} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} account={account} setActiveTab={setActiveTab} />}
+      {dockModule === "smartmoney" && <SmartMoneyIntelPanel symbol={symbol} C={C} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} />}
+      {dockModule === "movers" && <ExtendedHoursMovers C={C} MONO={MONO} SANS={SANS} onSelectSymbol={selectSymbol} />}
+      {dockModule === "moreintel" && (
+        <div style={{ padding: 12, display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(280px, 1fr))", gap: 10 }}>
+          <MovementIntelligenceCard symbol={symbol} chart={chart} macroData={macroData} sectorData={sectorData} C={C} MONO={MONO} SANS={SANS} />
+          <MultiTimeframePanel symbol={symbol} chart={chart} C={C} MONO={MONO} SANS={SANS} />
+          <InstitutionalFlowCard symbol={symbol} C={C} MONO={MONO} SANS={SANS} />
+          <CatalystCard symbol={symbol} C={C} MONO={MONO} SANS={SANS} />
+          <OptionsIntelligencePanel symbol={symbol} C={C} MONO={MONO} SANS={SANS} />
+          <OptionsStrategyRankPanel symbol={symbol} marketBias={marketBias} C={C} MONO={MONO} SANS={SANS} />
+          <MarketContextCard C={C} MONO={MONO} SANS={SANS} />
+        </div>
+      )}
     </>
   );
 
@@ -724,115 +750,60 @@ export default function TradeDeskTab({
         </div>
       )}
 
-      {/* ── Bottom row 1: Key Levels · Targets · Key Metrics · Market
-          Sentiment — the reference's required bottom-card set. Each is a
-          thin real-data view; KeyLevelsCard is the exact same exported
-          component CommandSearchPanel.jsx already used for this. ── */}
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(230px, 1fr))", gap: 12, padding: "0 14px 12px" }}>
-        <CardWrap C={TD} MONO={MONO}><KeyLevelsCard chart={chart} C={TD} MONO={MONO} SANS={SANS} /></CardWrap>
-        <CardWrap title="🎯 TARGETS" C={TD} MONO={MONO}><TargetsCard decision={canonicalDecision} C={TD} MONO={MONO} /></CardWrap>
-        <CardWrap title="📊 KEY METRICS" C={TD} MONO={MONO}><KeyMetricsCard fundamentals={fundamentals} chart={chart} C={TD} MONO={MONO} /></CardWrap>
-        <CardWrap title="🌡 MARKET SENTIMENT" C={TD} MONO={MONO}><MarketSentimentCard regime={displayRegime} decision={canonicalDecision} C={TD} MONO={MONO} /></CardWrap>
-      </div>
-
-      {/* ── Bottom row 2: Trade Setup · Options · Detailed Analysis ·
-          Recent News · Alerts — the reference's second required row.
-          TradeDeskEvidence is the exact same real component, just moved
-          into this card grid instead of its own full-width strip.
-          alignItems:"start" (2026-09-09, same "lots of empty areas" fix
-          as the analysis row above) — Detailed Analysis (TradeDeskEvidence)
-          genuinely runs much taller than Trade Setup/Options/Alerts;
-          default grid stretch was forcing those short cards to match its
-          height, leaving real blank space inside each one instead of
-          just ending at their own real content. ── */}
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(230px, 1fr))", gap: 12, padding: "0 14px 12px", alignItems: "start" }}>
-        <CardWrap title="🏆 TRADE SETUP" C={TD} MONO={MONO}><TradeSetupCard tradeGps={tradeGpsData?.tradeGps} tradeGpsVerdict={tradeGpsData?.tradeGpsVerdict} C={TD} MONO={MONO} SANS={SANS} /></CardWrap>
-        <CardWrap title="🧮 OPTIONS" C={TD} MONO={MONO}><OptionsTeaserCard symbol={symbol} onOpenChain={() => openDockModule("options")} C={TD} MONO={MONO} SANS={SANS} /></CardWrap>
-        <CardWrap C={TD} MONO={MONO}><TradeDeskEvidence decision={canonicalDecision} chart={chart} C={TD} MONO={MONO} SANS={SANS} /></CardWrap>
-        <CardWrap title="📰 RECENT NEWS" C={TD} MONO={MONO}><RecentNewsCard symbol={symbol} onOpenAll={() => openTickerTab("news")} C={TD} MONO={MONO} SANS={SANS} /></CardWrap>
-        <CardWrap title="🔔 ALERTS" C={TD} MONO={MONO}><AlertsCard symbol={symbol} alertsProps={alertsProps} onManage={() => openDockModule("alerts")} C={TD} MONO={MONO} SANS={SANS} /></CardWrap>
-      </div>
-
-      {/* Additional real intelligence panels beyond the reference's own
-          required set — kept, unchanged, real data (not part of the
-          reference mockup, but genuine existing functionality; dropping
-          them would be losing real product surface, not matching a
-          spec). */}
-      <BeforeItPopsPanel C={TD} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
-      <HiddenGemPanel symbol={symbol} C={TD} MONO={MONO} SANS={SANS} />
-      <OptionsBuyAssistantPanel C={TD} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} account={account} setActiveTab={setActiveTab} />
-      <SmartMoneyIntelPanel symbol={symbol} C={TD} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} />
-      <TradeGpsWhyPanel tradeGps={tradeGpsData?.tradeGps} tradeStructure={tradeGpsData?.tradeStructure} trapShield={tradeGpsData?.trapShield} C={TD} MONO={MONO} SANS={SANS} />
-
-      <div style={{ padding: "10px 12px 0", background: TD.bg }}>
-        <ExtendedHoursMovers C={TD} MONO={MONO} SANS={SANS} onSelectSymbol={selectSymbol} />
-      </div>
-
-      {/* "More Analysis" — real toggle, same viewMode/toggleViewMode state
-          this file already had (2026-08-31), just re-labeled: it used to
-          gate the ENTIRE old core-zone-vs-full distinction; now it gates
-          only the deeper power-user surfaces (7-card Workspace Grid and
-          the 12-module dock). The Opportunity Inbox/Day-Trade Signals
-          panel (CommandSearchPanel) that used to live behind this toggle
-          moved back up into the main Search column above (2026-09-09,
-          explicit user request: "move search to keep the flow in right
-          way" — putting real ticker search AFTER the chart/analysis for
-          whatever symbol happened to be loaded was backwards; search now
-          comes first, in the same row, matching how a user actually
-          works: find a symbol, then see it analyzed right next to it). */}
-      <div style={{ padding: "0 14px 8px", display: "flex", justifyContent: "center" }}>
-        <button onClick={toggleViewMode} style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "6px 16px", borderRadius: 20, border: `1px solid ${TD.border}`, background: TD.card, color: TD.textSec, cursor: "pointer" }}>
-          {viewMode === "full" ? "▴ HIDE MORE ANALYSIS" : "▾ MORE ANALYSIS & TOOLS"}
-        </button>
-      </div>
-
-      {viewMode === "full" && (
-        <div style={{ padding: "10px 12px", display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(280px, 1fr))", gap: 10, background: TD.bg, borderTop: `1px solid ${TD.border}` }}>
-          <MovementIntelligenceCard symbol={symbol} chart={chart} macroData={macroData} sectorData={sectorData} C={TD} MONO={MONO} SANS={SANS} />
-          <MultiTimeframePanel symbol={symbol} chart={chart} C={TD} MONO={MONO} SANS={SANS} />
-          <InstitutionalFlowCard symbol={symbol} C={TD} MONO={MONO} SANS={SANS} />
-          <CatalystCard symbol={symbol} C={TD} MONO={MONO} SANS={SANS} />
-          <OptionsIntelligencePanel symbol={symbol} C={TD} MONO={MONO} SANS={SANS} />
-          <OptionsStrategyRankPanel symbol={symbol} marketBias={marketBias} C={TD} MONO={MONO} SANS={SANS} />
-          <MarketContextCard C={TD} MONO={MONO} SANS={SANS} />
-        </div>
-      )}
-
-      {/* Bottom dock — 12 modules, one shared panel, only the selected one
-          mounts. Unchanged behavior; still gated behind "More Analysis". */}
-      {viewMode === "full" && (
-        <div style={{ borderTop: `1px solid ${C.border}` }}>
-          <div style={{ display: "flex", overflowX: "auto" }}>
-            {DOCK_GROUPS.map((group, gi) => (
-              <div key={group.name} style={{ display: "flex", flexDirection: "column", flex: isMobile ? "0 0 auto" : 1, borderLeft: gi > 0 ? `1px solid ${C.border}` : "none" }}>
-                <div style={{ fontFamily: MONO, fontSize: 8, fontWeight: 800, color: C.textDim, letterSpacing: "0.08em", padding: "3px 10px 0" }}>{group.name}</div>
-                <div style={{ display: "flex" }}>
-                  {group.modules.map((m) => (
-                    <button
-                      key={m.key}
-                      onClick={() => openDockModule(m.key)}
-                      style={{
-                        flex: isMobile ? "0 0 auto" : 1, padding: "5px 10px 8px", border: "none",
-                        borderBottom: dockModule === m.key ? `2px solid ${m.color}` : "2px solid transparent",
-                        background: dockModule === m.key ? `${m.color}1a` : "transparent",
-                        color: m.color, opacity: dockModule === m.key ? 1 : 0.8,
-                        fontFamily: MONO, fontSize: 10.5, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap",
-                      }}
-                    >
-                      {m.label}
-                    </button>
-                  ))}
-                </div>
+      {/* ── Side tab rail — everything that isn't the core "look at it and
+          decide" screen above (2026-09-09, explicit user request: "TOO
+          MUCH DATA IN TRADE DESK I WANT ONE PAGE ONLY THE REST JUST
+          CONNECTION AS TABS IN SIDE BUT EACH TAB CONNECTED TO TRADE
+          DESK"). Real content, real data, zero of it deleted — the old
+          bottom row cards (Key Levels/Targets/Key Metrics/Market
+          Sentiment/Trade Setup/Detailed Analysis), the always-on panels
+          (Before It Pops, Hidden Gem, Options Buy Assistant, Smart Money
+          Intel, Trade GPS Why, Extended Hours Movers), and the old
+          7-card Workspace Grid all moved into the INTEL group of the
+          SAME dockModule mechanism (DOCK_MODULES/dockBody above) the
+          existing 12 modules already used — one real vertical tab list
+          instead of a wall of always-rendered cards, and every tab still
+          reads the same `symbol` this page is already on ("each tab
+          connected to Trade Desk"). Replaces the old horizontal
+          "12-module dock row" + "More Analysis" toggle entirely — the
+          rail is just always here now, so there's no longer a second
+          mode to discover or switch into. */}
+      <div style={{ display: "flex", borderTop: `1px solid ${TD.border}`, minHeight: 0 }}>
+        <nav aria-label="Trade Desk tabs" style={{ width: 168, flexShrink: 0, borderRight: `1px solid ${TD.border}`, background: TD.surface, padding: "10px 8px", display: "flex", flexDirection: "column", gap: 12 }}>
+          {DOCK_GROUPS.map((group) => (
+            <div key={group.name}>
+              <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: TD.textDim, letterSpacing: "0.08em", padding: "0 4px 4px" }}>{group.name}</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                {group.modules.map((m) => (
+                  <button
+                    key={m.key}
+                    onClick={() => openDockModule(m.key)}
+                    aria-current={dockModule === m.key ? "true" : undefined}
+                    style={{
+                      textAlign: "left", padding: "6px 8px", border: "none", borderRadius: 6,
+                      background: dockModule === m.key ? `${m.color}1f` : "transparent",
+                      color: dockModule === m.key ? m.color : TD.textSec,
+                      fontFamily: MONO, fontSize: 10.5, fontWeight: 800, cursor: "pointer", letterSpacing: 0.2,
+                    }}
+                  >
+                    {m.label}
+                  </button>
+                ))}
               </div>
-            ))}
-          </div>
-          {dockModule && (
-            <div style={{ maxHeight: isMobile ? "60vh" : "42vh", overflowY: "auto", borderTop: `1px solid ${C.border}` }}>
-              {dockBody}
+            </div>
+          ))}
+        </nav>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {dockModule ? (
+            <div style={{ maxHeight: isMobile ? "70vh" : "60vh", overflowY: "auto" }}>{dockBody}</div>
+          ) : (
+            <div style={{ padding: "28px 20px", fontFamily: SANS, fontSize: 12.5, color: TD.textDim, lineHeight: 1.6 }}>
+              Pick a tab on the left for more on {symbol || "this symbol"} — key levels, targets, options, news,
+              alerts, smart money, and everything else Trade Desk tracks lives here, one click away.
             </div>
           )}
         </div>
-      )}
+      </div>
 
       {/* ── Bottom status bar — reference's final required section. ── */}
       <BottomStatusBar account={account} riskRead={riskRead} autopilot2Running={autopilot2Running} C={TD} MONO={MONO} />
@@ -949,15 +920,12 @@ function ChartPane({ symbol, chart, chartError, loadingChart, vcpOn, setVcpOn, C
   );
 }
 
-// ── 2026-09-09 redesign — small presentational cards for the new
-// reference-matching bottom-grid layout. Each is a thin, real-data view
-// over state TradeDeskTab.jsx already fetches above (canonicalDecision,
-// tradeGpsData, chart, fundamentals, symbolQuote, alertsProps) — no new
-// decision/score logic, no fabricated numbers; honest "—"/empty states
-// throughout, matching this file's own established convention. Only
-// RecentNewsCard owns one small new real fetch (GET /api/news/ticker/:id,
-// the same classified news-intel route this app's other symbol-scoped
-// news reads already use).
+// ── 2026-09-09 redesign — small presentational cards for the "METRICS"
+// side-tab (see DOCK_MODULES/dockBody above). Each is a thin, real-data
+// view over state TradeDeskTab.jsx already fetches above
+// (canonicalDecision, tradeGpsData, chart, fundamentals, symbolQuote) —
+// no new decision/score logic, no fabricated numbers; honest "—"/empty
+// states throughout, matching this file's own established convention.
 
 function CardWrap({ title, C, MONO, children, style, bodyStyle }){
   return (
@@ -1123,68 +1091,6 @@ function TradeSetupCard({ tradeGps, tradeGpsVerdict, C, MONO, SANS }) {
         <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textSec }}>{label}</span>
       </div>
       {tradeGps?.band && <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim }}>{tradeGps.band}</div>}
-    </div>
-  );
-}
-
-function OptionsTeaserCard({ symbol, onOpenChain, C, MONO, SANS }) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec }}>
-        {symbol ? `Real options chain + the Buy Assistant decision engine for ${symbol} (Buy Assistant is further down this page).` : "Select a symbol to see real options data."}
-      </div>
-      <button onClick={onOpenChain} style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "7px 10px", borderRadius: 7, border: "none", background: C.accent, color: "#fff", cursor: "pointer" }}>Open Options Chain</button>
-    </div>
-  );
-}
-
-// Recent News — one small real fetch (GET /api/news/ticker/:symbol, the
-// same classified news-intel route this app's other symbol-scoped news
-// reads already use) scoped to the active symbol; honestly empty when the
-// real pipeline has nothing for it, never fabricated headlines.
-function RecentNewsCard({ symbol, onOpenAll, C, MONO, SANS }) {
-  const [data, setData] = useState(null);
-  useEffect(() => {
-    if (!symbol) { setData(null); return; }
-    let cancelled = false;
-    setData(null);
-    fetch(`/api/news/ticker/${encodeURIComponent(symbol)}`).then((r) => r.json())
-      .then((d) => { if (!cancelled) setData(d); })
-      .catch(() => { if (!cancelled) setData({ ok: false }); });
-    return () => { cancelled = true; };
-  }, [symbol]);
-  const rows = (data?.rows || []).slice(0, 5);
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      {!data && <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim }}>Loading…</div>}
-      {data && data.ok === false && <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim }}>News feed unavailable right now.</div>}
-      {data && data.ok !== false && !rows.length && <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim }}>No real recent news for this symbol.</div>}
-      {rows.map((r, i) => (
-        <div key={r.id || i} style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-          <span style={{ fontFamily: SANS, fontSize: 11, color: C.text, lineHeight: 1.35 }}>{r.headline}</span>
-          <span style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim }}>{r.sentiment || ""}</span>
-        </div>
-      ))}
-      <button onClick={onOpenAll} style={{ alignSelf: "flex-start", fontFamily: MONO, fontSize: 10.5, fontWeight: 800, color: C.accent, background: "transparent", border: "none", cursor: "pointer", padding: 0 }}>View All News →</button>
-    </div>
-  );
-}
-
-// Alerts — real per-symbol price alerts (alertsProps.priceAlerts, the same
-// real array AlertsTab itself renders) + a launcher into the real Alerts
-// dock module. No fabricated toggle states.
-function AlertsCard({ symbol, alertsProps, onManage, C, MONO }) {
-  const mine = (alertsProps?.priceAlerts || []).filter((a) => a.symbol === symbol);
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      {!mine.length && <div style={{ fontFamily: MONO, fontSize: 10.5, color: C.textDim }}>No real price alerts set for {symbol || "this symbol"}.</div>}
-      {mine.slice(0, 4).map((a) => (
-        <div key={a.id} style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11 }}>
-          <span style={{ color: C.textDim }}>{a.direction === "above" ? "ABOVE" : "BELOW"}</span>
-          <b style={{ color: C.text }}>${Number(a.targetPrice).toFixed(2)}</b>
-        </div>
-      ))}
-      <button onClick={onManage} style={{ alignSelf: "flex-start", fontFamily: MONO, fontSize: 10.5, fontWeight: 800, color: C.accent, background: "transparent", border: "none", cursor: "pointer", padding: 0 }}>Manage Alerts →</button>
     </div>
   );
 }

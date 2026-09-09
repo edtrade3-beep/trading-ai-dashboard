@@ -90,9 +90,26 @@ ok("TradeDeskTab.jsx's analysis row gives every column a real shared bounded hei
   const matches = tradeDeskSrc.match(/height: 680/g) || [];
   assert.ok(matches.length >= 4, `expected all 4 analysis-row columns to share height:680, found ${matches.length}`);
 });
-ok("TradeDeskTab.jsx renders the reference layout's required bottom-card set (Key Levels/Targets/Key Metrics/Market Sentiment/Trade Setup/Options/Detailed Analysis/Recent News/Alerts)", () => {
-  for (const marker of ["KeyLevelsCard", "function TargetsCard", "function KeyMetricsCard", "function MarketSentimentCard", "function TradeSetupCard", "function OptionsTeaserCard", "TradeDeskEvidence", "function RecentNewsCard", "function AlertsCard"]) {
+ok("TradeDeskTab.jsx's reference-layout metrics (Key Levels/Targets/Key Metrics/Market Sentiment/Trade Setup/Detailed Analysis) still exist, real, inside the METRICS side-tab rather than an always-on bottom-card wall (2026-09-09, explicit user request: \"TOO MUCH DATA IN TRADE DESK I WANT ONE PAGE ONLY THE REST JUST CONNECTION AS TABS IN SIDE\")", () => {
+  for (const marker of ["KeyLevelsCard", "function TargetsCard", "function KeyMetricsCard", "function MarketSentimentCard", "function TradeSetupCard", "TradeDeskEvidence"]) {
     assert.ok(tradeDeskSrc.includes(marker), `missing ${marker}`);
+  }
+  assert.match(tradeDeskSrc, /dockModule === "metrics"/);
+});
+ok("TradeDeskTab.jsx's Simple/Full view-mode toggle is retired — the side tab rail is the only layout now, no second mode to discover", () => {
+  assert.doesNotMatch(tradeDeskSrc, /const \[viewMode|toggleViewMode|MORE ANALYSIS/);
+});
+ok("TradeDeskTab.jsx renders a real vertical side tab rail grouping every module (TRADE/ACCOUNT/ANALYSIS/EXECUTION/INTEL), each still scoped to the active symbol", () => {
+  assert.match(tradeDeskSrc, /aria-label="Trade Desk tabs"/);
+  assert.match(tradeDeskSrc, /group: "INTEL"/);
+  for (const key of ["metrics", "beforeitpops", "hiddengem", "buyassistant", "smartmoney", "moreintel", "movers"]) {
+    assert.match(tradeDeskSrc, new RegExp(`key: "${key}"`));
+  }
+});
+ok("TradeDeskTab.jsx's previously always-on panels (Before It Pops/Hidden Gem/Options Buy Assistant/Smart Money/Trade GPS Why/Extended Hours Movers) each render exactly once now — inside their real dockModule tab gate, not ALSO as a second always-on copy on the page", () => {
+  for (const tag of ["<BeforeItPopsPanel", "<HiddenGemPanel", "<OptionsBuyAssistantPanel", "<SmartMoneyIntelPanel", "<TradeGpsWhyPanel", "<ExtendedHoursMovers"]) {
+    const count = tradeDeskSrc.split(tag).length - 1;
+    assert.strictEqual(count, 1, `expected exactly one ${tag} usage, found ${count}`);
   }
 });
 ok("TradeDeskTab.jsx renders a real bottom status bar", () => {
