@@ -610,12 +610,12 @@ export default function TradeDeskTab({
         <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 12 }}>
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(230px, 1fr))", gap: 12 }}>
             <CardWrap C={C} MONO={MONO}><KeyLevelsCard chart={chart} C={C} MONO={MONO} SANS={SANS} /></CardWrap>
-            <CardWrap title="🎯 TARGETS" C={C} MONO={MONO}><TargetsCard decision={canonicalDecision} C={C} MONO={MONO} /></CardWrap>
-            <CardWrap title="📊 KEY METRICS" C={C} MONO={MONO}><KeyMetricsCard fundamentals={fundamentals} chart={chart} C={C} MONO={MONO} /></CardWrap>
-            <CardWrap title="🌡 MARKET SENTIMENT" C={C} MONO={MONO}><MarketSentimentCard regime={displayRegime} decision={canonicalDecision} C={C} MONO={MONO} /></CardWrap>
+            <CardWrap title="🎯 TARGETS" titleColor={C.green} C={C} MONO={MONO}><TargetsCard decision={canonicalDecision} C={C} MONO={MONO} /></CardWrap>
+            <CardWrap title="📊 KEY METRICS" titleColor={C.accent} C={C} MONO={MONO}><KeyMetricsCard fundamentals={fundamentals} chart={chart} C={C} MONO={MONO} /></CardWrap>
+            <CardWrap title="🌡 MARKET SENTIMENT" titleColor={C.amber} C={C} MONO={MONO}><MarketSentimentCard regime={displayRegime} decision={canonicalDecision} C={C} MONO={MONO} /></CardWrap>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(230px, 1fr))", gap: 12, alignItems: "start" }}>
-            <CardWrap title="🏆 TRADE SETUP" C={C} MONO={MONO}><TradeSetupCard tradeGps={tradeGpsData?.tradeGps} tradeGpsVerdict={tradeGpsData?.tradeGpsVerdict} C={C} MONO={MONO} SANS={SANS} /></CardWrap>
+            <CardWrap title="🏆 TRADE SETUP" titleColor={C.gold} C={C} MONO={MONO}><TradeSetupCard tradeGps={tradeGpsData?.tradeGps} tradeGpsVerdict={tradeGpsData?.tradeGpsVerdict} C={C} MONO={MONO} SANS={SANS} /></CardWrap>
             <CardWrap C={C} MONO={MONO}><TradeDeskEvidence decision={canonicalDecision} chart={chart} C={C} MONO={MONO} SANS={SANS} /></CardWrap>
           </div>
           <TradeGpsWhyPanel tradeGps={tradeGpsData?.tradeGps} tradeStructure={tradeGpsData?.tradeStructure} trapShield={tradeGpsData?.trapShield} C={C} MONO={MONO} SANS={SANS} />
@@ -732,7 +732,7 @@ export default function TradeDeskTab({
               its own internal scroll (its real content is genuinely the
               longest of the four columns). */}
           <div style={{ height: 680, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-            <CardWrap title="🤖 AI ANALYSIS" C={TD} MONO={MONO} className="h-full" bodyStyle={{ overflowY: "auto" }}>
+            <CardWrap title="🤖 AI ANALYSIS" titleColor="#818cf8" C={TD} MONO={MONO} className="h-full" bodyStyle={{ overflowY: "auto" }}>
               <CortexMiniPanel symbol={symbol} onSelectSymbol={selectSymbol} setActiveTab={setActiveTab} dayTradeHandoff={dayTradeHandoff} macroData={macroData} fundamentals={fundamentals} C={TD} MONO={MONO} SANS={SANS} />
             </CardWrap>
           </div>
@@ -927,11 +927,19 @@ function ChartPane({ symbol, chart, chartError, loadingChart, vcpOn, setVcpOn, C
 // no new decision/score logic, no fabricated numbers; honest "—"/empty
 // states throughout, matching this file's own established convention.
 
-function CardWrap({ title, C, MONO, children, style, bodyStyle }){
+// titleColor (2026-09-09, explicit user request: "MAKE THEM TITLES WITH
+// COLORS") — same "each section gets its own fixed, distinct identity
+// color" precedent DOCK_MODULES already established above ("Deliberately
+// NOT drawn from the app's real green/red/amber status system... these
+// are navigation identity colors, not a signal read") — a title's color
+// here is which SECTION this is, never a bullish/bearish read. Defaults
+// to C.text (plain bold white) so a caller that doesn't care still gets
+// the real, fully-bolded 2026-09-09 title fix, not a regression.
+function CardWrap({ title, titleColor, C, MONO, children, style, bodyStyle }){
   return (
     <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, background: C.surface, overflow: "hidden", display: "flex", flexDirection: "column", height: "100%", ...style }}>
       {title && (
-        <div style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 900, color: C.text, letterSpacing: 0.6, padding: "10px 12px 0", flexShrink: 0 }}>{title}</div>
+        <div style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 900, color: titleColor || C.text, letterSpacing: 0.6, padding: "10px 12px 0", flexShrink: 0 }}>{title}</div>
       )}
       <div style={{ padding: title ? "8px 12px 12px" : 0, flex: 1, minHeight: 0, ...bodyStyle }}>{children}</div>
     </div>

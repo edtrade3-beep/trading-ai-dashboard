@@ -122,7 +122,7 @@ export function KeyLevelsCard({ chart, C, MONO, SANS }) {
   );
   return (
     <div style={{ padding: "0 10px 14px", borderBottom: `1px solid ${C.border}`, marginBottom: 10 }}>
-      <div style={sectionLabelStyle({ marginBottom: 6 })}>📐 KEY LEVELS</div>
+      <div style={sectionLabelStyle({ marginBottom: 6, color: "#8b5cf6" })}>📐 KEY LEVELS</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
         {resistance.map((v, i) => ({ v, label: `R${i + 1}` })).reverse().map(({ v, label }) => row(label, v, "#8b5cf6"))}
         {row("PRICE", curPrice, C.text)}
@@ -263,7 +263,15 @@ export default function CommandSearchPanel({ symbol, onSelectSymbol, onOpenDaytr
           the dead header markup — one real, visible search entry point. */}
       {!hideSearch && (
         <div style={{ padding: "10px 10px 8px" }}>
-          <div style={sectionLabelStyle({ marginBottom: 6 })}>🔎 SEARCH</div>
+          {/* Real distinct identity color (2026-09-09, explicit user
+              request: "MAKE THEM TITLES WITH COLORS") — same "each
+              section gets its own fixed color, not a bullish/bearish
+              read" precedent TradeDeskTab.jsx's own DOCK_MODULES/CardWrap
+              titleColor already use. A scoped override via sectionLabelStyle's
+              own `extra` param, not a change to its shared default — every
+              OTHER sectionLabelStyle call in this file (KEY LEVELS,
+              OPPORTUNITIES, DAY TRADE) is untouched. */}
+          <div style={sectionLabelStyle({ marginBottom: 6, color: "#2dd4bf" })}>🔎 SEARCH</div>
           <div style={{ display: "flex", gap: 6 }}>
             <input
               value={query}
@@ -290,7 +298,7 @@ export default function CommandSearchPanel({ symbol, onSelectSymbol, onOpenDaytr
         const top = pickTopOpportunities(tiers, 3);
         return (
           <div style={{ padding: "10px 10px", borderBottom: `1px solid ${C.border}`, marginBottom: 4 }}>
-            <div style={sectionLabelStyle({ marginBottom: 6 })}>
+            <div style={sectionLabelStyle({ marginBottom: 6, color: C.gold })}>
               {top.length ? `🔭 I FOUND ${top.length} OPPORTUNIT${top.length === 1 ? "Y" : "IES"}` : "🔭 OPPORTUNITIES"}
             </div>
             {!top.length && (
@@ -340,7 +348,7 @@ export default function CommandSearchPanel({ symbol, onSelectSymbol, onOpenDaytr
 
       {lightbox && (
         <div style={{ padding: "0 10px 10px", borderBottom: `1px solid ${C.border}`, marginBottom: 4 }}>
-          <div style={sectionLabelStyle({ marginBottom: 6 })}>
+          <div style={sectionLabelStyle({ marginBottom: 6, color: "#f59e0b" })}>
             🚦 DAY TRADE{buySignals.length ? ` — ${buySignals.length} BUY` : ""}
           </div>
           {!buySignals.length && (
