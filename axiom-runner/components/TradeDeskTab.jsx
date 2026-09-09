@@ -768,6 +768,13 @@ export default function TradeDeskTab({
 
   return (
     <div style={{ display: "flex", flexDirection: "column" }}>
+      {/* TEMPORARY DIAGNOSTIC BANNER — 2026-09-09, added to prove which
+          real Trade Desk component is actually mounted in the browser,
+          per explicit user request during a "nothing changed" report.
+          Remove once confirmed / after the redesign lands. */}
+      <div style={{ background: "#dc2626", color: "#fff", fontFamily: "monospace", fontWeight: 900, fontSize: 13, textAlign: "center", padding: "6px 0", letterSpacing: "0.05em" }}>
+        NEW UI ACTIVE — TradeDeskTab.jsx (diagnostic banner, 2026-09-09)
+      </div>
       {/* Fixed-budget core zone (top strip + 3-pane) — a HARD height, not a
           minHeight. 2026-08-25 (2nd pass, live screenshot): the dock used
           to be a flex sibling INSIDE this same budget, so opening it made
