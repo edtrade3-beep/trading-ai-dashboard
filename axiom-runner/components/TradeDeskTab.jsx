@@ -775,6 +775,15 @@ export default function TradeDeskTab({
               <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: TD.textDim, letterSpacing: "0.08em", padding: "0 4px 4px" }}>{group.name}</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                 {group.modules.map((m) => (
+                  // Real bug fix (2026-09-09, live user report: "THEY ALL
+                  // LOOK THE SAME", screenshot of this exact rail) — each
+                  // module's own m.color only ever applied to the ACTIVE
+                  // tab; every inactive one (the whole rail, by default,
+                  // since dockModule starts null) fell back to the same
+                  // flat TD.textSec, so nothing was actually distinguished
+                  // at rest. The OLD horizontal dock row this replaced got
+                  // this right (color: m.color always, opacity dimmed when
+                  // inactive) — restoring that exact convention here.
                   <button
                     key={m.key}
                     onClick={() => openDockModule(m.key)}
@@ -782,7 +791,7 @@ export default function TradeDeskTab({
                     style={{
                       textAlign: "left", padding: "6px 8px", border: "none", borderRadius: 6,
                       background: dockModule === m.key ? `${m.color}1f` : "transparent",
-                      color: dockModule === m.key ? m.color : TD.textSec,
+                      color: m.color, opacity: dockModule === m.key ? 1 : 0.72,
                       fontFamily: MONO, fontSize: 10.5, fontWeight: 800, cursor: "pointer", letterSpacing: 0.2,
                     }}
                   >
