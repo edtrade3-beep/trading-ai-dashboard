@@ -931,7 +931,7 @@ function CardWrap({ title, C, MONO, children, style, bodyStyle }){
   return (
     <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, background: C.surface, overflow: "hidden", display: "flex", flexDirection: "column", height: "100%", ...style }}>
       {title && (
-        <div style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 800, color: C.textDim, letterSpacing: 0.6, padding: "10px 12px 0", flexShrink: 0 }}>{title}</div>
+        <div style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 900, color: C.text, letterSpacing: 0.6, padding: "10px 12px 0", flexShrink: 0 }}>{title}</div>
       )}
       <div style={{ padding: title ? "8px 12px 12px" : 0, flex: 1, minHeight: 0, ...bodyStyle }}>{children}</div>
     </div>

@@ -20,7 +20,18 @@
        webfont load this app has ever had. -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Real bug found live (2026-09-09, user report: "TITLES MAKE THEM
+       BOLD"): this app's own established convention puts section/card
+       titles at fontWeight 800-900 (theme.js's MONO/SANS, dozens of call
+       sites — sectionLabelStyle, CardWrap, TradeGpsCard's verdict, etc.),
+       but this link only ever requested IBM Plex Mono/Sans weights up to
+       700 — 800/900 were never a real loaded face for either family, so
+       every title declaring 800/900 was silently matched down to the
+       nearest AVAILABLE weight (700, real Bold, but visibly lighter than
+       the 800/900 Black/ExtraBold weight the CSS actually asked for).
+       Added 800 for both, plus 900 for Mono specifically (TradeGpsCard's
+       own "NO TRADE"/"BUY STOCK" verdict is the one real 900 user). -->
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <script>
     // Real fix (2026-09-02) for a pre-hydration background-color flash:
     // this app's theme is a single shared, server-persisted preference
