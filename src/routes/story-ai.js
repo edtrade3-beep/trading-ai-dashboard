@@ -156,7 +156,7 @@ async function handleStoryAi(req, res, requestUrl) {
     }
 
     if (!sub && req.method === "DELETE") {
-      deleteProject(id);
+      await deleteProject(id);
       return writeJson(res, 200, { ok: true });
     }
 
@@ -180,13 +180,28 @@ async function handleStoryAi(req, res, requestUrl) {
       return writeJson(res, 200, { ok: true, project: getProject(id) });
     }
 
-    // GET .../assets/<type>/<filename> — real asset file download, path
+    // GET .../assets/<type>/<filename> — real asset download, path
     // sanitized against the project's own real assets directory (spec's
     // explicit "sanitize filenames... prevent path traversal").
+    // Real fix (2026-09-09): serves from this app's own Postgres database
+    // FIRST when it's configured (story-ai-asset-store.js — the same real
+    // fix already proven for dealer vehicle photos) since a local file on
+    // Render's disk is not guaranteed to still exist after any restart
+    // that happened since it was generated. Falls back to the local file
+    // (unchanged local-dev behavior, and a real safety net if a specific
+    // asset was somehow never persisted to Postgres) when the DB doesn't
+    // have it.
     const assetMatch = sub.match(/^\/assets\/(images|audio|subtitles|final)\/([^/]+)$/);
     if (assetMatch && req.method === "GET") {
       const [, kind, rawName] = assetMatch;
       const filename = path.basename(rawName); // strips any ../ traversal attempt
+      const { getAssetForDownload } = require("../story-ai-asset-store");
+      const dbAsset = await getAssetForDownload(id, kind, filename);
+      if (dbAsset) {
+        res.writeHead(200, { "Content-Type": dbAsset.contentType });
+        res.end(dbAsset.data);
+        return;
+      }
       const filePath = path.join(assetsDirFor(id), kind, filename);
       if (!filePath.startsWith(assetsDirFor(id)) || !fs.existsSync(filePath)) {
         return writeJson(res, 404, { ok: false, error: "Asset not found." });

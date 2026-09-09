@@ -89,6 +89,7 @@ const { initPgStore } = require("./src/atomic-write");
 const { initPhotoStore } = require("./src/dealership/photo-store");
 const { initFutureWalletStore } = require("./src/future-wallet-store");
 const { initNewsStore } = require("./src/news/store");
+const { initStoryAssetStore } = require("./src/story-ai-asset-store");
 
 // Sequenced, not parallel (2026-08-16): initPhotoStore() now reuses
 // initPgStore()'s shared pool (see atomic-write.js's getPool()) instead of
@@ -98,10 +99,16 @@ const { initNewsStore } = require("./src/news/store");
 // Wallet 100 Phase 1) reuses the same shared pool for the same reason.
 // initNewsStore() (2026-08-19, News Intelligence) follows the identical
 // pattern — its own dedicated news_items table over the same shared pool.
+// initStoryAssetStore() (2026-09-09, real fix for Story AI's generated
+// images/audio/video vanishing between pipeline steps — Render's own
+// local disk was never actually persisting them; same real Postgres-
+// bytea pattern initPhotoStore already proved out for dealer vehicle
+// photos) follows the same shared-pool sequencing.
 initPgStore()
   .then(() => initPhotoStore())
   .then(() => initFutureWalletStore())
   .then(() => initNewsStore())
+  .then(() => initStoryAssetStore())
   .then(() => startServer())
   .catch((err) => {
     console.error("[startup] DATABASE_URL is set but Postgres bootstrap failed — refusing to start:", err.message);

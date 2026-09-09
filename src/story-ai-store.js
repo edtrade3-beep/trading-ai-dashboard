@@ -113,11 +113,20 @@ function listProjects() {
   return loadIndex().slice().sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
 }
 
-function deleteProject(id) {
+async function deleteProject(id) {
   assertSafeId(id);
   try { fs.unlinkSync(projectPath(id)); } catch {}
   try { fs.rmSync(assetsDirFor(id), { recursive: true, force: true }); } catch {}
   removeIndexEntry(id);
+  // Real cleanup (2026-09-09) for the new Postgres-backed asset store —
+  // without this, deleting a project would leave its images/audio/video
+  // rows behind in story_asset_store forever (no other code path ever
+  // removes them). Required here, not optional — a lazy require avoids a
+  // circular dependency (story-ai-asset-store.js has no reason to import
+  // this file, but keeping the require local to this function matches
+  // this codebase's existing convention for occasional-use cross-imports).
+  try { await require("./story-ai-asset-store").deleteAssetsForProject(id); }
+  catch (err) { console.error(`[story-ai-store] deleteAssetsForProject failed for ${id}:`, err.message); }
 }
 
 function duplicateProject(id) {

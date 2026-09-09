@@ -27,6 +27,7 @@ const { checkFfmpegAvailable, buildSceneClipArgs, buildFinalMuxArgs, runFfmpeg, 
 const { runQualityControl } = require("./story-ai-quality-agent");
 const { addCostEntry } = require("./story-ai-cost");
 const { getProject, saveProject, assetsDirFor, listProjects } = require("./story-ai-store");
+const { saveAsset, hydrateToLocal } = require("./story-ai-asset-store");
 const { MAX_RETRIES_PER_STEP, MAX_COST_PER_VIDEO_USD } = require("./story-ai-config");
 const { estimateImageCostUSD, estimateTtsCostUSD } = require("./story-ai-cost");
 const fs = require("node:fs");
@@ -159,13 +160,18 @@ async function runImagesStep(project) {
     project.images = [];
     return;
   }
-  const dir = path.join(assetsDirFor(project.id), "images");
-  fs.mkdirSync(dir, { recursive: true });
+  // Real bug fix (2026-09-09, "the video pipeline hangs/loses its own
+  // assets" — root cause was Render's local disk never actually
+  // surviving a restart between steps). Persists to this app's own
+  // Postgres database (story-ai-asset-store.js — the same real bytea
+  // pattern already proven for dealer vehicle photos) instead of trusting
+  // fs.writeFileSync alone to still be there later.
+  const assetsDir = assetsDirFor(project.id);
   const results = await mapWithConcurrency(project.scenes, IMAGE_VOICE_CONCURRENCY, async (scene) => {
     const result = await generateImage(scene.image_prompt_en, {});
     if (result.ok && result.b64) {
-      const filePath = path.join(dir, `${scene.scene_number}.png`);
-      fs.writeFileSync(filePath, Buffer.from(result.b64, "base64"));
+      const filename = `${scene.scene_number}.png`;
+      const filePath = await saveAsset(project.id, assetsDir, "images", filename, Buffer.from(result.b64, "base64"), "image/png");
       return { sceneNumber: scene.scene_number, ok: true, path: filePath };
     }
     return { sceneNumber: scene.scene_number, ok: false, reason: result.reason || "PROVIDER_ERROR", error: result.error || null };
@@ -196,13 +202,13 @@ async function runVoiceStep(project) {
     project.audio = [];
     return;
   }
-  const dir = path.join(assetsDirFor(project.id), "audio");
-  fs.mkdirSync(dir, { recursive: true });
+  // Same real Postgres-backed persistence fix as runImagesStep above.
+  const assetsDir = assetsDirFor(project.id);
   const results = await mapWithConcurrency(project.scenes, IMAGE_VOICE_CONCURRENCY, async (scene) => {
     const result = await generateSpeech(scene.narration_ar, { voice: project.voice === "female" ? "female" : "male" });
     if (result.ok && result.audioBuffer) {
-      const filePath = path.join(dir, `${scene.scene_number}.mp3`);
-      fs.writeFileSync(filePath, result.audioBuffer);
+      const filename = `${scene.scene_number}.mp3`;
+      const filePath = await saveAsset(project.id, assetsDir, "audio", filename, result.audioBuffer, "audio/mpeg");
       return { sceneNumber: scene.scene_number, ok: true, path: filePath };
     }
     return { sceneNumber: scene.scene_number, ok: false, reason: result.reason || "PROVIDER_ERROR", error: result.error || null };
@@ -214,14 +220,16 @@ async function runVoiceStep(project) {
   setStep(project, "voice", anyOk ? "passed" : "warning", anyOk ? {} : { reason: firstFail?.error ? `${firstFail.reason}: ${firstFail.error}` : (firstFail?.reason || "TTS PROVIDER NOT CONFIGURED") });
 }
 
-function runSubtitlesStep(project) {
+async function runSubtitlesStep(project) {
   setStep(project, "subtitles", "running");
   const cues = buildAllCues(project.scenes);
   const srt = toSrt(cues);
-  const dir = path.join(assetsDirFor(project.id), "subtitles");
-  fs.mkdirSync(dir, { recursive: true });
-  const srtPath = path.join(dir, "narration.srt");
-  fs.writeFileSync(srtPath, srt, "utf8");
+  // Same real Postgres-backed persistence fix as images/voice above —
+  // this file is cheap to regenerate from project.scenes alone, but
+  // runVideoStep's OWN re-timed replacement (narration_retimed.srt) is
+  // not, and both go through the identical saveAsset call for one
+  // consistent real contract rather than a special case for the cheap one.
+  const srtPath = await saveAsset(project.id, assetsDirFor(project.id), "subtitles", "narration.srt", Buffer.from(srt, "utf8"), "application/x-subrip");
   project.subtitles = { cues, srtPath, timingSource: "script-estimate" };
   setStep(project, "subtitles", "passed");
 }
@@ -265,17 +273,36 @@ async function runVideoStep(project) {
   // absent when Video ran later, and ffmpeg correctly hard-failed
   // ("Error opening input file... No such file or directory") rather
   // than silently producing a broken video — assembly must never trust
-  // stale metadata over the real, current filesystem state. Re-verifies
-  // with fs.existsSync here so a scene whose file has since gone missing
-  // (redeploy wiping ephemeral disk, manual cleanup, a partial original
-  // write, etc. — several real causes, one real fix regardless of which)
-  // is honestly dropped from assembly instead of crashing the whole step.
-  const realFile = (p) => { try { return p && fs.existsSync(p); } catch { return false; } };
-  const imageByScene = new Map((project.images || []).filter((i) => i.ok && realFile(i.path)).map((i) => [i.sceneNumber, i.path]));
-  const audioByScene = new Map((project.audio || []).filter((a) => a.ok && realFile(a.path)).map((a) => [a.sceneNumber, a.path]));
-  logVideo(`Found ${imageByScene.size}/${(project.images || []).length} images that still exist on disk, ${audioByScene.size}/${(project.audio || []).length} audio files that still exist on disk`);
-  for (const i of project.images || []) logVideo(`  image scene ${i.sceneNumber}: ${i.path || "(none)"} exists=${realFile(i.path)}`);
-  for (const a of project.audio || []) logVideo(`  audio scene ${a.sceneNumber}: ${a.path || "(none)"} exists=${realFile(a.path)}`);
+  // stale metadata over the real, current filesystem state.
+  //
+  // Real fix (2026-09-09): a plain fs.existsSync check here could only
+  // ever say "gone," with no way to get the file back — that's exactly
+  // what kept happening (Render's local disk not surviving a restart
+  // between the Voice/Subtitles steps and this one). hydrateToLocal
+  // (story-ai-asset-store.js) checks the real local path first, and if
+  // it's missing, re-fetches the real bytes from this app's own Postgres
+  // database (where saveAsset already persisted them during Images/
+  // Voice) and rewrites the local file before reporting success — the
+  // same real file this scene's own generation call produced, not a
+  // guess or a placeholder. Only a scene whose asset is genuinely gone
+  // from BOTH the local disk AND Postgres (or was never generated
+  // successfully to begin with) is honestly dropped from assembly.
+  const assetsDir = assetsDirFor(project.id);
+  const imageByScene = new Map();
+  const audioByScene = new Map();
+  for (const i of project.images || []) {
+    if (!i.ok) continue;
+    const p = await hydrateToLocal(project.id, assetsDir, "images", `${i.sceneNumber}.png`);
+    if (p) imageByScene.set(i.sceneNumber, p);
+  }
+  for (const a of project.audio || []) {
+    if (!a.ok) continue;
+    const p = await hydrateToLocal(project.id, assetsDir, "audio", `${a.sceneNumber}.mp3`);
+    if (p) audioByScene.set(a.sceneNumber, p);
+  }
+  logVideo(`Found ${imageByScene.size}/${(project.images || []).length} images available (local disk or re-hydrated from Postgres), ${audioByScene.size}/${(project.audio || []).length} audio files available`);
+  for (const i of project.images || []) logVideo(`  image scene ${i.sceneNumber}: ${imageByScene.get(i.sceneNumber) || "(unavailable)"}`);
+  for (const a of project.audio || []) logVideo(`  audio scene ${a.sceneNumber}: ${audioByScene.get(a.sceneNumber) || "(unavailable)"}`);
   const usableScenes = (project.scenes || []).filter((s) => imageByScene.has(s.scene_number) && audioByScene.has(s.scene_number));
   const missingAssetScenes = (project.scenes || [])
     .filter((s) => !usableScenes.includes(s))
@@ -320,7 +347,10 @@ async function runVideoStep(project) {
     for (const scene of usableScenes) {
       const p = audioByScene.get(scene.scene_number);
       const real = await getAudioDurationSeconds(p);
-      logVideo(`Voice file scene ${scene.scene_number}: ${p} exists=${realFile(p)} duration=${real ?? "(probe failed, using script estimate)"}s`);
+      // p is guaranteed to exist locally at this point — it only ever
+      // entered audioByScene above after hydrateToLocal confirmed (and,
+      // if needed, re-fetched from Postgres) a real local file.
+      logVideo(`Voice file scene ${scene.scene_number}: ${p} duration=${real ?? "(probe failed, using script estimate)"}s`);
       durations.push(real ?? (Number(scene.duration_seconds) || 5));
     }
 
@@ -355,9 +385,14 @@ async function runVideoStep(project) {
     //    estimate once real audio exists, so burned-in subtitles line up
     //    with the real assembled timeline, not the pre-generation guess.
     const retimedCues = rebuildSubtitlesFromAudioTiming(usableScenes, durations);
-    const retimedSrtPath = path.join(videoDir, "narration_retimed.srt");
-    fs.writeFileSync(retimedSrtPath, toSrt(retimedCues), "utf8");
-    logVideo(`Subtitle file: ${retimedSrtPath} exists=${fs.existsSync(retimedSrtPath)}`);
+    // Real Postgres persistence (2026-09-09), same as Images/Voice/the
+    // original Subtitles step — this replaces the script-estimate SRT
+    // saved there with the real-audio-timed one under the SAME "subtitles"
+    // kind/filename the asset-download route already serves, so a later
+    // restart can't leave the download link pointing at a file that only
+    // ever lived on this one process's local disk.
+    const retimedSrtPath = await saveAsset(project.id, assetsDir, "subtitles", "narration.srt", Buffer.from(toSrt(retimedCues), "utf8"), "application/x-subrip");
+    logVideo(`Subtitle file: ${retimedSrtPath}`);
     project.subtitles = { ...project.subtitles, cues: retimedCues, srtPath: retimedSrtPath, timingSource: "real-audio-duration" };
 
     // 6. Real final mux — concatenated clips + real combined narration +
@@ -382,12 +417,23 @@ async function runVideoStep(project) {
       throw new Error(`FFmpeg reported success but the output file is ${outExists ? "empty" : "missing"} at ${outPath}.`);
     }
 
+    // Real Postgres persistence (2026-09-09) — the whole reason this fix
+    // exists: the final MP4 itself is exactly the kind of file that used
+    // to be there one moment and gone the next restart, making the
+    // DOWNLOAD VIDEO link 404 with no warning. Re-reads the real bytes
+    // ffmpeg just wrote and saves them the same way every other asset now
+    // is — the download route (routes/story-ai.js) serves this from
+    // Postgres first, so it survives every future restart from here on.
+    const finalBuffer = fs.readFileSync(outPath);
+    const finalStoredPath = await saveAsset(project.id, assetsDir, "final", "final.mp4", finalBuffer, "video/mp4");
+    logVideo(`Persisted final video to durable storage: ${finalStoredPath}`);
+
     const skippedCount = (project.scenes || []).length - usableScenes.length;
     // Real field name fix: StoryAiTab.jsx's own DOWNLOAD VIDEO link
     // already reads project.finalVideo.path (it was built and wired
     // before this real assembly step existed to ever populate it) —
     // matching that existing real contract, not inventing a new one.
-    project.finalVideo = { path: outPath, sceneCount: usableScenes.length, totalDurationSeconds: Math.round(durations.reduce((a, b) => a + b, 0) * 100) / 100, skippedScenes: skippedCount, fileSizeBytes: outSize };
+    project.finalVideo = { path: finalStoredPath, sceneCount: usableScenes.length, totalDurationSeconds: Math.round(durations.reduce((a, b) => a + b, 0) * 100) / 100, skippedScenes: skippedCount, fileSizeBytes: outSize };
     logVideo(`Marking video step complete (${usableScenes.length} scenes, ${project.finalVideo.totalDurationSeconds}s, ${outSize} bytes)`);
     setStep(project, "video", "passed", skippedCount > 0 ? { reason: `${skippedCount} scene(s) skipped — ${missingAssetScenes.length ? missingAssetScenes.join(", ") : "missing a real image or narration audio"}.` } : {});
   } catch (err) {
@@ -470,7 +516,14 @@ const STEP_RUNNERS = {
   scenes: runScenesStep,
   images: runImagesStep,
   voice: runVoiceStep,
-  subtitles: (project) => { runSubtitlesStep(project); },
+  // Real bug fix (2026-09-09): runSubtitlesStep became async once it
+  // started awaiting saveAsset's real Postgres write — this wrapper used
+  // to call it and discard the returned promise (a bare statement, no
+  // return), so retryStep's own `await runner(project, apiKey)` resolved
+  // immediately without ever actually waiting for the real write to land,
+  // racing whatever ran next against a subtitles file that might not be
+  // saved yet.
+  subtitles: (project) => runSubtitlesStep(project),
   video: runVideoStep,
   quality: runQualityStep,
 };
