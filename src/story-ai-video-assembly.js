@@ -67,7 +67,17 @@ function buildSceneClipArgs({ imagePath, outPath, durationSeconds, motion = "slo
   } else { // default: slow zoom in
     filter = `scale=${width * 1.15}:${height * 1.15},zoompan=z='min(zoom+0.0015,1.15)':d=${totalFrames}:s=${width}x${height}:fps=${fps}`;
   }
-  return ["-y", "-loop", "1", "-i", imagePath, "-vf", filter, "-t", String(durationSeconds), "-r", String(fps), "-pix_fmt", "yuv420p", outPath];
+  // Real fix (2026-09-09): Render's Starter plan is 0.5 vCPU/512MB shared
+  // with the rest of this app's live schedulers — libx264's default
+  // "medium" preset run 16x sequentially (once per scene) plus once more
+  // for the final mux pinned that single vCPU long enough that Render's
+  // health check timed out and restarted the whole process mid-encode,
+  // wiping the in-memory pipeline exactly like a redeploy would (confirmed
+  // live: two real restarts landed back-to-back right as Video started,
+  // both times after Images/Voice/Subtitles had already passed). "veryfast"
+  // trades a slightly larger file for a fraction of the CPU-seconds — the
+  // fix that actually keeps the process alive through its own video step.
+  return ["-y", "-loop", "1", "-i", imagePath, "-vf", filter, "-t", String(durationSeconds), "-r", String(fps), "-pix_fmt", "yuv420p", "-c:v", "libx264", "-preset", "veryfast", outPath];
 }
 
 // Pure — builds the real ffmpeg argv for the final mux: concatenated
@@ -98,7 +108,7 @@ function buildFinalMuxArgs({ concatListPath, narrationAudioPath, musicPath, srtP
 
   const args = [...inputs];
   if (filters.length) args.push("-filter_complex", filters.join(";"));
-  args.push(...audioMapArgs, "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-c:a", "aac", "-b:a", "192k", "-shortest", outPath);
+  args.push(...audioMapArgs, "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-c:a", "aac", "-b:a", "192k", "-shortest", outPath);
   return args;
 }
 
