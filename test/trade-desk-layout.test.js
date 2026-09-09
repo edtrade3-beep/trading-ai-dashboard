@@ -68,15 +68,31 @@ ok("themeMode's unconfigured fallback matches DEFAULT_SETTINGS' documented dark 
   assert.match(axiomLiveSrc, /settings\.themeMode \|\| "dark"/);
 });
 
-console.log("\nChecking Trade Desk tablet breakpoint (isTablet was computed but never used)…");
+console.log("\nChecking Trade Desk reference redesign (2026-09-09 — Chart | AI Analysis | Risk/Avoid, drag-resizable columns retired)…");
 const tradeDeskSrc = read("axiom-runner", "components", "TradeDeskTab.jsx");
-ok("TradeDeskTab.jsx's grid columns default to a distinct width at tablet width (2026-09-04: now real, draggable, user-resizable state — isTablet only sets the real starting default, not a fixed layout)", () => {
-  assert.match(tradeDeskSrc, /isTablet\s*\?\s*160\s*:\s*220/);
-  // Real fix (2026-09-08, live user report: "i do not like cortex column
-  // to small") — widened from 220/280 to 260/360; CORTEX's own real
-  // content (RS Rating/Fundamental/News/Options rows) was genuinely
-  // clipped at the old default, confirmed live via screenshot.
-  assert.match(tradeDeskSrc, /isTablet\s*\?\s*260\s*:\s*360/);
+// The 2026-09-04/09-08 drag-resizable leftColW/rightColW 3-pane grid
+// (SEARCH | CHART | CORTEX) this test used to pin the tablet/desktop
+// default widths for is gone — replaced by the reference-matching Chart |
+// AI Analysis | Risk/Avoid card row (no user-resizable columns, matching
+// the reference design's own fixed-proportion layout). Real, deliberate
+// removal, not a regression — see this file's own TradeGpsCard/OhlcStatsRow/
+// CardWrap-based layout for what replaced it.
+ok("TradeDeskTab.jsx's old drag-resizable leftColW/rightColW grid is gone (a later comment may still reference the retired feature by name for historical context — only real declarations/usages are checked here)", () => {
+  assert.doesNotMatch(tradeDeskSrc, /const \[leftColW|const \[rightColW|const startColDrag/);
+});
+ok("TradeDeskTab.jsx renders the reference layout's Chart | AI Analysis | Risk/Avoid row", () => {
+  assert.match(tradeDeskSrc, /gridTemplateColumns:\s*"minmax\(0,1fr\)\s*320px\s*300px"/);
+  assert.match(tradeDeskSrc, /🤖 AI ANALYSIS/);
+  assert.match(tradeDeskSrc, /function RiskAvoidCard/);
+});
+ok("TradeDeskTab.jsx renders the reference layout's required bottom-card set (Key Levels/Targets/Key Metrics/Market Sentiment/Trade Setup/Options/Detailed Analysis/Recent News/Alerts)", () => {
+  for (const marker of ["KeyLevelsCard", "function TargetsCard", "function KeyMetricsCard", "function MarketSentimentCard", "function TradeSetupCard", "function OptionsTeaserCard", "TradeDeskEvidence", "function RecentNewsCard", "function AlertsCard"]) {
+    assert.ok(tradeDeskSrc.includes(marker), `missing ${marker}`);
+  }
+});
+ok("TradeDeskTab.jsx renders a real bottom status bar", () => {
+  assert.match(tradeDeskSrc, /function BottomStatusBar/);
+  assert.match(tradeDeskSrc, /<BottomStatusBar/);
 });
 
 console.log("\nChecking news-feed consolidation phase 1 (RegimeNewsPanel retirement)…");

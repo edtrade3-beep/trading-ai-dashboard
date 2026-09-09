@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { computeRegime, computeMarketBias, SCAN_UNIVERSE } from "./market-helpers.js";
+import { computeRegime, computeMarketBias } from "./market-helpers.js";
 import { fetchSharedQuotes } from "./quote-store.js";
 import { getCachedDecision, fetchDecision } from "./decision-store.js";
 import TrendChart from "./TrendChart.jsx";
-import CommandSearchPanel, { TickerHeader, pickTopOpportunities } from "./CommandSearchPanel.jsx";
+import CommandSearchPanel, { TickerHeader, KeyLevelsCard, pickTopOpportunities } from "./CommandSearchPanel.jsx";
 import CortexMiniPanel from "./CortexMiniPanel.jsx";
 import { PortfolioSnapshotCard } from "./DashboardTab.jsx";
 import ActivePositionsCard from "./ActivePositionsCard.jsx";
@@ -166,71 +166,6 @@ export default function TradeDeskTab({
   // axiom-live.jsx) has the identical key shape TD always used, so every
   // child component below needs no changes.
   const TD = C;
-  // Draggable column widths (2026-09-04, explicit user request: "make it
-  // draggable and be done") — replaces the fixed 220px/280px (160px/220px
-  // on tablet) grid columns with real, user-resizable ones, persisted per
-  // browser so a chosen width survives a reload. Sidesteps needing to get
-  // responsive breakpoints exactly right for every real window size — the
-  // user can just drag to whatever fits their own screen. Mobile is
-  // unaffected — MobileTradeDeskBody below is a completely separate,
-  // already-stacked layout that never uses this grid at all.
-  const [leftColW, setLeftColW] = useState(() => {
-    try { return Number(localStorage.getItem("tradedesk_left_col_w")) || (isTablet ? 160 : 220); } catch { return isTablet ? 160 : 220; }
-  });
-  const [rightColW, setRightColW] = useState(() => {
-    // Real fix (2026-09-08, live user report: "i do not like cortex
-    // column to small") — 280px genuinely clipped CORTEX's own real
-    // content (RS Rating/Fundamental/News/Options rows, confirmed live
-    // via screenshot showing a real horizontal scrollbar). Widened the
-    // real default AND clamped whatever's already saved in localStorage
-    // up to a real 260px floor — the old default (or a small accidental
-    // drag, likely given the resize handle used to render fully
-    // invisible, see dragHandleStyle below) could otherwise persist a
-    // too-narrow width forever even after this fix ships.
-    const floor = 260;
-    try { const saved = Number(localStorage.getItem("tradedesk_right_col_w")); return Number.isFinite(saved) && saved > 0 ? Math.max(floor, saved) : (isTablet ? 260 : 360); } catch { return isTablet ? 260 : 360; }
-  });
-  const startColDrag = (side) => (e) => {
-    e.preventDefault();
-    const startX = e.touches ? e.touches[0].clientX : e.clientX;
-    const startW = side === "left" ? leftColW : rightColW;
-    let currentW = startW;
-    const onMove = (ev) => {
-      const clientX = ev.touches ? ev.touches[0].clientX : ev.clientX;
-      const delta = clientX - startX;
-      const raw = side === "left" ? startW + delta : startW - delta;
-      currentW = Math.max(220, Math.min(520, raw));
-      if (side === "left") setLeftColW(currentW); else setRightColW(currentW);
-    };
-    const onUp = () => {
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-      window.removeEventListener("touchmove", onMove);
-      window.removeEventListener("touchend", onUp);
-      document.body.style.cursor = "";
-      document.body.style.userSelect = "";
-      try { localStorage.setItem(side === "left" ? "tradedesk_left_col_w" : "tradedesk_right_col_w", String(currentW)); } catch {}
-    };
-    document.body.style.cursor = "col-resize";
-    document.body.style.userSelect = "none";
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-    window.addEventListener("touchmove", onMove, { passive: false });
-    window.addEventListener("touchend", onUp);
-  };
-  // Real fix (2026-09-08, live user report: "drag chart to hide" — the
-  // resizable boundary already existed but rendered fully transparent,
-  // with zero visual affordance to find or grab it). A real always-
-  // visible thin divider + centered grip glyph, not just a hover state
-  // (this app has no CSS-in-JS hover support for a plain inline style),
-  // so a user can see there's something to drag without needing to
-  // already know it's there.
-  const dragHandleStyle = {
-    width: 6, cursor: "col-resize", touchAction: "none",
-    display: "flex", alignItems: "center", justifyContent: "center",
-    background: TD.border, opacity: 0.6,
-  };
-  const dragGripStyle = { fontFamily: MONO, fontSize: 10, color: TD.textDim, lineHeight: 1, letterSpacing: -1 };
   const [symbol, setSymbol] = useState(() => {
     try {
       const pending = localStorage.getItem("mterminal_load_sym");
@@ -312,84 +247,15 @@ export default function TradeDeskTab({
     if (terminalSymbol && terminalSymbol !== symbol) setSymbol(terminalSymbol);
   }, [terminalSymbol]);
 
-  // Real root-level height fix (2026-08-25, "fix chart in trade desk make
-  // it fit designated section"; revised same day, 2nd pass, after a live
-  // screenshot showed the chart's own price-line labels — AI TARGET/
-  // PIVOT/RESISTANCE/PRE-MKT/BASE LOW — visually overlapping into an
-  // illegible cluster whenever a dock module was open). This app has no
-  // fixed-viewport app shell ANYWHERE — every other tab is a normal
-  // scrolling page.
-  //
-  // rootRef/rootHeight measure and size ONLY the core zone (top strip +
-  // 3-pane) — a real, HARD height, giving the chart a stable, generous,
-  // never-squeezed budget. The dock (tab row + optional open panel) is
-  // rendered as a plain SIBLING outside this core zone entirely (see the
-  // JSX below), not a flex child competing for the same budget — a first
-  // attempt tried making the whole thing minHeight-based so the dock
-  // could share space with the core zone and let the page grow, but with
-  // no bounded ancestor left anywhere, ChartPane's own ref-measurement
-  // effect fed back into a runaway growth loop (a several-thousand-pixel
-  // chart, confirmed live). Splitting the two into independent budgets is
-  // simpler and avoids that whole class of feedback bug: the core zone
-  // always gets the same real viewport-derived height regardless of dock
-  // state, and the dock, being outside it, just adds its own real height
-  // to the page/scroll length when opened — the fixed bottom StatusBar
-  // stays correctly pinned to the true viewport bottom regardless.
-  const rootRef = useRef(null);
-  // Real fix (2026-09-08, live user report: "overlapping in both sides
-  // left and right"). Root cause, confirmed live (Playwright at a real
-  // 1400x750 short-browser-window size): rootHeight below is ONE fixed
-  // pixel number for the whole column (ticker/CASH-RISK bars +
-  // MarketCommandCenter + TradeGpsCard + this 3-pane row), split via
-  // flexbox — TradeGpsCard takes its own natural content height first,
-  // the 3-pane row absorbs whatever's left via flex:1/minHeight:0. That
-  // works fine at a tall window, but TradeGpsCard's real height doesn't
-  // shrink with a SHORT window (only with a narrower one, via its own
-  // flex-wrap) — so at a short window the leftover for this row collapsed
-  // to well under 100px, truncating SEARCH/CORTEX's own real content to a
-  // sliver flush against BeforeItPopsPanel right below, reading as
-  // "overlapping" even though nothing technically shared pixels.
-  // rootRef deliberately has NO overflow:hidden (see this file's own
-  // established reasoning below) — simply giving the 3-pane row a real
-  // minHeight would have made ITS rendered content taller than rootRef's
-  // own fixed height with nothing to clip it, spilling into
-  // BeforeItPopsPanel for real this time. The actual fix has to grow
-  // rootHeight itself: measure the real distance from rootRef's own top to
-  // this row's top (i.e., the real height everything ABOVE it is already
-  // taking), and never let rootHeight sit below that plus a real 320px
-  // floor for the row itself (roughly TrendChart's own rating-card header
-  // plus its own internal 200px canvas floor).
-  const gridRef = useRef(null);
-  const [rootHeight, setRootHeight] = useState(null);
-  useEffect(() => {
-    const measure = () => {
-      const el = rootRef.current;
-      if (!el) return;
-      const top = Math.max(0, el.getBoundingClientRect().top);
-      // Leave room for the fixed status bar and browser zoomed layouts. A
-      // 560px floor made the chart extend below the viewport at 125% zoom.
-      const viewportBased = Math.floor(window.innerHeight - top - 90);
-      let minForGrid = 0;
-      if (gridRef.current) {
-        const gridTop = gridRef.current.getBoundingClientRect().top;
-        minForGrid = Math.max(0, gridTop - el.getBoundingClientRect().top) + 320;
-      }
-      const h = Math.max(420, viewportBased, minForGrid);
-      setRootHeight((prev) => (prev == null || Math.abs(prev - h) > 4 ? h : prev));
-    };
-    measure();
-    // Real second pass (2026-09-08) — TradeGpsCard's own real height can
-    // still be settling right after mount (its canonical-decision fetch
-    // is async; a "STOP TRADING"/stale-data message or extra wrapped row
-    // can add real height after the first measure already ran). Same
-    // settle-once-more convention TrendChart.jsx's own scroll-settle
-    // correction already uses elsewhere in this app.
-    const settle = setTimeout(measure, 1200);
-    let t;
-    const onResize = () => { clearTimeout(t); t = setTimeout(measure, 200); };
-    window.addEventListener("resize", onResize);
-    return () => { window.removeEventListener("resize", onResize); clearTimeout(t); clearTimeout(settle); };
-  }, []);
+  // 2026-09-09 redesign — the old rootRef/rootHeight/gridRef fixed-pixel-
+  // budget measurement (previously required here because the old layout
+  // forced Chart+SEARCH+CORTEX into one hard-height flex row, fighting
+  // over a shared budget) is gone along with that row. The new layout
+  // below is plain, independently-sized cards in normal document flow —
+  // each one takes exactly the height its own real content needs, so the
+  // entire "never let a fixed-height sibling clip/overlap the next one"
+  // bug class this block used to guard against no longer has anywhere to
+  // occur.
   const selectSymbol = (s) => {
     const sym = String(s || "").trim().toUpperCase();
     if (!sym) return;
@@ -678,37 +544,19 @@ export default function TradeDeskTab({
 
   const pill = { fontFamily: MONO, fontSize: 11, display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap" };
 
-  // Ticker search was lifted into this top header bar (Trade Desk redesign
-  // Phase 1, §2), but that whole header strip is now display:none (see
-  // below) — this state/handler is currently unreachable UI. The real,
-  // visible search entry point is CommandSearchPanel's own internal box
-  // (2026-09-03, restored). Left in place rather than removed in case the
-  // header strip itself gets un-hidden later; every symbol-jump path
-  // (Opportunity Inbox rows, Light Box handoff, mobile search view) still
-  // calls the same real selectSymbol().
-  const [topQuery, setTopQuery] = useState("");
-  const [suggestOpen, setSuggestOpen] = useState(false);
-  const submitTopSearch = (raw) => {
-    const s = (raw ?? topQuery).trim().toUpperCase().replace(/[^A-Z.]/g, "");
-    if (s) { selectSymbol(s); setTopQuery(""); setSuggestOpen(false); }
+  // Real Add-to-Watchlist toggle (2026-09-09 redesign — reference spec's
+  // header "☆ Add to Watchlist" button). Reuses the SAME real
+  // watchlistSymbols/setWatchlistSymbols state every other watchlist
+  // control in this app already shares — never a second, competing list.
+  const inWatchlist = symbol ? (watchlistSymbols || []).map((s) => s.toUpperCase()).includes(symbol.toUpperCase()) : false;
+  const toggleWatchlist = () => {
+    if (!symbol || !setWatchlistSymbols) return;
+    setWatchlistSymbols((prev) => {
+      const upper = symbol.toUpperCase();
+      const has = (prev || []).map((s) => s.toUpperCase()).includes(upper);
+      return has ? prev.filter((s) => s.toUpperCase() !== upper) : [...(prev || []), upper];
+    });
   };
-  // Ticker search autocomplete (Trade Desk redesign Phase 2, §2) — local,
-  // zero-fetch prefix match over the user's own real watchlist +
-  // market-helpers.js's real SCAN_UNIVERSE (the same ~100-symbol real
-  // universe the rest of this app already scans/ranks) — no external
-  // symbol-lookup API/dataset exists in this codebase, so this is honestly
-  // scoped to "symbols this app already knows about," not the full market.
-  // Watchlist matches are real, user-curated, and surface first.
-  const topSuggestions = useMemo(() => {
-    const q = topQuery.trim().toUpperCase();
-    if (!q) return [];
-    const inWatchlist = (watchlistSymbols || []).filter((s) => s.toUpperCase().startsWith(q));
-    const inUniverse = SCAN_UNIVERSE.filter((s) => s.startsWith(q) && !inWatchlist.some((w) => w.toUpperCase() === s));
-    return [
-      ...inWatchlist.map((s) => ({ symbol: s.toUpperCase(), source: "watchlist" })),
-      ...inUniverse.map((s) => ({ symbol: s, source: "universe" })),
-    ].slice(0, 8);
-  }, [topQuery, watchlistSymbols]);
 
   const dockBody = (
     <>
@@ -767,230 +615,152 @@ export default function TradeDeskTab({
   );
 
   return (
-    <div style={{ display: "flex", flexDirection: "column" }}>
-      {/* TEMPORARY DIAGNOSTIC BANNER — 2026-09-09, added to prove which
-          real Trade Desk component is actually mounted in the browser,
-          per explicit user request during a "nothing changed" report.
-          Remove once confirmed / after the redesign lands. */}
-      <div style={{ background: "#dc2626", color: "#fff", fontFamily: "monospace", fontWeight: 900, fontSize: 13, textAlign: "center", padding: "6px 0", letterSpacing: "0.05em" }}>
-        NEW UI ACTIVE — TradeDeskTab.jsx (diagnostic banner, 2026-09-09)
+    <div style={{ display: "flex", flexDirection: "column", background: TD.bg }}>
+      <MarketCommandCenter onOpenNews={() => openTickerTab("news")} C={TD} MONO={MONO} SANS={SANS} />
+
+      {/* ── Trade Summary Header (2026-09-09 redesign) ── real header
+          action buttons (Add to Watchlist / Set Alert) above the SAME
+          TradeGpsCard the app already renders (unchanged internals — its
+          verdict/entry/stop/target/confidence/thesis logic is untouched),
+          then a real OHLC-style stats strip below it off the SAME chart/
+          fundamentals/symbolQuote state already fetched above. */}
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, padding: "10px 14px 0", background: TD.surface }}>
+        <button
+          onClick={toggleWatchlist} disabled={!symbol}
+          style={{ fontFamily: MONO, fontSize: 11.5, fontWeight: 800, padding: "7px 14px", borderRadius: 7, border: `1px solid ${TD.border}`, background: "transparent", color: inWatchlist ? TD.gold : TD.textSec, cursor: symbol ? "pointer" : "default" }}
+        >
+          {inWatchlist ? "★ In Watchlist" : "☆ Add to Watchlist"}
+        </button>
+        <button
+          onClick={() => openDockModule("alerts")} disabled={!symbol}
+          style={{ fontFamily: MONO, fontSize: 11.5, fontWeight: 800, padding: "7px 14px", borderRadius: 7, border: "none", background: TD.accent, color: "#fff", cursor: symbol ? "pointer" : "default" }}
+        >
+          🔔 Set Alert
+        </button>
       </div>
-      {/* Fixed-budget core zone (top strip + 3-pane) — a HARD height, not a
-          minHeight. 2026-08-25 (2nd pass, live screenshot): the dock used
-          to be a flex sibling INSIDE this same budget, so opening it made
-          flexbox shrink the 3-pane row to make room — with an unconstrained
-          parent instead, that produced a much worse runaway-growth
-          feedback loop (ChartPane's own ref-measurement reading back a
-          size its own last render had already inflated). Real fix: the
-          core zone gets its own fixed, self-contained height budget
-          (exactly like the first pass), and the dock (below) is a plain
-          sibling OUTSIDE it — never competing for the same space, free to
-          add its own height and let the page scroll further when open. */}
-      <div ref={rootRef} style={{ display: "flex", flexDirection: "column", height: rootHeight ? `${rootHeight}px` : "80vh", background: TD.bg }}>
-        {/* Top header (Trade Desk redesign Phase 1, §2) — wordmark+tagline
-            left, real ticker search center, real SPY/QQQ/VIX + regime +
-            autopilot pills right. Fixed dark TD palette regardless of the
-            app's own light/dark toggle (see TD's own comment above). */}
-        <div aria-hidden="true" style={{ display: "none" }}>
-          <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.1 }}>
-            <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: TD.text, letterSpacing: 0.4 }}>AM TRADING</span>
-            <span style={{ fontFamily: SANS, fontSize: 8.5, fontWeight: 700, color: TD.textDim, letterSpacing: 1 }}>AI POWERED · DATA DRIVEN</span>
-          </div>
-          <div style={{ position: "relative", display: "flex", gap: 6, flex: "1 1 260px", maxWidth: 340 }}>
-            <input
-              value={topQuery}
-              onChange={(e) => { setTopQuery(e.target.value.toUpperCase()); setSuggestOpen(true); }}
-              onFocus={() => setSuggestOpen(true)}
-              onBlur={() => setTimeout(() => setSuggestOpen(false), 120)}
-              onKeyDown={(e) => { if (e.key === "Enter") submitTopSearch(); if (e.key === "Escape") setSuggestOpen(false); }}
-              placeholder="🔍 Search ticker… TSLA, AMD, NVDA"
-              style={{ flex: 1, minWidth: 0, border: `1px solid ${TD.border}`, background: TD.surface, color: TD.text, borderRadius: 6, padding: "6px 10px", fontFamily: MONO, fontSize: 12, outline: "none" }}
-            />
-            <button onClick={() => submitTopSearch()} style={{ border: "none", background: TD.accent, color: "#ffffff", borderRadius: 6, padding: "0 12px", fontFamily: MONO, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>GO</button>
-            {suggestOpen && topSuggestions.length > 0 && (
-              <div style={{ position: "absolute", top: "100%", left: 0, right: 0, marginTop: 4, background: TD.card, border: `1px solid ${TD.border}`, borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,0.35)", zIndex: 20, overflow: "hidden" }}>
-                {topSuggestions.map((s) => (
-                  <button
-                    key={s.symbol}
-                    onMouseDown={(e) => { e.preventDefault(); submitTopSearch(s.symbol); }}
-                    style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 10px", border: "none", background: "transparent", color: TD.text, cursor: "pointer", fontFamily: MONO, fontSize: 12 }}
-                  >
-                    <b>{s.symbol}</b>
-                    {s.source === "watchlist" && <span style={{ fontSize: 9, fontWeight: 800, color: TD.accent, letterSpacing: 0.5 }}>WATCHLIST</span>}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          {discoverProps?.marketSession && (
-            <span style={{ ...pill, marginLeft: "auto" }}>
-              <b style={{ color: TD.accent }}>{String(discoverProps.marketSession).replace(/_/g, " ")}</b>
-            </span>
-          )}
-          <span style={discoverProps?.marketSession ? pill : { ...pill, marginLeft: "auto" }}><span style={{ color: TD.textDim }}>REGIME</span> <b style={{ color: displayRegime.color || TD.accent }}>{displayRegime.label || String(displayRegime.regime || "—").replace(/_/g, " ")}</b></span>
-          <span style={pill}><span style={{ color: TD.textDim }}>SPY</span> <b style={{ color: chgColor(chg(spy)) }}>{spy ? `${chg(spy) > 0 ? "+" : ""}${chg(spy).toFixed(2)}%` : "—"}</b></span>
-          <span style={pill}><span style={{ color: TD.textDim }}>QQQ</span> <b style={{ color: chgColor(chg(qqq)) }}>{qqq ? `${chg(qqq) > 0 ? "+" : ""}${chg(qqq).toFixed(2)}%` : "—"}</b></span>
-          <span style={pill}><span style={{ color: TD.textDim }}>IWM</span> <b style={{ color: chgColor(chg(iwm)) }}>{iwm ? `${chg(iwm) > 0 ? "+" : ""}${chg(iwm).toFixed(2)}%` : "—"}</b></span>
-          <span style={pill}><span style={{ color: TD.textDim }}>VIX</span> <b style={{ color: TD.text }}>{vixQuote?.price != null ? Number(vixQuote.price).toFixed(1) : "—"}</b></span>
-          <span title="Freshness reflects the currently loaded chart response, not a fabricated clock" style={pill}><span style={{ color: TD.textDim }}>DATA</span> <b style={{ color: chart ? TD.green : TD.amber }}>{typeof freshness === "string" && freshness.length > 18 ? freshness.slice(0, 18) : freshness}</b></span>
-          <span style={pill}><span style={{ color: TD.textDim }}>CASH</span> <b style={{ color: TD.text }}>{account?.cash != null ? `$${Math.round(Number(account.cash)).toLocaleString()}` : "—"}</b></span>
-          <span style={pill}><span style={{ color: TD.textDim }}>RISK</span> <b style={{ color: chgColor(riskRead.pl) }}>{riskRead.count} pos · {riskRead.pl >= 0 ? "+" : ""}${Math.round(riskRead.pl).toLocaleString()}</b></span>
-          <span title="Autopilot 2.0 internal simulated paper account" style={pill}>
-            <span>{autopilot2Running ? "🟢" : "🔴"}</span>
-            <span style={{ color: TD.textDim }}>AP2 PAPER</span>
-          </span>
-        </div>
+      <TradeGpsCard
+        symbol={symbol} decision={canonicalDecision} loading={decisionLoading} error={decisionError}
+        tradeGps={tradeGpsData?.tradeGps} tradeStructure={tradeGpsData?.tradeStructure}
+        trapShield={tradeGpsData?.trapShield} marketAgreement={tradeGpsData?.marketAgreement}
+        tradeGpsVerdict={tradeGpsData?.tradeGpsVerdict} dangerEvent={tradeGpsData?.dangerEvent} whyNow={tradeGpsData?.whyNow}
+        account={autopilotStatus?.account} dailyLossLocked={autopilotStatus?.dailyLossLocked}
+        C={TD} MONO={MONO} SANS={SANS}
+      />
+      <OhlcStatsRow chart={chart} fundamentals={fundamentals} symbolQuote={symbolQuote} C={TD} MONO={MONO} />
 
-        {/* Real bug fixed 2026-09-03 (found during a full Trade Desk scan) —
-            cash/open-risk/Autopilot 2.0 status were already computed
-            (riskRead/account/autopilot2Running above) but only ever
-            rendered inside the same display:none dead header block that
-            hid ticker search and the Simple/Full toggle. Nowhere else in
-            Trade Desk showed whether Autopilot 2.0 is actually running or
-            what real open risk currently is. */}
-        <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "6px 14px", background: TD.surface, borderBottom: `1px solid ${TD.border}` }}>
-          <span style={pill}><span style={{ color: TD.textDim }}>CASH</span> <b style={{ color: TD.text }}>{account?.cash != null ? `$${Math.round(Number(account.cash)).toLocaleString()}` : "—"}</b></span>
-          <span style={pill}><span style={{ color: TD.textDim }}>RISK</span> <b style={{ color: chgColor(riskRead.pl) }}>{riskRead.count} pos · {riskRead.pl >= 0 ? "+" : ""}${Math.round(riskRead.pl).toLocaleString()}</b></span>
-          <span title="Autopilot 2.0 internal simulated paper account" style={pill}>
-            <span>{autopilot2Running ? "🟢" : "🔴"}</span>
-            <span style={{ color: TD.textDim }}>AP2 {autopilot2Running ? "RUNNING" : "STOPPED"}</span>
-          </span>
-          {/* Global What-Changed engine (platform-consolidation Part 7,
-              2026-09-06) — real "since open"/"since last refresh" material
-              changes (regime, VIX, data health, market news sentiment, real
-              candidate verdict transitions), pulled from what it already
-              recorded off the real opportunities scan.
-              Real bug fix (code review, same day): marginLeft:"auto" was
-              previously passed via pillStyle onto the inner <button>, but
-              the actual flex item in this row is WhatChangedPanel's own
-              outer wrapper div, which carried no margin of its own — the
-              button's margin had no effect on this row's layout. Passed
-              via containerStyle onto that wrapper instead, so this (and the
-              view toggle after it) actually sit flush right as intended. */}
-          <WhatChangedPanel C={TD} MONO={MONO} SANS={SANS} pillStyle={pill} containerStyle={{ marginLeft: "auto" }} />
-          {/* Real fix (2026-09-05, explicit user request: "trade desk needs
-              to be more easier more effecient") — toggleViewMode has always
-              existed (see its own declaration above) but no button ever
-              called it; the only way viewMode ever changed was a side
-              effect of clicking an unrelated ticker sub-tab, which flips it
-              to "full" and persists that to localStorage with no visible
-              way back. This is that missing way back, always here. */}
-          <button onClick={toggleViewMode} title="Toggle between a focused Simple view and the full Workspace Grid + dock"
-            style={{ ...pill, cursor: "pointer", border: `1px solid ${TD.border}`, borderRadius: 6, padding: "3px 10px", background: "transparent", color: TD.textSec }}>
-            <span>{viewMode === "full" ? "🗗" : "🗖"}</span>
-            <span>{viewMode === "full" ? "FULL" : "SIMPLE"}</span>
-          </button>
-        </div>
-
-        <MarketCommandCenter onOpenNews={() => openTickerTab("news")} C={TD} MONO={MONO} SANS={SANS} />
-        {/* "3-Second AI Decision" spec (2026-09-07) — removed CanonicalVerdictStrip
-            from this always-visible stack: it and TradeGpsCard were two
-            separate, differently-worded verdict displays for the SAME
-            underlying canonicalDecision stacked directly on top of each
-            other (real audit finding — "competing verdicts... one ticker,
-            one current action"). CanonicalVerdictStrip.jsx itself is kept
-            (hide, don't delete — matches this file's own established
-            convention), just no longer double-rendered here; its three
-            fields TradeGpsCard didn't already show (regime, data health,
-            opportunity stage) are now compact badges inside TradeGpsCard
-            itself, next to the one verdict. */}
-        <TradeGpsCard
-          symbol={symbol} decision={canonicalDecision} loading={decisionLoading} error={decisionError}
-          tradeGps={tradeGpsData?.tradeGps} tradeStructure={tradeGpsData?.tradeStructure}
-          trapShield={tradeGpsData?.trapShield} marketAgreement={tradeGpsData?.marketAgreement}
-          tradeGpsVerdict={tradeGpsData?.tradeGpsVerdict} dangerEvent={tradeGpsData?.dangerEvent} whyNow={tradeGpsData?.whyNow}
-          account={autopilotStatus?.account} dailyLossLocked={autopilotStatus?.dailyLossLocked}
-          C={TD} MONO={MONO} SANS={SANS}
-        />
-
-        {/* Middle: 3-pane on desktop, stacked segmented view on mobile — never
-            force the fixed-column grid on a narrow screen (ScanTerminalHub's
-            own history is the reason this is a deliberate, up-front choice). */}
-        {isMobile ? (
-          <MobileTradeDeskBody symbol={symbol} selectSymbol={selectSymbol} chart={chart} chartError={chartError} symbolQuote={symbolQuote} fundamentals={fundamentals} applyLightboxHandoff={applyLightboxHandoff} dayTradeHandoff={dayTradeHandoff} loadingChart={loadingChart} vcpOn={vcpOn} setVcpOn={setVcpOn} setActiveTab={setActiveTab} macroData={macroData} C={TD} MONO={MONO} SANS={SANS} />
-        ) : (
-          <div ref={gridRef} style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: `${leftColW}px 6px 1fr 6px ${rightColW}px` }}>
-            {/* Real fix (2026-09-08, live user screenshot: two circled
-                overlaps, one on each side of this row) — this app has two
-                always-on fixed FABs that this exact class of bug has hit
-                before (see AutopilotPanel.jsx's own real paddingRight fix
-                for the identical right-side "⚡" quick-actions toggle,
-                axiom-live.jsx, position:fixed, bottom:10+statusBarH,
-                right:10, zIndex:9999, "always visible on every screen
-                size"): QuickTradePanel's own separate orange "⚡" launcher
-                sits at left:sidebarWidth+18 (fabLeft = sidebarFabLeft+18,
-                QuickTradePanel.jsx), spanning ~18-58px into whatever
-                renders immediately right of the sidebar — exactly this
-                column, which starts flush against it with no gap. Real
-                paddingLeft here clears that FAB's real footprint from
-                CommandSearchPanel's own flush-left content (Key Levels,
-                "I found N opportunities"), same convention as the
-                paddingRight fix on the right column below for the OTHER
-                always-on FAB. */}
-            <div style={{ borderRight: `1px solid ${TD.border}`, minHeight: 0, overflow: "hidden", background: TD.bg, paddingLeft: 60 }}>
-              <CommandSearchPanel symbol={symbol} onSelectSymbol={selectSymbol} onOpenDaytrade={applyLightboxHandoff} chart={chart} symbolQuote={symbolQuote} fundamentals={fundamentals} C={TD} MONO={MONO} SANS={SANS} />
-            </div>
-            <div title="Drag to resize" onMouseDown={startColDrag("left")} onTouchStart={startColDrag("left")} style={dragHandleStyle}><span style={dragGripStyle}>⋮</span></div>
-          <ChartPane symbol={symbol} chart={chart} chartError={chartError} loadingChart={loadingChart} vcpOn={vcpOn} setVcpOn={setVcpOn} C={TD} MONO={MONO} SANS={SANS} chartTf={chartTf} setChartTf={setChartTf} />
-            <div title="Drag to resize" onMouseDown={startColDrag("right")} onTouchStart={startColDrag("right")} style={dragHandleStyle}><span style={dragGripStyle}>⋮</span></div>
-            {/* Right column (2026-08-27) — Market Context moved to its own
-                real top-level section above the core zone, so this column
-                is Sniper (CortexMiniPanel) alone now, taking the full
-                real height instead of sharing it with a collapsed strip.
-                paddingRight:56 (2026-09-08) — real clearance for the
-                always-on fixed "⚡" quick-actions FAB (right:10, width:32),
-                same exact convention as AutopilotPanel.jsx's own real fix
-                for this identical bug class: live-confirmed the FAB was
-                sitting directly over CortexMiniPanel's own Edge Timeline
-                sparkline (its real last-reading label/data point). */}
-            <div style={{ borderLeft: `1px solid ${TD.border}`, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column", background: TD.bg, paddingRight: 56 }}>
-              <CortexMiniPanel symbol={symbol} onSelectSymbol={selectSymbol} setActiveTab={setActiveTab} dayTradeHandoff={dayTradeHandoff} macroData={macroData} fundamentals={fundamentals} C={TD} MONO={MONO} SANS={SANS} />
+      {/* ── Chart | AI Analysis | Risk/Avoid — the reference layout's main
+          analysis row. Mobile keeps its own separate stacked body,
+          unchanged. ── */}
+      {isMobile ? (
+        <MobileTradeDeskBody symbol={symbol} selectSymbol={selectSymbol} chart={chart} chartError={chartError} symbolQuote={symbolQuote} fundamentals={fundamentals} applyLightboxHandoff={applyLightboxHandoff} dayTradeHandoff={dayTradeHandoff} loadingChart={loadingChart} vcpOn={vcpOn} setVcpOn={setVcpOn} setActiveTab={setActiveTab} macroData={macroData} C={TD} MONO={MONO} SANS={SANS} />
+      ) : (
+        /* alignItems:"start" (2026-09-09 real bug fix, found via live
+           Playwright verification): CSS Grid's default align-items:stretch
+           forces every column in a row to match the TALLEST one — the AI
+           Analysis column's own real content (Cortex's Trade Plan/Final
+           Decision/Score Breakdown/WHY sections) can genuinely run
+           1500px+ tall, which was stretching the Chart card to match and
+           leaving ChartPane's own ResizeObserver measuring a real height
+           far bigger than intended, colliding with a real chart-creation
+           timing race (confirmed live: the chart's canvas got stuck at
+           the browser's raw 300x150 default backing size, rendering as a
+           blank box). Each column now sizes to its OWN real content. */
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 320px 300px", gap: 12, padding: "12px 14px", alignItems: "start" }}>
+          {/* Chart card — real TrendChart via ChartPane, unchanged, now
+              inside a real bordered card with the ticker sub-nav
+              (TradeDeskTabs — Overview/Technicals/Options/News/
+              Fundamentals/Cortex/Journal, unchanged) as its own header
+              row, matching the reference's "Chart | Options | Financials |
+              News | Analysis" tab strip. Clicking a tab still opens the
+              exact same real dock module further down the page (unchanged
+              openTickerTab behavior) — this only changes where the tab
+              row itself is drawn.
+              A real FIXED height (not minHeight) — same deliberate
+              "give the chart a stable, self-contained budget" principle
+              the old rootHeight/gridRef measurement system existed for
+              (see this file's own history), just far simpler now that the
+              chart is its own independent grid cell instead of fighting
+              SEARCH/CORTEX for a shared row. */}
+          <div style={{ border: `1px solid ${TD.border}`, borderRadius: 10, background: TD.surface, overflow: "hidden", display: "flex", flexDirection: "column", height: 620 }}>
+            <TradeDeskTabs symbol={symbol} activeKey={dockModule} onOpen={openTickerTab} C={TD} MONO={MONO} />
+            <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
+              <ChartPane symbol={symbol} chart={chart} chartError={chartError} loadingChart={loadingChart} vcpOn={vcpOn} setVcpOn={setVcpOn} C={TD} MONO={MONO} SANS={SANS} chartTf={chartTf} setChartTf={setChartTf} />
             </div>
           </div>
-        )}
+          {/* AI Analysis — CortexMiniPanel, entirely unchanged internals
+              (ask-anything, SETUP QUALITY, FINAL DECISION, WHY breakdown —
+              every real fetch/effect stays exactly as it was), just given
+              its own real card frame and more real width than the old
+              280-360px squeezed column ever had. */}
+          <CardWrap title="🤖 AI ANALYSIS" C={TD} MONO={MONO}>
+            <CortexMiniPanel symbol={symbol} onSelectSymbol={selectSymbol} setActiveTab={setActiveTab} dayTradeHandoff={dayTradeHandoff} macroData={macroData} fundamentals={fundamentals} C={TD} MONO={MONO} SANS={SANS} />
+          </CardWrap>
+          {/* Risk / Avoid — new, but zero new data: built entirely from
+              canonicalDecision + tradeGpsData, the SAME shared decision-
+              store.js result TradeGpsCard above already reads. */}
+          <RiskAvoidCard symbol={symbol} decision={canonicalDecision} tradeGpsData={tradeGpsData} C={TD} MONO={MONO} SANS={SANS} />
+        </div>
+      )}
+
+      {/* ── Bottom row 1: Key Levels · Targets · Key Metrics · Market
+          Sentiment — the reference's required bottom-card set. Each is a
+          thin real-data view; KeyLevelsCard is the exact same exported
+          component CommandSearchPanel.jsx already used for this. ── */}
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(230px, 1fr))", gap: 12, padding: "0 14px 12px" }}>
+        <CardWrap C={TD} MONO={MONO}><KeyLevelsCard chart={chart} C={TD} MONO={MONO} SANS={SANS} /></CardWrap>
+        <CardWrap title="🎯 TARGETS" C={TD} MONO={MONO}><TargetsCard decision={canonicalDecision} C={TD} MONO={MONO} /></CardWrap>
+        <CardWrap title="📊 KEY METRICS" C={TD} MONO={MONO}><KeyMetricsCard fundamentals={fundamentals} chart={chart} C={TD} MONO={MONO} /></CardWrap>
+        <CardWrap title="🌡 MARKET SENTIMENT" C={TD} MONO={MONO}><MarketSentimentCard regime={displayRegime} decision={canonicalDecision} C={TD} MONO={MONO} /></CardWrap>
       </div>
 
-      {/* Real bug fix (2026-09-08, live user report: "trade desk
-          overlapping"): these three panels were briefly mounted INSIDE
-          the fixed-height core zone above (rootRef), between TradeGpsCard
-          and the 3-pane grid. That zone's own header comment already
-          documents exactly why that's wrong — a variable-height sibling
-          (a collapsible panel that changes height on toggle) folded into
-          a fixed `height` flex column can overflow it with no clipping
-          (no overflow:hidden on rootRef), visually spilling into whatever
-          renders next in normal document flow. Moved here instead — plain
-          siblings BELOW the core zone, same real pattern this file
-          already uses for the Workspace Grid and TradeDeskEvidence, free
-          to add their own real height without competing for the chart's
-          fixed budget or overlapping anything after them. */}
+      {/* ── Bottom row 2: Trade Setup · Options · Detailed Analysis ·
+          Recent News · Alerts — the reference's second required row.
+          TradeDeskEvidence is the exact same real component, just moved
+          into this card grid instead of its own full-width strip. ── */}
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(230px, 1fr))", gap: 12, padding: "0 14px 12px" }}>
+        <CardWrap title="🏆 TRADE SETUP" C={TD} MONO={MONO}><TradeSetupCard tradeGps={tradeGpsData?.tradeGps} tradeGpsVerdict={tradeGpsData?.tradeGpsVerdict} C={TD} MONO={MONO} SANS={SANS} /></CardWrap>
+        <CardWrap title="🧮 OPTIONS" C={TD} MONO={MONO}><OptionsTeaserCard symbol={symbol} onOpenChain={() => openDockModule("options")} C={TD} MONO={MONO} SANS={SANS} /></CardWrap>
+        <CardWrap C={TD} MONO={MONO}><TradeDeskEvidence decision={canonicalDecision} chart={chart} C={TD} MONO={MONO} SANS={SANS} /></CardWrap>
+        <CardWrap title="📰 RECENT NEWS" C={TD} MONO={MONO}><RecentNewsCard symbol={symbol} onOpenAll={() => openTickerTab("news")} C={TD} MONO={MONO} SANS={SANS} /></CardWrap>
+        <CardWrap title="🔔 ALERTS" C={TD} MONO={MONO}><AlertsCard symbol={symbol} alertsProps={alertsProps} onManage={() => openDockModule("alerts")} C={TD} MONO={MONO} SANS={SANS} /></CardWrap>
+      </div>
+
+      {/* Additional real intelligence panels beyond the reference's own
+          required set — kept, unchanged, real data (not part of the
+          reference mockup, but genuine existing functionality; dropping
+          them would be losing real product surface, not matching a
+          spec). */}
       <BeforeItPopsPanel C={TD} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} setActiveTab={setActiveTab} />
       <HiddenGemPanel symbol={symbol} C={TD} MONO={MONO} SANS={SANS} />
       <OptionsBuyAssistantPanel C={TD} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} account={account} setActiveTab={setActiveTab} />
       <SmartMoneyIntelPanel symbol={symbol} C={TD} MONO={MONO} SANS={SANS} setTerminalSymbol={setTerminalSymbol} />
-
-      <TradeDeskEvidence decision={canonicalDecision} chart={chart} C={TD} MONO={MONO} SANS={SANS} />
       <TradeGpsWhyPanel tradeGps={tradeGpsData?.tradeGps} tradeStructure={tradeGpsData?.tradeStructure} trapShield={tradeGpsData?.trapShield} C={TD} MONO={MONO} SANS={SANS} />
-      <TradeDeskTabs symbol={symbol} activeKey={dockModule} onOpen={openTickerTab} C={TD} MONO={MONO} />
 
-      {/* Workspace Grid (Trade Desk redesign Phase 1) — a plain sibling
-          BELOW the fixed-height core zone and ABOVE the bottom dock, never
-          a flex child of the fixed-height core zone (ChartPane's own
-          ref-measurement effect can runaway-grow if a variable-height
-          sibling is folded into that same fixed budget). Each card here is
-          self-sized and real-data-only; none of them invent a number the
-          rest of the app doesn't already compute. Market Context moved
-          here (2026-08-30, explicit user request — "move market context
-          to that area") from its own full-width top-level strip; that
-          MarketContextPanel.jsx mount is retired, MarketContextCard.jsx
-          below is now the only real Market Context surface in Trade Desk. */}
-      {/* Pre/After-Market Movers — real opportunities, plain sibling (2026-08-31,
-          explicit user request: "trade desk needs to be for opportunities
-          not just non need data"). Deliberately NOT gated behind Full view
-          — the whole point is this is a core "look at and trade" signal,
-          not a buried power-user tool. */}
       <div style={{ padding: "10px 12px 0", background: TD.bg }}>
         <ExtendedHoursMovers C={TD} MONO={MONO} SANS={SANS} onSelectSymbol={selectSymbol} />
       </div>
+
+      {/* "More Analysis" — real toggle, same viewMode/toggleViewMode state
+          this file already had (2026-08-31), just re-labeled: it used to
+          gate the ENTIRE old core-zone-vs-full distinction; now it gates
+          only the deeper power-user surfaces (7-card Workspace Grid, the
+          12-module dock, and the Opportunity Inbox/Day-Trade Signals
+          panel — CommandSearchPanel — relocated here since it isn't one
+          of the reference's own named cards but is real, valuable,
+          existing functionality that must not be lost). */}
+      <div style={{ padding: "0 14px 8px", display: "flex", justifyContent: "center" }}>
+        <button onClick={toggleViewMode} style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "6px 16px", borderRadius: 20, border: `1px solid ${TD.border}`, background: TD.card, color: TD.textSec, cursor: "pointer" }}>
+          {viewMode === "full" ? "▴ HIDE MORE ANALYSIS" : "▾ MORE ANALYSIS & TOOLS"}
+        </button>
+      </div>
+
+      {viewMode === "full" && (
+        <div style={{ borderTop: `1px solid ${TD.border}`, padding: "12px 14px 0" }}>
+          <CardWrap title="🔭 OPPORTUNITY INBOX & DAY-TRADE SIGNALS" C={TD} MONO={MONO}>
+            <CommandSearchPanel symbol={symbol} onSelectSymbol={selectSymbol} onOpenDaytrade={applyLightboxHandoff} chart={chart} symbolQuote={symbolQuote} fundamentals={fundamentals} C={TD} MONO={MONO} SANS={SANS} hideKeyLevels />
+          </CardWrap>
+        </div>
+      )}
 
       {viewMode === "full" && (
         <div style={{ padding: "10px 12px", display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(280px, 1fr))", gap: 10, background: TD.bg, borderTop: `1px solid ${TD.border}` }}>
@@ -1005,20 +775,7 @@ export default function TradeDeskTab({
       )}
 
       {/* Bottom dock — 12 modules, one shared panel, only the selected one
-          mounts. A plain sibling of the core zone above, not inside it —
-          opening a module adds real page height/scroll instead of
-          squeezing the chart. Gated behind Full view (2026-08-31, "I WANT
-          TRADE DESK JUST LOOK AT AND TRADE EASY") — Simple keeps only the
-          core zone above (header, search/opportunities, chart, AI
-          verdict). Switching back to Simple with a dock module open would
-          otherwise leave it mounted with nothing to open it from again,
-          so it's explicitly closed on the way out.
-          Grouped into TRADE/ACCOUNT/ANALYSIS/EXECUTION clusters
-          (2026-09-05, see DOCK_GROUPS above) — each cluster is its own
-          flex column (a tiny uppercase label, then its buttons in a row),
-          so labels align naturally without needing matching button
-          widths. Same 12 destinations, same components, purely a
-          scanability fix. */}
+          mounts. Unchanged behavior; still gated behind "More Analysis". */}
       {viewMode === "full" && (
         <div style={{ borderTop: `1px solid ${C.border}` }}>
           <div style={{ display: "flex", overflowX: "auto" }}>
@@ -1052,6 +809,9 @@ export default function TradeDeskTab({
           )}
         </div>
       )}
+
+      {/* ── Bottom status bar — reference's final required section. ── */}
+      <BottomStatusBar account={account} riskRead={riskRead} autopilot2Running={autopilot2Running} C={TD} MONO={MONO} />
     </div>
   );
 }
@@ -1107,8 +867,24 @@ function ChartPane({ symbol, chart, chartError, loadingChart, vcpOn, setVcpOn, C
     return () => ro.disconnect();
   }, []);
 
+  // Real bug found in the 2026-09-09 redesign's live verification: this
+  // root div used to be a DIRECT CSS Grid item in the old 3-pane
+  // leftColW/rightColW layout, where Grid's own default align-items:stretch
+  // gives an unsized item a REAL used height automatically. Now that it's
+  // nested one level deeper (inside a plain flex-item wrapper div in
+  // TradeDeskTab.jsx's own new Chart|AI Analysis|Risk/Avoid row), a block-
+  // level child with no explicit height doesn't inherit that stretch
+  // behavior — it sizes to its own CONTENT instead, and since that content
+  // is `wrapRef` below (also flex:1 with no explicit height), the two
+  // combine into an unbounded content-driven height that fed back into
+  // ChartPane's own ResizeObserver as an ever-growing measurement
+  // (confirmed live: chartHeight ballooning past 1700px, way beyond the
+  // real available space, rendering a mostly-blank/off-screen chart).
+  // height:"100%" makes this div genuinely fill whatever real height its
+  // parent already established, so its own flex children (the timeframe
+  // row + wrapRef below) distribute within a real, stable budget again.
   return (
-    <div style={{ minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+    <div style={{ height: "100%", minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
       <div style={{ padding: "8px 10px 0", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
         {/* Candle timeframe (Trade Desk redesign Phase 1, §6) — the real
             supported set only (5m/15m/30m/1H/1D/1W, same as
@@ -1145,6 +921,263 @@ function ChartPane({ symbol, chart, chartError, loadingChart, vcpOn, setVcpOn, C
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ── 2026-09-09 redesign — small presentational cards for the new
+// reference-matching bottom-grid layout. Each is a thin, real-data view
+// over state TradeDeskTab.jsx already fetches above (canonicalDecision,
+// tradeGpsData, chart, fundamentals, symbolQuote, alertsProps) — no new
+// decision/score logic, no fabricated numbers; honest "—"/empty states
+// throughout, matching this file's own established convention. Only
+// RecentNewsCard owns one small new real fetch (GET /api/news/ticker/:id,
+// the same classified news-intel route this app's other symbol-scoped
+// news reads already use).
+
+function CardWrap({ title, C, MONO, children }) {
+  return (
+    <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, background: C.surface, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+      {title && (
+        <div style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 800, color: C.textDim, letterSpacing: 0.6, padding: "10px 12px 0" }}>{title}</div>
+      )}
+      <div style={{ padding: title ? "8px 12px 12px" : 0, flex: 1, minHeight: 0 }}>{children}</div>
+    </div>
+  );
+}
+
+// OHLC-style stats strip under the Trade Summary Header — real fields off
+// chart.bars/fundamentals/symbolQuote, zero new network calls. AVG VOLUME
+// is a real, directly-computed 50-bar mean off chart.bars (disclosed, not
+// a fabricated round number) — the server's own chart.volRatio field is a
+// RATIO, not a share count, so it can't answer "average volume" alone.
+function OhlcStatsRow({ chart, fundamentals, symbolQuote, C, MONO }) {
+  if (!chart || !Array.isArray(chart.bars) || !chart.bars.length) return null;
+  const bars = chart.bars;
+  const last = bars[bars.length - 1];
+  const avgVol = (() => {
+    const w = bars.slice(-50).map((b) => Number(b.volume)).filter(Number.isFinite);
+    if (!w.length) return null;
+    return w.reduce((s, v) => s + v, 0) / w.length;
+  })();
+  const fmtVol = (v) => {
+    if (!Number.isFinite(v)) return "—";
+    if (v >= 1e6) return `${(v / 1e6).toFixed(1)}M`;
+    if (v >= 1e3) return `${(v / 1e3).toFixed(0)}K`;
+    return String(Math.round(v));
+  };
+  const fmtPrice = (v) => (Number.isFinite(v) ? `$${Number(v).toFixed(2)}` : "—");
+  const stat = (label, value) => (
+    <div key={label} style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 74 }}>
+      <span style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim, letterSpacing: 0.5 }}>{label}</span>
+      <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>{value}</span>
+    </div>
+  );
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 18, padding: "10px 20px", background: C.surface, borderBottom: `1px solid ${C.border}` }}>
+      {stat("OPEN", fmtPrice(last.open))}
+      {stat("HIGH", fmtPrice(last.high))}
+      {stat("LOW", fmtPrice(last.low))}
+      {stat("PREV CLOSE", fmtPrice(symbolQuote?.previousClose))}
+      {stat("VOLUME", fmtVol(last.volume))}
+      {stat("AVG VOLUME", fmtVol(avgVol))}
+      {stat("52W HIGH", fmtPrice(chart.hi52))}
+      {stat("52W LOW", fmtPrice(chart.lo52))}
+      {stat("SECTOR", fundamentals?.sector || "—")}
+      {stat("INDUSTRY", fundamentals?.industry || "—")}
+    </div>
+  );
+}
+
+// Risk / Avoid — built entirely from canonicalDecision + tradeGpsData, the
+// SAME shared decision-store.js result TradeGpsCard above already reads —
+// never a second fetch, never a new score.
+function RiskAvoidCard({ symbol, decision, tradeGpsData, C, MONO, SANS }) {
+  const verdict = tradeGpsData?.tradeGpsVerdict?.verdict || null;
+  const warningLevel = tradeGpsData?.trapShield?.warningLevel;
+  const color = warningLevel === "HIGH" ? C.red : warningLevel === "CAUTION" ? C.amber : (verdict && verdict.startsWith("BUY_")) ? C.green : C.textDim;
+  const headline = warningLevel === "HIGH" ? "HIGH RISK" : warningLevel === "CAUTION" ? "CAUTION" : (verdict && verdict.startsWith("BUY_")) ? "FAVORABLE" : "NO EDGE YET";
+  const agreement = Number.isFinite(tradeGpsData?.marketAgreement?.count) && Number.isFinite(tradeGpsData?.marketAgreement?.total)
+    ? `${tradeGpsData.marketAgreement.count} of ${tradeGpsData.marketAgreement.total} factors aligned` : null;
+  const blocker = decision?.blockers?.[0] || null;
+  return (
+    <div style={{ border: `1px solid ${color}55`, background: `${color}12`, borderRadius: 10, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <span style={{ fontSize: 15 }}>{warningLevel === "HIGH" ? "⚠" : warningLevel === "CAUTION" ? "◐" : "✓"}</span>
+        <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color, letterSpacing: 0.5 }}>RISK / {headline}</span>
+      </div>
+      <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.textSec, lineHeight: 1.5 }}>
+        {decision?.confidence != null
+          ? `${decision.confidence}% confidence read.${agreement ? ` ${agreement}.` : ""}${blocker ? ` ${blocker}` : ""}`
+          : (symbol ? "No real decision available for this symbol yet." : "Search a symbol to see a real risk read.")}
+      </div>
+      {decision?.winProbability != null && (
+        <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 10.5, paddingTop: 8, borderTop: `1px solid ${color}33` }}>
+          <span style={{ color: C.textDim }}>WIN PROB</span><b style={{ color: C.text }}>{decision.winProbability}%</b>
+        </div>
+      )}
+      {Number.isFinite(decision?.expectedValuePct) && (
+        <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 10.5 }}>
+          <span style={{ color: C.textDim }}>EXP. VALUE</span><b style={{ color: decision.expectedValuePct >= 0 ? C.green : C.red }}>{decision.expectedValuePct >= 0 ? "+" : ""}{decision.expectedValuePct}%</b>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TargetsCard({ decision, C, MONO }) {
+  const targets = (decision?.targets || []).filter(Number.isFinite);
+  if (!targets.length) return <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>No real targets available.</div>;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      {targets.map((t, i) => (
+        <div key={i} style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 12 }}>
+          <span style={{ color: C.textDim }}>TARGET {i + 1}</span>
+          <b style={{ color: C.green }}>${t.toFixed(2)}</b>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function KeyMetricsCard({ fundamentals, chart, C, MONO }) {
+  const lastVol = Array.isArray(chart?.bars) && chart.bars.length ? chart.bars[chart.bars.length - 1].volume : null;
+  const fmtVol = (v) => (Number.isFinite(v) ? (v >= 1e6 ? `${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `${(v / 1e3).toFixed(0)}K` : String(v)) : "—");
+  const fmtCap = (v) => {
+    const n = Number(v);
+    if (!Number.isFinite(n) || n <= 0) return "—";
+    if (n >= 1e12) return `$${(n / 1e12).toFixed(2)}T`;
+    if (n >= 1e9) return `$${(n / 1e9).toFixed(1)}B`;
+    if (n >= 1e6) return `$${(n / 1e6).toFixed(0)}M`;
+    return `$${n.toLocaleString()}`;
+  };
+  const row = (label, value) => (
+    <div key={label} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+      <span style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim }}>{label}</span>
+      <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: C.text }}>{value}</span>
+    </div>
+  );
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+      {row("P/E", Number.isFinite(fundamentals?.pe) ? fundamentals.pe.toFixed(1) : "—")}
+      {row("EPS", Number.isFinite(fundamentals?.eps) ? `$${fundamentals.eps.toFixed(2)}` : "—")}
+      {row("MARKET CAP", fmtCap(fundamentals?.marketCap))}
+      {row("VOLUME", fmtVol(lastVol))}
+    </div>
+  );
+}
+
+function MarketSentimentCard({ regime, decision, C, MONO }) {
+  const label = regime?.label || String(regime?.regime || "—").replace(/_/g, " ");
+  const color = regime?.color || C.textDim;
+  const confidence = Number.isFinite(decision?.confidence) ? decision.confidence : null;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color }}>{label}</div>
+      {confidence != null ? (
+        <div>
+          <div style={{ height: 6, borderRadius: 3, background: C.border, overflow: "hidden" }}>
+            <div style={{ width: `${confidence}%`, height: "100%", background: color }} />
+          </div>
+          <div style={{ fontFamily: MONO, fontSize: 10.5, color: C.textDim, marginTop: 4 }}>{confidence}% confidence</div>
+        </div>
+      ) : (
+        <div style={{ fontFamily: MONO, fontSize: 10.5, color: C.textDim }}>No real confidence read yet.</div>
+      )}
+    </div>
+  );
+}
+
+function TradeSetupCard({ tradeGps, tradeGpsVerdict, C, MONO, SANS }) {
+  const score = Number.isFinite(tradeGps?.score) ? tradeGps.score : null;
+  const label = tradeGpsVerdict?.verdict ? tradeGpsVerdict.verdict.replace(/_/g, " ") : "NO SETUP YET";
+  const color = score != null ? (score >= 70 ? C.green : score >= 40 ? C.amber : C.red) : C.textDim;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+        <span style={{ fontFamily: MONO, fontSize: 26, fontWeight: 900, color }}>{score != null ? `${score}/100` : "—"}</span>
+        <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textSec }}>{label}</span>
+      </div>
+      {tradeGps?.band && <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim }}>{tradeGps.band}</div>}
+    </div>
+  );
+}
+
+function OptionsTeaserCard({ symbol, onOpenChain, C, MONO, SANS }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec }}>
+        {symbol ? `Real options chain + the Buy Assistant decision engine for ${symbol} (Buy Assistant is further down this page).` : "Select a symbol to see real options data."}
+      </div>
+      <button onClick={onOpenChain} style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "7px 10px", borderRadius: 7, border: "none", background: C.accent, color: "#fff", cursor: "pointer" }}>Open Options Chain</button>
+    </div>
+  );
+}
+
+// Recent News — one small real fetch (GET /api/news/ticker/:symbol, the
+// same classified news-intel route this app's other symbol-scoped news
+// reads already use) scoped to the active symbol; honestly empty when the
+// real pipeline has nothing for it, never fabricated headlines.
+function RecentNewsCard({ symbol, onOpenAll, C, MONO, SANS }) {
+  const [data, setData] = useState(null);
+  useEffect(() => {
+    if (!symbol) { setData(null); return; }
+    let cancelled = false;
+    setData(null);
+    fetch(`/api/news/ticker/${encodeURIComponent(symbol)}`).then((r) => r.json())
+      .then((d) => { if (!cancelled) setData(d); })
+      .catch(() => { if (!cancelled) setData({ ok: false }); });
+    return () => { cancelled = true; };
+  }, [symbol]);
+  const rows = (data?.rows || []).slice(0, 5);
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {!data && <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim }}>Loading…</div>}
+      {data && data.ok === false && <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim }}>News feed unavailable right now.</div>}
+      {data && data.ok !== false && !rows.length && <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim }}>No real recent news for this symbol.</div>}
+      {rows.map((r, i) => (
+        <div key={r.id || i} style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+          <span style={{ fontFamily: SANS, fontSize: 11, color: C.text, lineHeight: 1.35 }}>{r.headline}</span>
+          <span style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim }}>{r.sentiment || ""}</span>
+        </div>
+      ))}
+      <button onClick={onOpenAll} style={{ alignSelf: "flex-start", fontFamily: MONO, fontSize: 10.5, fontWeight: 800, color: C.accent, background: "transparent", border: "none", cursor: "pointer", padding: 0 }}>View All News →</button>
+    </div>
+  );
+}
+
+// Alerts — real per-symbol price alerts (alertsProps.priceAlerts, the same
+// real array AlertsTab itself renders) + a launcher into the real Alerts
+// dock module. No fabricated toggle states.
+function AlertsCard({ symbol, alertsProps, onManage, C, MONO }) {
+  const mine = (alertsProps?.priceAlerts || []).filter((a) => a.symbol === symbol);
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {!mine.length && <div style={{ fontFamily: MONO, fontSize: 10.5, color: C.textDim }}>No real price alerts set for {symbol || "this symbol"}.</div>}
+      {mine.slice(0, 4).map((a) => (
+        <div key={a.id} style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11 }}>
+          <span style={{ color: C.textDim }}>{a.direction === "above" ? "ABOVE" : "BELOW"}</span>
+          <b style={{ color: C.text }}>${Number(a.targetPrice).toFixed(2)}</b>
+        </div>
+      ))}
+      <button onClick={onManage} style={{ alignSelf: "flex-start", fontFamily: MONO, fontSize: 10.5, fontWeight: 800, color: C.accent, background: "transparent", border: "none", cursor: "pointer", padding: 0 }}>Manage Alerts →</button>
+    </div>
+  );
+}
+
+// Bottom status bar — real, already-computed fields only (account/
+// riskRead/autopilot2Running all already fetched above).
+function BottomStatusBar({ account, riskRead, autopilot2Running, C, MONO }) {
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 16, padding: "8px 16px", borderTop: `1px solid ${C.border}`, background: C.surface, fontFamily: MONO, fontSize: 11 }}>
+      <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+        <span style={{ width: 7, height: 7, borderRadius: "50%", background: C.green }} />
+        <span style={{ color: C.textDim }}>Connected</span>
+      </span>
+      <span style={{ color: C.textDim }}>Paper Trading <b style={{ color: C.text }}>{account?.cash != null ? `$${Math.round(Number(account.cash)).toLocaleString()}` : "—"}</b></span>
+      <span style={{ color: C.textDim }}>Open Risk <b style={{ color: riskRead.pl >= 0 ? C.green : C.red }}>{riskRead.count} pos · {riskRead.pl >= 0 ? "+" : ""}${Math.round(riskRead.pl).toLocaleString()}</b></span>
+      <span style={{ marginLeft: "auto", color: C.textDim }}>{autopilot2Running ? "🟢 Autopilot running" : "🔴 Autopilot stopped"}</span>
+      <span style={{ color: C.textDim }}>{new Date().toLocaleString([], { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" })}</span>
     </div>
   );
 }
