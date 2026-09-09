@@ -80,10 +80,15 @@ const tradeDeskSrc = read("axiom-runner", "components", "TradeDeskTab.jsx");
 ok("TradeDeskTab.jsx's old drag-resizable leftColW/rightColW grid is gone (a later comment may still reference the retired feature by name for historical context — only real declarations/usages are checked here)", () => {
   assert.doesNotMatch(tradeDeskSrc, /const \[leftColW|const \[rightColW|const startColDrag/);
 });
-ok("TradeDeskTab.jsx renders the reference layout's Chart | AI Analysis | Risk/Avoid row", () => {
-  assert.match(tradeDeskSrc, /gridTemplateColumns:\s*"minmax\(0,1fr\)\s*320px\s*300px"/);
+ok("TradeDeskTab.jsx renders the reference layout's Search | Chart | AI Analysis | Risk/Avoid row (search restored to the primary flow, 2026-09-09: \"move search to keep the flow in right way\")", () => {
+  assert.match(tradeDeskSrc, /gridTemplateColumns:\s*"260px minmax\(0,1fr\)\s*320px\s*300px"/);
   assert.match(tradeDeskSrc, /🤖 AI ANALYSIS/);
   assert.match(tradeDeskSrc, /function RiskAvoidCard/);
+  assert.match(tradeDeskSrc, /<CommandSearchPanel symbol={symbol} onSelectSymbol={selectSymbol} onOpenDaytrade={applyLightboxHandoff}/);
+});
+ok("TradeDeskTab.jsx's analysis row gives every column a real shared bounded height instead of letting mismatched content heights leave a blank void (2026-09-09 fix, live user report: \"lots of empty areas\")", () => {
+  const matches = tradeDeskSrc.match(/height: 680/g) || [];
+  assert.ok(matches.length >= 4, `expected all 4 analysis-row columns to share height:680, found ${matches.length}`);
 });
 ok("TradeDeskTab.jsx renders the reference layout's required bottom-card set (Key Levels/Targets/Key Metrics/Market Sentiment/Trade Setup/Options/Detailed Analysis/Recent News/Alerts)", () => {
   for (const marker of ["KeyLevelsCard", "function TargetsCard", "function KeyMetricsCard", "function MarketSentimentCard", "function TradeSetupCard", "function OptionsTeaserCard", "TradeDeskEvidence", "function RecentNewsCard", "function AlertsCard"]) {

@@ -648,24 +648,41 @@ export default function TradeDeskTab({
       />
       <OhlcStatsRow chart={chart} fundamentals={fundamentals} symbolQuote={symbolQuote} C={TD} MONO={MONO} />
 
-      {/* ── Chart | AI Analysis | Risk/Avoid — the reference layout's main
-          analysis row. Mobile keeps its own separate stacked body,
-          unchanged. ── */}
+      {/* ── Search | Chart | AI Analysis | Risk/Avoid — the reference
+          layout's main analysis row. Mobile keeps its own separate
+          stacked body, unchanged.
+          Real bug fix (2026-09-09, live user report: "lots of empty
+          areas"): each column used to size to its own natural content —
+          fine in isolation, but Cortex's real content (ask box, SETUP
+          QUALITY, TRADE PLAN, FINAL DECISION, WHY breakdown) runs
+          1000-1500px+ tall, while the fixed-height chart card (620px) and
+          the short Risk/Avoid card ended far earlier — confirmed live via
+          screenshot: a multi-hundred-pixel BLANK VOID below whichever
+          column happened to be shortest, on both sides depending on
+          scroll position. All four columns now share ONE real bounded
+          height, with the two variable-content columns (Search's
+          Opportunity Inbox, AI Analysis) scrolling internally instead of
+          stretching the row — same real "give it a stable, self-contained
+          budget" principle ChartPane's own height:620 card already used,
+          just applied consistently across the whole row instead of one
+          column at a time. */}
       {isMobile ? (
         <MobileTradeDeskBody symbol={symbol} selectSymbol={selectSymbol} chart={chart} chartError={chartError} symbolQuote={symbolQuote} fundamentals={fundamentals} applyLightboxHandoff={applyLightboxHandoff} dayTradeHandoff={dayTradeHandoff} loadingChart={loadingChart} vcpOn={vcpOn} setVcpOn={setVcpOn} setActiveTab={setActiveTab} macroData={macroData} C={TD} MONO={MONO} SANS={SANS} />
       ) : (
-        /* alignItems:"start" (2026-09-09 real bug fix, found via live
-           Playwright verification): CSS Grid's default align-items:stretch
-           forces every column in a row to match the TALLEST one — the AI
-           Analysis column's own real content (Cortex's Trade Plan/Final
-           Decision/Score Breakdown/WHY sections) can genuinely run
-           1500px+ tall, which was stretching the Chart card to match and
-           leaving ChartPane's own ResizeObserver measuring a real height
-           far bigger than intended, colliding with a real chart-creation
-           timing race (confirmed live: the chart's canvas got stuck at
-           the browser's raw 300x150 default backing size, rendering as a
-           blank box). Each column now sizes to its OWN real content. */
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 320px 300px", gap: 12, padding: "12px 14px", alignItems: "start" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "260px minmax(0,1fr) 320px 300px", gap: 12, padding: "12px 14px", alignItems: "start" }}>
+          {/* Search / Opportunity Inbox — real ticker search + the same
+              tiered ACTIONABLE/DEVELOPING/WAIT/EXTENDED/INVALIDATED scan +
+              Day-Trade signals CommandSearchPanel.jsx always had.
+              Restored to the primary flow (2026-09-09, explicit user
+              request: "move search to keep the flow in right way") — it
+              used to be a step buried inside the collapsed "More Analysis"
+              section below, which put search AFTER the chart/analysis for
+              a symbol instead of before it. hideKeyLevels: Key Levels is
+              already its own card in the bottom grid; showing it twice on
+              the same page would be a real duplicate, not new information. */}
+          <div style={{ border: `1px solid ${TD.border}`, borderRadius: 10, background: TD.surface, height: 680, overflow: "hidden" }}>
+            <CommandSearchPanel symbol={symbol} onSelectSymbol={selectSymbol} onOpenDaytrade={applyLightboxHandoff} chart={chart} symbolQuote={symbolQuote} fundamentals={fundamentals} C={TD} MONO={MONO} SANS={SANS} hideKeyLevels/>
+          </div>
           {/* Chart card — real TrendChart via ChartPane, unchanged, now
               inside a real bordered card with the ticker sub-nav
               (TradeDeskTabs — Overview/Technicals/Options/News/
@@ -674,14 +691,8 @@ export default function TradeDeskTab({
               News | Analysis" tab strip. Clicking a tab still opens the
               exact same real dock module further down the page (unchanged
               openTickerTab behavior) — this only changes where the tab
-              row itself is drawn.
-              A real FIXED height (not minHeight) — same deliberate
-              "give the chart a stable, self-contained budget" principle
-              the old rootHeight/gridRef measurement system existed for
-              (see this file's own history), just far simpler now that the
-              chart is its own independent grid cell instead of fighting
-              SEARCH/CORTEX for a shared row. */}
-          <div style={{ border: `1px solid ${TD.border}`, borderRadius: 10, background: TD.surface, overflow: "hidden", display: "flex", flexDirection: "column", height: 620 }}>
+              row itself is drawn. */}
+          <div style={{ border: `1px solid ${TD.border}`, borderRadius: 10, background: TD.surface, overflow: "hidden", display: "flex", flexDirection: "column", height: 680 }}>
             <TradeDeskTabs symbol={symbol} activeKey={dockModule} onOpen={openTickerTab} C={TD} MONO={MONO} />
             <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
               <ChartPane symbol={symbol} chart={chart} chartError={chartError} loadingChart={loadingChart} vcpOn={vcpOn} setVcpOn={setVcpOn} C={TD} MONO={MONO} SANS={SANS} chartTf={chartTf} setChartTf={setChartTf} />
@@ -690,15 +701,26 @@ export default function TradeDeskTab({
           {/* AI Analysis — CortexMiniPanel, entirely unchanged internals
               (ask-anything, SETUP QUALITY, FINAL DECISION, WHY breakdown —
               every real fetch/effect stays exactly as it was), just given
-              its own real card frame and more real width than the old
-              280-360px squeezed column ever had. */}
-          <CardWrap title="🤖 AI ANALYSIS" C={TD} MONO={MONO}>
-            <CortexMiniPanel symbol={symbol} onSelectSymbol={selectSymbol} setActiveTab={setActiveTab} dayTradeHandoff={dayTradeHandoff} macroData={macroData} fundamentals={fundamentals} C={TD} MONO={MONO} SANS={SANS} />
-          </CardWrap>
+              its own real card frame, more real width than the old
+              280-360px squeezed column ever had, and a bounded height with
+              its own internal scroll (its real content is genuinely the
+              longest of the four columns). */}
+          <div style={{ height: 680, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+            <CardWrap title="🤖 AI ANALYSIS" C={TD} MONO={MONO} className="h-full" bodyStyle={{ overflowY: "auto" }}>
+              <CortexMiniPanel symbol={symbol} onSelectSymbol={selectSymbol} setActiveTab={setActiveTab} dayTradeHandoff={dayTradeHandoff} macroData={macroData} fundamentals={fundamentals} C={TD} MONO={MONO} SANS={SANS} />
+            </CardWrap>
+          </div>
           {/* Risk / Avoid — new, but zero new data: built entirely from
               canonicalDecision + tradeGpsData, the SAME shared decision-
-              store.js result TradeGpsCard above already reads. */}
-          <RiskAvoidCard symbol={symbol} decision={canonicalDecision} tradeGpsData={tradeGpsData} C={TD} MONO={MONO} SANS={SANS} />
+              store.js result TradeGpsCard above already reads. Its own
+              real content is short, so this card won't fill the full
+              680px — a real, bounded, modest gap at the bottom of one
+              card (normal in any dashboard with uneven column content) is
+              a completely different, non-broken thing from the page-length
+              blank void this height-matching fixes. */}
+          <div style={{ height: 680, overflow: "hidden" }}>
+            <RiskAvoidCard symbol={symbol} decision={canonicalDecision} tradeGpsData={tradeGpsData} C={TD} MONO={MONO} SANS={SANS} />
+          </div>
         </div>
       )}
 
@@ -716,8 +738,14 @@ export default function TradeDeskTab({
       {/* ── Bottom row 2: Trade Setup · Options · Detailed Analysis ·
           Recent News · Alerts — the reference's second required row.
           TradeDeskEvidence is the exact same real component, just moved
-          into this card grid instead of its own full-width strip. ── */}
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(230px, 1fr))", gap: 12, padding: "0 14px 12px" }}>
+          into this card grid instead of its own full-width strip.
+          alignItems:"start" (2026-09-09, same "lots of empty areas" fix
+          as the analysis row above) — Detailed Analysis (TradeDeskEvidence)
+          genuinely runs much taller than Trade Setup/Options/Alerts;
+          default grid stretch was forcing those short cards to match its
+          height, leaving real blank space inside each one instead of
+          just ending at their own real content. ── */}
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(230px, 1fr))", gap: 12, padding: "0 14px 12px", alignItems: "start" }}>
         <CardWrap title="🏆 TRADE SETUP" C={TD} MONO={MONO}><TradeSetupCard tradeGps={tradeGpsData?.tradeGps} tradeGpsVerdict={tradeGpsData?.tradeGpsVerdict} C={TD} MONO={MONO} SANS={SANS} /></CardWrap>
         <CardWrap title="🧮 OPTIONS" C={TD} MONO={MONO}><OptionsTeaserCard symbol={symbol} onOpenChain={() => openDockModule("options")} C={TD} MONO={MONO} SANS={SANS} /></CardWrap>
         <CardWrap C={TD} MONO={MONO}><TradeDeskEvidence decision={canonicalDecision} chart={chart} C={TD} MONO={MONO} SANS={SANS} /></CardWrap>
@@ -743,24 +771,20 @@ export default function TradeDeskTab({
       {/* "More Analysis" — real toggle, same viewMode/toggleViewMode state
           this file already had (2026-08-31), just re-labeled: it used to
           gate the ENTIRE old core-zone-vs-full distinction; now it gates
-          only the deeper power-user surfaces (7-card Workspace Grid, the
-          12-module dock, and the Opportunity Inbox/Day-Trade Signals
-          panel — CommandSearchPanel — relocated here since it isn't one
-          of the reference's own named cards but is real, valuable,
-          existing functionality that must not be lost). */}
+          only the deeper power-user surfaces (7-card Workspace Grid and
+          the 12-module dock). The Opportunity Inbox/Day-Trade Signals
+          panel (CommandSearchPanel) that used to live behind this toggle
+          moved back up into the main Search column above (2026-09-09,
+          explicit user request: "move search to keep the flow in right
+          way" — putting real ticker search AFTER the chart/analysis for
+          whatever symbol happened to be loaded was backwards; search now
+          comes first, in the same row, matching how a user actually
+          works: find a symbol, then see it analyzed right next to it). */}
       <div style={{ padding: "0 14px 8px", display: "flex", justifyContent: "center" }}>
         <button onClick={toggleViewMode} style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "6px 16px", borderRadius: 20, border: `1px solid ${TD.border}`, background: TD.card, color: TD.textSec, cursor: "pointer" }}>
           {viewMode === "full" ? "▴ HIDE MORE ANALYSIS" : "▾ MORE ANALYSIS & TOOLS"}
         </button>
       </div>
-
-      {viewMode === "full" && (
-        <div style={{ borderTop: `1px solid ${TD.border}`, padding: "12px 14px 0" }}>
-          <CardWrap title="🔭 OPPORTUNITY INBOX & DAY-TRADE SIGNALS" C={TD} MONO={MONO}>
-            <CommandSearchPanel symbol={symbol} onSelectSymbol={selectSymbol} onOpenDaytrade={applyLightboxHandoff} chart={chart} symbolQuote={symbolQuote} fundamentals={fundamentals} C={TD} MONO={MONO} SANS={SANS} hideKeyLevels />
-          </CardWrap>
-        </div>
-      )}
 
       {viewMode === "full" && (
         <div style={{ padding: "10px 12px", display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(280px, 1fr))", gap: 10, background: TD.bg, borderTop: `1px solid ${TD.border}` }}>
@@ -935,13 +959,13 @@ function ChartPane({ symbol, chart, chartError, loadingChart, vcpOn, setVcpOn, C
 // the same classified news-intel route this app's other symbol-scoped
 // news reads already use).
 
-function CardWrap({ title, C, MONO, children }) {
+function CardWrap({ title, C, MONO, children, style, bodyStyle }){
   return (
-    <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, background: C.surface, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+    <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, background: C.surface, overflow: "hidden", display: "flex", flexDirection: "column", height: "100%", ...style }}>
       {title && (
-        <div style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 800, color: C.textDim, letterSpacing: 0.6, padding: "10px 12px 0" }}>{title}</div>
+        <div style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 800, color: C.textDim, letterSpacing: 0.6, padding: "10px 12px 0", flexShrink: 0 }}>{title}</div>
       )}
-      <div style={{ padding: title ? "8px 12px 12px" : 0, flex: 1, minHeight: 0 }}>{children}</div>
+      <div style={{ padding: title ? "8px 12px 12px" : 0, flex: 1, minHeight: 0, ...bodyStyle }}>{children}</div>
     </div>
   );
 }
