@@ -57,58 +57,80 @@ export const THEME_LIGHT = {
   // component hand-rolling its own shadow value.
   shadow:     "0 1px 3px rgba(15,23,42,0.07), 0 1px 2px rgba(15,23,42,0.05)",
 };
+// Dark-mode "AI Trading" palette (2026-09-09, explicit user request: "can
+// i have similar interface in my trading platform" → "Restyle the real
+// app to match this artifact's exact look" — the artifact being a
+// standalone Trade Desk mockup this session built and published
+// separately). Real WCAG contrast checked against `bg`/`card` for every
+// text-role token before landing here (computed directly, same discipline
+// as the 2026-09-07 textDim fix below) — none of this regresses that
+// fix's own 4.5:1 floor. THEME_LIGHT is untouched: the mockup this matches
+// was explicitly a permanent-dark design with no light variant, and this
+// app's real Light/Dark/System toggle (2026-09-09) must keep a real,
+// separately-tuned light palette regardless.
 export const THEME_DARK = {
-  // Backgrounds — warm dark slate, easier on eyes than cold navy
-  bg:         "#0f1318",   // warm near-black (slight warm tint, not blue-cold)
-  surface:    "#161c24",   // warm dark surface
-  card:       "#1c2530",   // card — slightly lighter, warm undertone
-  cardHover:  "#222f3e",   // hover — clearly different but not jarring
-  // Borders — warm subtle, not harsh
-  border:     "#2a3545",
-  borderLit:  "#374860",
-  // Text — warm cream hierarchy (not cold blue-white)
-  text:       "#e8dcc8",   // warm cream — much easier than blue-white over hours
-  textSec:    "#9aaa95",   // warm mid-grey — secondary info
-  // Real, measured fix (2026-09-07, Trade Desk readability audit —
-  // explicit user report: "tiny gray lettering that is difficult to
-  // read"). The old #5a6b70 measured 3.35:1 against `bg` and as low as
-  // 2.78:1 against `card` (WCAG contrast formula, computed directly) —
-  // BELOW the 4.5:1 normal-text / 3:1 large-text minimums this app's own
-  // dark theme should meet, on the one token nearly every label in this
-  // app uses. This is the actual root cause of the eye-strain complaint,
-  // not just small font sizes. Same hue/saturation (a hue-preserving
-  // lightness increase, not a new color), now 4.83-5.81:1 across
-  // bg/surface/card — comfortably passing everywhere it's actually used.
-  // Genuinely low-priority/disabled metadata that WANTS to recede below
-  // even this now belongs on its own token, not this one — textDim is
-  // meant to still be real, readable secondary information per this
-  // app's own 4-color status system, never invisible.
-  textDim:    "#809399",
-  // Accent — softer sky blue (less electric, still clear)
-  accent:     "#5b9cf6",
-  accentGlow: "rgba(91,156,246,0.22)",
-  // Semantic — muted, professional (not neon)
-  green:      "#2ec27e",   // natural green — readable, not neon
-  greenBg:    "rgba(46,194,126,0.12)",
-  greenLight: "#8fd9ae",   // mild/tentative bullish — lighter than `green`, for multi-tier bias scales
-  red:        "#e05c6a",   // warm coral-red — easier than harsh bright red
-  redBg:      "rgba(224,92,106,0.12)",
-  redLight:   "#eb98a0",   // mild/tentative bearish — lighter than `red`, for multi-tier bias scales
-  amber:      "#f0a830",   // warm amber
-  amberBg:    "rgba(240,168,48,0.13)",
+  // Backgrounds — deep midnight-blue, cooler and darker than the old warm
+  // near-black, matching the mockup's bg-[#070d19]/bg-[#0c1626] pairing.
+  bg:         "#070d19",
+  surface:    "#0c1626",
+  card:       "#0e1b30",
+  cardHover:  "#101d33",
+  // Borders — cool slate-blue hairlines, same pairing as the mockup.
+  border:     "#1b2a3d",
+  borderLit:  "#25384f",
+  // Text — cool near-white hierarchy (the mockup's own choice), replacing
+  // the old warm-cream one now that the whole palette has moved cooler.
+  text:       "#f4f7fb",
+  textSec:    "#93a3ba",   // 7.6:1 vs bg — secondary info
+  // textDim: #7c8ea3 measures 5.79:1 vs bg / 5.14:1 vs card (computed
+  // directly) — comfortably above the 2026-09-07 fix's own 4.5:1 floor;
+  // a candidate closer to the mockup's literal --text-faint (#5c6d84,
+  // 3.68:1) was rejected for exactly that reason. Still real, readable
+  // secondary information, never the old <4:1 "eye-strain" gray.
+  textDim:    "#7c8ea3",
+  // Accent — the mockup's own --accent-2 (its readable-on-dark blue,
+  // used for text/links/active-tab labels); its deeper --accent
+  // (#2563eb, used there only for solid button fills with white text on
+  // top) measures just 3.76:1 on this bg — below the 4.5:1 floor for the
+  // many places this app reads `C.accent` directly as TEXT, not just a
+  // button fill. Near-identical to the previous accent (#5b9cf6, 6.97:1)
+  // by design — a real, deliberate palette shift, not a contrast risk.
+  accent:     "#60a5fa",
+  accentGlow: "rgba(96,165,250,0.22)",
+  // Semantic — the mockup's own emerald/red pairing (Tailwind's
+  // emerald-400 / red-500), each re-checked against `bg`: green 10.1:1,
+  // red 5.2:1 — both real passes, not just visually similar.
+  green:      "#34d399",
+  greenBg:    "rgba(52,211,153,0.12)",
+  greenLight: "#6ee7b7",   // mild/tentative bullish — lighter than `green`, for multi-tier bias scales
+  red:        "#ef4444",
+  redBg:      "rgba(239,68,68,0.12)",
+  redLight:   "#fca5a5",   // mild/tentative bearish — lighter than `red`, for multi-tier bias scales
+  amber:      "#f97316",   // mockup's own orange-500 caution tone — 6.9:1 vs bg
+  amberBg:    "rgba(249,115,22,0.14)",
   // Highest-conviction / CEO-pick marker — see THEME_LIGHT.gold for rationale.
-  gold:       "#d6ac47",
-  goldBg:     "rgba(214,172,71,0.14)",
+  gold:       "#eab308",
+  goldBg:     "rgba(234,179,8,0.12)",
   // Standard card elevation — see THEME_LIGHT.shadow for rationale.
-  shadow:     "0 1px 3px rgba(0,0,0,0.32), 0 1px 2px rgba(0,0,0,0.26)",
+  shadow:     "0 1px 3px rgba(0,0,0,0.38), 0 1px 2px rgba(0,0,0,0.3)",
 };
 export const C = { ...THEME_DARK };
 
-// SANS  — clean system UI font for navigation, labels, body copy
-export const SANS = `'Inter', system-ui, -apple-system, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif`;
-// MONO  — true monospace for prices, tickers, percentages, scores — much crisper digits
-export const MONO = `'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Roboto Mono', 'Courier New', monospace`;
-export const NUM = `'Oswald', 'Inter', system-ui, sans-serif`;   // bold condensed display font for headline numbers
+// Font trio swapped 2026-09-09 to match the "AI Trading" mockup exactly
+// (Manrope display / IBM Plex Sans body / IBM Plex Mono data) — loaded for
+// real via a Google Fonts <link> in index.html. The PREVIOUS names here
+// (Inter/JetBrains Mono/Oswald) were never actually loaded anywhere in
+// this app (no @font-face, no font link existed) — every one of those
+// declarations was silently falling back to the browser's system-ui font
+// this whole time; this is the first time this app's declared fonts and
+// its actually-rendered fonts agree.
+// SANS  — body copy, labels, navigation.
+export const SANS = `'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif`;
+// MONO  — true monospace for prices, tickers, percentages, scores.
+export const MONO = `'IBM Plex Mono', 'JetBrains Mono', 'Fira Code', 'Roboto Mono', 'Courier New', monospace`;
+// NUM   — bold display face for headline numbers/verdicts (e.g. Trade
+// GPS's "NO TRADE"/"BUY STOCK").
+export const NUM = `'Manrope', 'IBM Plex Sans', system-ui, sans-serif`;
 export const LAYOUT = {
   // Real cap (2026-08-25, explicit user request: "make sure all pages
   // centered"). Was the string "100%" — a no-op maxWidth, since the main

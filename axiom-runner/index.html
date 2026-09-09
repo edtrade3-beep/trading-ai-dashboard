@@ -7,11 +7,20 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="AM Trading">
-  <meta name="theme-color" content="#070d1b">
+  <meta name="theme-color" content="#070d19">
   <title>AM Trading Platform</title>
   <link rel="icon" type="image/png" href="/axiom-runner/assets/am-trading-logo.png">
   <link rel="shortcut icon" type="image/png" href="/axiom-runner/assets/am-trading-logo.png">
   <link rel="apple-touch-icon" href="/axiom-runner/assets/am-trading-logo.png">
+  <!-- 2026-09-09 — real font trio for the "AI Trading" mockup palette
+       (theme.js's SANS/MONO/NUM). None of this app's previously-declared
+       fonts (Inter/JetBrains Mono/Oswald) were ever actually loaded
+       anywhere, so every one of those was silently falling back to the
+       browser's system-ui font this whole time — this is the first real
+       webfont load this app has ever had. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script>
     // Real fix (2026-09-02) for a pre-hydration background-color flash:
     // this app's theme is a single shared, server-persisted preference
@@ -38,7 +47,7 @@
     // axiom-live.jsx's own React effect uses once it mounts, so the two
     // can never disagree.
     (function () {
-      var dark = "#0f1318", light = "#ffffff", bg = dark;
+      var dark = "#070d19", light = "#ffffff", bg = dark;
       try {
         var raw = localStorage.getItem("axiom_local_config_v1");
         var mode = raw && JSON.parse(raw)?.settings?.themeMode;
