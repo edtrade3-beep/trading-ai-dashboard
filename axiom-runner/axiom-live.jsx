@@ -46,6 +46,7 @@ import QuickLogModal from "./components/QuickLogModal.jsx";
 import CommandPaletteModal from "./components/CommandPaletteModal.jsx";
 import IstighfarWidget, { ISTIGHFAR_BAR_H } from "./components/IstighfarWidget.jsx";
 import CompactMarketMode from "./components/CompactMarketMode.jsx";
+import ThemeModeSelector from "./components/ThemeModeSelector.jsx";
 import RealityCheckWidget from "./components/RealityCheckWidget.jsx";
 import ChartSearchWidget from "./components/ChartSearchWidget.jsx";
 import Sidebar, { SIDEBAR_ITEMS, SIDEBAR_COLLAPSED_WIDTH } from "./components/Sidebar.jsx";
@@ -2486,7 +2487,33 @@ export default function App() {
   // contradicting that comment for a genuinely first-ever/unconfigured
   // load. Never overrides a real saved choice: settings.themeMode is
   // only falsy when nothing has been explicitly set.
-  const themeMode = String(settings.themeMode || "dark").toLowerCase() === "dark" ? "dark" : "light";
+  // themeModePref is the RAW stored preference — "dark" | "light" |
+  // "system" (2026-09-09, THEME SYSTEM spec: "System/Auto Mode ... must
+  // follow the operating system's prefers-color-scheme setting"). `theme
+  // Mode` below stays the previous binary EFFECTIVE mode every other
+  // consumer in this file already reads — "system" resolves through
+  // systemPrefersDark instead of leaking a third value everywhere.
+  const themeModePref = String(settings.themeMode || "dark").toLowerCase();
+  const [systemPrefersDark, setSystemPrefersDark] = useState(() => {
+    try { return window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)").matches : true; }
+    catch { return true; }
+  });
+  useEffect(() => {
+    if (!window.matchMedia) return;
+    let mq;
+    try { mq = window.matchMedia("(prefers-color-scheme: dark)"); } catch { return; }
+    const handler = (e) => setSystemPrefersDark(e.matches);
+    // Safari <14 only has the deprecated addListener/removeListener pair.
+    if (mq.addEventListener) mq.addEventListener("change", handler);
+    else if (mq.addListener) mq.addListener(handler);
+    return () => {
+      if (mq.removeEventListener) mq.removeEventListener("change", handler);
+      else if (mq.removeListener) mq.removeListener(handler);
+    };
+  }, []);
+  const themeMode = themeModePref === "system"
+    ? (systemPrefersDark ? "dark" : "light")
+    : (themeModePref === "light" ? "light" : "dark");
   const brightness = Math.max(30, Math.min(100, Number(settings.brightness ?? 100)));
   // Sync module-level C on every render so all components see the current theme immediately
   Object.assign(C, themeMode === "dark" ? THEME_DARK : THEME_LIGHT);
@@ -3980,7 +4007,18 @@ export default function App() {
       .then((data) => {
         if (!data?.settings) return;
         const s = data.settings;
-        if (s.themeMode === "dark" || s.themeMode === "light") {
+        // Real bug found in the 2026-09-09 theme-system live-verification
+        // pass: this used to only ever accept "dark"/"light" — the RAW
+        // preference this round-trip carries didn't include "system"
+        // (see the POST just below, which used to send the RESOLVED
+        // `themeMode` too) — so a user who picked System mode, then
+        // reloaded before the 4s debounce below fired, got their
+        // preference silently flattened to whichever dark/light it
+        // happened to resolve to at that instant, permanently losing
+        // "system" on the very next server sync. Verified live: switching
+        // to Light then reloading immediately reverted to dark for
+        // exactly this reason.
+        if (s.themeMode === "dark" || s.themeMode === "light" || s.themeMode === "system") {
           setSettings((prev) => ({ ...prev, themeMode: s.themeMode }));
         }
       })
@@ -4002,18 +4040,22 @@ export default function App() {
       .catch(() => {});
   }, []);
 
-  // Debounced server save of watchlist + themeMode whenever they change
+  // Debounced server save of watchlist + themeMode whenever they change.
+  // Sends themeModePref (the RAW "dark"/"light"/"system" preference), not
+  // the resolved `themeMode` — sending the resolved value would silently
+  // downgrade a real "system" choice to a frozen dark/light on the next
+  // load (see the GET handler above for the live bug this caused).
   useEffect(() => {
     if (!settingsServerSynced.current) return;
     const timer = setTimeout(() => {
       fetch("/api/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ watchlistSymbols, themeMode }),
+        body: JSON.stringify({ watchlistSymbols, themeMode: themeModePref }),
       }).catch(() => {});
     }, 4000);
     return () => clearTimeout(timer);
-  }, [watchlistSymbols, themeMode]);
+  }, [watchlistSymbols, themeModePref]);
 
   // Real fix (2026-09-05, user report: "in discover works to search but
   // not working in trade desk," reproduced with a screenshot — searching
@@ -6367,10 +6409,11 @@ export default function App() {
         {/* Mobile: theme toggle — shown on mobile only here */}
         {isMobile && (
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <button
-              onClick={() => setSettings((s) => ({ ...s, themeMode: themeMode === "dark" ? "light" : "dark" }))}
-              style={{ background: "transparent", border: `1px solid ${C.border}`, color: C.textDim, borderRadius: 6, width: 40, height: 40, fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
-            >{themeMode === "dark" ? "☀" : "🌙"}</button>
+            <ThemeModeSelector
+              C={C} MONO={MONO} compact
+              value={themeModePref}
+              onChange={(mode) => setSettings((s) => ({ ...s, themeMode: mode }))}
+            />
             {/* Dimmer on mobile too */}
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
               <span style={{ fontSize: 12 }}>{brightness <= 60 ? "🌑" : brightness <= 80 ? "🌗" : "☀️"}</span>
@@ -6486,9 +6529,11 @@ export default function App() {
             <span style={{ width: 1, height: 14, background: C.border, flexShrink: 0 }} />
 
             {/* ── 6. Display preferences ── */}
-            <button onClick={() => setSettings((s) => ({ ...s, themeMode: themeMode === "dark" ? "light" : "dark" }))} style={{ background: C.card, border: `1px solid ${C.border}`, color: C.textDim, fontFamily: MONO, fontSize: 12, padding: "3px 7px", borderRadius: 6, cursor: "pointer", height: 24 }}>
-              {themeMode === "dark" ? "☀" : "●"}
-            </button>
+            <ThemeModeSelector
+              C={C} MONO={MONO}
+              value={themeModePref}
+              onChange={(mode) => setSettings((s) => ({ ...s, themeMode: mode }))}
+            />
             <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "0 6px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, height: 24 }}
               title={`Brightness ${brightness}% — drag to dim`}>
               <span style={{ fontSize: 12 }}>{brightness <= 60 ? "🌑" : brightness <= 80 ? "🌗" : "☀️"}</span>

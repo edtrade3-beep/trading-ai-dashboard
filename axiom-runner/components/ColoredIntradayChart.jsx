@@ -41,7 +41,11 @@ export default function ColoredIntradayChart({ symbol, iv, C, MONO, SANS }) {
         chart.timeScale().fitContent();
       }).catch(() => setErr("Chart load failed"));
     return () => { window.removeEventListener("resize", onResize); chart.remove(); };
-  }, [symbol, iv, C]);
+  // C.bg (a primitive string), not C itself (the never-changing mutable
+  // singleton object — see TrendChart.jsx's identical 2026-09-09 fix) —
+  // otherwise this chart's colors freeze at whichever theme was active
+  // when it first mounted and never follow a live theme switch.
+  }, [symbol, iv, C.bg]);
   const legend = [["EMA 9", COL.ema9], ["EMA 21", COL.ema21], ["EMA 50", COL.ema50], ["VWAP", COL.vwap]];
   return (
     <div>

@@ -334,7 +334,19 @@ export default function TrendChart({ data, C, MONO, SANS, height, vcpOverlayOn }
       el.removeEventListener("wheel", onWheel);
       chart.remove(); chartRef.current = null; seriesRef.current = null;
     };
-  }, [data && data.symbol, C, H, SANS]);
+  // Real bug found in the 2026-09-09 theme-system audit: `C` here used to
+  // be the mutable singleton OBJECT itself — its reference never changes
+  // (theme.js's own header comment: "App() does Object.assign(C, THEME_*)
+  // ... every importer shares that one object by reference"), so React's
+  // Object.is dependency check never saw a change and this effect never
+  // re-ran on a theme switch. A chart already on screen kept its
+  // create-time grid/axis/crosshair/background colors frozen until the
+  // symbol changed for an unrelated reason. `C.bg` is a plain string
+  // PRIMITIVE that genuinely differs between THEME_DARK/THEME_LIGHT, so
+  // comparing it by value correctly re-triggers this effect (a full
+  // teardown+rebuild via the cleanup below, same as a symbol change) the
+  // instant the user flips Light/Dark/System.
+  }, [data && data.symbol, C.bg, H, SANS]);
 
   // Resize (never recreate) when the rating card collapses/expands or the
   // fullscreen toggle flips. Real live bug caught before shipping: an
@@ -710,7 +722,13 @@ export default function TrendChart({ data, C, MONO, SANS, height, vcpOverlayOn }
     // symbol leaves a stale zoom range from the old granularity otherwise).
     const viewKey = `${data.symbol}:${data.intervalUsed || "1d"}`;
     if (symRef.current !== viewKey) { chart.timeScale().fitContent(); symRef.current = viewKey; }
-  }, [data, C, vcpOverlayOn, showLevels]);
+  // Same C-reference-never-changes fix as the chart-creation effect above
+  // — this effect draws the price lines (pl() calls) using C.green/red/
+  // textDim/gold/etc, and also must re-run whenever that effect tears
+  // down and recreates the chart+series (theme switch), since seriesRef
+  // points at brand-new, empty series after that. C.bg as a primitive
+  // dependency fires on every real theme change and is a no-op otherwise.
+  }, [data, C.bg, vcpOverlayOn, showLevels]);
 
   // Master technicals on/off (2026-08-31, explicit user request: "IN CHART
   // MAKES ALL TECHNICALS TOOLS ON AND OFF") — every one of these series was

@@ -26,12 +26,27 @@
     // confirm/overwrite a moment later — so the two can never disagree.
     // Falls back to DEFAULT_SETTINGS.themeMode's own documented default
     // ("dark") only when no cached preference exists yet (first-ever load).
+    //
+    // Real fix (2026-09-09, THEME SYSTEM spec — "no white flash when
+    // loading in dark mode", now also covering the new "system" mode):
+    // this used to only ever check `mode === "light"`, so a user on
+    // System mode with a light OS preference still got the hardcoded
+    // dark fallback flashed at them for a moment before axiom-live.jsx's
+    // own effect corrected it — the exact bug this script exists to
+    // prevent, just for a mode that didn't exist yet when it was written.
+    // "system" now resolves synchronously via matchMedia, same signal
+    // axiom-live.jsx's own React effect uses once it mounts, so the two
+    // can never disagree.
     (function () {
       var dark = "#0f1318", light = "#ffffff", bg = dark;
       try {
         var raw = localStorage.getItem("axiom_local_config_v1");
         var mode = raw && JSON.parse(raw)?.settings?.themeMode;
         if (mode === "light") bg = light;
+        else if (mode === "system") {
+          var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+          if (!prefersDark) bg = light;
+        }
       } catch (e) { /* keep the dark default */ }
       document.documentElement.style.background = bg;
     })();
