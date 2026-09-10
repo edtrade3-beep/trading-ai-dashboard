@@ -241,6 +241,9 @@ export default function ZakatCalculator() {
   const [investmentsValue, setInvestmentsValue] = useState("");
   const [business, setBusiness] = useState({ cash: "", inventory: "", receivables: "", other: "" });
   const [crypto, setCrypto] = useState({ btcQty: "", btcPrice: "", ethQty: "", ethPrice: "", stablecoins: "", other: "" });
+  const [retirement, setRetirement] = useState({ choice: null, value: "" });
+  const [realEstate, setRealEstate] = useState({ purpose: null, resaleValue: "", rentalIncome: "" });
+  const [receivables, setReceivables] = useState({ owed: "", likelihood: null });
   const [liab, setLiab] = useState({ billsDue: "", creditCard: "", rentDue: "", taxesDue: "", loanDue: "", other: "" });
   const [showExplain, setShowExplain] = useState(false);
   const [lastZakat, setLastZakat] = useState(null);
@@ -258,6 +261,17 @@ export default function ZakatCalculator() {
     return silverValueManual ? num(silverValueManual) : num(silverGrams) * num(silverPrice);
   }, [silverOwns, silverValueManual, silverGrams, silverPrice]);
   const businessTotal = useMemo(() => Object.values(business).reduce((a, v) => a + num(v), 0), [business]);
+  const retirementIncluded = retirement.choice === "include" ? num(retirement.value) : 0;
+  const realEstateIncluded = useMemo(() => {
+    if (realEstate.purpose === "resale" || realEstate.purpose === "land-resale") return num(realEstate.resaleValue);
+    if (realEstate.purpose === "rental") return num(realEstate.rentalIncome);
+    return 0;
+  }, [realEstate]);
+  // Only wealth likely to actually come back is treated as Zakatable —
+  // spec's own §12 distinction ("scholarly treatment can differ" by
+  // likelihood of repayment), never the full face value regardless of
+  // collectibility.
+  const receivablesIncluded = receivables.likelihood === "unlikely" ? 0 : num(receivables.owed);
   const cryptoTotal = useMemo(() => {
     const btc = num(crypto.btcQty) * num(crypto.btcPrice);
     const eth = num(crypto.ethQty) * num(crypto.ethPrice);
@@ -265,10 +279,28 @@ export default function ZakatCalculator() {
   }, [crypto]);
   const totalLiabilities = useMemo(() => Object.values(liab).reduce((a, v) => a + num(v), 0), [liab]);
   const manualTotals = useMemo(() => {
-    const totalAssets = totalCash + goldMarketValue + silverMarketValue + num(investmentsValue) + businessTotal + cryptoTotal;
+    const totalAssets = totalCash + goldMarketValue + silverMarketValue + num(investmentsValue) + businessTotal + cryptoTotal + retirementIncluded + realEstateIncluded + receivablesIncluded;
     const netWealth = Math.max(0, totalAssets - totalLiabilities);
     return { totalAssets, netWealth };
-  }, [totalCash, goldMarketValue, silverMarketValue, investmentsValue, businessTotal, cryptoTotal, totalLiabilities]);
+  }, [totalCash, goldMarketValue, silverMarketValue, investmentsValue, businessTotal, cryptoTotal, retirementIncluded, realEstateIncluded, receivablesIncluded, totalLiabilities]);
+  // Scenario comparison for the one genuinely disputed on/off toggle
+  // here (spec §21/§27/§28: "compare methods instead of hiding the
+  // impact") — retirement accounts, since Exclude vs Include swings the
+  // result directly rather than just refining an already-included number.
+  const zakatWithoutRetirement = useMemo(() => {
+    const netW = Math.max(0, manualTotals.totalAssets - retirementIncluded - totalLiabilities);
+    return nisabValueForScenario(netW);
+  }, [manualTotals.totalAssets, retirementIncluded, totalLiabilities]);
+  const zakatWithRetirement = useMemo(() => {
+    const withVal = num(retirement.value);
+    const netW = Math.max(0, manualTotals.totalAssets - retirementIncluded + withVal - totalLiabilities);
+    return nisabValueForScenario(netW);
+  }, [manualTotals.totalAssets, retirementIncluded, retirement.value, totalLiabilities]);
+
+  function nisabValueForScenario(netW) {
+    const nv = nisabMethod === "gold" ? 85 * num(goldPrice) : 595 * num(silverPrice);
+    return nv > 0 && netW >= nv ? netW * 0.025 : 0;
+  }
 
   // ---- Derived totals (guide mode) ----
   const guideTotals = useMemo(() => {
@@ -551,6 +583,75 @@ export default function ZakatCalculator() {
             <NumField label="Other liquid business assets" value={business.other} onChange={(v) => setBusiness((b) => ({ ...b, other: v }))} />
           </Collapsible>
 
+          <Collapsible title="Money Owed to You" done={receivables.likelihood != null} total={receivablesIncluded}>
+            <NumField label="Loans given, customer receivables, other money owed to you" value={receivables.owed} onChange={(v) => setReceivables((r) => ({ ...r, owed: v }))} />
+            <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 700, color: TEXT, marginTop: 10, marginBottom: 8 }}>How likely is it to be repaid?</div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {[["likely", "Highly likely"], ["uncertain", "Uncertain"], ["unlikely", "Unlikely"]].map(([k, label]) => (
+                <button key={k} onClick={() => setReceivables((r) => ({ ...r, likelihood: k }))}
+                  style={{ padding: "8px 14px", borderRadius: 999, fontFamily: SANS, fontSize: 13, fontWeight: 700, cursor: "pointer", border: `1.5px solid ${receivables.likelihood === k ? GREEN : BORDER}`, background: receivables.likelihood === k ? `${GREEN}15` : "transparent", color: receivables.likelihood === k ? GREEN_DARK : TEXT }}>{label}</button>
+              ))}
+            </div>
+            {receivables.likelihood && (
+              <div style={{ fontFamily: SANS, fontSize: 12.5, color: TEXT_DIM, marginTop: 10 }}>
+                {receivables.likelihood === "unlikely"
+                  ? "Scholarly treatment can differ, but money genuinely unlikely to be repaid is commonly excluded until it's actually recovered — not counted here."
+                  : "Included at full value — most scholarly approaches treat money likely to be repaid as still yours for Zakat purposes."}
+              </div>
+            )}
+          </Collapsible>
+
+          <Collapsible title="Real Estate" done={realEstate.purpose != null} total={realEstateIncluded}>
+            <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 700, color: TEXT, marginBottom: 8 }}>What is this property used for?</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
+              {[
+                ["residence", "Personal residence"],
+                ["rental", "Rental property"],
+                ["resale", "Property purchased for resale"],
+                ["business", "Business property"],
+                ["land-resale", "Land held for resale"],
+                ["other", "Other"],
+              ].map(([k, label]) => (
+                <button key={k} onClick={() => setRealEstate((r) => ({ ...r, purpose: k }))}
+                  style={{ textAlign: "left", padding: "10px 14px", borderRadius: 10, fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: "pointer", border: `1.5px solid ${realEstate.purpose === k ? GREEN : BORDER}`, background: realEstate.purpose === k ? `${GREEN}12` : "transparent", color: TEXT }}>
+                  ○ {label}
+                </button>
+              ))}
+            </div>
+            {realEstate.purpose === "residence" && <div style={{ fontFamily: SANS, fontSize: 12.5, color: TEXT_DIM }}>Your primary home is not Zakatable — nothing added.</div>}
+            {realEstate.purpose === "rental" && <NumField label="Rental income/cash currently held" value={realEstate.rentalIncome} onChange={(v) => setRealEstate((r) => ({ ...r, rentalIncome: v }))} info="The property itself isn't Zakatable if held for rental income — only the accumulated rental cash you're holding is." />}
+            {(realEstate.purpose === "resale" || realEstate.purpose === "land-resale") && <NumField label="Current market value" value={realEstate.resaleValue} onChange={(v) => setRealEstate((r) => ({ ...r, resaleValue: v }))} info="Property genuinely held as trading inventory is Zakatable at its current value, according to the methodology you follow." />}
+            {realEstate.purpose === "business" && <div style={{ fontFamily: SANS, fontSize: 12.5, color: TEXT_DIM }}>Add this under Business Assets above only if it's inventory held for resale — operating property isn't Zakatable.</div>}
+            {realEstate.purpose === "other" && <div style={{ fontFamily: SANS, fontSize: 12.5, color: TEXT_DIM }}>Real estate Zakat treatment depends strongly on purpose and intention — nothing is added automatically here.</div>}
+          </Collapsible>
+
+          <Collapsible title="Retirement & Restricted Accounts" done={retirement.choice != null} total={retirementIncluded}>
+            <div style={{ fontFamily: SANS, fontSize: 12.5, color: TEXT_DIM, marginBottom: 10 }}>401(k), IRA, pension, and similar accounts raise real questions about ownership and access before retirement age. Scholarly approaches differ — this is your call, not ours.</div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+              {[["exclude", "Exclude"], ["include", "Include eligible amount"], ["unsure", "I'm Unsure"]].map(([k, label]) => (
+                <button key={k} onClick={() => setRetirement((r) => ({ ...r, choice: k }))}
+                  style={{ padding: "8px 14px", borderRadius: 999, fontFamily: SANS, fontSize: 13, fontWeight: 700, cursor: "pointer", border: `1.5px solid ${retirement.choice === k ? GREEN : BORDER}`, background: retirement.choice === k ? `${GREEN}15` : "transparent", color: retirement.choice === k ? GREEN_DARK : TEXT }}>{label}</button>
+              ))}
+            </div>
+            {retirement.choice === "include" && <NumField label="Eligible amount to include" value={retirement.value} onChange={(v) => setRetirement((r) => ({ ...r, value: v }))} />}
+            {retirement.choice === "unsure" && (
+              <div>
+                <div style={{ fontFamily: SANS, fontSize: 12.5, color: TEXT_DIM, marginBottom: 10 }}>There are different scholarly approaches here because access, ownership, and withdrawal restrictions vary by account type. Enter an eligible amount below to compare both scenarios instead of guessing.</div>
+                <NumField label="Eligible retirement amount, if included" value={retirement.value} onChange={(v) => setRetirement((r) => ({ ...r, value: v }))} />
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 10 }}>
+                  <div style={{ background: CREAM, borderRadius: 10, padding: 12 }}>
+                    <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 700, color: TEXT_DIM }}>SCENARIO A — Excluding it</div>
+                    <div style={{ fontFamily: SANS, fontSize: 20, fontWeight: 900, color: TEXT }}>{fmt(zakatWithoutRetirement)}</div>
+                  </div>
+                  <div style={{ background: `${GREEN}0d`, borderRadius: 10, padding: 12 }}>
+                    <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 700, color: GREEN_DARK }}>SCENARIO B — Including it</div>
+                    <div style={{ fontFamily: SANS, fontSize: 20, fontWeight: 900, color: GREEN_DARK }}>{fmt(zakatWithRetirement)}</div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </Collapsible>
+
           <Collapsible title="Deductible Liabilities" done={totalLiabilities > 0} total={totalLiabilities}>
             <div style={{ fontFamily: SANS, fontSize: 12.5, color: TEXT_DIM, marginBottom: 10 }}>Only bills and debts currently due — not your full mortgage or a long-term loan balance.</div>
             <NumField label="Bills currently due" value={liab.billsDue} onChange={(v) => setLiab((l) => ({ ...l, billsDue: v }))} />
@@ -562,7 +663,7 @@ export default function ZakatCalculator() {
           </Collapsible>
 
           <div style={{ background: CREAM, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 14, fontFamily: SANS, fontSize: 12.5, color: TEXT_DIM, marginBottom: 16 }}>
-            <b style={{ color: TEXT }}>Not automatically included:</b> retirement accounts (401k/IRA/pension), primary residence, personal vehicle, and real estate. These need their own scholarly treatment — add a value to Investments above only if you've decided they apply to you.
+            <b style={{ color: TEXT }}>Not automatically included:</b> your primary residence, personal vehicle, and household belongings. Retirement accounts and other real estate have their own sections above where you choose how to treat them — nothing is decided for you silently.
           </div>
 
           <button onClick={manualDone} style={{ width: "100%", padding: "16px", borderRadius: 14, border: "none", background: GREEN, color: "#fff", fontFamily: SANS, fontSize: 17, fontWeight: 800, cursor: "pointer" }}>
@@ -611,6 +712,9 @@ export default function ZakatCalculator() {
         <Row label="Investments" value={isGuideResult ? (guideAnswers.hasInvestments === "yes" ? num(guideAnswers.investmentsTotal) : 0) : num(investmentsValue)} />
         {!isGuideResult && <Row label="Crypto" value={cryptoTotal} />}
         {!isGuideResult && <Row label="Business Assets" value={businessTotal} />}
+        {!isGuideResult && <Row label="Money Owed to You" value={receivablesIncluded} />}
+        {!isGuideResult && <Row label="Real Estate" value={realEstateIncluded} />}
+        {!isGuideResult && <Row label="Retirement (as chosen)" value={retirementIncluded} />}
         <div style={{ borderTop: `1px dashed ${BORDER}`, margin: "8px 0" }} />
         <Row label="Total Zakatable Assets" value={totalAssets} bold />
         <Row label="Eligible Liabilities" value={-liabilitiesTotal} color={RED} />
