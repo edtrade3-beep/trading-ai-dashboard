@@ -23,7 +23,7 @@ const { buildSocialMetadata } = require("./story-ai-social-agent");
 const { buildAllCues, toSrt, rebuildSubtitlesFromAudioTiming } = require("./story-ai-subtitles");
 const { generateImage, isConfigured: imagesConfigured } = require("./story-ai-image-provider");
 const { generateSpeech, isConfigured: ttsConfigured } = require("./story-ai-tts-provider");
-const { checkFfmpegAvailable, buildSceneClipArgs, buildFinalMuxArgs, runFfmpeg, getAudioDurationSeconds } = require("./story-ai-video-assembly");
+const { checkFfmpegAvailable, buildSceneClipArgs, buildFinalMuxArgs, runFfmpeg, getAudioDurationSeconds, TARGET_WIDTH, TARGET_HEIGHT } = require("./story-ai-video-assembly");
 const { runQualityControl } = require("./story-ai-quality-agent");
 const { addCostEntry } = require("./story-ai-cost");
 const { getProject, saveProject, assetsDirFor, listProjects } = require("./story-ai-store");
@@ -433,7 +433,7 @@ async function runVideoStep(project) {
     // already reads project.finalVideo.path (it was built and wired
     // before this real assembly step existed to ever populate it) —
     // matching that existing real contract, not inventing a new one.
-    project.finalVideo = { path: finalStoredPath, sceneCount: usableScenes.length, totalDurationSeconds: Math.round(durations.reduce((a, b) => a + b, 0) * 100) / 100, skippedScenes: skippedCount, fileSizeBytes: outSize };
+    project.finalVideo = { path: finalStoredPath, sceneCount: usableScenes.length, totalDurationSeconds: Math.round(durations.reduce((a, b) => a + b, 0) * 100) / 100, skippedScenes: skippedCount, fileSizeBytes: outSize, width: TARGET_WIDTH, height: TARGET_HEIGHT };
     logVideo(`Marking video step complete (${usableScenes.length} scenes, ${project.finalVideo.totalDurationSeconds}s, ${outSize} bytes)`);
     setStep(project, "video", "passed", skippedCount > 0 ? { reason: `${skippedCount} scene(s) skipped — ${missingAssetScenes.length ? missingAssetScenes.join(", ") : "missing a real image or narration audio"}.` } : {});
   } catch (err) {

@@ -12,6 +12,7 @@
 
 const { MAX_CHARS_PER_CUE } = require("./story-ai-subtitles");
 const { MAX_SCENE_COUNT } = require("./story-ai-config");
+const { TARGET_WIDTH, TARGET_HEIGHT } = require("./story-ai-video-assembly");
 
 const MIN_SCENE_COUNT = 3; // even a short custom-duration video needs at least a few real scenes to be coherent
 
@@ -80,7 +81,7 @@ function runQualityControl(project) {
   // Video
   const video = project.finalVideo;
   if (!video) warnings.push("No final video assembled yet.");
-  else if (video.width !== 1080 || video.height !== 1920) blockingIssues.push(`Final video resolution ${video.width}x${video.height} does not match the required 1080x1920.`);
+  else if (video.width !== TARGET_WIDTH || video.height !== TARGET_HEIGHT) blockingIssues.push(`Final video resolution ${video.width}x${video.height} does not match the required ${TARGET_WIDTH}x${TARGET_HEIGHT}.`);
 
   // Real factual/religious safety score — reuses the Verification Agent's
   // own real result rather than re-deriving a second, competing read.

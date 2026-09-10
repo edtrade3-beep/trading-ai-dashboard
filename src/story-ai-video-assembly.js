@@ -45,6 +45,18 @@ function checkFfmpegAvailable() {
   });
 }
 
+// Single source of truth for the real output resolution — exported so
+// runVideoStep can record what it ACTUALLY encoded on project.finalVideo,
+// and story-ai-quality-agent.js can check against the same real number
+// instead of a second, independently hand-maintained constant. Real bug
+// found live (2026-09-10): quality-agent.js had its own hardcoded
+// 1080x1920 check against project.finalVideo.width/height — fields
+// runVideoStep never actually set at all, so that check compared
+// `undefined !== 1080` and was blocking-issue-true on literally every
+// real video ever assembled, before this resolution was ever 720x1280.
+const TARGET_WIDTH = 720;
+const TARGET_HEIGHT = 1280;
+
 // Pure — builds the real ffmpeg argv for one scene's Ken-Burns-style
 // still-image clip (spec's own "slow zoom/pan" motion requirement), no
 // audio yet (audio/subtitle muxing happens in the final assembly step).
@@ -62,7 +74,7 @@ function checkFfmpegAvailable() {
 // (2,073,600 -> 921,600 px/frame) — still a fully standard short-form-video
 // resolution — as the next real memory-reduction lever before concluding
 // Render's Starter plan (512MB) itself needs a bigger tier.
-function buildSceneClipArgs({ imagePath, outPath, durationSeconds, motion = "slow zoom in", width = 720, height = 1280, fps = 24 }) {
+function buildSceneClipArgs({ imagePath, outPath, durationSeconds, motion = "slow zoom in", width = TARGET_WIDTH, height = TARGET_HEIGHT, fps = 24 }) {
   const totalFrames = Math.max(1, Math.round(durationSeconds * fps));
   // zoompan filter — a simple, well-documented Ken Burns approximation.
   // zoom increases/decreases linearly over the clip's own frame count;
@@ -198,4 +210,4 @@ function getAudioDurationSeconds(filePath) {
   });
 }
 
-module.exports = { checkFfmpegAvailable, buildSceneClipArgs, buildFinalMuxArgs, runFfmpeg, getAudioDurationSeconds };
+module.exports = { checkFfmpegAvailable, buildSceneClipArgs, buildFinalMuxArgs, runFfmpeg, getAudioDurationSeconds, TARGET_WIDTH, TARGET_HEIGHT };

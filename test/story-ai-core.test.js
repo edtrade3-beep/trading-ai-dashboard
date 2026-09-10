@@ -25,7 +25,7 @@ const { splitIntoCues, buildAllCues, toSrt, srtTimestamp } = require("../src/sto
 const { runQualityControl } = require("../src/story-ai-quality-agent");
 const { estimateProjectCost, exceedsBudget, newCostLedger, addCostEntry } = require("../src/story-ai-cost");
 const { createProject, getProject, saveProject, listProjects, deleteProject, duplicateProject, assertSafeId } = require("../src/story-ai-store");
-const { buildSceneClipArgs, buildFinalMuxArgs, checkFfmpegAvailable } = require("../src/story-ai-video-assembly");
+const { buildSceneClipArgs, buildFinalMuxArgs, checkFfmpegAvailable, TARGET_WIDTH, TARGET_HEIGHT } = require("../src/story-ai-video-assembly");
 const imageProvider = require("../src/story-ai-image-provider");
 const ttsProvider = require("../src/story-ai-tts-provider");
 const { mapWithConcurrency, IMAGE_VOICE_CONCURRENCY, resumeOrphanedJobs, firstPendingStep, STEP_ORDER } = require("../src/story-ai-job-runner");
@@ -130,16 +130,36 @@ await ok("a scene referencing an undefined character_id is a real, measurable co
 });
 
 await ok("a final video with the wrong resolution is a real blocking issue", () => {
+  // Real bug found live (2026-09-10): finalVideo.width/height were never
+  // actually set by runVideoStep, so this check always compared
+  // `undefined !== target` — a real blocking issue on literally every
+  // video ever assembled. Fixed by having runVideoStep record the same
+  // TARGET_WIDTH/TARGET_HEIGHT story-ai-video-assembly.js actually
+  // encodes with, and this check import those same constants instead of
+  // a second, independently hand-maintained number (which had drifted
+  // to a stale 1080x1920 after the real resolution changed to 720x1280).
   const project = {
     story: { narration_ar: "قصة" },
     verification: { classification: "inspirational", approved_for_publication: true, claims: [] },
     scenes: [{ scene_number: 1, narration_ar: "a", image_prompt_en: "p1", character_ids: [] }],
     characters: [], images: [], audio: [], subtitles: { cues: [] },
-    finalVideo: { width: 1920, height: 1080 },
+    finalVideo: { width: 1920, height: 1080 }, // landscape — genuinely wrong regardless of the real portrait target's exact numbers
   };
   const q = runQualityControl(project);
   assert.strictEqual(q.approved, false);
-  assert.ok(q.blocking_issues.some((b) => b.includes("1080x1920")));
+  assert.ok(q.blocking_issues.some((b) => b.includes(`${TARGET_WIDTH}x${TARGET_HEIGHT}`)));
+});
+
+await ok("a final video at the REAL current target resolution is not flagged", () => {
+  const project = {
+    story: { narration_ar: "قصة" },
+    verification: { classification: "inspirational", approved_for_publication: true, claims: [] },
+    scenes: [{ scene_number: 1, narration_ar: "a", image_prompt_en: "p1", character_ids: [] }],
+    characters: [], images: [], audio: [], subtitles: { cues: [] },
+    finalVideo: { width: TARGET_WIDTH, height: TARGET_HEIGHT },
+  };
+  const q = runQualityControl(project);
+  assert.ok(!q.blocking_issues.some((b) => b.includes("resolution")));
 });
 
 console.log("\nChecking Cost Tracking — real Claude cost ledger + disclosed image/TTS estimates…");
