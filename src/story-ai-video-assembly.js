@@ -50,7 +50,19 @@ function checkFfmpegAvailable() {
 // audio yet (audio/subtitle muxing happens in the final assembly step).
 // `imagePath`/`outPath` are real filesystem paths the caller already
 // resolved; this function never touches the filesystem itself.
-function buildSceneClipArgs({ imagePath, outPath, durationSeconds, motion = "slow zoom in", width = 1080, height = 1920, fps = 30 }) {
+// Real fix (2026-09-09): switching libx264's preset to "veryfast" alone did
+// NOT stop the crash — two separate live retries still died at exactly this
+// step, both times the whole process getting killed and restarted mid-encode
+// (proven by resumeOrphanedJobs' own cap message firing both times, which
+// only happens when nothing inside runVideoStep ever got the chance to catch
+// an error — a JS exception would have produced a normal "warning" status
+// instead). A preset only trades encode speed for file size at the same
+// pixel count; it doesn't shrink the actual per-frame buffers zoompan/scale
+// hold in memory. Dropping to 720x1280@24fps cuts real pixel count by ~56%
+// (2,073,600 -> 921,600 px/frame) — still a fully standard short-form-video
+// resolution — as the next real memory-reduction lever before concluding
+// Render's Starter plan (512MB) itself needs a bigger tier.
+function buildSceneClipArgs({ imagePath, outPath, durationSeconds, motion = "slow zoom in", width = 720, height = 1280, fps = 24 }) {
   const totalFrames = Math.max(1, Math.round(durationSeconds * fps));
   // zoompan filter — a simple, well-documented Ken Burns approximation.
   // zoom increases/decreases linearly over the clip's own frame count;
