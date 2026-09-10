@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import ZakatEducation from "./ZakatEducation.jsx";
 
 // ZakatCalculator.jsx — Phase 1 of the Islamic tab redesign (2026-09-10,
 // explicit user request: "make the ZAKAT CALCULATOR the most complete and
@@ -32,6 +33,22 @@ const KARAT_PURITY = { "24": 1, "22": 22 / 24, "21": 21 / 24, "18": 18 / 24, "14
 
 function num(v) { const n = Number(String(v || "").replace(/[^0-9.]/g, "")); return Number.isFinite(n) ? n : 0; }
 function fmt(n) { return `$${Math.round(n).toLocaleString()}`; }
+
+// Real local history — spec §29 "Calculation History." One entry per
+// calendar year (the latest calculation that year wins, so re-running
+// the numbers doesn't spam duplicate rows) — no account, no server
+// round-trip, matches the calculator's own "your entries are private"
+// promise (spec §30).
+const HISTORY_KEY = "zakat_calc_history";
+function loadHistory() { try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]"); } catch { return []; } }
+function saveHistoryEntry(year, zakat, netWealth) {
+  try {
+    const h = loadHistory().filter((e) => e.year !== year);
+    h.unshift({ year, zakat: Math.round(zakat), netWealth: Math.round(netWealth), ts: Date.now() });
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(h.slice(0, 10)));
+  } catch {}
+}
+function deleteHistory() { try { localStorage.removeItem(HISTORY_KEY); } catch {} }
 
 function Info({ text }) {
   const [open, setOpen] = useState(false);
@@ -222,9 +239,12 @@ export default function ZakatCalculator() {
   const [silverGrams, setSilverGrams] = useState("");
   const [silverValueManual, setSilverValueManual] = useState("");
   const [investmentsValue, setInvestmentsValue] = useState("");
+  const [business, setBusiness] = useState({ cash: "", inventory: "", receivables: "", other: "" });
+  const [crypto, setCrypto] = useState({ btcQty: "", btcPrice: "", ethQty: "", ethPrice: "", stablecoins: "", other: "" });
   const [liab, setLiab] = useState({ billsDue: "", creditCard: "", rentDue: "", taxesDue: "", loanDue: "", other: "" });
   const [showExplain, setShowExplain] = useState(false);
   const [lastZakat, setLastZakat] = useState(null);
+  const [history, setHistory] = useState(loadHistory);
 
   // ---- Derived totals (manual mode) ----
   const totalCash = useMemo(() => Object.values(cash).reduce((a, v) => a + num(v), 0), [cash]);
@@ -237,12 +257,18 @@ export default function ZakatCalculator() {
     if (silverOwns !== "yes") return 0;
     return silverValueManual ? num(silverValueManual) : num(silverGrams) * num(silverPrice);
   }, [silverOwns, silverValueManual, silverGrams, silverPrice]);
+  const businessTotal = useMemo(() => Object.values(business).reduce((a, v) => a + num(v), 0), [business]);
+  const cryptoTotal = useMemo(() => {
+    const btc = num(crypto.btcQty) * num(crypto.btcPrice);
+    const eth = num(crypto.ethQty) * num(crypto.ethPrice);
+    return btc + eth + num(crypto.stablecoins) + num(crypto.other);
+  }, [crypto]);
   const totalLiabilities = useMemo(() => Object.values(liab).reduce((a, v) => a + num(v), 0), [liab]);
   const manualTotals = useMemo(() => {
-    const totalAssets = totalCash + goldMarketValue + silverMarketValue + num(investmentsValue);
+    const totalAssets = totalCash + goldMarketValue + silverMarketValue + num(investmentsValue) + businessTotal + cryptoTotal;
     const netWealth = Math.max(0, totalAssets - totalLiabilities);
     return { totalAssets, netWealth };
-  }, [totalCash, goldMarketValue, silverMarketValue, investmentsValue, totalLiabilities]);
+  }, [totalCash, goldMarketValue, silverMarketValue, investmentsValue, businessTotal, cryptoTotal, totalLiabilities]);
 
   // ---- Derived totals (guide mode) ----
   const guideTotals = useMemo(() => {
@@ -271,7 +297,11 @@ export default function ZakatCalculator() {
   const zakatDue = aboveNisab ? netWealth * 0.025 : 0;
 
   useEffect(() => {
-    if (phase === "result") setLastZakat(zakatDue);
+    if (phase === "result") {
+      setLastZakat(zakatDue);
+      saveHistoryEntry(new Date().getFullYear(), zakatDue, netWealth);
+      setHistory(loadHistory());
+    }
   }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const startGuide = () => { setGuideAnswers({ nisabMethod: "silver" }); setPhase("guide"); };
@@ -313,6 +343,9 @@ export default function ZakatCalculator() {
               <div style={{ fontSize: 12, fontWeight: 500, opacity: 0.85, marginTop: 2 }}>Full detailed categories</div>
             </button>
           </div>
+          <div style={{ fontFamily: SANS, fontSize: 11.5, color: TEXT_DIM, textAlign: "center", marginTop: 12 }}>
+            🔒 Your financial entries are private — everything is calculated on your own device and never sent anywhere.
+          </div>
         </Card>
 
         <Card title="What is Nisab?" color={GOLD}>
@@ -337,6 +370,32 @@ export default function ZakatCalculator() {
             Haul refers to possessing qualifying wealth at or above Nisab for one full lunar year. If you're not sure whether this applies to you, the calculator will still estimate your Zakat — it won't block you.
           </div>
         </Card>
+
+        {history.length > 0 && (
+          <Card title="Calculation History" color={TEXT} right={
+            <button onClick={() => { deleteHistory(); setHistory([]); }} style={{ background: "transparent", border: `1px solid ${BORDER}`, color: TEXT_DIM, borderRadius: 8, padding: "4px 10px", fontFamily: SANS, fontSize: 12, cursor: "pointer" }}>Clear</button>
+          }>
+            {history.map((h, i) => {
+              const prev = history[i + 1];
+              const diff = prev ? h.zakat - prev.zakat : null;
+              return (
+                <div key={h.year} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: i < history.length - 1 ? `1px solid ${BORDER}` : "none" }}>
+                  <span style={{ fontFamily: SANS, fontSize: 14, color: TEXT, fontWeight: 600 }}>{h.year} Zakat</span>
+                  <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    {diff != null && diff !== 0 && (
+                      <span style={{ fontFamily: SANS, fontSize: 12, color: diff > 0 ? GREEN : RED }}>{diff > 0 ? "+" : ""}{fmt(diff)}</span>
+                    )}
+                    <span style={{ fontFamily: SANS, fontSize: 16, fontWeight: 800, color: GREEN_DARK }}>{fmt(h.zakat)}</span>
+                  </span>
+                </div>
+              );
+            })}
+          </Card>
+        )}
+
+        <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 16, padding: "18px 20px" }}>
+          <ZakatEducation />
+        </div>
       </div>
     );
   }
@@ -438,7 +497,41 @@ export default function ZakatCalculator() {
             <div style={{ fontFamily: SANS, fontSize: 12.5, color: TEXT_DIM, marginBottom: 10 }}>
               Zakat treatment of investments can differ depending on ownership structure, investment intention, and scholarly methodology. This is a simple estimate using current market value.
             </div>
-            <NumField label="Stocks, ETFs, funds, brokerage cash, crypto — total" value={investmentsValue} onChange={setInvestmentsValue} />
+            <NumField label="Stocks, ETFs, funds, brokerage cash — total" value={investmentsValue} onChange={setInvestmentsValue} />
+          </Collapsible>
+
+          <Collapsible title="Crypto Assets" done={cryptoTotal > 0} total={cryptoTotal}>
+            <div style={{ fontFamily: SANS, fontSize: 12.5, color: TEXT_DIM, marginBottom: 10 }}>
+              Treatment may vary depending on the nature and use of the asset. This calculator provides an estimate using current market value.
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 4 }}>
+              <div>
+                <label style={{ fontFamily: SANS, fontSize: 13, fontWeight: 600, color: TEXT, display: "block", marginBottom: 5 }}>Bitcoin — quantity</label>
+                <input type="text" inputMode="decimal" value={crypto.btcQty} onChange={(e) => setCrypto((c) => ({ ...c, btcQty: e.target.value }))} placeholder="0"
+                  style={{ width: "100%", border: `1px solid ${BORDER}`, borderRadius: 10, background: CREAM, padding: "10px 12px", fontFamily: SANS, fontSize: 15, color: TEXT, boxSizing: "border-box" }} />
+              </div>
+              <NumField label="Bitcoin — price / coin" value={crypto.btcPrice} onChange={(v) => setCrypto((c) => ({ ...c, btcPrice: v }))} />
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 4 }}>
+              <div>
+                <label style={{ fontFamily: SANS, fontSize: 13, fontWeight: 600, color: TEXT, display: "block", marginBottom: 5 }}>Ethereum — quantity</label>
+                <input type="text" inputMode="decimal" value={crypto.ethQty} onChange={(e) => setCrypto((c) => ({ ...c, ethQty: e.target.value }))} placeholder="0"
+                  style={{ width: "100%", border: `1px solid ${BORDER}`, borderRadius: 10, background: CREAM, padding: "10px 12px", fontFamily: SANS, fontSize: 15, color: TEXT, boxSizing: "border-box" }} />
+              </div>
+              <NumField label="Ethereum — price / coin" value={crypto.ethPrice} onChange={(v) => setCrypto((c) => ({ ...c, ethPrice: v }))} />
+            </div>
+            <NumField label="Stablecoins — total value" value={crypto.stablecoins} onChange={(v) => setCrypto((c) => ({ ...c, stablecoins: v }))} />
+            <NumField label="Other cryptocurrencies — total value" value={crypto.other} onChange={(v) => setCrypto((c) => ({ ...c, other: v }))} />
+          </Collapsible>
+
+          <Collapsible title="Business Assets" done={businessTotal > 0} total={businessTotal}>
+            <div style={{ fontFamily: SANS, fontSize: 12.5, color: TEXT_DIM, marginBottom: 10 }}>
+              <b style={{ color: TEXT }}>Not included automatically:</b> buildings, machinery, office furniture, vehicles used to operate the business, or other long-term operating equipment — unless that specific asset is itself held for resale.
+            </div>
+            <NumField label="Cash owned by the business" value={business.cash} onChange={(v) => setBusiness((b) => ({ ...b, cash: v }))} />
+            <NumField label="Inventory intended for sale" value={business.inventory} onChange={(v) => setBusiness((b) => ({ ...b, inventory: v }))} info="Enter inventory held for resale at its current appropriate valuation under the method you follow." />
+            <NumField label="Accounts receivable expected to be collected" value={business.receivables} onChange={(v) => setBusiness((b) => ({ ...b, receivables: v }))} />
+            <NumField label="Other liquid business assets" value={business.other} onChange={(v) => setBusiness((b) => ({ ...b, other: v }))} />
           </Collapsible>
 
           <Collapsible title="Deductible Liabilities" done={totalLiabilities > 0} total={totalLiabilities}>
@@ -452,7 +545,7 @@ export default function ZakatCalculator() {
           </Collapsible>
 
           <div style={{ background: CREAM, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 14, fontFamily: SANS, fontSize: 12.5, color: TEXT_DIM, marginBottom: 16 }}>
-            <b style={{ color: TEXT }}>Not automatically included:</b> retirement accounts (401k/IRA/pension), primary residence, personal vehicle, business inventory/receivables. These need their own scholarly treatment — add them to Investments above only if you've decided they apply to you.
+            <b style={{ color: TEXT }}>Not automatically included:</b> retirement accounts (401k/IRA/pension), primary residence, personal vehicle, and real estate. These need their own scholarly treatment — add a value to Investments above only if you've decided they apply to you.
           </div>
 
           <button onClick={manualDone} style={{ width: "100%", padding: "16px", borderRadius: 14, border: "none", background: GREEN, color: "#fff", fontFamily: SANS, fontSize: 17, fontWeight: 800, cursor: "pointer" }}>
@@ -496,6 +589,8 @@ export default function ZakatCalculator() {
         <Row label="Gold" value={isGuideResult ? (guideAnswers.hasGold === "yes" ? num(guideAnswers.goldTotal) : 0) : goldMarketValue} />
         <Row label="Silver" value={isGuideResult ? (guideAnswers.hasSilver === "yes" ? num(guideAnswers.silverTotal) : 0) : silverMarketValue} />
         <Row label="Investments" value={isGuideResult ? (guideAnswers.hasInvestments === "yes" ? num(guideAnswers.investmentsTotal) : 0) : num(investmentsValue)} />
+        {!isGuideResult && <Row label="Crypto" value={cryptoTotal} />}
+        {!isGuideResult && <Row label="Business Assets" value={businessTotal} />}
         <div style={{ borderTop: `1px dashed ${BORDER}`, margin: "8px 0" }} />
         <Row label="Total Zakatable Assets" value={totalAssets} bold />
         <Row label="Eligible Liabilities" value={-liabilitiesTotal} color={RED} />
