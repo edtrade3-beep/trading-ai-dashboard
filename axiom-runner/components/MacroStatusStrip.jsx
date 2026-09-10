@@ -75,11 +75,21 @@ const STATUS_DOT_COLOR = (C, status) =>
 // instruments — real %change (or real VIX level) classified through
 // classifyMacroStatus, replacing "dozens of numbers" with one status dot
 // per instrument.
-export default function MacroStatusStrip({ C, MONO, macroData, distData, fred }) {
+// `hideRegimePills` (2026-09-09, Visual Intelligence redesign) — MacroTab
+// now mounts MacroCommandCenter above this strip, which already covers
+// regime/narrative/treasury/credit/liquidity/employment/breadth/top-sector
+// in a real 6-block layout + Master Verdict banner (spec's own complaint:
+// "the user does NOT receive page after page of identical cards"). Keeping
+// both would put the exact same 8 reads on screen twice, a few pixels
+// apart, as two different pill styles. The Chart page's own Market Context
+// mount of this same component (MarketTerminalTab.jsx) has no Command
+// Center above it, so it still needs the full pill set — hence a prop,
+// not a hard removal.
+export default function MacroStatusStrip({ C, MONO, macroData, distData, fred, hideRegimePills = false }) {
   const macroRegime = useMacroRegime();
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
-      {macroRegime && (
+      {!hideRegimePills && macroRegime && (
         <div title={(macroRegime.reasons || []).join(" · ")}
           style={{ display: "flex", alignItems: "center", gap: 6, background: `${macroRegime.color}18`, border: `1px solid ${macroRegime.color}`, borderRadius: 20, padding: "6px 12px" }}>
           <span style={{ fontSize: 11 }}>{macroRegime.icon}</span>
@@ -93,7 +103,7 @@ export default function MacroStatusStrip({ C, MONO, macroData, distData, fred })
           is the stickier, journalistic-style dominant story (narrative-
           engine.js + narrative-store.js), which only changes when the
           underlying evidence genuinely crosses into a new real narrative. */}
-      {macroRegime?.narrative && (
+      {!hideRegimePills && macroRegime?.narrative && (
         <div title={(macroRegime.narrative.evidence || []).join(" · ")}
           style={{
             display: "flex", alignItems: "center", gap: 6, borderRadius: 20, padding: "6px 12px",
@@ -116,7 +126,7 @@ export default function MacroStatusStrip({ C, MONO, macroData, distData, fred })
           2026-08-23) — same useMacroRegime() response, zero new fetches.
           Score-banded color (no discrete regime label for these two, just
           a real 0-100 readout) — >=70 healthy, 40-69 moderate, <40 stressed. */}
-      {macroRegime?.treasury && (
+      {!hideRegimePills && macroRegime?.treasury && (
         <div title={`Yield curve ${macroRegime.treasury.factors.yieldCurve ?? "—"} · Real 10Y yield ${macroRegime.treasury.factors.realYield10y ?? "—"}%`}
           style={{ display: "flex", alignItems: "center", gap: 6, background: C.card, border: `1px solid ${C.border}`, borderRadius: 20, padding: "6px 12px" }}>
           <span style={{ width: 8, height: 8, borderRadius: "50%", background: macroRegime.treasury.score >= 70 ? C.green : macroRegime.treasury.score >= 40 ? C.amber : C.red, flexShrink: 0 }} />
@@ -124,7 +134,7 @@ export default function MacroStatusStrip({ C, MONO, macroData, distData, fred })
           <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{macroRegime.treasury.score}/100</span>
         </div>
       )}
-      {macroRegime?.credit && (
+      {!hideRegimePills && macroRegime?.credit && (
         <div title={`HY OAS ${macroRegime.credit.factors.hySpread ?? "—"} · IG OAS ${macroRegime.credit.factors.igSpread ?? "—"} · ${macroRegime.credit.momentum?.status || "—"}`}
           style={{ display: "flex", alignItems: "center", gap: 6, background: C.card, border: `1px solid ${C.border}`, borderRadius: 20, padding: "6px 12px" }}>
           <span style={{ width: 8, height: 8, borderRadius: "50%", background: macroRegime.credit.score >= 70 ? C.green : macroRegime.credit.score >= 40 ? C.amber : C.red, flexShrink: 0 }} />
@@ -135,7 +145,7 @@ export default function MacroStatusStrip({ C, MONO, macroData, distData, fred })
       {/* Real Liquidity/Employment scores (Institutional Intelligence
           Phase 3, 2026-08-23) — same useMacroRegime() response, zero new
           fetches. Same score-banded pattern as Treasury/Credit above. */}
-      {macroRegime?.liquidity && (
+      {!hideRegimePills && macroRegime?.liquidity && (
         <div title={`Net Liquidity $${macroRegime.liquidity.factors.netLiquidity != null ? Math.round(macroRegime.liquidity.factors.netLiquidity).toLocaleString() : "—"}M · ${macroRegime.liquidity.factors.netLiquidityChangePct ?? "—"}% over window`}
           style={{ display: "flex", alignItems: "center", gap: 6, background: C.card, border: `1px solid ${C.border}`, borderRadius: 20, padding: "6px 12px" }}>
           <span style={{ width: 8, height: 8, borderRadius: "50%", background: macroRegime.liquidity.score >= 70 ? C.green : macroRegime.liquidity.score >= 40 ? C.amber : C.red, flexShrink: 0 }} />
@@ -143,7 +153,7 @@ export default function MacroStatusStrip({ C, MONO, macroData, distData, fred })
           <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{macroRegime.liquidity.score}/100</span>
         </div>
       )}
-      {macroRegime?.employment && (
+      {!hideRegimePills && macroRegime?.employment && (
         <div title={`Payrolls trend ${macroRegime.employment.factors.payrollsWindowChangePct ?? "—"}% · Wages YoY ${macroRegime.employment.factors.wagesYoy ?? "—"}%`}
           style={{ display: "flex", alignItems: "center", gap: 6, background: C.card, border: `1px solid ${C.border}`, borderRadius: 20, padding: "6px 12px" }}>
           <span style={{ width: 8, height: 8, borderRadius: "50%", background: macroRegime.employment.score >= 70 ? C.green : macroRegime.employment.score >= 40 ? C.amber : C.red, flexShrink: 0 }} />
@@ -156,7 +166,7 @@ export default function MacroStatusStrip({ C, MONO, macroData, distData, fred })
           fetches. Reuses /api/market/breadth's own real 1y-bar computation
           (via a separately-keyed 30-min server cache), just never
           scored/ranked/surfaced here before this phase. */}
-      {macroRegime?.breadth && (
+      {!hideRegimePills && macroRegime?.breadth && (
         <div title={`${macroRegime.breadth.factors.above50Pct ?? "—"}% of sectors above 50D MA · A/D ratio ${macroRegime.breadth.factors.adRatio ?? "—"}`}
           style={{ display: "flex", alignItems: "center", gap: 6, background: C.card, border: `1px solid ${C.border}`, borderRadius: 20, padding: "6px 12px" }}>
           <span style={{ width: 8, height: 8, borderRadius: "50%", background: macroRegime.breadth.score >= 70 ? C.green : macroRegime.breadth.score >= 40 ? C.amber : C.red, flexShrink: 0 }} />
@@ -164,7 +174,7 @@ export default function MacroStatusStrip({ C, MONO, macroData, distData, fred })
           <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{macroRegime.breadth.score}/100</span>
         </div>
       )}
-      {macroRegime?.sectorRotation?.topSector && (
+      {!hideRegimePills && macroRegime?.sectorRotation?.topSector && (
         <div title={`Rotation bias: ${macroRegime.sectorRotation.rotationBias || "—"} · Weakest: ${macroRegime.sectorRotation.weakestSector?.name || "—"}`}
           style={{ display: "flex", alignItems: "center", gap: 6, background: C.card, border: `1px solid ${C.border}`, borderRadius: 20, padding: "6px 12px" }}>
           <span style={{ width: 8, height: 8, borderRadius: "50%", background: macroRegime.sectorRotation.topSector.rotationScore >= 70 ? C.green : macroRegime.sectorRotation.topSector.rotationScore >= 40 ? C.amber : C.red, flexShrink: 0 }} />

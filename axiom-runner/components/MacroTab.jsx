@@ -6,6 +6,7 @@ import { Badge } from "./ui-atoms.jsx";
 // same real component instead of a second, potentially-diverging copy.
 // Behavior here is unchanged.
 import MacroStatusStrip, { useRealMacroOverrides } from "./MacroStatusStrip.jsx";
+import MacroCommandCenter from "./MacroCommandCenter.jsx";
 
 // Per-symbol override for the ALL INSTRUMENTS grid: real value/label/unit
 // in place of the ETF price, only once the real fetch has actually landed.
@@ -48,7 +49,7 @@ function formatCountdown(ms) {
 }
 
 export default function MacroTab({
-  C, MONO, macroTone, macroData, distData, macroEventCalendar, macroEventAlerts, cryptoSnapshot,
+  C, MONO, SANS, macroTone, macroData, distData, macroEventCalendar, macroEventAlerts, cryptoSnapshot,
   watchlistSymbols, setWatchlistSymbols, setTerminalSymbol, setActiveTab,
 }) {
   const { fred, btcDom } = useRealMacroOverrides();
@@ -66,6 +67,7 @@ export default function MacroTab({
   const [showAllInstruments, setShowAllInstruments] = useState(false);
   return (
           <div>
+            <MacroCommandCenter C={C} MONO={MONO} SANS={SANS || MONO} macroData={macroData} fred={fred} macroEventCalendar={macroEventCalendar} />
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
               <div style={{ fontSize: 13, fontFamily: MONO, color: C.textDim, letterSpacing: "0.08em" }}>
                 MACRO DASHBOARD V2 — {macroTone.toUpperCase()}
@@ -91,7 +93,7 @@ export default function MacroTab({
                 >PUSH BRIEF</button>
               </div>
             </div>
-            <MacroStatusStrip C={C} MONO={MONO} macroData={macroData} distData={distData} fred={fred} />
+            <MacroStatusStrip C={C} MONO={MONO} macroData={macroData} distData={distData} fred={fred} hideRegimePills />
             <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 10, marginBottom: 12 }}>
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
                 <div style={{ padding: "9px 10px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>

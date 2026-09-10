@@ -7289,7 +7289,7 @@ export default function App() {
             ]} />
             {marketSubTab === "macro" && (
               <MacroTab
-                C={C} MONO={MONO} macroTone={macroTone} macroData={macroData} distData={distData}
+                C={C} MONO={MONO} SANS={SANS} macroTone={macroTone} macroData={macroData} distData={distData}
                 macroEventCalendar={macroEventCalendar} macroEventAlerts={macroEventAlerts}
                 cryptoSnapshot={cryptoSnapshot}
                 watchlistSymbols={watchlistSymbols} setWatchlistSymbols={setWatchlistSymbols}

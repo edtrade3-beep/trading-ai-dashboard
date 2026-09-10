@@ -43,7 +43,19 @@ function scoreSector(s) {
 function rankSectors(sectors) {
   const usable = (sectors || []).filter((s) => s && s.status !== "N/A");
   const ranked = usable
-    .map((s) => ({ sym: s.sym, name: s.name, change: s.change, status: s.status, rotationScore: scoreSector(s) }))
+    .map((s) => ({
+      sym: s.sym, name: s.name, change: s.change, status: s.status, rotationScore: scoreSector(s),
+      // Real structural fields (2026-09-09, Visual Intelligence redesign)
+      // — carried through unchanged from computeMarketBreadth()'s own
+      // output so a Rotation Quadrant chart can plot real relative-
+      // strength (pos52w) against real trend structure (above50/above200)
+      // without a second bar-fetch. No fundamental/earnings data exists
+      // at the sector level in this app yet — that axis is intentionally
+      // NOT fabricated here.
+      pos52w: Number.isFinite(s.pos52w) ? s.pos52w : null,
+      above50: s.above50 ?? null,
+      above200: s.above200 ?? null,
+    }))
     .sort((a, b) => b.rotationScore - a.rotationScore);
 
   if (!ranked.length) return { ranked: [], topSector: null, weakestSector: null, rotationBias: null };
