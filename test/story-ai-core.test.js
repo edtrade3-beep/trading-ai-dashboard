@@ -29,6 +29,8 @@ const { buildSceneClipArgs, buildFinalMuxArgs, checkFfmpegAvailable, TARGET_WIDT
 const imageProvider = require("../src/story-ai-image-provider");
 const ttsProvider = require("../src/story-ai-tts-provider");
 const { mapWithConcurrency, IMAGE_VOICE_CONCURRENCY, resumeOrphanedJobs, firstPendingStep, STEP_ORDER } = require("../src/story-ai-job-runner");
+const { buildSystemPrompt: buildHumanizerPrompt } = require("../src/story-ai-humanizer-agent");
+const { sanitizeCreateInput } = require("../src/routes/story-ai");
 
 let passed = 0;
 async function ok(name, fn) {
@@ -225,6 +227,62 @@ await ok("generateSpeech's NOT_CONFIGURED path is honest and makes no real netwo
   assert.strictEqual(r.reason, "NOT_CONFIGURED");
 });
 
+console.log("\nChecking the Arabic Humanizer Agent — real Voice Director controls in the prompt, never a fake TTS parameter…");
+
+await ok("buildSystemPrompt reflects the requested Voice Performance, Emotion, and Pauses settings", () => {
+  const dramatic = buildHumanizerPrompt({ voiceSettings: { performance: "dramatic", emotion: "high", pauses: "dramatic" } });
+  assert.ok(dramatic.includes("Heightened tension"));
+  assert.ok(dramatic.includes("noticeably into emotional peaks"));
+  assert.ok(dramatic.includes("a few more deliberate pauses"));
+
+  const calm = buildHumanizerPrompt({ voiceSettings: { performance: "calm", emotion: "low", pauses: "light" } });
+  assert.ok(calm.includes("Slow, calm, deliberate delivery"));
+  assert.ok(calm.includes("subdued and understated"));
+  assert.ok(calm.includes("sparingly"));
+});
+
+await ok("buildSystemPrompt degrades honestly to the documented defaults when settings are missing/invalid", () => {
+  const prompt = buildHumanizerPrompt({ voiceSettings: {} });
+  assert.ok(prompt.includes("A natural, warm storyteller")); // natural_storyteller default
+  assert.ok(prompt.includes("Natural emotional variation")); // medium default
+  assert.ok(prompt.includes("natural spoken breath points")); // natural pauses default
+});
+
+await ok("buildSystemPrompt enforces the same real 1-2 rhetorical question cap as the Story Agent", () => {
+  const prompt = buildHumanizerPrompt({ voiceSettings: {} });
+  assert.ok(prompt.includes("Maximum 1-2 rhetorical questions"));
+});
+
+await ok("buildSystemPrompt keeps MSA in register — real bug found live (2026-09-10): \"sound natural\" alone drifted into actual regional dialect words (رأى -> شاف) even when MSA was requested", () => {
+  const msaPrompt = buildHumanizerPrompt({ voiceSettings: {}, dialect: "msa" });
+  assert.ok(msaPrompt.includes("do NOT substitute in words or verb forms from a specific regional dialect"));
+  const noDialectArg = buildHumanizerPrompt({ voiceSettings: {} }); // dialect omitted entirely -> must still default to the MSA guard, not an unconstrained "natural" free-for-all
+  assert.ok(noDialectArg.includes("do NOT substitute in words or verb forms"));
+});
+
+await ok("buildSystemPrompt switches to real dialect instructions when a specific dialect is requested", () => {
+  const gulfPrompt = buildHumanizerPrompt({ voiceSettings: {}, dialect: "gulf" });
+  assert.ok(gulfPrompt.includes("Write in the gulf Arabic dialect"));
+  assert.ok(!gulfPrompt.includes("do NOT substitute in words or verb forms"));
+});
+
+console.log("\nChecking sanitizeCreateInput's voiceSettings validation — real, honest defaults, never a silent crash on bad input…");
+
+await ok("valid voiceSettings pass through unchanged", () => {
+  const input = sanitizeCreateInput({ topic: "test", voiceSettings: { performance: "spiritual", speed: "fast", emotion: "high", pauses: "dramatic" } });
+  assert.deepStrictEqual(input.voiceSettings, { performance: "spiritual", speed: "fast", emotion: "high", pauses: "dramatic" });
+});
+
+await ok("missing/invalid voiceSettings fall back to the documented defaults, never throw", () => {
+  const input = sanitizeCreateInput({ topic: "test", voiceSettings: { performance: "not-a-real-one", speed: "warp-speed" } });
+  assert.deepStrictEqual(input.voiceSettings, { performance: "natural_storyteller", speed: "natural", emotion: "medium", pauses: "natural" });
+});
+
+await ok("no voiceSettings at all still returns the full documented default object", () => {
+  const input = sanitizeCreateInput({ topic: "test" });
+  assert.deepStrictEqual(input.voiceSettings, { performance: "natural_storyteller", speed: "natural", emotion: "medium", pauses: "natural" });
+});
+
 console.log("\nChecking the Video Engine — real ffmpeg-availability probe + pure command construction…");
 
 await ok("checkFfmpegAvailable returns a real boolean reflecting whatever this environment actually has, never throws", async () => {
@@ -317,6 +375,10 @@ await ok("a concurrency limit greater than the item count never over-spawns real
 
 await ok("IMAGE_VOICE_CONCURRENCY is a real, sane positive limit, not accidentally 0/1/unbounded", () => {
   assert.ok(Number.isInteger(IMAGE_VOICE_CONCURRENCY) && IMAGE_VOICE_CONCURRENCY >= 2 && IMAGE_VOICE_CONCURRENCY <= 10);
+});
+
+await ok("STEP_ORDER runs the Humanizer right after Story and before Verification — the humanized text is what Verification actually reviews", () => {
+  assert.deepStrictEqual(STEP_ORDER.slice(0, 3), ["story", "humanize", "verification"]);
 });
 
 console.log("\nChecking resumeOrphanedJobs — real fix for a job stuck at \"Generating\" forever after a server restart abandons the in-memory pipeline (2026-09-09, live bug: a real project's job.status stayed \"running\" 24+ hours with video/quality still \"pending\")…");

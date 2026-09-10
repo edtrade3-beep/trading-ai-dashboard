@@ -22,8 +22,15 @@ const STYLES = [
 const VISUAL_STYLES = ["Cinematic Realism", "Illustrated", "Watercolor", "Historical Cinematic", "Warm Storybook"];
 const DIALECTS = [["msa", "Modern Standard Arabic"], ["gulf", "Gulf"], ["egyptian", "Egyptian"], ["levantine", "Levantine"], ["maghrebi", "Maghrebi"]];
 const DURATIONS = [["60", 60], ["90", 90], ["2 min", 120]];
-const STEP_LABELS = { story: "Story", verification: "Verification", scenes: "Scenes", images: "Images", voice: "Voice", subtitles: "Subtitles", video: "Video", quality: "Quality Check" };
-const STEP_ORDER = ["story", "verification", "scenes", "images", "voice", "subtitles", "video", "quality"];
+const STEP_LABELS = { story: "Story", humanize: "Humanizing Arabic", verification: "Verification", scenes: "Scenes", images: "Images", voice: "Voice", subtitles: "Subtitles", video: "Video", quality: "Quality Check" };
+const STEP_ORDER = ["story", "humanize", "verification", "scenes", "images", "voice", "subtitles", "video", "quality"];
+const VOICE_PERFORMANCES = [
+  ["natural_storyteller", "Natural Storyteller"], ["warm", "Warm"], ["calm", "Calm"], ["emotional", "Emotional"],
+  ["dramatic", "Dramatic"], ["documentary", "Documentary"], ["spiritual", "Spiritual / Reflective"],
+];
+const SPEEDS = [["slow", "Slow"], ["natural", "Natural"], ["fast", "Fast"]];
+const EMOTIONS = [["low", "Low"], ["medium", "Medium"], ["high", "High"]];
+const PAUSES = [["light", "Light"], ["natural", "Natural"], ["dramatic", "Dramatic"]];
 
 function StatusDot({ status, C }) {
   const map = { passed: { c: C.green, i: "✓" }, warning: { c: C.amber, i: "!" }, failed: { c: C.red, i: "✕" }, running: { c: C.accent, i: "…" }, pending: { c: C.textDim, i: "·" } };
@@ -57,6 +64,10 @@ function CreateView({ C, MONO, SANS, status, onCreated }) {
   const [style, setStyle] = useState("inspirational");
   const [visualStyle, setVisualStyle] = useState(VISUAL_STYLES[0]);
   const [voice, setVoice] = useState("male");
+  const [voiceSettings, setVoiceSettings] = useState({ performance: "natural_storyteller", speed: "natural", emotion: "medium", pauses: "natural" });
+  const [previewBusy, setPreviewBusy] = useState(false);
+  const [previewError, setPreviewError] = useState(null);
+  const previewAudioRef = useRef(null);
   const [dialect, setDialect] = useState("msa");
   const [notes, setNotes] = useState("");
   const [options, setOptions] = useState({
@@ -102,12 +113,35 @@ function CreateView({ C, MONO, SANS, status, onCreated }) {
     try {
       const r = await fetch("/api/story-ai/projects", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic, durationSeconds: duration, style, visualStyle, voice, dialect, notes, options, scriptOnly }),
+        body: JSON.stringify({ topic, durationSeconds: duration, style, visualStyle, voice, dialect, notes, options, scriptOnly, voiceSettings }),
       });
       const d = await r.json();
       if (!d.ok) { setError(d.error || "Could not start generation."); setBusy(false); return; }
       onCreated(d.project.id);
     } catch (e) { setError(e.message); setBusy(false); }
+  };
+
+  const previewVoice = async () => {
+    setPreviewBusy(true); setPreviewError(null);
+    try {
+      const r = await fetch("/api/story-ai/preview-voice", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ voice, voiceSettings }),
+      });
+      if (!r.ok || r.headers.get("content-type")?.includes("json")) {
+        const d = await r.json().catch(() => ({}));
+        setPreviewError(d.error || "Could not generate a voice preview.");
+        setPreviewBusy(false);
+        return;
+      }
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      if (previewAudioRef.current) { previewAudioRef.current.pause(); URL.revokeObjectURL(previewAudioRef.current.src); }
+      const audio = new Audio(url);
+      previewAudioRef.current = audio;
+      audio.play();
+    } catch (e) { setPreviewError(e.message); }
+    setPreviewBusy(false);
   };
 
   const suggestIdeas = async () => {
@@ -152,6 +186,33 @@ function CreateView({ C, MONO, SANS, status, onCreated }) {
             </div>
           </div>
         </div>
+
+        <div style={sectionLabelStyle({ marginBottom: 6 })}>VOICE PERFORMANCE</div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
+          {VOICE_PERFORMANCES.map(([id, l]) => <Pill key={id} C={C} MONO={MONO} active={voiceSettings.performance === id} onClick={() => setVoiceSettings((v) => ({ ...v, performance: id }))}>{l}</Pill>)}
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 16, marginBottom: 12 }}>
+          <div>
+            <div style={sectionLabelStyle({ marginBottom: 6 })}>SPEED</div>
+            <div style={{ display: "flex", gap: 6 }}>{SPEEDS.map(([id, l]) => <Pill key={id} C={C} MONO={MONO} active={voiceSettings.speed === id} onClick={() => setVoiceSettings((v) => ({ ...v, speed: id }))}>{l}</Pill>)}</div>
+          </div>
+          <div>
+            <div style={sectionLabelStyle({ marginBottom: 6 })}>EMOTION</div>
+            <div style={{ display: "flex", gap: 6 }}>{EMOTIONS.map(([id, l]) => <Pill key={id} C={C} MONO={MONO} active={voiceSettings.emotion === id} onClick={() => setVoiceSettings((v) => ({ ...v, emotion: id }))}>{l}</Pill>)}</div>
+          </div>
+          <div>
+            <div style={sectionLabelStyle({ marginBottom: 6 })}>PAUSES</div>
+            <div style={{ display: "flex", gap: 6 }}>{PAUSES.map(([id, l]) => <Pill key={id} C={C} MONO={MONO} active={voiceSettings.pauses === id} onClick={() => setVoiceSettings((v) => ({ ...v, pauses: id }))}>{l}</Pill>)}</div>
+          </div>
+          <div style={{ display: "flex", alignItems: "flex-end" }}>
+            <button onClick={previewVoice} disabled={previewBusy}
+              style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "7px 14px", borderRadius: 7, cursor: previewBusy ? "default" : "pointer",
+                border: `1px solid ${C.accent}`, background: `${C.accent}18`, color: C.accent, opacity: previewBusy ? 0.6 : 1 }}>
+              {previewBusy ? "▶ Loading…" : "▶ PREVIEW VOICE"}
+            </button>
+          </div>
+        </div>
+        {previewError && <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.red, marginTop: -6, marginBottom: 12 }}>{previewError}</div>}
 
         <div style={sectionLabelStyle({ marginBottom: 6 })}>STORY STYLE</div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>{STYLES.map(([id, l]) => <Pill key={id} C={C} MONO={MONO} active={style === id} onClick={() => setStyle(id)}>{l}</Pill>)}</div>

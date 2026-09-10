@@ -17,6 +17,7 @@
 // available, otherwise it's honestly skipped with a clear reason.
 
 const { generateStory } = require("./story-ai-story-agent");
+const { humanizeNarration } = require("./story-ai-humanizer-agent");
 const { verifyStory } = require("./story-ai-verification-agent");
 const { buildScenes } = require("./story-ai-director-agent");
 const { buildSocialMetadata } = require("./story-ai-social-agent");
@@ -33,7 +34,7 @@ const { estimateImageCostUSD, estimateTtsCostUSD } = require("./story-ai-cost");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const STEP_ORDER = ["story", "verification", "scenes", "images", "voice", "subtitles", "video", "quality"];
+const STEP_ORDER = ["story", "humanize", "verification", "scenes", "images", "voice", "subtitles", "video", "quality"];
 const running = new Set(); // in-memory guard — one active run per project at a time
 
 // Real speed fix (2026-09-07, explicit user request: "how to make it
@@ -118,6 +119,27 @@ async function runStoryStep(project, apiKey) {
   setStep(project, "story", "passed");
 }
 
+// Arabic Humanizer (2026-09-10, explicit user request: its own real
+// pipeline stage between Story and Verification, not folded silently
+// into the Story Agent's single pass). Runs on the Story Agent's own
+// narration_ar and rewrites it for spoken delivery per the project's
+// voiceSettings (Voice Performance/Emotion/Pauses). Verification then
+// checks the HUMANIZED text — the one that will actually reach TTS —
+// rather than a version that gets rewritten out from under it afterward.
+// The original is kept (project.story.narration_ar_original) so a human
+// reviewing this project can always see what actually changed.
+async function runHumanizeStep(project, apiKey) {
+  setStep(project, "humanize", "running");
+  const original = project.story.narration_ar;
+  const { narrationAr, costUSD } = await withRetries(() => humanizeNarration({
+    narrationAr: original, voiceSettings: project.voiceSettings, dialect: project.dialect, apiKey,
+  }));
+  project.story.narration_ar_original = project.story.narration_ar_original || original;
+  project.story.narration_ar = narrationAr;
+  addCostEntry(project.costLedger, { stage: "humanize", provider: "anthropic", costUSD });
+  setStep(project, "humanize", "passed");
+}
+
 async function runVerificationStep(project, apiKey) {
   setStep(project, "verification", "running");
   const { verification, costUSD } = await withRetries(() => verifyStory({ story: project.story, apiKey }));
@@ -188,6 +210,14 @@ async function runImagesStep(project) {
   setStep(project, "images", anyOk ? "passed" : "warning", anyOk ? {} : { reason: firstFail?.error ? `${firstFail.reason}: ${firstFail.error}` : (firstFail?.reason || "IMAGE PROVIDER NOT CONFIGURED") });
 }
 
+// Speed is the one Voice Performance control that maps to a real TTS API
+// parameter (Google's speakingRate / ElevenLabs' speed) — disclosed
+// honestly in story-ai-humanizer-agent.js's own header comment that
+// Emotion/Pauses do NOT have a real equivalent on these providers'
+// standard voices and are instead expressed through the script text
+// itself via the Humanizer's prompt.
+const SPEED_MAP = { slow: 0.85, natural: 1.0, fast: 1.15 };
+
 async function runVoiceStep(project) {
   if (project.options?.generateVoice === false) { setStep(project, "voice", "warning", { reason: "Skipped by user options." }); return; }
   setStep(project, "voice", "running");
@@ -205,7 +235,8 @@ async function runVoiceStep(project) {
   // Same real Postgres-backed persistence fix as runImagesStep above.
   const assetsDir = assetsDirFor(project.id);
   const results = await mapWithConcurrency(project.scenes, IMAGE_VOICE_CONCURRENCY, async (scene) => {
-    const result = await generateSpeech(scene.narration_ar, { voice: project.voice === "female" ? "female" : "male" });
+    const speed = SPEED_MAP[project.voiceSettings?.speed] || SPEED_MAP.natural;
+    const result = await generateSpeech(scene.narration_ar, { voice: project.voice === "female" ? "female" : "male", speed });
     if (result.ok && result.audioBuffer) {
       const filename = `${scene.scene_number}.mp3`;
       const filePath = await saveAsset(project.id, assetsDir, "audio", filename, result.audioBuffer, "audio/mpeg");
@@ -470,6 +501,7 @@ async function runPipeline(projectId, apiKey) {
 
   try {
     await runStepWithTimeout("story", () => runStoryStep(project, apiKey)); saveProject(project);
+    await runStepWithTimeout("humanize", () => runHumanizeStep(project, apiKey)); saveProject(project);
     const approved = await runStepWithTimeout("verification", () => runVerificationStep(project, apiKey)); saveProject(project);
     if (!approved) { project.job.status = "paused"; saveProject(project); return { ok: true, project }; }
 
@@ -512,6 +544,7 @@ async function runPipeline(projectId, apiKey) {
 // that depends on its output, never the steps already passed before it.
 const STEP_RUNNERS = {
   story: runStoryStep,
+  humanize: runHumanizeStep,
   verification: runVerificationStep,
   scenes: runScenesStep,
   images: runImagesStep,

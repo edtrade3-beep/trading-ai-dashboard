@@ -79,11 +79,21 @@ function summaryOf(project) {
   };
 }
 
-function createProject({ topic, durationSeconds, style, visualStyle, voice, dialect, notes, options }) {
+function createProject({ topic, durationSeconds, style, visualStyle, voice, dialect, notes, options, voiceSettings }) {
   const id = newProjectId();
   const now = new Date().toISOString();
   const project = {
     id, topic, durationSeconds, style, visualStyle, voice, dialect, notes: notes || "", options: options || {},
+    // Voice Director controls (2026-09-10) — performance/speed/emotion/
+    // pauses fed to story-ai-humanizer-agent.js's prompt; speed also maps
+    // to a real TTS speakingRate parameter in runVoiceStep. Defaults match
+    // the spec's own documented defaults.
+    voiceSettings: {
+      performance: voiceSettings?.performance || "natural_storyteller",
+      speed: voiceSettings?.speed || "natural",
+      emotion: voiceSettings?.emotion || "medium",
+      pauses: voiceSettings?.pauses || "natural",
+    },
     status: "Draft", // Draft | Generating | Needs Review | Ready | Failed
     createdAt: now, updatedAt: now,
     story: null, verification: null, scenes: null, characters: [], locations: [],

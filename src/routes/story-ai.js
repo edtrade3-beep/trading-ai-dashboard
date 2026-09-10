@@ -24,6 +24,18 @@ const { checkFfmpegAvailable } = require("../story-ai-video-assembly");
 
 const VALID_STYLES = new Set(["inspirational", "psychological", "islamic_reflection", "historical", "wisdom", "life_lesson", "children", "custom"]);
 const VALID_DIALECTS = new Set(["msa", "gulf", "egyptian", "levantine", "maghrebi"]);
+const VALID_PERFORMANCES = new Set(["natural_storyteller", "warm", "calm", "emotional", "dramatic", "documentary", "spiritual"]);
+const VALID_SPEEDS = new Set(["slow", "natural", "fast"]);
+const VALID_EMOTIONS = new Set(["low", "medium", "high"]);
+const VALID_PAUSES = new Set(["light", "natural", "dramatic"]);
+function sanitizeVoiceSettings(v) {
+  return {
+    performance: VALID_PERFORMANCES.has(v?.performance) ? v.performance : "natural_storyteller",
+    speed: VALID_SPEEDS.has(v?.speed) ? v.speed : "natural",
+    emotion: VALID_EMOTIONS.has(v?.emotion) ? v.emotion : "medium",
+    pauses: VALID_PAUSES.has(v?.pauses) ? v.pauses : "natural",
+  };
+}
 
 function badRequest(res, msg) { return writeJson(res, 400, { ok: false, error: msg }); }
 
@@ -48,7 +60,8 @@ function sanitizeCreateInput(body) {
     factCheck: body.options?.factCheck !== false,
     verifyReligious: body.options?.verifyReligious !== false,
   };
-  return { topic, durationSeconds, style, dialect, voice, visualStyle, notes, options };
+  const voiceSettings = sanitizeVoiceSettings(body.voiceSettings);
+  return { topic, durationSeconds, style, dialect, voice, visualStyle, notes, options, voiceSettings };
 }
 
 async function handleStoryAi(req, res, requestUrl) {
@@ -226,6 +239,35 @@ async function handleStoryAi(req, res, requestUrl) {
         apiKey: ANTHROPIC_API_KEY, tier: "haiku", maxTokens: 800, feature: "story-ai-suggest",
       });
       return writeJson(res, 200, { ok: true, ideas: Array.isArray(json.ideas) ? json.ideas : [] });
+    } catch (e) {
+      return writeJson(res, 200, { ok: false, error: e.message });
+    }
+  }
+
+  // POST /api/story-ai/preview-voice — real ~10-15s TTS sample using the
+  // CURRENT voice/speed selection, before spending real Claude+image
+  // credits on a full generation (spec §4 "PREVIEW VOICE"). Uses a fixed,
+  // deliberately natural-cadence sample line rather than writing a fresh
+  // one via Claude for every preview click — a real cost/latency
+  // trade-off for what's meant to be an instant, free-feeling check.
+  // Honest limitation, disclosed in story-ai-humanizer-agent.js's own
+  // header: Speed is a real TTS parameter this preview genuinely
+  // reflects; Voice Performance/Emotion/Pauses are script-level choices
+  // (they shape how the Humanizer writes the real narration) and do not
+  // change this fixed sample's audio.
+  if (pathname === "/api/story-ai/preview-voice" && req.method === "POST") {
+    let body; try { body = JSON.parse(await readRequestBody(req)); } catch { return badRequest(res, "Bad JSON body."); }
+    if (!ttsProviderConfigured()) return writeJson(res, 200, { ok: false, error: "TTS PROVIDER NOT CONFIGURED" });
+    const voice = body.voice === "female" ? "female" : "male";
+    const voiceSettings = sanitizeVoiceSettings(body.voiceSettings);
+    const SPEED_MAP = { slow: 0.85, natural: 1.0, fast: 1.15 };
+    const SAMPLE_AR = "في قرية صغيرة، حدث شيء لم ينسه أهلها أبدًا... كانت البداية بسيطة جدًا. لكن ما حدث بعد ذلك، غيّر كل شيء.";
+    try {
+      const { generateSpeech } = require("../story-ai-tts-provider");
+      const result = await generateSpeech(SAMPLE_AR, { voice, speed: SPEED_MAP[voiceSettings.speed] || 1.0 });
+      if (!result.ok) return writeJson(res, 200, { ok: false, error: result.reason || "PROVIDER_ERROR", detail: result.error || null });
+      res.writeHead(200, { "Content-Type": result.mimeType || "audio/mpeg", "Content-Length": result.audioBuffer.length, "Cache-Control": "no-store" });
+      return res.end(result.audioBuffer);
     } catch (e) {
       return writeJson(res, 200, { ok: false, error: e.message });
     }
