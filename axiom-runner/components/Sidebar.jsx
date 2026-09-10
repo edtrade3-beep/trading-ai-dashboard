@@ -213,6 +213,15 @@ export const SIDEBAR_ITEMS = [
   // fully additive — zero shared state with any trading route/engine.
   { id: "storyai", label: "Story AI", icon: "🎬", tab: "storyai" },
 
+  // Islamic — unified hub (2026-09-10, explicit user request: rebuild the
+  // Islamic tab with a full Zakat Calculator as its centerpiece). Same
+  // "non-trading vertical, permanent slot" placement as Car Business/
+  // Dealership/Story AI above. Prayer times ("athan") and Quran
+  // ("quran") remain reachable standalone too — this is a new hub, not a
+  // replacement, same "hide, don't delete" discipline as everything else
+  // demoted from the rail.
+  { id: "islamic", label: "Islamic", icon: "🕌", tab: "islamic" },
+
   // Settings — not one of the 5 "question" surfaces (it doesn't answer a
   // daily trading question, it configures the app), kept as a permanent
   // utility row rather than folded into the palette so account/risk/coach

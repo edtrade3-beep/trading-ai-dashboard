@@ -192,6 +192,7 @@ import MarketWrapTab from "./components/MarketWrapTab.jsx";
 import CarBusinessTab from "./components/CarBusinessTab.jsx";
 import StoryAiTab from "./components/StoryAiTab.jsx";
 import SearchTab from "./components/SearchTab.jsx";
+import IslamicTab from "./components/IslamicTab.jsx";
 import CurblineTab from "./components/CurblineTab.jsx";
 import PhotoBannerTab from "./components/PhotoBannerTab.jsx";
 
@@ -4518,6 +4519,8 @@ export default function App() {
       OPTIONS101: "options-edu",
       QURAN: "quran",
       ATHAN: "athan",
+      ISLAMIC: "islamic",
+      ZAKAT: "islamic",
       PRAYER: "athan",
       ATHKAR: "athkar",
       TASBIH: "tasbih",
@@ -7594,6 +7597,38 @@ export default function App() {
           athanSoundOn={athanSoundOn} setAthanSoundOn={setAthanSoundOn}
           athanReminder={athanReminder} setAthanReminder={setAthanReminder}
           fetchPrayerTimes={fetchPrayerTimes} playAthan={playAthan} stopAthan={stopAthan}
+        />
+      )}
+
+      {/* ══════════════════ ISLAMIC TAB (2026-09-10 redesign) ══════════════════
+          New unified hub — same real athan* prayer-time state as the
+          standalone "athan" tab above (zero new fetches), same real
+          QuranTab.jsx mount as the standalone "quran" tab (zero rewrite of
+          the Quran reader itself). Zakat is the one genuinely new, fully
+          real feature this phase — ZakatCalculator.jsx. */}
+      {activeTab === "islamic" && (
+        <IslamicTab
+          athanNow={athanNow} athanTimes={athanTimes} athanHijri={athanHijri}
+          athanLoading={athanLoading} athanError={athanError} setAthanError={setAthanError}
+          athanCity={athanCity} setAthanCity={setAthanCity} athanCountry={athanCountry} setAthanCountry={setAthanCountry}
+          fetchPrayerTimes={fetchPrayerTimes}
+          quranProps={{
+            C, MONO, SANS,
+            quranSurah, setQuranSurah,
+            quranSearchQuery, setQuranSearchQuery,
+            quranDuration, quranCurrentTime, setQuranCurrentTime,
+            quranAudioRef,
+            quranPlaying, quranWasPlaying, quranAutoPlay, quranUsedFallback,
+            quranAudioError, setQuranAudioError,
+            quranLoading, setQuranLoading,
+            quranReciter, setQuranReciter,
+            quranVolume, setQuranVolume,
+            quranRepeat, setQuranRepeat,
+            quranAutoNext, setQuranAutoNext,
+            quranShowText, setQuranShowText,
+            quranText,
+            hasanat, setHasanat, HASANAT_GOAL, creditSurah,
+          }}
         />
       )}
 
