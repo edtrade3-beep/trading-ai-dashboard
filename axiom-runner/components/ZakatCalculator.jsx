@@ -408,7 +408,24 @@ export default function ZakatCalculator() {
   // ---------------- MANUAL MODE ----------------
   if (phase === "manual") {
     return (
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 20, alignItems: "flex-start" }}>
+      <>
+      {/* Real bug found live (2026-09-10, mobile screenshot audit): a
+          bare inline gridTemplateColumns:"1fr 320px" never collapses on a
+          narrow screen — confirmed on a 390px viewport, the calculator's
+          own text wrapped one word per line ("Enter / a / price / above")
+          because the main column was squeezed to ~70px next to a fixed
+          320px summary rail. Inline styles can't express a media query,
+          so this is the one real <style> tag in the file — everything
+          else stays plain inline styles. `!important` is required only
+          because StickySummary's own `position:sticky` is itself inline. */}
+      <style>{`
+        .zakat-manual-grid { display: grid; grid-template-columns: 1fr 320px; gap: 20px; align-items: flex-start; }
+        @media (max-width: 820px) {
+          .zakat-manual-grid { grid-template-columns: 1fr; }
+          .zakat-sticky-summary { position: static !important; order: -1; }
+        }
+      `}</style>
+      <div className="zakat-manual-grid">
         <div style={{ minWidth: 0 }}>
           <Card title="Nisab & Haul" color={GOLD}>
             <div style={{ marginBottom: 14 }}>
@@ -553,11 +570,14 @@ export default function ZakatCalculator() {
           </button>
         </div>
 
-        <StickySummary
-          totalAssets={totalAssets} liabilities={liabilitiesTotal} netWealth={netWealth}
-          nisabValue={nisabValue} havePrice={havePrice} aboveNisab={aboveNisab} zakatDue={zakatDue}
-        />
+        <div className="zakat-sticky-summary">
+          <StickySummary
+            totalAssets={totalAssets} liabilities={liabilitiesTotal} netWealth={netWealth}
+            nisabValue={nisabValue} havePrice={havePrice} aboveNisab={aboveNisab} zakatDue={zakatDue}
+          />
+        </div>
       </div>
+      </>
     );
   }
 
