@@ -141,7 +141,7 @@ function LightBoxCardInner({ C, MONO, SANS, data, showSecondary, onOpenSymbol })
         </div>
       </div>
 
-      <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
         <span style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.text, fontVariantNumeric: "tabular-nums" }}>
           {data.price != null ? `$${Number(data.price).toFixed(2)}` : "—"}
         </span>
@@ -152,7 +152,7 @@ function LightBoxCardInner({ C, MONO, SANS, data, showSecondary, onOpenSymbol })
         )}
         {age && (
           <span title="How old this card's price/state read is — a live fetch elsewhere (e.g. Day Trade Console) can legitimately show a newer number for the same symbol."
-            style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim, marginLeft: "auto" }}>
+            style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim, marginLeft: "auto", whiteSpace: "nowrap", flexShrink: 0 }}>
             as of {age}
           </span>
         )}
