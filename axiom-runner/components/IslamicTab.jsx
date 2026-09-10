@@ -1,6 +1,9 @@
 import { useState } from "react";
 import QuranTab from "./QuranTab.jsx";
 import ZakatCalculator from "./ZakatCalculator.jsx";
+import QiblaCompass from "./QiblaCompass.jsx";
+import TasbeehCounter from "./TasbeehCounter.jsx";
+import PrayerTracker from "./PrayerTracker.jsx";
 
 // IslamicTab.jsx — unified Islamic hub (2026-09-10, explicit user request:
 // "make the ZAKAT CALCULATOR the most complete and useful feature inside
@@ -37,16 +40,6 @@ const NAV = [
   { id: "tasbeeh", label: "Tasbeeh", icon: "📿" },
   { id: "tracker", label: "Tracker", icon: "✅" },
 ];
-
-function ComingSoon({ title }) {
-  return (
-    <div style={{ maxWidth: 560, margin: "40px auto", textAlign: "center", background: CARD, border: `1px solid ${BORDER}`, borderRadius: 16, padding: 32 }}>
-      <div style={{ fontSize: 34, marginBottom: 10 }}>🌙</div>
-      <div style={{ fontFamily: SANS, fontSize: 18, fontWeight: 800, color: TEXT, marginBottom: 6 }}>{title} is coming soon</div>
-      <div style={{ fontFamily: SANS, fontSize: 14, color: TEXT_DIM }}>This section hasn't been built yet — it's a later phase of the Islamic tab redesign.</div>
-    </div>
-  );
-}
 
 function HijriView({ athanHijri }) {
   return (
@@ -209,10 +202,10 @@ export default function IslamicTab(props) {
         )}
         {section === "hijri" && <HijriView athanHijri={athanHijri} />}
         {section === "gregorian" && <GregorianView athanNow={athanNow} />}
-        {section === "qibla" && <ComingSoon title="Qibla direction" />}
+        {section === "qibla" && <QiblaCompass />}
         {section === "zakat" && <ZakatCalculator />}
-        {section === "tasbeeh" && <ComingSoon title="Tasbeeh counter" />}
-        {section === "tracker" && <ComingSoon title="Prayer tracker" />}
+        {section === "tasbeeh" && <TasbeehCounter />}
+        {section === "tracker" && <PrayerTracker />}
       </div>
     </div>
   );
