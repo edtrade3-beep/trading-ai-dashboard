@@ -196,6 +196,14 @@ export const SIDEBAR_ITEMS = [
   // convention as any real cross-app link.
   { id: "dealership", label: "Dealership", icon: "🏪", href: "/dealer" },
 
+  // Search — standalone sidebar row (2026-09-09, explicit user request:
+  // "i want it as a tab underneath dealership"). Same real CommandSearchPanel
+  // (ticker search + tiered Opportunity Inbox) Trade Desk's own left column
+  // already uses — SearchTab.jsx is a thin wrapper, no new search logic.
+  // Selecting a symbol here hands off to Trade Desk via openInTradeDesk,
+  // the same real handoff LightBoxTab/TradeNavigatorTab already use.
+  { id: "search", label: "Search", icon: "🔎", tab: "search" },
+
   // Story AI — Arabic AI storytelling studio (2026-09-07, explicit user
   // request: "add a completely new major tab... self-contained module").
   // Same explicit-exception placement as Car Business/Dealership above: a

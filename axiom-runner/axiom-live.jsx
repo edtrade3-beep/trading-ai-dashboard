@@ -191,6 +191,7 @@ import ResearchTab from "./components/ResearchTab.jsx";
 import MarketWrapTab from "./components/MarketWrapTab.jsx";
 import CarBusinessTab from "./components/CarBusinessTab.jsx";
 import StoryAiTab from "./components/StoryAiTab.jsx";
+import SearchTab from "./components/SearchTab.jsx";
 import CurblineTab from "./components/CurblineTab.jsx";
 import PhotoBannerTab from "./components/PhotoBannerTab.jsx";
 
@@ -1701,6 +1702,20 @@ export default function App() {
     const isRow = rowOrSymbol && typeof rowOrSymbol === "object";
     const symbol = isRow ? rowOrSymbol.symbol : rowOrSymbol;
     if (!symbol) return;
+    // Real bug found live (2026-09-09, building the new Search tab):
+    // TradeDeskTab.jsx's own terminalSymbol re-sync effect (added for a
+    // DIFFERENT real bug — an always-mounted widget like the chart-search
+    // FAB changing terminalSymbol while Trade Desk sits in the background)
+    // fires the instant it sees terminalSymbol !== its freshly-mounted
+    // local `symbol` — which is EVERY time, since this function never used
+    // to touch terminalSymbol at all, leaving it on its stale cold-boot
+    // default (WATCHLIST_SYMBOLS[0], "NVDA"). That effect then silently
+    // dragged the correct just-loaded symbol back to "NVDA" a render or two
+    // after mount. selectSymbol() (Trade Desk's own internal search) never
+    // hit this because it already sets both in the same tick; every
+    // CROSS-TAB caller of this function (Light Box, Trade Navigator, and
+    // now Search) did. Setting it here closes the gap the same way.
+    setTerminalSymbol(symbol);
     try {
       localStorage.setItem("mterminal_load_sym", symbol);
       if (isRow) {
@@ -4273,6 +4288,7 @@ export default function App() {
       PHOTOBANNERS: "photobanners",
       SETTINGS: "settings",
       MACRO: "macro",
+      SEARCH: "search",
       NEWS: "news",
       // Added 2026-07-12 with the nav trim above — these lost their subnav
       // buttons but stay one command away, same convention as BREADTH/SECTORS/
@@ -7646,6 +7662,7 @@ export default function App() {
       {activeTab === "marketwrap" && <MarketWrapTab C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "carbusiness" && <CarBusinessTab C={C} MONO={MONO} SANS={SANS} />}
       {activeTab === "storyai" && <StoryAiTab C={C} MONO={MONO} SANS={SANS} />}
+      {activeTab === "search" && <SearchTab C={C} MONO={MONO} SANS={SANS} openInTradeDesk={openInTradeDesk} />}
       {activeTab === "curbline" && <CurblineTab C={C} MONO={MONO} SANS={SANS} />}
       {/* SETTINGS — composite sidebar destination (institutional redesign,
           2026-07-29) folding Coach/Learn/Quran/account-risk settings into
