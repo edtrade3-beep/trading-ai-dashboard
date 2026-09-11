@@ -2586,28 +2586,19 @@ async function handleMarket(req, res, requestUrl) {
     // verdict/entry/stop/target always come from the real canonical
     // AssetDecision, never from the LLM.
     const lastUserMsg = [...history].reverse().find((m) => m.role === "user")?.content || "";
-    // "مرحبا عدول" (explicit user request, 2026-09-11: "Instead of good
-    // morning, say مرحبا عدول") is now the real personalized greeting the
-    // web app's auto-open and Telegram's /agent default both send — kept
-    // alongside the original English phrases (never removed, only added
-    // to) so a manually-typed "good morning" still works too.
     const MORNING_TRIGGER = /\b(good morning|start my day|what should i do today)\b/i;
+    // "مرحبا عدول" (explicit user request, 2026-09-11) is a real
+    // personalized greeting, not a Morning Mode alias — it always gets
+    // the short reply below, on every channel (first scoped to Telegram
+    // only, then "Change it then" -> "Make web behave like Telegram
+    // too"). The full report is still reachable via "good morning"/
+    // "start my day" (English) or "deep scan" for fuller market detail.
     const ARABIC_GREETING_TRIGGER = /مرحبا\s*عدول/;
-
-    // Telegram-specific personalized reply (explicit user request,
-    // 2026-09-11: "I want telegram when i say مرحبا عدول answer will be
-    // مرحبا بيك باش نخدمك"). Deliberately scoped to Telegram only
-    // (b.channel === "telegram", set by src/telegram-bot.js's askAgent) —
-    // the web app's own auto-open still gets the full real Morning Mode
-    // report for the same phrase, per the user's separate, earlier
-    // "first thing when I open the platform" request. Checked BEFORE the
-    // general Morning Mode trigger below so this short greeting wins for
-    // Telegram without touching web behavior at all.
-    if (b.channel === "telegram" && ARABIC_GREETING_TRIGGER.test(lastUserMsg)) {
+    if (ARABIC_GREETING_TRIGGER.test(lastUserMsg)) {
       return writeJson(res, 200, { ok: true, reply: "مرحبا بيك باش نخدمك" });
     }
 
-    if (MORNING_TRIGGER.test(lastUserMsg) || ARABIC_GREETING_TRIGGER.test(lastUserMsg)) {
+    if (MORNING_TRIGGER.test(lastUserMsg)) {
       try {
         const { buildMorningMode, renderMorningModeText } = require("../morning-mode-engine");
         const morning = await buildMorningMode();

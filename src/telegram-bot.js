@@ -579,10 +579,7 @@ async function askAgent(question) {
   const resp = await withTimeout(
     fetch(`${base}/api/market/ai-copilot`, {
       method: "POST", headers: { "Content-Type": "application/json" },
-      // channel: "telegram" (2026-09-11) — lets the route give a real,
-      // Telegram-specific personalized reply for "مرحبا عدول" without
-      // changing the web app's own behavior for the same phrase.
-      body: JSON.stringify({ messages: [{ role: "user", content: question }], channel: "telegram" }),
+      body: JSON.stringify({ messages: [{ role: "user", content: question }] }),
     }).then((r) => r.json()),
     45_000, null,
   );
