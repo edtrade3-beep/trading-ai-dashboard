@@ -1,22 +1,18 @@
 import { useState, useRef, useEffect } from "react";
-import { computeRegime, computeAPlusScore } from "./market-helpers.js";
-import { BEST_OPP_UNIVERSE } from "./terminal-panels.jsx";
 
-// 🗣️ Trading Copilot — floating chat that knows your context + can search live news
-export default function TradingCopilot({ C, MONO, SANS, macroData, watchlistSymbols, statusBarH = 40, fabFading = false, isMobile = false }) {
+// 🗣️ Trading Copilot — floating chat backed entirely by real platform data
+// (no Claude call — explicit user request 2026-09-11: "remove anthropic
+// from anything else" outside Story AI). Every real question this answers
+// (Morning Mode, Deep Scan, Market Narrative, weather, prayer times, the
+// "مرحبا عدول" greeting) is a deterministic src/routes/market.js trigger;
+// account/watchlist/positions context is no longer sent since nothing on
+// the server reads it anymore.
+export default function TradingCopilot({ C, MONO, SANS, statusBarH = 40, fabFading = false, isMobile = false }) {
   const [open, setOpen] = useState(false);
   const [msgs, setMsgs] = useState([]);   // {role, content}
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
-  const [positions, setPositions] = useState([]);
-  const [setups, setSetups] = useState([]);
   const [queuedQuery, setQueuedQuery] = useState(null);
-  // 3-tier Explain depth (Phase 16) — persisted like the other real per-
-  // browser prefs this app already keeps in localStorage (axiom_acct_size/
-  // axiom_risk_pct above), so it sticks across sessions instead of
-  // resetting to intermediate every time the panel reopens.
-  const [depth, setDepth] = useState(() => localStorage.getItem("axiom_copilot_depth") || "intermediate");
-  useEffect(() => { try { localStorage.setItem("axiom_copilot_depth", depth); } catch {} }, [depth]);
   const endRef = useRef(null);
 
   // Master Agent — "first thing when I open the platform" (2026-09-11,
@@ -39,27 +35,6 @@ export default function TradingCopilot({ C, MONO, SANS, macroData, watchlistSymb
     // TRIGGER), so this queued message gets the exact same real report.
     setQueuedQuery("مرحبا عدول");
   }, []); // eslint-disable-line
-  useEffect(() => { if (open) fetch("/api/alpaca/positions").then(r => r.json()).then(d => { if (d?.ok) setPositions(d.positions || []); }).catch(() => {}); }, [open]);
-  // The system prompt (src/routes/market.js POST /api/market/ai-copilot)
-  // has always referenced "Today's A+ setups: ${ctx.setups}", but nothing
-  // here ever populated it — the copilot could never actually answer its
-  // own suggested question "What's strong today?" with a real setup, since
-  // ctx.setups was always empty. Same real scan/rank TopOpportunityCard
-  // already uses (trend-screen + computeAPlusScore), fetched once per panel
-  // open rather than per-message.
-  useEffect(() => {
-    if (!open) return;
-    const regime = computeRegime(macroData);
-    fetch("/api/market/trend-screen?symbols=" + encodeURIComponent(BEST_OPP_UNIVERSE.join(",")))
-      .then(r => r.json())
-      .then(j => {
-        const res = (j.results || []).filter(r => !r.error && Number(r.entry) > Number(r.stop));
-        const ranked = res.map(r => ({ symbol: r.symbol, aScore: computeAPlusScore(r, regime).score }))
-          .sort((a, b) => b.aScore - a.aScore).slice(0, 10);
-        setSetups(ranked);
-      })
-      .catch(() => {});
-  }, [open]); // eslint-disable-line
   // Opened from the sidebar's "AI Copilot" item, or from the command palette
   // routing free-text queries here — event-based rather than a lifted prop,
   // matching the existing window-event pattern used elsewhere (e.g.
@@ -138,15 +113,7 @@ export default function TradingCopilot({ C, MONO, SANS, macroData, watchlistSymb
     const q = (override ?? input).trim(); if (!q || busy) return;
     const next = [...msgs, { role: "user", content: q }];
     setMsgs(next); setInput(""); setBusy(true);
-    const ctx = {
-      account: Number(localStorage.getItem("axiom_acct_size")) || 10000,
-      riskPct: Number(localStorage.getItem("axiom_risk_pct")) || 1,
-      regime: (typeof computeRegime === "function" ? computeRegime(macroData).score : null),
-      watchlist: watchlistSymbols || [],
-      positions,
-      setups,
-    };
-    fetch("/api/market/ai-copilot", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: next, context: ctx, depth }) })
+    fetch("/api/market/ai-copilot", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: next }) })
       .then(async r => {
         const ct = r.headers.get("content-type") || "";
         if (!ct.includes("application/json")) {
@@ -154,11 +121,11 @@ export default function TradingCopilot({ C, MONO, SANS, macroData, watchlistSymb
         }
         return r.json();
       })
-      .then(d => setMsgs(m => [...m, { role: "assistant", content: d.ok ? d.reply : `⚠ ${d.error === "invalid x-api-key" ? "AI key rejected — update ANTHROPIC_API_KEY in Render." : (d.error || "error")}` }]))
+      .then(d => setMsgs(m => [...m, { role: "assistant", content: d.ok ? d.reply : `⚠ ${d.error || "error"}` }]))
       .catch(e => setMsgs(m => [...m, { role: "assistant", content: `⚠ ${e.message}` }]))
       .finally(() => setBusy(false));
   };
-  const suggestions = ["What's strong today?", "Why is NVDA moving?", "Should I hold my positions?", "Plan a trade for me"];
+  const suggestions = ["good morning", "deep scan", "مرحبا عدول", "كيف داير الجو اليوم في المكان ديالي"];
   return (
     <>
       {/* bottom offsets add statusBarH (real, dynamic — can wrap to 2 lines)
@@ -190,21 +157,12 @@ export default function TradingCopilot({ C, MONO, SANS, macroData, watchlistSymb
         <div style={{ position: "fixed", bottom: 82 + statusBarH, right: 18, zIndex: 9999, width: "min(400px, 92vw)", height: "min(560px, 78vh)",
           display: "flex", flexDirection: "column", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 14, boxShadow: "0 10px 40px rgba(0,0,0,0.4)", overflow: "hidden" }}>
           <div style={{ padding: "12px 14px", borderBottom: `1px solid ${C.border}` }}>
-            <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.accent, marginBottom: 8 }}>🗣️ TRADING COPILOT <span style={{ fontFamily: SANS, fontSize: 10, fontWeight: 400, color: C.textDim }}>· knows your watchlist & positions</span></div>
-            {/* Explain depth (Phase 16) — a system-prompt instruction only,
-                same real call, not 3x the calls. */}
-            <div style={{ display: "flex", gap: 4 }}>
-              {[["beginner", "Beginner"], ["intermediate", "Intermediate"], ["professional", "Pro"]].map(([v, l]) => (
-                <button key={v} onClick={() => setDepth(v)} title="Explain depth for options-education answers"
-                  style={{ flex: 1, fontFamily: SANS, fontSize: 10, fontWeight: 700, padding: "4px 6px", borderRadius: 6, cursor: "pointer",
-                    border: `1px solid ${depth === v ? C.accent : C.border}`, background: depth === v ? C.accent : C.surface, color: depth === v ? "#fff" : C.textDim }}>{l}</button>
-              ))}
-            </div>
+            <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.accent }}>🗣️ TRADING COPILOT <span style={{ fontFamily: SANS, fontSize: 10, fontWeight: 400, color: C.textDim }}>· real platform data only</span></div>
           </div>
           <div style={{ flex: 1, overflowY: "auto", padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
             {msgs.length === 0 && (
               <div>
-                <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginBottom: 10, lineHeight: 1.5 }}>Ask me anything — I know your account, watchlist, positions, and the regime, and I can pull live news.</div>
+                <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginBottom: 10, lineHeight: 1.5 }}>Ask for a real market report, weather, or a prayer time — try one below.</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                   {suggestions.map(s => <button key={s} onClick={() => setInput(s)} style={{ textAlign: "left", fontFamily: SANS, fontSize: 12, padding: "7px 10px", borderRadius: 8, cursor: "pointer", border: `1px solid ${C.border}`, background: C.card, color: C.textSec }}>{s}</button>)}
                 </div>

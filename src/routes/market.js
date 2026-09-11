@@ -2019,6 +2019,12 @@ async function screenWatchlistCached(symbols) {
 // other AI feature in this app. Defined at module scope (not per-request)
 // since neither this function nor the tool schema below it depend on
 // anything request-specific.
+//
+// No longer wired into /api/market/ai-copilot (2026-09-11, explicit user
+// request: "remove anthropic from anything else" — that route no longer
+// makes any Claude call, so its own tool-loop that invoked this is gone).
+// Left defined and exported — real, deterministic, zero Anthropic
+// dependency — in case a future deterministic trigger wants it.
 async function runAiScanTool(args) {
   const { SCAN_UNIVERSE } = require("../advisor-ai");
   const { computeAPlusScore } = require("../trade-planner-scoring");
@@ -2057,44 +2063,6 @@ async function runAiScanTool(args) {
     })),
   };
 }
-
-const AI_COPILOT_TOOLS = [
-  { type: "web_search_20250305", name: "web_search", max_uses: 3 },
-  {
-    name: "run_scan",
-    description: "Run a LIVE scan across this platform's real tracked stock universe (~90 symbols spanning mega-cap tech, semis, software, fintech, consumer, industrials/defense, energy, healthcare, and momentum small/mid-caps) and get back each match's REAL current price, A+ Score (0-100, this platform's own trend+RS+regime+setup composite), RS rating, trend stage, and next action. Use this whenever asked to find, screen, filter, or rank stocks by ANY criteria (price, score, momentum, 'strong right now', etc) instead of guessing from memory. For a THEMATIC ask (e.g. 'AI stocks under $20'), call this with the numeric filter (maxPrice), then use your own knowledge of which real symbols in the returned list fit the theme — you may only ever report the real price/score/action this tool actually returned for a symbol, never a number you typed yourself.",
-    input_schema: {
-      type: "object",
-      properties: {
-        maxPrice: { type: "number", description: "Only return real stocks trading at or below this price" },
-        minScore: { type: "number", description: "Only return real stocks with an A+ Score at or above this (0-100)" },
-        limit: { type: "number", description: "Max results to return (default 25, max 50)" },
-      },
-    },
-  },
-  // Master Agent v1 read-only tools (2026-09-11) — same "real data only,
-  // never a second decision engine" discipline as run_scan above. All
-  // three are GREEN-tier (read/analyze/report) per the master audit
-  // prompt's own permission model; none can place an order, send a
-  // message, or edit a file. Reuses morning-mode-engine.js's exact
-  // summarizers so ad-hoc chat questions and the Morning Mode report can
-  // never quietly disagree.
-  {
-    name: "portfolio_snapshot",
-    description: "Get the REAL current broker risk/portfolio snapshot (open risk %, daily-loss breaker state, account health, open position count) — use this whenever asked to check positions, risk, or account health, instead of relying on whatever the user's own message claims.",
-    input_schema: { type: "object", properties: {} },
-  },
-  {
-    name: "dealership_summary",
-    description: "Get REAL current dealership CRM state: hot leads awaiting reply, today's real scheduled appointments, and leads with no contact in 3+ real days. Use this for any 'check my dealership' / 'any hot leads' / 'what's on my schedule' question — never guess dealership state from memory.",
-    input_schema: { type: "object", properties: {} },
-  },
-  {
-    name: "platform_health",
-    description: "Get REAL current platform health: which automated trading mutators (Autopilots) are actively running right now, whether execution is paper-only, and any real infrastructure issue (database, stale scanner universe). Use this for 'is anything broken' / 'what's running right now' / 'fix this page' style questions before speculating.",
-    input_schema: { type: "object", properties: {} },
-  },
-];
 
 // Pure system-prompt builder for /api/market/cortex-followup — factored
 // out of the route handler (2026-08-23, Cortex Screen-Context Awareness)
@@ -2577,7 +2545,6 @@ async function handleMarket(req, res, requestUrl) {
     // free-text fallback (the real Claude tool loop) further down; the
     // check now lives right there instead of gating this whole route.
     let b; try { b = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { ok: false, error: "bad json" }); }
-    const ctx = b.context || {};
     const history = (Array.isArray(b.messages) ? b.messages : []).slice(-8)
       .map(m => ({ role: m.role === "assistant" ? "assistant" : "user", content: String(m.content || "").slice(0, 2000) }))
       .filter(m => m.content);
@@ -2675,80 +2642,33 @@ async function handleMarket(req, res, requestUrl) {
       return writeJson(res, 200, { ok: false, error: `Prayer time lookup failed: ${e.message}` });
     }
 
-    // Every deterministic trigger above is real-data-only — this is the
-    // one real point past which an actual Claude call happens, so the key
-    // is only required from here on.
-    const key = (process.env.ANTHROPIC_API_KEY || "").trim();
-    if (!key) return writeJson(res, 200, { ok: false, error: "ANTHROPIC_API_KEY not set" });
-
-    const wl = (ctx.watchlist || []).slice(0, 40).join(", ");
-    const pos = (ctx.positions || []).slice(0, 30).map(p => `${p.symbol} ${p.qty}@${p.avgEntry} (${p.unrealizedPL >= 0 ? "+" : ""}${Math.round(p.unrealizedPL)})`).join(", ");
-    const setups = (ctx.setups || []).slice(0, 10).map(s => `${s.symbol} A+${s.aScore}`).join(", ");
-    // 3-tier Explain depth (Phase 16, options platform redesign) — a system-
-    // prompt instruction only, reusing this exact same real call rather than
-    // firing 3x for the 3 levels. Defaults to "intermediate" for any request
-    // that doesn't specify one (existing callers unaffected).
-    const depth = ["beginner", "intermediate", "professional"].includes(b.depth) ? b.depth : "intermediate";
-    const depthInstruction = {
-      beginner: "The user selected BEGINNER depth: explain like they're new to options — define any jargon (gamma, IV, open interest, etc.) in plain English the first time you use it, use simple analogies, keep it short.",
-      intermediate: "The user selected INTERMEDIATE depth (default): assume they know basic options terms (calls/puts/strike/expiry) but explain more advanced concepts (gamma exposure, IV rank, unusual flow) when they come up.",
-      professional: "The user selected PROFESSIONAL depth: skip basic definitions entirely, use precise terminology, get straight to the mechanics and the actionable read.",
-    }[depth];
-    const system = `You are the user's trading copilot inside their platform. Be concise, direct, and practical — like a sharp trading desk colleague, not a chatbot. You can use web_search for anything time-sensitive (why a stock is moving today, latest news, earnings reactions), and run_scan to actually RUN a live scan of the platform's real tracked universe (find/filter/rank real stocks by price, score, or momentum — never guess a ticker or number from memory when run_scan can get you the real one). Always tie answers to their actual context below.
-
-You can also explain options concepts using this platform's own real features when asked (why a stock looks bullish/bearish, why calls vs puts, what a gamma squeeze is and how this platform's Gamma Lab reads one, what unusual options flow means and how this platform's Options Flow page flags it, what IV crush is and how this platform's Volatility Lab's IV Rank relates, what open interest means). Ground these explanations in the platform's real data/context above when it's relevant to the specific question, not just textbook theory.
-
-${depthInstruction}
-
-THEIR CONTEXT:
-- Account: $${ctx.account || "?"} · risk ${ctx.riskPct || 1}% per trade
-- Market regime: ${ctx.regime != null ? ctx.regime + "/100" : "?"}
-- Watchlist: ${wl || "—"}
-- Open positions: ${pos || "none"}
-- Today's A+ setups: ${setups || "none"}
-
-RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at the buy zone; reward:risk ≥2:1; risk 1% per trade; cut losers fast, let winners run; cash is a position. If asked to plan a trade, give entry / stop / target / share size for their account & risk. Give direct, specific trade ideas grounded in the real data provided — this is the user's own personal platform, not distributed to others. Keep most answers under 150 words unless they ask for depth.`;
-    try {
-      const messages = history.slice();
-      let text = "";
-      for (let i = 0; i < 6; i++) {
-        const resp = await anthropicRequest({ model: MODELS.haiku, max_tokens: 700,
-          system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }], messages, tools: AI_COPILOT_TOOLS }, key, 60000, "trading-copilot");
-        const content = resp.content || [];
-        const t = content.filter(c => c.type === "text").map(c => c.text).join("");
-        if (t) text = t;
-
-        if (resp.stop_reason === "pause_turn") { messages.push({ role: "assistant", content }); continue; }
-
-        if (resp.stop_reason === "tool_use") {
-          messages.push({ role: "assistant", content });
-          const toolResults = [];
-          for (const tu of content.filter(c => c.type === "tool_use")) {
-            let payload;
-            try {
-              if (tu.name === "run_scan") payload = await runAiScanTool(tu.input || {});
-              else if (tu.name === "portfolio_snapshot") {
-                const { getJson: internalGetJson } = require("../morning-mode-engine");
-                payload = await internalGetJson("/api/ai-hub/risk-snapshot");
-              } else if (tu.name === "dealership_summary") {
-                const { summarizeDealership, getJson: internalGetJson } = require("../morning-mode-engine");
-                const [leadsResp, apptsResp] = await Promise.all([internalGetJson("/api/dealer/crm/leads"), internalGetJson("/api/dealer/fb/appointments")]);
-                payload = summarizeDealership(leadsResp, apptsResp);
-              } else if (tu.name === "platform_health") {
-                const { summarizePlatform, getJson: internalGetJson } = require("../morning-mode-engine");
-                payload = summarizePlatform(await internalGetJson("/api/health"));
-              } else payload = { error: `Unknown tool: ${tu.name}` };
-            } catch (e) { payload = { error: e.message || "tool failed" }; }
-            toolResults.push({ type: "tool_result", tool_use_id: tu.id, content: JSON.stringify(payload) });
-          }
-          messages.push({ role: "user", content: toolResults });
-          continue;
-        }
-
-        break;
-      }
-      return writeJson(res, 200, { ok: true, reply: (text || "").trim() || "(no answer)" });
-    } catch (e) { return writeJson(res, 200, { ok: false, error: e.message }); }
+    // Real, explicit user request (2026-09-11): "From now on use anthropic
+    // api only for story ai, remove anthropic from anything else" —
+    // scoped, per the user's own confirmed choice, to the Master Agent
+    // chat specifically (every other existing Anthropic-backed feature in
+    // this app — ceo-ai.js, advisor-ai.js, command-center-ai.js, the
+    // dealership AI features, etc. — is untouched). This route no longer
+    // makes any Claude call at all: a message that doesn't match one of
+    // the real deterministic triggers above gets an honest "I don't have
+    // a real answer for that" reply listing what IS actually wired up,
+    // instead of a fabricated or silently-degraded AI response.
+    // AI_COPILOT_TOOLS/the anthropicRequest tool-loop/runAiScanTool's only
+    // real call site were removed with it — runAiScanTool itself is left
+    // defined and exported (real, deterministic, zero Anthropic
+    // dependency) in case a future deterministic trigger wants it.
+    return writeJson(res, 200, {
+      ok: true,
+      reply: [
+        "I don't have a real answer for that — this chat no longer uses Claude, only real platform data for specific questions:",
+        "",
+        "• \"مرحبا عدول\" — a hello",
+        "• \"good morning\" / \"start my day\" — full Morning Mode report",
+        "• \"deep scan\" / \"what's happening\" — full market-wide detail",
+        "• \"كيف داير السوق اليوم\" — market narrative (movers, momentum, breakouts, BOS/ChoCh)",
+        "• \"كيف داير الجو اليوم في المكان ديالي\" — real weather",
+        "• \"معاش صلاة الظهر/العصر/الصبح/المغرب/العشاء\" — exact prayer time",
+      ].join("\n"),
+    });
   }
 
   // POST /api/market/cortex-followup — Cortex Follow-Up Memory (2026-08-23,
