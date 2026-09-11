@@ -74,6 +74,23 @@ ok("the Market Narrative trigger for \"كيف داير السوق\" exists and c
   assert.match(marketSrc, /NARRATIVE_TRIGGER = \/كيف\\s\*داير\\s\*السوق\//);
   assert.match(marketSrc, /require\("\.\.\/market-narrative-engine"\)/);
 });
+ok("the Weather trigger for \"كيف داير الجو\" exists, checked before the ANTHROPIC_API_KEY gate, and calls the real weather-engine", () => {
+  const routeStart = marketSrc.indexOf('pathname === "/api/market/ai-copilot"');
+  const routeSrc = marketSrc.slice(routeStart);
+  const weatherIdx = routeSrc.indexOf("if (WEATHER_TRIGGER.test(lastUserMsg))");
+  const keyCheckIdx = routeSrc.indexOf('const key = (process.env.ANTHROPIC_API_KEY || "").trim();\n    if (!key)');
+  assert.match(marketSrc, /WEATHER_TRIGGER = \/كيف\\s\*داير\\s\*الجو\//);
+  assert.match(marketSrc, /require\("\.\.\/weather-engine"\)/);
+  assert.ok(weatherIdx > -1 && keyCheckIdx > -1 && weatherIdx < keyCheckIdx, "the weather trigger must run before the ANTHROPIC_API_KEY gate");
+});
+ok("the prayer-time query is checked before the ANTHROPIC_API_KEY gate and calls the real prayer-query-engine", () => {
+  const routeStart = marketSrc.indexOf('pathname === "/api/market/ai-copilot"');
+  const routeSrc = marketSrc.slice(routeStart);
+  const prayerIdx = routeSrc.indexOf("answerPrayerTimeQuery(lastUserMsg)");
+  const keyCheckIdx = routeSrc.indexOf('const key = (process.env.ANTHROPIC_API_KEY || "").trim();\n    if (!key)');
+  assert.match(marketSrc, /require\("\.\.\/prayer-query-engine"\)/);
+  assert.ok(prayerIdx > -1 && keyCheckIdx > -1 && prayerIdx < keyCheckIdx, "the prayer-time query must run before the ANTHROPIC_API_KEY gate");
+});
 
 ok("the route always replies with the short personalized greeting for the Arabic phrase, checked before (and short-circuiting) the general Morning Mode trigger", () => {
   assert.match(marketSrc, /if \(ARABIC_GREETING_TRIGGER\.test\(lastUserMsg\)\) \{/);

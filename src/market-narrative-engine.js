@@ -94,50 +94,53 @@ async function buildMarketNarrative() {
 const BUY_FAMILY = new Set(["STRONG_BUY", "BUY"]);
 const SELL_FAMILY = new Set(["EXIT", "REDUCE", "AVOID"]);
 
+// Rendered in English (explicit user request, 2026-09-11: "For Market,
+// answer me with English no Arabic") even though the trigger phrase itself
+// stays Arabic ("كيف داير السوق اليوم") — only the reply language changed.
 function renderMoverBlock(m) {
   const lines = [];
   const dir = m.chgPct >= 0 ? "🟢" : "🔴";
-  lines.push(`${dir} ${m.symbol} — ${m.chgPct >= 0 ? "+" : ""}${m.chgPct}% @ ${m.price}${m.rvol != null ? ` · RVOL ${m.rvol}x` : ""}${m.aboveVwap ? " · فوق VWAP" : " · تحت VWAP"}${m.orBreakout ? " · اختراق نطاق الافتتاح (Breakout) ✅" : ""}`);
-  if (m.bos) lines.push(`   Structure: ${m.bos.label} (مستوى ${m.bos.level})`);
+  lines.push(`${dir} ${m.symbol} — ${m.chgPct >= 0 ? "+" : ""}${m.chgPct}% @ ${m.price}${m.rvol != null ? ` · RVOL ${m.rvol}x` : ""}${m.aboveVwap ? " · above VWAP" : " · below VWAP"}${m.orBreakout ? " · Opening Range Breakout ✅" : ""}`);
+  if (m.bos) lines.push(`   Structure: ${m.bos.label} (level ${m.bos.level})`);
   if (m.choch) lines.push(`   ChoCh: ${m.choch.label}`);
   if (m.verdict) {
     const isBuy = BUY_FAMILY.has(m.verdict);
     const isSell = SELL_FAMILY.has(m.verdict);
-    lines.push(`   الفيردكت: ${m.verdict}${isBuy ? " (شراء)" : isSell ? " (بيع/تجنب)" : ""}`);
-    if (isBuy && m.buyPoint != null) lines.push(`   نقطة الشراء: ${m.buyPoint} · وقف الخسارة: ${m.stop ?? "?"} · الهدف: ${m.targets?.[0] ?? "?"}`);
-    else if (isSell && m.stop != null) lines.push(`   إذا كنت حاملها: وقف الخسارة الحقيقي ${m.stop} (لا توجد نقطة بيع على المكشوف حقيقية بعد — المنصة لا تدعم ذلك رسمياً)`);
-    if (m.reasons.length) lines.push(`   السبب: ${m.reasons.join("؛ ")}`);
+    lines.push(`   Verdict: ${m.verdict}${isBuy ? " (BUY)" : isSell ? " (SELL/AVOID)" : ""}`);
+    if (isBuy && m.buyPoint != null) lines.push(`   Buy point: ${m.buyPoint} · Stop: ${m.stop ?? "?"} · Target: ${m.targets?.[0] ?? "?"}`);
+    else if (isSell && m.stop != null) lines.push(`   If holding: real stop-loss ${m.stop} (no real short-entry price yet — the platform doesn't officially support that)`);
+    if (m.reasons.length) lines.push(`   Why: ${m.reasons.join("; ")}`);
   } else {
-    lines.push("   لا يوجد فيردكت حقيقي متاح لهذا السهم الآن.");
+    lines.push("   No real verdict available for this symbol right now.");
   }
   return lines.join("\n");
 }
 
 function renderMarketNarrativeText(n) {
-  const lines = ["📊 نظرة عامة على السوق اليوم (Market Narrative)"];
+  const lines = ["📊 Today's Market Narrative"];
 
   if (n.marketRegime) {
-    lines.push("", `الوضع العام: ${n.marketRegime.regime || "?"} (score ${n.marketRegime.score ?? "?"}, confidence ${n.marketRegime.confidence ?? "?"}%)`);
-    if (Array.isArray(n.marketRegime.reasons) && n.marketRegime.reasons.length) lines.push(`السبب: ${n.marketRegime.reasons.join("؛ ")}`);
+    lines.push("", `Regime: ${n.marketRegime.regime || "?"} (score ${n.marketRegime.score ?? "?"}, confidence ${n.marketRegime.confidence ?? "?"}%)`);
+    if (Array.isArray(n.marketRegime.reasons) && n.marketRegime.reasons.length) lines.push(`Reasons: ${n.marketRegime.reasons.join("; ")}`);
   } else {
-    lines.push("", "الوضع العام: غير متوفر حالياً.");
+    lines.push("", "Regime: unavailable right now.");
   }
 
   if (n.macro.length) {
-    lines.push("", "المؤشرات الكبرى (Macro):");
+    lines.push("", "Macro:");
     n.macro.forEach((q) => lines.push(`${q.symbol}: ${q.price} (${q.changesPercentage >= 0 ? "+" : ""}${q.changesPercentage}%)`));
   }
 
-  lines.push("", `📈 الأسهم الصاعدة اليوم بزخم حقيقي (من أصل ${n.universeSize} سهم تمت مراقبتها):`);
+  lines.push("", `📈 Today's real momentum leaders — up (out of ${n.universeSize} symbols scanned):`);
   if (n.moversUp.length) n.moversUp.forEach((m) => lines.push(renderMoverBlock(m)));
-  else lines.push("لا توجد حركة صاعدة قوية حقيقية الآن.");
+  else lines.push("No strong real upside movers right now.");
 
-  lines.push("", "📉 الأسهم الهابطة اليوم:");
+  lines.push("", "📉 Today's decliners:");
   if (n.moversDown.length) n.moversDown.forEach((m) => lines.push(renderMoverBlock(m)));
-  else lines.push("لا توجد حركة هابطة قوية حقيقية الآن.");
+  else lines.push("No strong real downside movers right now.");
 
   if (n.breakouts.length) {
-    lines.push("", "🚀 اختراقات حقيقية لنطاق الافتتاح (Opening Range Breakouts) اليوم:");
+    lines.push("", "🚀 Real opening-range breakouts today:");
     n.breakouts.forEach((b) => lines.push(`${b.symbol} @ ${b.price} (${b.chgPct >= 0 ? "+" : ""}${b.chgPct}%, RVOL ${b.rvol ?? "?"}x)`));
   }
 

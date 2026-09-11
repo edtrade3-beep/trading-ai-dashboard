@@ -2648,6 +2648,33 @@ async function handleMarket(req, res, requestUrl) {
       }
     }
 
+    // Weather (2026-09-11, explicit user request: "كيف داير الجو اليوم في
+    // المكان ديالي"). Real live data (Open-Meteo), real fixed location
+    // (src/prayer-times.js's LOCATION — the same "where I live" this
+    // platform already uses for prayer times). Zero AI cost.
+    const WEATHER_TRIGGER = /كيف\s*داير\s*الجو/;
+    if (WEATHER_TRIGGER.test(lastUserMsg)) {
+      try {
+        const { fetchRealWeather, renderWeatherText } = require("../weather-engine");
+        const weather = await fetchRealWeather();
+        return writeJson(res, 200, { ok: true, reply: renderWeatherText(weather), weather });
+      } catch (e) {
+        return writeJson(res, 200, { ok: false, error: `Weather lookup failed: ${e.message}` });
+      }
+    }
+
+    // Prayer time (2026-09-11, explicit user request: "معاش صلاة الظهر أو
+    // العصر أو الصبح أو المغرب أو العشاء"). Real Aladhan-backed daily
+    // state, same source /athan and the background notification tick
+    // already use. Zero AI cost.
+    try {
+      const { answerPrayerTimeQuery } = require("../prayer-query-engine");
+      const prayerAnswer = await answerPrayerTimeQuery(lastUserMsg);
+      if (prayerAnswer) return writeJson(res, 200, { ok: true, reply: prayerAnswer });
+    } catch (e) {
+      return writeJson(res, 200, { ok: false, error: `Prayer time lookup failed: ${e.message}` });
+    }
+
     // Every deterministic trigger above is real-data-only — this is the
     // one real point past which an actual Claude call happens, so the key
     // is only required from here on.

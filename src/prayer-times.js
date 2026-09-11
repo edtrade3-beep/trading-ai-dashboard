@@ -139,4 +139,4 @@ async function formatScheduleMessage() {
   return lines.join("\n");
 }
 
-module.exports = { tickPrayerNotify, formatScheduleMessage, LOCATION, PRAYERS };
+module.exports = { tickPrayerNotify, formatScheduleMessage, ensureTodayState, formatHijri, toMinutes, nowMinutesET, LOCATION, PRAYERS };
