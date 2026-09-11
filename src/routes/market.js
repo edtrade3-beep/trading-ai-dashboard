@@ -2567,8 +2567,15 @@ async function handleMarket(req, res, requestUrl) {
 
   // 🗣️ TRADING COPILOT — chat that knows your context and can search live news.
   if (pathname === "/api/market/ai-copilot" && req.method === "POST") {
-    const key = (process.env.ANTHROPIC_API_KEY || "").trim();
-    if (!key) return writeJson(res, 200, { ok: false, error: "ANTHROPIC_API_KEY not set" });
+    // Real fix (2026-09-11, explicit user request: "I dont want to use
+    // anthropic api. Just use data from my platform for master agent") —
+    // the ANTHROPIC_API_KEY gate used to run before ANY of the
+    // deterministic triggers below, so Morning Mode/Deep Scan/the
+    // personalized greeting/Market Narrative — none of which ever call
+    // Claude — would all break if the key were ever missing or
+    // deliberately unset. The key is only actually needed by the final
+    // free-text fallback (the real Claude tool loop) further down; the
+    // check now lives right there instead of gating this whole route.
     let b; try { b = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { ok: false, error: "bad json" }); }
     const ctx = b.context || {};
     const history = (Array.isArray(b.messages) ? b.messages : []).slice(-8)
@@ -2623,6 +2630,29 @@ async function handleMarket(req, res, requestUrl) {
         return writeJson(res, 200, { ok: false, error: `Deep Scan failed: ${e.message}` });
       }
     }
+
+    // Market Narrative (2026-09-11, explicit user request: "كيف داير
+    // السوق اليوم" — "how's the market doing today" — macro + what's
+    // moving up/down with real momentum + real breakout/BOS/CHoCH
+    // structure reads + real buy/sell points). Same deterministic-first,
+    // zero-AI-cost discipline as the triggers above — every number here
+    // is a real already-computed platform read, never an LLM guess.
+    const NARRATIVE_TRIGGER = /كيف\s*داير\s*السوق/;
+    if (NARRATIVE_TRIGGER.test(lastUserMsg)) {
+      try {
+        const { buildMarketNarrative, renderMarketNarrativeText } = require("../market-narrative-engine");
+        const narrative = await buildMarketNarrative();
+        return writeJson(res, 200, { ok: true, reply: renderMarketNarrativeText(narrative), marketNarrative: narrative });
+      } catch (e) {
+        return writeJson(res, 200, { ok: false, error: `Market Narrative failed: ${e.message}` });
+      }
+    }
+
+    // Every deterministic trigger above is real-data-only — this is the
+    // one real point past which an actual Claude call happens, so the key
+    // is only required from here on.
+    const key = (process.env.ANTHROPIC_API_KEY || "").trim();
+    if (!key) return writeJson(res, 200, { ok: false, error: "ANTHROPIC_API_KEY not set" });
 
     const wl = (ctx.watchlist || []).slice(0, 40).join(", ");
     const pos = (ctx.positions || []).slice(0, 30).map(p => `${p.symbol} ${p.qty}@${p.avgEntry} (${p.unrealizedPL >= 0 ? "+" : ""}${Math.round(p.unrealizedPL)})`).join(", ");

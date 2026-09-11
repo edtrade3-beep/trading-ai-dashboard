@@ -56,6 +56,25 @@ ok("ARABIC_GREETING_TRIGGER is defined and real", () => {
   assert.match(marketSrc, /ARABIC_GREETING_TRIGGER = \/مرحبا\\s\*عدول\//);
 });
 
+console.log("\nChecking the ANTHROPIC_API_KEY gate moved past every deterministic trigger (explicit user request: \"I dont want to use anthropic api. Just use data from my platform for master agent\")…");
+
+ok("the ANTHROPIC_API_KEY check happens after the Arabic greeting, Morning Mode, Deep Scan, and Market Narrative triggers — not before them", () => {
+  const routeStart = marketSrc.indexOf('pathname === "/api/market/ai-copilot"');
+  assert.ok(routeStart > -1, "the ai-copilot route must exist");
+  const routeSrc = marketSrc.slice(routeStart);
+  const keyCheckIdx = routeSrc.indexOf('const key = (process.env.ANTHROPIC_API_KEY || "").trim();\n    if (!key) return writeJson(res, 200, { ok: false, error: "ANTHROPIC_API_KEY not set" });');
+  const greetingIdx = routeSrc.indexOf("if (ARABIC_GREETING_TRIGGER.test(lastUserMsg))");
+  const morningIdx = routeSrc.indexOf("if (MORNING_TRIGGER.test(lastUserMsg))");
+  const deepScanIdx = routeSrc.indexOf("if (DEEP_SCAN_TRIGGER.test(lastUserMsg))");
+  const narrativeIdx = routeSrc.indexOf("if (NARRATIVE_TRIGGER.test(lastUserMsg))");
+  assert.ok([greetingIdx, morningIdx, deepScanIdx, narrativeIdx, keyCheckIdx].every((i) => i > -1), "all four triggers and the key check must exist within the route");
+  assert.ok([greetingIdx, morningIdx, deepScanIdx, narrativeIdx].every((i) => i < keyCheckIdx), "the ANTHROPIC_API_KEY gate must come after every deterministic trigger, not before");
+});
+ok("the Market Narrative trigger for \"كيف داير السوق\" exists and calls the real market-narrative-engine, never a Claude call", () => {
+  assert.match(marketSrc, /NARRATIVE_TRIGGER = \/كيف\\s\*داير\\s\*السوق\//);
+  assert.match(marketSrc, /require\("\.\.\/market-narrative-engine"\)/);
+});
+
 ok("the route always replies with the short personalized greeting for the Arabic phrase, checked before (and short-circuiting) the general Morning Mode trigger", () => {
   assert.match(marketSrc, /if \(ARABIC_GREETING_TRIGGER\.test\(lastUserMsg\)\) \{/);
   assert.match(marketSrc, /reply: "مرحبا بيك باش نخدمك"/);
