@@ -1,0 +1,53 @@
+"use strict";
+// trading-copilot-agent-features.test.js — structural regression checks for
+// the 2026-09-11 Master Agent UX additions ("I want master agent first
+// thing when i open the platform also use microphone"): auto-greet with
+// Morning Mode on first load per session, and Web Speech API microphone
+// input. Same fs.readFileSync + regex convention as
+// test/lightbox-assist-panel.test.js — this is presentational wiring in a
+// component, not pure logic worth extracting just to unit-test.
+const assert = require("node:assert");
+const fs = require("node:fs");
+const path = require("node:path");
+
+let passed = 0;
+function ok(name, fn) {
+  try { fn(); passed++; console.log(`  ✓ ${name}`); }
+  catch (e) { console.error(`  ✗ ${name}\n    ${e.message}`); process.exitCode = 1; }
+}
+
+const src = fs.readFileSync(path.join(__dirname, "..", "axiom-runner", "components", "TradingCopilot.jsx"), "utf8");
+
+console.log("Checking TradingCopilot.jsx — Master Agent auto-greet on first open per session…");
+
+ok("auto-greet uses sessionStorage (once per real browser session), never localStorage (which would only ever fire once, forever)", () => {
+  assert.match(src, /sessionStorage\.getItem\("axiom_copilot_greeted"\)/);
+  assert.match(src, /sessionStorage\.setItem\("axiom_copilot_greeted", "1"\)/);
+});
+ok("the auto-greet opens the panel and queues \"good morning\" through the real existing queuedQuery/send() path, not a separate ad-hoc call", () => {
+  assert.match(src, /setOpen\(true\);\s*\n\s*setQueuedQuery\("good morning"\);/);
+});
+ok("the auto-greet effect only runs once on mount (empty dependency array), never re-fires on every re-render", () => {
+  const effectBlock = src.slice(src.indexOf("axiom_copilot_greeted") - 400, src.indexOf("axiom_copilot_greeted") + 400);
+  assert.match(effectBlock, /\}, \[\]\);/);
+});
+
+console.log("\nChecking TradingCopilot.jsx — microphone input (Web Speech API)…");
+
+ok("microphone support is feature-detected (SpeechRecognition or webkitSpeechRecognition), never assumed present", () => {
+  assert.match(src, /window\.SpeechRecognition \|\| window\.webkitSpeechRecognition/);
+  assert.match(src, /const micSupported = !!SpeechRecognitionCtor/);
+});
+ok("the mic button is only rendered when micSupported is true — never a dead control on browsers without it (e.g. Firefox)", () => {
+  assert.match(src, /\{micSupported && \(/);
+});
+ok("a final speech transcript is sent through the real send() function — never a separate voice-only command path", () => {
+  assert.match(src, /if \(finalText\) send\(finalText\);/);
+});
+ok("recognition is stopped on unmount, never left running after the component is gone", () => {
+  assert.match(src, /useEffect\(\(\) => \(\) => recognitionRef\.current\?\.stop\(\), \[\]\);/);
+});
+
+console.log(`\n${passed} checks passed.`);
+if (process.exitCode) console.error("TRADING-COPILOT-AGENT-FEATURES TEST FAILED");
+else console.log("TRADING-COPILOT-AGENT-FEATURES TEST OK");

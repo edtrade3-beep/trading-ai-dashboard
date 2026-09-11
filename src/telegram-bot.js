@@ -305,6 +305,12 @@ async function cmdHelp() {
     "AAPL                  just type any ticker — auto deep dive\n" +
     "\n🧠 AM CORTEX (the real WHY/BUY PRICE/SETUP/LEVELS/RISK/VERDICT)\n" +
     "/cortex AAPL           the same decision the web app's Cortex tab shows  (alias: /cx)\n" +
+    "\n🤖 MASTER AGENT (same real backend as the web app's Trading Copilot)\n" +
+    "/agent                 real \"start my day\" report — market verdict, best trade or NO TRADE, dealership, platform health\n" +
+    "/agent <question>      ask it anything, real tool-grounded answers\n" +
+    "/ask <question>        same as /agent <question>\n" +
+    "Or just type a question in plain text — read-only only (no trades, no messages, no file edits)\n" +
+    "(Not the same as /morning below — that's the separate scheduled macro-brief command.)\n" +
     "\n📈 STOCKTWITS SENTIMENT\n" +
     "/twits                top 10 trending + crowd sentiment\n" +
     "/twits NVDA           bullish/bearish% + message previews\n" +
@@ -552,6 +558,40 @@ async function cmdDeep(args) {
 
 // ── /cortex TICKER — the real AM Cortex decision (WHY/BUY PRICE/SETUP/
 // LEVELS/RISK/VERDICT), the same single decision layer the web app's AM
+// Master Agent from Telegram (2026-09-11, explicit user request: "wire it
+// to telegram... control agent from telegram"). Deliberately NOT a second
+// agent implementation — this makes a real internal HTTP call to the exact
+// same /api/market/ai-copilot route the web app's Trading Copilot uses
+// (same tool loop: run_scan/portfolio_snapshot/dealership_summary/
+// platform_health/web_search, same "good morning" Morning Mode trigger),
+// same real internal-fetch convention already used elsewhere in this file
+// (cmdCortex below). No new context is assembled here (no watchlist/
+// positions block) — the tools themselves fetch real backend data on
+// demand, so a bare Telegram question still gets grounded, real answers.
+//
+// Scope, matching the web Master Agent v1: read-only only. Every tool this
+// can reach is GREEN-tier (read/analyze/report) — it cannot place an
+// order, send a message, or edit a file. "Control the agent" here means
+// "ask it things," not "authorize it to act" — that would be a separate,
+// deliberate RED-tier decision, not something to fold in silently.
+async function askAgent(question) {
+  const base = process.env.RENDER_EXTERNAL_URL || `http://localhost:${process.env.PORT || 3000}`;
+  const resp = await withTimeout(
+    fetch(`${base}/api/market/ai-copilot`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages: [{ role: "user", content: question }] }),
+    }).then((r) => r.json()),
+    45_000, null,
+  );
+  if (!resp) return "The agent didn't respond in time — try again.";
+  if (!resp.ok) return `Agent error: ${resp.error || "unknown error"}`;
+  // Telegram's own hard 4096-char message cap — a real, disclosed
+  // truncation (not silently dropping the send), same spirit as this
+  // file's other real limits.
+  const text = String(resp.reply || "(no answer)");
+  return text.length > 3900 ? `${text.slice(0, 3900)}\n\n…(truncated)` : text;
+}
+
 // Cortex tab shows, reachable from Telegram without opening the app.
 // Explicit user request 2026-08-13: "wire cortex to telegram command."
 // Every score/verdict below comes from the exact same real, deterministic
@@ -1388,6 +1428,16 @@ const COMMANDS = {
   analyze:   (a) => cmdDeep(a),
   cortex:    (a) => cmdCortex(a),
   cx:        (a) => cmdCortex(a),
+  // Master Agent (2026-09-11) — /agent <question> or /ask <question>
+  // routes free text to the same real Trading Copilot backend as the web
+  // app. "/agent good morning" (or "/agent" with no args) triggers the
+  // same real Morning Mode report the web chat's "good morning" does.
+  // Real collision avoided: "/morning" already exists below (a separate,
+  // pre-existing macro-report + scanner-setups command) — not renamed or
+  // touched, per this session's own "no duplicate command" discipline.
+  // /agent with no question is the Master Agent's own equivalent.
+  agent:     async (a) => reply(await askAgent(a.length ? a.join(" ") : "good morning")),
+  ask:       async (a) => { if (!a.length) return reply("Usage: /ask <question>"); return reply(await askAgent(a.join(" "))); },
   alert:     (a) => cmdAlert(a),
   alerts:    () => cmdAlerts(),
   pa:        () => cmdAlerts(),
@@ -2005,6 +2055,7 @@ async function dispatch(text) {
 
   // ── Bare ticker detection (e.g. "AAPL" or "NVDA" without a slash) ──────────
   if (!clean.startsWith("/")) {
+    if (!clean) return; // ignore empty/whitespace-only messages
     const upper = clean.toUpperCase();
     // Single word, 1–6 uppercase letters/digits/dots, no spaces
     if (/^[A-Z][A-Z0-9.\-]{0,8}$/.test(upper) && upper.length >= 1) {
@@ -2013,7 +2064,13 @@ async function dispatch(text) {
         reply(`Deep dive error: ${err.message}`)
       );
     }
-    return; // ignore non-command, non-ticker messages
+    // Master Agent (2026-09-11, "control agent from telegram") — any
+    // other real free-text message (a question, "good morning", etc.)
+    // now reaches the same real agent a /ask command would, instead of
+    // being silently dropped. Bare-ticker detection above still wins for
+    // the fast, free, zero-AI-cost deep-dive path.
+    console.log(`[TgBot] Free-text message — routing to agent: "${clean.slice(0, 60)}"`);
+    return askAgent(clean).then(reply).catch(err => reply(`Agent error: ${err.message}`));
   }
 
   const withoutAt = clean.replace(/^(\/\w+)@\w+/, "$1");
@@ -2124,6 +2181,8 @@ async function registerCommands() {
       { command: "risk",      description: "Risk check — VIX + movers + action" },
       { command: "squeeze",   description: "Top squeeze/5X candidates" },
       { command: "morning",   description: "Morning brief + today's setups" },
+      { command: "agent",     description: "Master Agent — \"start my day\" report or ask it a question" },
+      { command: "ask",       description: "Ask the Master Agent anything" },
       { command: "close",     description: "End of day checklist" },
       { command: "score",     description: "SMC analysis — /score NVDA" },
       { command: "top5",      description: "Top 5 setups from last scan" },

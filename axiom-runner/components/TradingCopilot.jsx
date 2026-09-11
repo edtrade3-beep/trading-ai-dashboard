@@ -18,6 +18,22 @@ export default function TradingCopilot({ C, MONO, SANS, macroData, watchlistSymb
   const [depth, setDepth] = useState(() => localStorage.getItem("axiom_copilot_depth") || "intermediate");
   useEffect(() => { try { localStorage.setItem("axiom_copilot_depth", depth); } catch {} }, [depth]);
   const endRef = useRef(null);
+
+  // Master Agent — "first thing when I open the platform" (2026-09-11,
+  // explicit user request). Auto-opens the panel once per real browser
+  // session (sessionStorage, not localStorage — greets again on a fresh
+  // session/new tab, but never re-nags on every activeTab switch within
+  // the same one) and queues "good morning" through the exact same real
+  // send() flow a manual click would use, so it goes through the exact
+  // same /api/market/ai-copilot Morning Mode trigger — no separate path.
+  useEffect(() => {
+    let alreadyGreeted = true;
+    try { alreadyGreeted = sessionStorage.getItem("axiom_copilot_greeted") === "1"; } catch {}
+    if (alreadyGreeted) return;
+    try { sessionStorage.setItem("axiom_copilot_greeted", "1"); } catch {}
+    setOpen(true);
+    setQueuedQuery("good morning");
+  }, []); // eslint-disable-line
   useEffect(() => { if (open) fetch("/api/alpaca/positions").then(r => r.json()).then(d => { if (d?.ok) setPositions(d.positions || []); }).catch(() => {}); }, [open]);
   // The system prompt (src/routes/market.js POST /api/market/ai-copilot)
   // has always referenced "Today's A+ setups: ${ctx.setups}", but nothing
@@ -75,6 +91,44 @@ export default function TradingCopilot({ C, MONO, SANS, macroData, watchlistSymb
     if (queuedQuery && open) { send(queuedQuery); setQueuedQuery(null); }
   }, [queuedQuery, open]);
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs, busy]);
+
+  // Microphone input (2026-09-11, explicit user request: "also use
+  // microphone"). Real browser-native Web Speech API — no new backend,
+  // no new cost, works in Chrome/Edge/Safari; Firefox has no
+  // implementation, so this feature-detects and simply hides the mic
+  // button there rather than showing a control that would silently do
+  // nothing. Speaks the transcript into the same real input/send() path
+  // a typed question uses — never a separate "voice command" parser, so
+  // voice and typed questions always get identically grounded answers.
+  const [listening, setListening] = useState(false);
+  const recognitionRef = useRef(null);
+  const SpeechRecognitionCtor = typeof window !== "undefined" ? (window.SpeechRecognition || window.webkitSpeechRecognition) : null;
+  const micSupported = !!SpeechRecognitionCtor;
+  const toggleListening = () => {
+    if (!micSupported) return;
+    if (listening) { recognitionRef.current?.stop(); return; }
+    const rec = new SpeechRecognitionCtor();
+    rec.lang = "en-US";
+    rec.continuous = false;
+    rec.interimResults = true;
+    rec.onresult = (e) => {
+      let transcript = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) transcript += e.results[i][0].transcript;
+      setInput(transcript);
+      const last = e.results[e.results.length - 1];
+      if (last && last.isFinal) {
+        const finalText = transcript.trim();
+        if (finalText) send(finalText);
+      }
+    };
+    rec.onerror = () => setListening(false);
+    rec.onend = () => setListening(false);
+    recognitionRef.current = rec;
+    setListening(true);
+    rec.start();
+  };
+  useEffect(() => () => recognitionRef.current?.stop(), []);
+
   const send = (override) => {
     const q = (override ?? input).trim(); if (!q || busy) return;
     const next = [...msgs, { role: "user", content: q }];
@@ -162,9 +216,18 @@ export default function TradingCopilot({ C, MONO, SANS, macroData, watchlistSymb
           </div>
           <div style={{ display: "flex", gap: 6, padding: 10, borderTop: `1px solid ${C.border}` }}>
             <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter") send(); }}
-              placeholder="Ask your copilot…" style={{ flex: 1, fontFamily: SANS, fontSize: 13, padding: "9px 11px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.surface, color: C.text, outline: "none" }} />
+              placeholder={listening ? "Listening…" : "Ask your copilot…"} style={{ flex: 1, fontFamily: SANS, fontSize: 13, padding: "9px 11px", borderRadius: 8, border: `1px solid ${listening ? C.red : C.border}`, background: C.surface, color: C.text, outline: "none" }} />
+            {micSupported && (
+              <button onClick={toggleListening} title={listening ? "Stop listening" : "Speak your question"}
+                style={{ fontFamily: MONO, fontSize: 14, padding: "0 12px", borderRadius: 8, cursor: "pointer",
+                  border: `1px solid ${listening ? C.red : C.border}`, background: listening ? C.red : C.surface, color: listening ? "#fff" : C.textSec,
+                  animation: listening ? "copilot-mic-pulse 1.2s ease-in-out infinite" : "none" }}>🎤</button>
+            )}
             <button onClick={() => send()} disabled={busy} style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, padding: "0 16px", borderRadius: 8, cursor: "pointer", border: "none", background: C.accent, color: "#fff" }}>➤</button>
           </div>
+          {listening && (
+            <style>{"@keyframes copilot-mic-pulse { 0%,100% { opacity:1; } 50% { opacity:0.55; } }"}</style>
+          )}
         </div>
       )}
     </>
