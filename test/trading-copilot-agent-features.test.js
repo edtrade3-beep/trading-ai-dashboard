@@ -18,6 +18,7 @@ function ok(name, fn) {
 
 const src = fs.readFileSync(path.join(__dirname, "..", "axiom-runner", "components", "TradingCopilot.jsx"), "utf8");
 const marketSrc = fs.readFileSync(path.join(__dirname, "..", "src", "routes", "market.js"), "utf8");
+const telegramSrc = fs.readFileSync(path.join(__dirname, "..", "src", "telegram-bot.js"), "utf8");
 
 console.log("Checking TradingCopilot.jsx — Master Agent auto-greet on first open per session…");
 
@@ -55,6 +56,19 @@ console.log("\nChecking the server-side Morning Mode trigger recognizes the real
 ok("/api/market/ai-copilot's Morning Mode trigger matches \"مرحبا عدول\" in addition to (never instead of) the original English phrases", () => {
   assert.match(marketSrc, /ARABIC_GREETING_TRIGGER = \/مرحبا\\s\*عدول\//);
   assert.match(marketSrc, /MORNING_TRIGGER\.test\(lastUserMsg\) \|\| ARABIC_GREETING_TRIGGER\.test\(lastUserMsg\)/);
+});
+
+console.log("\nChecking the Telegram-specific \"مرحبا عدول\" reply — scoped to Telegram only, never changing the web app's own Morning Mode greeting…");
+
+ok("the route replies with the real personalized Telegram greeting only when channel is \"telegram\" AND the Arabic phrase matches, checked before the general Morning Mode trigger", () => {
+  assert.match(marketSrc, /b\.channel === "telegram" && ARABIC_GREETING_TRIGGER\.test\(lastUserMsg\)/);
+  assert.match(marketSrc, /reply: "مرحبا بيك باش نخدمك"/);
+  const telegramCheckIdx = marketSrc.indexOf('b.channel === "telegram"');
+  const morningTriggerIdx = marketSrc.indexOf("MORNING_TRIGGER.test(lastUserMsg) ||");
+  assert.ok(telegramCheckIdx > -1 && morningTriggerIdx > -1 && telegramCheckIdx < morningTriggerIdx, "Telegram-specific check must run before the general Morning Mode trigger");
+});
+ok("telegram-bot.js's askAgent sends channel:\"telegram\" so the server can distinguish it from the web app's own request", () => {
+  assert.match(telegramSrc, /channel: "telegram"/);
 });
 
 console.log(`\n${passed} checks passed.`);

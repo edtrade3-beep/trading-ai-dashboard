@@ -2593,6 +2593,20 @@ async function handleMarket(req, res, requestUrl) {
     // to) so a manually-typed "good morning" still works too.
     const MORNING_TRIGGER = /\b(good morning|start my day|what should i do today)\b/i;
     const ARABIC_GREETING_TRIGGER = /مرحبا\s*عدول/;
+
+    // Telegram-specific personalized reply (explicit user request,
+    // 2026-09-11: "I want telegram when i say مرحبا عدول answer will be
+    // مرحبا بيك باش نخدمك"). Deliberately scoped to Telegram only
+    // (b.channel === "telegram", set by src/telegram-bot.js's askAgent) —
+    // the web app's own auto-open still gets the full real Morning Mode
+    // report for the same phrase, per the user's separate, earlier
+    // "first thing when I open the platform" request. Checked BEFORE the
+    // general Morning Mode trigger below so this short greeting wins for
+    // Telegram without touching web behavior at all.
+    if (b.channel === "telegram" && ARABIC_GREETING_TRIGGER.test(lastUserMsg)) {
+      return writeJson(res, 200, { ok: true, reply: "مرحبا بيك باش نخدمك" });
+    }
+
     if (MORNING_TRIGGER.test(lastUserMsg) || ARABIC_GREETING_TRIGGER.test(lastUserMsg)) {
       try {
         const { buildMorningMode, renderMorningModeText } = require("../morning-mode-engine");
