@@ -18,6 +18,7 @@
 
 const { generateStory } = require("./story-ai-story-agent");
 const { humanizeNarration } = require("./story-ai-humanizer-agent");
+const { critiqueAndRevise } = require("./story-ai-critic-agent");
 const { verifyStory } = require("./story-ai-verification-agent");
 const { buildScenes } = require("./story-ai-director-agent");
 const { buildSocialMetadata } = require("./story-ai-social-agent");
@@ -34,7 +35,7 @@ const { estimateImageCostUSD, estimateTtsCostUSD } = require("./story-ai-cost");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const STEP_ORDER = ["story", "humanize", "verification", "scenes", "images", "voice", "subtitles", "video", "quality"];
+const STEP_ORDER = ["story", "humanize", "verification", "critic", "scenes", "images", "voice", "subtitles", "video", "quality"];
 const running = new Set(); // in-memory guard — one active run per project at a time
 
 // Real speed fix (2026-09-07, explicit user request: "how to make it
@@ -153,6 +154,32 @@ async function runVerificationStep(project, apiKey) {
   }
   setStep(project, "verification", "passed");
   return true;
+}
+
+// AI Story Critic (Story AI 2.0 §33/34, 2026-09-11 explicit user request)
+// — a real, adversarial second pass over the humanized, verified
+// narration, run once before scene breakdown so any revision reaches the
+// scenes/images/voice that follow. Never a silent rewrite: the pre-critic
+// story is kept (project.story.narration_ar_pre_critic, same discipline
+// as the Humanizer's own narration_ar_original), and project.critic
+// always discloses what was checked and whether anything changed, even
+// when nothing did.
+async function runCriticStep(project, apiKey) {
+  setStep(project, "critic", "running");
+  const result = await withRetries(() => critiqueAndRevise({
+    story: project.story, durationSeconds: project.durationSeconds, style: project.style, apiKey,
+  }));
+  project.critic = { weaknesses: result.weaknesses, revised: result.revised, revisionNotes: result.revisionNotes };
+  if (result.revised) {
+    project.story.narration_ar_pre_critic = project.story.narration_ar;
+    project.story.title_ar = result.story.title_ar;
+    project.story.hook_ar = result.story.hook_ar;
+    project.story.narration_ar = result.story.narration_ar;
+    project.story.lesson_ar = result.story.lesson_ar;
+    project.story.ending_question_ar = result.story.ending_question_ar;
+  }
+  addCostEntry(project.costLedger, { stage: "critic", provider: "anthropic", costUSD: result.costUSD });
+  setStep(project, "critic", "passed");
 }
 
 async function runScenesStep(project, apiKey) {
@@ -518,6 +545,7 @@ async function runPipeline(projectId, apiKey) {
     const approved = await runStepWithTimeout("verification", () => runVerificationStep(project, apiKey)); saveProject(project);
     if (!approved) { project.job.status = "paused"; saveProject(project); return { ok: true, project }; }
 
+    await runStepWithTimeout("critic", () => runCriticStep(project, apiKey)); saveProject(project);
     await runStepWithTimeout("scenes", () => runScenesStep(project, apiKey)); saveProject(project);
     await runStepWithTimeout("images", () => runImagesStep(project)); saveProject(project);
     await runStepWithTimeout("voice", () => runVoiceStep(project)); saveProject(project);
@@ -559,6 +587,7 @@ const STEP_RUNNERS = {
   story: runStoryStep,
   humanize: runHumanizeStep,
   verification: runVerificationStep,
+  critic: runCriticStep,
   scenes: runScenesStep,
   images: runImagesStep,
   voice: runVoiceStep,

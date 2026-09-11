@@ -30,6 +30,7 @@ const imageProvider = require("../src/story-ai-image-provider");
 const ttsProvider = require("../src/story-ai-tts-provider");
 const { mapWithConcurrency, IMAGE_VOICE_CONCURRENCY, resumeOrphanedJobs, firstPendingStep, STEP_ORDER } = require("../src/story-ai-job-runner");
 const { buildSystemPrompt: buildHumanizerPrompt } = require("../src/story-ai-humanizer-agent");
+const { buildSystemPrompt: buildCriticPrompt, critiqueAndRevise } = require("../src/story-ai-critic-agent");
 const { buildSystemPrompt: buildStoryPrompt } = require("../src/story-ai-story-agent");
 const { CREATIVITY_TEMPERATURE } = require("../src/story-ai-config");
 const { sanitizeCreateInput } = require("../src/routes/story-ai");
@@ -447,6 +448,24 @@ await ok("IMAGE_VOICE_CONCURRENCY is a real, sane positive limit, not accidental
 
 await ok("STEP_ORDER runs the Humanizer right after Story and before Verification — the humanized text is what Verification actually reviews", () => {
   assert.deepStrictEqual(STEP_ORDER.slice(0, 3), ["story", "humanize", "verification"]);
+});
+
+console.log("\nChecking the AI Story Critic (Story AI 2.0 §33/34, 2026-09-11) — a real adversarial pass, never automatic praise…");
+
+await ok("STEP_ORDER runs the Critic right after Verification and before Scenes — any real revision reaches scene breakdown, never the other way around", () => {
+  assert.deepStrictEqual(STEP_ORDER.slice(0, 5), ["story", "humanize", "verification", "critic", "scenes"]);
+});
+await ok("buildSystemPrompt instructs the model to find real weaknesses and never invent a problem on a story that has none", () => {
+  const prompt = buildCriticPrompt();
+  assert.match(prompt, /do not invent a problem just to have something to fix/);
+  assert.match(prompt, /find real, specific weaknesses/);
+});
+await ok("buildSystemPrompt requires the original text back verbatim when nothing is revised — never leaves fields blank", () => {
+  const prompt = buildCriticPrompt();
+  assert.match(prompt, /never leave them blank/);
+});
+await ok("critiqueAndRevise refuses to run without a real humanized narration — never critiques an empty/missing story", async () => {
+  await assert.rejects(() => critiqueAndRevise({ story: {}, apiKey: "test" }), /humanized story is required/);
 });
 
 console.log("\nChecking resumeOrphanedJobs — real fix for a job stuck at \"Generating\" forever after a server restart abandons the in-memory pipeline (2026-09-09, live bug: a real project's job.status stayed \"running\" 24+ hours with video/quality still \"pending\")…");

@@ -45,8 +45,8 @@ const SUBTITLE_STYLES = [["clean", "Clean"], ["cinematic", "Cinematic"], ["socia
 // Cinematic automatically") — a real default, not a lock; the user can
 // still pick a different Visual Style pill afterward.
 const AUTO_VISUAL_STYLE_FOR_STYLE = { historical: "Historical Cinematic" };
-const STEP_LABELS = { story: "Story", humanize: "Humanizing Arabic", verification: "Verification", scenes: "Scenes", images: "Images", voice: "Voice", subtitles: "Subtitles", video: "Video", quality: "Quality Check" };
-const STEP_ORDER = ["story", "humanize", "verification", "scenes", "images", "voice", "subtitles", "video", "quality"];
+const STEP_LABELS = { story: "Story", humanize: "Humanizing Arabic", verification: "Verification", critic: "AI Story Critic", scenes: "Scenes", images: "Images", voice: "Voice", subtitles: "Subtitles", video: "Video", quality: "Quality Check" };
+const STEP_ORDER = ["story", "humanize", "verification", "critic", "scenes", "images", "voice", "subtitles", "video", "quality"];
 const VOICE_PERFORMANCES = [
   ["natural_storyteller", "Natural Storyteller"], ["warm", "Warm"], ["calm", "Calm"], ["emotional", "Emotional"],
   ["dramatic", "Dramatic"], ["documentary", "Documentary"], ["spiritual", "Spiritual / Reflective"],
@@ -429,6 +429,26 @@ function ProjectDetail({ C, MONO, SANS, projectId, onBack }) {
             {project.verification.approved_for_publication ? "✓ Approved for publication" : "⚠ Needs human review before proceeding"}
           </div>
           {(project.verification.warnings || []).map((w, i) => <div key={i} style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, marginTop: 2 }}>• {w}</div>)}
+        </div>
+      )}
+
+      {/* AI STORY CRITIC — a real, disclosed adversarial pass (2026-09-11):
+          never silently rewrites the story, and always shows what it
+          actually checked, whether or not anything changed. */}
+      {project.critic && (
+        <div style={cardStyle()}>
+          <div style={sectionLabelStyle({ marginBottom: 6 })}>AI STORY CRITIC{project.critic.revised ? " — REVISED" : ""}</div>
+          {project.critic.weaknesses.length ? (
+            <>
+              <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.textDim, marginBottom: 4 }}>Real weaknesses found:</div>
+              {project.critic.weaknesses.map((w, i) => <div key={i} style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, marginTop: 2 }}>• {w}</div>)}
+              {project.critic.revised && (
+                <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.green, fontWeight: 700, marginTop: 8 }}>✓ Revised: {project.critic.revisionNotes}</div>
+              )}
+            </>
+          ) : (
+            <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.green }}>✓ No real weaknesses found — story kept unchanged.</div>
+          )}
         </div>
       )}
 
