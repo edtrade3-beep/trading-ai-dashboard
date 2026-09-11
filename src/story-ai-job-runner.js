@@ -249,7 +249,7 @@ async function runVoiceStep(project) {
   const assetsDir = assetsDirFor(project.id);
   const results = await mapWithConcurrency(project.scenes, IMAGE_VOICE_CONCURRENCY, async (scene) => {
     const speed = SPEED_MAP[project.voiceSettings?.speed] || SPEED_MAP.natural;
-    const result = await generateSpeech(scene.narration_ar, { voice: project.voice === "female" ? "female" : "male", speed });
+    const result = await generateSpeech(scene.narration_ar, { voice: project.voice === "female" ? "female" : "male", speed, pauses: project.voiceSettings?.pauses });
     if (result.ok && result.audioBuffer) {
       const filename = `${scene.scene_number}.mp3`;
       const filePath = await saveAsset(project.id, assetsDir, "audio", filename, result.audioBuffer, "audio/mpeg");

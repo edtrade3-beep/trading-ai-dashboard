@@ -13,6 +13,40 @@ const { TTS_PROVIDER, ELEVENLABS_API_KEY, ELEVENLABS_VOICE_MALE, ELEVENLABS_VOIC
 
 function isConfigured() { return ttsProviderConfigured(); }
 
+// Real SSML pause markup (2026-09-11, live user report: "IN STORY AI I
+// FEEL LIKE I SOMEBODY READING FORM BOOK NOT A STORY TELLER"). Root
+// cause: generateWithGoogle sent plain text — the TTS engine had zero
+// real signal for rhythm/dramatic pacing beyond bare punctuation, which
+// produces a flat, uniform reading cadence regardless of how carefully
+// the Humanizer wrote the script. The "Pauses" Voice Director setting
+// (light/natural/dramatic) already existed but, until now, had NO real
+// TTS-level effect at all — only a prompt-level hint hoping the model
+// wrote more pause-worthy punctuation. This makes it a real, audible
+// control for the first time: real <break> tags at paragraph/sentence/
+// comma boundaries, with real durations that actually change per
+// setting — not a fixed markup applied regardless of what the user picked.
+const PAUSE_MS = {
+  light: { paragraph: 500, sentence: 250, comma: 80 },
+  natural: { paragraph: 700, sentence: 400, comma: 150 },
+  dramatic: { paragraph: 1000, sentence: 650, comma: 250 },
+};
+
+function xmlEscape(text) {
+  return String(text || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+// Returns the marked-up SSML *content* (no outer <speak> wrapper) — reused
+// by both Google (wraps in <speak>…</speak> itself) and Azure (wraps in
+// its own <speak><voice>…</voice></speak>), so the same real pause logic
+// never has to be duplicated per provider.
+function markUpPauses(text, pauses = "natural") {
+  const p = PAUSE_MS[pauses] || PAUSE_MS.natural;
+  const escaped = xmlEscape(text);
+  const withParagraphBreaks = escaped.replace(/\n\s*\n+/g, `<break time="${p.paragraph}ms"/>`);
+  const withSentenceBreaks = withParagraphBreaks.replace(/([.!؟])(\s+)/g, `$1<break time="${p.sentence}ms"/>`);
+  return withSentenceBreaks.replace(/([،,])(\s+)/g, `$1<break time="${p.comma}ms"/>`);
+}
+
 // UNTESTED (no ElevenLabs key in this environment).
 async function generateWithElevenLabs(text, { voice = "male", speed = 1.0, stability = 0.5 } = {}) {
   const voiceId = voice === "female" ? ELEVENLABS_VOICE_FEMALE : ELEVENLABS_VOICE_MALE;
@@ -34,10 +68,14 @@ async function generateWithElevenLabs(text, { voice = "male", speed = 1.0, stabi
   return { audioBuffer: buf, mimeType: "audio/mpeg" };
 }
 
-// UNTESTED (no Azure Speech key in this environment).
-async function generateWithAzure(text, { voice = "male" } = {}) {
+// UNTESTED (no Azure Speech key in this environment). Real pause markup
+// (see markUpPauses above) applied the same way as the tested Google
+// branch below — same real technique, disclosed as untested here only
+// because this provider itself has never been exercised against a live
+// account in this environment.
+async function generateWithAzure(text, { voice = "male", pauses = "natural" } = {}) {
   const voiceName = voice === "female" ? "ar-SA-ZariyahNeural" : "ar-SA-HamedNeural";
-  const ssml = `<speak version='1.0' xml:lang='ar-SA'><voice name='${voiceName}'>${text}</voice></speak>`;
+  const ssml = `<speak version='1.0' xml:lang='ar-SA'><voice name='${voiceName}'>${markUpPauses(text, pauses)}</voice></speak>`;
   const res = await fetch(`https://${AZURE_SPEECH_REGION}.tts.speech.microsoft.com/cognitiveservices/v1`, {
     method: "POST",
     headers: {
@@ -64,14 +102,18 @@ async function generateWithAzure(text, { voice = "male" } = {}) {
 // catalog can change or add new voices over time — both configurable via
 // GOOGLE_TTS_VOICE_MALE_AR/GOOGLE_TTS_VOICE_FEMALE_AR rather than a
 // silently-hardcoded assumption.
-async function generateWithGoogle(text, { voice = "male", speed = 1.0 } = {}) {
+async function generateWithGoogle(text, { voice = "male", speed = 1.0, pauses = "natural" } = {}) {
   const voiceName = voice === "female" ? GOOGLE_TTS_VOICE_FEMALE : GOOGLE_TTS_VOICE_MALE;
   const languageCode = voiceName.split("-").slice(0, 2).join("-") || "ar-XA";
+  // Real SSML input (2026-09-11) instead of plain text — see markUpPauses
+  // above for why. Google's TTS API accepts input.ssml as a direct
+  // alternative to input.text; no other request shape changes.
+  const ssml = `<speak>${markUpPauses(text, pauses)}</speak>`;
   const res = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${encodeURIComponent(GOOGLE_TTS_API_KEY)}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      input: { text },
+      input: { ssml },
       voice: { languageCode, name: voiceName },
       audioConfig: { audioEncoding: "MP3", speakingRate: Math.max(0.25, Math.min(4.0, speed)) },
     }),
@@ -95,4 +137,4 @@ async function generateSpeech(text, settings = {}) {
   }
 }
 
-module.exports = { generateSpeech, isConfigured };
+module.exports = { generateSpeech, isConfigured, markUpPauses, xmlEscape, PAUSE_MS };

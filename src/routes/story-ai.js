@@ -277,7 +277,7 @@ async function handleStoryAi(req, res, requestUrl) {
     const SAMPLE_AR = "في قرية صغيرة، حدث شيء لم ينسه أهلها أبدًا... كانت البداية بسيطة جدًا. لكن ما حدث بعد ذلك، غيّر كل شيء.";
     try {
       const { generateSpeech } = require("../story-ai-tts-provider");
-      const result = await generateSpeech(SAMPLE_AR, { voice, speed: SPEED_MAP[voiceSettings.speed] || 1.0 });
+      const result = await generateSpeech(SAMPLE_AR, { voice, speed: SPEED_MAP[voiceSettings.speed] || 1.0, pauses: voiceSettings.pauses });
       if (!result.ok) return writeJson(res, 200, { ok: false, error: result.reason || "PROVIDER_ERROR", detail: result.error || null });
       res.writeHead(200, { "Content-Type": result.mimeType || "audio/mpeg", "Content-Length": result.audioBuffer.length, "Cache-Control": "no-store" });
       return res.end(result.audioBuffer);
