@@ -14,6 +14,7 @@ const { THRESHOLDS: RED_FLAG_THRESHOLDS } = require("./red-flag-engine");
 const { getUpcomingMacroEvents } = require("./macro-calendar");
 const { computeWhyNow } = require("./why-now-engine");
 const { classifyTradeLane } = require("./trade-lane-classifier");
+const { buildRedTeamReview } = require("./red-team-engine");
 
 const PIPELINE_VERSION = "canonical-pipeline-v1";
 
@@ -55,6 +56,12 @@ function computeCanonicalAssetDecision({
   const resolvedEventRisk = eventRisk || computeEventRisk({ earningsDte: row.earningsDte, nowMs });
   const assetDecision = buildAssetDecision({ opportunity, marketRegime, dataHealth, eventRisk: resolvedEventRisk, timestamp: nowMs });
   opportunity.assetDecision = assetDecision;
+  // Same forwarding convention as assetDecision above, so any existing
+  // `row.assetDecision = opp.assetDecision`-style call site can forward
+  // this too with one parallel line, and any future direct consumer of
+  // `opportunity`/`canonical.opportunity` already gets it for free.
+  const redTeamReview = buildRedTeamReview(assetDecision);
+  opportunity.redTeam = redTeamReview;
   // Trade GPS (2026-09-03) — additive only, per the confirmed design
   // decision: this is a SECOND, narrower "is this specific setup
   // Trade-GPS-ready" read shown only on the new Trade GPS card, never a
@@ -157,6 +164,11 @@ function computeCanonicalAssetDecision({
   return {
     assetDecision, opportunity, marketRegime, dataHealth, compatibilityRegime: legacyRegime,
     tradeGps, tradeStructure, trapShield, marketAgreement, tradeGpsVerdict, dangerEvent, whyNow, tradeLane,
+    // Formal Red-Team pass (2026-09-11) — wired centrally here so every
+    // real consumer of this pipeline (trend-screen, opportunities,
+    // run_scan, etc.) gets it for free instead of each route building its
+    // own. Evidence only — never a second verdict (see red-team-engine.js).
+    redTeam: redTeamReview,
     engineVersion: PIPELINE_VERSION,
   };
 }

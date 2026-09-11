@@ -2268,6 +2268,7 @@ async function handleMarket(req, res, requestUrl) {
               payload.coreReason = opp.verdictReason;
               payload.opportunity = opp;
               payload.assetDecision = canonical.assetDecision;
+              payload.redTeam = canonical.redTeam;
             }
           }
         } catch { /* best-effort additive enrichment — payload stays fully valid without it */ }
@@ -2642,6 +2643,21 @@ async function handleMarket(req, res, requestUrl) {
       return writeJson(res, 200, { ok: false, error: `Prayer time lookup failed: ${e.message}` });
     }
 
+    // Portfolio Shock Test (2026-09-11, explicit user request via the
+    // revised master platform spec's Portfolio Shock Test section). Zero
+    // AI cost — reuses the exact same real correlation computation the
+    // dedicated /api/ai-hub/portfolio-shock-test route uses.
+    const SHOCK_TEST_TRIGGER = /\b(portfolio shock test|stress test my portfolio|shock test)\b/i;
+    if (SHOCK_TEST_TRIGGER.test(lastUserMsg)) {
+      try {
+        const { buildPortfolioShockReport, renderPortfolioShockText } = require("../portfolio-shock-engine");
+        const shock = await buildPortfolioShockReport();
+        return writeJson(res, 200, { ok: true, reply: renderPortfolioShockText(shock), portfolioShock: shock });
+      } catch (e) {
+        return writeJson(res, 200, { ok: false, error: `Portfolio Shock Test failed: ${e.message}` });
+      }
+    }
+
     // Real, explicit user request (2026-09-11): "From now on use anthropic
     // api only for story ai, remove anthropic from anything else" —
     // scoped, per the user's own confirmed choice, to the Master Agent
@@ -2667,6 +2683,7 @@ async function handleMarket(req, res, requestUrl) {
         "• \"كيف داير السوق اليوم\" — market narrative (movers, momentum, breakouts, BOS/ChoCh)",
         "• \"كيف داير الجو اليوم في المكان ديالي\" — real weather",
         "• \"معاش صلاة الظهر/العصر/الصبح/المغرب/العشاء\" — exact prayer time",
+        "• \"portfolio shock test\" — real modeled stress test on your open positions",
       ].join("\n"),
     });
   }
@@ -3097,6 +3114,7 @@ async function handleMarket(req, res, requestUrl) {
             row.bearishReason = opp.bearishVerdictReason;
             row.opportunity = opp;
             row.assetDecision = opp.assetDecision;
+            row.redTeam = opp.redTeam;
             // Trade GPS (2026-09-03) — additive pipeline fields, same
             // forwarding pattern as row.assetDecision above. Without
             // these, decision-store.js's shared cache (the one real
@@ -3207,6 +3225,7 @@ async function handleMarket(req, res, requestUrl) {
           result.coreCriticalFlags = opp.criticalFlags;
           result.coreReason = opp.verdictReason;
           result.assetDecision = canonical.assetDecision;
+          result.redTeam = canonical.redTeam;
           result.opportunity = opp;
         }
       } catch { /* canonical-verdict enrichment is additive-only — never breaks the base Sniper AI response */ }

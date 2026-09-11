@@ -238,6 +238,28 @@ async function handleAiHub(req, res, requestUrl) {
     }
   }
 
+  // GET /api/ai-hub/portfolio-shock-test — formal Portfolio Shock Test
+  // (2026-09-11, explicit user request). Reuses the exact same real
+  // $-weighted factor-correlation computePortfolioCorrelation above
+  // already produces — never a second, independently-fetched portfolio
+  // read. Same "expensive real historical-bars fetch, button-gated, not
+  // auto-polled" discipline as the routes above.
+  if (pathname === "/api/ai-hub/portfolio-shock-test" && req.method === "GET") {
+    const posResp = await getJson("/api/alpaca/positions");
+    if (!posResp || !posResp.ok) return writeJson(res, 200, { ok: false, reason: "no-alpaca-key" });
+    const positions = posResp.positions || [];
+    if (!positions.length) return writeJson(res, 200, { ok: true, generatedAt: new Date().toISOString(), totalValue: 0, scenarios: [], worstScenario: null, correlationConcentration: [], positionCount: 0, disclosure: "No open positions to model.", engineVersion: "portfolio-shock-v1" });
+    try {
+      const { computePortfolioCorrelation } = require("../portfolio-correlation-calc");
+      const { buildPortfolioShockTest } = require("../portfolio-shock-engine");
+      const { factorExposure, clusters } = await computePortfolioCorrelation(positions, getJson);
+      const result = buildPortfolioShockTest({ positions, factorExposure, clusters });
+      return writeJson(res, 200, { ok: true, ...result });
+    } catch (e) {
+      return writeJson(res, 200, { ok: false, error: e.message });
+    }
+  }
+
   // GET /api/ai-hub/symbol-correlation?symbol=X — real correlation of ONE
   // candidate symbol against the account's actual held positions (Market
   // Opportunity Engine Phase 2, 2026-08-26, spec's "Portfolio Awareness":

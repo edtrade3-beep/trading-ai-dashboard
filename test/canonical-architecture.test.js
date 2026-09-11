@@ -101,6 +101,11 @@ ok("canonical pipeline returns one linked opportunity/regime/health/final-decisi
   assert(isCanonicalRegime(pipelineResult.marketRegime.regime));
   assert(Number.isFinite(pipelineResult.assetDecision.riskReward));
 });
+ok("canonical pipeline wires the formal Red-Team review centrally — every consumer gets it for free, forwarded onto opportunity the same way assetDecision already is", () => {
+  assert(pipelineResult?.redTeam);
+  assert.strictEqual(pipelineResult.opportunity.redTeam, pipelineResult.redTeam);
+  assert.equal(pipelineResult.redTeam.reviewedVerdict, pipelineResult.assetDecision.verdict);
+});
 ok("legacy Alpaca paper Autopilot tiers only canonical executable Final Verdicts", () => {
   assert.equal(tierForFinalDecision({ verdict: "STRONG_BUY" }), "A");
   assert.equal(tierForFinalDecision({ verdict: "BUY" }), "B");

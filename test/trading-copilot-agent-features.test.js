@@ -100,6 +100,15 @@ ok("the general Morning Mode trigger no longer references the Arabic phrase (dea
 ok("AI_COPILOT_TOOLS (the Claude tool-loop schema) is fully removed, not left as dead weight (a comment mentioning its removal by name is fine — only a real declaration is checked)", () => {
   assert.doesNotMatch(marketSrc, /const AI_COPILOT_TOOLS/);
 });
+ok("the Portfolio Shock Test trigger exists, checked before the ANTHROPIC_API_KEY gate, and calls the real portfolio-shock-engine", () => {
+  const routeStart = marketSrc.indexOf('pathname === "/api/market/ai-copilot"');
+  const routeSrc = marketSrc.slice(routeStart);
+  const shockIdx = routeSrc.indexOf("if (SHOCK_TEST_TRIGGER.test(lastUserMsg))");
+  const keyCheckIdx = routeSrc.indexOf('const key = (process.env.ANTHROPIC_API_KEY || "").trim();\n    if (!key)');
+  assert.match(marketSrc, /SHOCK_TEST_TRIGGER = \/\\b\(portfolio shock test/);
+  assert.match(marketSrc, /require\("\.\.\/portfolio-shock-engine"\)/);
+  assert.ok(shockIdx > -1 && keyCheckIdx > -1 && shockIdx < keyCheckIdx, "the shock-test trigger must run before the ANTHROPIC_API_KEY gate");
+});
 
 console.log(`\n${passed} checks passed.`);
 if (process.exitCode) console.error("TRADING-COPILOT-AGENT-FEATURES TEST FAILED");
