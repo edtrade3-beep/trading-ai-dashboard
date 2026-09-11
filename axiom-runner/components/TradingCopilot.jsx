@@ -32,7 +32,12 @@ export default function TradingCopilot({ C, MONO, SANS, macroData, watchlistSymb
     if (alreadyGreeted) return;
     try { sessionStorage.setItem("axiom_copilot_greeted", "1"); } catch {}
     setOpen(true);
-    setQueuedQuery("good morning");
+    // "مرحبا عدول" (explicit user request, 2026-09-11: "Instead of good
+    // morning, say مرحبا عدول") — a personalized Arabic greeting, matched
+    // by the same real Morning Mode trigger server-side alongside the
+    // original English phrases (src/routes/market.js's ARABIC_GREETING_
+    // TRIGGER), so this queued message gets the exact same real report.
+    setQueuedQuery("مرحبا عدول");
   }, []); // eslint-disable-line
   useEffect(() => { if (open) fetch("/api/alpaca/positions").then(r => r.json()).then(d => { if (d?.ok) setPositions(d.positions || []); }).catch(() => {}); }, [open]);
   // The system prompt (src/routes/market.js POST /api/market/ai-copilot)

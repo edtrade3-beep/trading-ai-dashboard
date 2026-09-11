@@ -1436,7 +1436,7 @@ const COMMANDS = {
   // pre-existing macro-report + scanner-setups command) — not renamed or
   // touched, per this session's own "no duplicate command" discipline.
   // /agent with no question is the Master Agent's own equivalent.
-  agent:     async (a) => reply(await askAgent(a.length ? a.join(" ") : "good morning")),
+  agent:     async (a) => reply(await askAgent(a.length ? a.join(" ") : "مرحبا عدول")),
   ask:       async (a) => { if (!a.length) return reply("Usage: /ask <question>"); return reply(await askAgent(a.join(" "))); },
   alert:     (a) => cmdAlert(a),
   alerts:    () => cmdAlerts(),

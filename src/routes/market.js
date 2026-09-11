@@ -2586,8 +2586,14 @@ async function handleMarket(req, res, requestUrl) {
     // verdict/entry/stop/target always come from the real canonical
     // AssetDecision, never from the LLM.
     const lastUserMsg = [...history].reverse().find((m) => m.role === "user")?.content || "";
+    // "مرحبا عدول" (explicit user request, 2026-09-11: "Instead of good
+    // morning, say مرحبا عدول") is now the real personalized greeting the
+    // web app's auto-open and Telegram's /agent default both send — kept
+    // alongside the original English phrases (never removed, only added
+    // to) so a manually-typed "good morning" still works too.
     const MORNING_TRIGGER = /\b(good morning|start my day|what should i do today)\b/i;
-    if (MORNING_TRIGGER.test(lastUserMsg)) {
+    const ARABIC_GREETING_TRIGGER = /مرحبا\s*عدول/;
+    if (MORNING_TRIGGER.test(lastUserMsg) || ARABIC_GREETING_TRIGGER.test(lastUserMsg)) {
       try {
         const { buildMorningMode, renderMorningModeText } = require("../morning-mode-engine");
         const morning = await buildMorningMode();

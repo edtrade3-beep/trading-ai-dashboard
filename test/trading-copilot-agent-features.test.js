@@ -17,6 +17,7 @@ function ok(name, fn) {
 }
 
 const src = fs.readFileSync(path.join(__dirname, "..", "axiom-runner", "components", "TradingCopilot.jsx"), "utf8");
+const marketSrc = fs.readFileSync(path.join(__dirname, "..", "src", "routes", "market.js"), "utf8");
 
 console.log("Checking TradingCopilot.jsx — Master Agent auto-greet on first open per session…");
 
@@ -24,11 +25,12 @@ ok("auto-greet uses sessionStorage (once per real browser session), never localS
   assert.match(src, /sessionStorage\.getItem\("axiom_copilot_greeted"\)/);
   assert.match(src, /sessionStorage\.setItem\("axiom_copilot_greeted", "1"\)/);
 });
-ok("the auto-greet opens the panel and queues \"good morning\" through the real existing queuedQuery/send() path, not a separate ad-hoc call", () => {
-  assert.match(src, /setOpen\(true\);\s*\n\s*setQueuedQuery\("good morning"\);/);
+ok("the auto-greet opens the panel and queues the real personalized \"مرحبا عدول\" greeting through the existing queuedQuery/send() path, not a separate ad-hoc call", () => {
+  assert.match(src, /setOpen\(true\);/);
+  assert.match(src, /setQueuedQuery\("مرحبا عدول"\);/);
 });
 ok("the auto-greet effect only runs once on mount (empty dependency array), never re-fires on every re-render", () => {
-  const effectBlock = src.slice(src.indexOf("axiom_copilot_greeted") - 400, src.indexOf("axiom_copilot_greeted") + 400);
+  const effectBlock = src.slice(src.indexOf("axiom_copilot_greeted") - 400, src.indexOf("axiom_copilot_greeted") + 800);
   assert.match(effectBlock, /\}, \[\]\);/);
 });
 
@@ -46,6 +48,13 @@ ok("a final speech transcript is sent through the real send() function — never
 });
 ok("recognition is stopped on unmount, never left running after the component is gone", () => {
   assert.match(src, /useEffect\(\(\) => \(\) => recognitionRef\.current\?\.stop\(\), \[\]\);/);
+});
+
+console.log("\nChecking the server-side Morning Mode trigger recognizes the real personalized Arabic greeting, never just the English phrases…");
+
+ok("/api/market/ai-copilot's Morning Mode trigger matches \"مرحبا عدول\" in addition to (never instead of) the original English phrases", () => {
+  assert.match(marketSrc, /ARABIC_GREETING_TRIGGER = \/مرحبا\\s\*عدول\//);
+  assert.match(marketSrc, /MORNING_TRIGGER\.test\(lastUserMsg\) \|\| ARABIC_GREETING_TRIGGER\.test\(lastUserMsg\)/);
 });
 
 console.log(`\n${passed} checks passed.`);
