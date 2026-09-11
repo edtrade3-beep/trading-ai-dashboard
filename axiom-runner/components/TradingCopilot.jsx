@@ -156,8 +156,18 @@ export default function TradingCopilot({ C, MONO, SANS, statusBarH = 40, fabFadi
       {open && (
         <div style={{ position: "fixed", bottom: 82 + statusBarH, right: 18, zIndex: 9999, width: "min(400px, 92vw)", height: "min(560px, 78vh)",
           display: "flex", flexDirection: "column", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 14, boxShadow: "0 10px 40px rgba(0,0,0,0.4)", overflow: "hidden" }}>
-          <div style={{ padding: "12px 14px", borderBottom: `1px solid ${C.border}` }}>
+          <div style={{ padding: "12px 14px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
             <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.accent }}>🗣️ TRADING COPILOT <span style={{ fontFamily: SANS, fontSize: 10, fontWeight: 400, color: C.textDim }}>· real platform data only</span></div>
+            {/* Real, always-in-bounds close button (2026-09-11, live user
+                report: "Can not close it" — the external floating toggle
+                button sits just outside/behind this panel's own edge on
+                mobile, getting obscured by the bottom tab bar and other
+                floating widgets, making it unreliable to tap). This button
+                lives INSIDE the panel itself, so it's never covered by
+                anything the panel is layered on top of. */}
+            <button onClick={() => setOpen(false)} aria-label="Close" title="Close"
+              style={{ flexShrink: 0, width: 26, height: 26, borderRadius: "50%", cursor: "pointer",
+                border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, fontSize: 13, lineHeight: 1 }}>✕</button>
           </div>
           <div style={{ flex: 1, overflowY: "auto", padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
             {msgs.length === 0 && (

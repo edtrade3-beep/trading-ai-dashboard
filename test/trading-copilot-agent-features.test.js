@@ -48,6 +48,12 @@ ok("the auto-greet effect only runs once on mount (empty dependency array), neve
   assert.match(effectBlock, /\}, \[\]\);/);
 });
 
+console.log("\nChecking TradingCopilot.jsx — an always-in-bounds close button (live user report: \"Can not close it\")…");
+
+ok("the panel header has its own real close button that calls setOpen(false) directly, never relying only on the external floating toggle", () => {
+  assert.match(src, /onClick=\{\(\) => setOpen\(false\)\} aria-label="Close"/);
+});
+
 console.log("\nChecking TradingCopilot.jsx — microphone input (Web Speech API)…");
 
 ok("microphone support is feature-detected (SpeechRecognition or webkitSpeechRecognition), never assumed present", () => {
