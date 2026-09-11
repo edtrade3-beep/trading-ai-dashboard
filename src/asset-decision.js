@@ -129,6 +129,59 @@ function buildAssetDecision({ opportunity, marketRegime, dataHealth, positionSta
     winProbabilitySampleSize: opportunity.probabilitySampleCount ?? null,
     expectedValuePct: opportunity.expectedValue ?? null,
     confidence: Number.isFinite(confidenceBase) ? Math.round(confidenceBase * healthMultiplier) : null,
+    // Trade Score / Model Confidence / Data Quality / Estimated
+    // Probability separation (2026-09-11, explicit user request via a
+    // revised master platform spec's Quant Agent section: "Do NOT
+    // present '87% probability of winning' merely because an AI model
+    // produced 87" — separate trade score, model confidence, data
+    // quality, and probability). Purely additive: `confidence` and
+    // `opportunityScore` above are untouched for their existing real
+    // consumers (TradeDeskTab.jsx, TradeGpsCard.jsx,
+    // CanonicalVerdictStrip.jsx, trade-gps-notifier.js) — these are new,
+    // more precisely-named exposures of real values, not a new
+    // computation layered on top of guesses.
+    //
+    // tradeScore: the real setup-quality composite (same real value as
+    // opportunityScore above) — always HEURISTIC per scoreValidation,
+    // never a probability.
+    tradeScore: opportunity.score ?? null,
+    // dataQuality: the real per-source completeness/freshness score
+    // data-health-engine.js already computes, exposed at the top level
+    // instead of only nested under dataHealth.
+    dataQuality: dataHealth?.score ?? null,
+    dataQualityStatus: dataHealth?.status ?? null,
+    // modelConfidence: genuinely distinct from tradeScore — measures how
+    // complete/reliable the INPUTS behind this classification are, not
+    // how good the setup looks. Built entirely from already-real signals:
+    // real data completeness (dataHealth.score, weighted to 90% so even a
+    // perfectly fresh/complete data set doesn't alone imply maximum
+    // classification reliability — a real backtested track record is a
+    // genuinely separate kind of evidence, not just "more of the same"),
+    // a real 10-point bonus reserved specifically for when a genuinely
+    // calibrated historical win rate backs this call (see
+    // probabilityCalibrationStatus below — never a heuristic dressed up
+    // as calibration), and a real penalty for active critical red flags
+    // (a reliability concern, distinct from the setup-quality concern
+    // tradeScore already reflects). Bounded 0-100 — never a fabricated
+    // precision number.
+    modelConfidence: Math.max(0, Math.min(100, Math.round(
+      (Number.isFinite(dataHealth?.score) ? dataHealth.score : 50) * 0.9
+      + (Number.isFinite(opportunity.probability) ? 10 : 0)
+      - ((opportunity.criticalFlags || 0) > 0 ? 15 : 0)
+    ))),
+    // estimatedProbability / probabilityCalibrationStatus: the Quant
+    // Agent's specific requirement — never present a probability unless
+    // it has actually been calibrated from real historical results.
+    // winProbFor() (institutional-scoring.js) already enforces a real
+    // minimum sample size (MIN_WIN_SAMPLE=10) before ever returning a
+    // real winRate; this only surfaces that already-real, already-gated
+    // number under a clearer name plus an honest calibration-status
+    // label — never a new computation, never a probability shown without
+    // a real sample behind it.
+    estimatedProbability: Number.isFinite(opportunity.probability) ? opportunity.probability : null,
+    probabilityCalibrationStatus: Number.isFinite(opportunity.probability) ? "CALIBRATED"
+      : Number.isFinite(opportunity.probabilitySampleCount) ? "INSUFFICIENT_SAMPLE"
+      : "NOT_CALIBRATED",
     entry: entryPlan.entryPrice ?? null, stop: entryPlan.stop ?? null,
     targets: [entryPlan.target1, entryPlan.target2].filter(Number.isFinite), riskReward: entryPlan.rr ?? derivedRr,
     invalidation: Number.isFinite(entryPlan.invalidation) ? entryPlan.invalidation : null,

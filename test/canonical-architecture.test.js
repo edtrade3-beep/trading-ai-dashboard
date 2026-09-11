@@ -37,6 +37,46 @@ ok("AssetDecision uses standardized vocabularies", () => { assert(FINAL_VERDICTS
 ok("canonical BUY remains BUY when risk permits", () => assert.equal(allowed.verdict, "BUY"));
 ok("risk layer blocks a BUY in CRISIS and explains it", () => { assert.equal(blocked.verdict, "AVOID"); assert.equal(blocked.riskOverride.from, "BUY"); });
 ok("stale required data blocks BUY and lowers confidence", () => { assert.equal(staleBlocked.verdict, "WAIT"); assert(staleBlocked.confidence < allowed.confidence); });
+
+console.log("\nChecking Trade Score / Model Confidence / Data Quality / Estimated Probability separation (2026-09-11 Quant Agent requirement — never present an uncalibrated number as a probability)…");
+
+ok("tradeScore exposes the real setup-quality composite, unchanged and un-conflated with anything else", () => {
+  assert.equal(allowed.tradeScore, opportunity.score);
+  assert.equal(allowed.tradeScore, allowed.opportunityScore);
+});
+ok("dataQuality/dataQualityStatus are the real per-source completeness score, exposed at the top level", () => {
+  assert.equal(allowed.dataQuality, healthy.score);
+  assert.equal(allowed.dataQualityStatus, healthy.status);
+  assert.equal(staleBlocked.dataQuality, stale.score);
+  assert(staleBlocked.dataQuality < allowed.dataQuality);
+});
+ok("modelConfidence is a real, distinct field from tradeScore and confidence — never just an alias", () => {
+  assert.notEqual(allowed.modelConfidence, allowed.tradeScore);
+  assert(Number.isFinite(allowed.modelConfidence));
+  assert(allowed.modelConfidence >= 0 && allowed.modelConfidence <= 100);
+});
+ok("modelConfidence takes a real penalty for active critical red flags — a reliability concern, not a setup-quality one", () => {
+  const flagged = buildAssetDecision({ opportunity: { ...opportunity, criticalFlags: 2 }, marketRegime: riskOn, dataHealth: healthy, timestamp: now });
+  assert(flagged.modelConfidence < allowed.modelConfidence);
+  // tradeScore itself is untouched by this — that's the setup-quality
+  // dimension's own concern, not model confidence's.
+  assert.equal(flagged.tradeScore, allowed.tradeScore);
+});
+ok("no historical track record at all -> estimatedProbability is honestly null, never fabricated, status NOT_CALIBRATED", () => {
+  assert.equal(allowed.estimatedProbability, null);
+  assert.equal(allowed.probabilityCalibrationStatus, "NOT_CALIBRATED");
+});
+ok("a real historical sample below the minimum threshold -> still honestly null, status INSUFFICIENT_SAMPLE, never shown as if calibrated", () => {
+  const thin = buildAssetDecision({ opportunity: { ...opportunity, probability: undefined, probabilitySampleCount: 4 }, marketRegime: riskOn, dataHealth: healthy, timestamp: now });
+  assert.equal(thin.estimatedProbability, null);
+  assert.equal(thin.probabilityCalibrationStatus, "INSUFFICIENT_SAMPLE");
+});
+ok("a real, sufficiently-sampled historical win rate -> surfaced as CALIBRATED, and genuinely raises modelConfidence over the same setup with no track record", () => {
+  const calibrated = buildAssetDecision({ opportunity: { ...opportunity, probability: 0.64, probabilitySampleCount: 25 }, marketRegime: riskOn, dataHealth: healthy, timestamp: now });
+  assert.equal(calibrated.estimatedProbability, 0.64);
+  assert.equal(calibrated.probabilityCalibrationStatus, "CALIBRATED");
+  assert(calibrated.modelConfidence > allowed.modelConfidence);
+});
 ok("event risk blocks imminent earnings without fabricating missing events", () => {
   const e = computeEventRisk({ earningsDte: 1, nowMs: now });
   assert.equal(e.blocksNewExposure, true);
