@@ -2072,6 +2072,28 @@ const AI_COPILOT_TOOLS = [
       },
     },
   },
+  // Master Agent v1 read-only tools (2026-09-11) — same "real data only,
+  // never a second decision engine" discipline as run_scan above. All
+  // three are GREEN-tier (read/analyze/report) per the master audit
+  // prompt's own permission model; none can place an order, send a
+  // message, or edit a file. Reuses morning-mode-engine.js's exact
+  // summarizers so ad-hoc chat questions and the Morning Mode report can
+  // never quietly disagree.
+  {
+    name: "portfolio_snapshot",
+    description: "Get the REAL current broker risk/portfolio snapshot (open risk %, daily-loss breaker state, account health, open position count) — use this whenever asked to check positions, risk, or account health, instead of relying on whatever the user's own message claims.",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
+    name: "dealership_summary",
+    description: "Get REAL current dealership CRM state: hot leads awaiting reply, today's real scheduled appointments, and leads with no contact in 3+ real days. Use this for any 'check my dealership' / 'any hot leads' / 'what's on my schedule' question — never guess dealership state from memory.",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
+    name: "platform_health",
+    description: "Get REAL current platform health: which automated trading mutators (Autopilots) are actively running right now, whether execution is paper-only, and any real infrastructure issue (database, stale scanner universe). Use this for 'is anything broken' / 'what's running right now' / 'fix this page' style questions before speculating.",
+    input_schema: { type: "object", properties: {} },
+  },
 ];
 
 // Pure system-prompt builder for /api/market/cortex-followup — factored
@@ -2553,6 +2575,28 @@ async function handleMarket(req, res, requestUrl) {
       .map(m => ({ role: m.role === "assistant" ? "assistant" : "user", content: String(m.content || "").slice(0, 2000) }))
       .filter(m => m.content);
     if (!history.length) return writeJson(res, 400, { ok: false, error: "no message" });
+
+    // Master Agent v1 — Morning Mode (2026-09-11). Deterministic trigger,
+    // checked BEFORE any Claude call: "Start my day" always produces the
+    // exact same real report regardless of AI availability, and costs
+    // zero incremental AI spend (morning-mode-engine.js reuses today's
+    // already-generated CEO AI judgment for the WHY/risk narrative, never
+    // makes a new AI call of its own). Matches this platform's "AI role
+    // is bounded, never a second decision engine" rule — the report's
+    // verdict/entry/stop/target always come from the real canonical
+    // AssetDecision, never from the LLM.
+    const lastUserMsg = [...history].reverse().find((m) => m.role === "user")?.content || "";
+    const MORNING_TRIGGER = /\b(good morning|start my day|what should i do today)\b/i;
+    if (MORNING_TRIGGER.test(lastUserMsg)) {
+      try {
+        const { buildMorningMode, renderMorningModeText } = require("../morning-mode-engine");
+        const morning = await buildMorningMode();
+        return writeJson(res, 200, { ok: true, reply: renderMorningModeText(morning), morningMode: morning });
+      } catch (e) {
+        return writeJson(res, 200, { ok: false, error: `Morning Mode failed: ${e.message}` });
+      }
+    }
+
     const wl = (ctx.watchlist || []).slice(0, 40).join(", ");
     const pos = (ctx.positions || []).slice(0, 30).map(p => `${p.symbol} ${p.qty}@${p.avgEntry} (${p.unrealizedPL >= 0 ? "+" : ""}${Math.round(p.unrealizedPL)})`).join(", ");
     const setups = (ctx.setups || []).slice(0, 10).map(s => `${s.symbol} A+${s.aScore}`).join(", ");
@@ -2598,7 +2642,18 @@ RULES THEY TRADE BY: only A+ setups (≥90) in a green regime, strong sector, at
           for (const tu of content.filter(c => c.type === "tool_use")) {
             let payload;
             try {
-              payload = tu.name === "run_scan" ? await runAiScanTool(tu.input || {}) : { error: `Unknown tool: ${tu.name}` };
+              if (tu.name === "run_scan") payload = await runAiScanTool(tu.input || {});
+              else if (tu.name === "portfolio_snapshot") {
+                const { getJson: internalGetJson } = require("../morning-mode-engine");
+                payload = await internalGetJson("/api/ai-hub/risk-snapshot");
+              } else if (tu.name === "dealership_summary") {
+                const { summarizeDealership, getJson: internalGetJson } = require("../morning-mode-engine");
+                const [leadsResp, apptsResp] = await Promise.all([internalGetJson("/api/dealer/crm/leads"), internalGetJson("/api/dealer/fb/appointments")]);
+                payload = summarizeDealership(leadsResp, apptsResp);
+              } else if (tu.name === "platform_health") {
+                const { summarizePlatform, getJson: internalGetJson } = require("../morning-mode-engine");
+                payload = summarizePlatform(await internalGetJson("/api/health"));
+              } else payload = { error: `Unknown tool: ${tu.name}` };
             } catch (e) { payload = { error: e.message || "tool failed" }; }
             toolResults.push({ type: "tool_result", tool_use_id: tu.id, content: JSON.stringify(payload) });
           }
