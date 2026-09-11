@@ -68,7 +68,9 @@ async function handleAutopilot(req, res, requestUrl) {
     const { getAutoexecMode } = require("./autoexec");
     let tradierLive = false;
     try { tradierLive = require("../tradier-broker").LIVE; } catch { /* optional legacy broker */ }
-    return writeJson(res, 200, { ok: true, ...getStatus(), execution: executionStatus({ serverAutopilot: false, lightboxMode: getMode(), tradierMode: getAutoexecMode(), tradierLive }) });
+    let autopilot2State = "OFF";
+    try { autopilot2State = require("../autopilot2-store").loadState().state; } catch { /* optional store */ }
+    return writeJson(res, 200, { ok: true, ...getStatus(), execution: executionStatus({ serverAutopilot: false, lightboxMode: getMode(), tradierMode: getAutoexecMode(), tradierLive, autopilot2State }) });
   }
 
   // Real ASSIST order preview/execute (2026-08-23, explicit user request:

@@ -20,10 +20,21 @@ const EXECUTION_PATHS = Object.freeze({
   // codebase already uses for other reversible retirements.
   TRADIER_AUTOEXEC: { mode: "RETIRED", paperOnly: true, decisionSource: "canonical-pipeline-v1" },
   QUICK_TRADE: { mode: "MANUAL", paperOnly: true, decisionSource: "user-confirmed" },
+  // Real gap found live (2026-09-10 platform audit): ADOL22 Autopilot 2.0
+  // (src/autopilot2-engine.js, registered in server.js as a 5-min tick)
+  // opens/closes/manages its own real paper positions via
+  // autopilot2-account.js and was never represented in this contract at
+  // all — /api/health's activeMutators could never show it running even
+  // while it actively mutated the account. Its decision logic already
+  // reads the canonical AssetDecision (compliant); this closes the
+  // visibility gap only, no behavior change. Its scheduler itself is
+  // intentionally left unmerged with the others pending deployment
+  // shadowing — see docs/ARCHITECTURE_MIGRATION.md's "Known constraints."
+  ADOL22_AUTOPILOT2: { mode: "AUTOMATIC", paperOnly: true, decisionSource: "canonical-pipeline-v1" },
 });
 const READ_ONLY_PATHS = Object.freeze(["AUTOPILOT_ALERT_TICK", "SCANNERS", "ALERTS", "RESEARCH", "HISTORY"]);
 
-function executionStatus({ serverAutopilot = false, lightboxMode = "OFF", tradierMode = "off", tradierLive = false } = {}) {
+function executionStatus({ serverAutopilot = false, lightboxMode = "OFF", tradierMode = "off", tradierLive = false, autopilot2State = "OFF" } = {}) {
   return {
     version: EXECUTION_AUTHORITY_VERSION,
     // Real, checked state (2026-09-03, Phase 0 audit finding: this was
@@ -35,6 +46,10 @@ function executionStatus({ serverAutopilot = false, lightboxMode = "OFF", tradie
       ...(serverAutopilot ? ["SERVER_AUTOPILOT"] : []),
       ...(lightboxMode === "ASSIST" ? ["LIGHTBOX_ASSIST"] : []),
       ...(tradierMode === "autopilot" ? ["TRADIER_AUTOEXEC"] : []),
+      // OFF is the only state where the tick does nothing at all (per
+      // autopilot2-engine.js's own _tickImpl — every other state still
+      // manages real open positions, so it counts as an active mutator).
+      ...(autopilot2State && autopilot2State !== "OFF" ? ["ADOL22_AUTOPILOT2"] : []),
     ],
     pendingApprovalPaths: tradierMode === "assistant" ? ["TRADIER_AUTOEXEC"] : [],
     readOnlySchedulers: READ_ONLY_PATHS,

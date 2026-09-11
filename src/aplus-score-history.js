@@ -44,9 +44,13 @@ async function logDailySnapshot() {
   // Real per-symbol Cortex read (2026-08-13, explicit user follow-up to
   // "how accurate this setup" — logged alongside the existing A+ Score so
   // the same daily forward-return tracker below can start accumulating a
-  // real track record for Cortex Verdict too, not just A+ Score. Same real
-  // engines Cortex itself uses (computeSniperDecision, computeHeatRisk,
-  // computeCortexVerdict, computeTechnicalScore) — not a re-derived guess.
+  // real track record for Cortex Verdict too, not just A+ Score. The
+  // logged cortexVerdict/assetVerdict below come from the canonical
+  // AssetDecision (computeCanonicalAssetDecision), the same one every
+  // other surface reads — not a re-derived guess and not cortex-decision.
+  // js's own computeCortexVerdict, which this file does not call.
+  // computeSniperDecision/computeTechnicalScore remain real supporting
+  // evidence fields (sniperAction/technicalScore below), not verdicts.
   const scores = results
     .filter(r => !r.error && Number.isFinite(Number(r.price)) && Number(r.price) > 0)
     .map(r => {

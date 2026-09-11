@@ -74,6 +74,16 @@ ok("execution authority is paper-only and separates mutators from read-only jobs
   assert.deepEqual(status.activeMutators, ["SERVER_AUTOPILOT", "LIGHTBOX_ASSIST", "TRADIER_AUTOEXEC"]);
   assert(status.readOnlySchedulers.includes("SCANNERS"));
 });
+ok("execution authority reports ADOL22 Autopilot 2.0 as an active mutator whenever it isn't OFF — real gap found in the 2026-09-10 platform audit (it mutates real paper positions via autopilot2-engine.js but was previously invisible to /api/health)", () => {
+  const off = executionStatus({ autopilot2State: "OFF" });
+  assert(!off.activeMutators.includes("ADOL22_AUTOPILOT2"));
+  for (const state of ["RUNNING", "SAFE_MODE", "PAUSED"]) {
+    const status = executionStatus({ autopilot2State: state });
+    assert(status.activeMutators.includes("ADOL22_AUTOPILOT2"), `state ${state} should report ADOL22_AUTOPILOT2 as active`);
+  }
+  // No state passed at all must default to the honest "not visible/off" reading, never silently omitting a running tick.
+  assert(!executionStatus({}).activeMutators.includes("ADOL22_AUTOPILOT2"));
+});
 ok("research context is bounded context, never a final verdict", () => {
   const c = buildResearchContext({ researchIntel: { narrativeShifts: [{ dimension: "fed-policy-direction", state: "DETERIORATING", shifted: true }], cards: [{ risk: "HIGH" }] } });
   assert.equal(c.available, true);

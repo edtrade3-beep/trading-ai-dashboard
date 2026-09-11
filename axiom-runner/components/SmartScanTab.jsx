@@ -4,8 +4,6 @@ import { clickableProps } from "./ui-helpers.js";
 import { smartScanZoneOf, exportSmartScanZonePDF } from "./smartscan-shared.js";
 import { FIVEX_REF } from "./fivex-data.js";
 import { computeAPlusScore, computeRegime, computePrediction } from "./market-helpers.js";
-import { computeSniperDecision } from "./sniper-decision.js";
-import { computeHeatRisk, computeCortexVerdict } from "./cortex-engine.js";
 import { FINAL_VERDICT_META } from "./final-decision-meta.js";
 import { computeRegimeLabel } from "./DashboardTab.jsx";
 import { computeAntiChase } from "./anti-chase.js";
@@ -899,19 +897,18 @@ export default function SmartScanTab({
                         const isExpanded = scanExpanded === row.ticker;
                         const ref = FIVEX_REF[row.ticker];
                         const livePrice = Number(row.quote?.price || 0);
-                        // ── Real verdict — the exact same Cortex Verdict AM Cortex's Deep
-                        // Scan shows for this symbol, not a separate ad-hoc formula. Explicit
-                        // user report, 2026-08-13: "it shows buy but when you click on cortex
-                        // deep scan it shows watch or stay away" — root cause was this row's
-                        // badge being computed from its own disconnected weighted-average
-                        // (real score + a locally re-derived, cruder 7-check trend template +
-                        // MACD + a flat, non-discriminating constant), never checking heat
-                        // risk (extended/climactic-top danger) the way Cortex Verdict does.
+                        // ── Real verdict — the exact same canonical AssetDecision AM Cortex's
+                        // Deep Scan shows for this symbol, not a separate ad-hoc formula.
+                        // Explicit user report, 2026-08-13: "it shows buy but when you click on
+                        // cortex deep scan it shows watch or stay away" — root cause was this
+                        // row's badge being computed from its own disconnected weighted-average.
+                        // Migrated (One Engine consolidation) to read trendRow.assetDecision.verdict
+                        // directly below — the same canonical verdict every other surface reads —
+                        // rather than calling cortex-decision.js's own computeCortexVerdict, so
+                        // this badge and Cortex Deep Scan can never disagree again.
                         // smartScanTrendMap[row.ticker] is the same real trend-screen row
                         // Cortex itself fetches (already loaded for every row in this table,
-                        // see the effect above) — reusing computeSniperDecision/computeHeatRisk/
-                        // computeCortexVerdict directly guarantees this badge and Cortex Deep
-                        // Scan can never disagree again, since it's the same function.
+                        // see the effect above).
                         const trendRow = smartScanTrendMap[row.ticker] || null;
                         const aplus = computeAPlusScore(trendRow || {}, smartScanRegime);
                         // Compatibility presentation object for the existing

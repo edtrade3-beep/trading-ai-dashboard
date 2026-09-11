@@ -30,6 +30,8 @@ async function handleHealth(req, res) {
   try { tradierMode = require("./autoexec").getAutoexecMode(); } catch { /* optional legacy broker */ }
   let tradierLive = false;
   try { tradierLive = require("../tradier-broker").LIVE; } catch { /* optional legacy broker */ }
+  let autopilot2State = "OFF";
+  try { autopilot2State = require("../autopilot2-store").loadState().state; } catch { /* optional store */ }
   const { executionStatus } = require("../execution-authority");
   // Real diagnostic (2026-09-04, live production question: a real market-
   // hours Autopilot 2.0 tick was confirmed running with no errors, yet the
@@ -51,7 +53,7 @@ async function handleHealth(req, res) {
   return writeJson(res, 200, {
     ok: true, version: "market-v2", build: BUILD, startedAt: STARTED_AT,
     telegram: telegramConfigured(), serverAutopilot, meanrevPaper, apiAuth,
-    execution: { ...executionStatus({ serverAutopilot, lightboxMode, tradierMode, tradierLive }), lightboxMode, tradierMode },
+    execution: { ...executionStatus({ serverAutopilot, lightboxMode, tradierMode, tradierLive, autopilot2State }), lightboxMode, tradierMode, autopilot2State },
     envSeen, postgres, dynamicUniverse,
   });
 }
