@@ -44,6 +44,20 @@ const GOOGLE_TTS_API_KEY = (process.env.GOOGLE_TTS_API_KEY || "").trim();
 const GOOGLE_TTS_VOICE_MALE = (process.env.GOOGLE_TTS_VOICE_MALE_AR || "ar-XA-Wavenet-B").trim();
 const GOOGLE_TTS_VOICE_FEMALE = (process.env.GOOGLE_TTS_VOICE_FEMALE_AR || "ar-XA-Wavenet-A").trim();
 
+// Background music — same abstraction discipline as images/TTS above
+// (2026-09-11, AI Background Music Director). Real, disclosed
+// NOT_CONFIGURED-by-default state: this app has no music-generation API
+// key or licensed library today, so claiming a real track exists would
+// be exactly the "fake copyright-free" problem the user's own spec
+// explicitly warns against (§27 "Do not tell the user music is
+// copyright-free unless its license actually confirms that."). "local"
+// is a real, zero-cost, zero-API-key option: the user (or a real
+// licensed source they've verified) drops real audio files into
+// data/story-ai/music-library/<mood>/ themselves — see
+// story-ai-music-provider.js's own header for the full contract.
+const MUSIC_PROVIDER = (process.env.STORY_AI_MUSIC_PROVIDER || "").trim().toLowerCase();
+const MUSIC_LIBRARY_DIR = (process.env.STORY_AI_MUSIC_LIBRARY_DIR || "").trim();
+
 // Budget/limits — real, disclosed defaults, all overridable. Enforced by
 // story-ai-job-runner.js before any paid step, never silently ignored.
 // Real bump (2026-09-10, explicit user request: "more video time") — the
@@ -71,6 +85,10 @@ function ttsProviderConfigured() {
   if (TTS_PROVIDER === "google") return Boolean(GOOGLE_TTS_API_KEY);
   return false;
 }
+function musicProviderConfigured() {
+  if (MUSIC_PROVIDER === "local") return Boolean(MUSIC_LIBRARY_DIR);
+  return false;
+}
 
 // Advanced Settings shared defaults/maps (2026-09-10) — one real source
 // of truth for every agent/route that needs to interpret these, instead
@@ -84,8 +102,9 @@ module.exports = {
   TTS_PROVIDER, ELEVENLABS_API_KEY, ELEVENLABS_VOICE_MALE, ELEVENLABS_VOICE_FEMALE,
   AZURE_SPEECH_KEY, AZURE_SPEECH_REGION,
   GOOGLE_TTS_API_KEY, GOOGLE_TTS_VOICE_MALE, GOOGLE_TTS_VOICE_FEMALE,
+  MUSIC_PROVIDER, MUSIC_LIBRARY_DIR,
   MAX_COST_PER_VIDEO_USD, MAX_SCENE_COUNT, MAX_RETRIES_PER_STEP,
   MAX_TOPIC_LENGTH, MAX_NOTES_LENGTH, MAX_DURATION_SECONDS,
   CREATIVITY_TEMPERATURE, DEFAULT_SCENE_LENGTH_SECONDS,
-  imageProviderConfigured, ttsProviderConfigured,
+  imageProviderConfigured, ttsProviderConfigured, musicProviderConfigured,
 };

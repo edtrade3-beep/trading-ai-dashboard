@@ -25,6 +25,8 @@ const { buildSocialMetadata } = require("./story-ai-social-agent");
 const { buildAllCues, toSrt, rebuildSubtitlesFromAudioTiming } = require("./story-ai-subtitles");
 const { generateImage, isConfigured: imagesConfigured } = require("./story-ai-image-provider");
 const { generateSpeech, isConfigured: ttsConfigured } = require("./story-ai-tts-provider");
+const { planMusicForScenes, buildMusicTimeline } = require("./story-ai-music-director-agent");
+const { getTrackForMood, isConfigured: musicConfigured } = require("./story-ai-music-provider");
 const { checkFfmpegAvailable, buildSceneClipArgs, buildFinalMuxArgs, runFfmpeg, getAudioDurationSeconds, TARGET_WIDTH, TARGET_HEIGHT } = require("./story-ai-video-assembly");
 const { runQualityControl } = require("./story-ai-quality-agent");
 const { addCostEntry } = require("./story-ai-cost");
@@ -35,7 +37,7 @@ const { estimateImageCostUSD, estimateTtsCostUSD } = require("./story-ai-cost");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const STEP_ORDER = ["story", "humanize", "verification", "critic", "scenes", "images", "voice", "subtitles", "video", "quality"];
+const STEP_ORDER = ["story", "humanize", "verification", "critic", "scenes", "music", "images", "voice", "subtitles", "video", "quality"];
 const running = new Set(); // in-memory guard — one active run per project at a time
 
 // Real speed fix (2026-09-07, explicit user request: "how to make it
@@ -204,6 +206,39 @@ async function runScenesStep(project, apiKey) {
   setStep(project, "scenes", "passed");
 }
 
+// Real AI Background Music Director step (2026-09-11) — the real, cheap
+// (haiku-tier, one call for the whole story) scene-by-scene mood/
+// intensity/silence plan. Deliberately does NOT touch ffmpeg or the
+// music provider here — this only needs the real narration text, which
+// exists right after Scenes; the real per-scene AUDIO durations the
+// timeline needs to turn this plan into actual segment lengths aren't
+// known until runVideoStep probes the real generated voice files. Same
+// honest-skip discipline as Images/Voice: a project with no music
+// provider configured, or musicPolicy="off", still completes normally —
+// music is real and additive, never a hard requirement.
+async function runMusicStep(project, apiKey) {
+  setStep(project, "music", "running");
+  if (project.advancedSettings?.musicPolicy === "off") {
+    setStep(project, "music", "warning", { reason: "Music disabled by user (musicPolicy=off)." });
+    project.music = null;
+    return;
+  }
+  if (!musicConfigured()) {
+    setStep(project, "music", "warning", { reason: "MUSIC PROVIDER NOT CONFIGURED" });
+    project.music = null;
+    return;
+  }
+  try {
+    const { plan, costUSD, model } = await planMusicForScenes({ scenes: project.scenes, story: project.story, apiKey });
+    project.music = { plan, model };
+    addCostEntry(project.costLedger, { stage: "music", provider: "anthropic", costUSD });
+    setStep(project, "music", "passed");
+  } catch (err) {
+    setStep(project, "music", "warning", { reason: `Music planning failed: ${err.message}` });
+    project.music = null;
+  }
+}
+
 async function runImagesStep(project) {
   if (project.options?.generateImages === false) { setStep(project, "images", "warning", { reason: "Skipped by user options." }); return; }
   setStep(project, "images", "running");
@@ -321,6 +356,52 @@ async function runSubtitlesStep(project) {
 // Render server, not a guess about what's happening from outside it.
 function logVideo(...args) { console.log("[VIDEO]", ...args); }
 
+// Real Background Music bed builder (2026-09-11) — turns the Music
+// Director's per-scene plan (project.music.plan) plus the REAL per-scene
+// audio durations just probed in runVideoStep into one continuous real
+// audio file matching the final video's own length. Each merged segment
+// (buildMusicTimeline groups contiguous same-mood scenes) becomes one
+// real ffmpeg-rendered clip: a real looped/trimmed track for a real
+// music segment, or real digital silence (`anullsrc`) for a
+// `dramaticSilence` beat OR a mood with no real track file yet (an
+// honest gap, never a fabricated substitute). Returns null (skip music
+// mixing entirely) only if every single segment came back silent — no
+// point wiring a silent "music" input into the final mux.
+async function buildMusicBed(segments, videoDir) {
+  const clipPaths = [];
+  let anyRealTrack = false;
+  for (let i = 0; i < segments.length; i++) {
+    const seg = segments[i];
+    const clipPath = path.join(videoDir, `music_seg_${i}.m4a`);
+    const duration = Math.max(0.2, seg.durationSeconds);
+    if (seg.dramaticSilence) {
+      logVideo(`Music segment ${i}: dramatic silence for ${duration.toFixed(1)}s (scenes ${seg.sceneNumbers.join(",")})`);
+      await runFfmpeg(["-y", "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo", "-t", String(duration), "-c:a", "aac", "-b:a", "192k", clipPath]);
+    } else {
+      const track = await getTrackForMood(seg.mood, { seed: i });
+      if (track.ok) {
+        anyRealTrack = true;
+        logVideo(`Music segment ${i}: real track "${track.path}" (mood=${seg.mood}) for ${duration.toFixed(1)}s (scenes ${seg.sceneNumbers.join(",")})`);
+        // Real loop+trim to the segment's real length, with a short
+        // fade-out so looping/cutting to the next segment never clicks.
+        const fadeStart = Math.max(0, duration - 1.5);
+        await runFfmpeg(["-y", "-stream_loop", "-1", "-i", track.path, "-t", String(duration), "-af", `afade=t=out:st=${fadeStart}:d=1.5`, "-c:a", "aac", "-b:a", "192k", clipPath]);
+      } else {
+        logVideo(`Music segment ${i}: no real track for mood "${seg.mood}" (${track.reason}) — honest silence for ${duration.toFixed(1)}s`);
+        await runFfmpeg(["-y", "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo", "-t", String(duration), "-c:a", "aac", "-b:a", "192k", clipPath]);
+      }
+    }
+    clipPaths.push(clipPath);
+  }
+  if (!anyRealTrack) { logVideo("No real music track found for any segment — skipping music mixing entirely."); return null; }
+  const escapeForConcat = (p) => p.replace(/'/g, "'\\''");
+  const listPath = path.join(videoDir, "music_concat.txt");
+  fs.writeFileSync(listPath, clipPaths.map((p) => `file '${escapeForConcat(p)}'`).join("\n"), "utf8");
+  const combinedPath = path.join(videoDir, "music.m4a");
+  await runFfmpeg(["-y", "-f", "concat", "-safe", "0", "-i", listPath, "-c:a", "aac", "-b:a", "192k", combinedPath]);
+  return combinedPath;
+}
+
 async function runVideoStep(project) {
   logVideo(`Starting assembly for ${project.id}`);
   setStep(project, "video", "running");
@@ -425,6 +506,29 @@ async function runVideoStep(project) {
       durations.push(real ?? (Number(scene.duration_seconds) || 5));
     }
 
+    // 1b. Real Background Music bed (2026-09-11) — only attempted when
+    //     the Music Director actually produced a plan (runMusicStep
+    //     honestly skips this on musicPolicy="off" or no provider
+    //     configured) and a real provider is configured RIGHT NOW (it
+    //     could have been unconfigured at plan time and configured since,
+    //     or vice versa — always re-check live rather than trust a stale
+    //     flag). A failure here is non-blocking: the video still
+    //     assembles with narration-only audio, same as before this
+    //     feature existed.
+    let musicPath = null;
+    if (project.music?.plan?.length && musicConfigured()) {
+      try {
+        const planByScene = new Map(project.music.plan.map((p) => [p.scene_number, p]));
+        const usablePlan = usableScenes.map((s) => planByScene.get(s.scene_number) || { scene_number: s.scene_number, mood: "calm", intensity: 2, dramaticSilence: false });
+        const segments = buildMusicTimeline(usablePlan, durations);
+        logVideo(`Music plan: ${segments.length} real segment(s) from ${usablePlan.length} scene(s).`);
+        musicPath = await buildMusicBed(segments, videoDir);
+      } catch (err) {
+        logVideo(`Music bed build failed (non-blocking, video continues narration-only): ${err.message}`);
+        musicPath = null;
+      }
+    }
+
     // 2. Real Ken-Burns clip per scene (pure builder, real ffmpeg run).
     const clipPaths = [];
     for (let i = 0; i < usableScenes.length; i++) {
@@ -467,11 +571,13 @@ async function runVideoStep(project) {
     project.subtitles = { ...project.subtitles, cues: retimedCues, srtPath: retimedSrtPath, timingSource: "real-audio-duration" };
 
     // 6. Real final mux — concatenated clips + real combined narration +
-    //    real re-timed subtitles burned in. Background music is a real,
-    //    disclosed follow-up (buildFinalMuxArgs already supports it via
-    //    musicPath) — not built here, no music asset pipeline exists yet.
+    //    real re-timed subtitles burned in + the real Background Music
+    //    bed built above (null when no provider is configured, disabled
+    //    by musicPolicy, or every planned segment came back silent) —
+    //    buildFinalMuxArgs's own sidechaincompress ducking keeps
+    //    narration clear whenever music is actually present.
     const outPath = path.join(finalDir, "final.mp4");
-    const muxArgs = buildFinalMuxArgs({ concatListPath, narrationAudioPath: combinedAudioPath, srtPath: retimedSrtPath, outPath, burnSubtitles: true, subtitleStyle: project.advancedSettings?.subtitleStyle });
+    const muxArgs = buildFinalMuxArgs({ concatListPath, narrationAudioPath: combinedAudioPath, musicPath, srtPath: retimedSrtPath, outPath, burnSubtitles: true, subtitleStyle: project.advancedSettings?.subtitleStyle });
     logVideo(`Running FFmpeg (final mux): ffmpeg ${muxArgs.join(" ")}`);
     await runFfmpeg(muxArgs);
     logVideo(`FFmpeg exited 0 (runFfmpeg only resolves on a real exit code 0 — see story-ai-video-assembly.js)`);
@@ -504,7 +610,7 @@ async function runVideoStep(project) {
     // already reads project.finalVideo.path (it was built and wired
     // before this real assembly step existed to ever populate it) —
     // matching that existing real contract, not inventing a new one.
-    project.finalVideo = { path: finalStoredPath, sceneCount: usableScenes.length, totalDurationSeconds: Math.round(durations.reduce((a, b) => a + b, 0) * 100) / 100, skippedScenes: skippedCount, fileSizeBytes: outSize, width: TARGET_WIDTH, height: TARGET_HEIGHT };
+    project.finalVideo = { path: finalStoredPath, sceneCount: usableScenes.length, totalDurationSeconds: Math.round(durations.reduce((a, b) => a + b, 0) * 100) / 100, skippedScenes: skippedCount, fileSizeBytes: outSize, width: TARGET_WIDTH, height: TARGET_HEIGHT, musicUsed: Boolean(musicPath) };
     logVideo(`Marking video step complete (${usableScenes.length} scenes, ${project.finalVideo.totalDurationSeconds}s, ${outSize} bytes)`);
     setStep(project, "video", "passed", skippedCount > 0 ? { reason: `${skippedCount} scene(s) skipped — ${missingAssetScenes.length ? missingAssetScenes.join(", ") : "missing a real image or narration audio"}.` } : {});
   } catch (err) {
@@ -547,6 +653,7 @@ async function runPipeline(projectId, apiKey) {
 
     await runStepWithTimeout("critic", () => runCriticStep(project, apiKey)); saveProject(project);
     await runStepWithTimeout("scenes", () => runScenesStep(project, apiKey)); saveProject(project);
+    await runStepWithTimeout("music", () => runMusicStep(project, apiKey)); saveProject(project);
     await runStepWithTimeout("images", () => runImagesStep(project)); saveProject(project);
     await runStepWithTimeout("voice", () => runVoiceStep(project)); saveProject(project);
     await runStepWithTimeout("subtitles", () => runSubtitlesStep(project)); saveProject(project);
@@ -589,6 +696,7 @@ const STEP_RUNNERS = {
   verification: runVerificationStep,
   critic: runCriticStep,
   scenes: runScenesStep,
+  music: runMusicStep,
   images: runImagesStep,
   voice: runVoiceStep,
   // Real bug fix (2026-09-09): runSubtitlesStep became async once it

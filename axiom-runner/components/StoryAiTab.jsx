@@ -45,8 +45,8 @@ const SUBTITLE_STYLES = [["clean", "Clean"], ["cinematic", "Cinematic"], ["socia
 // Cinematic automatically") — a real default, not a lock; the user can
 // still pick a different Visual Style pill afterward.
 const AUTO_VISUAL_STYLE_FOR_STYLE = { historical: "Historical Cinematic" };
-const STEP_LABELS = { story: "Story", humanize: "Humanizing Arabic", verification: "Verification", critic: "AI Story Critic", scenes: "Scenes", images: "Images", voice: "Voice", subtitles: "Subtitles", video: "Video", quality: "Quality Check" };
-const STEP_ORDER = ["story", "humanize", "verification", "critic", "scenes", "images", "voice", "subtitles", "video", "quality"];
+const STEP_LABELS = { story: "Story", humanize: "Humanizing Arabic", verification: "Verification", critic: "AI Story Critic", scenes: "Scenes", music: "Music Director", images: "Images", voice: "Voice", subtitles: "Subtitles", video: "Video", quality: "Quality Check" };
+const STEP_ORDER = ["story", "humanize", "verification", "critic", "scenes", "music", "images", "voice", "subtitles", "video", "quality"];
 const VOICE_PERFORMANCES = [
   ["natural_storyteller", "Natural Storyteller"], ["warm", "Warm"], ["calm", "Calm"], ["emotional", "Emotional"],
   ["dramatic", "Dramatic"], ["documentary", "Documentary"], ["spiritual", "Spiritual / Reflective"],
@@ -449,6 +449,28 @@ function ProjectDetail({ C, MONO, SANS, projectId, onBack }) {
           ) : (
             <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.green }}>✓ No real weaknesses found — story kept unchanged.</div>
           )}
+        </div>
+      )}
+
+      {/* AI BACKGROUND MUSIC DIRECTOR — real, disclosed scene-by-scene
+          mood plan (2026-09-11). Shows the honest NOT_CONFIGURED/disabled
+          reason when no real music provider exists rather than pretending
+          the video has a real score. */}
+      {project.music?.plan?.length ? (
+        <div style={cardStyle()}>
+          <div style={sectionLabelStyle({ marginBottom: 6 })}>AI BACKGROUND MUSIC DIRECTOR{project.finalVideo ? (project.finalVideo.musicUsed ? " — APPLIED" : " — NO USABLE TRACK") : ""}</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {project.music.plan.map((p) => (
+              <div key={p.scene_number} style={{ fontFamily: MONO, fontSize: 10.5, color: C.textSec, border: `1px solid ${C.border}`, borderRadius: 4, padding: "2px 6px" }}>
+                #{p.scene_number} {p.mood}{p.dramaticSilence ? " (silence)" : ""}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : steps.music?.status === "warning" && (
+        <div style={cardStyle()}>
+          <div style={sectionLabelStyle({ marginBottom: 6 })}>AI BACKGROUND MUSIC DIRECTOR</div>
+          <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.textDim }}>{steps.music.reason || "Music was not generated for this project."}</div>
         </div>
       )}
 

@@ -40,12 +40,14 @@ const VALID_CREATIVITY = new Set(["conservative", "balanced", "creative"]);
 const VALID_SCENE_LENGTHS = new Set([3, 5, 7]);
 const VALID_IMAGE_CONSISTENCY = new Set(["standard", "strong"]);
 const VALID_SUBTITLE_STYLES = new Set(["clean", "cinematic", "social"]);
+const VALID_MUSIC_POLICIES = new Set(["auto", "off"]);
 function sanitizeAdvancedSettings(a) {
   return {
     creativity: VALID_CREATIVITY.has(a?.creativity) ? a.creativity : "balanced",
     sceneLengthSeconds: VALID_SCENE_LENGTHS.has(Number(a?.sceneLengthSeconds)) ? Number(a.sceneLengthSeconds) : 5,
     imageConsistency: VALID_IMAGE_CONSISTENCY.has(a?.imageConsistency) ? a.imageConsistency : "strong",
     subtitleStyle: VALID_SUBTITLE_STYLES.has(a?.subtitleStyle) ? a.subtitleStyle : "cinematic",
+    musicPolicy: VALID_MUSIC_POLICIES.has(a?.musicPolicy) ? a.musicPolicy : "auto",
   };
 }
 

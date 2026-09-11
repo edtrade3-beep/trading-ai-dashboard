@@ -118,7 +118,22 @@ const SUBTITLE_STYLE_MAP = {
 // scene clips + narration audio + subtitles burned in (or soft, per
 // `burnSubtitles`) + optional background music ducked under narration +
 // social-friendly H.264/AAC encode, per spec's exact output requirements.
-function buildFinalMuxArgs({ concatListPath, narrationAudioPath, musicPath, srtPath, outPath, burnSubtitles = true, musicVolumeDb = -18, subtitleStyle }) {
+//
+// Real "smart ducking" (2026-09-11, AI Background Music Director,
+// explicit user priority: "Auto Music + smart ducking ... far more
+// cinematic instead of simply placing one song underneath the
+// narration"). The previous version only ever applied one constant
+// attenuation (`volume=-18dB`) to the whole music track for the whole
+// video — narration and music never actually interacted, so a loud
+// musical swell could still fight a quiet narration line. Real fix:
+// ffmpeg's own `sidechaincompress` filter (a genuine, documented dynamics
+// filter, not a home-grown approximation) uses the REAL narration track
+// as its key/control signal — music is only compressed down while
+// narration actually has signal above `duckThreshold`, and recovers on
+// its own (`release`) the instant narration goes quiet, e.g. across a
+// real `dramaticSilence` beat the Music Director planned. `musicVolumeDb`
+// still sets the music's baseline level before any ducking is applied.
+function buildFinalMuxArgs({ concatListPath, narrationAudioPath, musicPath, srtPath, outPath, burnSubtitles = true, musicVolumeDb = -14, duckThreshold = 0.05, duckRatio = 8, subtitleStyle }) {
   const inputs = ["-y", "-f", "concat", "-safe", "0", "-i", concatListPath, "-i", narrationAudioPath];
   if (musicPath) inputs.push("-i", musicPath);
 
@@ -135,7 +150,11 @@ function buildFinalMuxArgs({ concatListPath, narrationAudioPath, musicPath, srtP
   }
   let audioMapArgs;
   if (musicPath) {
-    filters.push(`[2:a]volume=${musicVolumeDb}dB[music]`, `[1:a][music]amix=inputs=2:duration=first:dropout_transition=2[aout]`);
+    filters.push(
+      `[2:a]volume=${musicVolumeDb}dB[musicbase]`,
+      `[musicbase][1:a]sidechaincompress=threshold=${duckThreshold}:ratio=${duckRatio}:attack=5:release=400[ducked]`,
+      `[1:a][ducked]amix=inputs=2:duration=first:dropout_transition=2[aout]`,
+    );
     audioMapArgs = ["-map", `[${videoLabel}]`, "-map", "[aout]"];
   } else {
     audioMapArgs = ["-map", `[${videoLabel}]`, "-map", "1:a"];

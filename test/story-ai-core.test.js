@@ -31,6 +31,8 @@ const ttsProvider = require("../src/story-ai-tts-provider");
 const { mapWithConcurrency, IMAGE_VOICE_CONCURRENCY, resumeOrphanedJobs, firstPendingStep, STEP_ORDER } = require("../src/story-ai-job-runner");
 const { buildSystemPrompt: buildHumanizerPrompt } = require("../src/story-ai-humanizer-agent");
 const { buildSystemPrompt: buildCriticPrompt, critiqueAndRevise } = require("../src/story-ai-critic-agent");
+const { buildMusicTimeline, planMusicForScenes, clampIntensity } = require("../src/story-ai-music-director-agent");
+const musicProvider = require("../src/story-ai-music-provider");
 const { buildSystemPrompt: buildStoryPrompt } = require("../src/story-ai-story-agent");
 const { CREATIVITY_TEMPERATURE } = require("../src/story-ai-config");
 const { sanitizeCreateInput } = require("../src/routes/story-ai");
@@ -289,18 +291,18 @@ await ok("no voiceSettings at all still returns the full documented default obje
 console.log("\nChecking Advanced Settings — real, honest defaults, never a silent crash on bad input (2026-09-10, \"more fields\" request)…");
 
 await ok("valid advancedSettings pass through unchanged", () => {
-  const input = sanitizeCreateInput({ topic: "test", advancedSettings: { creativity: "creative", sceneLengthSeconds: 7, imageConsistency: "standard", subtitleStyle: "social" } });
-  assert.deepStrictEqual(input.advancedSettings, { creativity: "creative", sceneLengthSeconds: 7, imageConsistency: "standard", subtitleStyle: "social" });
+  const input = sanitizeCreateInput({ topic: "test", advancedSettings: { creativity: "creative", sceneLengthSeconds: 7, imageConsistency: "standard", subtitleStyle: "social", musicPolicy: "off" } });
+  assert.deepStrictEqual(input.advancedSettings, { creativity: "creative", sceneLengthSeconds: 7, imageConsistency: "standard", subtitleStyle: "social", musicPolicy: "off" });
 });
 
 await ok("missing/invalid advancedSettings fall back to the documented defaults, never throw", () => {
-  const input = sanitizeCreateInput({ topic: "test", advancedSettings: { creativity: "wild-guess", sceneLengthSeconds: 999, imageConsistency: "loose", subtitleStyle: "neon" } });
-  assert.deepStrictEqual(input.advancedSettings, { creativity: "balanced", sceneLengthSeconds: 5, imageConsistency: "strong", subtitleStyle: "cinematic" });
+  const input = sanitizeCreateInput({ topic: "test", advancedSettings: { creativity: "wild-guess", sceneLengthSeconds: 999, imageConsistency: "loose", subtitleStyle: "neon", musicPolicy: "silent-please" } });
+  assert.deepStrictEqual(input.advancedSettings, { creativity: "balanced", sceneLengthSeconds: 5, imageConsistency: "strong", subtitleStyle: "cinematic", musicPolicy: "auto" });
 });
 
 await ok("no advancedSettings at all still returns the full documented default object", () => {
   const input = sanitizeCreateInput({ topic: "test" });
-  assert.deepStrictEqual(input.advancedSettings, { creativity: "balanced", sceneLengthSeconds: 5, imageConsistency: "strong", subtitleStyle: "cinematic" });
+  assert.deepStrictEqual(input.advancedSettings, { creativity: "balanced", sceneLengthSeconds: 5, imageConsistency: "strong", subtitleStyle: "cinematic", musicPolicy: "auto" });
 });
 
 console.log("\nChecking the Story Agent's new styles/dialect (2026-09-10 content-strategy expansion) and real Creativity temperature mapping…");
@@ -381,11 +383,11 @@ await ok("a real project round-trips through create/get/list/delete", () => {
 });
 
 await ok("createProject stores real Advanced Settings, defaulting honestly when none are supplied", () => {
-  const withSettings = createProject({ topic: "TEST_ADV_1", durationSeconds: 90, style: "inspirational", dialect: "msa", voice: "male", visualStyle: "cinematic_realism", notes: "", options: {}, advancedSettings: { creativity: "creative", sceneLengthSeconds: 3, imageConsistency: "standard", subtitleStyle: "social" } });
+  const withSettings = createProject({ topic: "TEST_ADV_1", durationSeconds: 90, style: "inspirational", dialect: "msa", voice: "male", visualStyle: "cinematic_realism", notes: "", options: {}, advancedSettings: { creativity: "creative", sceneLengthSeconds: 3, imageConsistency: "standard", subtitleStyle: "social", musicPolicy: "off" } });
   const defaulted = createProject({ topic: "TEST_ADV_2", durationSeconds: 90, style: "inspirational", dialect: "msa", voice: "male", visualStyle: "cinematic_realism", notes: "", options: {} });
   try {
-    assert.deepStrictEqual(withSettings.advancedSettings, { creativity: "creative", sceneLengthSeconds: 3, imageConsistency: "standard", subtitleStyle: "social" });
-    assert.deepStrictEqual(defaulted.advancedSettings, { creativity: "balanced", sceneLengthSeconds: 5, imageConsistency: "strong", subtitleStyle: "cinematic" });
+    assert.deepStrictEqual(withSettings.advancedSettings, { creativity: "creative", sceneLengthSeconds: 3, imageConsistency: "standard", subtitleStyle: "social", musicPolicy: "off" });
+    assert.deepStrictEqual(defaulted.advancedSettings, { creativity: "balanced", sceneLengthSeconds: 5, imageConsistency: "strong", subtitleStyle: "cinematic", musicPolicy: "auto" });
   } finally {
     deleteProject(withSettings.id);
     deleteProject(defaulted.id);
@@ -466,6 +468,84 @@ await ok("buildSystemPrompt requires the original text back verbatim when nothin
 });
 await ok("critiqueAndRevise refuses to run without a real humanized narration — never critiques an empty/missing story", async () => {
   await assert.rejects(() => critiqueAndRevise({ story: {}, apiKey: "test" }), /humanized story is required/);
+});
+
+console.log("\nChecking the AI Background Music Director (2026-09-11, explicit user priority: \"Auto Music + smart ducking + scene-by-scene emotion + strategic silence\")…");
+
+await ok("STEP_ORDER runs Music right after Scenes and before Images — the plan is ready before assets start generating", () => {
+  assert.deepStrictEqual(STEP_ORDER.slice(3, 7), ["critic", "scenes", "music", "images"]);
+});
+
+await ok("buildMusicTimeline merges contiguous same-mood scenes into one real segment, never a new segment per scene", () => {
+  const plan = [
+    { scene_number: 1, mood: "curious", intensity: 2, dramaticSilence: false },
+    { scene_number: 2, mood: "curious", intensity: 2, dramaticSilence: false },
+    { scene_number: 3, mood: "tense", intensity: 4, dramaticSilence: false },
+  ];
+  const segments = buildMusicTimeline(plan, [5, 5, 6]);
+  assert.strictEqual(segments.length, 2);
+  assert.strictEqual(segments[0].mood, "curious");
+  assert.strictEqual(segments[0].startSeconds, 0);
+  assert.strictEqual(segments[0].endSeconds, 10);
+  assert.deepStrictEqual(segments[0].sceneNumbers, [1, 2]);
+  assert.strictEqual(segments[1].mood, "tense");
+  assert.strictEqual(segments[1].startSeconds, 10);
+  assert.strictEqual(segments[1].endSeconds, 16);
+});
+
+await ok("buildMusicTimeline keeps a dramaticSilence scene as its own real segment, even sandwiched between two scenes sharing its mood", () => {
+  const plan = [
+    { scene_number: 1, mood: "sad", intensity: 2, dramaticSilence: false },
+    { scene_number: 2, mood: "sad", intensity: 0, dramaticSilence: true },
+    { scene_number: 3, mood: "sad", intensity: 2, dramaticSilence: false },
+  ];
+  const segments = buildMusicTimeline(plan, [4, 3, 4]);
+  assert.strictEqual(segments.length, 3);
+  assert.strictEqual(segments[1].dramaticSilence, true);
+  assert.strictEqual(segments[1].durationSeconds, 3);
+});
+
+await ok("buildMusicTimeline throws rather than silently misaligning when durations don't match the plan length", () => {
+  assert.throws(() => buildMusicTimeline([{ scene_number: 1, mood: "calm", intensity: 1, dramaticSilence: false }], [1, 2]), /one duration per planned scene/);
+});
+
+await ok("planMusicForScenes refuses to run without real scenes — never plans music for nothing", async () => {
+  await assert.rejects(() => planMusicForScenes({ scenes: [], story: {}, apiKey: "test" }), /Real scenes are required/);
+});
+
+await ok("clampIntensity keeps every real intensity within the documented 0-5 range, defaulting honestly on garbage input", () => {
+  assert.strictEqual(clampIntensity(3), 3);
+  assert.strictEqual(clampIntensity(99), 5);
+  assert.strictEqual(clampIntensity(-5), 0);
+  assert.strictEqual(clampIntensity("not a number"), 2);
+});
+
+await ok("story-ai-music-provider reports NOT_CONFIGURED honestly when no real provider/library is set — never fabricates a track", async () => {
+  assert.strictEqual(musicProvider.isConfigured(), false);
+  const result = await musicProvider.getTrackForMood("calm");
+  assert.strictEqual(result.ok, false);
+  assert.strictEqual(result.reason, "NOT_CONFIGURED");
+});
+
+await ok("story-ai-music-provider's listTracksForMood returns a real empty array (not an error) for a mood folder that doesn't exist yet", () => {
+  assert.deepStrictEqual(musicProvider.listTracksForMood("nonexistent-mood"), []);
+});
+
+await ok("buildFinalMuxArgs' real smart-ducking filtergraph feeds narration as the sidechain key so music only ducks while narration actually plays", () => {
+  const args = buildFinalMuxArgs({ concatListPath: "/tmp/l.txt", narrationAudioPath: "/tmp/n.mp3", musicPath: "/tmp/m.mp3", srtPath: "/tmp/s.srt", outPath: "/tmp/f.mp4" });
+  const filterIdx = args.indexOf("-filter_complex");
+  const filterGraph = args[filterIdx + 1];
+  assert.match(filterGraph, /sidechaincompress/);
+  // the compressed music must be keyed by the REAL narration track ([1:a]),
+  // not by itself — otherwise it isn't "ducking under narration" at all.
+  assert.match(filterGraph, /\[musicbase\]\[1:a\]sidechaincompress/);
+});
+
+await ok("buildFinalMuxArgs with no musicPath skips ducking entirely — no sidechaincompress against a track that doesn't exist", () => {
+  const args = buildFinalMuxArgs({ concatListPath: "/tmp/l.txt", narrationAudioPath: "/tmp/n.mp3", srtPath: "/tmp/s.srt", outPath: "/tmp/f.mp4" });
+  const filterIdx = args.indexOf("-filter_complex");
+  const filterGraph = filterIdx === -1 ? "" : args[filterIdx + 1];
+  assert.doesNotMatch(filterGraph, /sidechaincompress/);
 });
 
 console.log("\nChecking resumeOrphanedJobs — real fix for a job stuck at \"Generating\" forever after a server restart abandons the in-memory pipeline (2026-09-09, live bug: a real project's job.status stayed \"running\" 24+ hours with video/quality still \"pending\")…");

@@ -99,19 +99,26 @@ function createProject({ topic, durationSeconds, style, visualStyle, voice, dial
     // -> Director Agent's targetSceneCount (story-ai-director-agent.js),
     // imageConsistency -> how strict its character-bible reuse rule is,
     // subtitleStyle -> the real ASS force_style string burned into the
-    // final video (story-ai-video-assembly.js). No "Music Level" here —
-    // this app has no real background-music pipeline yet, so that
-    // control isn't offered rather than shipped as a no-op.
+    // final video (story-ai-video-assembly.js).
+    // musicPolicy (2026-09-11, AI Background Music Director) -> "auto"
+    // lets the real Music Director plan real background music (only ever
+    // produces anything when a real music provider is actually
+    // configured — see story-ai-music-provider.js); "off" honestly skips
+    // music planning/mixing entirely. Deliberately just these two real
+    // values: this app has no way to inspect what's actually IN a user's
+    // own audio files, so a finer-grained policy like "no instruments"
+    // would be a fake control this codebase can't actually enforce.
     advancedSettings: {
       creativity: advancedSettings?.creativity || "balanced",
       sceneLengthSeconds: Number(advancedSettings?.sceneLengthSeconds) || 5,
       imageConsistency: advancedSettings?.imageConsistency || "strong",
       subtitleStyle: advancedSettings?.subtitleStyle || "cinematic",
+      musicPolicy: advancedSettings?.musicPolicy === "off" ? "off" : "auto",
     },
     status: "Draft", // Draft | Generating | Needs Review | Ready | Failed
     createdAt: now, updatedAt: now,
     story: null, verification: null, scenes: null, characters: [], locations: [],
-    images: [], audio: null, subtitles: null, finalVideo: null, thumbnail: null, social: null,
+    images: [], audio: null, music: null, subtitles: null, finalVideo: null, thumbnail: null, social: null,
     quality: null, costLedger: { entries: [], totalUSD: 0 },
     job: { status: "pending", steps: {}, error: null },
     warnings: [],
