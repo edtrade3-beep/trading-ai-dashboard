@@ -2597,6 +2597,22 @@ async function handleMarket(req, res, requestUrl) {
       }
     }
 
+    // Master Agent v1.1 — Deep Scan (2026-09-11, explicit user request:
+    // "I want agent to give me detail deep scan of what happening" —
+    // scoped to a full MARKET-WIDE scan per the user's own choice, not a
+    // single-ticker deep dive). Same deterministic-first, zero-new-AI-cost
+    // discipline as Morning Mode above.
+    const DEEP_SCAN_TRIGGER = /\b(deep scan|full scan|detailed scan|what'?s happening|what is happening)\b/i;
+    if (DEEP_SCAN_TRIGGER.test(lastUserMsg)) {
+      try {
+        const { buildDeepScan, renderDeepScanText } = require("../deep-scan-engine");
+        const scan = await buildDeepScan();
+        return writeJson(res, 200, { ok: true, reply: renderDeepScanText(scan), deepScan: scan });
+      } catch (e) {
+        return writeJson(res, 200, { ok: false, error: `Deep Scan failed: ${e.message}` });
+      }
+    }
+
     const wl = (ctx.watchlist || []).slice(0, 40).join(", ");
     const pos = (ctx.positions || []).slice(0, 30).map(p => `${p.symbol} ${p.qty}@${p.avgEntry} (${p.unrealizedPL >= 0 ? "+" : ""}${Math.round(p.unrealizedPL)})`).join(", ");
     const setups = (ctx.setups || []).slice(0, 10).map(s => `${s.symbol} A+${s.aScore}`).join(", ");
