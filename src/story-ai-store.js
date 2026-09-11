@@ -79,7 +79,7 @@ function summaryOf(project) {
   };
 }
 
-function createProject({ topic, durationSeconds, style, visualStyle, voice, dialect, notes, options, voiceSettings }) {
+function createProject({ topic, durationSeconds, style, visualStyle, voice, dialect, notes, options, voiceSettings, advancedSettings }) {
   const id = newProjectId();
   const now = new Date().toISOString();
   const project = {
@@ -93,6 +93,20 @@ function createProject({ topic, durationSeconds, style, visualStyle, voice, dial
       speed: voiceSettings?.speed || "natural",
       emotion: voiceSettings?.emotion || "medium",
       pauses: voiceSettings?.pauses || "natural",
+    },
+    // Advanced Settings (2026-09-10) — each one a real, wired parameter:
+    // creativity -> Claude temperature (story-ai-claude.js), sceneLength
+    // -> Director Agent's targetSceneCount (story-ai-director-agent.js),
+    // imageConsistency -> how strict its character-bible reuse rule is,
+    // subtitleStyle -> the real ASS force_style string burned into the
+    // final video (story-ai-video-assembly.js). No "Music Level" here —
+    // this app has no real background-music pipeline yet, so that
+    // control isn't offered rather than shipped as a no-op.
+    advancedSettings: {
+      creativity: advancedSettings?.creativity || "balanced",
+      sceneLengthSeconds: Number(advancedSettings?.sceneLengthSeconds) || 5,
+      imageConsistency: advancedSettings?.imageConsistency || "strong",
+      subtitleStyle: advancedSettings?.subtitleStyle || "cinematic",
     },
     status: "Draft", // Draft | Generating | Needs Review | Ready | Failed
     createdAt: now, updatedAt: now,

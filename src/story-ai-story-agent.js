@@ -6,7 +6,7 @@
 // all Arabic-writing judgment lives in the system prompt, not in code.
 
 const { callStoryAiJson } = require("./story-ai-claude");
-const { MAX_NOTES_LENGTH } = require("./story-ai-config");
+const { MAX_NOTES_LENGTH, CREATIVITY_TEMPERATURE } = require("./story-ai-config");
 
 const REQUIRED_FIELDS = [
   "topic", "category", "story_type", "title_ar", "hook_ar",
@@ -21,6 +21,11 @@ const STYLE_GUIDE = {
   wisdom: "Wisdom — a timeless lesson framed simply.",
   life_lesson: "Life Lesson — everyday, relatable stakes.",
   children: "Children — simple vocabulary, gentle stakes, clear moral, no frightening imagery.",
+  emotional: "Emotional Story — leans into real, felt emotion (loss, longing, joy, relief) as the story's main engine, not just a plot device.",
+  moral: "Moral Story — a clear right/wrong choice at its center, with the consequence and lesson emerging naturally from what happens, never stated as a lecture.",
+  mystery: "Mystery — a real question or unexplained detail drives curiosity throughout, resolved by the end (not left open unless that's the deliberate point).",
+  true_story: "True Story Style — written as if recounting a real, specific account (even if the topic is general); grounded, concrete details, not fairy-tale framing. Still subject to the same factual/religious-claim caution below.",
+  educational: "Educational / Explainer — NOT a narrative arc. Deliver real, practical, useful information (e.g., how something works, practical steps, common misconceptions) in a clear, engaging, conversational structure — a strong hook, 3-5 concrete points delivered like a knowledgeable friend explaining something, and a takeaway. No invented statistics or claims presented as fact — when uncertain, phrase things as general/common knowledge rather than a specific verified figure.",
   custom: "Follow the user's own notes for tone/direction.",
 };
 
@@ -37,7 +42,9 @@ const STYLE_GUIDE = {
 // Humanizer's job.
 function buildSystemPrompt({ dialect, style }) {
   const styleNote = STYLE_GUIDE[style] || STYLE_GUIDE.inspirational;
-  const dialectNote = dialect && dialect !== "msa"
+  const dialectNote = dialect === "simple_msa"
+    ? "Write in Simple Arabic — Modern Standard Arabic using the plainest, most common everyday vocabulary (avoid rare/literary words even more than usual), still grammatically standard MSA, not a regional dialect."
+    : dialect && dialect !== "msa"
     ? `Write in the ${dialect} Arabic dialect, natural for spoken narration in that region.`
     : "Write in clear, contemporary Modern Standard Arabic (MSA) suitable for voice-over — NOT overly academic/classical Arabic.";
   return [
@@ -69,7 +76,7 @@ function validateStory(json) {
   return json;
 }
 
-async function generateStory({ topic, durationSeconds = 120, style = "inspirational", dialect = "msa", notes = "", apiKey }) {
+async function generateStory({ topic, durationSeconds = 120, style = "inspirational", dialect = "msa", notes = "", apiKey, creativity }) {
   const cleanTopic = String(topic || "").trim();
   if (!cleanTopic) throw new Error("A topic is required.");
   const cleanNotes = String(notes || "").trim().slice(0, MAX_NOTES_LENGTH);
@@ -87,6 +94,7 @@ async function generateStory({ topic, durationSeconds = 120, style = "inspiratio
     tier: "sonnet",
     maxTokens: 2500,
     feature: "story-ai-story",
+    temperature: CREATIVITY_TEMPERATURE[creativity],
   });
 
   const story = validateStory(json);

@@ -22,8 +22,8 @@ const { runPipeline, retryStep, isRunning } = require("../story-ai-job-runner");
 const { estimateProjectCost, exceedsBudget } = require("../story-ai-cost");
 const { checkFfmpegAvailable } = require("../story-ai-video-assembly");
 
-const VALID_STYLES = new Set(["inspirational", "psychological", "islamic_reflection", "historical", "wisdom", "life_lesson", "children", "custom"]);
-const VALID_DIALECTS = new Set(["msa", "gulf", "egyptian", "levantine", "maghrebi"]);
+const VALID_STYLES = new Set(["inspirational", "psychological", "islamic_reflection", "historical", "wisdom", "life_lesson", "children", "emotional", "moral", "mystery", "true_story", "educational", "custom"]);
+const VALID_DIALECTS = new Set(["msa", "simple_msa", "gulf", "egyptian", "levantine", "maghrebi"]);
 const VALID_PERFORMANCES = new Set(["natural_storyteller", "warm", "calm", "emotional", "dramatic", "documentary", "spiritual"]);
 const VALID_SPEEDS = new Set(["slow", "natural", "fast"]);
 const VALID_EMOTIONS = new Set(["low", "medium", "high"]);
@@ -34,6 +34,18 @@ function sanitizeVoiceSettings(v) {
     speed: VALID_SPEEDS.has(v?.speed) ? v.speed : "natural",
     emotion: VALID_EMOTIONS.has(v?.emotion) ? v.emotion : "medium",
     pauses: VALID_PAUSES.has(v?.pauses) ? v.pauses : "natural",
+  };
+}
+const VALID_CREATIVITY = new Set(["conservative", "balanced", "creative"]);
+const VALID_SCENE_LENGTHS = new Set([3, 5, 7]);
+const VALID_IMAGE_CONSISTENCY = new Set(["standard", "strong"]);
+const VALID_SUBTITLE_STYLES = new Set(["clean", "cinematic", "social"]);
+function sanitizeAdvancedSettings(a) {
+  return {
+    creativity: VALID_CREATIVITY.has(a?.creativity) ? a.creativity : "balanced",
+    sceneLengthSeconds: VALID_SCENE_LENGTHS.has(Number(a?.sceneLengthSeconds)) ? Number(a.sceneLengthSeconds) : 5,
+    imageConsistency: VALID_IMAGE_CONSISTENCY.has(a?.imageConsistency) ? a.imageConsistency : "strong",
+    subtitleStyle: VALID_SUBTITLE_STYLES.has(a?.subtitleStyle) ? a.subtitleStyle : "cinematic",
   };
 }
 
@@ -61,7 +73,8 @@ function sanitizeCreateInput(body) {
     verifyReligious: body.options?.verifyReligious !== false,
   };
   const voiceSettings = sanitizeVoiceSettings(body.voiceSettings);
-  return { topic, durationSeconds, style, dialect, voice, visualStyle, notes, options, voiceSettings };
+  const advancedSettings = sanitizeAdvancedSettings(body.advancedSettings);
+  return { topic, durationSeconds, style, dialect, voice, visualStyle, notes, options, voiceSettings, advancedSettings };
 }
 
 async function handleStoryAi(req, res, requestUrl) {

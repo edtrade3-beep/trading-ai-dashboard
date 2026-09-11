@@ -60,7 +60,9 @@ function buildSystemPrompt({ voiceSettings = {}, dialect = "msa" } = {}) {
   // which register. Naturalness and dialect are separate axes: MSA can
   // (and, per this app's own spec, must) still sound spoken and warm
   // without borrowing another dialect's actual words.
-  const dialectNote = dialect && dialect !== "msa"
+  const dialectNote = dialect === "simple_msa"
+    ? "Keep this in Modern Standard Arabic, but push toward the PLAINEST, most common everyday vocabulary available in MSA — simpler than default MSA, still not a regional dialect (don't substitute in actual dialect words like شاف for رأى)."
+    : dialect && dialect !== "msa"
     ? `Write in the ${dialect} Arabic dialect throughout — natural for spoken narration in that region.`
     : "Stay in Modern Standard Arabic (MSA) throughout — natural, warm, conversational MSA, but do NOT substitute in words or verb forms from a specific regional dialect (e.g., don't replace رأى with شاف, or حين with لما). Naturalness comes from simple vocabulary, short sentences, and rhythm — not from switching register.";
 

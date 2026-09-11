@@ -46,12 +46,19 @@ const GOOGLE_TTS_VOICE_FEMALE = (process.env.GOOGLE_TTS_VOICE_FEMALE_AR || "ar-X
 
 // Budget/limits — real, disclosed defaults, all overridable. Enforced by
 // story-ai-job-runner.js before any paid step, never silently ignored.
-const MAX_COST_PER_VIDEO_USD = Number(process.env.STORY_AI_MAX_COST_USD) || 1.5;
-const MAX_SCENE_COUNT = Number(process.env.STORY_AI_MAX_SCENES) || 24;
+// Real bump (2026-09-10, explicit user request: "more video time") — the
+// old 240s/24-scene/$1.50 ceilings were sized for the original 2-minute
+// default. A real 5-minute video at this app's own ~7.5s/scene average
+// needs ~40 scenes, which alone estimates to ~$1.60 in images at
+// $0.04/image (story-ai-cost.js) — over the old cap before voice/Claude
+// costs are even added. Raised together so a long video doesn't
+// immediately trip its own budget gate.
+const MAX_COST_PER_VIDEO_USD = Number(process.env.STORY_AI_MAX_COST_USD) || 3.0;
+const MAX_SCENE_COUNT = Number(process.env.STORY_AI_MAX_SCENES) || 40;
 const MAX_RETRIES_PER_STEP = Number(process.env.STORY_AI_MAX_RETRIES) || 2;
 const MAX_TOPIC_LENGTH = 200;
 const MAX_NOTES_LENGTH = 1000;
-const MAX_DURATION_SECONDS = 240; // hard ceiling — well above the 2-min default, prevents an unbounded/abusive request
+const MAX_DURATION_SECONDS = 300; // hard ceiling — 5 minutes, above the new 3-minute UI option
 
 function imageProviderConfigured() {
   if (IMAGE_PROVIDER === "openai") return Boolean(OPENAI_API_KEY);
@@ -65,6 +72,12 @@ function ttsProviderConfigured() {
   return false;
 }
 
+// Advanced Settings shared defaults/maps (2026-09-10) — one real source
+// of truth for every agent/route that needs to interpret these, instead
+// of re-deriving the same mapping in multiple files.
+const CREATIVITY_TEMPERATURE = { conservative: 0.3, balanced: 0.7, creative: 1.0 };
+const DEFAULT_SCENE_LENGTH_SECONDS = 5;
+
 module.exports = {
   STORY_AI_ENABLED, ANTHROPIC_MODEL,
   IMAGE_PROVIDER, OPENAI_API_KEY, REPLICATE_API_TOKEN,
@@ -73,5 +86,6 @@ module.exports = {
   GOOGLE_TTS_API_KEY, GOOGLE_TTS_VOICE_MALE, GOOGLE_TTS_VOICE_FEMALE,
   MAX_COST_PER_VIDEO_USD, MAX_SCENE_COUNT, MAX_RETRIES_PER_STEP,
   MAX_TOPIC_LENGTH, MAX_NOTES_LENGTH, MAX_DURATION_SECONDS,
+  CREATIVITY_TEMPERATURE, DEFAULT_SCENE_LENGTH_SECONDS,
   imageProviderConfigured, ttsProviderConfigured,
 };

@@ -104,11 +104,21 @@ function buildSceneClipArgs({ imagePath, outPath, durationSeconds, motion = "slo
   return ["-y", "-loop", "1", "-i", imagePath, "-vf", filter, "-t", String(durationSeconds), "-r", String(fps), "-pix_fmt", "yuv420p", "-c:v", "libx264", "-preset", "veryfast", outPath];
 }
 
+// Real Subtitle Style wiring (2026-09-10) — three real, visually distinct
+// libass force_style strings (ASS color is &HAABBGGRR&, alpha 00=opaque).
+// "cinematic" keeps the exact style this app already burned in before this
+// setting existed (no behavior change for existing/default projects).
+const SUBTITLE_STYLE_MAP = {
+  clean: "Alignment=2,FontSize=16,Bold=0,PrimaryColour=&H00FFFFFF&,OutlineColour=&H00000000&,BorderStyle=1,Outline=1,Shadow=0",
+  cinematic: "Alignment=2,FontSize=20,Bold=0,PrimaryColour=&H00FFFFFF&,OutlineColour=&H00000000&,BorderStyle=1,Outline=2,Shadow=1",
+  social: "Alignment=2,FontSize=26,Bold=1,PrimaryColour=&H0000FFFF&,OutlineColour=&H00000000&,BorderStyle=1,Outline=3,Shadow=0",
+};
+
 // Pure — builds the real ffmpeg argv for the final mux: concatenated
 // scene clips + narration audio + subtitles burned in (or soft, per
 // `burnSubtitles`) + optional background music ducked under narration +
 // social-friendly H.264/AAC encode, per spec's exact output requirements.
-function buildFinalMuxArgs({ concatListPath, narrationAudioPath, musicPath, srtPath, outPath, burnSubtitles = true, musicVolumeDb = -18 }) {
+function buildFinalMuxArgs({ concatListPath, narrationAudioPath, musicPath, srtPath, outPath, burnSubtitles = true, musicVolumeDb = -18, subtitleStyle }) {
   const inputs = ["-y", "-f", "concat", "-safe", "0", "-i", concatListPath, "-i", narrationAudioPath];
   if (musicPath) inputs.push("-i", musicPath);
 
@@ -119,7 +129,8 @@ function buildFinalMuxArgs({ concatListPath, narrationAudioPath, musicPath, srtP
     // is a filter-option separator) — same escaping ffmpeg's own docs
     // require on Unix paths.
     const escaped = srtPath.replace(/:/g, "\\:");
-    filters.push(`[0:v]subtitles='${escaped}':force_style='Alignment=2,FontSize=20'[vout]`);
+    const style = SUBTITLE_STYLE_MAP[subtitleStyle] || SUBTITLE_STYLE_MAP.cinematic;
+    filters.push(`[0:v]subtitles='${escaped}':force_style='${style}'[vout]`);
     videoLabel = "vout";
   }
   let audioMapArgs;
@@ -210,4 +221,4 @@ function getAudioDurationSeconds(filePath) {
   });
 }
 
-module.exports = { checkFfmpegAvailable, buildSceneClipArgs, buildFinalMuxArgs, runFfmpeg, getAudioDurationSeconds, TARGET_WIDTH, TARGET_HEIGHT };
+module.exports = { checkFfmpegAvailable, buildSceneClipArgs, buildFinalMuxArgs, runFfmpeg, getAudioDurationSeconds, TARGET_WIDTH, TARGET_HEIGHT, SUBTITLE_STYLE_MAP };

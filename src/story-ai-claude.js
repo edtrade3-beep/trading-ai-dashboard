@@ -41,11 +41,17 @@ function extractJson(text) {
 // Uses anthropicRequest directly (not the higher-level callAnthropicApi)
 // specifically to keep the real `usage` object, which callAnthropicApi
 // discards after extracting text.
-async function callStoryAiJson({ system, prompt, apiKey, tier = "sonnet", maxTokens = 2500, feature = "story-ai", timeoutMs = 60000 }) {
+async function callStoryAiJson({ system, prompt, apiKey, tier = "sonnet", maxTokens = 2500, feature = "story-ai", timeoutMs = 60000, temperature }) {
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY not set.");
   const model = resolveModel(tier);
   const payload = { model, max_tokens: maxTokens, messages: [{ role: "user", content: prompt }] };
   if (system) payload.system = system;
+  // Real "Story Creativity" control (2026-09-10) — Anthropic's own
+  // documented temperature parameter (0-1), a genuine lever on output
+  // variety, unlike Voice Performance's Emotion/Pauses which have no real
+  // TTS-side equivalent. Omitted (Anthropic's own default) when not
+  // explicitly requested.
+  if (Number.isFinite(temperature)) payload.temperature = Math.max(0, Math.min(1, temperature));
   const resp = await anthropicRequest(payload, apiKey, timeoutMs, feature);
   const text = (resp.content || []).filter((b) => b.type === "text").map((b) => b.text).join("");
   const json = extractJson(text);

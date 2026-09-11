@@ -25,11 +25,13 @@ const { splitIntoCues, buildAllCues, toSrt, srtTimestamp } = require("../src/sto
 const { runQualityControl } = require("../src/story-ai-quality-agent");
 const { estimateProjectCost, exceedsBudget, newCostLedger, addCostEntry } = require("../src/story-ai-cost");
 const { createProject, getProject, saveProject, listProjects, deleteProject, duplicateProject, assertSafeId } = require("../src/story-ai-store");
-const { buildSceneClipArgs, buildFinalMuxArgs, checkFfmpegAvailable, TARGET_WIDTH, TARGET_HEIGHT } = require("../src/story-ai-video-assembly");
+const { buildSceneClipArgs, buildFinalMuxArgs, checkFfmpegAvailable, TARGET_WIDTH, TARGET_HEIGHT, SUBTITLE_STYLE_MAP } = require("../src/story-ai-video-assembly");
 const imageProvider = require("../src/story-ai-image-provider");
 const ttsProvider = require("../src/story-ai-tts-provider");
 const { mapWithConcurrency, IMAGE_VOICE_CONCURRENCY, resumeOrphanedJobs, firstPendingStep, STEP_ORDER } = require("../src/story-ai-job-runner");
 const { buildSystemPrompt: buildHumanizerPrompt } = require("../src/story-ai-humanizer-agent");
+const { buildSystemPrompt: buildStoryPrompt } = require("../src/story-ai-story-agent");
+const { CREATIVITY_TEMPERATURE } = require("../src/story-ai-config");
 const { sanitizeCreateInput } = require("../src/routes/story-ai");
 
 let passed = 0;
@@ -283,6 +285,47 @@ await ok("no voiceSettings at all still returns the full documented default obje
   assert.deepStrictEqual(input.voiceSettings, { performance: "natural_storyteller", speed: "natural", emotion: "medium", pauses: "natural" });
 });
 
+console.log("\nChecking Advanced Settings — real, honest defaults, never a silent crash on bad input (2026-09-10, \"more fields\" request)…");
+
+await ok("valid advancedSettings pass through unchanged", () => {
+  const input = sanitizeCreateInput({ topic: "test", advancedSettings: { creativity: "creative", sceneLengthSeconds: 7, imageConsistency: "standard", subtitleStyle: "social" } });
+  assert.deepStrictEqual(input.advancedSettings, { creativity: "creative", sceneLengthSeconds: 7, imageConsistency: "standard", subtitleStyle: "social" });
+});
+
+await ok("missing/invalid advancedSettings fall back to the documented defaults, never throw", () => {
+  const input = sanitizeCreateInput({ topic: "test", advancedSettings: { creativity: "wild-guess", sceneLengthSeconds: 999, imageConsistency: "loose", subtitleStyle: "neon" } });
+  assert.deepStrictEqual(input.advancedSettings, { creativity: "balanced", sceneLengthSeconds: 5, imageConsistency: "strong", subtitleStyle: "cinematic" });
+});
+
+await ok("no advancedSettings at all still returns the full documented default object", () => {
+  const input = sanitizeCreateInput({ topic: "test" });
+  assert.deepStrictEqual(input.advancedSettings, { creativity: "balanced", sceneLengthSeconds: 5, imageConsistency: "strong", subtitleStyle: "cinematic" });
+});
+
+console.log("\nChecking the Story Agent's new styles/dialect (2026-09-10 content-strategy expansion) and real Creativity temperature mapping…");
+
+await ok("buildSystemPrompt (Story Agent) carries every new style's real guidance, not a silent fallback to the inspirational default", () => {
+  for (const style of ["emotional", "moral", "mystery", "true_story", "educational"]) {
+    const prompt = buildStoryPrompt({ dialect: "msa", style });
+    assert.ok(prompt.includes(`Story style:`), `missing style line for ${style}`);
+    assert.ok(!prompt.includes("Inspirational — uplifting"), `${style} silently fell back to the inspirational default`);
+  }
+});
+
+await ok("buildSystemPrompt (Story Agent) has a distinct Simple Arabic instruction, separate from both MSA and a regional dialect", () => {
+  const simple = buildStoryPrompt({ dialect: "simple_msa", style: "wisdom" });
+  const msa = buildStoryPrompt({ dialect: "msa", style: "wisdom" });
+  const gulf = buildStoryPrompt({ dialect: "gulf", style: "wisdom" });
+  assert.ok(simple.includes("plainest, most common everyday vocabulary"));
+  assert.notStrictEqual(simple, msa);
+  assert.notStrictEqual(simple, gulf);
+  assert.ok(!simple.includes("gulf Arabic dialect"));
+});
+
+await ok("CREATIVITY_TEMPERATURE maps every Advanced Settings creativity option to a real, distinct Anthropic temperature", () => {
+  assert.deepStrictEqual(CREATIVITY_TEMPERATURE, { conservative: 0.3, balanced: 0.7, creative: 1.0 });
+});
+
 console.log("\nChecking the Video Engine — real ffmpeg-availability probe + pure command construction…");
 
 await ok("checkFfmpegAvailable returns a real boolean reflecting whatever this environment actually has, never throws", async () => {
@@ -310,6 +353,19 @@ await ok("buildFinalMuxArgs wires subtitles + ducked music + narration into one 
   assert.ok(args.includes("1080") === false); // resolution comes from the source image scale step, not this stage — sanity check this stage doesn't hardcode it twice
 });
 
+await ok("buildFinalMuxArgs applies a real, distinct force_style per Advanced Settings subtitleStyle, defaulting to the pre-existing cinematic look", () => {
+  const base = { concatListPath: "/tmp/l.txt", narrationAudioPath: "/tmp/n.mp3", srtPath: "/tmp/s.srt", outPath: "/tmp/f.mp4" };
+  const clean = buildFinalMuxArgs({ ...base, subtitleStyle: "clean" }).find((a) => typeof a === "string" && a.includes("force_style"));
+  const cinematic = buildFinalMuxArgs({ ...base, subtitleStyle: "cinematic" }).find((a) => typeof a === "string" && a.includes("force_style"));
+  const social = buildFinalMuxArgs({ ...base, subtitleStyle: "social" }).find((a) => typeof a === "string" && a.includes("force_style"));
+  const noStyle = buildFinalMuxArgs({ ...base }).find((a) => typeof a === "string" && a.includes("force_style"));
+  assert.ok(clean.includes(SUBTITLE_STYLE_MAP.clean));
+  assert.ok(cinematic.includes(SUBTITLE_STYLE_MAP.cinematic));
+  assert.ok(social.includes(SUBTITLE_STYLE_MAP.social));
+  assert.ok(noStyle.includes(SUBTITLE_STYLE_MAP.cinematic)); // honest default, matches pre-existing burned-in look
+  assert.notStrictEqual(clean, social);
+});
+
 console.log("\nChecking the Project Store — real persistence, real path-traversal defense…");
 
 await ok("a real project round-trips through create/get/list/delete", () => {
@@ -321,6 +377,18 @@ await ok("a real project round-trips through create/get/list/delete", () => {
     deleteProject(p.id);
   }
   assert.ok(!listProjects().some((x) => x.id === p.id), "deleted project must not remain in the index");
+});
+
+await ok("createProject stores real Advanced Settings, defaulting honestly when none are supplied", () => {
+  const withSettings = createProject({ topic: "TEST_ADV_1", durationSeconds: 90, style: "inspirational", dialect: "msa", voice: "male", visualStyle: "cinematic_realism", notes: "", options: {}, advancedSettings: { creativity: "creative", sceneLengthSeconds: 3, imageConsistency: "standard", subtitleStyle: "social" } });
+  const defaulted = createProject({ topic: "TEST_ADV_2", durationSeconds: 90, style: "inspirational", dialect: "msa", voice: "male", visualStyle: "cinematic_realism", notes: "", options: {} });
+  try {
+    assert.deepStrictEqual(withSettings.advancedSettings, { creativity: "creative", sceneLengthSeconds: 3, imageConsistency: "standard", subtitleStyle: "social" });
+    assert.deepStrictEqual(defaulted.advancedSettings, { creativity: "balanced", sceneLengthSeconds: 5, imageConsistency: "strong", subtitleStyle: "cinematic" });
+  } finally {
+    deleteProject(withSettings.id);
+    deleteProject(defaulted.id);
+  }
 });
 
 await ok("duplicateProject copies the real script/scenes forward as a new Draft, not a re-run", () => {

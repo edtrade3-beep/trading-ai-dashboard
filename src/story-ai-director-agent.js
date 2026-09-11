@@ -38,14 +38,31 @@ function validateSceneBreakdown(json, { maxScenes = MAX_SCENE_COUNT } = {}) {
   return json;
 }
 
-async function buildScenes({ story, apiKey, targetSceneCount }) {
+async function buildScenes({ story, apiKey, targetSceneCount, visualStyle, imageConsistency }) {
   if (!story?.narration_ar) throw new Error("A generated story is required to build scenes.");
   const hint = targetSceneCount ? `Aim for approximately ${targetSceneCount} scenes.` : "Aim for approximately 14-20 scenes for a ~2-minute video (fewer for a shorter target duration).";
+  // Real bug found live (2026-09-10): the Create screen's own Visual
+  // Style selection was never actually sent to the Director Agent —
+  // every project got the SAME default look regardless of what the user
+  // picked. image_prompt_en now explicitly carries the requested style
+  // for every scene, not just the character bible's own hardcoded
+  // "cinematic realism" default.
+  const styleHint = visualStyle ? `Visual style for EVERY image_prompt_en: "${visualStyle}" — reflect this consistently across all scenes and in the character bible's own visual_style field.` : null;
+  // Real Image Consistency wiring (2026-09-10) — "strong" (the app's own
+  // default) restates the SYSTEM_PROMPT's existing character-bible rule as
+  // a hard requirement; "standard" relaxes it to a soft preference, an
+  // honest tradeoff (looser prompt, more per-scene visual variety) rather
+  // than a cosmetic picker with no real effect on the actual generation.
+  const consistencyHint = imageConsistency === "standard"
+    ? "Image consistency: STANDARD — keep each character generally recognizable across scenes, but exact wording of their visual description in image_prompt_en can vary scene to scene; prioritize what each scene's own action/composition calls for."
+    : "Image consistency: STRONG — every scene's image_prompt_en for a recurring character MUST repeat the exact same key visual identifiers (age, hair, clothing, build, distinctive features) verbatim from the character bible, with zero drift, even if it makes the prompt more repetitive.";
   const prompt = [
     `Title: ${story.title_ar || ""}`,
     `Full narration:\n${story.narration_ar}`,
     hint,
-  ].join("\n\n");
+    styleHint,
+    consistencyHint,
+  ].filter(Boolean).join("\n\n");
 
   const { json, costUSD, model } = await callStoryAiJson({
     system: SYSTEM_PROMPT.join("\n"),

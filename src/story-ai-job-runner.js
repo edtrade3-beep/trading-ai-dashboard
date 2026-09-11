@@ -113,6 +113,7 @@ async function runStoryStep(project, apiKey) {
   const { story, costUSD } = await withRetries(() => generateStory({
     topic: project.topic, durationSeconds: project.durationSeconds, style: project.style,
     dialect: project.dialect, notes: project.notes, apiKey,
+    creativity: project.advancedSettings?.creativity,
   }));
   project.story = story;
   addCostEntry(project.costLedger, { stage: "story", provider: "anthropic", costUSD });
@@ -156,7 +157,19 @@ async function runVerificationStep(project, apiKey) {
 
 async function runScenesStep(project, apiKey) {
   setStep(project, "scenes", "running");
-  const { breakdown, costUSD } = await withRetries(() => buildScenes({ story: project.story, apiKey }));
+  // Real Scene Length wiring (2026-09-10) — Advanced Settings' own
+  // sceneLengthSeconds picker previously had nothing downstream reading
+  // it at all. targetSceneCount is the Director Agent's existing real
+  // hint param (buildScenes already honored it when supplied, see its own
+  // header comment) — deriving it from durationSeconds/sceneLengthSeconds
+  // is the honest way to turn "3/5/7 sec scenes" into a real instruction
+  // rather than a cosmetic picker.
+  const sceneLengthSeconds = project.advancedSettings?.sceneLengthSeconds || 5;
+  const targetSceneCount = Math.max(1, Math.round(project.durationSeconds / sceneLengthSeconds));
+  const { breakdown, costUSD } = await withRetries(() => buildScenes({
+    story: project.story, apiKey, visualStyle: project.visualStyle,
+    targetSceneCount, imageConsistency: project.advancedSettings?.imageConsistency,
+  }));
   project.scenes = breakdown.scenes;
   project.characters = breakdown.characters;
   project.locations = breakdown.locations;
@@ -431,7 +444,7 @@ async function runVideoStep(project) {
     //    disclosed follow-up (buildFinalMuxArgs already supports it via
     //    musicPath) — not built here, no music asset pipeline exists yet.
     const outPath = path.join(finalDir, "final.mp4");
-    const muxArgs = buildFinalMuxArgs({ concatListPath, narrationAudioPath: combinedAudioPath, srtPath: retimedSrtPath, outPath, burnSubtitles: true });
+    const muxArgs = buildFinalMuxArgs({ concatListPath, narrationAudioPath: combinedAudioPath, srtPath: retimedSrtPath, outPath, burnSubtitles: true, subtitleStyle: project.advancedSettings?.subtitleStyle });
     logVideo(`Running FFmpeg (final mux): ffmpeg ${muxArgs.join(" ")}`);
     await runFfmpeg(muxArgs);
     logVideo(`FFmpeg exited 0 (runFfmpeg only resolves on a real exit code 0 — see story-ai-video-assembly.js)`);

@@ -13,15 +13,38 @@ const TEMPLATES = [
   "الأمل وعدم الاستسلام", "الصبر وقت الشدة", "الخوف من الفشل", "الثقة بالنفس",
   "قوة التوكل", "حسن الظن بالله", "الوقت", "الغضب", "التسامح", "الندم",
   "البداية من جديد", "النجاح بعد الفشل", "الامتنان", "العادات", "الخوف من كلام الناس",
+  // Explainer/educational topics (2026-09-10, explicit user request —
+  // real requested categories: AI tools, money/finance, business/side
+  // hustles, psychology/human behavior). These pair with the new
+  // "educational" style below — informational/listicle delivery rather
+  // than the narrative-arc styles the original 15 templates above use.
+  "أدوات ذكاء اصطناعي توفر عليك ساعات كل أسبوع", "كيف يعمل التصنيف الائتماني فعلاً",
+  "كيف تستثمر أول 1000 دولار", "لماذا يبقى الناس في الديون",
+  "مشاريع يمكن أن تبدأها بأقل من 500 دولار", "كيف تربح المعارض والوكالات المال فعلاً",
+  "لماذا يؤجل الناس المهام دائماً", "كيف يعمل التلاعب النفسي",
 ];
 
 const STYLES = [
   ["inspirational", "Inspirational"], ["psychological", "Psychological"], ["islamic_reflection", "Islamic Reflection"],
   ["historical", "Historical"], ["wisdom", "Wisdom"], ["life_lesson", "Life Lesson"], ["children", "Children"],
+  ["emotional", "Emotional Story"], ["moral", "Moral Story"], ["mystery", "Mystery"], ["true_story", "True Story Style"],
+  ["educational", "Educational / Explainer"],
 ];
-const VISUAL_STYLES = ["Cinematic Realism", "Illustrated", "Watercolor", "Historical Cinematic", "Warm Storybook"];
-const DIALECTS = [["msa", "Modern Standard Arabic"], ["gulf", "Gulf"], ["egyptian", "Egyptian"], ["levantine", "Levantine"], ["maghrebi", "Maghrebi"]];
-const DURATIONS = [["60", 60], ["90", 90], ["2 min", 120]];
+const VISUAL_STYLES = [
+  "Cinematic Realism", "Illustrated", "Watercolor", "Historical Cinematic", "Warm Storybook",
+  "Documentary Realism", "Dark Cinematic", "Ancient Arabian", "Minimal Animation",
+];
+const DIALECTS = [["msa", "Modern Standard Arabic"], ["simple_msa", "Simple Arabic"], ["gulf", "Gulf"], ["egyptian", "Egyptian"], ["levantine", "Levantine"], ["maghrebi", "Maghrebi"]];
+const DURATIONS = [["60", 60], ["90", 90], ["2 min", 120], ["3 min", 180], ["5 min", 300]];
+const SCENE_LENGTHS = [["3 sec", 3], ["5 sec", 5], ["7 sec", 7]];
+const CREATIVITY = [["conservative", "Conservative"], ["balanced", "Balanced"], ["creative", "Creative"]];
+const IMAGE_CONSISTENCY = [["standard", "Standard"], ["strong", "Strong Character Consistency"]];
+const SUBTITLE_STYLES = [["clean", "Clean"], ["cinematic", "Cinematic"], ["social", "Social Media"]];
+// Historical stories read better with a period-appropriate look by
+// default (spec's own "For Historical stories: prefer Historical
+// Cinematic automatically") — a real default, not a lock; the user can
+// still pick a different Visual Style pill afterward.
+const AUTO_VISUAL_STYLE_FOR_STYLE = { historical: "Historical Cinematic" };
 const STEP_LABELS = { story: "Story", humanize: "Humanizing Arabic", verification: "Verification", scenes: "Scenes", images: "Images", voice: "Voice", subtitles: "Subtitles", video: "Video", quality: "Quality Check" };
 const STEP_ORDER = ["story", "humanize", "verification", "scenes", "images", "voice", "subtitles", "video", "quality"];
 const VOICE_PERFORMANCES = [
@@ -70,11 +93,21 @@ function CreateView({ C, MONO, SANS, status, onCreated }) {
   const previewAudioRef = useRef(null);
   const [dialect, setDialect] = useState("msa");
   const [notes, setNotes] = useState("");
+  const [advancedSettings, setAdvancedSettings] = useState({ creativity: "balanced", sceneLengthSeconds: 5, imageConsistency: "strong", subtitleStyle: "cinematic" });
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [options, setOptions] = useState({
     generateHook: true, generateImages: true, generateVoice: true, generateSubtitles: true,
     addMusic: true, addMotion: true, generateThumbnail: true, generateCaption: true,
     factCheck: true, verifyReligious: true,
   });
+  // Real auto-behaviors (2026-09-10, spec's own documented defaults) —
+  // both a real one-time nudge, not a lock: the user can still hand-pick
+  // a different Visual Style pill or uncheck the option afterward.
+  const setStyleWithAuto = (id) => {
+    setStyle(id);
+    if (AUTO_VISUAL_STYLE_FOR_STYLE[id]) setVisualStyle(AUTO_VISUAL_STYLE_FOR_STYLE[id]);
+    if (id === "islamic_reflection") setOptions((o) => ({ ...o, verifyReligious: true }));
+  };
   const [estimate, setEstimate] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -113,7 +146,7 @@ function CreateView({ C, MONO, SANS, status, onCreated }) {
     try {
       const r = await fetch("/api/story-ai/projects", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic, durationSeconds: duration, style, visualStyle, voice, dialect, notes, options, scriptOnly, voiceSettings }),
+        body: JSON.stringify({ topic, durationSeconds: duration, style, visualStyle, voice, dialect, notes, options, scriptOnly, voiceSettings, advancedSettings }),
       });
       const d = await r.json();
       if (!d.ok) { setError(d.error || "Could not start generation."); setBusy(false); return; }
@@ -215,7 +248,7 @@ function CreateView({ C, MONO, SANS, status, onCreated }) {
         {previewError && <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.red, marginTop: -6, marginBottom: 12 }}>{previewError}</div>}
 
         <div style={sectionLabelStyle({ marginBottom: 6 })}>STORY STYLE</div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>{STYLES.map(([id, l]) => <Pill key={id} C={C} MONO={MONO} active={style === id} onClick={() => setStyle(id)}>{l}</Pill>)}</div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>{STYLES.map(([id, l]) => <Pill key={id} C={C} MONO={MONO} active={style === id} onClick={() => setStyleWithAuto(id)}>{l}</Pill>)}</div>
 
         <div style={sectionLabelStyle({ marginBottom: 6 })}>VISUAL STYLE</div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>{VISUAL_STYLES.map((v) => <Pill key={v} C={C} MONO={MONO} active={visualStyle === v} onClick={() => setVisualStyle(v)}>{v}</Pill>)}</div>
@@ -223,16 +256,48 @@ function CreateView({ C, MONO, SANS, status, onCreated }) {
         <div style={sectionLabelStyle({ marginBottom: 6 })}>DIALECT</div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>{DIALECTS.map(([id, l]) => <Pill key={id} C={C} MONO={MONO} active={dialect === id} onClick={() => setDialect(id)}>{l}</Pill>)}</div>
 
-        <div style={sectionLabelStyle({ marginBottom: 6 })}>OPTIONS</div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, marginBottom: 12 }}>
-          {[["generateHook", "Generate hook"], ["generateImages", "Generate images"], ["generateVoice", "Generate Arabic voice"], ["generateSubtitles", "Generate subtitles"],
-            ["addMusic", "Add background music"], ["addMotion", "Add cinematic motion"], ["generateThumbnail", "Generate thumbnail"], ["generateCaption", "Generate social caption"],
-            ["factCheck", "Fact-check factual claims"], ["verifyReligious", "Verify religious attribution"]].map(([key, label]) => (
-            <label key={key} style={{ display: "flex", alignItems: "center", gap: 6, fontFamily: SANS, fontSize: 11.5, color: C.textSec, cursor: "pointer" }}>
-              <input type="checkbox" checked={options[key]} onChange={() => toggle(key)} /> {label}
-            </label>
-          ))}
-        </div>
+        {[
+          ["STORY", [["generateHook", "Generate hook"], ["factCheck", "Fact-check factual claims"], ["verifyReligious", "Verify religious attribution"]]],
+          ["AUDIO", [["generateVoice", "Generate Arabic voice"], ["addMusic", "Add background music"]]],
+          ["VIDEO", [["generateImages", "Generate images"], ["generateSubtitles", "Generate subtitles"], ["addMotion", "Add cinematic motion"], ["generateThumbnail", "Generate thumbnail"], ["generateCaption", "Generate social caption"]]],
+        ].map(([group, items]) => (
+          <div key={group} style={{ marginBottom: 10 }}>
+            <div style={sectionLabelStyle({ marginBottom: 6 })}>{group}</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
+              {items.map(([key, label]) => (
+                <label key={key} style={{ display: "flex", alignItems: "center", gap: 6, fontFamily: SANS, fontSize: 11.5, color: C.textSec, cursor: "pointer" }}>
+                  <input type="checkbox" checked={options[key]} onChange={() => toggle(key)} /> {label}
+                </label>
+              ))}
+            </div>
+          </div>
+        ))}
+
+        <button onClick={() => setAdvancedOpen((o) => !o)} style={{ display: "flex", alignItems: "center", gap: 6, fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.textSec, background: "transparent", border: "none", cursor: "pointer", padding: "4px 0", marginBottom: advancedOpen ? 8 : 12 }}>
+          <span style={{ transform: advancedOpen ? "rotate(90deg)" : "none", transition: "transform 0.15s", display: "inline-block" }}>▸</span> ADVANCED SETTINGS
+        </button>
+        {advancedOpen && (
+          <div style={{ marginBottom: 12, paddingLeft: 4, borderLeft: `2px solid ${C.border}` }}>
+            <div style={{ paddingLeft: 12 }}>
+              <div style={sectionLabelStyle({ marginBottom: 6 })}>STORY CREATIVITY</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+                {CREATIVITY.map(([id, l]) => <Pill key={id} C={C} MONO={MONO} active={advancedSettings.creativity === id} onClick={() => setAdvancedSettings((a) => ({ ...a, creativity: id }))}>{l}</Pill>)}
+              </div>
+              <div style={sectionLabelStyle({ marginBottom: 6 })}>SCENE LENGTH</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+                {SCENE_LENGTHS.map(([l, v]) => <Pill key={v} C={C} MONO={MONO} active={advancedSettings.sceneLengthSeconds === v} onClick={() => setAdvancedSettings((a) => ({ ...a, sceneLengthSeconds: v }))}>{l}</Pill>)}
+              </div>
+              <div style={sectionLabelStyle({ marginBottom: 6 })}>IMAGE CONSISTENCY</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+                {IMAGE_CONSISTENCY.map(([id, l]) => <Pill key={id} C={C} MONO={MONO} active={advancedSettings.imageConsistency === id} onClick={() => setAdvancedSettings((a) => ({ ...a, imageConsistency: id }))}>{l}</Pill>)}
+              </div>
+              <div style={sectionLabelStyle({ marginBottom: 6 })}>SUBTITLE STYLE</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 4 }}>
+                {SUBTITLE_STYLES.map(([id, l]) => <Pill key={id} C={C} MONO={MONO} active={advancedSettings.subtitleStyle === id} onClick={() => setAdvancedSettings((a) => ({ ...a, subtitleStyle: id }))}>{l}</Pill>)}
+              </div>
+            </div>
+          </div>
+        )}
 
         {estimate && (
           <div style={{ fontFamily: MONO, fontSize: 11, color: estimate.overBudget ? C.red : C.textDim, marginBottom: 12 }}>
@@ -431,7 +496,7 @@ function ProjectDetail({ C, MONO, SANS, projectId, onBack }) {
         <div style={cardStyle({ border: `1px solid ${C.green}55`, background: `${C.green}0d` })}>
           <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.green, marginBottom: 8 }}>✅ READY</div>
           <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginBottom: 10 }}>
-            {project.durationSeconds}s · 1080×1920 · {project.style} · Quality {project.quality?.overall_score}/100 · ${project.costLedger?.totalUSD?.toFixed(2)}
+            {project.durationSeconds}s · {project.finalVideo ? `${project.finalVideo.width}×${project.finalVideo.height}` : "720×1280"} · {project.style} · Quality {project.quality?.overall_score}/100 · ${project.costLedger?.totalUSD?.toFixed(2)}
           </div>
           {project.finalVideo ? (
             <a href={`/api/story-ai/projects/${project.id}/assets/final/${path_basename(project.finalVideo.path)}`} style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "10px 16px", borderRadius: 8, background: C.green, color: "#fff", textDecoration: "none", display: "inline-block" }}>DOWNLOAD VIDEO</a>
