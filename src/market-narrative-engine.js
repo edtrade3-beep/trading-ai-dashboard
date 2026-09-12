@@ -20,6 +20,8 @@
 //     Morning Mode and Deep Scan use, never a second, independently
 //     computed number.
 const { getJson } = require("./morning-mode-engine");
+const { getFeed: getNewsFeed, isReady: newsStoreReady } = require("./news/store");
+const { getUpcomingMacroEvents } = require("./macro-calendar");
 
 // Real, disclosed scope limit: this platform's own short-side scoring has
 // documented risk-model gaps (see docs/ARCHITECTURE_MIGRATION.md's "Known
@@ -28,6 +30,18 @@ const { getJson } = require("./morning-mode-engine");
 // existing long (protect capital), or the real AVOID/EXIT/REDUCE verdict
 // with its real reasons — never a fabricated short-entry price.
 const TOP_MOVER_LIMIT = 3; // per direction — real BOS/CHoCH + entry/stop fetched for this many, keeps this bounded
+
+// Real regime -> plain BULLISH/BEARISH/NEUTRAL wording (2026-09-12 command-
+// table update: "bullish, bearish, or neutral — and why"). market-regime-
+// engine.js's own 5-value REGIMES enum already carries the real "why"
+// (reasons array) — this only relabels the enum itself into the three
+// words the user actually asked for, never invents a new judgment.
+function stanceFor(regimeLabel) {
+  if (regimeLabel === "RISK_ON" || regimeLabel === "SELECTIVE_RISK_ON") return "BULLISH";
+  if (regimeLabel === "RISK_OFF" || regimeLabel === "CRISIS") return "BEARISH";
+  if (regimeLabel === "NEUTRAL") return "NEUTRAL";
+  return null; // an unrecognized/absent regime is left honestly unlabeled, never guessed
+}
 
 async function buildMarketNarrative() {
   const [quotes, opp, daytrade] = await Promise.all([
@@ -80,10 +94,35 @@ async function buildMarketNarrative() {
     };
   };
 
+  // Real major company/macro news (2026-09-12 command-table update) — the
+  // same real, scored Postgres-backed feed /majornews already serves on
+  // Telegram (src/news/store.js). Honestly empty (never fabricated) when
+  // the news store isn't configured/reachable, exactly like /majornews's
+  // own real degraded-state message.
+  let news = [];
+  let newsAvailable = false;
+  try {
+    newsAvailable = newsStoreReady();
+    if (newsAvailable) {
+      const feed = await getNewsFeed({ minImpact: 70, sinceMinutes: 240, limit: 8 });
+      news = feed?.ok ? feed.rows : [];
+    }
+  } catch { /* honestly empty on any real failure — never fabricated */ }
+
+  // Real, hand-maintained economic-calendar entries (2026-09-12) — see
+  // macro-calendar.js's own header: no live economic-calendar provider
+  // exists in this app, so this is a real, git-tracked, honestly-empty-
+  // by-default seed file, never an invented release date.
+  const economicReleases = getUpcomingMacroEvents({ windowHours: 72 });
+
   return {
     generatedAt: new Date().toISOString(),
     macro,
     marketRegime,
+    stance: marketRegime ? stanceFor(marketRegime.regime) : null,
+    news,
+    newsAvailable,
+    economicReleases,
     moversUp: moversUpRaw.map(enrich),
     moversDown: moversDownRaw.map(enrich),
     breakouts,
@@ -120,8 +159,9 @@ function renderMarketNarrativeText(n) {
   const lines = ["📊 Today's Market Narrative"];
 
   if (n.marketRegime) {
-    lines.push("", `Regime: ${n.marketRegime.regime || "?"} (score ${n.marketRegime.score ?? "?"}, confidence ${n.marketRegime.confidence ?? "?"}%)`);
-    if (Array.isArray(n.marketRegime.reasons) && n.marketRegime.reasons.length) lines.push(`Reasons: ${n.marketRegime.reasons.join("; ")}`);
+    const stanceLine = n.stance ? `${n.stance} — ` : "";
+    lines.push("", `${stanceLine}Regime: ${n.marketRegime.regime || "?"} (score ${n.marketRegime.score ?? "?"}, confidence ${n.marketRegime.confidence ?? "?"}%)`);
+    if (Array.isArray(n.marketRegime.reasons) && n.marketRegime.reasons.length) lines.push(`Why: ${n.marketRegime.reasons.join("; ")}`);
   } else {
     lines.push("", "Regime: unavailable right now.");
   }
@@ -129,6 +169,24 @@ function renderMarketNarrativeText(n) {
   if (n.macro.length) {
     lines.push("", "Macro:");
     n.macro.forEach((q) => lines.push(`${q.symbol}: ${q.price} (${q.changesPercentage >= 0 ? "+" : ""}${q.changesPercentage}%)`));
+  }
+
+  lines.push("", "📰 Major company/macro news:");
+  if (!n.newsAvailable) lines.push("Real news store isn't configured right now — no fabricated headlines shown.");
+  else if (n.news.length) {
+    n.news.forEach((r) => {
+      const when = r.published_at ? new Date(r.published_at).toLocaleString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
+      lines.push(`[${r.impact_score >= 90 ? "EXTREME" : "HIGH"}] ${r.ticker || "MACRO"} — ${r.headline} (${[r.source, when].filter(Boolean).join(" · ")})`);
+    });
+  } else {
+    lines.push("No real HIGH/EXTREME-impact headlines in the last 4h.");
+  }
+
+  lines.push("", "🗓 Upcoming economic releases (next 72h):");
+  if (n.economicReleases.length) {
+    n.economicReleases.forEach((e) => lines.push(`${e.type} — ${e.label} (${new Date(e.atMs).toLocaleString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })})`));
+  } else {
+    lines.push("None on the real, hand-maintained calendar right now.");
   }
 
   lines.push("", `📈 Today's real momentum leaders — up (out of ${n.universeSize} symbols scanned):`);
@@ -144,7 +202,9 @@ function renderMarketNarrativeText(n) {
     n.breakouts.forEach((b) => lines.push(`${b.symbol} @ ${b.price} (${b.chgPct >= 0 ? "+" : ""}${b.chgPct}%, RVOL ${b.rvol ?? "?"}x)`));
   }
 
+  lines.push("", `⏱ Data as of ${new Date(n.generatedAt).toLocaleString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })} ET`);
+
   return lines.join("\n");
 }
 
-module.exports = { buildMarketNarrative, renderMarketNarrativeText };
+module.exports = { buildMarketNarrative, renderMarketNarrativeText, stanceFor };

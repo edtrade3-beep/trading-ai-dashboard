@@ -17,14 +17,21 @@
  *   /scanner interval 5
  *   /scanner symbols
  *   /deals [query]     — top deals from the deals finder
- *   /athan             — real prayer schedule + countdown to next (alias: /prayer)
+ *   /athan             — real prayer schedule + countdown to next
+ *   /prayer            — next prayer, its time, and countdown
+ *   /prayertimes       — full daily prayer timetable
+ *   /date              — today's Gregorian + Hijri dates
+ *   /weather           — current weather + today's forecast
+ *   /morningduaa       — أذكار الصباح with repetition counts
+ *   /eveningduaa       — أذكار المساء with repetition counts
+ *   /tasbeeh           — interactive dhikr counter (+1/Undo/Reset/target)
  *   /estop             — EMERGENCY STOP: cancel all real pending orders, halt automated execution
  *   /rearm             — re-arm after an Emergency Stop
  */
 
 const { TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID } = require("./config");
 const { sendTelegramMessage, isConfigured }     = require("./telegram");
-const { runScan, getScannerStatus, sendMacroReport, saveConfig, analyzeSymbol, computeMacroRegime, SCHEDULED_SCAN_TIMES_ET } = require("./market-scanner");
+const { runScan, getScannerStatus, saveConfig, analyzeSymbol, computeMacroRegime, SCHEDULED_SCAN_TIMES_ET } = require("./market-scanner");
 const { loadPriceAlerts, savePriceAlerts }       = require("./price-alert-store");
 const { loadSettings }                           = require("./settings-store");
 const { computeEMA, computeRSI } = require("./indicators");
@@ -32,7 +39,9 @@ const { fetchYahooBars, fetchYahooChartMeta, fetchYahooQuoteBatch } = require(".
 const { fetchTrending: stTrending, fetchSentiment: stSentiment }    = require("./providers/stocktwits");
 const { fetchFinanceNews, fetchTechNews, fetchAllNews, fetchSubreddit: fetchRedditSub, FINANCE_SUBS, TECH_SUBS } = require("./providers/reddit-news");
 const { withTimeout, round2 }                    = require("./utils");
-const { formatScheduleMessage: formatPrayerSchedule } = require("./prayer-times");
+const { formatScheduleMessage: formatPrayerSchedule, formatNextPrayerMessage, formatDateMessage } = require("./prayer-times");
+const { fetchRealWeather, renderWeatherText } = require("./weather-engine");
+const { formatMorningAzkar, formatEveningAzkar } = require("./azkar-content");
 
 const API = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`;
 
@@ -216,6 +225,11 @@ async function reply(text, opts = {}) {
     const body = { chat_id: TELEGRAM_CHAT_ID, text: String(text) };
     if (opts.url && opts.buttonText) {
       body.reply_markup = { inline_keyboard: [[{ text: String(opts.buttonText), url: String(opts.url) }]] };
+    } else if (Array.isArray(opts.keyboard)) {
+      // Real callback-data inline keyboard (2026-09-12, /tasbeeh) —
+      // distinct from the URL-button case above (a callback button has no
+      // `url`, only `callback_data`, handled by handleCallbackQuery below).
+      body.reply_markup = { inline_keyboard: opts.keyboard };
     }
     const res  = await fetch(`${API}/sendMessage`, {
       method:  "POST",
@@ -227,6 +241,40 @@ async function reply(text, opts = {}) {
     return json;
   } catch (err) {
     console.error("[TgBot] send error:", err.message);
+  }
+}
+
+// Real message edit + callback-acknowledgement (2026-09-12, /tasbeeh) —
+// Telegram REQUIRES every callback_query to be answered (answerCallback)
+// or the tapped button shows an infinite loading spinner client-side;
+// editMessage updates the SAME message in place so repeated taps don't
+// spam a new message per tap.
+async function editMessage(chatId, messageId, text, keyboard) {
+  try {
+    const body = { chat_id: chatId, message_id: messageId, text: String(text) };
+    if (Array.isArray(keyboard)) body.reply_markup = { inline_keyboard: keyboard };
+    const res = await fetch(`${API}/editMessageText`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!json.ok && json.description && !/message is not modified/i.test(json.description)) {
+      console.error("[TgBot] editMessage failed:", json.description);
+    }
+    return json;
+  } catch (err) {
+    console.error("[TgBot] editMessage error:", err.message);
+  }
+}
+
+async function answerCallback(callbackQueryId, text) {
+  try {
+    const body = { callback_query_id: callbackQueryId };
+    if (text) body.text = String(text).slice(0, 200);
+    await fetch(`${API}/answerCallbackQuery`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+    });
+  } catch (err) {
+    console.error("[TgBot] answerCallback error:", err.message);
   }
 }
 
@@ -331,8 +379,15 @@ async function cmdHelp() {
     "\n🛒 DEALS\n" +
     "/deals                top deals from Reddit + SlickDeals\n" +
     "/deals laptop         search specific product\n" +
-    "\n🕌 PRAYER TIMES\n" +
-    "/athan                today's real prayer schedule + countdown to next  (alias: /prayer)\n" +
+    "\n🕌 PRAYER, DATE & DHIKR\n" +
+    "/athan                today's real full prayer schedule + countdown to next\n" +
+    "/prayer               next prayer, its time, and countdown\n" +
+    "/prayertimes          full daily prayer timetable\n" +
+    "/date                 today's Gregorian + Hijri dates\n" +
+    "/weather              current weather + today's forecast in your area\n" +
+    "/morningduaa          أذكار الصباح with repetition counts\n" +
+    "/eveningduaa          أذكار المساء with repetition counts\n" +
+    "/tasbeeh              interactive dhikr counter (+1 / Undo / Reset / target)\n" +
     "(auto-alert at each of the 5 daily prayer times, no command needed)\n" +
     "\n🛑 EMERGENCY STOP\n" +
     "/estop                cancel all real pending orders + halt all 4 automated systems\n" +
@@ -342,12 +397,23 @@ async function cmdHelp() {
   );
 }
 
+// Real Master Agent Market briefing (2026-09-12 command-table update) —
+// replaces the old sendMacroReport() call (key-ETF snapshot only) with the
+// full real market-narrative-engine.js report: bullish/bearish/neutral
+// stance + why, real major company/macro news, real upcoming economic
+// releases, real movers up/down with catalysts (BOS/ChoCh + reasons), and
+// real potential trades (entry/stop/target) off the same canonical
+// AssetDecision Morning Mode and Deep Scan use — plus a real data
+// timestamp. Zero AI cost, same as every other Master Agent trigger.
 async function cmdMarket() {
-  await reply("Fetching macro snapshot + market narrative…");
+  await reply("Running real market scan…");
   try {
-    await withTimeout(sendMacroReport(), 60_000, null);
+    const { buildMarketNarrative, renderMarketNarrativeText } = require("./market-narrative-engine");
+    const narrative = await withTimeout(buildMarketNarrative(), 60_000, null);
+    if (!narrative) return reply("Market scan timed out — try again shortly.");
+    return reply(renderMarketNarrativeText(narrative));
   } catch (err) {
-    return reply("Error fetching macro: " + err.message);
+    return reply("Error fetching market narrative: " + err.message);
   }
 }
 
@@ -1403,6 +1469,67 @@ async function cmdTwits(args) {
   }
 }
 
+// ── Tasbeeh: interactive counter (2026-09-12 command-table update) ─────────────
+// Real, persisted per-bot state (single-user, see tasbeeh-store.js's own
+// header) driven entirely by inline-keyboard callback_data taps — +1,
+// Undo, Reset, dhikr selection, target selection — edited in place on the
+// SAME message rather than spamming a new one per tap.
+const { DHIKR_LIST: TASBEEH_DHIKR, TARGETS: TASBEEH_TARGETS, loadTasbeeh, increment: tasbeehInc, undo: tasbeehUndo, reset: tasbeehReset, setDhikr: tasbeehSetDhikr, setTarget: tasbeehSetTarget } = require("./tasbeeh-store");
+
+function renderTasbeehText(state) {
+  const dhikr = TASBEEH_DHIKR[state.dhikrIndex];
+  const lines = [`📿 ${dhikr.ar}`, `${dhikr.label}`, "", `Count: ${state.count}${state.target ? ` / ${state.target}` : ""}`];
+  if (state.target && state.count >= state.target) lines.push("✅ Target reached!");
+  return lines.join("\n");
+}
+function renderTasbeehKeyboard() {
+  return [
+    [{ text: "➕ 1", callback_data: "tsb:inc" }, { text: "↩️ Undo", callback_data: "tsb:undo" }, { text: "🔄 Reset", callback_data: "tsb:reset" }],
+    [{ text: "📿 Change Dhikr", callback_data: "tsb:menu:dhikr" }, { text: "🎯 Target", callback_data: "tsb:menu:target" }],
+  ];
+}
+function renderDhikrMenuKeyboard() {
+  const rows = TASBEEH_DHIKR.map((d, i) => [{ text: `${d.ar} — ${d.label}`, callback_data: `tsb:setdhikr:${i}` }]);
+  rows.push([{ text: "⬅️ Back", callback_data: "tsb:back" }]);
+  return rows;
+}
+function renderTargetMenuKeyboard() {
+  const rows = TASBEEH_TARGETS.map((t) => [{ text: String(t), callback_data: `tsb:settarget:${t}` }]);
+  rows.push([{ text: "No target", callback_data: "tsb:settarget:none" }]);
+  rows.push([{ text: "⬅️ Back", callback_data: "tsb:back" }]);
+  return rows;
+}
+
+async function cmdTasbeeh() {
+  const state = loadTasbeeh();
+  return reply(renderTasbeehText(state), { keyboard: renderTasbeehKeyboard() });
+}
+
+async function handleCallbackQuery(cq) {
+  const data = String(cq.data || "");
+  const chatId = cq.message?.chat?.id;
+  const messageId = cq.message?.message_id;
+  if (!data.startsWith("tsb:") || !chatId || !messageId) { await answerCallback(cq.id); return; }
+
+  const action = data.slice(4);
+  if (action === "menu:dhikr") { await editMessage(chatId, messageId, "📿 Choose a dhikr:", renderDhikrMenuKeyboard()); return answerCallback(cq.id); }
+  if (action === "menu:target") { await editMessage(chatId, messageId, "🎯 Choose a target:", renderTargetMenuKeyboard()); return answerCallback(cq.id); }
+
+  let state = loadTasbeeh();
+  let toast = "";
+  if (action === "inc") state = tasbeehInc(state);
+  else if (action === "undo") state = tasbeehUndo(state);
+  else if (action === "reset") { state = tasbeehReset(state); toast = "Reset"; }
+  else if (action.startsWith("setdhikr:")) state = tasbeehSetDhikr(state, Number(action.slice(9)));
+  else if (action.startsWith("settarget:")) { const v = action.slice(10); state = tasbeehSetTarget(state, v === "none" ? null : Number(v)); }
+  // "back" (or anything unrecognized) falls through to just re-rendering
+  // the main counter view below — an honest no-op rather than a dead tap.
+
+  if (action === "inc" && state.target && state.count === state.target) toast = "🎯 Target reached!";
+  await editMessage(chatId, messageId, renderTasbeehText(state), renderTasbeehKeyboard());
+  return answerCallback(cq.id, toast);
+}
+
 // ── Command dispatcher ────────────────────────────────────────────────────────
 const COMMANDS = {
   start:     () => cmdHelp(),
@@ -1436,7 +1563,7 @@ const COMMANDS = {
   // pre-existing macro-report + scanner-setups command) — not renamed or
   // touched, per this session's own "no duplicate command" discipline.
   // /agent with no question is the Master Agent's own equivalent.
-  agent:     async (a) => reply(await askAgent(a.length ? a.join(" ") : "مرحبا عدول")),
+  agent:     async (a) => reply(await askAgent(a.length ? a.join(" ") : "السلام عليكم")),
   ask:       async (a) => { if (!a.length) return reply("Usage: /ask <question>"); return reply(await askAgent(a.join(" "))); },
   alert:     (a) => cmdAlert(a),
   alerts:    () => cmdAlerts(),
@@ -1467,7 +1594,33 @@ const COMMANDS = {
   // /athan — real, on-demand prayer schedule (2026-08-23, explicit user
   // request), same real Aladhan data the auto-alert background job uses.
   athan:     async () => reply(await formatPrayerSchedule()),
-  prayer:    async () => reply(await formatPrayerSchedule()),
+  // "Prayer" (2026-09-12 command-table update) — real next prayer + real
+  // countdown, deliberately narrower than the full timetable below (the
+  // old /prayer behavior — full 5-prayer schedule — is now /prayertimes).
+  prayer:      async () => reply(await formatNextPrayerMessage()),
+  prayertimes: async () => reply(await formatPrayerSchedule()),
+  times:       async () => reply(await formatPrayerSchedule()),
+
+  // "Weather"/"Date"/"Morning duaa"/"Evening duaa" (2026-09-12 command-
+  // table update) — same real, zero-AI-cost engines the web Master Agent
+  // chat already uses for weather (weather-engine.js), plus the real
+  // static azkar content (azkar-content.js) and real Gregorian+Hijri date
+  // (prayer-times.js's own real Aladhan state).
+  weather: async () => {
+    try {
+      const w = await fetchRealWeather();
+      return reply(renderWeatherText(w));
+    } catch (err) { return reply(`Weather lookup failed: ${err.message}`); }
+  },
+  date: async () => reply(await formatDateMessage()),
+  morningduaa: () => reply(formatMorningAzkar()),
+  azkarsabah:  () => reply(formatMorningAzkar()),
+  eveningduaa: () => reply(formatEveningAzkar()),
+  azkarmasaa:  () => reply(formatEveningAzkar()),
+
+  // "Tasbeeh" (2026-09-12 command-table update) — real, persisted,
+  // interactive Telegram counter (see the Tasbeeh section above).
+  tasbeeh: () => cmdTasbeeh(),
 
   // /estop, /rearm — the real, global Emergency Stop (2026-08-24,
   // Execution Bot Architecture Audit Phase 1). Reachable from Telegram
@@ -2109,8 +2262,12 @@ async function deleteWebhook() {
 }
 
 async function pollOnce() {
+  // Real callback_query support added (2026-09-12, /tasbeeh) — previously
+  // this only ever requested "message" updates, so a tapped inline-
+  // keyboard button (callback_data, not a URL button) would never reach
+  // this bot at all.
   const res = await fetch(
-    `${API}/getUpdates?offset=${_offset}&timeout=25&allowed_updates=%5B%22message%22%5D`,
+    `${API}/getUpdates?offset=${_offset}&timeout=25&allowed_updates=%5B%22message%22%2C%22callback_query%22%5D`,
     { signal: AbortSignal.timeout(35_000) }
   );
   const data = await res.json();
@@ -2133,6 +2290,19 @@ async function pollOnce() {
 
   for (const update of data.result) {
     _offset = update.update_id + 1;
+
+    // Real inline-keyboard button tap (2026-09-12, /tasbeeh) — same
+    // configured-chat-id guard as a real message below, since this is
+    // still the single-user bot.
+    if (update.callback_query) {
+      const cq = update.callback_query;
+      const cqChatId = String(cq.message?.chat?.id ?? "");
+      const configuredId = String(TELEGRAM_CHAT_ID || "").trim();
+      if (configuredId && cqChatId !== configuredId) { await answerCallback(cq.id); continue; }
+      handleCallbackQuery(cq).catch((err) => console.error("[TgBot] callback error:", err.message));
+      continue;
+    }
+
     const msg = update.message;
     if (!msg) continue;
 
@@ -2183,6 +2353,13 @@ async function registerCommands() {
       { command: "morning",   description: "Morning brief + today's setups" },
       { command: "agent",     description: "Master Agent — \"start my day\" report or ask it a question" },
       { command: "ask",       description: "Ask the Master Agent anything" },
+      { command: "weather",   description: "Current weather + today's forecast in your area" },
+      { command: "prayer",    description: "Next prayer, its time, and countdown" },
+      { command: "prayertimes", description: "Full daily prayer timetable" },
+      { command: "date",      description: "Today's Gregorian and Hijri dates" },
+      { command: "morningduaa", description: "أذكار الصباح with repetition counts" },
+      { command: "eveningduaa", description: "أذكار المساء with repetition counts" },
+      { command: "tasbeeh",   description: "Interactive dhikr counter" },
       { command: "close",     description: "End of day checklist" },
       { command: "score",     description: "SMC analysis — /score NVDA" },
       { command: "top5",      description: "Top 5 setups from last scan" },

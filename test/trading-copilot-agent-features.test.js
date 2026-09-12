@@ -39,9 +39,9 @@ ok("auto-greet uses sessionStorage (once per real browser session), never localS
   assert.match(src, /sessionStorage\.getItem\("axiom_copilot_greeted"\)/);
   assert.match(src, /sessionStorage\.setItem\("axiom_copilot_greeted", "1"\)/);
 });
-ok("the auto-greet opens the panel and queues the real personalized \"مرحبا عدول\" greeting through the existing queuedQuery/send() path, not a separate ad-hoc call", () => {
+ok("the auto-greet opens the panel and queues the real personalized \"السلام عليكم\" greeting through the existing queuedQuery/send() path, not a separate ad-hoc call", () => {
   assert.match(src, /setOpen\(true\);/);
-  assert.match(src, /setQueuedQuery\("مرحبا عدول"\);/);
+  assert.match(src, /setQueuedQuery\("السلام عليكم"\);/);
 });
 ok("the auto-greet effect only runs once on mount (empty dependency array), never re-fires on every re-render", () => {
   const effectBlock = src.slice(src.indexOf("axiom_copilot_greeted") - 400, src.indexOf("axiom_copilot_greeted") + 800);
@@ -78,7 +78,7 @@ ok("the ai-copilot route makes NO Anthropic call at all — no anthropicRequest 
   assert.doesNotMatch(routeSrc, /if \(!key\)/);
 });
 ok("every real deterministic trigger exists inside the route: greeting, Morning Mode, Deep Scan, Market Narrative, Weather, prayer time", () => {
-  assert.match(routeSrc, /ARABIC_GREETING_TRIGGER = \/مرحبا\\s\*عدول\//);
+  assert.match(routeSrc, /ARABIC_GREETING_TRIGGER = \/السلام\\s\*عليكم\//);
   assert.match(routeSrc, /if \(MORNING_TRIGGER\.test\(lastUserMsg\)\)/);
   assert.match(routeSrc, /DEEP_SCAN_TRIGGER = \/\\b\(deep scan/);
   assert.match(routeSrc, /NARRATIVE_TRIGGER = \/كيف\\s\*داير\\s\*السوق\//);

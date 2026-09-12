@@ -7,7 +7,7 @@
 // morning-mode-engine.js/deep-scan-engine.js's own build* functions
 // (exercised live, not unit-tested).
 const assert = require("node:assert");
-const { renderMarketNarrativeText } = require("../src/market-narrative-engine");
+const { renderMarketNarrativeText, stanceFor } = require("../src/market-narrative-engine");
 
 let passed = 0;
 function ok(name, fn) {
@@ -15,7 +15,7 @@ function ok(name, fn) {
   catch (e) { console.error(`  ✗ ${name}\n    ${e.message}`); process.exitCode = 1; }
 }
 
-const base = { generatedAt: new Date().toISOString(), macro: [], marketRegime: null, moversUp: [], moversDown: [], breakouts: [], universeSize: 0 };
+const base = { generatedAt: new Date().toISOString(), macro: [], marketRegime: null, stance: null, news: [], newsAvailable: false, economicReleases: [], moversUp: [], moversDown: [], breakouts: [], universeSize: 0 };
 
 console.log("Checking renderMarketNarrativeText — real, honest, never-fabricated market narrative, in English…");
 
@@ -24,6 +24,43 @@ ok("no real data at all renders honest empty-state lines, never fabricated mover
   assert.ok(text.includes("unavailable right now"));
   assert.ok(text.includes("No strong real upside movers"));
   assert.ok(text.includes("No strong real downside movers"));
+});
+
+ok("no real news store configured renders an honest disclosure, never fabricated headlines (2026-09-12 command-table update)", () => {
+  const text = renderMarketNarrativeText(base);
+  assert.ok(text.includes("Real news store isn't configured right now"));
+});
+
+ok("a configured but empty real news feed says so honestly, distinct from 'not configured'", () => {
+  const text = renderMarketNarrativeText({ ...base, newsAvailable: true, news: [] });
+  assert.ok(text.includes("No real HIGH/EXTREME-impact headlines"));
+});
+
+ok("real major news headlines render with real ticker/impact/source/time, never fabricated", () => {
+  const text = renderMarketNarrativeText({ ...base, newsAvailable: true, news: [{ ticker: "AAPL", headline: "Real earnings beat", source: "Reuters", published_at: new Date().toISOString(), impact_score: 92 }] });
+  assert.ok(text.includes("[EXTREME] AAPL — Real earnings beat"));
+  assert.ok(text.includes("Reuters"));
+});
+
+ok("no real economic releases on the hand-maintained calendar says so honestly, never invents a release date", () => {
+  const text = renderMarketNarrativeText(base);
+  assert.ok(text.includes("None on the real, hand-maintained calendar"));
+});
+
+ok("a real upcoming economic release renders with its real type/label/time", () => {
+  const text = renderMarketNarrativeText({ ...base, economicReleases: [{ type: "CPI", label: "August CPI print", atMs: Date.now() + 3600_000 }] });
+  assert.ok(text.includes("CPI — August CPI print"));
+});
+
+ok("a real regime maps to an honest BULLISH/BEARISH/NEUTRAL stance headline (2026-09-12: 'bullish, bearish, or neutral — and why')", () => {
+  const text = renderMarketNarrativeText({ ...base, marketRegime: { regime: "RISK_ON", score: 80, confidence: 90, reasons: ["Broad participation"] }, stance: "BULLISH" });
+  assert.ok(text.includes("BULLISH — Regime: RISK_ON"));
+  assert.ok(text.includes("Why: Broad participation"));
+});
+
+ok("every render ends with a real ET data timestamp — never an unlabeled/absent one", () => {
+  const text = renderMarketNarrativeText(base);
+  assert.match(text, /Data as of .+ ET/);
 });
 
 ok("real macro quotes are rendered with real price and change%", () => {
@@ -63,6 +100,24 @@ ok("real breakouts list renders with real RVOL, separate from the up/down mover 
   assert.ok(text.includes("Real opening-range breakouts today"));
   assert.ok(text.includes("AMD @ 150"));
   assert.ok(text.includes("RVOL 2.5x"));
+});
+
+console.log("\nChecking stanceFor — real regime -> honest BULLISH/BEARISH/NEUTRAL wording, never a guess for an unrecognized regime…");
+
+ok("RISK_ON and SELECTIVE_RISK_ON both map to BULLISH", () => {
+  assert.strictEqual(stanceFor("RISK_ON"), "BULLISH");
+  assert.strictEqual(stanceFor("SELECTIVE_RISK_ON"), "BULLISH");
+});
+ok("RISK_OFF and CRISIS both map to BEARISH", () => {
+  assert.strictEqual(stanceFor("RISK_OFF"), "BEARISH");
+  assert.strictEqual(stanceFor("CRISIS"), "BEARISH");
+});
+ok("NEUTRAL maps to NEUTRAL", () => {
+  assert.strictEqual(stanceFor("NEUTRAL"), "NEUTRAL");
+});
+ok("an unrecognized/absent regime returns null, never a guessed stance", () => {
+  assert.strictEqual(stanceFor("SOMETHING_NEW"), null);
+  assert.strictEqual(stanceFor(undefined), null);
 });
 
 console.log(`\n${passed} checks passed.`);

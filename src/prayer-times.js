@@ -117,7 +117,27 @@ async function tickPrayerNotify() {
   return { ok: true, alertedNow };
 }
 
-// Real, on-demand schedule — used by the /athan Telegram command.
+// Real, compact "next prayer + countdown" — the /prayer command
+// (2026-09-12 command-table update: "Next prayer in your area, its time,
+// and countdown" — deliberately narrower than the full timetable below,
+// which is now its own separate /prayertimes command). Same real Aladhan
+// state as everything else in this file, no separate fetch.
+async function formatNextPrayerMessage() {
+  let state;
+  try { state = await ensureTodayState(); } catch (e) { return `Couldn't fetch real prayer times right now (${e.message}).`; }
+  const nowMin = nowMinutesET();
+  const next = PRAYERS.find((p) => { const m = toMinutes(state.times[p.key]); return m != null && m > nowMin; });
+  if (!next) return `🕌 ${LOCATION.label}\n✅ All 5 prayers complete for today. Next real update after midnight ET.`;
+  const diff = toMinutes(state.times[next.key]) - nowMin;
+  return [
+    `${next.emoji} Next prayer: ${next.label} (${next.ar})`,
+    `🕐 ${state.times[next.key]} — 📍 ${LOCATION.label}`,
+    `⏳ ${Math.floor(diff / 60)}h ${diff % 60}m remaining`,
+  ].join("\n");
+}
+
+// Real, on-demand full timetable — used by the /prayertimes Telegram
+// command (the /athan alias keeps its original combined name).
 async function formatScheduleMessage() {
   let state;
   try { state = await ensureTodayState(); } catch (e) { return `Couldn't fetch real prayer times right now (${e.message}).`; }
@@ -139,4 +159,21 @@ async function formatScheduleMessage() {
   return lines.join("\n");
 }
 
-module.exports = { tickPrayerNotify, formatScheduleMessage, ensureTodayState, formatHijri, toMinutes, nowMinutesET, LOCATION, PRAYERS };
+// Real Gregorian + Hijri date (2026-09-12 command-table update: "Today's
+// Gregorian and Islamic Hijri dates"). The Hijri half reuses this same
+// file's own real Aladhan state (no separate call); the Gregorian half is
+// plain real wall-clock date formatting — never computed/converted by
+// hand, since Hijri-Gregorian conversion has real regional moon-sighting
+// variance this app has no authority to resolve on its own.
+async function formatDateMessage() {
+  const gregorian = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", weekday: "long", year: "numeric", month: "long", day: "numeric" }).format(new Date());
+  let hijriLine = "Hijri date unavailable right now.";
+  try {
+    const state = await ensureTodayState();
+    const h = formatHijri(state.hijri);
+    if (h) hijriLine = `🌙 ${h}`;
+  } catch { /* honest fallback line above stands */ }
+  return [`📅 ${gregorian}`, hijriLine].join("\n");
+}
+
+module.exports = { tickPrayerNotify, formatScheduleMessage, formatNextPrayerMessage, formatDateMessage, ensureTodayState, formatHijri, toMinutes, nowMinutesET, LOCATION, PRAYERS };

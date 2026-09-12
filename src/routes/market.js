@@ -2562,15 +2562,15 @@ async function handleMarket(req, res, requestUrl) {
     // AssetDecision, never from the LLM.
     const lastUserMsg = [...history].reverse().find((m) => m.role === "user")?.content || "";
     const MORNING_TRIGGER = /\b(good morning|start my day|what should i do today)\b/i;
-    // "مرحبا عدول" (explicit user request, 2026-09-11) is a real
-    // personalized greeting, not a Morning Mode alias — it always gets
-    // the short reply below, on every channel (first scoped to Telegram
-    // only, then "Change it then" -> "Make web behave like Telegram
-    // too"). The full report is still reachable via "good morning"/
-    // "start my day" (English) or "deep scan" for fuller market detail.
-    const ARABIC_GREETING_TRIGGER = /مرحبا\s*عدول/;
+    // "السلام عليكم" (2026-09-12 command-table update — replaces the prior
+    // "مرحبا عدول" greeting/reply pair entirely) is a real personalized
+    // greeting, not a Morning Mode alias — it always gets the exact short
+    // reply below, on every channel (Telegram command menu + web chat).
+    // The full report is still reachable via "good morning"/"start my
+    // day" (English) or "deep scan" for fuller market detail.
+    const ARABIC_GREETING_TRIGGER = /السلام\s*عليكم/;
     if (ARABIC_GREETING_TRIGGER.test(lastUserMsg)) {
-      return writeJson(res, 200, { ok: true, reply: "مرحبا بيك باش نخدمك" });
+      return writeJson(res, 200, { ok: true, reply: "وعليكم السلام اش حب الخاطر" });
     }
 
     if (MORNING_TRIGGER.test(lastUserMsg)) {
@@ -2677,7 +2677,7 @@ async function handleMarket(req, res, requestUrl) {
       reply: [
         "I don't have a real answer for that — this chat no longer uses Claude, only real platform data for specific questions:",
         "",
-        "• \"مرحبا عدول\" — a hello",
+        "• \"السلام عليكم\" — a hello",
         "• \"good morning\" / \"start my day\" — full Morning Mode report",
         "• \"deep scan\" / \"what's happening\" — full market-wide detail",
         "• \"كيف داير السوق اليوم\" — market narrative (movers, momentum, breakouts, BOS/ChoCh)",

@@ -26,7 +26,7 @@ ok("the colloquial \"الصبح\" (real common Maghrebi/Gulf alternative for Faj
   assert.strictEqual(resolvePrayerKey("معاش صلاة الفجر"), "Fajr");
 });
 ok("unrelated text (including the other Arabic triggers) returns null, never a false-positive prayer match", () => {
-  assert.strictEqual(resolvePrayerKey("مرحبا عدول"), null);
+  assert.strictEqual(resolvePrayerKey("السلام عليكم"), null);
   assert.strictEqual(resolvePrayerKey("كيف داير السوق اليوم"), null);
   assert.strictEqual(resolvePrayerKey("كيف داير الجو اليوم"), null);
   assert.strictEqual(resolvePrayerKey("good morning"), null);
