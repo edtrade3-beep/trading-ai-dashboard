@@ -20,23 +20,37 @@ const PHRASES = [
   { id: "alhamdulillah", ar: "الْحَمْدُ لِلَّهِ", en: "Alhamdulillah", target: 33 },
   { id: "allahuakbar", ar: "اللَّهُ أَكْبَرُ", en: "Allahu Akbar", target: 34 },
   { id: "astaghfirullah", ar: "أَسْتَغْفِرُ اللَّهَ", en: "Astaghfirullah", target: 100 },
+  // Salawat (2026-09-12, explicit user request: "add الصلاة على رسول
+  // الله") — unlike Subhanallah/Alhamdulillah/Allahu Akbar's real fixed
+  // post-prayer counts, there's no single canonical count for this one;
+  // 100 is just a sane real default, same as Astaghfirullah's, and (like
+  // every phrase now) fully user-editable via the real Goal input below.
+  { id: "salawat", ar: "الصلاة على رسول الله", en: "Salawat", target: 100 },
   { id: "custom", ar: "", en: "Custom", target: 100 },
 ];
 
 const STORE_KEY = "islamic_tasbeeh_counts";
+// Real, per-phrase editable goal (2026-09-12, explicit user request: "set
+// goal in tasbih") — previously only the blank "Custom" phrase had an
+// editable target; every real named dhikr above (including the new
+// Salawat) now gets the same real, persisted goal control.
+const TARGETS_KEY = "islamic_tasbeeh_targets";
 function loadCounts() { try { return JSON.parse(localStorage.getItem(STORE_KEY) || "{}"); } catch { return {}; } }
 function saveCounts(c) { try { localStorage.setItem(STORE_KEY, JSON.stringify(c)); } catch {} }
+function loadTargets() { try { return JSON.parse(localStorage.getItem(TARGETS_KEY) || "{}"); } catch { return {}; } }
+function saveTargets(t) { try { localStorage.setItem(TARGETS_KEY, JSON.stringify(t)); } catch {} }
 
 export default function TasbeehCounter() {
   const [phraseId, setPhraseId] = useState(PHRASES[0].id);
   const [counts, setCounts] = useState(loadCounts);
-  const [customTarget, setCustomTarget] = useState(100);
+  const [targets, setTargets] = useState(loadTargets);
 
   useEffect(() => { saveCounts(counts); }, [counts]);
+  useEffect(() => { saveTargets(targets); }, [targets]);
 
   const phrase = PHRASES.find((p) => p.id === phraseId);
   const count = counts[phraseId] || 0;
-  const target = phraseId === "custom" ? customTarget : phrase.target;
+  const target = targets[phraseId] ?? phrase.target;
   const reachedTarget = count > 0 && count % target === 0;
 
   const tap = () => {
@@ -44,6 +58,7 @@ export default function TasbeehCounter() {
     if (navigator.vibrate) navigator.vibrate(reachedTarget ? [40, 30, 40] : 15);
   };
   const reset = () => setCounts((c) => ({ ...c, [phraseId]: 0 }));
+  const setGoal = (val) => setTargets((t) => ({ ...t, [phraseId]: Math.max(1, Number(val) || 1) }));
 
   return (
     <div style={{ maxWidth: 420, margin: "0 auto" }}>
@@ -70,16 +85,14 @@ export default function TasbeehCounter() {
           }}
         >{count}</button>
 
-        {phraseId === "custom" && (
-          <div style={{ marginTop: 16 }}>
-            <label style={{ fontFamily: SANS, fontSize: 12.5, color: TEXT_DIM }}>Target: </label>
-            <input type="number" value={customTarget} onChange={(e) => setCustomTarget(Math.max(1, Number(e.target.value) || 1))}
-              style={{ width: 70, border: `1px solid ${BORDER}`, borderRadius: 6, padding: "4px 8px", fontFamily: SANS, textAlign: "center", background: CREAM }} />
-          </div>
-        )}
+        <div style={{ marginTop: 16 }}>
+          <label style={{ fontFamily: SANS, fontSize: 12.5, color: TEXT_DIM }}>Goal: </label>
+          <input type="number" value={target} onChange={(e) => setGoal(e.target.value)}
+            style={{ width: 70, border: `1px solid ${BORDER}`, borderRadius: 6, padding: "4px 8px", fontFamily: SANS, textAlign: "center", background: CREAM }} />
+        </div>
 
-        <div style={{ fontFamily: SANS, fontSize: 13, color: TEXT_DIM, marginTop: 18 }}>
-          Target: {target} {reachedTarget && <span style={{ color: GREEN_DARK, fontWeight: 700 }}>· ✓ Reached {Math.floor(count / target)}× </span>}
+        <div style={{ fontFamily: SANS, fontSize: 13, color: TEXT_DIM, marginTop: 10 }}>
+          {reachedTarget && <span style={{ color: GREEN_DARK, fontWeight: 700 }}>✓ Reached {Math.floor(count / target)}×</span>}
         </div>
 
         <button onClick={reset} style={{ marginTop: 14, background: "transparent", border: `1px solid ${BORDER}`, color: TEXT_DIM, borderRadius: 10, padding: "8px 18px", fontFamily: SANS, fontWeight: 700, cursor: "pointer" }}>
