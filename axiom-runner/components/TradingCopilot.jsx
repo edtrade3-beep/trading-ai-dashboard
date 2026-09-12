@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 // (no Claude call — explicit user request 2026-09-11: "remove anthropic
 // from anything else" outside Story AI). Every real question this answers
 // (Morning Mode, Deep Scan, Market Narrative, weather, prayer times, the
-// "السلام عليكم" greeting) is a deterministic src/routes/market.js trigger;
+// "salam" greeting) is a deterministic src/routes/market.js trigger;
 // account/watchlist/positions context is no longer sent since nothing on
 // the server reads it anymore.
 export default function TradingCopilot({ C, MONO, SANS, statusBarH = 40, fabFading = false, isMobile = false }) {
@@ -28,11 +28,11 @@ export default function TradingCopilot({ C, MONO, SANS, statusBarH = 40, fabFadi
     if (alreadyGreeted) return;
     try { sessionStorage.setItem("axiom_copilot_greeted", "1"); } catch {}
     setOpen(true);
-    // "السلام عليكم" (2026-09-12 command-table update — replaces the prior
-    // "مرحبا عدول" greeting) — a personalized Arabic greeting, matched by
-    // the real server-side ARABIC_GREETING_TRIGGER (src/routes/market.js),
-    // which always replies exactly "وعليكم السلام اش حب الخاطر".
-    setQueuedQuery("السلام عليكم");
+    // "salam" (2026-09-12 — explicit user request: "Change السلام عليكم
+    // to salam") — a personalized greeting, matched by the real
+    // server-side SALAM_TRIGGER (src/routes/market.js), which always
+    // replies exactly "وعليكم السلام اش حب الخاطر".
+    setQueuedQuery("salam");
   }, []); // eslint-disable-line
   // Opened from the sidebar's "AI Copilot" item, or from the command palette
   // routing free-text queries here — event-based rather than a lifted prop,
@@ -124,7 +124,7 @@ export default function TradingCopilot({ C, MONO, SANS, statusBarH = 40, fabFadi
       .catch(e => setMsgs(m => [...m, { role: "assistant", content: `⚠ ${e.message}` }]))
       .finally(() => setBusy(false));
   };
-  const suggestions = ["good morning", "deep scan", "السلام عليكم", "كيف داير الجو اليوم في المكان ديالي"];
+  const suggestions = ["good morning", "deep scan", "salam", "كيف داير الجو اليوم في المكان ديالي"];
   return (
     <>
       {/* bottom offsets add statusBarH (real, dynamic — can wrap to 2 lines)

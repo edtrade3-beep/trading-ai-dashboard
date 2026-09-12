@@ -2561,15 +2561,24 @@ async function handleMarket(req, res, requestUrl) {
     // verdict/entry/stop/target always come from the real canonical
     // AssetDecision, never from the LLM.
     const lastUserMsg = [...history].reverse().find((m) => m.role === "user")?.content || "";
+    // Real, exact whole-message match (2026-09-12 command-table update) —
+    // used below for the single-word command names (weather/date/prayer/
+    // prayer times/market/morning duaa/evening duaa) also exposed as
+    // Telegram slash-commands. Deliberately an EXACT match, not a
+    // substring like the other triggers below — these are common English
+    // words ("date", "market") that would otherwise false-positive inside
+    // an unrelated real sentence.
+    const trimmedLower = lastUserMsg.trim().toLowerCase();
     const MORNING_TRIGGER = /\b(good morning|start my day|what should i do today)\b/i;
-    // "السلام عليكم" (2026-09-12 command-table update — replaces the prior
-    // "مرحبا عدول" greeting/reply pair entirely) is a real personalized
+    // "salam" (2026-09-12 — replaces the prior Arabic-script "السلام
+    // عليكم" trigger text with the Latin-script word, explicit user
+    // request: "Change السلام عليكم to salam") is a real personalized
     // greeting, not a Morning Mode alias — it always gets the exact short
     // reply below, on every channel (Telegram command menu + web chat).
     // The full report is still reachable via "good morning"/"start my
     // day" (English) or "deep scan" for fuller market detail.
-    const ARABIC_GREETING_TRIGGER = /السلام\s*عليكم/;
-    if (ARABIC_GREETING_TRIGGER.test(lastUserMsg)) {
+    const SALAM_TRIGGER = /\bsalam\b/i;
+    if (SALAM_TRIGGER.test(lastUserMsg)) {
       return writeJson(res, 200, { ok: true, reply: "وعليكم السلام اش حب الخاطر" });
     }
 
@@ -2621,7 +2630,7 @@ async function handleMarket(req, res, requestUrl) {
     // (src/prayer-times.js's LOCATION — the same "where I live" this
     // platform already uses for prayer times). Zero AI cost.
     const WEATHER_TRIGGER = /كيف\s*داير\s*الجو/;
-    if (WEATHER_TRIGGER.test(lastUserMsg)) {
+    if (WEATHER_TRIGGER.test(lastUserMsg) || trimmedLower === "weather") {
       try {
         const { fetchRealWeather, renderWeatherText } = require("../weather-engine");
         const weather = await fetchRealWeather();
@@ -2641,6 +2650,46 @@ async function handleMarket(req, res, requestUrl) {
       if (prayerAnswer) return writeJson(res, 200, { ok: true, reply: prayerAnswer });
     } catch (e) {
       return writeJson(res, 200, { ok: false, error: `Prayer time lookup failed: ${e.message}` });
+    }
+
+    // "prayer" / "prayer times" / "date" / "morning duaa" / "evening duaa"
+    // (2026-09-12 command-table update) — the same real functions the
+    // Telegram /prayer, /prayertimes, /date, /morningduaa, /eveningduaa
+    // commands call, wired here too so the web chat answers the plain
+    // English command word the same honest way instead of the fallback
+    // capability list. Zero AI cost — real static/Aladhan/date data only.
+    if (trimmedLower === "prayer") {
+      try {
+        const { formatNextPrayerMessage } = require("../prayer-times");
+        return writeJson(res, 200, { ok: true, reply: await formatNextPrayerMessage() });
+      } catch (e) { return writeJson(res, 200, { ok: false, error: `Prayer lookup failed: ${e.message}` }); }
+    }
+    if (trimmedLower === "prayer times" || trimmedLower === "prayertimes") {
+      try {
+        const { formatScheduleMessage } = require("../prayer-times");
+        return writeJson(res, 200, { ok: true, reply: await formatScheduleMessage() });
+      } catch (e) { return writeJson(res, 200, { ok: false, error: `Prayer times lookup failed: ${e.message}` }); }
+    }
+    if (trimmedLower === "date") {
+      try {
+        const { formatDateMessage } = require("../prayer-times");
+        return writeJson(res, 200, { ok: true, reply: await formatDateMessage() });
+      } catch (e) { return writeJson(res, 200, { ok: false, error: `Date lookup failed: ${e.message}` }); }
+    }
+    if (trimmedLower === "morning duaa" || trimmedLower === "morningduaa") {
+      const { formatMorningAzkar } = require("../azkar-content");
+      return writeJson(res, 200, { ok: true, reply: formatMorningAzkar() });
+    }
+    if (trimmedLower === "evening duaa" || trimmedLower === "eveningduaa") {
+      const { formatEveningAzkar } = require("../azkar-content");
+      return writeJson(res, 200, { ok: true, reply: formatEveningAzkar() });
+    }
+    if (trimmedLower === "market") {
+      try {
+        const { buildMarketNarrative, renderMarketNarrativeText } = require("../market-narrative-engine");
+        const narrative = await buildMarketNarrative();
+        return writeJson(res, 200, { ok: true, reply: renderMarketNarrativeText(narrative), marketNarrative: narrative });
+      } catch (e) { return writeJson(res, 200, { ok: false, error: `Market briefing failed: ${e.message}` }); }
     }
 
     // Portfolio Shock Test (2026-09-11, explicit user request via the
@@ -2677,12 +2726,16 @@ async function handleMarket(req, res, requestUrl) {
       reply: [
         "I don't have a real answer for that — this chat no longer uses Claude, only real platform data for specific questions:",
         "",
-        "• \"السلام عليكم\" — a hello",
+        "• \"salam\" — a hello",
         "• \"good morning\" / \"start my day\" — full Morning Mode report",
         "• \"deep scan\" / \"what's happening\" — full market-wide detail",
-        "• \"كيف داير السوق اليوم\" — market narrative (movers, momentum, breakouts, BOS/ChoCh)",
-        "• \"كيف داير الجو اليوم في المكان ديالي\" — real weather",
+        "• \"market\" / \"كيف داير السوق اليوم\" — market narrative (movers, momentum, breakouts, BOS/ChoCh)",
+        "• \"weather\" / \"كيف داير الجو اليوم في المكان ديالي\" — real weather",
+        "• \"prayer\" — next prayer + countdown",
+        "• \"prayer times\" — full daily prayer timetable",
         "• \"معاش صلاة الظهر/العصر/الصبح/المغرب/العشاء\" — exact prayer time",
+        "• \"date\" — today's Gregorian + Hijri dates",
+        "• \"morning duaa\" / \"evening duaa\" — real azkar with repetition counts",
         "• \"portfolio shock test\" — real modeled stress test on your open positions",
       ].join("\n"),
     });

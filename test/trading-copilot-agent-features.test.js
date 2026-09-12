@@ -39,9 +39,9 @@ ok("auto-greet uses sessionStorage (once per real browser session), never localS
   assert.match(src, /sessionStorage\.getItem\("axiom_copilot_greeted"\)/);
   assert.match(src, /sessionStorage\.setItem\("axiom_copilot_greeted", "1"\)/);
 });
-ok("the auto-greet opens the panel and queues the real personalized \"السلام عليكم\" greeting through the existing queuedQuery/send() path, not a separate ad-hoc call", () => {
+ok("the auto-greet opens the panel and queues the real personalized \"salam\" greeting through the existing queuedQuery/send() path, not a separate ad-hoc call", () => {
   assert.match(src, /setOpen\(true\);/);
-  assert.match(src, /setQueuedQuery\("السلام عليكم"\);/);
+  assert.match(src, /setQueuedQuery\("salam"\);/);
 });
 ok("the auto-greet effect only runs once on mount (empty dependency array), never re-fires on every re-render", () => {
   const effectBlock = src.slice(src.indexOf("axiom_copilot_greeted") - 400, src.indexOf("axiom_copilot_greeted") + 800);
@@ -78,7 +78,7 @@ ok("the ai-copilot route makes NO Anthropic call at all — no anthropicRequest 
   assert.doesNotMatch(routeSrc, /if \(!key\)/);
 });
 ok("every real deterministic trigger exists inside the route: greeting, Morning Mode, Deep Scan, Market Narrative, Weather, prayer time", () => {
-  assert.match(routeSrc, /ARABIC_GREETING_TRIGGER = \/السلام\\s\*عليكم\//);
+  assert.match(routeSrc, /SALAM_TRIGGER = \/\\bsalam\\b\/i/);
   assert.match(routeSrc, /if \(MORNING_TRIGGER\.test\(lastUserMsg\)\)/);
   assert.match(routeSrc, /DEEP_SCAN_TRIGGER = \/\\b\(deep scan/);
   assert.match(routeSrc, /NARRATIVE_TRIGGER = \/كيف\\s\*داير\\s\*السوق\//);
@@ -95,13 +95,13 @@ ok("every trigger calls its own real engine module — never a Claude call stand
 ok("a message matching none of the real triggers gets an honest, real capability list — never a fabricated or silently-degraded AI answer", () => {
   assert.match(routeSrc, /I don't have a real answer for that/);
 });
-ok("the Arabic greeting check runs before (and short-circuits) the general Morning Mode trigger", () => {
-  const greetingCheckIdx = routeSrc.indexOf("if (ARABIC_GREETING_TRIGGER.test(lastUserMsg))");
+ok("the salam greeting check runs before (and short-circuits) the general Morning Mode trigger", () => {
+  const greetingCheckIdx = routeSrc.indexOf("if (SALAM_TRIGGER.test(lastUserMsg))");
   const morningTriggerIdx = routeSrc.indexOf("if (MORNING_TRIGGER.test(lastUserMsg))");
-  assert.ok(greetingCheckIdx > -1 && morningTriggerIdx > -1 && greetingCheckIdx < morningTriggerIdx, "the Arabic greeting check must run before the general Morning Mode trigger");
+  assert.ok(greetingCheckIdx > -1 && morningTriggerIdx > -1 && greetingCheckIdx < morningTriggerIdx, "the salam greeting check must run before the general Morning Mode trigger");
 });
-ok("the general Morning Mode trigger no longer references the Arabic phrase (dead condition removed — the greeting always returns early above it now)", () => {
-  assert.doesNotMatch(routeSrc, /MORNING_TRIGGER\.test\(lastUserMsg\) \|\| ARABIC_GREETING_TRIGGER/);
+ok("the general Morning Mode trigger no longer references the salam trigger (dead condition removed — the greeting always returns early above it now)", () => {
+  assert.doesNotMatch(routeSrc, /MORNING_TRIGGER\.test\(lastUserMsg\) \|\| SALAM_TRIGGER/);
 });
 ok("AI_COPILOT_TOOLS (the Claude tool-loop schema) is fully removed, not left as dead weight (a comment mentioning its removal by name is fine — only a real declaration is checked)", () => {
   assert.doesNotMatch(marketSrc, /const AI_COPILOT_TOOLS/);

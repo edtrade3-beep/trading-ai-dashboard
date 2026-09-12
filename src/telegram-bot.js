@@ -1563,7 +1563,7 @@ const COMMANDS = {
   // pre-existing macro-report + scanner-setups command) — not renamed or
   // touched, per this session's own "no duplicate command" discipline.
   // /agent with no question is the Master Agent's own equivalent.
-  agent:     async (a) => reply(await askAgent(a.length ? a.join(" ") : "السلام عليكم")),
+  agent:     async (a) => reply(await askAgent(a.length ? a.join(" ") : "salam")),
   ask:       async (a) => { if (!a.length) return reply("Usage: /ask <question>"); return reply(await askAgent(a.join(" "))); },
   alert:     (a) => cmdAlert(a),
   alerts:    () => cmdAlerts(),
@@ -2203,12 +2203,47 @@ const COMMANDS = {
   ].join("\n")),
 };
 
+// Real bug fix (2026-09-12 command-table update, live user report:
+// "Weather is giving me macro data" / typing "date" ran a real stock
+// deep-dive on the nonexistent ticker "DATE") — every one of the new
+// command-table words (weather/date/prayer/tasbeeh/etc.) also happens to
+// look like a syntactically valid bare ticker (see the regex a few lines
+// below in dispatch()), so without this they were being swallowed by the
+// bare-ticker branch and run as a real (nonsensical) deep dive instead of
+// ever reaching the real command. Deliberately a narrow, explicit list —
+// NOT "any COMMANDS key wins over a ticker," which would break the
+// existing, intentional design where a real short alias that's ALSO a
+// real ticker (e.g. "M" — Macy's — aliased to /macro) still deep-dives.
+// "salam" maps to null here (not a COMMANDS key) and is special-cased
+// below, since it routes through the real Master Agent chat, not a
+// direct Telegram command handler.
+const BARE_WORD_COMMAND_ALIASES = {
+  salam: null,
+  weather: "weather",
+  date: "date",
+  prayer: "prayer",
+  prayertimes: "prayertimes",
+  "prayer times": "prayertimes",
+  morningduaa: "morningduaa",
+  "morning duaa": "morningduaa",
+  eveningduaa: "eveningduaa",
+  "evening duaa": "eveningduaa",
+  tasbeeh: "tasbeeh",
+  market: "market",
+};
+
 async function dispatch(text) {
   const clean = String(text || "").trim();
 
   // ── Bare ticker detection (e.g. "AAPL" or "NVDA" without a slash) ──────────
   if (!clean.startsWith("/")) {
     if (!clean) return; // ignore empty/whitespace-only messages
+    if (Object.prototype.hasOwnProperty.call(BARE_WORD_COMMAND_ALIASES, clean.toLowerCase())) {
+      const aliasKey = BARE_WORD_COMMAND_ALIASES[clean.toLowerCase()];
+      if (!aliasKey) return askAgent(clean).then(reply).catch(err => reply(`Agent error: ${err.message}`));
+      console.log(`[TgBot] Bare command word detected: "${clean}" -> /${aliasKey}`);
+      return Promise.resolve(COMMANDS[aliasKey]([])).catch(err => reply(`Error: ${err.message}`));
+    }
     const upper = clean.toUpperCase();
     // Single word, 1–6 uppercase letters/digits/dots, no spaces
     if (/^[A-Z][A-Z0-9.\-]{0,8}$/.test(upper) && upper.length >= 1) {
