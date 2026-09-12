@@ -9,8 +9,8 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { ROOT } = require("../src/config");
 const {
-  DHIKR_LIST, TARGETS, defaultState, loadTasbeeh, saveTasbeeh,
-  increment, undo, reset, setDhikr, setTarget,
+  DHIKR_LIST, TARGETS, SEQUENCE_STAGES, stageForCount, defaultState, loadTasbeeh, saveTasbeeh,
+  increment, undo, reset, setDhikr, setTarget, setSequenceMode,
 } = require("../src/tasbeeh-store");
 
 const STATE_PATH = path.join(ROOT, "data", "tasbeeh-state.json");
@@ -104,6 +104,54 @@ ok("DHIKR_LIST entries all carry real, non-empty Arabic text and a real English 
     assert.ok(typeof d.ar === "string" && d.ar.trim().length > 0);
     assert.ok(typeof d.label === "string" && d.label.trim().length > 0);
   }
+});
+
+console.log("\nChecking the real 'Tasbeeh 100' combo mode (2026-09-12, explicit user request: 33 Subhan Allah / 34 Alhamdulillah / 67 Allahu Akbar / 100 La ilaha illallah)…");
+
+ok("stageForCount resolves every real boundary to the correct real dhikr — 1, 33, 34, 66, 67, 99, 100", () => {
+  assert.strictEqual(stageForCount(1).label, "Subhan Allah");
+  assert.strictEqual(stageForCount(33).label, "Subhan Allah");
+  assert.strictEqual(stageForCount(34).label, "Alhamdulillah");
+  assert.strictEqual(stageForCount(66).label, "Alhamdulillah");
+  assert.strictEqual(stageForCount(67).label, "Allahu Akbar");
+  assert.strictEqual(stageForCount(99).label, "Allahu Akbar");
+  assert.strictEqual(stageForCount(100).label, "La ilaha illallah");
+});
+
+ok("stageForCount clamps a count of 0 (nothing said yet) to the first real stage, never undefined", () => {
+  assert.strictEqual(stageForCount(0).label, "Subhan Allah");
+});
+
+ok("SEQUENCE_STAGES covers exactly 100 real taps with no gaps or overlaps", () => {
+  const covered = new Set();
+  for (const s of SEQUENCE_STAGES) for (let n = s.from; n <= s.to; n++) covered.add(n);
+  assert.strictEqual(covered.size, 100);
+  for (let n = 1; n <= 100; n++) assert.ok(covered.has(n), `count ${n} must be covered by exactly one real stage`);
+});
+
+ok("setSequenceMode starts a real fresh 0/100 run and switches mode to 'sequence'", () => {
+  let s = loadTasbeeh();
+  s = increment(s);
+  s = setSequenceMode(s);
+  assert.strictEqual(s.mode, "sequence");
+  assert.strictEqual(s.count, 0);
+  assert.strictEqual(s.target, 100);
+  assert.deepStrictEqual(s.history, []);
+});
+
+ok("increment honestly stops at the real 100th tap in sequence mode, never overflows past the defined stages", () => {
+  let s = loadTasbeeh();
+  s = setSequenceMode(s);
+  for (let i = 0; i < 105; i++) s = increment(s);
+  assert.strictEqual(s.count, 100);
+});
+
+ok("setDhikr switches back to real 'single' mode, leaving sequence mode", () => {
+  let s = loadTasbeeh();
+  s = setSequenceMode(s);
+  s = setDhikr(s, 0);
+  assert.strictEqual(s.mode, "single");
+  assert.strictEqual(s.dhikrIndex, 0);
 });
 
 resetFile();

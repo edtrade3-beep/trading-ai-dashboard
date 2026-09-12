@@ -1474,11 +1474,25 @@ async function cmdTwits(args) {
 // header) driven entirely by inline-keyboard callback_data taps — +1,
 // Undo, Reset, dhikr selection, target selection — edited in place on the
 // SAME message rather than spamming a new one per tap.
-const { DHIKR_LIST: TASBEEH_DHIKR, TARGETS: TASBEEH_TARGETS, loadTasbeeh, increment: tasbeehInc, undo: tasbeehUndo, reset: tasbeehReset, setDhikr: tasbeehSetDhikr, setTarget: tasbeehSetTarget } = require("./tasbeeh-store");
+const {
+  DHIKR_LIST: TASBEEH_DHIKR, TARGETS: TASBEEH_TARGETS, stageForCount,
+  loadTasbeeh, increment: tasbeehInc, undo: tasbeehUndo, reset: tasbeehReset,
+  setDhikr: tasbeehSetDhikr, setTarget: tasbeehSetTarget, setSequenceMode: tasbeehSetSequenceMode,
+} = require("./tasbeeh-store");
 
+// Real, compact layout (2026-09-12, live user report on a screenshot of
+// this exact message: "Make it fit page" — the prior version's blank
+// separator line left a large dead-space gap between the dhikr name and
+// the count on Telegram's own message rendering). Dhikr name + label on
+// one line, count directly below, no blank line.
+//
+// Real "Tasbeeh 100" combo (2026-09-12, explicit user request: "Tasbeeh
+// 33 سبحان الله at 34 change to الحمد لله At 67 change الله اكبر at 100
+// change لا اله الا الله") — in sequence mode the dhikr shown is derived
+// from the real count via stageForCount, not the manually-selected one.
 function renderTasbeehText(state) {
-  const dhikr = TASBEEH_DHIKR[state.dhikrIndex];
-  const lines = [`📿 ${dhikr.ar}`, `${dhikr.label}`, "", `Count: ${state.count}${state.target ? ` / ${state.target}` : ""}`];
+  const dhikr = state.mode === "sequence" ? stageForCount(state.count) : TASBEEH_DHIKR[state.dhikrIndex];
+  const lines = [`📿 ${dhikr.ar} — ${dhikr.label}`, `Count: ${state.count}${state.target ? ` / ${state.target}` : ""}`];
   if (state.target && state.count >= state.target) lines.push("✅ Target reached!");
   return lines.join("\n");
 }
@@ -1489,7 +1503,8 @@ function renderTasbeehKeyboard() {
   ];
 }
 function renderDhikrMenuKeyboard() {
-  const rows = TASBEEH_DHIKR.map((d, i) => [{ text: `${d.ar} — ${d.label}`, callback_data: `tsb:setdhikr:${i}` }]);
+  const rows = [[{ text: "🕌 Tasbeeh 100 (Auto)", callback_data: "tsb:setseq" }]];
+  TASBEEH_DHIKR.forEach((d, i) => rows.push([{ text: `${d.ar} — ${d.label}`, callback_data: `tsb:setdhikr:${i}` }]));
   rows.push([{ text: "⬅️ Back", callback_data: "tsb:back" }]);
   return rows;
 }
@@ -1520,6 +1535,7 @@ async function handleCallbackQuery(cq) {
   if (action === "inc") state = tasbeehInc(state);
   else if (action === "undo") state = tasbeehUndo(state);
   else if (action === "reset") { state = tasbeehReset(state); toast = "Reset"; }
+  else if (action === "setseq") { state = tasbeehSetSequenceMode(state); toast = "Tasbeeh 100 started"; }
   else if (action.startsWith("setdhikr:")) state = tasbeehSetDhikr(state, Number(action.slice(9)));
   else if (action.startsWith("settarget:")) { const v = action.slice(10); state = tasbeehSetTarget(state, v === "none" ? null : Number(v)); }
   // "back" (or anything unrecognized) falls through to just re-rendering
