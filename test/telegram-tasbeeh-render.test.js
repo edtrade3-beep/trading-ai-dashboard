@@ -57,6 +57,14 @@ ok("reply forwards a real parse_mode through opts.parseMode to the actual Telegr
   assert.match(block, /if \(opts\.parseMode\) body\.parse_mode = opts\.parseMode;/);
 });
 
+ok("the +1 button has its own full-width keyboard row (2026-09-12, live user request: \"Make where you count +1 make it bigger\") — Telegram has no button font-size control, so a real bigger button means a row it doesn't share with Undo/Reset", () => {
+  const start = src.indexOf("function renderTasbeehKeyboard()");
+  const end = src.indexOf("\n}", start);
+  const block = src.slice(start, end);
+  assert.match(block, /\[\{ text: "➕ 1", callback_data: "tsb:inc" \}\],/, "the +1 button's row must contain no other button");
+  assert.match(block, /\{ text: "↩️ Undo"/);
+});
+
 console.log(`\n${passed} checks passed.`);
 if (process.exitCode) console.error("TELEGRAM-TASBEEH-RENDER TEST FAILED");
 else console.log("TELEGRAM-TASBEEH-RENDER TEST OK");

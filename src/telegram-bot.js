@@ -1515,9 +1515,17 @@ function renderTasbeehText(state) {
   if (state.target && state.count >= state.target) lines.push("✅ Target reached!");
   return lines.join("\n");
 }
+// Real, bigger +1 button (2026-09-12, live user request: "Make where you
+// count +1 make it bigger") — Telegram inline buttons have no font-size
+// or explicit-size control at all; the one real lever a bot DOES have is
+// row width. Sharing a row splits it evenly between however many buttons
+// are on it, so a 3-way row makes +1 a third of the width — giving it its
+// own full-width row makes it the biggest, most tappable button on the
+// keyboard, a real (not cosmetic-only) change.
 function renderTasbeehKeyboard() {
   return [
-    [{ text: "➕ 1", callback_data: "tsb:inc" }, { text: "↩️ Undo", callback_data: "tsb:undo" }, { text: "🔄 Reset", callback_data: "tsb:reset" }],
+    [{ text: "➕ 1", callback_data: "tsb:inc" }],
+    [{ text: "↩️ Undo", callback_data: "tsb:undo" }, { text: "🔄 Reset", callback_data: "tsb:reset" }],
     [{ text: "📿 Change Dhikr", callback_data: "tsb:menu:dhikr" }, { text: "🎯 Target", callback_data: "tsb:menu:target" }],
   ];
 }
