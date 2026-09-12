@@ -223,6 +223,16 @@ async function reply(text, opts = {}) {
   if (!TELEGRAM_CHAT_ID) return;
   try {
     const body = { chat_id: TELEGRAM_CHAT_ID, text: String(text) };
+    // Real HTML formatting (2026-09-12, /tasbeeh "Make it bigger") —
+    // Telegram's Bot API has no font-size control at all (that's the
+    // receiving app's own text-size setting, not something a bot message
+    // can override); bold is the real, honest closest lever available.
+    // Deliberately opt-in per call, not the default: this app's other
+    // replies interpolate real external text (tickers, headlines, error
+    // messages) that could contain literal `<`/`&` and break HTML parsing
+    // — only call sites with fully own-authored, controlled text (like
+    // Tasbeeh's) should ever pass this.
+    if (opts.parseMode) body.parse_mode = opts.parseMode;
     if (opts.url && opts.buttonText) {
       body.reply_markup = { inline_keyboard: [[{ text: String(opts.buttonText), url: String(opts.url) }]] };
     } else if (Array.isArray(opts.keyboard)) {
@@ -249,9 +259,10 @@ async function reply(text, opts = {}) {
 // or the tapped button shows an infinite loading spinner client-side;
 // editMessage updates the SAME message in place so repeated taps don't
 // spam a new message per tap.
-async function editMessage(chatId, messageId, text, keyboard) {
+async function editMessage(chatId, messageId, text, keyboard, parseMode) {
   try {
     const body = { chat_id: chatId, message_id: messageId, text: String(text) };
+    if (parseMode) body.parse_mode = parseMode;
     if (Array.isArray(keyboard)) body.reply_markup = { inline_keyboard: keyboard };
     const res = await fetch(`${API}/editMessageText`, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
@@ -1490,9 +1501,17 @@ const {
 // 33 سبحان الله at 34 change to الحمد لله At 67 change الله اكبر at 100
 // change لا اله الا الله") — in sequence mode the dhikr shown is derived
 // from the real count via stageForCount, not the manually-selected one.
+//
+// Real HTML bold (2026-09-12, "Make it bigger") — Telegram's Bot API has
+// no actual font-size control (that's the receiving app's own text-size
+// setting); bold is the honest, real closest option. Safe to interpolate
+// raw here: dhikr.ar/dhikr.label only ever come from this app's own
+// static DHIKR_LIST/SEQUENCE_STAGES (tasbeeh-store.js), and state.count/
+// state.target are always real numbers — never untrusted text that could
+// contain a literal `<`/`&` and break HTML parsing.
 function renderTasbeehText(state) {
   const dhikr = state.mode === "sequence" ? stageForCount(state.count) : TASBEEH_DHIKR[state.dhikrIndex];
-  const lines = [`📿 ${dhikr.ar} — ${dhikr.label}`, `Count: ${state.count}${state.target ? ` / ${state.target}` : ""}`];
+  const lines = [`<b>📿 ${dhikr.ar} — ${dhikr.label}</b>`, `<b>Count: ${state.count}${state.target ? ` / ${state.target}` : ""}</b>`];
   if (state.target && state.count >= state.target) lines.push("✅ Target reached!");
   return lines.join("\n");
 }
@@ -1517,7 +1536,7 @@ function renderTargetMenuKeyboard() {
 
 async function cmdTasbeeh() {
   const state = loadTasbeeh();
-  return reply(renderTasbeehText(state), { keyboard: renderTasbeehKeyboard() });
+  return reply(renderTasbeehText(state), { keyboard: renderTasbeehKeyboard(), parseMode: "HTML" });
 }
 
 async function handleCallbackQuery(cq) {
@@ -1542,7 +1561,7 @@ async function handleCallbackQuery(cq) {
   // the main counter view below — an honest no-op rather than a dead tap.
 
   if (action === "inc" && state.target && state.count === state.target) toast = "🎯 Target reached!";
-  await editMessage(chatId, messageId, renderTasbeehText(state), renderTasbeehKeyboard());
+  await editMessage(chatId, messageId, renderTasbeehText(state), renderTasbeehKeyboard(), "HTML");
   return answerCallback(cq.id, toast);
 }
 
