@@ -204,6 +204,15 @@ export const SIDEBAR_ITEMS = [
   // the same real handoff LightBoxTab/TradeNavigatorTab already use.
   { id: "search", label: "Search", icon: "🔎", tab: "search" },
 
+  // AI Agent — real Institutional Copilot chat + the new Astra/Claude dev-
+  // task queue (2026-09-13). Was command-palette-only (AGENT/AI aliases,
+  // axiom-live.jsx) since before the 2026-09-05 consolidation — user
+  // couldn't find it ("dont see it"), so promoted to a permanent row, same
+  // explicit-exception treatment as Car Business/Dealership/Story AI/
+  // Islamic below: a real destination worth one click, not a lookup.
+  // AgentTab.jsx (activeTab "agent") is otherwise fully unchanged.
+  { id: "agent", label: "AI Agent", icon: "🧭", tab: "agent" },
+
   // Story AI — Arabic AI storytelling studio (2026-09-07, explicit user
   // request: "add a completely new major tab... self-contained module").
   // Same explicit-exception placement as Car Business/Dealership above: a
