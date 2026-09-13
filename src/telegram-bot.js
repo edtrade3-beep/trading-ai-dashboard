@@ -403,6 +403,10 @@ async function cmdHelp() {
     "\n🛑 EMERGENCY STOP\n" +
     "/estop                cancel all real pending orders + halt all 4 automated systems\n" +
     "/rearm                re-arm after an Emergency Stop (required — nothing auto-resumes)\n" +
+    "\n🧭 ASTRA + CLAUDE DEV QUEUE (separate from Master Agent above — real Claude call, opt-in only)\n" +
+    "/astra <task>          Astra plans a dev task (lead architect/auditor)\n" +
+    "/astra status          Astra + router status\n" +
+    "/claude status         Claude task-queue status (remote, human-run — nothing executes unattended)\n" +
     "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
     "/help — show this page"
   );
@@ -1547,6 +1551,69 @@ async function cmdTasbeeh() {
   return reply(renderTasbeehText(state), { keyboard: renderTasbeehKeyboard(), parseMode: "HTML" });
 }
 
+// ── Astra + Claude dev-task queue (2026-09-13, "remote development
+// architecture" build) ──────────────────────────────────────────────────
+// A NEW, separate system from the Master Agent above (/agent, /ask) — it
+// does not touch that dispatch path and does not add any Claude call to
+// this bot's existing deterministic commands. Reachable only through
+// /astra and /claude, explicit opt-in every time. Astra (planner/auditor)
+// makes a real Anthropic call; the Claude side is a task queue only — no
+// command here ever runs code or shell commands. Lazy-required (same
+// pattern as emergency-stop/job-heartbeat above) to keep this file's own
+// require graph minimal for a module basically everything else requires.
+async function cmdAstra(args) {
+  if (!args.length) return reply("Usage: /astra <task description>  — or  /astra status");
+  if (args[0].toLowerCase() === "status") return cmdAstraStatus();
+  const text = args.join(" ");
+  await reply(`🧭 Astra is planning: "${text.slice(0, 80)}"…`);
+  const { routeToAstra } = require("./agent-router");
+  const { ok, task, error } = await routeToAstra(text, { source: "telegram" });
+  if (!ok || !task) return reply(`Astra couldn't plan this task: ${error || "unknown error"}`);
+  const cfgNote = task.plan?.configured === false ? "\n⚠️ ANTHROPIC_API_KEY not set — offline fallback plan." : "";
+  return reply(`🧭 ASTRA PLAN — [${task.id}]\n${task.plan?.text || "(no plan text)"}${cfgNote}\n\nNext: run "node scripts/agent-worker.js next" to pick this up.`);
+}
+
+async function cmdAstraStatus() {
+  const store = require("./agent-state-store");
+  const s = store.summary();
+  const a = s.agents.astra || {}, r = s.agents.router || {};
+  const lines = [
+    "🧭 ASTRA STATUS",
+    "━━━━━━━━━━━━━━━━━━━━━━━━",
+    `Configured: ${require("./astra-agent").isConfigured() ? "✅ yes (ANTHROPIC_API_KEY set)" : "⚠️ no — offline fallback mode"}`,
+    `Last plan/review: ${a.lastRunAt ? new Date(a.lastRunAt).toLocaleString() : "never"}`,
+    `Last action: ${a.lastAction || "—"}  |  Last task: ${a.lastTaskId || "—"}`,
+    "",
+    `Router last intent: ${r.lastIntent || "—"}`,
+    `Router last text: ${r.lastText || "—"}`,
+    "",
+    `Task queue: ${Object.entries(s.counts).map(([k, v]) => `${k}=${v}`).join("  ")}`,
+  ];
+  return reply(lines.join("\n"));
+}
+
+async function cmdClaudeStatus() {
+  const store = require("./agent-state-store");
+  const s = store.summary();
+  const c = s.agents.claude || {};
+  const lines = [
+    "🛠 CLAUDE (task queue) STATUS",
+    "━━━━━━━━━━━━━━━━━━━━━━━━",
+    `Last activity: ${c.lastRunAt ? new Date(c.lastRunAt).toLocaleString() : "never"}`,
+    `Last action: ${c.lastAction || "—"}  |  Last task: ${c.lastTaskId || "—"}`,
+    "",
+    `Queue: ${Object.entries(s.counts).map(([k, v]) => `${k}=${v}`).join("  ")}`,
+    "",
+    `Remote control is task-queue based, human-run — nothing executes unattended. Run "node scripts/agent-worker.js next" to pick up the next task.`,
+  ];
+  const recent = store.listTasks({ limit: 5 });
+  if (recent.length) {
+    lines.push("", "Recent tasks:");
+    recent.forEach((t) => lines.push(`  [${t.id}] ${t.status} — ${t.title}`));
+  }
+  return reply(lines.join("\n"));
+}
+
 async function handleCallbackQuery(cq) {
   const data = String(cq.data || "");
   const chatId = cq.message?.chat?.id;
@@ -1664,6 +1731,10 @@ const COMMANDS = {
   // "Tasbeeh" (2026-09-12 command-table update) — real, persisted,
   // interactive Telegram counter (see the Tasbeeh section above).
   tasbeeh: () => cmdTasbeeh(),
+
+  // Astra + Claude dev-task queue (2026-09-13) — see the section above.
+  astra:  (a) => cmdAstra(a),
+  claude: () => cmdClaudeStatus(),
 
   // /estop, /rearm — the real, global Emergency Stop (2026-08-24,
   // Execution Bot Architecture Audit Phase 1). Reachable from Telegram
@@ -2448,6 +2519,8 @@ async function registerCommands() {
       { command: "pause",     description: "Pause alerts — /pause 4h" },
       { command: "resume",    description: "Resume alerts" },
       { command: "status",    description: "Bot settings + scanner status" },
+      { command: "astra",     description: "Astra — plan a dev task, or /astra status" },
+      { command: "claude",    description: "Claude dev task-queue status" },
       { command: "help",      description: "All commands" },
     ];
     const res  = await fetch(`${API}/setMyCommands`, {

@@ -113,6 +113,49 @@ Story -> Humanize -> Verify -> AI Critic -> Scenes -> Music Director
   `isConfigured()` real check, honest `NOT_CONFIGURED` state, never a
   faked/simulated result.
 
+## 4b. Astra + Claude dev-task queue (built 2026-09-13)
+
+A second, deliberately separate multi-agent system for building the
+platform itself — not for trading. Reachable only through explicit
+`/astra` and `/claude` Telegram commands (reuses the existing bot, no
+second polling process); the Master Agent's own dispatch path (section 3)
+is untouched and still makes zero incremental Claude calls.
+
+```
+Telegram (/astra <task>) -> agent-router.js (deterministic classify)
+  -> astra-agent.js (real Claude call: plans the task)
+  -> data/agent-state.json (the ONE shared project state)
+  -> scripts/agent-worker.js (human/Claude session picks up "planned" tasks)
+  -> astra-agent.js (real Claude call: reviews the completed work)
+```
+
+- **Astra** (`src/astra-agent.js`) — lead architect/auditor/planner/QA
+  reviewer. Text-only: produces a plan or a review, never edits a file,
+  runs a shell command, or touches execution-authority. Falls back to an
+  honest offline plan/review (never fabricated) when `ANTHROPIC_API_KEY`
+  isn't set, same discipline as every other AI feature in this app.
+- **Claude** — the implementer. Deliberately a **task queue, not a live
+  bridge**: nothing in this repo invokes Claude Code unattended. A human
+  (or an interactive Claude Code session) runs `node scripts/agent-worker.js
+  <list|next|start|complete|status>` to pick up a planned task and mark it
+  done; that triggers Astra's review automatically. This is the explicit
+  scoping decision behind "Do not deploy destructive changes without
+  safeguards" — real code changes always require a human in the loop.
+- **Market Agents** (`src/market-agent.js`) — read-only research only. It
+  imports only `getScannerStatus` from `market-scanner.js`; no
+  order-placement or account-mutating module is reachable from this file,
+  so it has no structural path to real money, consistent with section 2's
+  execution-authority boundary.
+- **Router** (`src/agent-router.js`) — deterministic keyword classifier
+  (`astra_plan` / `market_research` / `router_status`); never calls Claude
+  itself, so routing costs nothing. Owns every write to the shared state.
+- **Shared project state** (`src/agent-state-store.js` ->
+  `data/agent-state.json`, Postgres-backed via atomic-write.js when
+  `DATABASE_URL` is set) — the one state object every agent above reads and
+  writes: task queue (`queued -> planned -> in_progress -> review -> done`)
+  plus each agent's last-action snapshot. `/astra status` and `/claude
+  status` in Telegram both read straight from it.
+
 ## 5. Islamic tools
 
 Two separate real surfaces sharing the same underlying real data:
