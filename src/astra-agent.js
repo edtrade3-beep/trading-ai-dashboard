@@ -17,7 +17,7 @@
 // other AI feature in this app (see src/routes/agent.js) when no
 // ANTHROPIC_API_KEY is set — an offline fallback, never a fabricated plan.
 const { callAnthropicApi, MODELS } = require("./anthropic");
-const { ANTHROPIC_API_KEY } = require("./config");
+const { ANTHROPIC_API_KEY, ASTRA_ENABLED } = require("./config");
 
 const SYSTEM_PROMPT = `You are Astra, the lead architect, auditor, planner, and QA reviewer for the "AM Trading Platform" codebase (a Node.js/CommonJS backend + React frontend trading dashboard, single-user, real brokerage data). Claude Code is the implementer — a separate coding worker that reads your plan and writes the actual code; you never write code yourself.
 
@@ -27,23 +27,30 @@ Your job, depending on what you're asked:
 
 Hard rules: never fabricate data or test results, never claim something was verified if you don't know it was, and always call out explicitly when a task touches real trade execution or real money — those need extra scrutiny before anyone merges or deploys them.`;
 
-function isConfigured() { return Boolean(ANTHROPIC_API_KEY); }
+// Two independent gates, both must pass: a real key AND explicit opt-in.
+// ASTRA_ENABLED defaults OFF — real cost, never spent by accident.
+function isConfigured() { return Boolean(ANTHROPIC_API_KEY) && ASTRA_ENABLED; }
+
+function offlineReason() {
+  if (!ASTRA_ENABLED) return "Astra is disabled (ASTRA_ENABLED is not set) — no cost, by design. Set ASTRA_ENABLED=true to turn it on.";
+  return "ANTHROPIC_API_KEY not set.";
+}
 
 function fallbackPlan(task) {
   return [
-    `PLAN (offline fallback — ANTHROPIC_API_KEY not set)`,
+    `PLAN (offline fallback — ${offlineReason()})`,
     `Task: ${task.title}`,
     ``,
-    `Astra can't reach Claude without an API key, so this is a placeholder plan only:`,
+    `This is a placeholder plan only, no Claude call was made:`,
     `1. Read the task description and identify the files it touches.`,
     `2. Make the smallest change that satisfies it.`,
     `3. Add or adjust a test if the change is behavioral.`,
-    `4. Re-run this task through Astra's review once ANTHROPIC_API_KEY is configured.`,
+    `4. Re-run this task through Astra's review once it's enabled.`,
   ].join("\n");
 }
 
 function fallbackReview(task) {
-  return `REVIEW (offline fallback — ANTHROPIC_API_KEY not set)\nAstra can't audit "${task.title}" without an API key. The implementation is recorded but UNREVIEWED — treat it as such until a real Astra pass runs.`;
+  return `REVIEW (offline fallback — ${offlineReason()})\nAstra can't audit "${task.title}" right now. The implementation is recorded but UNREVIEWED — treat it as such until a real Astra pass runs.`;
 }
 
 async function planTask(task) {
@@ -73,4 +80,4 @@ async function reviewTask(task) {
   return { ok: true, configured: true, text, generatedAt: new Date().toISOString() };
 }
 
-module.exports = { isConfigured, planTask, reviewTask, SYSTEM_PROMPT };
+module.exports = { isConfigured, offlineReason, planTask, reviewTask, SYSTEM_PROMPT };

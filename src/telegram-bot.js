@@ -1580,7 +1580,7 @@ async function cmdAstraStatus() {
   const lines = [
     "🧭 ASTRA STATUS",
     "━━━━━━━━━━━━━━━━━━━━━━━━",
-    `Configured: ${require("./astra-agent").isConfigured() ? "✅ yes (ANTHROPIC_API_KEY set)" : "⚠️ no — offline fallback mode"}`,
+    `Configured: ${require("./astra-agent").isConfigured() ? "✅ yes" : `⚠️ no — ${require("./astra-agent").offlineReason()}`}`,
     `Last plan/review: ${a.lastRunAt ? new Date(a.lastRunAt).toLocaleString() : "never"}`,
     `Last action: ${a.lastAction || "—"}  |  Last task: ${a.lastTaskId || "—"}`,
     "",

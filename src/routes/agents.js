@@ -16,7 +16,8 @@ async function handleAgents(req, res, requestUrl) {
 
   if (pathname === "/api/agents/status" && req.method === "GET") {
     const s = store.summary();
-    return writeJson(res, 200, { ok: true, ...s, astraConfigured: astra.isConfigured() });
+    const configured = astra.isConfigured();
+    return writeJson(res, 200, { ok: true, ...s, astraConfigured: configured, astraOfflineReason: configured ? null : astra.offlineReason() });
   }
 
   if (pathname === "/api/agents/tasks" && req.method === "GET") {

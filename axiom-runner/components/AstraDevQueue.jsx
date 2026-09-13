@@ -106,7 +106,7 @@ export default function AstraDevQueue({ C, MONO, SANS }) {
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}>
           <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 8 }}>STATUS</div>
           <div style={{ fontSize: 12, color: C.textSec, marginBottom: 6 }}>
-            <b>Astra:</b> {status ? (status.astraConfigured ? "configured" : "offline fallback (no API key)") : "…"}
+            <b>Astra:</b> {status ? (status.astraConfigured ? "configured" : status.astraOfflineReason || "offline fallback") : "…"}
           </div>
           <div style={{ fontSize: 12, color: C.textSec, marginBottom: 6 }}><b>Total tasks:</b> {status?.totalTasks ?? "…"}</div>
           {status?.counts && (

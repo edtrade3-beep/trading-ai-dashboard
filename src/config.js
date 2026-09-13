@@ -1,4 +1,5 @@
 const path = require("node:path");
+const { isOn } = require("./utils");
 
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || "0.0.0.0";
@@ -16,6 +17,13 @@ const APP_PASSWORD = (process.env.APP_PASSWORD || "").trim();
 const TELEGRAM_BOT_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || "").trim();
 const TELEGRAM_CHAT_ID = (process.env.TELEGRAM_CHAT_ID || "").trim();
 const ANTHROPIC_API_KEY = (process.env.ANTHROPIC_API_KEY || "").trim();
+// Astra (the dev-task planner/reviewer, 2026-09-13) is a real, separate
+// Anthropic spend on top of Story AI/the web Copilot — explicit user
+// request: "i dont want to use money for ai agent". Defaults OFF even
+// when ANTHROPIC_API_KEY is set for those other features; set
+// ASTRA_ENABLED=true (Render env var) to opt in later. astra-agent.js's
+// isConfigured() checks this, never just the presence of the key.
+const ASTRA_ENABLED = isOn(process.env.ASTRA_ENABLED);
 const TV_WEBHOOK_MAX_ROWS = 160;
 
 const MIME_TYPES = {
@@ -81,7 +89,7 @@ module.exports = {
   PORT, HOST, ROOT, MARKET_QUOTE_TIMEOUT_MS,
   FINNHUB_API_KEY, FMP_API_KEY, TWELVE_DATA_API_KEY, POLYGON_API_KEY,
   UNUSUAL_WHALES_API_KEY, TRADIER_API_KEY, TV_WEBHOOK_SECRET, TV_WEBHOOK_MAX_ROWS,
-  APP_PASSWORD, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, ANTHROPIC_API_KEY,
+  APP_PASSWORD, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, ANTHROPIC_API_KEY, ASTRA_ENABLED,
   MIME_TYPES, TIMEFRAME_CONFIG, CANDLE_TIMEFRAME_CONFIG, MACRO_SYMBOLS,
   resolveProviderKeys
 };

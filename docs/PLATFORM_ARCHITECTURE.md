@@ -132,8 +132,12 @@ Telegram (/astra <task>) -> agent-router.js (deterministic classify)
 - **Astra** (`src/astra-agent.js`) — lead architect/auditor/planner/QA
   reviewer. Text-only: produces a plan or a review, never edits a file,
   runs a shell command, or touches execution-authority. Falls back to an
-  honest offline plan/review (never fabricated) when `ANTHROPIC_API_KEY`
-  isn't set, same discipline as every other AI feature in this app.
+  honest offline plan/review (never fabricated) when not configured.
+  **Cost safeguard (2026-09-13, explicit user request: "i dont want to use
+  money for ai agent")** — gated by TWO independent checks, both required:
+  a real `ANTHROPIC_API_KEY` AND `ASTRA_ENABLED=true`. The second defaults
+  OFF even when the key is already set for Story AI/the web Copilot, so
+  Astra spends nothing until explicitly turned on in Render's env vars.
 - **Claude** — the implementer. Deliberately a **task queue, not a live
   bridge**: nothing in this repo invokes Claude Code unattended. A human
   (or an interactive Claude Code session) runs `node scripts/agent-worker.js
