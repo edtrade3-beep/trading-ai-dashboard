@@ -11,6 +11,7 @@ const handleMarket = require("./routes/market");
 const handleInventory = require("./routes/inventory");
 const handleJournal = require("./routes/journal");
 const handleAgent = require("./routes/agent");
+const { handleAgents } = require("./routes/agents");
 const handlePortfolio = require("./routes/portfolio");
 const handleDealership = require("./dealership/routes");
 const { loadInventory } = require("./inventory-store");
@@ -314,6 +315,13 @@ async function handleRequest(req, res) {
 
     if (pathname === "/api/agent" || pathname.startsWith("/api/agent/")) {
       return await handleAgent(req, res, requestUrl);
+    }
+
+    // Astra/Claude dev-task queue (2026-09-13) — separate from the /api/agent
+    // Master Agent/Institutional Copilot route above; same shared state the
+    // Telegram /astra and /claude commands use.
+    if (pathname.startsWith("/api/agents/")) {
+      return await handleAgents(req, res, requestUrl);
     }
 
     if (pathname === "/api/portfolio" || pathname.startsWith("/api/portfolio/")) {

@@ -1,32 +1,66 @@
+import { useState } from "react";
 import { Badge } from "./ui-atoms.jsx";
+import AstraDevQueue from "./AstraDevQueue.jsx";
 
 export default function AgentTab({
   C, MONO, SANS, regime, setAgentPrompt, runAIAgent, agentLoading, agentPrompt, terminalSymbol,
   marketSession, flowBias, combinedAlerts, watchlistData, agentRunAt, agentOutput, telegramOk,
 }) {
+  // Sub-view toggle (2026-09-13, explicit user request: a way to reach the
+  // new Astra/Claude dev-task queue from the web dashboard without needing
+  // Telegram — "why i need to use telegram for this"). Folded into this
+  // existing, already-permanent sidebar tab rather than a new sidebar row,
+  // per this session's own choice to respect the 2026-09-05 "combine tabs
+  // minimize tabs" sidebar consolidation. Defaults to "copilot" so nothing
+  // about the existing Institutional Copilot view changes unless clicked.
+  const [subView, setSubView] = useState("copilot");
+
   return (
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, gap: 10, flexWrap: "wrap" }}>
-              <div style={{ fontSize: 12, fontFamily: MONO, color: C.textDim, letterSpacing: "0.08em" }}>
-                AI AGENT - INSTITUTIONAL COPILOT
+              <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                {[
+                  { id: "copilot", label: "AI AGENT - INSTITUTIONAL COPILOT" },
+                  { id: "devqueue", label: "ASTRA + CLAUDE DEV QUEUE" },
+                ].map((v) => (
+                  <button
+                    key={v.id}
+                    onClick={() => setSubView(v.id)}
+                    style={{
+                      border: `1px solid ${subView === v.id ? C.accent + "55" : C.border}`,
+                      background: subView === v.id ? `${C.accent}12` : C.surface,
+                      color: subView === v.id ? C.accent : C.textDim,
+                      borderRadius: 6, padding: "6px 10px", fontFamily: MONO, fontSize: 12,
+                      letterSpacing: "0.06em", cursor: "pointer", fontWeight: subView === v.id ? 700 : 400,
+                    }}
+                  >
+                    {v.label}
+                  </button>
+                ))}
               </div>
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <Badge color={regime === "Risk-On" ? C.green : regime === "Risk-Off" ? C.red : C.amber}>{regime.toUpperCase()}</Badge>
-                <button
-                  onClick={() => setAgentPrompt("Give me market regime, top 5 longs, top 3 risks, and a clear execution plan.")}
-                  style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 6, padding: "6px 10px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
-                >
-                  RESET PROMPT
-                </button>
-                <button
-                  onClick={runAIAgent}
-                  style={{ border: `1px solid ${C.accent}55`, background: `${C.accent}12`, color: C.accent, borderRadius: 6, padding: "6px 10px", fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
-                >
-                  {agentLoading ? "RUNNING..." : "RUN AGENT"}
-                </button>
-              </div>
+              {subView === "copilot" && (
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <Badge color={regime === "Risk-On" ? C.green : regime === "Risk-Off" ? C.red : C.amber}>{regime.toUpperCase()}</Badge>
+                  <button
+                    onClick={() => setAgentPrompt("Give me market regime, top 5 longs, top 3 risks, and a clear execution plan.")}
+                    style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.textSec, borderRadius: 6, padding: "6px 10px", fontFamily: MONO, fontSize: 12, cursor: "pointer" }}
+                  >
+                    RESET PROMPT
+                  </button>
+                  <button
+                    onClick={runAIAgent}
+                    style={{ border: `1px solid ${C.accent}55`, background: `${C.accent}12`, color: C.accent, borderRadius: 6, padding: "6px 10px", fontFamily: MONO, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+                  >
+                    {agentLoading ? "RUNNING..." : "RUN AGENT"}
+                  </button>
+                </div>
+              )}
             </div>
 
+            {subView === "devqueue" && <AstraDevQueue C={C} MONO={MONO} SANS={SANS} />}
+
+            {subView === "copilot" && (
+            <>
             <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 12, marginBottom: 12 }}>
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}>
                 <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 8 }}>PROMPT</div>
@@ -95,6 +129,8 @@ export default function AgentTab({
                 {agentOutput || "No output yet. Click RUN AGENT."}
               </pre>
             </div>
+            </>
+            )}
           </div>
   );
 }
