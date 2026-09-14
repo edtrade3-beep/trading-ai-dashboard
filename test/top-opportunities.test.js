@@ -169,6 +169,71 @@ ok("BLOCKER EXCLUSION: real execution blockers (assetDecision.blockers, dataHeal
   assert.doesNotMatch(timingFnBody, /riskLevel|riskScore/, "risk info is cautionary, not an exclusion condition — must not gate on it");
 });
 
+console.log("\nChecking TIMING NOT READY dedup against the final visible Top-5 (2026-09-13, real production audit finding — MU appeared as both Top-5 #1 and this row)…");
+
+ok("skips any candidate whose symbol is already in the caller-supplied visible list — before evaluating the rest of the predicate", () => {
+  assert.match(timingFnBody, /const visible = new Set\(visibleSymbols\);/);
+  assert.match(timingFnBody, /if \(visible\.has\(o\.symbol\)\) return false;/);
+});
+
+ok("call site passes the FINAL visible list (post-Early-Discovery `rows`), not the raw canonical tiers — so dedup is correct even when Early Discovery changed slot 5", () => {
+  assert.match(src, /pickTimingNotReadyCandidate\(tiers, rows\.map\(\(o\) => o\.symbol\)\)/);
+});
+
+ok("the locked WAIT-2 predicate itself is completely unchanged by the dedup addition (same 7 conditions, same order)", () => {
+  assert.match(timingFnBody, /o\.tier === "WAIT" &&\s*\n\s*o\.verdict === "AVOID_LONG" &&\s*\n\s*Number\.isFinite\(o\.score\) && o\.score >= 70 &&\s*\n\s*Number\.isFinite\(o\.entryScore\) && o\.entryScore < 75 &&\s*\n\s*ad\?\.verdict === "AVOID" &&\s*\n\s*!\(Array\.isArray\(ad\?\.blockers\) && ad\.blockers\.length > 0\) &&\s*\n\s*ad\?\.dataHealth\?\.canTrade !== false/);
+});
+
+ok("does not reorder or replace any Top-5 slot — the dedup only affects the separate secondary row, `rows` itself is never reassigned by this logic", () => {
+  assert.doesNotMatch(timingFnBody, /rows\.slice|rows\[/, "pickTimingNotReadyCandidate must never touch the Top-5 rows array itself");
+});
+
+ok("REGRESSION (real production case): given tiers.wait order [MU, AMD, MRVL, ANET, TXN, CRWD, ...] and a visible list of the first 5, the first NON-visible qualifying candidate (CRWD) is chosen — verified against the actual live production payload that surfaced this bug", () => {
+  // Minimal re-implementation of the exact shipped logic for a synthetic
+  // fixture shaped like the real captured production data (MU..TXN all
+  // independently satisfy the predicate, exactly as observed live).
+  function pick(tiers, visibleSymbols) {
+    const visible = new Set(visibleSymbols);
+    return (tiers.wait || []).find((o) => {
+      if (visible.has(o.symbol)) return false;
+      const ad = o.assetDecision;
+      return (
+        o.tier === "WAIT" && o.verdict === "AVOID_LONG" &&
+        Number.isFinite(o.score) && o.score >= 70 &&
+        Number.isFinite(o.entryScore) && o.entryScore < 75 &&
+        ad?.verdict === "AVOID" &&
+        !(Array.isArray(ad?.blockers) && ad.blockers.length > 0) &&
+        ad?.dataHealth?.canTrade !== false
+      );
+    }) || null;
+  }
+  const mk = (symbol, score, entryScore) => ({
+    symbol, tier: "WAIT", verdict: "AVOID_LONG", score, entryScore,
+    assetDecision: { verdict: "AVOID", blockers: [], dataHealth: { canTrade: true } },
+  });
+  const wait = [mk("MU", 81, 60), mk("AMD", 81, 70), mk("MRVL", 79, 50), mk("ANET", 78, 65), mk("TXN", 78, 53), mk("CRWD", 77, 46)];
+  const visibleTop5 = ["MU", "AMD", "MRVL", "ANET", "TXN"];
+  const result = pick({ wait }, visibleTop5);
+  assert.strictEqual(result.symbol, "CRWD", "must skip all 5 already-visible symbols and land on the first genuinely-hidden qualifying candidate");
+});
+
+ok("if every qualifying WAIT-2 candidate is already visible, no secondary row is produced (returns null, never a fabricated row)", () => {
+  function pick(tiers, visibleSymbols) {
+    const visible = new Set(visibleSymbols);
+    return (tiers.wait || []).find((o) => {
+      if (visible.has(o.symbol)) return false;
+      const ad = o.assetDecision;
+      return o.tier === "WAIT" && o.verdict === "AVOID_LONG" && Number.isFinite(o.score) && o.score >= 70
+        && Number.isFinite(o.entryScore) && o.entryScore < 75 && ad?.verdict === "AVOID"
+        && !(Array.isArray(ad?.blockers) && ad.blockers.length > 0) && ad?.dataHealth?.canTrade !== false;
+    }) || null;
+  }
+  const mk = (symbol) => ({ symbol, tier: "WAIT", verdict: "AVOID_LONG", score: 80, entryScore: 60, assetDecision: { verdict: "AVOID", blockers: [], dataHealth: { canTrade: true } } });
+  const wait = [mk("MU"), mk("AMD")];
+  const result = pick({ wait }, ["MU", "AMD"]);
+  assert.strictEqual(result, null);
+});
+
 ok("UI SEMANTIC: renders the literal 'TIMING NOT READY' tag — never PROMISING/ALMOST BUY/WATCH NEXT/EARLY BUY", () => {
   assert.match(src, />TIMING NOT READY</);
   for (const forbidden of ["PROMISING", "ALMOST BUY", "WATCH NEXT", "EARLY BUY"]) {

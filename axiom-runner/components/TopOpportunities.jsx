@@ -84,9 +84,21 @@ export function withEarlyDiscoverySlot(rows, tiers) {
 // engine "WAIT" string to canonical WAIT, never "AVOID_LONG") — the UI
 // must always show that real verdict alongside the tag, never instead of
 // it.
-export function pickTimingNotReadyCandidate(tiers) {
+//
+// Dedup against the final visible list (2026-09-13, live audit finding —
+// confirmed in real production output: MU appeared as both Top-5 #1 and
+// this secondary row, since a WAIT-heavy scan can have every visible
+// Top-5 slot independently satisfy this same predicate). `visibleSymbols`
+// is the FINAL Top-5 — i.e. after withEarlyDiscoverySlot's own
+// adjustment, per the caller below — so this stays correct regardless of
+// whether Early Discovery changed slot 5. Presentation-only: the
+// predicate itself, tiers.wait's existing backend order, and the
+// Top-5/Early-Discovery logic are all untouched.
+export function pickTimingNotReadyCandidate(tiers, visibleSymbols = []) {
+  const visible = new Set(visibleSymbols);
   const wait = tiers?.wait || [];
   return wait.find((o) => {
+    if (visible.has(o.symbol)) return false;
     const ad = o.assetDecision;
     return (
       o.tier === "WAIT" &&
@@ -120,7 +132,7 @@ export default function TopOpportunities({ onSelectSymbol, C, MONO, SANS }) {
   }, []);
 
   const rows = tiers ? withEarlyDiscoverySlot(pickTopOpportunities(tiers, 5), tiers) : [];
-  const timingNotReady = tiers ? pickTimingNotReadyCandidate(tiers) : null;
+  const timingNotReady = tiers ? pickTimingNotReadyCandidate(tiers, rows.map((o) => o.symbol)) : null;
 
   return (
     <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px", marginBottom: 12 }}>
