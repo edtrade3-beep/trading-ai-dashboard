@@ -215,10 +215,20 @@ ok("computeGammaLabReads: real Expected Pin/Magnet/Dealer Bias derived from real
 
 console.log("Checking options-math.js Phase 5 additions (EV, contract ranking, squeeze/crush/assignment risk)…");
 ok("dteFromExpiry: real calendar-day math off a real expiry string", () => {
-  const { dteFromExpiry } = require("../src/options-math");
-  const future = new Date(Date.now() + 10 * 86_400_000).toISOString().slice(0, 10);
-  const dte = dteFromExpiry(future);
-  assert.ok(dte >= 9 && dte <= 10, "10 real days out should compute to ~10 DTE");
+  // Deterministic by construction (2026-09-14 fix — this fixture was
+  // previously built from Date.now()+10*86_400_000 formatted via UTC
+  // toISOString(), which drifts a real calendar day ahead of America/
+  // New_York during the real daily UTC/ET rollover window (~8pm-midnight
+  // ET) — real production dteFromExpiry() is ET-anchored (etDateStr()),
+  // so that UTC-anchored fixture intermittently computed DTE 11, outside
+  // this test's old [9,10] tolerance band. Anchoring the fixture to the
+  // SAME real etDateStr() primitive production itself uses (not a second
+  // offset assumption, not a hard-coded EDT/EST hour, not local machine
+  // time) makes the expected DTE exact and time-of-day-independent.
+  const { dteFromExpiry, etDateStr } = require("../src/options-math");
+  const todayEt = new Date(`${etDateStr()}T00:00:00Z`);
+  const future = new Date(todayEt.getTime() + 10 * 86_400_000).toISOString().slice(0, 10);
+  assert.strictEqual(dteFromExpiry(future), 10, "10 real ET calendar days out must compute to exactly DTE 10");
   assert.strictEqual(dteFromExpiry("not-a-date"), null);
 });
 ok("expectedValue: real POP × avgWin math, honest null with missing real inputs", () => {
