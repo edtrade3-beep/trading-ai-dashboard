@@ -987,6 +987,24 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
   // Cortex's heat check too, so it can never again disagree with
   // classifyCoreVerdict's hard gate about the same real chase-distance read.
   const heatD = (symTrend && sniperD) ? computeHeatRisk(symTrend, sniperD, symMtf?.antiChase) : null;
+  // Cortex Verdict (hotfix, 2026-09-14) — real ReferenceError crash fix:
+  // this Decision Workspace panel referenced cortexV several times below
+  // but never declared it in this file, crashing MarketTerminalTab on
+  // render. Same compatibility presentation object SmartScanTab.jsx
+  // already derives from the canonical AssetDecision (One Engine
+  // consolidation, "cortexV stays real... derived from the canonical
+  // AssetDecision; it is not a new classifier and cannot override the
+  // server verdict") — never a second verdict authority. symTrend is
+  // this file's own per-loaded-symbol equivalent of that file's
+  // trendRow (fetched via &withDecision=1 above), and
+  // symTrend?.assetDecision?.verdict is already read the same way
+  // elsewhere in this file (decisionInputs.vLabel below).
+  const cortexVerdictRaw = symTrend?.assetDecision?.verdict || null;
+  const cortexV = cortexVerdictRaw ? {
+    verdict: cortexVerdictRaw === "STRONG_BUY" || cortexVerdictRaw === "BUY" ? "BUY ZONE" : cortexVerdictRaw,
+    color: FINAL_VERDICT_META[cortexVerdictRaw]?.color || C.textDim,
+    reason: symTrend.assetDecision.reasons?.[0] || "Canonical final verdict.",
+  } : null;
   const entryTypeDW = (symTrend && aPlusScore) ? classifyEntryType(symTrend, aPlusScore.score) : null;
   const setupScoreDW = symTrend ? computeSetupScore(symTrend) : null;
   // Cortex's 5-verdict vocabulary, bridged into the new WATCH/EARLY/START/
@@ -2068,7 +2086,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                 <div>
                   <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 4 }}>NEXT ACTION</div>
                   <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.text, lineHeight: 1.5 }}>
-                    {sniperD?.waitingFor || heatD?.reason || cortexV.reason || sniperD?.reason || "No further confirmation needed right now."}
+                    {sniperD?.waitingFor || heatD?.reason || cortexV?.reason || sniperD?.reason || "No further confirmation needed right now."}
                   </div>
                 </div>
                 {/* "What Would Change My Mind" (data-integrity audit,
