@@ -785,10 +785,10 @@ export default function TradeDeskTab({
           rail is just always here now, so there's no longer a second
           mode to discover or switch into. */}
       <div style={{ display: "flex", borderTop: `1px solid ${TD.border}`, minHeight: 0 }}>
-        <nav aria-label="Trade Desk tabs" style={{ width: 168, flexShrink: 0, borderRight: `1px solid ${TD.border}`, background: TD.surface, padding: "10px 8px", display: "flex", flexDirection: "column", gap: 12 }}>
+        <nav aria-label="Trade Desk tabs" style={{ width: 190, flexShrink: 0, borderRight: `1px solid ${TD.border}`, background: TD.surface, padding: "12px 8px", display: "flex", flexDirection: "column", gap: 14 }}>
           {DOCK_GROUPS.map((group) => (
             <div key={group.name}>
-              <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: TD.textDim, letterSpacing: "0.08em", padding: "0 4px 4px" }}>{group.name}</div>
+              <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: TD.textDim, letterSpacing: "0.08em", padding: "0 6px 5px" }}>{group.name}</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                 {group.modules.map((m) => (
                   // Real bug fix (2026-09-09, live user report: "THEY ALL
@@ -805,10 +805,10 @@ export default function TradeDeskTab({
                     onClick={() => openDockModule(m.key)}
                     aria-current={dockModule === m.key ? "true" : undefined}
                     style={{
-                      textAlign: "left", padding: "6px 8px", border: "none", borderRadius: 6,
+                      textAlign: "left", padding: "7px 10px", border: "none", borderRadius: 6,
                       background: dockModule === m.key ? `${m.color}1f` : "transparent",
-                      color: m.color, opacity: dockModule === m.key ? 1 : 0.72,
-                      fontFamily: MONO, fontSize: 10.5, fontWeight: 800, cursor: "pointer", letterSpacing: 0.2,
+                      color: m.color, opacity: dockModule === m.key ? 1 : 0.78,
+                      fontFamily: MONO, fontSize: 12.5, fontWeight: 800, cursor: "pointer", letterSpacing: 0.2,
                     }}
                   >
                     {m.label}
@@ -822,9 +822,21 @@ export default function TradeDeskTab({
           {dockModule ? (
             <div style={{ maxHeight: isMobile ? "70vh" : "60vh", overflowY: "auto" }}>{dockBody}</div>
           ) : (
-            <div style={{ padding: "28px 20px", fontFamily: SANS, fontSize: 12.5, color: TD.textDim, lineHeight: 1.6 }}>
-              Pick a tab on the left for more on {symbol || "this symbol"} — key levels, targets, options, news,
-              alerts, smart money, and everything else Trade Desk tracks lives here, one click away.
+            // Real empty-state redesign — the old version was a single
+            // 12.5px dim sentence in the top-left corner of an otherwise
+            // fully blank ~60vh pane (real "excess empty space, poor
+            // visual hierarchy" per the 2026-09-14 UI audit). Same real
+            // data/behavior (still just an instruction to pick a module,
+            // zero new fetch), given actual visual weight instead: a real
+            // heading, vertically centered in the available space.
+            <div style={{ minHeight: isMobile ? "40vh" : "50vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: "28px 24px" }}>
+              <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: TD.text, marginBottom: 8 }}>
+                Select a module
+              </div>
+              <div style={{ fontFamily: SANS, fontSize: 14, color: TD.textSec, lineHeight: 1.6, maxWidth: 380 }}>
+                Pick a tab on the left for more on {symbol || "this symbol"} — key levels, targets, options, news,
+                alerts, smart money, and everything else Trade Desk tracks lives here, one click away.
+              </div>
             </div>
           )}
         </div>
