@@ -144,7 +144,11 @@ export default function TopOpportunities({ onSelectSymbol, C, MONO, SANS }) {
                 <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 800, color: C.text, minWidth: 56 }}>{o.symbol}</div>
                 <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: stage.color, minWidth: 130 }}>
                   {stage.text}
-                  {o.edgeVelocity?.status === "ACCELERATING" && <span style={{ color: C.green, marginLeft: 4 }}>↑ ACCELERATING</span>}
+                  {o.edgeVelocity?.status === "ACCELERATING" && (
+                    <span style={{ color: C.green, marginLeft: 4 }}>
+                      ↑ ACCELERATING{o.edgeVelocity?.isProvisional ? " · PROVISIONAL" : ""}
+                    </span>
+                  )}
                 </div>
                 <div style={{ fontFamily: MONO, fontSize: 13, color: C.textSec, minWidth: 90 }}>
                   Opportunity {opportunityScore ?? "—"}

@@ -101,6 +101,33 @@ ok("TEST 7 — EXTENDED is never eligible: only tiers.developing is ever searche
   assert.doesNotMatch(fnBody, /extended/i);
 });
 
+console.log("\nChecking Provisional 2-Sample Edge Velocity in the Early Discovery slot (2026-09-13)…");
+
+ok("PROVISIONAL TEST 7: a 2-sample provisional ACCELERATING candidate is eligible — the existing status==='ACCELERATING' check already covers it, no new eligibility branch needed", () => {
+  const fnBody = src.slice(src.indexOf("export function withEarlyDiscoverySlot"), src.indexOf("// Timing Not Ready watch row"));
+  assert.match(fnBody, /o\.edgeVelocity\?\.status === "ACCELERATING"/, "eligibility reads status only — a provisional candidate with status ACCELERATING already qualifies");
+});
+
+ok("PROVISIONAL TEST 7b: the UI visibly marks a provisional accelerating row distinctly from a confirmed one", () => {
+  assert.match(src, /↑ ACCELERATING\{o\.edgeVelocity\?\.isProvisional \? " · PROVISIONAL" : ""\}/);
+});
+
+ok("PROVISIONAL TEST 8: a confirmed (3+-sample) ACCELERATING row renders the plain, unmarked '↑ ACCELERATING' label — existing display for confirmed reads is unchanged", () => {
+  // The conditional renders "" (no suffix) whenever isProvisional is falsy —
+  // confirmed reads (isProvisional:false) get exactly the original label.
+  assert.match(src, /o\.edgeVelocity\?\.isProvisional \? " · PROVISIONAL" : ""/);
+});
+
+ok("PROVISIONAL TEST 9: a 2-sample candidate whose status is NOT ACCELERATING (e.g. STABLE/DECAYING) is never eligible — the same status check excludes it, no separate provisional bypass exists", () => {
+  const fnBody = src.slice(src.indexOf("export function withEarlyDiscoverySlot"), src.indexOf("// Timing Not Ready watch row"));
+  const matches = fnBody.match(/status === "ACCELERATING"/g) || [];
+  assert.strictEqual(matches.length, 2, "exactly the alreadyPresent check + the candidate find — both gate on ACCELERATING only, no isProvisional-based bypass of the status check");
+});
+
+ok("PROVISIONAL TEST 10: NO DUPLICATE — alreadyPresent already matches on status alone, so a provisional-or-confirmed accelerating candidate already in the canonical list is never re-injected", () => {
+  assert.match(src, /const alreadyPresent = rows\.some\(\(o\) => o\.tier === "DEVELOPING" && o\.edgeVelocity\?\.status === "ACCELERATING"\);/);
+});
+
 console.log("\nChecking shared-helper regression — pickTopOpportunities() itself is untouched…");
 
 ok("TEST 8 — SHARED BEHAVIOR REGRESSION: TopOpportunities imports (never redefines) the existing pickTopOpportunities, and passes its output straight through before the discovery-slot post-process", () => {

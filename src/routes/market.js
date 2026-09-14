@@ -2194,7 +2194,17 @@ async function computeAllOpportunities() {
     if (bucket) bucket.push(opp);
   }
   for (const key of Object.keys(tiers)) {
-    tiers[key].sort((a, b) => (b.score || 0) - (a.score || 0) || ((b.edgeVelocity?.velocity || 0) - (a.edgeVelocity?.velocity || 0)));
+    // Confirmed-beats-provisional tiebreak (2026-09-13, "Provisional
+    // 2-Sample Edge Velocity" task) — inserted between the real score
+    // (primary) and raw velocity magnitude (final tiebreak) so a noisy
+    // 2-sample provisional read can never outrank a real 3+-sample
+    // confirmed read purely by having a larger number when scores tie.
+    // Same real fields already computed, no new ranking score.
+    tiers[key].sort((a, b) =>
+      (b.score || 0) - (a.score || 0)
+      || (Number(!a.edgeVelocity?.isProvisional) - Number(!b.edgeVelocity?.isProvisional))
+      || ((b.edgeVelocity?.velocity || 0) - (a.edgeVelocity?.velocity || 0))
+    );
   }
   const canonicalSample = rows.find((r) => !r.error);
   const canonicalRegime = canonicalSample

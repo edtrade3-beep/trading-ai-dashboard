@@ -99,22 +99,31 @@ function getTodayTimeline(symbol) {
 // Edge Velocity (Phase 3, 2026-08-26, explicit spec ask: "measure how
 // quickly the opportunity is changing" — MS: 61->65->68->73->81, EDGE
 // VELOCITY +20, ACCELERATING). Pure function over this store's own real
-// same-session samples — no new data source, no fabrication. Deliberately
-// a stricter floor (3 samples) than getTodayTimeline's raw read or the
-// sparkline's own 2-point line-drawing floor: a single interval is too
-// noisy to honestly call a "trend," so this needs at least 2 real
-// intervals (3 points) before it will name a status. Velocity itself is
-// the same simple first-vs-last real score delta the spec's own example
-// uses (not a smoothed/regressed rate) — the consistency check below
-// (majority of real consecutive moves agreeing with that direction)
+// same-session samples — no new data source, no fabrication. Velocity
+// itself is the same simple first-vs-last real score delta the spec's own
+// example uses (not a smoothed/regressed rate) — the consistency check
+// below (majority of real consecutive moves agreeing with that direction)
 // exists so a single lucky last point can't call a genuinely choppy
 // symbol "ACCELERATING."
-const MIN_SAMPLES_FOR_VELOCITY = 3;
+//
+// Provisional 2-sample result (2026-09-13, "Edge Velocity Continuity"
+// audit + explicit follow-up task) — the real cold-start gap this closes:
+// MIN_GAP_MS (10 min) x 3 samples meant a real ~20-minute blind window
+// before Edge Velocity could say anything at all. A 2-sample delta is
+// mathematically the same computation (same MEANINGFUL_VELOCITY
+// threshold, same consistency check — trivially satisfied with a single
+// real interval, not weakened), just less reliable — it hasn't cleared
+// the real 3-point majority-agreement floor MIN_SAMPLES_FOR_VELOCITY
+// still requires for a CONFIRMED read. `isProvisional` is the one new
+// field a caller needs to tell the two apart; every other field keeps its
+// exact existing meaning at every sample count.
+const MIN_SAMPLES_FOR_PROVISIONAL = 2;
+const MIN_SAMPLES_FOR_VELOCITY = 3; // confirmed floor — unchanged real meaning
 const MEANINGFUL_VELOCITY = 5; // real score points over the available same-session window
 function computeEdgeVelocity(samples) {
   const sampleCount = Array.isArray(samples) ? samples.length : 0;
-  if (sampleCount < MIN_SAMPLES_FOR_VELOCITY) {
-    return { status: "INSUFFICIENT_DATA", velocity: null, elapsedMinutes: null, sampleCount };
+  if (sampleCount < MIN_SAMPLES_FOR_PROVISIONAL) {
+    return { status: "INSUFFICIENT_DATA", velocity: null, elapsedMinutes: null, sampleCount, isProvisional: false };
   }
   const first = samples[0], last = samples[samples.length - 1];
   const velocity = Math.round((last.score - first.score) * 10) / 10;
@@ -127,7 +136,7 @@ function computeEdgeVelocity(samples) {
   let status = "STABLE";
   if (velocity >= MEANINGFUL_VELOCITY && upMoves >= downMoves) status = "ACCELERATING";
   else if (velocity <= -MEANINGFUL_VELOCITY && downMoves >= upMoves) status = "DECAYING";
-  return { status, velocity, elapsedMinutes, sampleCount };
+  return { status, velocity, elapsedMinutes, sampleCount, isProvisional: sampleCount < MIN_SAMPLES_FOR_VELOCITY };
 }
 
 // Convenience combining the two — the shape every real caller (the
@@ -139,6 +148,6 @@ function getEdgeVelocityFor(symbol) {
 
 module.exports = {
   recordOpportunitySnapshots, getTodayTimeline, MIN_GAP_MS, MAX_SAMPLES_PER_SYMBOL,
-  computeEdgeVelocity, getEdgeVelocityFor, MIN_SAMPLES_FOR_VELOCITY, MEANINGFUL_VELOCITY,
+  computeEdgeVelocity, getEdgeVelocityFor, MIN_SAMPLES_FOR_VELOCITY, MIN_SAMPLES_FOR_PROVISIONAL, MEANINGFUL_VELOCITY,
   loadStore, saveStore, // exposed for test snapshot/restore, same discipline as mtf-outcome-tracker.js's loadEvents/saveEvents
 };
