@@ -407,7 +407,7 @@ export default function SmartScanTab({
                   style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
                     padding: "9px 14px", background: "transparent", border: "none", cursor: "pointer" }}>
                   <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent }}>💡 HOW TO FIND GREAT DEALS HERE</span>
-                  <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>{showGuide ? "hide ▲" : "show ▼"}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 13, color: C.textDim }}>{showGuide ? "hide ▲" : "show ▼"}</span>
                 </button>
                 {showGuide && (
                   <div style={{ padding: "0 14px 12px", fontFamily: SANS, fontSize: 12.5, color: C.textSec, lineHeight: 1.7 }}>
@@ -431,7 +431,7 @@ export default function SmartScanTab({
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
                 {SMARTSCAN_CATEGORIES.map(cat => (
                   <button key={cat.id} onClick={() => setSmartScanCategory(cat.id)}
-                    style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, padding: "6px 12px", borderRadius: 7, cursor: "pointer",
+                    style={{ fontFamily: SANS, fontSize: 13, fontWeight: 800, padding: "6px 12px", borderRadius: 7, cursor: "pointer",
                       border: `1px solid ${smartScanCategory === cat.id ? C.accent : C.border}`,
                       background: smartScanCategory === cat.id ? C.accent : C.surface,
                       color: smartScanCategory === cat.id ? "#fff" : C.textSec }}>
@@ -454,13 +454,13 @@ export default function SmartScanTab({
               <>
               {/* ── PDF zone export ── */}
               <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
-                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.textDim }}>📄 EXPORT PDF:</span>
+                <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: C.textDim }}>📄 EXPORT PDF:</span>
                 {[["BUY", C.green], ["WATCH", "#d97706"], ["SELL", C.red]].map(([z, col]) => {
                   const zoneRows = scanResults.filter(r => smartScanZoneOf(r.signal) === z);
                   return (
                     <button key={z} onClick={() => exportSmartScanZonePDF(zoneRows, z)}
                       title={`Export the ${zoneRows.length} ${z}-zone symbols to a PDF`}
-                      style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 12px", borderRadius: 6,
+                      style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, padding: "5px 12px", borderRadius: 6,
                         border: `1px solid ${col}`, background: `${col}14`, color: col, cursor: "pointer" }}>
                       {z} ({zoneRows.length})
                     </button>
@@ -487,13 +487,13 @@ export default function SmartScanTab({
                     <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px",
                       background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8 }}>
                       <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.textDim }}>💰 RISK</span>
-                      <span style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>$</span>
+                      <span style={{ fontFamily: SANS, fontSize: 13, color: C.textDim }}>$</span>
                       <input type="number" value={riskAccount} onChange={e => { setRiskAccount(e.target.value); try{localStorage.setItem("risk_account",e.target.value);}catch{} }}
                         style={{ width: 72, fontFamily: MONO, fontSize: 12, background: "transparent", border: `1px solid ${C.border}`, color: C.text, borderRadius: 4, padding: "3px 5px", textAlign: "right" }} />
-                      <span style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>@</span>
+                      <span style={{ fontFamily: SANS, fontSize: 13, color: C.textDim }}>@</span>
                       <input type="number" value={riskPct} min="0.25" max="5" step="0.25" onChange={e => { setRiskPct(e.target.value); try{localStorage.setItem("risk_pct",e.target.value);}catch{} }}
                         style={{ width: 42, fontFamily: MONO, fontSize: 12, background: "transparent", border: `1px solid ${C.border}`, color: C.text, borderRadius: 4, padding: "3px 5px", textAlign: "right" }} />
-                      <span style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>%</span>
+                      <span style={{ fontFamily: SANS, fontSize: 13, color: C.textDim }}>%</span>
                       <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.amber }}>= ${riskDollars.toLocaleString()}</span>
                     </div>
                   );
@@ -580,7 +580,7 @@ export default function SmartScanTab({
                       <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text }}>
                         ➕ MANAGE SCAN LIST <span style={{ color: C.textDim, fontWeight: 600 }}>({FIVEX_TICKERS.length} stocks{customScanTickers.length ? `, ${customScanTickers.length} custom` : ""})</span>
                       </span>
-                      <span style={{ fontFamily: MONO, fontSize: 11, color: C.accent }}>{showManageUniverse ? "hide ▲" : "show ▼"}</span>
+                      <span style={{ fontFamily: MONO, fontSize: 13, color: C.accent }}>{showManageUniverse ? "hide ▲" : "show ▼"}</span>
                     </button>
                     {showManageUniverse && <>
                     {/* Add row */}
@@ -621,7 +621,7 @@ export default function SmartScanTab({
                               setScanResults(scored); setScanLastRun(new Date());
                             }).catch(e => setScanError(e.message)).finally(() => setScanLoading(false));
                         }}
-                        style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, border: `1px solid ${C.accent}44`,
+                        style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, border: `1px solid ${C.accent}44`,
                           background: `${C.accent}12`, color: C.accent, borderRadius: 6, padding: "5px 12px", cursor: "pointer", whiteSpace: "nowrap" }}>
                         📋 SCAN MY WATCHLIST ({watchlistSymbols.length})
                       </button>
@@ -1035,7 +1035,7 @@ export default function SmartScanTab({
                                       color: scanFavorites.has(row.ticker) ? "#f59e0b" : C.textDim + "66" }}>
                                     {scanFavorites.has(row.ticker) ? "★" : "☆"}
                                   </button>
-                                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{idx + 1}</span>
+                                  <span style={{ fontFamily: MONO, fontSize: 12.5, color: C.textDim }}>{idx + 1}</span>
                                 </div>
                               </td>
 
@@ -1068,11 +1068,11 @@ export default function SmartScanTab({
                                       2026-08-23). */}
                                   {cortexV && (
                                     <span title={`Cortex Verdict — Sniper + Heat Risk + A+ Score, tracked separately with its own real historical win rate`}
-                                      style={{ marginLeft: 5, fontFamily: MONO, fontSize: 10, fontWeight: 700, color: cortexV.color, cursor: "help",
+                                      style={{ marginLeft: 5, fontFamily: MONO, fontSize: 12.5, fontWeight: 700, color: cortexV.color, cursor: "help",
                                         background: `${cortexV.color}18`, border: `1px solid ${cortexV.color}55`, borderRadius: 4, padding: "2px 5px" }}>Cortex: {cortexV.verdict}</span>
                                   )}
                                   {/* A+ — separate real 9-dimension score, additive not replacing */}
-                                  <span title={aplus.reasons.join(" · ")} style={{ marginLeft: 5, fontFamily: MONO, fontSize: 10, fontWeight: 900, color: "#fff", cursor: "help",
+                                  <span title={aplus.reasons.join(" · ")} style={{ marginLeft: 5, fontFamily: MONO, fontSize: 12.5, fontWeight: 900, color: "#fff", cursor: "help",
                                     background: aplus.score >= 80 ? "#0d9465" : aplus.score >= 60 ? "#d6a312" : "#c8282a", borderRadius: 4, padding: "2px 5px" }}>A+{aplus.score}</span>
                                   {/* VCP Engine badge — real score/verdict already computed
                                       server-side (vcpBreakoutEngine/vcpReport), 2026-08-14 VCP
@@ -1080,11 +1080,11 @@ export default function SmartScanTab({
                                       exists (vcpVerdict !== "INVALID VCP"), never fabricated. */}
                                   {trendRow?.vcpVerdict && trendRow.vcpVerdict !== "INVALID VCP" && (
                                     <span title={`VCP ${trendRow.vcpScore}/100 — ${trendRow.vcpVerdict} — ${trendRow.state}`}
-                                      style={{ marginLeft: 5, fontFamily: MONO, fontSize: 10, fontWeight: 900, color: "#fff", cursor: "help",
+                                      style={{ marginLeft: 5, fontFamily: MONO, fontSize: 12.5, fontWeight: 900, color: "#fff", cursor: "help",
                                         background: trendRow.state === "CONFIRMED" ? "#0d9465" : trendRow.state === "BREAKOUT_ACTIVE" ? "#5ab552" : trendRow.state === "SETUP_READY" ? "#d6a312" : trendRow.state === "FAILED" ? "#c8282a" : "#8a94a6",
                                         borderRadius: 4, padding: "2px 5px" }}>VCP {trendRow.vcpScore}</span>
                                   )}
-                                  <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: verdictColor, marginTop: 2 }}>{composite.toFixed(0)}/100</div>
+                                  <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: verdictColor, marginTop: 2 }}>{composite.toFixed(0)}/100</div>
                                 </div>
                               </td>
 
@@ -1093,7 +1093,7 @@ export default function SmartScanTab({
                                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                                   <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.text }}>
                                     {row.ticker}
-                                    {ref?.company && <span style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, fontWeight: 400, marginLeft: 6 }}>{ref.company}</span>}
+                                    {ref?.company && <span style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, fontWeight: 400, marginLeft: 6 }}>{ref.company}</span>}
                                   </div>
                                   {/* Open full AM Cortex analysis in a slide-over — same real
                                       localStorage handoff (cortex_open_symbol) Discover/
@@ -1104,7 +1104,7 @@ export default function SmartScanTab({
                                       full-page jumps that lose your place). */}
                                   <button onClick={(e) => { e.stopPropagation(); try { localStorage.setItem("cortex_open_symbol", row.ticker.toUpperCase()); } catch {} setCortexPanelSymbol(row.ticker.toUpperCase()); }}
                                     title="Open the full AI Cortex analysis for this symbol — WHY / SETUP / LEVELS / RISK / VERDICT"
-                                    style={{ fontSize: 10, fontWeight: 800, border: "1px solid #d6a312", background: "#d6a31214", color: "#d6a312",
+                                    style={{ fontSize: 12.5, fontWeight: 800, border: "1px solid #d6a312", background: "#d6a31214", color: "#d6a312",
                                       borderRadius: 4, padding: "2px 6px", cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>🧠 Cortex</button>
                                   {/* Open in Workspace (2026-08-20, Discover/Smart Scan/Workspace
                                       unification, phase 3). Phase 4 (the merge into
@@ -1121,7 +1121,7 @@ export default function SmartScanTab({
                                         else { setTerminalSymbol(row.ticker); try { localStorage.setItem("mterminal_load_sym", row.ticker); } catch {} setActiveTab("mterminal"); }
                                       }}
                                       title={`Open ${row.ticker} in Workspace — the full single-symbol read (MTF timing, Foundation/V-Recovery, Smart Money, Catalysts)`}
-                                      style={{ fontSize: 10, fontWeight: 800, border: `1px solid ${C.accent}`, background: `${C.accent}14`, color: C.accent,
+                                      style={{ fontSize: 12.5, fontWeight: 800, border: `1px solid ${C.accent}`, background: `${C.accent}14`, color: C.accent,
                                         borderRadius: 4, padding: "2px 6px", cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>📈 Workspace</button>
                                   )}
                                 </div>
@@ -1260,7 +1260,7 @@ export default function SmartScanTab({
                                     <div style={{ display: "flex", gap: 5, marginTop: 4, flexWrap: "wrap", alignItems: "center" }}>
                                       {visibleChips.map((ch, ci) => (
                                         <span key={ci} title={ch.title || ""}
-                                          style={{ fontFamily: ch.italic ? SANS : MONO, fontSize: 10,
+                                          style={{ fontFamily: ch.italic ? SANS : MONO, fontSize: 12.5,
                                             color: ch.col, fontStyle: ch.italic ? "italic" : "normal",
                                             fontWeight: ch.col === C.textDim ? 400 : 700,
                                             ...(ch.col !== C.textDim && !ch.italic ? {
@@ -1287,7 +1287,7 @@ export default function SmartScanTab({
                                   const dirColor = pred.dir === "BULLISH" ? "#0d9465" : pred.dir === "LEAN UP" ? "#5ab552"
                                     : pred.dir === "BEARISH" ? "#c8282a" : pred.dir === "LEAN DOWN" ? "#e08a1e" : C.textDim;
                                   return (
-                                    <div style={{ marginTop: 4, fontFamily: MONO, fontSize: 10.5, color: C.textDim }} title={pred.why.join(" · ")}>
+                                    <div style={{ marginTop: 4, fontFamily: MONO, fontSize: 13, color: C.textDim }} title={pred.why.join(" · ")}>
                                       Quick Read: <span style={{ color: dirColor, fontWeight: 800 }}>{pred.dir}</span>
                                       {" "}→ ${pred.target} ({pred.movePct >= 0 ? "+" : ""}{pred.movePct}%) · {pred.conf}% confidence
                                     </div>
@@ -1417,28 +1417,28 @@ export default function SmartScanTab({
                                   {/* ── AUTO-REFRESH BADGE ── */}
                                   <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 8px 6px", marginBottom: 4 }}>
                                     <span style={{ display: "inline-flex", alignItems: "center", gap: 4,
-                                      fontFamily: MONO, fontSize: 10, color: C.green,
+                                      fontFamily: MONO, fontSize: 12.5, color: C.green,
                                       background: `${C.green}15`, border: `1px solid ${C.green}33`,
                                       borderRadius: 4, padding: "2px 7px" }}>
                                       <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.green,
                                         display: "inline-block", animation: "pulse 2s infinite" }} />
                                       LIVE · refreshes every 30s
                                     </span>
-                                    <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: liveChg >= 0 ? C.green : C.red }}>
+                                    <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: liveChg >= 0 ? C.green : C.red }}>
                                       {row.ticker} ${livePrice > 0 ? livePrice.toFixed(2) : "—"} {liveChg >= 0 ? "+" : ""}{liveChg.toFixed(2)}%
                                     </span>
                                     <button
                                       onClick={(e) => { e.stopPropagation(); askWhy(row.ticker, livePrice, liveChg); }}
                                       disabled={whyState[row.ticker] === "loading"}
                                       title={`Why is ${row.ticker} moving? — real web-searched catalyst`}
-                                      style={{ marginLeft: "auto", flexShrink: 0, fontFamily: MONO, fontSize: 10, fontWeight: 800, border: "1px solid #7c5cff", background: "rgba(124,92,255,0.14)", color: "#a78bfa", borderRadius: 5, padding: "3px 8px", cursor: whyState[row.ticker] === "loading" ? "wait" : "pointer" }}>
+                                      style={{ marginLeft: "auto", flexShrink: 0, fontFamily: MONO, fontSize: 12.5, fontWeight: 800, border: "1px solid #7c5cff", background: "rgba(124,92,255,0.14)", color: "#a78bfa", borderRadius: 5, padding: "3px 8px", cursor: whyState[row.ticker] === "loading" ? "wait" : "pointer" }}>
                                       🤖 Why{whyState[row.ticker] === "loading" ? "…" : ""}
                                     </button>
                                   </div>
                                   {whyState[row.ticker] && (
                                     <div style={{ border: "1px solid #7c5cff33", borderRadius: 8, padding: "8px 10px", marginBottom: 8, background: "#7c5cff08" }}>
-                                      {whyState[row.ticker] === "loading" && <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>Searching for the real catalyst…</div>}
-                                      {whyState[row.ticker] === "err" && <div style={{ fontFamily: MONO, fontSize: 11, color: C.red }}>⚠ Couldn't fetch — try again.</div>}
+                                      {whyState[row.ticker] === "loading" && <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim }}>Searching for the real catalyst…</div>}
+                                      {whyState[row.ticker] === "err" && <div style={{ fontFamily: MONO, fontSize: 13, color: C.red }}>⚠ Couldn't fetch — try again.</div>}
                                       {whyState[row.ticker] === "ok" && <div style={{ fontFamily: SANS, fontSize: 12, lineHeight: 1.5, color: C.text, whiteSpace: "pre-wrap" }}>{whyReply[row.ticker]}</div>}
                                     </div>
                                   )}
@@ -1595,7 +1595,7 @@ export default function SmartScanTab({
                                               shows this same real read for whichever row is
                                               selected. Everything below (real Smart-Scan-specific
                                               actions, not visual verdict duplication) is unchanged. */}
-                                          <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginBottom: 6 }}>Setup: {vSetup} · Alignment {composite}/100</div>
+                                          <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, marginBottom: 6 }}>Setup: {vSetup} · Alignment {composite}/100</div>
                                           {/* ONE ENGINE (2026-08-20, then One Engine Migration Phase
                                               6, 2026-08-23) — this verdict now comes from the SAME
                                               real am-core-engine.js classifyCoreVerdict the Decision
@@ -1624,16 +1624,16 @@ export default function SmartScanTab({
                                           {!px ? null : isAvoid ? (
                                             <div style={{ marginTop: 10, padding: "12px 14px", borderRadius: 10, background: `${C.amber}12`, border: `1px solid ${C.amber}44` }}>
                                               <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 800, color: C.amber }}>⏸ NO TRADE — verdict is {vLabel}</div>
-                                              <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 3 }}>The trend is against a long here. Wait for a reversal/confirmation signal before sizing a position.</div>
+                                              <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, marginTop: 3 }}>The trend is against a long here. Wait for a reversal/confirmation signal before sizing a position.</div>
                                             </div>
                                           ) : shares > 0 && (
                                             <div style={{ marginTop: 10, padding: "12px 14px", borderRadius: 10,
                                               background: isShort ? `${C.red}08` : `${C.accent}08`, border: `1px solid ${isShort ? C.red : C.accent}22` }}>
                                               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                                                <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em" }}>
+                                                <div style={{ fontFamily: SANS, fontSize: 13, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em" }}>
                                                   💰 POSITION SIZING {isShort ? "· SHORT" : ""}
                                                 </div>
-                                                <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim }}>
+                                                <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.textDim }}>
                                                   ${acct.toLocaleString()} acct · {(riskPctFrac*100).toFixed(1)}% risk = <strong style={{ color: C.red }}>${riskAmt.toFixed(0)} max loss</strong>
                                                 </div>
                                               </div>
@@ -1646,10 +1646,10 @@ export default function SmartScanTab({
                                                 <div style={{ background: C.surface, borderRadius: 8, padding: "10px 12px" }}>
                                                   <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginBottom: 3 }}>IF TARGET HIT ({tgtSign}8%)</div>
                                                   <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.green }}>+${profitT1.toFixed(0)}</div>
-                                                  <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>@ ${t1.toFixed(2)} · T2 ${t2.toFixed(2)}</div>
+                                                  <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim }}>@ ${t1.toFixed(2)} · T2 ${t2.toFixed(2)}</div>
                                                 </div>
                                               </div>
-                                              <div style={{ display: "flex", gap: 6, fontSize: 11, flexWrap: "wrap" }}>
+                                              <div style={{ display: "flex", gap: 6, fontSize: 13, flexWrap: "wrap" }}>
                                                 <span style={{ fontFamily: MONO, color: C.red, fontWeight: 700 }}>🛑 Stop ${stop5.toFixed(2)} ({isShort ? "+" : "-"}{stopPct}%)</span>
                                                 <span style={{ color: C.textDim }}>·</span>
                                                 <span style={{ fontFamily: MONO, color: C.textDim }}>Max loss ${riskAmt.toFixed(0)}</span>
@@ -1682,7 +1682,7 @@ export default function SmartScanTab({
                                             ].join("\n");
                                             try { navigator.clipboard.writeText(plan); } catch {}
                                           }}
-                                            style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, border: "1px solid " + C.border,
+                                            style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, border: "1px solid " + C.border,
                                               background: C.surface, color: C.textDim, borderRadius: 6, padding: "4px 10px",
                                               cursor: "pointer", marginTop: 8 }}>
                                             📋 COPY TRADE PLAN
@@ -1693,7 +1693,7 @@ export default function SmartScanTab({
                                             {/* Set Price Alert */}
                                             <button onClick={() => {
                                               setActiveTab("alerts");
-                                            }} style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700,
+                                            }} style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700,
                                               border: `1px solid ${C.amber}55`, background: `${C.amber}12`,
                                               color: C.amber, borderRadius: 6, padding: "5px 12px", cursor: "pointer" }}>
                                               🔔 Set T1 Alert
@@ -1711,7 +1711,7 @@ export default function SmartScanTab({
                                                 style: "Breakout", notes: `Smart Scan · Score ${row.score}`,
                                                 score: row.score, chg: row.quote?.changesPercentage || 0, rvol: 0
                                               });
-                                            }} style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700,
+                                            }} style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700,
                                               border: `1px solid ${C.green}55`, background: `${C.green}12`,
                                               color: C.green, borderRadius: 6, padding: "5px 12px", cursor: "pointer" }}>
                                               📓 Log Trade
@@ -1723,7 +1723,7 @@ export default function SmartScanTab({
                                                 headers: { "Content-Type": "application/json" },
                                                 body: JSON.stringify({ symbol: sym, action: "add" })
                                               }).then(() => {}).catch(() => {});
-                                            }} style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700,
+                                            }} style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700,
                                               border: `1px solid ${C.accent}55`, background: `${C.accent}12`,
                                               color: C.accent, borderRadius: 6, padding: "5px 12px", cursor: "pointer" }}>
                                               ⭐ Watch
@@ -1755,7 +1755,7 @@ export default function SmartScanTab({
                                                       .then(() => { btn.textContent = "✅ Sent!"; btn.style.color = "#22c55e"; setTimeout(() => { btn.textContent = "📱 Telegram"; btn.style.color = ""; }, 3000); })
                                                       .catch(() => {});
                                                   }}
-                                                  style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700,
+                                                  style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700,
                                                     border: `1px solid ${C.textDim}44`, background: "transparent",
                                                     color: C.textDim, borderRadius: 6, padding: "5px 12px", cursor: "pointer" }}>
                                                   📱 Telegram
@@ -1881,7 +1881,7 @@ export default function SmartScanTab({
                                                   <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: dirColor }}>
                                                     OPTIONS: {direction}
                                                   </div>
-                                                  <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginTop: 1 }}>
+                                                  <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.textDim, marginTop: 1 }}>
                                                     Based on current technicals · Not financial advice
                                                   </div>
                                                 </div>
@@ -1905,14 +1905,14 @@ export default function SmartScanTab({
                                                     ["Max loss", "100% of premium paid — size small"],
                                                   ].map(([k, v]) => (
                                                     <div key={k} style={{ display: "flex", gap: 8 }}>
-                                                      <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, flexShrink: 0, minWidth: 70 }}>{k}:</span>
-                                                      <span style={{ fontFamily: SANS, fontSize: 11, color: C.text }}>{v}</span>
+                                                      <span style={{ fontFamily: MONO, fontSize: 12.5, color: C.textDim, flexShrink: 0, minWidth: 70 }}>{k}:</span>
+                                                      <span style={{ fontFamily: SANS, fontSize: 13, color: C.text }}>{v}</span>
                                                     </div>
                                                   ))}
                                                 </div>
                                               )}
 
-                                              <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginTop: 8, fontStyle: "italic" }}>
+                                              <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.textDim, marginTop: 8, fontStyle: "italic" }}>
                                                 ⚠️ Options carry significant risk. Never risk more than 1-2% of account per options trade.
                                               </div>
                                             </div>
@@ -2086,7 +2086,7 @@ export default function SmartScanTab({
                                             <div style={{ marginTop: 14, padding: "10px 12px", borderRadius: 8,
                                               background: vBg, border: `1px solid ${vColor}44` }}>
                                               {/* Header */}
-                                              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim,
+                                              <div style={{ fontFamily: MONO, fontSize: 12.5, color: C.textDim,
                                                 letterSpacing: "0.1em", marginBottom: 4 }}>REVERSAL DETECTOR</div>
                                               <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900,
                                                 color: vColor, marginBottom: sigs.length ? 6 : 0 }}>
@@ -2096,7 +2096,7 @@ export default function SmartScanTab({
                                               {hi52 > lo52 && (
                                                 <div style={{ marginBottom: 6 }}>
                                                   <div style={{ display: "flex", justifyContent: "space-between",
-                                                    fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 2 }}>
+                                                    fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 2 }}>
                                                     <span>52w Lo ${lo52.toFixed(0)}</span>
                                                     <span style={{ color: vColor, fontWeight: 800 }}>
                                                       {distFromLo.toFixed(0)}% from Lo · {distFromHi.toFixed(0)}% from Hi
@@ -2114,7 +2114,7 @@ export default function SmartScanTab({
                                                 <div style={{ display: "flex", flexDirection: "column", gap: 3, marginBottom: 6 }}>
                                                   {sigs.map((s, si) => (
                                                     <div key={si} style={{ display: "flex", alignItems: "flex-start", gap: 5,
-                                                      fontFamily: SANS, fontSize: 11, color: vColor }}>
+                                                      fontFamily: SANS, fontSize: 13, color: vColor }}>
                                                       <span style={{ flexShrink: 0, opacity: 0.7 }}>{"●".repeat(Math.min(s.weight, 3))}</span>
                                                       <span>{s.txt}</span>
                                                     </div>
@@ -2122,12 +2122,12 @@ export default function SmartScanTab({
                                                 </div>
                                               )}
                                               {isNeutral && (
-                                                <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>
+                                                <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim }}>
                                                   Price in the middle of its range — no clear reversal signal yet.
                                                 </div>
                                               )}
                                               {!isNeutral && (
-                                                <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, lineHeight: 1.5 }}>
+                                                <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.textDim, lineHeight: 1.5 }}>
                                                   {isBottom
                                                     ? "Wait for green candle + volume spike to confirm"
                                                     : "Watch for red candle close below support to confirm"}
@@ -2318,7 +2318,7 @@ export default function SmartScanTab({
                                           <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, padding: "8px 0" }}>Not enough real 4H bar data yet for a real ATR read.</div>
                                         ) : (
                                           <>
-                                            <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginBottom: 8 }}>4H ATR, 1.5x stop / 2R / 3R / 4R targets — a real, volatility-scaled lens alongside the structural entry above, not a replacement for it.</div>
+                                            <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, marginBottom: 8 }}>4H ATR, 1.5x stop / 2R / 3R / 4R targets — a real, volatility-scaled lens alongside the structural entry above, not a replacement for it.</div>
                                             {[
                                               ["ATR (4H)", smartScanAtrLevels[row.ticker].atr],
                                               ["Stop", smartScanAtrLevels[row.ticker].stop],
@@ -2358,7 +2358,7 @@ export default function SmartScanTab({
                                               (tl.includes("buyback") || tl.includes("dividend")) ? "💰 Corp action" :
                                               chg6 > 5 ? "📈 Momentum" : chg6 < -5 ? "📉 Selling" : "🔄 Rotation";
                                             return (
-                                              <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.accent,
+                                              <span style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 700, color: C.accent,
                                                 background: `${C.accent}14`, borderRadius: 4, padding: "2px 7px", marginLeft: "auto", whiteSpace: "nowrap" }}>
                                                 {why}
                                               </span>
@@ -2399,10 +2399,10 @@ export default function SmartScanTab({
                                                       </div>
                                                       <div style={{ display: "flex", gap: 5, marginTop: 4, flexWrap: "wrap" }}>
                                                         {catalysts.map((c,ci) => (
-                                                          <span key={ci} style={{ fontFamily: MONO, fontSize: 11, color: C.accent,
+                                                          <span key={ci} style={{ fontFamily: MONO, fontSize: 13, color: C.accent,
                                                             background: `${C.accent}14`, borderRadius: 3, padding: "1px 5px" }}>{c}</span>
                                                         ))}
-                                                        {src2 && <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>{src2}</span>}
+                                                        {src2 && <span style={{ fontFamily: MONO, fontSize: 13, color: C.textDim }}>{src2}</span>}
                                                       </div>
                                                     </div>
                                                   </div>
@@ -2547,7 +2547,7 @@ export default function SmartScanTab({
                                                 </div>
                                               ))}
                                               {fvb.zone && (
-                                                <div style={{ marginTop: 6, fontFamily: SANS, fontSize: 11, color: C.textDim, fontStyle: "italic" }}>
+                                                <div style={{ marginTop: 6, fontFamily: SANS, fontSize: 13, color: C.textDim, fontStyle: "italic" }}>
                                                   {fvb.zone === "IDEAL_BUY_ZONE" ? "Currently in the strong buy zone." : fvb.zone === "ACCEPTABLE" ? "Currently in the acceptable buy zone." : "Currently above fair value — paying more than analysts, in aggregate, think it's worth."}
                                                 </div>
                                               )}
@@ -2628,7 +2628,7 @@ export default function SmartScanTab({
                                                 if (!hist.length) return null;
                                                 return (
                                                   <div style={{ marginTop: 10 }}>
-                                                    <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 700, color: C.textDim,
+                                                    <div style={{ fontFamily: SANS, fontSize: 13, fontWeight: 700, color: C.textDim,
                                                       letterSpacing: "0.08em", marginBottom: 6 }}>📊 SURPRISE HISTORY</div>
                                                     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                                                       {hist.slice(0, 4).map((q, qi) => {
@@ -2643,13 +2643,13 @@ export default function SmartScanTab({
                                                             border: `1px solid ${beat ? C.green : C.red}33` }}>
                                                             <span style={{ fontSize: 14 }}>{beat ? "✅" : "❌"}</span>
                                                             <div style={{ flex: 1 }}>
-                                                              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{q.quarter || q.date || `Q${4 - qi}`}</div>
-                                                              <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: beat ? C.green : C.red }}>
+                                                              <div style={{ fontFamily: MONO, fontSize: 12.5, color: C.textDim }}>{q.quarter || q.date || `Q${4 - qi}`}</div>
+                                                              <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: beat ? C.green : C.red }}>
                                                                 {beat ? "BEAT" : "MISS"} {pct ? `${Math.abs(pct).toFixed(0)}%` : ""}
                                                               </div>
                                                             </div>
                                                             {rxn != null && (
-                                                              <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800,
+                                                              <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800,
                                                                 color: rxn >= 0 ? C.green : C.red, textAlign: "right" }}>
                                                                 {rxn >= 0 ? "+" : ""}{rxn.toFixed(1)}%
                                                               </div>
@@ -2920,29 +2920,29 @@ export default function SmartScanTab({
                     <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 10px",
                       background: i === 0 ? `${C.accent}08` : "transparent",
                       border: `1px solid ${i === 0 ? C.accent : C.border}22`, borderRadius: 6 }}>
-                      <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, flexShrink: 0, width: 48 }}>
+                      <span style={{ fontFamily: MONO, fontSize: 13, color: C.textDim, flexShrink: 0, width: 48 }}>
                         {h.ts.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                       </span>
-                      <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, flexShrink: 0 }}>
+                      <span style={{ fontFamily: MONO, fontSize: 13, color: C.textDim, flexShrink: 0 }}>
                         {h.total} stocks
                       </span>
                       <div style={{ display: "flex", gap: 5, flex: 1, flexWrap: "wrap" }}>
                         {h.topBuys.map(s => (
                           <span key={s.ticker} onClick={() => { setTerminalSymbol(s.ticker); setActiveTab("smartscan"); }} {...clickableProps(() => { setTerminalSymbol(s.ticker); setActiveTab("smartscan"); })}
-                            style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.green,
+                            style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: C.green,
                               background: `${C.green}14`, borderRadius: 4, padding: "1px 6px", cursor: "pointer" }}>
                             🟢 {s.ticker} {s.score}
                           </span>
                         ))}
                         {h.topSells.map(s => (
                           <span key={s.ticker} onClick={() => { setTerminalSymbol(s.ticker); setActiveTab("smartscan"); }} {...clickableProps(() => { setTerminalSymbol(s.ticker); setActiveTab("smartscan"); })}
-                            style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.red,
+                            style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: C.red,
                               background: `${C.red}12`, borderRadius: 4, padding: "1px 6px", cursor: "pointer" }}>
                             🔴 {s.ticker} {s.score}
                           </span>
                         ))}
                       </div>
-                      {i === 0 && <span style={{ fontFamily: SANS, fontSize: 10, color: C.accent, flexShrink: 0 }}>LATEST</span>}
+                      {i === 0 && <span style={{ fontFamily: SANS, fontSize: 12.5, color: C.accent, flexShrink: 0 }}>LATEST</span>}
                     </div>
                   ))}
                 </div>
