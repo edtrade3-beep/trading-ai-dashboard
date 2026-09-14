@@ -260,6 +260,28 @@ async function handleAiHub(req, res, requestUrl) {
     }
   }
 
+  // GET /api/ai-hub/portfolio-event-concentration — real detection of
+  // multiple held positions sharing the same near-term event window
+  // (2026-09-14, Priority 4 platform-audit gap — distinct from the price-
+  // correlation clustering above; this is calendar-event clustering,
+  // e.g. several real earnings reports the same week). Advisory only —
+  // never places/closes an order, never auto-sells. Same "expensive
+  // real quote-batch fetch, button-gated, not auto-polled" discipline as
+  // the routes above.
+  if (pathname === "/api/ai-hub/portfolio-event-concentration" && req.method === "GET") {
+    const posResp = await getJson("/api/alpaca/positions");
+    if (!posResp || !posResp.ok) return writeJson(res, 200, { ok: false, reason: "no-alpaca-key" });
+    const positions = posResp.positions || [];
+    if (!positions.length) return writeJson(res, 200, { ok: true, clusters: [], totalPortfolioValue: 0, generatedAt: new Date().toISOString() });
+    try {
+      const { computePortfolioEventConcentration } = require("../portfolio-event-concentration");
+      const result = await computePortfolioEventConcentration(positions);
+      return writeJson(res, 200, { ok: true, ...result });
+    } catch (e) {
+      return writeJson(res, 200, { ok: false, error: e.message });
+    }
+  }
+
   // GET /api/ai-hub/symbol-correlation?symbol=X — real correlation of ONE
   // candidate symbol against the account's actual held positions (Market
   // Opportunity Engine Phase 2, 2026-08-26, spec's "Portfolio Awareness":
