@@ -57,6 +57,81 @@ function applyRiskPolicy({ decision, marketRegime, dataHealth, eventRisk = null,
   return { finalVerdict, overridden: finalVerdict !== decision, blockers };
 }
 
+const RISK_LEVEL_THRESHOLDS = [
+  { max: 19, level: "LOW" },
+  { max: 39, level: "NORMAL" },
+  { max: 59, level: "ELEVATED" },
+  { max: 79, level: "HIGH" },
+  { max: 100, level: "CRITICAL" },
+];
+function riskLevelFor(score) { return RISK_LEVEL_THRESHOLDS.find((t) => score <= t.max).level; }
+
+// Unified Risk Score (2026-09-13, explicit user task: "ADD UNIFIED RISK
+// SCORE ONLY" — additive, observational, must never change existing
+// verdict/blocker behavior). Reuses ONLY the same real risk inputs
+// applyRiskPolicy above already receives — no new fetch, no new API.
+// Higher score = higher risk, always; never mixes in opportunity quality.
+// Missing/unavailable inputs use a conservative non-zero default (never
+// silently "safe") per explicit instruction.
+function computeRiskScore({ dataHealth, marketRegime, eventRisk, criticalFlags = 0, committee = null, riskReward = null }) {
+  const contributors = [];
+  const add = (source, points, reason) => { if (points > 0) contributors.push({ source, points, reason }); };
+
+  // Data Health Risk — up to 25.
+  let dataPoints;
+  if (!dataHealth) { dataPoints = 15; add("dataHealth", dataPoints, "Data health unavailable — unknown reliability."); }
+  else if (dataHealth.canTrade === false) { dataPoints = 25; add("dataHealth", dataPoints, "Required data sources are stale/missing."); }
+  else {
+    const health = Number.isFinite(dataHealth.score) ? Math.max(0, Math.min(100, dataHealth.score)) : 70;
+    dataPoints = Math.round(((100 - health) / 100) * 25);
+    add("dataHealth", dataPoints, `Data health score ${health}/100.`);
+  }
+
+  // Market Regime Risk — up to 20. Real vocabulary only (market-regime-engine.js):
+  // RISK_ON | SELECTIVE_RISK_ON | NEUTRAL | RISK_OFF | CRISIS.
+  const REGIME_POINTS = { CRISIS: 20, RISK_OFF: 14, NEUTRAL: 6, SELECTIVE_RISK_ON: 3, RISK_ON: 0 };
+  const regimeLabel = marketRegime?.regime;
+  const regimePoints = regimeLabel in REGIME_POINTS ? REGIME_POINTS[regimeLabel] : 8; // unknown regime: conservative default, not 0
+  add("marketRegime", regimePoints, regimeLabel ? `Market regime is ${regimeLabel}.` : "Market regime unavailable.");
+
+  // Event Risk — up to 20.
+  let eventPoints;
+  if (!eventRisk) { eventPoints = 6; add("eventRisk", eventPoints, "Event risk unavailable — unknown near-term catalysts."); }
+  else if (eventRisk.blocksNewExposure) { eventPoints = 20; add("eventRisk", eventPoints, eventRisk.reason || "High-impact event blocks new exposure."); }
+  else if (Number.isFinite(eventRisk.score)) {
+    eventPoints = Math.round((Math.max(0, Math.min(100, eventRisk.score)) / 100) * 20);
+    add("eventRisk", eventPoints, `Event risk score ${eventRisk.score}/100.`);
+  } else { eventPoints = 4; add("eventRisk", eventPoints, "No material near-term event risk detected."); }
+
+  // Critical Flags — up to 20.
+  const flags = Number.isFinite(criticalFlags) ? Math.max(0, criticalFlags) : 0;
+  const flagPoints = flags <= 0 ? 0 : flags === 1 ? 12 : flags === 2 ? 18 : 20;
+  add("criticalFlags", flagPoints, flags > 0 ? `${flags} critical setup flag${flags === 1 ? "" : "s"} active.` : null);
+
+  // Committee / Confidence Risk — up to 10. Only scored when committee
+  // disagreement is already reliably represented; absent committee data
+  // contributes 0 here (not a "missing = risky" case, per explicit
+  // instruction narrower than the general conservative-default rule).
+  let committeePoints = 0;
+  if (committee?.blocksStrongBuy) {
+    const concerns = Array.isArray(committee.criticalConcerns) ? committee.criticalConcerns.length : 0;
+    committeePoints = Math.min(10, 6 + concerns * 2);
+    add("committee", committeePoints, `${concerns || "Investment"} committee concern${concerns === 1 ? "" : "s"} flagged.`);
+  }
+
+  // Trade Structure Risk — up to 5. Only the one structural field already
+  // directly available in buildAssetDecision's scope (riskReward) — no
+  // new calculation requiring unrelated files.
+  let structurePoints;
+  if (!Number.isFinite(riskReward)) { structurePoints = 2; add("tradeStructure", structurePoints, "Risk/reward not established yet."); }
+  else if (riskReward < 1) { structurePoints = 5; add("tradeStructure", structurePoints, `Poor risk/reward (${riskReward.toFixed(2)}:1).`); }
+  else if (riskReward < 1.5) { structurePoints = 3; add("tradeStructure", structurePoints, `Marginal risk/reward (${riskReward.toFixed(2)}:1).`); }
+  else structurePoints = 0;
+
+  const score = Math.max(0, Math.min(100, Math.round(dataPoints + regimePoints + eventPoints + flagPoints + committeePoints + structurePoints)));
+  return { score, level: riskLevelFor(score), contributors };
+}
+
 function buildChangeMyMind({ finalVerdict, opportunity, risk }) {
   const items = [];
   if (risk.blockers.some((b) => /data/i.test(b))) items.push("Required data sources return healthy and fresh.");
@@ -103,6 +178,15 @@ function buildAssetDecision({ opportunity, marketRegime, dataHealth, positionSta
   // instrument identity (that needs real venue/asset-class/corporate-
   // action data this function doesn't have; deliberately not fabricated
   // here, scoped as its own later piece of work).
+  // opportunityScore is the ONE canonical public score field (2026-09-13
+  // duplication cleanup — targeted reference search found 8 real
+  // production/UI consumers of opportunityScore — TradeDeskTab.jsx via
+  // CanonicalVerdictStrip.jsx, AMCortexTab.jsx, CortexMiniPanel.jsx,
+  // axiom-live.jsx's command-palette answers — vs. zero for tradeScore
+  // outside this file's own tests). Computed once here so the two fields
+  // below are structurally guaranteed identical, not just coincidentally
+  // equal from two separately-written expressions.
+  const opportunityScoreValue = opportunity.score ?? null;
   const result = {
     symbol: opportunity.symbol, correlationId: randomUUID(), timestamp, price: opportunity.price ?? null,
     dataHealth: dataHealth || null, marketRegime: marketRegime || null,
@@ -112,7 +196,7 @@ function buildAssetDecision({ opportunity, marketRegime, dataHealth, positionSta
     flowScore: opportunity.breakdown?.institutional ?? opportunity.breakdown?.optionsConfirmation ?? null,
     newsScore: opportunity.breakdown?.catalyst ?? null, eventRiskScore: eventRisk?.score ?? null,
     valuationScore: opportunity.fingerprint?.valuation ?? null, setupScore: opportunity.entryScore ?? null,
-    opportunityStage: standardizeOpportunityStage(opportunity), opportunityScore: opportunity.score ?? null,
+    opportunityStage: standardizeOpportunityStage(opportunity), opportunityScore: opportunityScoreValue,
     // Score transparency (2026-09-04, Phase 0 audit finding: "an
     // unvalidated score must be labeled HEURISTIC," and the 0-100 score
     // above must never be read as a probability). am-core-engine.js's own
@@ -141,10 +225,15 @@ function buildAssetDecision({ opportunity, marketRegime, dataHealth, positionSta
     // more precisely-named exposures of real values, not a new
     // computation layered on top of guesses.
     //
-    // tradeScore: the real setup-quality composite (same real value as
-    // opportunityScore above) — always HEURISTIC per scoreValidation,
-    // never a probability.
-    tradeScore: opportunity.score ?? null,
+    // tradeScore: DEPRECATED alias of opportunityScore above (2026-09-13 —
+    // confirmed via targeted reference search: no live production/UI/API
+    // consumer of tradeScore exists anywhere in the repo, only this file's
+    // own tests). Kept only for backward compatibility per explicit
+    // instruction not to remove it in this pass; structurally guaranteed
+    // identical to opportunityScore (same local value, not a second
+    // calculation) — always HEURISTIC per scoreValidation, never a
+    // probability.
+    tradeScore: opportunityScoreValue,
     // dataQuality: the real per-source completeness/freshness score
     // data-health-engine.js already computes, exposed at the top level
     // instead of only nested under dataHealth.
@@ -199,8 +288,15 @@ function buildAssetDecision({ opportunity, marketRegime, dataHealth, positionSta
     dataSources: (dataHealth?.sources || []).map((s) => s.source), engineVersion: ASSET_DECISION_VERSION,
     investmentCommittee: committee,
   };
+  // Unified Risk Score — additive, observational only (see computeRiskScore
+  // above). Computed from the exact same real inputs applyRiskPolicy already
+  // used above; never influences `decision`/`verdict`/`blockers`.
+  const riskAssessment = computeRiskScore({ dataHealth, marketRegime, eventRisk, criticalFlags: opportunity.criticalFlags || 0, committee, riskReward: result.riskReward });
+  result.riskScore = riskAssessment.score;
+  result.riskLevel = riskAssessment.level;
+  result.riskContributors = riskAssessment.contributors;
   if (!FINAL_VERDICTS.has(result.verdict) || !OPPORTUNITY_STAGES.has(result.opportunityStage)) throw new Error("Invalid canonical AssetDecision state");
   return result;
 }
 
-module.exports = { ASSET_DECISION_VERSION, FINAL_VERDICTS, OPPORTUNITY_STAGES, standardizeOpportunityStage, standardizeDecision, applyRiskPolicy, buildAssetDecision };
+module.exports = { ASSET_DECISION_VERSION, FINAL_VERDICTS, OPPORTUNITY_STAGES, standardizeOpportunityStage, standardizeDecision, applyRiskPolicy, computeRiskScore, buildAssetDecision };

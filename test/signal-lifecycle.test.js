@@ -65,6 +65,24 @@ ok("entryStage STRUCTURE_BROKEN -> CANCELLED", () => {
   assert.strictEqual(r.state, "CANCELLED");
 });
 
+// Lifecycle contract lock (2026-09-13 platform-redesign audit) — tier and
+// opportunityStage CAN legitimately disagree upstream (tier=WAIT can pair
+// with opportunityStage=DORMANT or CONFIRMED depending on verdict; tier=
+// EXTENDED can pair with opportunityStage=EXTENDED or EXHAUSTED depending
+// on reversalTopRisk). tier is the execution-readiness authority here and
+// already wins in both cases — these tests lock that in as an explicit,
+// verified contract so a future stage-vocabulary cleanup can't silently
+// flip it (see the audit's own finding: no prior test exercised both
+// fields set to a genuinely conflicting real combo).
+ok("CONTRACT: tier WAIT + opportunityStage CONFIRMED -> SCANNING, never ARMED/ENTER_NOW/SETUP_FORMING (tier wins, prevents a false-positive entry signal)", () => {
+  const r = computeSignalState({ tier: "WAIT", opportunityStage: "CONFIRMED", nowMs: NOW });
+  assert.strictEqual(r.state, "SCANNING");
+});
+ok("CONTRACT: tier EXTENDED + opportunityStage EXHAUSTED -> CANCELLED, the richer EXHAUSTED label does not reactivate the signal", () => {
+  const r = computeSignalState({ tier: "EXTENDED", opportunityStage: "EXHAUSTED", nowMs: NOW });
+  assert.strictEqual(r.state, "CANCELLED");
+});
+
 console.log("\nChecking real price breaching the real invalidation level — any pre-entry state must go CANCELLED…");
 ok("ARMED + current price at/through invalidation -> CANCELLED", () => {
   const r = computeSignalState({ tier: "ACTIONABLE", entry: 100, invalidation: 95, currentPrice: 94.5, nowMs: NOW });

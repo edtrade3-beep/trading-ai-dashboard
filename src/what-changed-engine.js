@@ -97,11 +97,18 @@ function diffGlobalSnapshots(prev, current) {
       from: `${prev.regimeLabel || "?"} (${prev.regimeScore})`,
       to: `${current.regimeLabel || "?"} (${current.regimeScore})`,
       kind: "regime",
+      // Real literal score comparison — computed here, once, from the
+      // same real numbers already in scope, so a UI consumer never has to
+      // parse the formatted "(score)" strings above to know direction.
+      direction: current.regimeScore === prev.regimeScore ? null : current.regimeScore > prev.regimeScore ? "up" : "down",
     });
   }
 
   if (Number.isFinite(prev.vix) && Number.isFinite(current.vix) && Math.abs(current.vix - prev.vix) >= VIX_DELTA) {
-    changes.push({ label: "VIX", from: prev.vix.toFixed(1), to: current.vix.toFixed(1), kind: "vix" });
+    changes.push({
+      label: "VIX", from: prev.vix.toFixed(1), to: current.vix.toFixed(1), kind: "vix",
+      direction: current.vix === prev.vix ? null : current.vix > prev.vix ? "up" : "down",
+    });
   }
 
   if (prev.dataHealthStatus && current.dataHealthStatus && prev.dataHealthStatus !== current.dataHealthStatus) {
@@ -120,11 +127,16 @@ function diffGlobalSnapshots(prev, current) {
     if (!before) continue; // new to the tracked set this scan — not a "change", nothing to diff against
     const after = curCand[symbol];
     if (before.verdict !== after.verdict || before.stage !== after.stage) {
+      const fromLabel = before.verdict || before.stage, toLabel = after.verdict || after.stage;
+      // Reuses the SAME actionableRank() this function already computes
+      // below for sort order — never a second, invented significance
+      // scale. Honest null when either side isn't a ranked verdict (e.g.
+      // a stage-only label), same as the sort's own fallback-to-0
+      // behavior would otherwise silently imply a false "unchanged."
+      const r1 = actionableRank(fromLabel), r2 = actionableRank(toLabel);
       candidateTransitions.push({
-        symbol,
-        from: before.verdict || before.stage,
-        to: after.verdict || after.stage,
-        kind: "transition",
+        symbol, from: fromLabel, to: toLabel, kind: "transition",
+        direction: fromLabel === toLabel ? null : r2 > r1 ? "up" : r2 < r1 ? "down" : null,
       });
     }
   }

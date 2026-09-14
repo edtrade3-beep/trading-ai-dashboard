@@ -171,6 +171,26 @@ export default function TradeGpsCard({
   // blocked-data disclosure must never silently disappear.
   const isStale = decision?.dataHealth?.stale || decision?.dataHealth?.canTrade === false;
 
+  // Unified Risk Score (2026-09-13) — pure display of the existing
+  // additive AssetDecision fields (riskScore/riskLevel/riskContributors,
+  // computed in src/asset-decision.js's computeRiskScore). Never
+  // recomputed here, never influences verdict/color/blockers above.
+  const riskAvailable = Number.isFinite(decision?.riskScore) && Boolean(decision?.riskLevel);
+  const RISK_LEVEL_COLOR = { LOW: C.green, NORMAL: C.green, ELEVATED: C.amber, HIGH: C.red, CRITICAL: C.red };
+  const riskColor = riskAvailable ? (RISK_LEVEL_COLOR[decision.riskLevel] || C.textSec) : C.textDim;
+  // "Strongest" = highest points, an already-real field on each
+  // contributor — a display sort, not a second risk-scoring algorithm.
+  // Zero-point entries are filtered here (UI display only, computeRiskScore
+  // itself is untouched) — they don't explain anything and just add noise.
+  const topRiskContributors = Array.isArray(decision?.riskContributors)
+    ? decision.riskContributors.filter((c) => (c.points || 0) > 0).sort((a, b) => (b.points || 0) - (a.points || 0)).slice(0, 3)
+    : [];
+
+  // Opportunity Score (2026-09-13) — the same canonical decision.opportunityScore
+  // every other real consumer reads (never tradeScore, never confidence as a
+  // substitute — those are genuinely different concepts kept distinct below).
+  const opportunityAvailable = Number.isFinite(decision?.opportunityScore);
+
   return (
     <section aria-label="Trade GPS primary opportunity" style={{ padding: "18px 20px", background: C.surface, borderBottom: `1px solid ${C.border}` }}>
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: 22, marginBottom: 14 }}>
@@ -180,13 +200,25 @@ export default function TradeGpsCard({
           </div>
           <div style={{ fontFamily: MONO, fontSize: 38, fontWeight: 900, color, lineHeight: 1.05 }}>{label}</div>
         </div>
+        {/* Opportunity + Risk — paired, first, and visually larger than the
+            supporting regime/data/stage badges below (visual hierarchy:
+            verdict -> opportunity -> risk -> entry/stop/target -> regime/
+            data/stage). Both are pure reads of the existing canonical
+            AssetDecision fields, never recomputed here. */}
+        {decision && (
+          <div style={{ display: "flex", gap: 14, paddingBottom: 4 }}>
+            <BigBadge label="OPPORTUNITY" value={opportunityAvailable ? `${decision.opportunityScore}/100` : "UNAVAILABLE"} color={opportunityAvailable ? C.accent : C.textDim} C={C} MONO={MONO} />
+            <BigBadge label="RISK" value={riskAvailable ? `${decision.riskScore}/100 · ${decision.riskLevel}` : "UNAVAILABLE"} color={riskColor} C={C} MONO={MONO} />
+          </div>
+        )}
         {/* Folded in from the old always-visible CanonicalVerdictStrip —
-            regime/data-health/stage as compact badges next to the verdict,
-            not a second full-size strip competing for attention. */}
+            regime/data-health/stage as compact secondary badges, kept
+            smaller than Opportunity/Risk above so they support rather
+            than compete with the primary decision pair. */}
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", paddingBottom: 4 }}>
+          {decision?.opportunityStage && <Badge label="STAGE" value={decision.opportunityStage} color={C.textSec} C={C} MONO={MONO} />}
           {regime && <Badge label="REGIME" value={regime.replace(/_/g, " ")} color={regime === "CRISIS" || regime === "RISK_OFF" ? C.red : regime === "RISK_ON" ? C.green : C.amber} C={C} MONO={MONO} />}
           {dataHealthStatus && <Badge label="DATA" value={dataHealthStatus} color={dataHealthColor} C={C} MONO={MONO} />}
-          {decision?.opportunityStage && <Badge label="STAGE" value={decision.opportunityStage} color={C.textSec} C={C} MONO={MONO} />}
         </div>
         {canSendToQuickTrade && (
           <button
@@ -226,6 +258,19 @@ export default function TradeGpsCard({
         )}
       </div>
 
+      {/* Risk contributors — the real, already-computed reasons behind an
+          elevated riskScore. Only rendered when real contributors exist;
+          never a manufactured explanation. */}
+      {topRiskContributors.length > 0 && (
+        <div style={{ fontFamily: MONO, fontSize: 13, color: C.textSec, marginBottom: 14 }}>
+          <span style={{ color: riskColor, fontWeight: 800 }}>RISK {decision.riskScore}/100 — {decision.riskLevel}</span>
+          {"  ·  "}
+          {topRiskContributors.map((c, i) => (
+            <span key={`${c.source}-${i}`}>{i > 0 ? "  ·  " : ""}{c.reason || c.source} (+{c.points})</span>
+          ))}
+        </div>
+      )}
+
       {/* SECONDARY tier — real, readable, but visually recedes behind the
           primary tier above (smaller, no card/border emphasis). Never the
           old failing-contrast gray; C.textSec measures 7.6:1+ in both
@@ -260,6 +305,19 @@ function Badge({ label, value, color, C, MONO }) {
     <div style={{ display: "flex", flexDirection: "column" }}>
       <div style={{ fontFamily: MONO, fontSize: 11, color: C.textSec, letterSpacing: 0.6 }}>{label}</div>
       <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 800, color: color || C.text }}>{value}</div>
+    </div>
+  );
+}
+
+// Opportunity/Risk get their own larger tier — visually between the
+// 38px verdict and the 15px secondary badges (regime/data/stage), per
+// the explicit "Opportunity and Risk must be visually paired" and
+// "must not be dominated by regime/data badges" requirements.
+function BigBadge({ label, value, color, C, MONO }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column" }}>
+      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textSec, letterSpacing: 0.6, fontWeight: 600 }}>{label}</div>
+      <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: color || C.text }}>{value}</div>
     </div>
   );
 }

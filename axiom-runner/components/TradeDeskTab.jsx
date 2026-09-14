@@ -9,6 +9,8 @@ import { PortfolioSnapshotCard } from "./DashboardTab.jsx";
 import ActivePositionsCard from "./ActivePositionsCard.jsx";
 import RhProWatchlists from "./RhProWatchlists.jsx";
 import WhatChangedPanel from "./WhatChangedPanel.jsx";
+import WhatChangedStrip from "./WhatChangedStrip.jsx";
+import TopOpportunities from "./TopOpportunities.jsx";
 import AlertsTab from "./AlertsTab.jsx";
 import OptionsChainTab from "./OptionsChainTab.jsx";
 import NewsTab from "./NewsTab.jsx";
@@ -644,6 +646,14 @@ export default function TradeDeskTab({
     <div style={{ display: "flex", flexDirection: "column", background: TD.bg }}>
       <MarketCommandCenter onOpenNews={() => openTickerTab("news")} C={TD} MONO={MONO} SANS={SANS} />
 
+      {/* WHAT CHANGED (2026-09-13, explicit user goal: understand what
+          changed in ~10 seconds). Placed right under the top regime strip,
+          ahead of the verdict card — safest existing location near the top
+          without a full page relayout. */}
+      <div style={{ padding: "10px 14px 0", background: TD.surface }}>
+        <WhatChangedStrip C={TD} MONO={MONO} SANS={SANS} />
+      </div>
+
       {/* ── Trade Summary Header (2026-09-09 redesign) ── real header
           action buttons (Add to Watchlist / Set Alert) above the SAME
           TradeGpsCard the app already renders (unchanged internals — its
@@ -673,6 +683,12 @@ export default function TradeDeskTab({
         C={TD} MONO={MONO} SANS={SANS}
       />
       <OhlcStatsRow chart={chart} fundamentals={fundamentals} symbolQuote={symbolQuote} C={TD} MONO={MONO} />
+
+      {/* TOP OPPORTUNITIES (2026-09-13) — right after the verdict card,
+          ahead of the main analysis row, per the requested hierarchy. */}
+      <div style={{ padding: "0 14px" }}>
+        <TopOpportunities onSelectSymbol={selectSymbol} C={TD} MONO={MONO} SANS={SANS} />
+      </div>
 
       {/* ── Search | Chart | AI Analysis | Risk/Avoid — the reference
           layout's main analysis row. Mobile keeps its own separate

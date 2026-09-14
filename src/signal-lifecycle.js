@@ -54,6 +54,11 @@ function computeSignalState({
     ? currentPrice <= invalidation
     : false;
 
+  // tier is the execution-readiness authority in every branch below.
+  // opportunityStage is a secondary maturity/fallback signal. Do not
+  // replace tier with opportunityStage without updating and validating
+  // the lifecycle contract tests (test/signal-lifecycle.test.js's
+  // "CONTRACT:" cases).
   if (tier === "INVALIDATED" || tier === "EXTENDED" || entryStage === "FAILED_BREAKOUT" || entryStage === "STRUCTURE_BROKEN") {
     return { state: "CANCELLED", expiresAtMs, expired, reason: "opportunity tier/entry-stage invalidated the setup" };
   }

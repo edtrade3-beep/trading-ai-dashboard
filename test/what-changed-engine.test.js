@@ -108,7 +108,35 @@ ok("a real candidate verdict transition on a symbol tracked in both snapshots is
   const current = { candidates: { DELL: { verdict: "BUY", stage: "CONFIRMED" } } };
   const d = diffGlobalSnapshots(prev, current);
   assert.strictEqual(d.candidateTransitions.length, 1);
-  assert.deepStrictEqual(d.candidateTransitions[0], { symbol: "DELL", from: "WATCH", to: "BUY", kind: "transition" });
+  assert.deepStrictEqual(d.candidateTransitions[0], { symbol: "DELL", from: "WATCH", to: "BUY", kind: "transition", direction: "up" });
+});
+
+console.log("\nChecking direction — reused from the SAME real values/rank already computed above, never a second invented scale…");
+
+ok("regime direction reflects the real literal score comparison, up/down/null", () => {
+  const up = diffGlobalSnapshots({ regimeScore: 50, regimeLabel: "NEUTRAL", candidates: {} }, { regimeScore: 60, regimeLabel: "RISK_ON", candidates: {} });
+  assert.strictEqual(up.changes.find((c) => c.kind === "regime").direction, "up");
+  const down = diffGlobalSnapshots({ regimeScore: 60, regimeLabel: "RISK_ON", candidates: {} }, { regimeScore: 50, regimeLabel: "NEUTRAL", candidates: {} });
+  assert.strictEqual(down.changes.find((c) => c.kind === "regime").direction, "down");
+});
+
+ok("vix direction reflects the real literal value comparison", () => {
+  const d = diffGlobalSnapshots({ vix: 15.8, candidates: {} }, { vix: 20.0, candidates: {} });
+  assert.strictEqual(d.changes.find((c) => c.kind === "vix").direction, "up");
+});
+
+ok("a verdict transition to a LOWER actionable rank reports direction 'down'", () => {
+  const prev = { candidates: { XYZ: { verdict: "BUY", stage: "CONFIRMED" } } };
+  const current = { candidates: { XYZ: { verdict: "WAIT", stage: "DORMANT" } } };
+  const d = diffGlobalSnapshots(prev, current);
+  assert.strictEqual(d.candidateTransitions[0].direction, "down");
+});
+
+ok("a transition where the 'to' label isn't a ranked verdict (stage-only) reports direction null, never a fabricated guess", () => {
+  const prev = { candidates: { QRS: { verdict: null, stage: "DEVELOPING" } } };
+  const current = { candidates: { QRS: { verdict: null, stage: "CONFIRMED" } } };
+  const d = diffGlobalSnapshots(prev, current);
+  assert.strictEqual(d.candidateTransitions[0].direction, null);
 });
 
 ok("a symbol newly entering or leaving the tracked set is NOT reported as a transition — only real before/after changes on a tracked symbol are", () => {
