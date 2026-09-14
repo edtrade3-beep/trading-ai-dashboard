@@ -50,8 +50,8 @@ function TrendRatingOverlay({ chart, C, MONO, SANS, isMobile }) {
           background: C.card || "#fff", border: `1px solid ${rColor}`, borderRadius: 999, padding: "4px 10px",
           boxShadow: "0 1px 4px rgba(0,0,0,0.10)", display: "inline-flex", alignItems: "center", gap: 6 }}>
         <span style={{ fontFamily: SANS, fontSize: 15, fontWeight: 900, color: rColor, lineHeight: 1 }}>{rating}</span>
-        <span style={{ fontFamily: SANS, fontSize: 10.5, fontWeight: 800, color: rColor }}>{rWord}</span>
-        <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>▾</span>
+        <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 800, color: rColor }}>{rWord}</span>
+        <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>▾</span>
       </button>
     );
   }
@@ -60,9 +60,9 @@ function TrendRatingOverlay({ chart, C, MONO, SANS, isMobile }) {
       background: C.card || "#fff", border: `1px solid ${rColor}`, borderRadius: 12, padding: "8px 14px",
       boxShadow: "0 1px 4px rgba(0,0,0,0.10)", minWidth: 132, maxWidth: isMobile ? 200 : undefined }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <span style={{ fontFamily: SANS, fontSize: 9, fontWeight: 700, color: C.textDim, letterSpacing: 1, flex: 1 }}>TREND & BASE RATING</span>
+        <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 700, color: C.textDim, letterSpacing: 1, flex: 1 }}>TREND & BASE RATING</span>
         <button onClick={() => setOpen(false)} title="Collapse"
-          style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, background: "transparent", border: "none", cursor: "pointer", padding: 0, lineHeight: 1 }}>✕</button>
+          style={{ fontFamily: MONO, fontSize: 13, color: C.textDim, background: "transparent", border: "none", cursor: "pointer", padding: 0, lineHeight: 1 }}>✕</button>
       </div>
       <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
         <span style={{ fontFamily: SANS, fontSize: 30, fontWeight: 900, color: rColor, lineHeight: 1 }}>{rating}</span>
@@ -73,11 +73,11 @@ function TrendRatingOverlay({ chart, C, MONO, SANS, isMobile }) {
           section below the chart already shows; a true duplicate, not a
           second opinion. The rating number and PIVOT/STOP/T1-T3 levels
           above/below are this pill's real unique content, kept as-is. */}
-      {upside != null && <div style={{ fontFamily: MONO, fontSize: 10, color: "#f59e0b", marginTop: 5 }}>🎯 {upside > 0 ? "+" : ""}{upside}% to target</div>}
+      {upside != null && <div style={{ fontFamily: MONO, fontSize: 12.5, color: "#f59e0b", marginTop: 5 }}>🎯 {upside > 0 ? "+" : ""}{upside}% to target</div>}
       {levels.length > 0 && (
         <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${C.border}` }}>
           {levels.map(([label, val, col]) => (
-            <div key={label} style={{ display: "flex", justifyContent: "space-between", gap: 14, fontFamily: MONO, fontSize: 10.5, fontWeight: 700, color: "#fff", background: col, borderRadius: 4, padding: "2px 7px", marginBottom: 3 }}>
+            <div key={label} style={{ display: "flex", justifyContent: "space-between", gap: 14, fontFamily: MONO, fontSize: 13, fontWeight: 700, color: "#fff", background: col, borderRadius: 4, padding: "2px 7px", marginBottom: 3 }}>
               <span>{label}</span><span>${Number(val).toFixed(2)}</span>
             </div>
           ))}
@@ -115,21 +115,21 @@ function JournalNotesPanel({ sym, C, MONO, SANS, setActiveTab }) {
           {entries.map(t => (
             <div key={t.id} style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 14px", background: C.card }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>{t.date}</span>
-                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: t.side === "short" ? C.red : C.green }}>{String(t.side || "").toUpperCase()}</span>
+                <span style={{ fontFamily: MONO, fontSize: 13, color: C.textDim }}>{t.date}</span>
+                <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: t.side === "short" ? C.red : C.green }}>{String(t.side || "").toUpperCase()}</span>
                 {Number.isFinite(Number(t.entry)) && Number.isFinite(Number(t.exit)) && (
-                  <span style={{ fontFamily: MONO, fontSize: 11, color: C.textSec }}>${t.entry} → ${t.exit}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 13, color: C.textSec }}>${t.entry} → ${t.exit}</span>
                 )}
                 {t.pnl !== undefined && (
-                  <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: Number(t.pnl) >= 0 ? C.green : C.red }}>${Number(t.pnl).toLocaleString()}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: Number(t.pnl) >= 0 ? C.green : C.red }}>${Number(t.pnl).toLocaleString()}</span>
                 )}
-                {t.emotion && <span style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>· {t.emotion}</span>}
+                {t.emotion && <span style={{ fontFamily: SANS, fontSize: 13, color: C.textDim }}>· {t.emotion}</span>}
               </div>
               {t.notes && <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, marginTop: 4 }}>"{t.notes}"</div>}
-              {t.mistakes && <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.red, marginTop: 2 }}>Mistake: {t.mistakes}</div>}
+              {t.mistakes && <div style={{ fontFamily: SANS, fontSize: 13.5, color: C.red, marginTop: 2 }}>Mistake: {t.mistakes}</div>}
             </div>
           ))}
-          <span onClick={() => setActiveTab("rhpro-journal")} {...clickableProps(() => setActiveTab("rhpro-journal"))} style={{ fontFamily: MONO, fontSize: 11, color: C.accent, cursor: "pointer", fontWeight: 700, alignSelf: "flex-start" }}>Full journal →</span>
+          <span onClick={() => setActiveTab("rhpro-journal")} {...clickableProps(() => setActiveTab("rhpro-journal"))} style={{ fontFamily: MONO, fontSize: 13, color: C.accent, cursor: "pointer", fontWeight: 700, alignSelf: "flex-start" }}>Full journal →</span>
         </div>
       )}
     </div>
@@ -208,8 +208,8 @@ function AccordionSection({ id, icon, label, summary, tone, children, C, MONO, S
         <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 22, height: 22,
           borderRadius: 6, background: `${tc}1c`, fontSize: 12, flexShrink: 0 }}>{icon}</span>
         <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 900, letterSpacing: 0.3, color: C.text, textTransform: "uppercase", flexShrink: 0 }}>{label}</span>
-        {!isOpen && summary && <span style={{ fontFamily: SANS, fontSize: 11.5, color: C.textDim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{summary}</span>}
-        <span style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.accent, flexShrink: 0 }}>{isOpen ? "▴ Close" : "▾ Open"}</span>
+        {!isOpen && summary && <span style={{ fontFamily: SANS, fontSize: 13.5, color: C.textDim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{summary}</span>}
+        <span style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 12.5, fontWeight: 800, color: C.accent, flexShrink: 0 }}>{isOpen ? "▴ Close" : "▾ Open"}</span>
       </div>
       {isOpen && <PanelErrorBoundary label={label}>{children}</PanelErrorBoundary>}
     </div>
@@ -1459,7 +1459,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
           <div style={{ flex: 1 }}><SectionHeader icon="🔥" label="Movers & Watchlist" C={C} SANS={SANS} /></div>
           <button onClick={() => setShowMoversZone(v => !v)}
-            style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.accent, background: "transparent", border: `1px solid ${C.accent}55`, borderRadius: 6, padding: "3px 9px", cursor: "pointer", whiteSpace: "nowrap", marginTop: -6 }}>
+            style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 800, color: C.accent, background: "transparent", border: `1px solid ${C.accent}55`, borderRadius: 6, padding: "3px 9px", cursor: "pointer", whiteSpace: "nowrap", marginTop: -6 }}>
             {showMoversZone ? "Hide ▴" : "Show ▾"}
           </button>
         </div>
@@ -1490,9 +1490,9 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
               ))}
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
-              <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>SORT</span>
+              <span style={{ fontFamily: MONO, fontSize: 12.5, color: C.textDim }}>SORT</span>
               <select value={sortBy} onChange={e => setSortBy(e.target.value)}
-                style={{ fontFamily: MONO, fontSize: 11, padding: "4px 8px", borderRadius: 6, border: `1px solid ${C.border}`, background: C.bg, color: C.text }}>
+                style={{ fontFamily: MONO, fontSize: 13, padding: "4px 8px", borderRadius: 6, border: `1px solid ${C.border}`, background: C.bg, color: C.text }}>
                 <option value="bucket">Default (bucket rank)</option>
                 <option value="chg">Day % change</option>
                 <option value="vol">Volume vs 50d</option>
@@ -1500,7 +1500,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
               </select>
             </div>
             {view === "premarket" && (
-              <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, marginTop: -4, marginBottom: 10 }}>
+              <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, marginTop: -4, marginBottom: 10 }}>
                 Real Yahoo pre/post-market data for a fixed ~38-symbol high-liquidity/momentum universe — not the full market, and RVOL isn't available for this source. Refreshes every 4 min.
               </div>
             )}
@@ -1538,7 +1538,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                 {rvol == null ? "—" : rvol.toFixed(1) + "×"}
               </div>
               <div style={{ textAlign: "right" }}>
-                <span title={aplus.reasons.join(" · ")} style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: "#fff", cursor: "help",
+                <span title={aplus.reasons.join(" · ")} style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: "#fff", cursor: "help",
                   background: aplus.score >= 80 ? "#0d9465" : aplus.score >= 60 ? "#d6a312" : "#c8282a", borderRadius: 4, padding: "1px 5px" }}>{aplus.score}</span>
               </div>
             </div>
@@ -1578,12 +1578,12 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
           {symDayPct != null && <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 700, color: col(symDayPct) }}>{pct(symDayPct)}</span>}
           {chart && (chart.marketState === "PRE" || (chart.marketState && chart.marketState.startsWith("POST"))) && (
             <span title={chart.marketState === "PRE" ? "Real Yahoo pre-market quote" : "Real Yahoo after-hours quote"}
-              style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, letterSpacing: 0.5, color: C.gold, border: `1px solid ${C.gold}`, borderRadius: 5, padding: "2px 6px" }}>
+              style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 800, letterSpacing: 0.5, color: C.gold, border: `1px solid ${C.gold}`, borderRadius: 5, padding: "2px 6px" }}>
               {chart.marketState === "PRE" ? "PRE-MARKET" : "AFTER HOURS"}
             </span>
           )}
           {chart && !loadingChart && (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontFamily: MONO, fontSize: 10, fontWeight: 700, color: "#0d9465" }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontFamily: MONO, fontSize: 12.5, fontWeight: 700, color: "#0d9465" }}>
               <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#0d9465", display: "inline-block" }} /> LIVE
             </span>
           )}
@@ -1630,7 +1630,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             default now, not deleted. */}
         {simpleDecisionDW && coreVerdictDW && (
           <div style={{ border: `2px solid ${FINAL_VERDICT_META[coreVerdictDW.verdict].color}`, background: `${FINAL_VERDICT_META[coreVerdictDW.verdict].color}0d`, borderRadius: 12, padding: "16px 18px", marginBottom: 14 }}>
-            <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.6, marginBottom: 6 }}>DECISION</div>
+            <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.textDim, letterSpacing: 0.6, marginBottom: 6 }}>DECISION</div>
             <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: FINAL_VERDICT_META[coreVerdictDW.verdict].color, marginBottom: 8 }}>{FINAL_VERDICT_META[coreVerdictDW.verdict].icon} {FINAL_VERDICT_META[coreVerdictDW.verdict].label}</div>
             <div style={{ fontFamily: SANS, fontSize: 13, color: C.text, marginBottom: 10 }}><b>Why:</b> {coreVerdictDW.reason}</div>
             {/* Setup Score / Entry Score — promoted into the persistent
@@ -1686,12 +1686,12 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                 "explain WHY" requirement. */}
             {simpleDecisionDW.redFlagCount > 0 && (
               <div style={{ borderTop: `1px solid ${simpleDecisionDW.color}33`, paddingTop: 8 }}>
-                <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: simpleDecisionDW.criticalFlagCount > 0 ? "#c8282a" : "#e08a1e", marginBottom: 4 }}>
+                <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: simpleDecisionDW.criticalFlagCount > 0 ? "#c8282a" : "#e08a1e", marginBottom: 4 }}>
                   🚩 RED FLAGS: {simpleDecisionDW.redFlagCount} · CRITICAL: {simpleDecisionDW.criticalFlagCount}
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                   {simpleDecisionDW.redFlags.map((f) => (
-                    <div key={f.key} style={{ fontFamily: SANS, fontSize: 11, color: C.textSec }}>
+                    <div key={f.key} style={{ fontFamily: SANS, fontSize: 13, color: C.textSec }}>
                       <span style={{ color: f.critical ? "#c8282a" : "#e08a1e", fontWeight: 700 }}>{f.critical ? "● " : "○ "}{f.label}</span>
                       {f.reason && <span style={{ color: C.textDim }}> — {f.reason}</span>}
                     </div>
@@ -1700,7 +1700,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
               </div>
             )}
             <button onClick={() => setShowFullEntryAnalysis((v) => !v)}
-              style={{ marginTop: 10, fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, padding: "4px 10px", cursor: "pointer" }}>
+              style={{ marginTop: 10, fontFamily: MONO, fontSize: 12.5, fontWeight: 800, color: C.textDim, background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, padding: "4px 10px", cursor: "pointer" }}>
               {showFullEntryAnalysis ? "Hide full analysis ▴" : "Show full analysis ▾"}
             </button>
           </div>
@@ -1722,14 +1722,14 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                   now names which question is actually live for this
                   symbol — real, based on whether an open Alpaca position
                   exists (symPosition), not a guess. */}
-              <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: 0.6 }}>🎯 {symPosition ? "POSITION STATUS" : "ENTRY STATUS"}</span>
+              <span style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 800, color: C.textDim, letterSpacing: 0.6 }}>🎯 {symPosition ? "POSITION STATUS" : "ENTRY STATUS"}</span>
               <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: dwState.color }}>{dwState.icon} {dwState.label}</span>
-              <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>(Cortex: {cortexV.verdict})</span>
+              <span style={{ fontFamily: MONO, fontSize: 12.5, color: C.textDim }}>(Cortex: {cortexV.verdict})</span>
               {/* Market Regime (MTF spec §20) — real SPY/QQQ/VIX read,
                   informational here (not gating entries this pass — see
                   the marketRegimeDW comment above for why). */}
               {marketRegimeDW && (
-                <span style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 800, color: regColorDW, border: `1px solid ${regColorDW}55`, borderRadius: 20, padding: "2px 8px" }}>{marketRegimeDW.replace("_", " ")}</span>
+                <span style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 800, color: regColorDW, border: `1px solid ${regColorDW}55`, borderRadius: 20, padding: "2px 8px" }}>{marketRegimeDW.replace("_", " ")}</span>
               )}
               {/* Decision Strength + Data Quality (MTF spec §37/50/22,
                   2026-08-20) — Decision Strength is a composite of already-
@@ -1738,10 +1738,10 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                   data backs this read (15M/5M count as unavailable, never
                   fabricated). Both real, both new this pass. */}
               {decisionStrengthDW != null && (
-                <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginLeft: "auto" }}>Decision Strength: <b style={{ color: C.text }}>{decisionStrengthDW}/100</b></span>
+                <span style={{ fontFamily: MONO, fontSize: 12.5, color: C.textDim, marginLeft: "auto" }}>Decision Strength: <b style={{ color: C.text }}>{decisionStrengthDW}/100</b></span>
               )}
               {dataQualityDW && (
-                <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }} title={`MTF coverage: ${dataQualityDW.coverage} timeframes available`}>Data Quality: <b style={{ color: dataQualityDW.score >= 70 ? "#22d47e" : dataQualityDW.score >= 45 ? "#d6a312" : "#ef4444" }}>{dataQualityDW.score}/100</b> ({dataQualityDW.coverage} MTF)</span>
+                <span style={{ fontFamily: MONO, fontSize: 12.5, color: C.textDim }} title={`MTF coverage: ${dataQualityDW.coverage} timeframes available`}>Data Quality: <b style={{ color: dataQualityDW.score >= 70 ? "#22d47e" : dataQualityDW.score >= 45 ? "#d6a312" : "#ef4444" }}>{dataQualityDW.score}/100</b> ({dataQualityDW.coverage} MTF)</span>
               )}
             </div>
             {/* Real, honest disclosure, UPDATED 2026-08-26 ("unify the
@@ -1761,7 +1761,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                 separate future pass (see the plan's Tier 3), not silently
                 claimed as done here. */}
             {decisionInputs && (((decisionInputs.verdict === "BUY" || decisionInputs.verdict === "EARLY_BUY") ? "BUY" : decisionInputs.vLabel) === "BUY") !== (dwState.label === "START") && (
-              <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginBottom: 8 }}>
+              <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, marginBottom: 8 }}>
                 ⚠ The {decisionInputs.vLabel} verdict above and this panel's Cortex-based read disagree on this symbol right now — the real anti-chase check itself is unified between them, so this is a narrower difference (e.g. a red flag or structural check one engine weighs and the other doesn't). Full merge is a separate, larger future pass.
               </div>
             )}
@@ -1782,7 +1782,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                 <div key={label} style={{ border: `1px solid ${C.border}`, borderRadius: 8, padding: "7px 10px", background: C.card }}>
                   <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim, letterSpacing: 0.5 }}>{label}</div>
                   <div style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 800, color: col }}>{val}</div>
-                  {sub && <div style={{ fontFamily: SANS, fontSize: 9.5, color: C.textDim, marginTop: 1 }}>{sub}</div>}
+                  {sub && <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.textDim, marginTop: 1 }}>{sub}</div>}
                 </div>
               ))}
             </div>
@@ -1805,7 +1805,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                       {cell.known && <span style={{ fontSize: 8 }}>{dotCol === "#22d47e" ? "🟢" : dotCol === "#ef4444" ? "🔴" : dotCol === "#f59e0b" ? "🟠" : "🟡"}</span>}
                       <span style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 800, color: cell.known ? dotCol : C.textDim }}>{cell.label}</span>
                     </div>
-                    {cell.sub && <div style={{ fontFamily: SANS, fontSize: 9.5, color: C.textDim, marginTop: 1 }}>{cell.sub}</div>}
+                    {cell.sub && <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.textDim, marginTop: 1 }}>{cell.sub}</div>}
                   </div>
                 );
               })}
@@ -1820,17 +1820,17 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                 return (
                   <div key={r.tf} title={r.tf === "4H" && symMtf?.swing4h?.reasons?.length ? symMtf.swing4h.reasons.join(" ") : r.tf === "1H" && symMtf?.early1h?.reasons?.length ? symMtf.early1h.reasons.join(" ") : undefined}
                     style={{ display: "flex", alignItems: "center", gap: 5, border: `1px solid ${C.border}`, borderRadius: 20, padding: "3px 10px", background: C.card, cursor: "help" }}>
-                    <span style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 800, color: C.textDim }}>{r.tf}</span>
-                    <span style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 700, color: col }}>{r.label}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 800, color: C.textDim }}>{r.tf}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 700, color: col }}>{r.label}</span>
                   </div>
                 );
               })}
               {dwMtf && dwMtf.score != null && (
-                <span style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim, marginLeft: 4 }}>MTF Alignment: <b style={{ color: C.text }}>{dwMtf.score}/100</b></span>
+                <span style={{ fontFamily: MONO, fontSize: 12.5, color: C.textDim, marginLeft: 4 }}>MTF Alignment: <b style={{ color: C.text }}>{dwMtf.score}/100</b></span>
               )}
             </div>
             {dwMtf?.conflictNote && (
-              <div style={{ fontFamily: SANS, fontSize: 11, color: "#e08a1e", background: "#e08a1e12", border: "1px solid #e08a1e33", borderRadius: 6, padding: "6px 10px", marginBottom: 12 }}>
+              <div style={{ fontFamily: SANS, fontSize: 13, color: "#e08a1e", background: "#e08a1e12", border: "1px solid #e08a1e33", borderRadius: 6, padding: "6px 10px", marginBottom: 12 }}>
                 ⚠️ MTF CONFLICT — {dwMtf.conflictNote}
               </div>
             )}
@@ -1847,29 +1847,29 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             {symMtfState ? (
               <div style={{ border: `1px solid ${(MTF_STATE_META[symMtfState.confirmed] || {}).color || C.border}44`, borderRadius: 10, padding: "10px 14px", marginBottom: 14 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: symMtfState.gate ? 8 : 0, flexWrap: "wrap" }}>
-                  <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.5 }}>CONFIRMED STATE</span>
+                  <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.textDim, letterSpacing: 0.5 }}>CONFIRMED STATE</span>
                   <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: (MTF_STATE_META[symMtfState.confirmed] || {}).color || C.text }}>
                     {(MTF_STATE_META[symMtfState.confirmed] || {}).icon || "⚪"} {symMtfState.confirmed}
                   </span>
                   {symMtfState.updatedAt && (
-                    <span style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim }}>as of {ageLabelMtf(symMtfState.updatedAt)}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 12.5, color: C.textDim }}>as of {ageLabelMtf(symMtfState.updatedAt)}</span>
                   )}
                 </div>
                 {symMtfState.gate && (
                   <div>
-                    <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 5 }}>
+                    <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 5 }}>
                       A+ QUALITY GATE — {symMtfState.gate.checks.length - symMtfState.gate.failed.length}/{symMtfState.gate.checks.length} CONDITIONS MET{symMtfState.gate.pass ? "" : " · NOT READY"}
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                       {symMtfState.gate.checks.map((c, i) => (
-                        <span key={i} style={{ fontFamily: MONO, fontSize: 10.5, color: c.pass ? "#22d47e" : "#ef4444" }}>{c.pass ? "☑" : "☐"} {c.label} ({c.detail})</span>
+                        <span key={i} style={{ fontFamily: MONO, fontSize: 13, color: c.pass ? "#22d47e" : "#ef4444" }}>{c.pass ? "☑" : "☐"} {c.label} ({c.detail})</span>
                       ))}
                     </div>
                   </div>
                 )}
               </div>
             ) : (
-              <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textFaint || C.textDim, marginBottom: 14 }}>
+              <div style={{ fontFamily: SANS, fontSize: 13, color: C.textFaint || C.textDim, marginBottom: 14 }}>
                 Confirmed state not available — {sym} isn't in the watchlist rotation yet (only watchlist symbols get the debounced, server-confirmed state).
               </div>
             )}
@@ -1886,10 +1886,10 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                   entry-engine.js for the full design. */}
               {entryPlanDW && (
                 <div>
-                  <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 6 }}>ENTRY PLAN — {entryPlanDW.stage.replace("_", " ")}</div>
-                  <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, lineHeight: 1.4, marginBottom: 8 }}>{entryPlanDW.recommendedAction}</div>
+                  <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 6 }}>ENTRY PLAN — {entryPlanDW.stage.replace("_", " ")}</div>
+                  <div style={{ fontFamily: SANS, fontSize: 13, color: C.textSec, lineHeight: 1.4, marginBottom: 8 }}>{entryPlanDW.recommendedAction}</div>
                   {entryPlanDW.currentPrice != null && (
-                    <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11.5, padding: "3px 0" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 13.5, padding: "3px 0" }}>
                       <span style={{ color: C.textDim }}>Current Price</span>
                       <span style={{ fontWeight: 700, color: C.text }}>${entryPlanDW.currentPrice.toFixed(2)}</span>
                     </div>
@@ -1931,20 +1931,20 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                     return (
                       <div key={stageKey} onClick={loadZone} {...(clickable ? clickableProps(loadZone) : {})}
                         title={clickable ? `Size a plan around this ${label} zone — opens Trade Planner` : undefined}
-                        style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", fontFamily: MONO, fontSize: 11.5, padding: "3px 0", opacity: active ? 1 : 0.55, cursor: clickable ? "pointer" : "default" }}>
+                        style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", fontFamily: MONO, fontSize: 13.5, padding: "3px 0", opacity: active ? 1 : 0.55, cursor: clickable ? "pointer" : "default" }}>
                         <span style={{ color: active ? C.text : C.textDim, fontWeight: active ? 800 : 400 }}>{active ? "▶ " : ""}{label}</span>
                         <span style={{ fontWeight: active ? 800 : 600, color: active ? dwState.color : C.text, textDecoration: clickable ? "underline" : "none", textDecorationStyle: "dotted", textDecorationColor: active ? dwState.color : C.textDim }}>{zoneText}</span>
                       </div>
                     );
                   })}
                   {entryPlanDW.doNotChaseZone?.band && (
-                    <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11.5, padding: "3px 0" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 13.5, padding: "3px 0" }}>
                       <span style={{ color: C.textDim }}>Do Not Chase</span>
                       <span style={{ fontWeight: 700, color: entryPlanDW.doNotChaseZone.band === "DO_NOT_CHASE" ? "#c8282a" : entryPlanDW.doNotChaseZone.band === "NORMAL" ? "#22d47e" : "#e08a1e" }}>{entryPlanDW.doNotChaseZone.band.replace(/_/g, " ")}</span>
                     </div>
                   )}
                   {entryPlanDW.invalidation != null && (
-                    <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11.5, padding: "3px 0" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 13.5, padding: "3px 0" }}>
                       <span style={{ color: C.textDim }}>Invalidation</span>
                       <span style={{ fontWeight: 700, color: "#c8282a" }}>${entryPlanDW.invalidation.toFixed(2)}</span>
                     </div>
@@ -1955,13 +1955,13 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                     ["Target 1", entryPlanDW.target1],
                     ["Target 2", entryPlanDW.target2],
                   ].filter(([, v]) => v != null).map(([l, v]) => (
-                    <div key={l} style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11.5, padding: "3px 0" }}>
+                    <div key={l} style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 13.5, padding: "3px 0" }}>
                       <span style={{ color: C.textDim }}>{l}</span>
                       <span style={{ fontWeight: 700, color: C.text }}>${v.toFixed(2)}</span>
                     </div>
                   ))}
                   {sniperD.rr != null && (
-                    <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11.5, padding: "3px 0" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 13.5, padding: "3px 0" }}>
                       <span style={{ color: C.textDim }}>R:R</span>
                       <span style={{ fontWeight: 700, color: sniperD.rr >= 2 ? "#22d47e" : C.text }}>{sniperD.rr.toFixed(2)}:1</span>
                     </div>
@@ -1981,7 +1981,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                         ["Target 3", symMtf.atrLevels.target3],
                         ["Trailing", symMtf.atrLevels.trailingStop],
                       ].filter(([, v]) => v != null).map(([l, v]) => (
-                        <div key={l} style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11, padding: "2px 0" }}>
+                        <div key={l} style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 13, padding: "2px 0" }}>
                           <span style={{ color: C.textDim }}>{l}</span>
                           <span style={{ fontWeight: 700, color: C.textSec }}>${v.toFixed(2)}</span>
                         </div>
@@ -1996,7 +1996,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                       surfacing when it's the actual reason nothing's
                       executable right now. */}
                   {symMtf?.antiChase?.band === "DO_NOT_CHASE" && symMtf.antiChase.waitingFor && (
-                    <div style={{ marginTop: 4, fontFamily: SANS, fontSize: 10.5, color: "#c8282a", opacity: 0.9 }}>{symMtf.antiChase.waitingFor}</div>
+                    <div style={{ marginTop: 4, fontFamily: SANS, fontSize: 13, color: "#c8282a", opacity: 0.9 }}>{symMtf.antiChase.waitingFor}</div>
                   )}
                   {/* Breakout Retest (Phase 4) — real, already-computed by
                       detectPriceAction (daytrade-console-engine.js, reused
@@ -2005,12 +2005,12 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                       explicitly instead of only living in the 4H chip's
                       hover tooltip. */}
                   {symMtf?.swing4h?.priceAction?.retest === true && (
-                    <div style={{ marginTop: 8, fontFamily: SANS, fontSize: 10.5, padding: "5px 8px", borderRadius: 6, color: "#0d9465", background: "#0d946512" }}>
+                    <div style={{ marginTop: 8, fontFamily: SANS, fontSize: 13, padding: "5px 8px", borderRadius: 6, color: "#0d9465", background: "#0d946512" }}>
                       ✓ Retest confirmed on the 4H chart — support held after breaking out.
                     </div>
                   )}
                   {symMtf?.swing4h?.priceAction?.failedBreakout === true && (
-                    <div style={{ marginTop: 8, fontFamily: SANS, fontSize: 10.5, padding: "5px 8px", borderRadius: 6, color: "#c8282a", background: "#c8282a12" }}>
+                    <div style={{ marginTop: 8, fontFamily: SANS, fontSize: 13, padding: "5px 8px", borderRadius: 6, color: "#c8282a", background: "#c8282a12" }}>
                       ✗ Failed breakout on the 4H chart — price broke out, then closed back below resistance.
                     </div>
                   )}
@@ -2041,8 +2041,8 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                           <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
                             <input type="number" min={0.1} max={10} step={0.1} value={riskPct}
                               onChange={(e) => setRiskPct(Math.max(0.1, Math.min(10, Number(e.target.value) || 1)))}
-                              style={{ width: 40, fontFamily: MONO, fontSize: 10, background: C.surface || C.card, border: `1px solid ${C.border}`, borderRadius: 4, padding: "1px 4px", color: C.text }} />
-                            <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>% risk</span>
+                              style={{ width: 40, fontFamily: MONO, fontSize: 12.5, background: C.surface || C.card, border: `1px solid ${C.border}`, borderRadius: 4, padding: "1px 4px", color: C.text }} />
+                            <span style={{ fontFamily: MONO, fontSize: 12.5, color: C.textDim }}>% risk</span>
                           </span>
                         </div>
                         {acctEquity != null ? (() => {
@@ -2050,7 +2050,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                           const accountRisk = acctEquity * (riskPct / 100) * (entryPlanDW.sizingPct / 100 || 1);
                           const shares = Math.floor(accountRisk / riskPerShare);
                           return (
-                            <div style={{ fontFamily: MONO, fontSize: 11, lineHeight: 1.6 }}>
+                            <div style={{ fontFamily: MONO, fontSize: 13, lineHeight: 1.6 }}>
                               <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: C.textDim }}>Entry (this stage)</span><span style={{ fontWeight: 700, color: C.text }}>${entryPlanDW.entryPrice.toFixed(2)}</span></div>
                               <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: C.textDim }}>Stage Allocation</span><span style={{ fontWeight: 700, color: C.text }}>{entryPlanDW.sizingPct}%</span></div>
                               <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: C.textDim }}>Account Risk</span><span style={{ fontWeight: 700, color: C.text }}>${accountRisk.toFixed(2)}</span></div>
@@ -2062,7 +2062,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                             </div>
                           );
                         })() : (
-                          <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, fontStyle: "italic" }}>Account equity unavailable — sizing needs a real connected account.</div>
+                          <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, fontStyle: "italic" }}>Account equity unavailable — sizing needs a real connected account.</div>
                         )}
                       </div>
                     );
@@ -2074,17 +2074,17 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                 {/* Why panel — Sniper Decision's own real gate checklist */}
                 {sniperD && sniperD.reasons && sniperD.reasons.length > 0 && (
                   <div style={{ marginBottom: 10 }}>
-                    <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 6 }}>WHY</div>
+                    <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 6 }}>WHY</div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
                       {sniperD.reasons.map((r, i) => (
-                        <span key={i} style={{ fontFamily: MONO, fontSize: 11, color: r.ok ? "#22d47e" : "#ef4444" }}>{r.ok ? "✓" : "✗"} {r.text}</span>
+                        <span key={i} style={{ fontFamily: MONO, fontSize: 13, color: r.ok ? "#22d47e" : "#ef4444" }}>{r.ok ? "✓" : "✗"} {r.text}</span>
                       ))}
                     </div>
                   </div>
                 )}
                 {/* Next Action — never a bare "WAIT", always what it's waiting for */}
                 <div>
-                  <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 4 }}>NEXT ACTION</div>
+                  <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 4 }}>NEXT ACTION</div>
                   <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.text, lineHeight: 1.5 }}>
                     {sniperD?.waitingFor || heatD?.reason || cortexV?.reason || sniperD?.reason || "No further confirmation needed right now."}
                   </div>
@@ -2107,10 +2107,10 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                   if (!failedConditions.length) return null;
                   return (
                     <div style={{ marginTop: 12 }}>
-                      <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 4 }}>WHAT WOULD CHANGE MY MIND?</div>
+                      <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 4 }}>WHAT WOULD CHANGE MY MIND?</div>
                       <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
                         {failedConditions.map((cond, i) => (
-                          <span key={i} style={{ fontFamily: MONO, fontSize: 11, color: C.textSec }}>✓ {cond}</span>
+                          <span key={i} style={{ fontFamily: MONO, fontSize: 13, color: C.textSec }}>✓ {cond}</span>
                         ))}
                       </div>
                     </div>
@@ -2136,12 +2136,12 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                         }).then(r => r.json()).then(d => setDwExplain(d && d.ok ? d.explanation : { error: (d && d.error) || "no response" }))
                           .catch(e => setDwExplain({ error: e.message }));
                       }}
-                      style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "6px 12px", borderRadius: 7, cursor: "pointer", border: `1px solid ${C.accent}`, background: `${C.accent}14`, color: C.accent }}>
+                      style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, padding: "6px 12px", borderRadius: 7, cursor: "pointer", border: `1px solid ${C.accent}`, background: `${C.accent}14`, color: C.accent }}>
                       🤖 Explain this
                     </button>
                   )}
-                  {dwExplain === "loading" && <div style={{ fontFamily: MONO, fontSize: 10.5, color: C.textDim }}>🤖 Thinking…</div>}
-                  {dwExplain && dwExplain.error && <div style={{ fontFamily: SANS, fontSize: 11, color: "#e08a1e" }}>AI explanation unavailable — {dwExplain.error}</div>}
+                  {dwExplain === "loading" && <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim }}>🤖 Thinking…</div>}
+                  {dwExplain && dwExplain.error && <div style={{ fontFamily: SANS, fontSize: 13, color: "#e08a1e" }}>AI explanation unavailable — {dwExplain.error}</div>}
                   {typeof dwExplain === "string" && (
                     <div style={{ fontFamily: SANS, fontSize: 12, color: C.text, lineHeight: 1.55, whiteSpace: "pre-line", background: `${C.accent}08`, border: `1px solid ${C.accent}33`, borderRadius: 8, padding: "9px 12px" }}>
                       {dwExplain}
@@ -2159,7 +2159,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                 overlay) — nothing re-derived. */}
             {symPosition && (
               <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${C.border}` }}>
-                <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 8 }}>POSITION MANAGEMENT — {Number(symPosition.qty)} SHARES</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 8 }}>POSITION MANAGEMENT — {Number(symPosition.qty)} SHARES</div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: 8, marginBottom: symPosition.dayTradeState ? 8 : 0 }}>
                   {[
                     ["Entry", symPosition.plannedEntry ?? symPosition.avgEntry, C.text],
@@ -2175,7 +2175,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                   ))}
                 </div>
                 {symPosition.dayTradeState && (
-                  <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.textSec }}>
+                  <div style={{ fontFamily: SANS, fontSize: 13.5, color: C.textSec }}>
                     <span style={{ fontFamily: MONO, fontWeight: 800, color: symPosition.dayTradeState === "EXIT" ? "#c8282a" : symPosition.dayTradeState === "TAKE_PARTIAL" ? "#e08a1e" : symPosition.dayTradeState === "TRAIL" ? "#2563eb" : "#0d9465" }}>
                       {symPosition.dayTradeState}
                     </span> — {symPosition.dayTradeReason}
@@ -2195,7 +2195,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                   const rNow = (symPosition.current - symPosition.plannedEntry) / risk;
                   if (rNow < 2) return null;
                   return (
-                    <div style={{ marginTop: 8, fontFamily: SANS, fontSize: 10.5, padding: "6px 9px", borderRadius: 6, color: "#0d9465", background: "#0d946512" }}>
+                    <div style={{ marginTop: 8, fontFamily: SANS, fontSize: 13, padding: "6px 9px", borderRadius: 6, color: "#0d9465", background: "#0d946512" }}>
                       🎯 At {rNow.toFixed(1)}R — consider taking 25-50% off the table. If the trend stays healthy, let the rest run rather than closing the full position.
                     </div>
                   );
@@ -2210,16 +2210,16 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             {dwExitDims.length > 0 && (
               <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${C.border}` }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                  <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.5 }}>EXIT PANEL</span>
+                  <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.textDim, letterSpacing: 0.5 }}>EXIT PANEL</span>
                   {dwExitRisk != null && (
-                    <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: dwExitRisk >= 50 ? "#c8282a" : dwExitRisk >= 25 ? "#e08a1e" : "#0d9465" }}>
+                    <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: dwExitRisk >= 50 ? "#c8282a" : dwExitRisk >= 25 ? "#e08a1e" : "#0d9465" }}>
                       {dwExitRisk === 0 ? "🟢 NO EXIT SIGNAL" : `Exit Risk: ${dwExitRisk}/100`}
                     </span>
                   )}
                 </div>
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                   {dwExitDims.map((d) => (
-                    <span key={d.label} style={{ fontFamily: MONO, fontSize: 10.5, color: d.ok === null ? C.textDim : d.ok ? "#22d47e" : "#ef4444" }}>
+                    <span key={d.label} style={{ fontFamily: MONO, fontSize: 13, color: d.ok === null ? C.textDim : d.ok ? "#22d47e" : "#ef4444" }}>
                       {d.ok === null ? "⚪" : d.ok ? "🟢" : "🔴"} {d.label}
                     </span>
                   ))}
@@ -2232,10 +2232,10 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                 mtf-state-store.js's background tick writes. */}
             {symTransitions.length > 0 && (
               <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${C.border}` }}>
-                <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 6 }}>DECISION HISTORY</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 6 }}>DECISION HISTORY</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
                   {symTransitions.map((t, i) => (
-                    <div key={i} style={{ fontFamily: MONO, fontSize: 10.5, color: C.textSec, display: "flex", gap: 8 }}>
+                    <div key={i} style={{ fontFamily: MONO, fontSize: 13, color: C.textSec, display: "flex", gap: 8 }}>
                       <span style={{ color: C.textDim, minWidth: 60 }}>{new Date(t.ts).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</span>
                       <span>{t.from} → <b style={{ color: (MTF_STATE_META[t.to] || {}).color || C.text }}>{t.to}</b></span>
                     </div>
@@ -2248,7 +2248,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
 
         {/* Breadcrumb / depth indicator — click any name to jump straight
             to that section (same effect as clicking its own header). */}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center", marginBottom: 14, fontFamily: MONO, fontSize: 10.5 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center", marginBottom: 14, fontFamily: MONO, fontSize: 13 }}>
           <span style={{ color: C.textDim, fontWeight: 700 }}>{sym}</span>
           {SECTIONS.map((s) => (
             <span key={s.id} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
@@ -2296,7 +2296,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
           const letter = institutionalLetterGrade(institutionalGrade.score);
           const stat = (label, val, col, title) => (
             <div title={title} style={{ minWidth: 110, cursor: title ? "help" : "default" }}>
-              <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim, letterSpacing: 0.5 }}>{label}</div>
+              <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.textDim, letterSpacing: 0.5 }}>{label}</div>
               <div style={{ fontFamily: NUM, fontSize: 15, fontWeight: 800, color: col || C.text }}>{val}</div>
             </div>
           );
@@ -2311,7 +2311,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                     border: `1px solid ${rec.color}55`, borderRadius: 8, padding: "4px 12px", cursor: "pointer" }}>
                   <span style={{ fontSize: 20 }}>{letter}</span>
                   <span style={{ fontSize: 13 }}>{institutionalGrade.score}/100</span>
-                  <span style={{ fontSize: 11, opacity: 0.85 }}>▸ why?</span>
+                  <span style={{ fontSize: 13, opacity: 0.85 }}>▸ why?</span>
                 </button>
                 <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: rec.color }}>
                   {"★".repeat(rec.stars)}{"☆".repeat(5 - rec.stars)} {rec.label}
@@ -2324,7 +2324,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                   case: this card can read "Excellent" while that banner
                   reads AVOID). RhProScanner.jsx already had this same
                   disclosure inline; this card never did until now. */}
-              <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, marginTop: -6, marginBottom: 10 }}>
+              <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, marginTop: -6, marginBottom: 10 }}>
                 Business/setup quality only, not a timing call — see the DECISION banner above for the real entry-timing verdict.
               </div>
               <div style={{ display: "flex", gap: 22, rowGap: 10, flexWrap: "wrap" }}>
@@ -2357,7 +2357,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                 {stat("HOLDING TIME", "—", C.textDim, "Not built — no real per-stock time-to-target dataset exists in this app to draw an honest number from")}
                 {macroOverlay?.label && stat("MARKET CONTEXT", macroOverlay.label, macroOverlay.confidenceAdjustment > 0 ? "#22d47e" : macroOverlay.confidenceAdjustment < 0 ? "#ef4444" : C.textDim, macroOverlay.explanation)}
               </div>
-              <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, marginTop: 10, lineHeight: 1.4 }}>
+              <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, marginTop: 10, lineHeight: 1.4 }}>
                 Prediction Confidence and Prob. of Success measure different things — the model's certainty in its own call vs. the real historical win rate for setups graded this well — and can legitimately disagree.
               </div>
               {oneLiner && (
@@ -2367,7 +2367,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                   the same real checklist failure reasons the SETUP section's
                   Trade Readiness card shows below, not a new judgment. */}
               {checklistResult && checklistResult.dots.some(d => d.pass === false) && (
-                <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.textDim, marginTop: 8 }}>
+                <div style={{ fontFamily: SANS, fontSize: 13.5, color: C.textDim, marginTop: 8 }}>
                   What would change this: {checklistResult.dots.filter(d => d.pass === false).slice(0, 2).map(d => d.label).join(", ")}.
                 </div>
               )}
@@ -2407,7 +2407,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                 question — entry timing on the breakout pivot — than the
                 page's own overall verdict; this line says so without
                 coupling the shared component to this one page's layout. */}
-            <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginBottom: 6 }}>Entry timing, not the overall call — see the verdict above.</div>
+            <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, marginBottom: 6 }}>Entry timing, not the overall call — see the verdict above.</div>
             <TrendSetupPanel data={chart} C={C} MONO={MONO} SANS={SANS} />
             {chart.setup && (
               <button onClick={() => {
@@ -2422,7 +2422,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                   setActiveTab && setActiveTab("tradeplanner");
                 }}
                 title={`Size this trade — opens Trade Planner with ${sym}'s real entry/stop/target already filled in for position sizing`}
-                style={{ marginTop: 8, fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "7px 14px", borderRadius: 7, border: `1px solid ${C.accent}`, background: `${C.accent}14`, color: C.accent, cursor: "pointer" }}>
+                style={{ marginTop: 8, fontFamily: MONO, fontSize: 13, fontWeight: 800, padding: "7px 14px", borderRadius: 7, border: `1px solid ${C.accent}`, background: `${C.accent}14`, color: C.accent, cursor: "pointer" }}>
                 📐 Size this trade →
               </button>
             )}
@@ -2442,7 +2442,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                   title={`Real top-ranked ${topContract.isCall ? "call" : "put"} premium $${topContract.premium.toFixed(2)}, max $${maxDollarRisk.toFixed(0)} risk (${riskPct}% of $${acct.toLocaleString()})`}>
                   <span style={{ color: C.textDim }}>Recommended contracts (options):</span>
                   <b style={{ color: C.text }}>{contracts}</b>
-                  <span style={{ color: C.textDim, fontSize: 10 }}>${topContract.premium.toFixed(2)}/contract</span>
+                  <span style={{ color: C.textDim, fontSize: 12.5 }}>${topContract.premium.toFixed(2)}/contract</span>
                 </div>
               );
             })()}
@@ -2466,7 +2466,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                       navigator.clipboard.writeText(txt).then(() => { setCopiedPlan(true); setTimeout(() => setCopiedPlan(false), 2000); }).catch(() => {});
                     }
                   }}
-                  style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "7px 14px", borderRadius: 7, border: `1px solid ${C.border}`, background: "transparent", color: C.text, cursor: "pointer" }}>
+                  style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, padding: "7px 14px", borderRadius: 7, border: `1px solid ${C.border}`, background: "transparent", color: C.text, cursor: "pointer" }}>
                   {copiedPlan ? "✓ Copied" : "📋 Copy Trade Plan"}
                 </button>
                 <button onClick={() => {
@@ -2478,12 +2478,12 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                     const shares = riskPS > 0 ? Math.floor((acct * riskPct / 100) / riskPS) : 0;
                     window.dispatchEvent(new CustomEvent("open-quick-trade", { detail: { symbol: sym, shares, stopLoss: su.stop, takeProfit: su.target2 } }));
                   }}
-                  style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "7px 14px", borderRadius: 7, border: "none", background: C.accent, color: "#fff", cursor: "pointer" }}>
+                  style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, padding: "7px 14px", borderRadius: 7, border: "none", background: C.accent, color: "#fff", cursor: "pointer" }}>
                   ⚡ Execute via Quick Trade
                 </button>
                 <button onClick={() => setActiveTab && setActiveTab("rhpro-journal")}
                   title="Opens the manual trade journal to log this trade"
-                  style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "7px 14px", borderRadius: 7, border: `1px solid ${C.border}`, background: "transparent", color: C.textSec, cursor: "pointer" }}>
+                  style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, padding: "7px 14px", borderRadius: 7, border: `1px solid ${C.border}`, background: "transparent", color: C.textSec, cursor: "pointer" }}>
                   📝 Log Trade →
                 </button>
               </div>
@@ -2514,7 +2514,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                 // count is a mechanical rule-pass-rate, not an AI opinion —
                 // "checklist clear" says that honestly instead of implying
                 // this alone means go trade.
-                <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 900, color: C.green, border: `1px solid ${C.green}`, borderRadius: 4, padding: "2px 8px" }} title="Rule pass-rate only — see the verdict above for the actual call">CHECKLIST CLEAR</span>
+                <span style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 900, color: C.green, border: `1px solid ${C.green}`, borderRadius: 4, padding: "2px 8px" }} title="Rule pass-rate only — see the verdict above for the actual call">CHECKLIST CLEAR</span>
               )}
             </div>
             <ChecklistCard
@@ -2531,7 +2531,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                 own already-real output. */}
             {checklistResult.dots.some(d => d.pass === false) && (
               <div style={{ marginTop: 8, background: `${C.red}0c`, border: `1px solid ${C.red}33`, borderRadius: 10, padding: "10px 14px" }}>
-                <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.red, letterSpacing: 0.5, marginBottom: 6 }}>WHY THIS ISN'T PERFECT</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.red, letterSpacing: 0.5, marginBottom: 6 }}>WHY THIS ISN'T PERFECT</div>
                 {checklistResult.dots.filter(d => d.pass === false).map((d, i) => (
                   <div key={i} style={{ fontFamily: SANS, fontSize: 12, color: C.text, marginBottom: 3 }}>✗ {d.label}{d.detail ? <span style={{ color: C.textDim }}> — {d.detail}</span> : null}</div>
                 ))}
@@ -2564,7 +2564,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             {(() => {
               const s = chart, pill = (label, val, col) => (
                 <div key={label} style={{ flex: "1 1 120px", minWidth: 110, border: `1px solid ${C.border}`, borderRadius: 8, padding: "7px 10px", background: C.card }}>
-                  <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim, letterSpacing: 0.5 }}>{label}</div>
+                  <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.textDim, letterSpacing: 0.5 }}>{label}</div>
                   <div style={{ fontFamily: NUM, fontSize: 14, fontWeight: 800, color: col || C.text }}>{val}</div>
                 </div>
               );
@@ -2594,17 +2594,17 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
           return (
             <div style={{ border: `1px solid ${read.color}55`, background: `${read.color}12`, borderRadius: 10, padding: "12px 14px", marginBottom: 10 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.5 }}>TECHNICAL READ</span>
+                <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.textDim, letterSpacing: 0.5 }}>TECHNICAL READ</span>
                 <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: read.color }}>{read.verdict}</span>
                 {read.knownCount > 0 && (
-                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>({read.bullCount} bullish · {read.bearCount} bearish · {read.knownCount - read.bullCount - read.bearCount} neutral of {read.knownCount})</span>
+                  <span style={{ fontFamily: MONO, fontSize: 12.5, color: C.textDim }}>({read.bullCount} bullish · {read.bearCount} bearish · {read.knownCount - read.bullCount - read.bearCount} neutral of {read.knownCount})</span>
                 )}
               </div>
-              <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.textSec, marginBottom: read.flags.length ? 6 : 0 }}>{read.vRecovery.note}</div>
+              <div style={{ fontFamily: SANS, fontSize: 13.5, color: C.textSec, marginBottom: read.flags.length ? 6 : 0 }}>{read.vRecovery.note}</div>
               {read.flags.length > 0 && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                   {read.flags.map((f, i) => (
-                    <div key={i} style={{ fontFamily: MONO, fontSize: 10.5, color: f.bull === true ? "#22d47e" : f.bull === false ? "#ef4444" : C.textDim }}>
+                    <div key={i} style={{ fontFamily: MONO, fontSize: 13, color: f.bull === true ? "#22d47e" : f.bull === false ? "#ef4444" : C.textDim }}>
                       {f.bull === true ? "✓" : f.bull === false ? "✗" : "•"} {f.label} — {f.detail}
                     </div>
                   ))}
@@ -2630,7 +2630,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                 const t = chart.technicals;
                 const row = (label, val, col, title) => (
                   <div key={label} title={title} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "9px 0", borderBottom: `1px solid ${C.border}`, cursor: title ? "help" : "default" }}>
-                    <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>{label}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 13, color: C.textDim }}>{label}</span>
                     <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: col || C.text }}>{val}</span>
                   </div>
                 );
@@ -2680,7 +2680,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                   </div>
                   {rd.hi52 > rd.lo52 && rd.distFromLo != null && rd.distFromHi != null && (
                     <div style={{ marginBottom: 8 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 3 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 12.5, color: C.textDim, marginBottom: 3 }}>
                         <span>52w Lo ${rd.lo52.toFixed(0)}</span>
                         <span style={{ color: vColor, fontWeight: 800 }}>{rd.distFromLo.toFixed(0)}% from Lo · {rd.distFromHi.toFixed(0)}% from Hi</span>
                         <span>52w Hi ${rd.hi52.toFixed(0)}</span>
@@ -2703,7 +2703,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                     <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>Price in the middle of its range — no clear reversal signal yet.</div>
                   )}
                   {!rd.isNeutral && (
-                    <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, lineHeight: 1.5, marginTop: 4 }}>
+                    <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, lineHeight: 1.5, marginTop: 4 }}>
                       {rd.isBottom ? "Wait for a green candle + volume spike to confirm before entering." : "Watch for a red candle close below support to confirm before exiting."}
                     </div>
                   )}
@@ -2732,11 +2732,11 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                 <Tag key={key} onClick={onClick || undefined} title={title}
                   style={{ font: "inherit", textAlign: "left", border: `1px solid ${C.border}`, borderRadius: 10, padding: "9px 12px",
                     background: C.card, cursor: onClick ? "pointer" : title ? "help" : "default" }}>
-                  <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 3 }}>{label}</div>
+                  <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 3 }}>{label}</div>
                   <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: tile.color }}>
-                    {tile.score ?? "—"}{tile.score != null && <span style={{ fontSize: 11, color: C.textDim }}> /100</span>}
+                    {tile.score ?? "—"}{tile.score != null && <span style={{ fontSize: 13, color: C.textDim }}> /100</span>}
                   </div>
-                  <div style={{ fontFamily: SANS, fontSize: 10, color: tile.color, fontWeight: 700 }}>{tile.label}</div>
+                  <div style={{ fontFamily: SANS, fontSize: 12.5, color: tile.color, fontWeight: 700 }}>{tile.label}</div>
                 </Tag>
               );
             })}
@@ -2755,7 +2755,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
               width: "100%", border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 14px", marginBottom: 10, background: C.card, cursor: "pointer" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <div>
-                <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.5 }}>AI TRADE ENGINE — click for breakdown</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.textDim, letterSpacing: 0.5 }}>AI TRADE ENGINE — click for breakdown</div>
                 <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: aiTradeScore.score >= 70 ? C.green : aiTradeScore.score >= 45 ? C.amber : C.red }}>
                   {aiTradeScore.score}<span style={{ fontSize: 12, color: C.textDim }}> /100</span>
                 </div>
@@ -2787,7 +2787,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
         <div style={{ display: "flex", gap: 4, marginBottom: 8, flexWrap: "wrap" }}>
           {[["5m", "5m"], ["15m", "15m"], ["1h", "1H"], ["4h", "4H"], ["1d", "1D"], ["1wk", "1W"]].map(([id, lbl]) => (
             <button key={id} onClick={() => setTf(id)} disabled={loadingChart}
-              style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "5px 12px", borderRadius: 7, cursor: loadingChart ? "default" : "pointer",
+              style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, padding: "5px 12px", borderRadius: 7, cursor: loadingChart ? "default" : "pointer",
                 border: `1px solid ${chartTf === id ? C.accent : C.border}`, background: chartTf === id ? `${C.accent}18` : "transparent",
                 color: chartTf === id ? C.accent : C.textDim, opacity: loadingChart ? 0.6 : 1 }}>
               {lbl}
@@ -2801,19 +2801,19 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
               the same real `chart` data already fetched for this symbol —
               zero new fetch. */}
           <button onClick={() => setVcpOn(v => !v)} title={vcpOn ? "Switch back to the TradingView chart" : "Switch to the self-rendered chart with real VCP contraction/pivot/volume overlays drawn on it"}
-            style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "5px 12px", borderRadius: 7, cursor: "pointer",
+            style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 13, fontWeight: 800, padding: "5px 12px", borderRadius: 7, cursor: "pointer",
               border: `1px solid ${vcpOn ? "#9c5cff" : C.border}`, background: vcpOn ? "#9c5cff18" : "transparent",
               color: vcpOn ? "#9c5cff" : C.textDim }}>
             {vcpOn ? "🟪 VCP: On" : "🟪 VCP: Off"}
           </button>
           <button onClick={() => setVcpDetailsOpen(v => !v)} title="Real VCP score/contractions/volume dry-up/pivot/RS/breakout status"
-            style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "5px 12px", borderRadius: 7, cursor: "pointer",
+            style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, padding: "5px 12px", borderRadius: 7, cursor: "pointer",
               border: `1px solid ${vcpDetailsOpen ? "#9c5cff" : C.border}`, background: vcpDetailsOpen ? "#9c5cff18" : "transparent",
               color: vcpDetailsOpen ? "#9c5cff" : C.textDim }}>
             {vcpDetailsOpen ? "▴ VCP Details" : "▾ VCP Details"}
           </button>
           <button onClick={toggleTrendRating} title={showTrendRating ? "Hide the Trend & Base Rating overlay on the chart" : "Show the Trend & Base Rating overlay on the chart"}
-            style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "5px 12px", borderRadius: 7, cursor: "pointer",
+            style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, padding: "5px 12px", borderRadius: 7, cursor: "pointer",
               border: `1px solid ${showTrendRating ? C.accent : C.border}`, background: showTrendRating ? `${C.accent}18` : "transparent",
               color: showTrendRating ? C.accent : C.textDim }}>
             {showTrendRating ? "📊 Rating: On" : "📊 Rating: Off"}
@@ -2895,11 +2895,11 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                 <Tag key={key} onClick={onClick || undefined} title={title}
                   style={{ font: "inherit", textAlign: "left", border: `1px solid ${C.border}`, borderRadius: 10, padding: "9px 12px",
                     background: C.card, cursor: onClick ? "pointer" : title ? "help" : "default" }}>
-                  <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 3 }}>{label}</div>
+                  <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 3 }}>{label}</div>
                   <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: tile.color }}>
-                    {tile.score ?? "—"}{tile.score != null && <span style={{ fontSize: 11, color: C.textDim }}> /100</span>}
+                    {tile.score ?? "—"}{tile.score != null && <span style={{ fontSize: 13, color: C.textDim }}> /100</span>}
                   </div>
-                  <div style={{ fontFamily: SANS, fontSize: 10, color: tile.color, fontWeight: 700 }}>{tile.label}</div>
+                  <div style={{ fontFamily: SANS, fontSize: 12.5, color: tile.color, fontWeight: 700 }}>{tile.label}</div>
                 </Tag>
               );
             })}
@@ -2925,7 +2925,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                     what institutional money is doing right now — a
                     genuinely different question than Institutional Grade's
                     7-input quality synthesis — so it gets its own name. */}
-                <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.5 }}>SMART MONEY FLOW SCORE — hover for real signals</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.textDim, letterSpacing: 0.5 }}>SMART MONEY FLOW SCORE — hover for real signals</div>
                 <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: institutionScore.score >= 60 ? C.green : institutionScore.score <= 40 ? C.red : C.amber }}>
                   {institutionScore.score}<span style={{ fontSize: 12, color: C.textDim }}> /100</span>
                 </div>
@@ -2936,7 +2936,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                 {institutionScore.label}
               </span>
             </div>
-            <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, maxWidth: 260 }}>
+            <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.textDim, maxWidth: 260 }}>
               {institutionScore.disclosure}
               {/* 2026-08-10, real user-caught confusion: a low score/
                   Distribution label here next to a Buy verdict above read
@@ -3011,21 +3011,21 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                 {symAnalyst?.numAnalysts ? (
                   <>
                     <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.text }}>{symAnalyst.recommendation || "—"} · {symAnalyst.numAnalysts} analysts</div>
-                    <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>Target ${symAnalyst.targetLow}–${symAnalyst.targetHigh} (mean ${symAnalyst.targetMean})</div>
-                    {symAnalyst.history?.[0] && <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, marginTop: 3 }}>{symAnalyst.history[0].firm}: {symAnalyst.history[0].action} ({symAnalyst.history[0].toGrade}) {symAnalyst.history[0].date}</div>}
+                    <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim }}>Target ${symAnalyst.targetLow}–${symAnalyst.targetHigh} (mean ${symAnalyst.targetMean})</div>
+                    {symAnalyst.history?.[0] && <div style={{ fontFamily: SANS, fontSize: 13, color: C.textSec, marginTop: 3 }}>{symAnalyst.history[0].firm}: {symAnalyst.history[0].action} ({symAnalyst.history[0].toGrade}) {symAnalyst.history[0].date}</div>}
                   </>
                 ) : <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim }}>—</div>}
               </div>
               <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 14px", background: C.card }}>
-                <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 6 }}>INSIDER ACTIVITY</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.textDim, marginBottom: 6 }}>INSIDER ACTIVITY</div>
                 {symInsider?.insiderTransactions?.transactions?.length ? symInsider.insiderTransactions.transactions.slice(0, 2).map((t, i) => (
-                  <div key={i} style={{ fontFamily: SANS, fontSize: 11, color: t.type === "BUY" ? C.green : C.red, marginBottom: 2 }}>
+                  <div key={i} style={{ fontFamily: SANS, fontSize: 13, color: t.type === "BUY" ? C.green : C.red, marginBottom: 2 }}>
                     {t.type === "BUY" ? "🟢" : "🔴"} {t.name} — {t.type} {t.shares ? t.shares.toLocaleString() + " sh" : ""} {t.date}
                   </div>
                 )) : <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim }}>No recent real filings</div>}
               </div>
               <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 14px", background: C.card }}>
-                <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, marginBottom: 6 }}>OPTIONS FLOW</div>
+                <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.textDim, marginBottom: 6 }}>OPTIONS FLOW</div>
                 {symOptionsFlow ? (
                   <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: Number(symOptionsFlow.callNotional) > Number(symOptionsFlow.putNotional) ? C.green : C.red }}>
                     {Number(symOptionsFlow.callNotional) > Number(symOptionsFlow.putNotional) ? "Call-weighted" : "Put-weighted"}
@@ -3046,7 +3046,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
           <COTPanel C={C} MONO={MONO} SANS={SANS} />
         </div>
         <div style={{ marginTop: 10 }}>
-          <span onClick={() => setDTab("flow")} {...clickableProps(() => setDTab("flow"))} style={{ fontFamily: MONO, fontSize: 11, color: C.accent, cursor: "pointer", fontWeight: 700 }}>Full Options Flow detail →</span>
+          <span onClick={() => setDTab("flow")} {...clickableProps(() => setDTab("flow"))} style={{ fontFamily: MONO, fontSize: 13, color: C.accent, cursor: "pointer", fontWeight: 700 }}>Full Options Flow detail →</span>
         </div>
         </AccordionSection>
 
@@ -3065,7 +3065,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             {(() => {
               const s = chart, pill = (label, val, col) => (
                 <div key={label} style={{ flex: "1 1 120px", minWidth: 110, border: `1px solid ${C.border}`, borderRadius: 8, padding: "7px 10px", background: C.card }}>
-                  <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim, letterSpacing: 0.5 }}>{label}</div>
+                  <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.textDim, letterSpacing: 0.5 }}>{label}</div>
                   <div style={{ fontFamily: NUM, fontSize: 14, fontWeight: 800, color: col || C.text }}>{val}</div>
                 </div>
               );
@@ -3087,11 +3087,11 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
           <div style={{ maxWidth: 220, marginBottom: 10 }}>
             <button onClick={() => setExplain({ symbol: sym, aplus: stockQuality, dimensions: STOCK_QUALITY_DIMENSIONS, label: "STOCK QUALITY SCORE" })}
               style={{ font: "inherit", textAlign: "left", width: "100%", border: `1px solid ${C.border}`, borderRadius: 10, padding: "9px 12px", background: C.card, cursor: "pointer" }}>
-              <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 3 }}>STOCK QUALITY</div>
+              <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 3 }}>STOCK QUALITY</div>
               <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: topScores.stockQuality.color }}>
-                {topScores.stockQuality.score ?? "—"}{topScores.stockQuality.score != null && <span style={{ fontSize: 11, color: C.textDim }}> /100</span>}
+                {topScores.stockQuality.score ?? "—"}{topScores.stockQuality.score != null && <span style={{ fontSize: 13, color: C.textDim }}> /100</span>}
               </div>
-              <div style={{ fontFamily: SANS, fontSize: 10, color: topScores.stockQuality.color, fontWeight: 700 }}>{topScores.stockQuality.label}</div>
+              <div style={{ fontFamily: SANS, fontSize: 12.5, color: topScores.stockQuality.color, fontWeight: 700 }}>{topScores.stockQuality.label}</div>
             </button>
           </div>
         )}
@@ -3099,7 +3099,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
           <div>
             <SectionHeader icon="📊" label="FUNDAMENTALS" C={C} SANS={SANS} />
             <FundamentalsPanel symbol={sym} C={C} MONO={MONO} SANS={SANS} />
-            <span onClick={() => setDTab("valuation")} {...clickableProps(() => setDTab("valuation"))} style={{ fontFamily: MONO, fontSize: 11, color: C.accent, cursor: "pointer", fontWeight: 700, display: "inline-block", marginTop: 8 }}>Full Fundamentals & Valuation →</span>
+            <span onClick={() => setDTab("valuation")} {...clickableProps(() => setDTab("valuation"))} style={{ fontFamily: MONO, fontSize: 13, color: C.accent, cursor: "pointer", fontWeight: 700, display: "inline-block", marginTop: 8 }}>Full Fundamentals & Valuation →</span>
           </div>
         )}
         </AccordionSection>
@@ -3137,10 +3137,10 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
                 <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: dirCol }}>{p.dir}</span>
                 <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>target ${p.target} ({p.movePct >= 0 ? "+" : ""}{p.movePct}%) · {p.conf}% confidence</span>
               </div>
-              <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.textSec, marginTop: 6 }}>
+              <div style={{ fontFamily: SANS, fontSize: 13.5, color: C.textSec, marginTop: 6 }}>
                 {p.why.length ? p.why.join(" · ") : "No strong real signal either way — real trend template + volume are roughly neutral right now."}
               </div>
-              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 6 }}>Free, deterministic, real trend-template based — not an AI call.</div>
+              <div style={{ fontFamily: MONO, fontSize: 12.5, color: C.textDim, marginTop: 6 }}>Free, deterministic, real trend-template based — not an AI call.</div>
             </div>
           );
         })()}
@@ -3151,16 +3151,16 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
             exists in this app today; rather than fabricate either, this
             honestly links to the closest real equivalents instead. */}
         <div style={{ marginTop: 14, borderTop: `1px solid ${C.border}`, paddingTop: 10 }}>
-          <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 6 }}>HISTORY & DEEP RESEARCH</div>
-          <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.textDim, marginBottom: 6 }}>
+          <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 6 }}>HISTORY & DEEP RESEARCH</div>
+          <div style={{ fontFamily: SANS, fontSize: 13.5, color: C.textDim, marginBottom: 6 }}>
             No dedicated backtest/similar-setup history engine exists yet for individual symbols — the closest real record is this symbol's own journal notes.
           </div>
           <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-            <span onClick={() => setActiveTab && setActiveTab("rhpro-journal")} {...clickableProps(() => setActiveTab && setActiveTab("rhpro-journal"))} style={{ fontFamily: MONO, fontSize: 11, color: C.accent, cursor: "pointer", fontWeight: 700 }}>Journal history →</span>
-            <span onClick={() => setDTab("company")} {...clickableProps(() => setDTab("company"))} style={{ fontFamily: MONO, fontSize: 11, color: C.accent, cursor: "pointer", fontWeight: 700 }}>Company profile →</span>
-            <span onClick={() => setDTab("investors")} {...clickableProps(() => setDTab("investors"))} style={{ fontFamily: MONO, fontSize: 11, color: C.accent, cursor: "pointer", fontWeight: 700 }}>Institutional ownership →</span>
-            <span onClick={() => setDTab("social")} {...clickableProps(() => setDTab("social"))} style={{ fontFamily: MONO, fontSize: 11, color: C.accent, cursor: "pointer", fontWeight: 700 }}>Social/analyst chatter →</span>
-            <span onClick={() => setDTab("news")} {...clickableProps(() => setDTab("news"))} style={{ fontFamily: MONO, fontSize: 11, color: C.accent, cursor: "pointer", fontWeight: 700 }}>News & journal →</span>
+            <span onClick={() => setActiveTab && setActiveTab("rhpro-journal")} {...clickableProps(() => setActiveTab && setActiveTab("rhpro-journal"))} style={{ fontFamily: MONO, fontSize: 13, color: C.accent, cursor: "pointer", fontWeight: 700 }}>Journal history →</span>
+            <span onClick={() => setDTab("company")} {...clickableProps(() => setDTab("company"))} style={{ fontFamily: MONO, fontSize: 13, color: C.accent, cursor: "pointer", fontWeight: 700 }}>Company profile →</span>
+            <span onClick={() => setDTab("investors")} {...clickableProps(() => setDTab("investors"))} style={{ fontFamily: MONO, fontSize: 13, color: C.accent, cursor: "pointer", fontWeight: 700 }}>Institutional ownership →</span>
+            <span onClick={() => setDTab("social")} {...clickableProps(() => setDTab("social"))} style={{ fontFamily: MONO, fontSize: 13, color: C.accent, cursor: "pointer", fontWeight: 700 }}>Social/analyst chatter →</span>
+            <span onClick={() => setDTab("news")} {...clickableProps(() => setDTab("news"))} style={{ fontFamily: MONO, fontSize: 13, color: C.accent, cursor: "pointer", fontWeight: 700 }}>News & journal →</span>
           </div>
         </div>
         </AccordionSection>
@@ -3177,7 +3177,7 @@ export default function MarketTerminalTab({ C, MONO, SANS, sectorData, macroData
         <div style={{ display: "flex", gap: 4, margin: "4px 0 12px", flexWrap: "nowrap", overflowX: "auto", scrollbarWidth: "none", borderBottom: `1px solid ${C.border}`, paddingBottom: 8 }}>
           {[["smart", "🔬 Smart Scan"], ["flow", "💵 Options Flow"], ["valuation", "📊 Valuation"], ["analysts", "🎯 Analysts"], ["investors", "🏦 Investors"], ["earnings", "💰 Earnings"], ["company", "🏢 Company"], ["social", "💬 Social"], ["news", "📰 News & Journal"]].map(([id, lbl]) => (
             <button key={id} onClick={() => setDTab(id)}
-              style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 11px", borderRadius: 7, cursor: "pointer",
+              style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, padding: "5px 11px", borderRadius: 7, cursor: "pointer",
                 whiteSpace: "nowrap", flexShrink: 0, minHeight: 40,
                 border: `1px solid ${dTab === id ? C.accent : "transparent"}`, background: dTab === id ? `${C.accent}16` : "transparent", color: dTab === id ? C.accent : C.textDim }}>
               {lbl}
