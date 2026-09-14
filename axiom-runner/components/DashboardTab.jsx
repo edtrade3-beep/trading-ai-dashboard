@@ -134,12 +134,12 @@ function MarketRegimeCard({ C, MONO, SANS, macroData, distData, factors, bias, b
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", border: `1px solid ${biasDotColor}55`, borderRadius: 8, padding: "8px 10px", marginBottom: 10, background: `${biasDotColor}0c` }}>
           <div>
             <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: biasDotColor }}>{marketBias.bias} · {marketBias.confidence}% confidence</div>
-            <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, marginTop: 1 }}>{marketBias.character} · {marketBias.riskPosture}{strategyHint ? ` · favors ${strategyHint.toLowerCase()}` : ""}</div>
+            <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, marginTop: 1 }}>{marketBias.character} · {marketBias.riskPosture}{strategyHint ? ` · favors ${strategyHint.toLowerCase()}` : ""}</div>
           </div>
         </div>
       )}
       {aPlus.pct != null && (
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontFamily: MONO, fontSize: 11, color: C.textSec, marginBottom: 10, padding: "0 2px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontFamily: MONO, fontSize: 13, color: C.textSec, marginBottom: 10, padding: "0 2px" }}>
           <span>A+ MARKET SCORE</span>
           <span style={{ fontWeight: 800, color: aPlus.pct >= 40 ? C.green : aPlus.pct >= 20 ? C.amber : C.textDim, fontVariantNumeric: "tabular-nums" }}>{aPlus.pct}% ({aPlus.aCount}/{aPlus.total} A+/A)</span>
         </div>
@@ -149,9 +149,9 @@ function MarketRegimeCard({ C, MONO, SANS, macroData, distData, factors, bias, b
         <div style={{ flex: 1, height: 1, background: C.border }} />
       </div>
       <RadialGauge C={C} MONO={MONO} value={regime.score} label={regLabel} sublabel="regime score" color={regColor} />
-      <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 8, marginBottom: 10, textAlign: "center" }}>{playbook}</div>
+      <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, marginTop: 8, marginBottom: 10, textAlign: "center" }}>{playbook}</div>
       <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 8 }}>
-        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: biasColor, marginBottom: 4 }}>{bias}</div>
+        <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: biasColor, marginBottom: 4 }}>{bias}</div>
         {/* Factor strings carry a leading emoji as their only pass/fail
             signal (✅/🔴/⚠️/📰 + BULLISH|BEARISH substring) — real
             information, so instead of just stripping it, map it to actual
@@ -161,7 +161,7 @@ function MarketRegimeCard({ C, MONO, SANS, macroData, distData, factors, bias, b
           const col = f.startsWith("✅") ? C.green : f.startsWith("🔴") ? C.red : f.startsWith("⚠️") ? C.amber
             : /BEARISH|bearish/.test(f) ? C.red : /BULLISH|bullish/.test(f) ? C.green : C.textSec;
           const text = f.replace(/^(✅|🔴|⚠️|📰)\s*/, "");
-          return <div key={i} style={{ fontFamily: SANS, fontSize: 11, color: col, padding: "2px 0", lineHeight: 1.4 }}>{text}</div>;
+          return <div key={i} style={{ fontFamily: SANS, fontSize: 13, color: col, padding: "2px 0", lineHeight: 1.4 }}>{text}</div>;
         })}
       </div>
     </Card>
@@ -210,7 +210,7 @@ function MarketCommandCenterStrip({ C, MONO, SANS, macroData, distData, sectorDa
 
   const cell = (label, value, color, onClick) => (
     <div onClick={onClick} {...(onClick ? clickableProps(onClick) : {})} style={{ minWidth: 110, cursor: onClick ? "pointer" : "default" }}>
-      <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 3 }}>{label}</div>
+      <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 3 }}>{label}</div>
       <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: color || C.text, lineHeight: 1.2, fontVariantNumeric: "tabular-nums" }}>{value}</div>
     </div>
   );
@@ -267,7 +267,7 @@ export function PortfolioSnapshotCard({ C, MONO, SANS }) {
   const fmt = v => `$${Number(v || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
   return (
     <Card C={C} title="PORTFOLIO SNAPSHOT">
-      <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>TODAY'S P&L</div>
+      <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim }}>TODAY'S P&L</div>
       <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: dayChg >= 0 ? C.green : C.red, marginBottom: 6, fontVariantNumeric: "tabular-nums" }}>
         {dayChg >= 0 ? "+" : ""}{fmt(Math.abs(dayChg)).replace("$", dayChg < 0 ? "-$" : "$")}
       </div>
@@ -289,7 +289,7 @@ function UpcomingEventsCard({ C, MONO, SANS, eventCountdowns }) {
       {(eventCountdowns || []).length ? eventCountdowns.slice(0, 5).map((ev, i) => (
         <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "5px 0", borderBottom: i < eventCountdowns.length - 1 ? `1px solid ${C.border}` : "none" }}>
           <span style={{ fontFamily: SANS, fontSize: 12, color: C.text }}>{ev.name}</span>
-          <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: ev.days <= 1 ? C.red : ev.days <= 3 ? C.amber : C.textDim, flexShrink: 0 }}>
+          <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: ev.days <= 1 ? C.red : ev.days <= 3 ? C.amber : C.textDim, flexShrink: 0 }}>
             {ev.days === 0 ? "TODAY" : ev.days === 1 ? "TOMORROW" : `${ev.days}d`}
           </span>
         </div>
@@ -334,8 +334,8 @@ function WatchlistCard({ C, MONO, SANS, watchlistData, sigData, setTerminalSymbo
               style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 4px", borderRadius: 6, cursor: "pointer" }}>
               <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent, minWidth: 55 }}>{q.symbol}</span>
               <span style={{ fontFamily: MONO, fontSize: 12, color: C.text }}>${Number(q.price || 0).toFixed(2)}</span>
-              <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: chg >= 0 ? C.green : C.red, minWidth: 50, textAlign: "right" }}>{chg >= 0 ? "+" : ""}{chg.toFixed(2)}%</span>
-              {action && <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: action.color, marginLeft: 8 }}>{action.label}</span>}
+              <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: chg >= 0 ? C.green : C.red, minWidth: 50, textAlign: "right" }}>{chg >= 0 ? "+" : ""}{chg.toFixed(2)}%</span>
+              {action && <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: action.color, marginLeft: 8 }}>{action.label}</span>}
             </div>
           );
         })}
@@ -372,7 +372,7 @@ function DashboardChartCard({ C, MONO, SANS, symbol }) {
       <div style={{ display: "flex", gap: 4, marginBottom: 8, flexWrap: "wrap" }}>
         {DASH_CHART_TF_OPTIONS.map(([id, lbl]) => (
           <button key={id} onClick={() => setTf(id)}
-            style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "5px 12px", borderRadius: 7, cursor: "pointer",
+            style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, padding: "5px 12px", borderRadius: 7, cursor: "pointer",
               border: `1px solid ${tf === id ? C.accent : C.border}`, background: tf === id ? `${C.accent}18` : "transparent",
               color: tf === id ? C.accent : C.textDim }}>
             {lbl}
@@ -404,7 +404,7 @@ function CopilotInsightsCard({ C, MONO, SANS, watchlistData, setActiveTab, setTe
           {...clickableProps(() => { setTerminalSymbol?.(topPick.symbol); try { localStorage.setItem("mterminal_load_sym", topPick.symbol); } catch {} setActiveTab?.("mterminal"); })}
           style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", background: C.card, border: `1px solid ${C.border}`, borderLeft: `3px solid ${C.gold}`, borderRadius: 8, marginBottom: 10, cursor: "pointer" }}>
           <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.gold }}>{topPick.symbol}</span>
-          <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>top pick · A+ {topPick._aplus?.score ?? "—"}</span>
+          <span style={{ fontFamily: MONO, fontSize: 13, color: C.textDim }}>top pick · A+ {topPick._aplus?.score ?? "—"}</span>
         </div>
       )}
       {wl.length >= 2 && (
@@ -484,7 +484,7 @@ export function MarketPulseCard({ C, MONO, SANS, rotationRank, flowBias, flowCal
                 <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>{q.symbol}</span>
                 <span style={{ fontFamily: MONO, fontSize: 12, color: C.green }}>+{q.relVsSpy.toFixed(2)}%</span>
               </div>
-            )) : <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>None ≥1% vs SPY today</div>}
+            )) : <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim }}>None ≥1% vs SPY today</div>}
             <div style={sectionLabelStyle({ margin: "8px 0 4px" })}>LAGGARDS</div>
             {laggers.map(q => (
               <div key={q.symbol} onClick={() => goToChart(q.symbol)} {...clickableProps(() => goToChart(q.symbol))} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", cursor: "pointer" }}>
@@ -492,7 +492,7 @@ export function MarketPulseCard({ C, MONO, SANS, rotationRank, flowBias, flowCal
                 <span style={{ fontFamily: MONO, fontSize: 12, color: C.red }}>{q.relVsSpy.toFixed(2)}%</span>
               </div>
             ))}
-            <button onClick={() => setActiveTab?.("rotation")} style={{ marginTop: 8, fontFamily: MONO, fontSize: 10, color: C.accent, background: "none", border: "none", cursor: "pointer", padding: 0 }}>Full Rotation →</button>
+            <button onClick={() => setActiveTab?.("rotation")} style={{ marginTop: 8, fontFamily: MONO, fontSize: 12.5, color: C.accent, background: "none", border: "none", cursor: "pointer", padding: 0 }}>Full Rotation →</button>
           </>
         ) : <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>Scanning…</div>}
       </Card>
@@ -500,18 +500,18 @@ export function MarketPulseCard({ C, MONO, SANS, rotationRank, flowBias, flowCal
       <Card C={C} title="💰 MONEY FLOW" accent={C.accent}>
         <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 900, color: flowColor, marginBottom: 6 }}>{flowBias || "—"}</div>
         {(flowCallNotional || flowPutNotional) ? (
-          <div style={{ fontFamily: MONO, fontSize: 11.5, color: C.textDim }}>
+          <div style={{ fontFamily: MONO, fontSize: 13.5, color: C.textDim }}>
             Calls {fmtFlowNotional(flowCallNotional)} · Puts {fmtFlowNotional(flowPutNotional)}
           </div>
         ) : <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>No flow data yet.</div>}
-        <button onClick={() => setActiveTab?.("flow")} style={{ marginTop: 8, fontFamily: MONO, fontSize: 10, color: C.accent, background: "none", border: "none", cursor: "pointer", padding: 0 }}>Full Flow →</button>
+        <button onClick={() => setActiveTab?.("flow")} style={{ marginTop: 8, fontFamily: MONO, fontSize: 12.5, color: C.accent, background: "none", border: "none", cursor: "pointer", padding: 0 }}>Full Flow →</button>
       </Card>
 
       <Card C={C} title="🚫 STOCKS TO AVOID" accent={C.red}>
         {avoidList.length > 0 ? avoidList.map(a => (
           <div key={a.symbol} onClick={() => goToChart(a.symbol)} {...clickableProps(() => goToChart(a.symbol))} style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "4px 0", borderBottom: `1px solid ${C.border}33`, cursor: "pointer" }}>
             <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>{a.symbol} <span style={{ color: C.textDim, fontWeight: 400 }}>{a.score}</span></span>
-            <span style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, textAlign: "right" }}>{a.reason}</span>
+            <span style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, textAlign: "right" }}>{a.reason}</span>
           </div>
         )) : <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>Scanning…</div>}
       </Card>
@@ -552,7 +552,7 @@ function Us10yKpi({ C, MONO, SANS }) {
   const col = chg == null ? C.textDim : chg >= 0 ? C.green : C.red;
   return (
     <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 12px" }}>
-      <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, marginBottom: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>10Y Treasury</div>
+      <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, marginBottom: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>10Y Treasury</div>
       <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 800, color: C.text }}>
         {state === "ok" && data ? `${data.value.toFixed(2)}%` : state === "err" ? "—" : "…"}
       </div>
@@ -590,14 +590,14 @@ function WatchlistBreadthCard({ C, MONO, SANS, breadthPct, advCount, declCount, 
   const col = breadthPct >= 55 ? C.green : breadthPct <= 45 ? C.red : C.amber;
   return (
     <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 16 }}>
-      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 4 }}>WATCHLIST BREADTH</div>
+      <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 4 }}>WATCHLIST BREADTH</div>
       {total > 0 ? (
         <>
           <RadialGauge C={C} MONO={MONO} value={breadthPct} label={label} color={col} size={130} />
-          <div style={{ display: "flex", justifyContent: "space-around", marginTop: 8, fontFamily: MONO, fontSize: 11 }}>
-            <div style={{ textAlign: "center" }}><div style={{ color: C.green, fontWeight: 800 }}>{advCount}</div><div style={{ color: C.textDim, fontSize: 9.5 }}>Advancing</div></div>
-            <div style={{ textAlign: "center" }}><div style={{ color: C.red, fontWeight: 800 }}>{declCount}</div><div style={{ color: C.textDim, fontSize: 9.5 }}>Declining</div></div>
-            <div style={{ textAlign: "center" }}><div style={{ color: C.textDim, fontWeight: 800 }}>{unchCount}</div><div style={{ color: C.textDim, fontSize: 9.5 }}>Unchanged</div></div>
+          <div style={{ display: "flex", justifyContent: "space-around", marginTop: 8, fontFamily: MONO, fontSize: 13 }}>
+            <div style={{ textAlign: "center" }}><div style={{ color: C.green, fontWeight: 800 }}>{advCount}</div><div style={{ color: C.textDim, fontSize: 12.5 }}>Advancing</div></div>
+            <div style={{ textAlign: "center" }}><div style={{ color: C.red, fontWeight: 800 }}>{declCount}</div><div style={{ color: C.textDim, fontSize: 12.5 }}>Declining</div></div>
+            <div style={{ textAlign: "center" }}><div style={{ color: C.textDim, fontWeight: 800 }}>{unchCount}</div><div style={{ color: C.textDim, fontSize: 12.5 }}>Unchanged</div></div>
           </div>
         </>
       ) : <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, padding: "20px 0", textAlign: "center" }}>Add symbols to your watchlist to see breadth.</div>}
@@ -620,7 +620,7 @@ function TopSectorsTodayCard({ C, MONO, SANS, sectorData, setActiveTab, setTermi
 
   return (
     <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 16 }}>
-      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 10 }}>TOP SECTORS TODAY</div>
+      <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 10 }}>TOP SECTORS TODAY</div>
       {rows.length ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {rows.map(r => {
@@ -658,7 +658,7 @@ function MarketHeatmapGrid({ C, MONO, SANS, sectorData }) {
 
   return (
     <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 16 }}>
-      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 10 }}>MARKET HEATMAP</div>
+      <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 10 }}>MARKET HEATMAP</div>
       {rows.length ? (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 8 }}>
           {rows.map(r => {
@@ -702,7 +702,7 @@ function AiTopOpportunitiesCard({ C, MONO, SANS, fullScan, setActiveTab, setTerm
 
   return (
     <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 16 }}>
-      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 10 }}>AI TOP OPPORTUNITIES</div>
+      <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 10 }}>AI TOP OPPORTUNITIES</div>
       {rows.length ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
           <div style={{ display: "grid", gridTemplateColumns: "26px 1fr 60px 90px auto 70px 60px", gap: 8, fontFamily: MONO, fontSize: 9.5, fontWeight: 800, color: C.textDim, letterSpacing: "0.04em", padding: "0 0 6px" }}>
@@ -746,7 +746,7 @@ function NewsSentimentCard({ C, MONO, SANS, newsSentiment, setActiveTab }) {
   const hasData = (bull + bear + neutral) > 0;
   return (
     <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14 }}>
-      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 8 }}>NEWS SENTIMENT</div>
+      <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 8 }}>NEWS SENTIMENT</div>
       {hasData ? (
         <DonutChart C={C} MONO={MONO} size={110} segments={[
           { label: "Positive", value: bull, color: C.green },
@@ -754,7 +754,7 @@ function NewsSentimentCard({ C, MONO, SANS, newsSentiment, setActiveTab }) {
           { label: "Negative", value: bear, color: C.red },
         ]} />
       ) : <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>No headlines scanned yet.</div>}
-      <button onClick={() => setActiveTab?.("news")} style={{ marginTop: 8, fontFamily: MONO, fontSize: 10, color: C.accent, background: "none", border: "none", cursor: "pointer", padding: 0 }}>View news →</button>
+      <button onClick={() => setActiveTab?.("news")} style={{ marginTop: 8, fontFamily: MONO, fontSize: 12.5, color: C.accent, background: "none", border: "none", cursor: "pointer", padding: 0 }}>View news →</button>
     </div>
   );
 }
@@ -767,10 +767,10 @@ function VolatilityIndexCard({ C, MONO, SANS, distData, setActiveTab }) {
   const col = vix >= 25 ? C.red : vix <= 16 ? C.green : C.amber;
   return (
     <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14 }}>
-      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 8 }}>VOLATILITY INDEX</div>
+      <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 8 }}>VOLATILITY INDEX</div>
       <div style={{ fontFamily: MONO, fontSize: 28, fontWeight: 900, color: col }}>{vix > 0 ? vix.toFixed(2) : "—"}</div>
-      <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 2 }}>{vix >= 25 ? "Elevated fear" : vix <= 16 ? "Calm" : "Normal range"}</div>
-      <button onClick={() => setActiveTab?.("mterminal")} style={{ marginTop: 8, fontFamily: MONO, fontSize: 10, color: C.accent, background: "none", border: "none", cursor: "pointer", padding: 0 }}>View chart →</button>
+      <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, marginTop: 2 }}>{vix >= 25 ? "Elevated fear" : vix <= 16 ? "Calm" : "Normal range"}</div>
+      <button onClick={() => setActiveTab?.("mterminal")} style={{ marginTop: 8, fontFamily: MONO, fontSize: 12.5, color: C.accent, background: "none", border: "none", cursor: "pointer", padding: 0 }}>View chart →</button>
     </div>
   );
 }
@@ -781,7 +781,7 @@ function VolatilityIndexCard({ C, MONO, SANS, distData, setActiveTab }) {
 function AiCopilotLauncherCard({ C, MONO, SANS }) {
   return (
     <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14 }}>
-      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 8 }}>AI COPILOT</div>
+      <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 8 }}>AI COPILOT</div>
       <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, marginBottom: 10 }}>Ask anything about the market…</div>
       <button
         onClick={() => window.dispatchEvent(new CustomEvent("open-ai-copilot", { detail: {} }))}
@@ -824,7 +824,7 @@ const CROSS_ASSET_COINS = ["BTC", "ETH", "SOL"];
 function CrossAssetMacroCard({ C, MONO, SANS, macroRegime }) {
   return (
     <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14 }}>
-      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 8 }}>MACRO REGIME &amp; NARRATIVE</div>
+      <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 8 }}>MACRO REGIME &amp; NARRATIVE</div>
       {!macroRegime ? (
         <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>Loading real regime data…</div>
       ) : (
@@ -832,19 +832,19 @@ function CrossAssetMacroCard({ C, MONO, SANS, macroRegime }) {
           <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
             <span>{macroRegime.icon}</span>
             <span style={{ fontFamily: MONO, fontSize: 15, fontWeight: 800, color: macroRegime.color }}>{macroRegime.label}</span>
-            <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>{macroRegime.score}/100</span>
+            <span style={{ fontFamily: MONO, fontSize: 13, color: C.textDim }}>{macroRegime.score}/100</span>
           </div>
           {macroRegime.narrative && (
             <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
               <span>{macroRegime.narrative.icon}</span>
               <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: macroRegime.narrative.color }}>{macroRegime.narrative.label}</span>
               {macroRegime.narrative.shifted && macroRegime.narrative.previousLabel && (
-                <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>(shifted from {macroRegime.narrative.previousLabel})</span>
+                <span style={{ fontFamily: MONO, fontSize: 12.5, color: C.textDim }}>(shifted from {macroRegime.narrative.previousLabel})</span>
               )}
             </div>
           )}
           {macroRegime.credit?.momentum?.status && (
-            <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 6 }}>Credit: {macroRegime.credit.momentum.status}</div>
+            <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, marginTop: 6 }}>Credit: {macroRegime.credit.momentum.status}</div>
           )}
         </>
       )}
@@ -855,7 +855,7 @@ function CrossAssetMacroCard({ C, MONO, SANS, macroRegime }) {
 function CrossAssetCryptoCard({ C, MONO, SANS, cryptoMacro, setActiveTab }) {
   return (
     <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14 }}>
-      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 8 }}>CRYPTO ↔ MACRO SCORE</div>
+      <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 8 }}>CRYPTO ↔ MACRO SCORE</div>
       {CROSS_ASSET_COINS.map((sym) => {
         const d = cryptoMacro[sym];
         const score = d?.macroScore?.score;
@@ -865,14 +865,14 @@ function CrossAssetCryptoCard({ C, MONO, SANS, cryptoMacro, setActiveTab }) {
             <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>{sym}</span>
             {d ? (
               <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>{d.rateRelationship?.rateRegime?.replace(/_/g, " ") || "—"}</span>
+                <span style={{ fontFamily: MONO, fontSize: 13, color: C.textDim }}>{d.rateRelationship?.rateRegime?.replace(/_/g, " ") || "—"}</span>
                 <b style={{ fontFamily: MONO, fontSize: 13, color: col }}>{Number.isFinite(score) ? score : "—"}</b>
               </span>
-            ) : <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>Loading…</span>}
+            ) : <span style={{ fontFamily: MONO, fontSize: 13, color: C.textDim }}>Loading…</span>}
           </div>
         );
       })}
-      <button onClick={() => setActiveTab?.("crypto")} style={{ marginTop: 8, fontFamily: MONO, fontSize: 10, color: C.accent, background: "none", border: "none", cursor: "pointer", padding: 0 }}>View crypto detail →</button>
+      <button onClick={() => setActiveTab?.("crypto")} style={{ marginTop: 8, fontFamily: MONO, fontSize: 12.5, color: C.accent, background: "none", border: "none", cursor: "pointer", padding: 0 }}>View crypto detail →</button>
     </div>
   );
 }
@@ -880,7 +880,7 @@ function CrossAssetCryptoCard({ C, MONO, SANS, cryptoMacro, setActiveTab }) {
 function CrossAssetNewsCard({ C, MONO, SANS, clusters, newsStatus, setActiveTab }) {
   return (
     <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, gridColumn: "span 2" }}>
-      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 8 }}>TOP HIGH-IMPACT NEWS (GROUPED)</div>
+      <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 8 }}>TOP HIGH-IMPACT NEWS (GROUPED)</div>
       {newsStatus && newsStatus !== "OK" ? (
         <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>News store {newsStatus.toLowerCase()} — no real scored stories to show right now.</div>
       ) : !clusters.length ? (
@@ -891,11 +891,11 @@ function CrossAssetNewsCard({ C, MONO, SANS, clusters, newsStatus, setActiveTab 
             <span style={{ fontFamily: SANS, fontSize: 12, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               <b style={{ fontFamily: MONO, color: C.accent }}>{cl.ticker}</b> {cl.representativeHeadline}
             </span>
-            <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, flexShrink: 0 }}>{cl.sourceCount > 1 ? `${cl.sourceCount} sources` : cl.sources[0] || ""}</span>
+            <span style={{ fontFamily: MONO, fontSize: 12.5, color: C.textDim, flexShrink: 0 }}>{cl.sourceCount > 1 ? `${cl.sourceCount} sources` : cl.sources[0] || ""}</span>
           </div>
         ))
       )}
-      <button onClick={() => setActiveTab?.("news")} style={{ marginTop: 8, fontFamily: MONO, fontSize: 10, color: C.accent, background: "none", border: "none", cursor: "pointer", padding: 0 }}>View all news →</button>
+      <button onClick={() => setActiveTab?.("news")} style={{ marginTop: 8, fontFamily: MONO, fontSize: 12.5, color: C.accent, background: "none", border: "none", cursor: "pointer", padding: 0 }}>View all news →</button>
     </div>
   );
 }
@@ -945,11 +945,11 @@ function CrossAssetDashboard({ C, MONO, SANS, fullScan, setActiveTab, setTermina
               <div key={row.symbol} onClick={goToRow} {...clickableProps(goToRow)}
                 style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: `1px solid ${C.border}`, cursor: "pointer" }}>
                 <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.text }}>{row.symbol}</span>
-                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "2px 6px", borderRadius: 5, background: `${action.color}18`, color: action.color }}>{action.label}</span>
+                <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, padding: "2px 6px", borderRadius: 5, background: `${action.color}18`, color: action.color }}>{action.label}</span>
               </div>
             );
           }) : <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>No real scan results yet.</div>}
-          <button onClick={() => setActiveTab?.("mterminal")} style={{ marginTop: 8, fontFamily: MONO, fontSize: 10, color: C.accent, background: "none", border: "none", cursor: "pointer", padding: 0 }}>Open chart →</button>
+          <button onClick={() => setActiveTab?.("mterminal")} style={{ marginTop: 8, fontFamily: MONO, fontSize: 12.5, color: C.accent, background: "none", border: "none", cursor: "pointer", padding: 0 }}>Open chart →</button>
         </div>
       </div>
       <CrossAssetNewsCard C={C} MONO={MONO} SANS={SANS} clusters={newsClusters} newsStatus={newsStatus} setActiveTab={setActiveTab} />
@@ -970,7 +970,7 @@ function DashSubNav({ C, MONO, active, setActive }) {
       {DASH_TABS.map(t => (
         <button key={t.id} onClick={() => setActive(t.id)}
           style={{
-            fontFamily: MONO, fontSize: 11, fontWeight: 800, letterSpacing: "0.04em",
+            fontFamily: MONO, fontSize: 13, fontWeight: 800, letterSpacing: "0.04em",
             padding: "7px 13px", borderRadius: 7, cursor: "pointer",
             whiteSpace: "nowrap", flexShrink: 0, minHeight: 40,
             border: `1px solid ${active === t.id ? C.accent : C.border}`,

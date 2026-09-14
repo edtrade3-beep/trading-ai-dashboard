@@ -82,7 +82,7 @@ function ScoreBreakdown({ opp, overrideReason, C, MONO, SANS }) {
   if (!opp || !opp.breakdown) return null;
   return (
     <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${C.border}`, textAlign: "left" }}>
-      <button onClick={() => setOpen((v) => !v)} style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", background: "transparent", border: "none", cursor: "pointer", padding: 0, fontFamily: MONO, fontSize: 9.5, fontWeight: 800, color: C.textDim, letterSpacing: 0.5 }}>
+      <button onClick={() => setOpen((v) => !v)} style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", background: "transparent", border: "none", cursor: "pointer", padding: 0, fontFamily: MONO, fontSize: 12.5, fontWeight: 800, color: C.textDim, letterSpacing: 0.5 }}>
         <span>SCORE BREAKDOWN — {opp.score}/100</span>
         <span>{open ? "▾" : "▸"}</span>
       </button>
@@ -95,7 +95,7 @@ function ScoreBreakdown({ opp, overrideReason, C, MONO, SANS }) {
             const barColor = pct >= 70 ? "#0d9465" : pct >= 40 ? "#d6a312" : "#c8282a";
             return (
               <div key={key}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 9.5, color: C.textSec, marginBottom: 2 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 12.5, color: C.textSec, marginBottom: 2 }}>
                   <span>{meta.label}</span>
                   <span>{v.toFixed(1)}/{meta.max}</span>
                 </div>
@@ -112,7 +112,7 @@ function ScoreBreakdown({ opp, overrideReason, C, MONO, SANS }) {
               repeated here, next to the buckets, so the override is legible
               in the same place as the numbers it's overriding. */}
           {overrideReason && (
-            <div style={{ marginTop: 2, fontFamily: SANS, fontSize: 10, color: C.textDim, fontStyle: "italic" }}>
+            <div style={{ marginTop: 2, fontFamily: SANS, fontSize: 12.5, color: C.textDim, fontStyle: "italic" }}>
               Override: {overrideReason}
             </div>
           )}
@@ -136,7 +136,7 @@ function AiUpdateBanner({ whatChanged, currentScore, currentVerdict, C, MONO, SA
   const up = Number(whatChanged.scoreChange) > 0;
   return (
     <div style={{ border: `1px solid ${C.amber}66`, background: `${C.amber}14`, borderRadius: 10, padding: "10px 12px", marginBottom: 12 }}>
-      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.amber, letterSpacing: 0.5, marginBottom: 4 }}>⚡ AI UPDATE</div>
+      <div style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 800, color: C.amber, letterSpacing: 0.5, marginBottom: 4 }}>⚡ AI UPDATE</div>
       {Number.isFinite(whatChanged.scoreChange) && (
         <div style={{ fontFamily: MONO, fontSize: 12, color: C.text, marginBottom: 2 }}>
           Score {whatChanged.previousScore} → {currentScore} <b style={{ color: up ? "#0d9465" : "#c8282a" }}>({up ? "+" : ""}{whatChanged.scoreChange})</b>
@@ -148,11 +148,11 @@ function AiUpdateBanner({ whatChanged, currentScore, currentVerdict, C, MONO, SA
         </div>
       )}
       {whatChanged.biggestMover && (
-        <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textSec }}>
+        <div style={{ fontFamily: SANS, fontSize: 13, color: C.textSec }}>
           Driven by: {SCORE_BUCKET_META[whatChanged.biggestMover.bucket]?.label || whatChanged.biggestMover.bucket} ({whatChanged.biggestMover.delta > 0 ? "+" : ""}{whatChanged.biggestMover.delta})
         </div>
       )}
-      <div style={{ fontFamily: SANS, fontSize: 9.5, color: C.textDim, marginTop: 3, fontStyle: "italic" }}>vs. your last real look, {whatChanged.ageMinutes} min ago</div>
+      <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.textDim, marginTop: 3, fontStyle: "italic" }}>vs. your last real look, {whatChanged.ageMinutes} min ago</div>
     </div>
   );
 }
@@ -203,22 +203,22 @@ export function WhyIsItMovingButton({ symbol, C, MONO, SANS }) {
   return (
     <div style={{ paddingTop: 8, marginTop: 8, borderTop: `1px solid ${C.border}` }}>
       {!state && (
-        <button onClick={check} style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 800, color: C.accent || C.text, background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, padding: "4px 10px", cursor: "pointer" }}>
+        <button onClick={check} style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.accent || C.text, background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, padding: "4px 10px", cursor: "pointer" }}>
           ⚡ WHY IS IT MOVING?
         </button>
       )}
-      {state === "loading" && <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>Checking real news, sector, and market data…</div>}
+      {state === "loading" && <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim }}>Checking real news, sector, and market data…</div>}
       {state && state !== "loading" && !state.ok && (
-        <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>{state.error || "Unable to check right now."}</div>
+        <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim }}>{state.error || "Unable to check right now."}</div>
       )}
       {state && state.ok && state.unexplained && (
-        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.amber }}>⚠️ UNEXPLAINED MOVE — no credible real catalyst found.</div>
+        <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.amber }}>⚠️ UNEXPLAINED MOVE — no credible real catalyst found.</div>
       )}
       {state && state.ok && !state.unexplained && (
         <div>
           <div style={sectionLabelStyle({ marginBottom: 5 })}>LIKELY DRIVERS</div>
           {state.drivers.map((d, i) => (
-            <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 8, fontFamily: SANS, fontSize: 11, color: C.text, marginBottom: 3 }}>
+            <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 8, fontFamily: SANS, fontSize: 13, color: C.text, marginBottom: 3 }}>
               <span>{i + 1}. {d.label}</span>
               <b style={{ fontFamily: MONO, color: C.textDim, flexShrink: 0 }}>{d.confidence}%</b>
             </div>
@@ -249,7 +249,7 @@ function FinalDecisionAndRS({ analysis, opp, macroData, C, MONO, SANS }) {
     <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 12px", marginBottom: 12 }}>
       <div style={sectionLabelStyle({ marginBottom: 6 })}>FINAL DECISION</div>
       {analysis.row?.assetDecision?.verdict && (
-        <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11, marginBottom: 4 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 13, marginBottom: 4 }}>
           <span style={{ color: C.textDim }}>STOCK</span>
           <b style={{ color: FINAL_VERDICT_META[analysis.row.assetDecision.verdict]?.color || C.text }}>{FINAL_VERDICT_META[analysis.row.assetDecision.verdict]?.label || analysis.row.assetDecision.verdict}</b>
         </div>
@@ -263,23 +263,23 @@ function FinalDecisionAndRS({ analysis, opp, macroData, C, MONO, SANS }) {
         // and options-lean vocabularies, so an options-side "Avoid" could
         // read as contradicting the STOCK row directly above it. Same real
         // title tooltip, same real reasoning, no new score.
-        <div title="This is a calls-vs-puts read, not a second buy/sell call on the stock — see STOCK above for that." style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11, marginBottom: 4 }}>
+        <div title="This is a calls-vs-puts read, not a second buy/sell call on the stock — see STOCK above for that." style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 13, marginBottom: 4 }}>
           <span style={{ color: C.textDim }}>OPTIONS LEAN</span>
           <b style={{ color: aiTrade.recommendation.color }}>{aiTrade.recommendation.label}</b>
         </div>
       )}
       {aiTrade && (
-        <div style={{ fontFamily: SANS, fontSize: 9.5, color: C.textDim, fontStyle: "italic", marginBottom: Number.isFinite(rsRating) ? 8 : 0 }}>
+        <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.textDim, fontStyle: "italic", marginBottom: Number.isFinite(rsRating) ? 8 : 0 }}>
           Options lean uses real trend/momentum/volume/RS/structure only — no per-symbol options-flow/dark-pool/news/gamma fetch in this compact view (those default to a neutral midpoint).
         </div>
       )}
       {Number.isFinite(rsRating) && (
         <div style={{ paddingTop: 8, borderTop: `1px solid ${C.border}` }}>
-          <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11, marginBottom: 4 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 13, marginBottom: 4 }}>
             <span style={{ color: C.textDim }}>RS RATING</span>
             <b style={{ color: rsRating >= 70 ? "#0d9465" : rsRating <= 30 ? "#c8282a" : C.text }}>{rsRating}/99</b>
           </div>
-          <div style={{ display: "flex", gap: 12, fontFamily: MONO, fontSize: 10.5 }}>
+          <div style={{ display: "flex", gap: 12, fontFamily: MONO, fontSize: 13 }}>
             {vs(spyPct, "vs SPY")}
             {vs(qqqPct, "vs QQQ")}
           </div>
@@ -470,7 +470,7 @@ export default function CortexMiniPanel({ symbol, onSelectSymbol, setActiveTab, 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
       <div style={{ padding: "10px 10px 8px" }}>
-        <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: 0.6, marginBottom: 6 }}>🧠 CORTEX</div>
+        <div style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 800, color: C.textDim, letterSpacing: 0.6, marginBottom: 6 }}>🧠 CORTEX</div>
         <div style={{ display: "flex", gap: 6 }}>
           <input
             value={query}
@@ -479,21 +479,21 @@ export default function CortexMiniPanel({ symbol, onSelectSymbol, setActiveTab, 
             placeholder="Ask anything…"
             style={{ flex: 1, minWidth: 0, border: `1px solid ${C.border}`, background: C.surface, color: C.text, borderRadius: 6, padding: "7px 9px", fontFamily: SANS, fontSize: 12, outline: "none" }}
           />
-          <button onClick={submit} style={{ border: "none", background: C.accent, color: "#fff", borderRadius: 6, padding: "0 10px", fontFamily: MONO, fontSize: 11.5, fontWeight: 800, cursor: "pointer" }}>GO</button>
+          <button onClick={submit} style={{ border: "none", background: C.accent, color: "#fff", borderRadius: 6, padding: "0 10px", fontFamily: MONO, fontSize: 13.5, fontWeight: 800, cursor: "pointer" }}>GO</button>
         </div>
-        <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginTop: 5, lineHeight: 1.4 }}>
+        <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.textDim, marginTop: 5, lineHeight: 1.4 }}>
           e.g. "Why {symbol || "NVDA"}?" — scans &amp; comparisons open the full Cortex tab
         </div>
       </div>
 
-      {notice && <div style={{ margin: "0 10px 8px", fontFamily: SANS, fontSize: 11, color: C.textDim }}>{notice}</div>}
+      {notice && <div style={{ margin: "0 10px 8px", fontFamily: SANS, fontSize: 13, color: C.textDim }}>{notice}</div>}
       {error && (
-        <div style={{ margin: "0 10px 8px", display: "flex", alignItems: "center", gap: 8, fontFamily: SANS, fontSize: 11, color: "#c8282a" }}>
+        <div style={{ margin: "0 10px 8px", display: "flex", alignItems: "center", gap: 8, fontFamily: SANS, fontSize: 13, color: "#c8282a" }}>
           <span>{error}</span>
-          <button onClick={() => setRetryTick((t) => t + 1)} style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.accent, background: "none", border: `1px solid ${C.accent}55`, borderRadius: 5, padding: "2px 8px", cursor: "pointer" }}>Retry</button>
+          <button onClick={() => setRetryTick((t) => t + 1)} style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 700, color: C.accent, background: "none", border: `1px solid ${C.accent}55`, borderRadius: 5, padding: "2px 8px", cursor: "pointer" }}>Retry</button>
         </div>
       )}
-      {loading && <div style={{ margin: "0 10px 8px", fontFamily: SANS, fontSize: 11, color: C.textDim }}>Analyzing {symbol}…</div>}
+      {loading && <div style={{ margin: "0 10px 8px", fontFamily: SANS, fontSize: 13, color: C.textDim }}>Analyzing {symbol}…</div>}
 
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 10px 10px" }}>
         {dayTradeHandoff && dayTradeHandoff.symbol === symbol && (
@@ -506,13 +506,13 @@ export default function CortexMiniPanel({ symbol, onSelectSymbol, setActiveTab, 
           // VERDICT card below (which is Trade Desk's own daily-bar swing
           // read) — never silently recomputed or blended together.
           <div style={{ border: `1px solid #f59e0b55`, background: "#f59e0b0f", borderRadius: 10, padding: "10px 12px", marginBottom: 10 }}>
-            <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: "#f59e0b", letterSpacing: 0.5, marginBottom: 4 }}>
+            <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: "#f59e0b", letterSpacing: 0.5, marginBottom: 4 }}>
               🚦 DAY-TRADE OPPORTUNITY FROM LIGHT BOX — {dayTradeHandoff.lifecycle || dayTradeHandoff.state}
             </div>
-            <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textSec, marginBottom: 6 }}>
+            <div style={{ fontFamily: SANS, fontSize: 13, color: C.textSec, marginBottom: 6 }}>
               Real 15m-timeframe read, not the daily-bar verdict below. {dayTradeHandoff.thesis || ""}
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11, marginBottom: 8 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 13, marginBottom: 8 }}>
               <span><span style={{ color: C.textDim }}>Entry</span> <b style={{ color: C.text }}>{Number.isFinite(dayTradeHandoff.entry) ? `$${dayTradeHandoff.entry.toFixed(2)}` : "—"}</b></span>
               <span><span style={{ color: C.textDim }}>Stop</span> <b style={{ color: "#c8282a" }}>{Number.isFinite(dayTradeHandoff.stop) ? `$${dayTradeHandoff.stop.toFixed(2)}` : "—"}</b></span>
               <span><span style={{ color: C.textDim }}>Target</span> <b style={{ color: "#0d9465" }}>{Number.isFinite(dayTradeHandoff.target) ? `$${dayTradeHandoff.target.toFixed(2)}` : "—"}</b></span>
@@ -527,7 +527,7 @@ export default function CortexMiniPanel({ symbol, onSelectSymbol, setActiveTab, 
                   const shares = Math.floor((acct * riskPct / 100) / riskPerShare);
                   window.dispatchEvent(new CustomEvent("open-quick-trade", { detail: { symbol, shares, stopLoss: dayTradeHandoff.stop, takeProfit: dayTradeHandoff.target } }));
                 }}
-                style={{ width: "100%", fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "8px 10px", borderRadius: 7, border: "none", background: "#f59e0b", color: "#fff", cursor: "pointer" }}>
+                style={{ width: "100%", fontFamily: MONO, fontSize: 13, fontWeight: 800, padding: "8px 10px", borderRadius: 7, border: "none", background: "#f59e0b", color: "#fff", cursor: "pointer" }}>
                 ⚡ Review Day-Trade Plan
               </button>
             )}
@@ -535,32 +535,32 @@ export default function CortexMiniPanel({ symbol, onSelectSymbol, setActiveTab, 
         )}
         {analysis && heldPosition && (
           <div style={{ border: `1px solid ${C.accent}55`, background: `${C.accent}0f`, borderRadius: 10, padding: "10px 12px", marginBottom: 10 }}>
-            <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.accent, letterSpacing: 0.5, marginBottom: 4 }}>
+            <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent, letterSpacing: 0.5, marginBottom: 4 }}>
               📍 YOU ALREADY HOLD {heldPosition.qty} SH @ ${Number(heldPosition.avgEntry || 0).toFixed(2)}
             </div>
-            <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textSec, marginBottom: heldPosition.dayTradeState || heldPosition.edgeMonitor ? 6 : 0 }}>
+            <div style={{ fontFamily: SANS, fontSize: 13, color: C.textSec, marginBottom: heldPosition.dayTradeState || heldPosition.edgeMonitor ? 6 : 0 }}>
               The verdict below answers "is this a good NEW entry right now?" — it is NOT telling you to exit this position. Your real position status:
             </div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               {heldPosition.dayTradeState && (
                 <span title={heldPosition.dayTradeReason || undefined}
-                  style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: DAYTRADE_STATE_COLOR(C, heldPosition.dayTradeState),
+                  style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 800, color: DAYTRADE_STATE_COLOR(C, heldPosition.dayTradeState),
                     border: `1px solid ${DAYTRADE_STATE_COLOR(C, heldPosition.dayTradeState)}`, borderRadius: 4, padding: "2px 6px" }}>
                   {DAYTRADE_STATE_LABEL[heldPosition.dayTradeState] || heldPosition.dayTradeState}
                 </span>
               )}
               {heldPosition.edgeMonitor && EDGE_MONITOR_META[heldPosition.edgeMonitor.status] && (
-                <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: EDGE_MONITOR_META[heldPosition.edgeMonitor.status].color,
+                <span style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 800, color: EDGE_MONITOR_META[heldPosition.edgeMonitor.status].color,
                   border: `1px solid ${EDGE_MONITOR_META[heldPosition.edgeMonitor.status].color}`, borderRadius: 4, padding: "2px 6px" }}>
                   {EDGE_MONITOR_META[heldPosition.edgeMonitor.status].icon} {EDGE_MONITOR_META[heldPosition.edgeMonitor.status].label}
                 </span>
               )}
             </div>
             {heldPosition.dayTradeReason && (
-              <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginTop: 5 }}>{heldPosition.dayTradeReason}</div>
+              <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.textDim, marginTop: 5 }}>{heldPosition.dayTradeReason}</div>
             )}
             {!heldPosition.dayTradeState && !heldPosition.edgeMonitor && (
-              <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginTop: 5 }}>No real-time position read available right now — check the Portfolio dock for full position detail.</div>
+              <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.textDim, marginTop: 5 }}>No real-time position read available right now — check the Portfolio dock for full position detail.</div>
             )}
           </div>
         )}
@@ -577,7 +577,7 @@ export default function CortexMiniPanel({ symbol, onSelectSymbol, setActiveTab, 
                 doesn't read as a second, competing trade call. */}
             <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.textSec, letterSpacing: 0.6 }}>SETUP QUALITY — {analysis.symbol}</div>
             <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: verdictMeta.color, margin: "4px 0" }}>{verdictMeta.icon} {verdictMeta.label}</div>
-            {analysis.row.coreReason && <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, marginTop: 4 }}>{analysis.row.coreReason}</div>}
+            {analysis.row.coreReason && <div style={{ fontFamily: SANS, fontSize: 13, color: C.textSec, marginTop: 4 }}>{analysis.row.coreReason}</div>}
             {opp && (
               // Real probability x EV read (Market Opportunity Engine Phase
               // 1, §17: "separate probability from confidence" — an honest
@@ -586,7 +586,7 @@ export default function CortexMiniPanel({ symbol, onSelectSymbol, setActiveTab, 
               // a real, distinct read from the verdict above it (a WATCH
               // verdict extended past the anti-chase band still reads
               // EXTENDED here, for example).
-              <div style={{ display: "flex", justifyContent: "center", gap: 12, marginTop: 8, paddingTop: 8, borderTop: `1px solid ${verdictMeta.color}33`, fontFamily: MONO, fontSize: 10.5, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", justifyContent: "center", gap: 12, marginTop: 8, paddingTop: 8, borderTop: `1px solid ${verdictMeta.color}33`, fontFamily: MONO, fontSize: 13, flexWrap: "wrap" }}>
                 {/* STAGE (Central Opportunity & Options Engine goal,
                     2026-08-30) — the real EARLY/DEVELOPING/CONFIRMED/LATE/
                     FAILED/EXIT label (opp.stage, opportunity-engine.js's
@@ -617,16 +617,16 @@ export default function CortexMiniPanel({ symbol, onSelectSymbol, setActiveTab, 
               const color = RISK_LEVEL_COLOR[risk.level];
               return (
                 <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${verdictMeta.color}33`, textAlign: "left" }}>
-                  <div style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 800, color, marginBottom: risk.flags.length ? 4 : 0 }}>
+                  <div style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 800, color, marginBottom: risk.flags.length ? 4 : 0 }}>
                     RISK LEVEL: {risk.level}
                   </div>
                   {risk.flags.slice(0, 3).map((f, i) => (
-                    <div key={f.key || i} style={{ fontFamily: SANS, fontSize: 10, color: f.critical ? "#c8282a" : C.textSec, marginBottom: 1 }}>
+                    <div key={f.key || i} style={{ fontFamily: SANS, fontSize: 12.5, color: f.critical ? "#c8282a" : C.textSec, marginBottom: 1 }}>
                       {f.critical ? "🔴" : "⚠"} {f.reason || f.label}
                     </div>
                   ))}
                   {risk.flags.length > 3 && (
-                    <div style={{ fontFamily: SANS, fontSize: 9.5, color: C.textDim }}>+{risk.flags.length - 3} more</div>
+                    <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.textDim }}>+{risk.flags.length - 3} more</div>
                   )}
                 </div>
               );
@@ -647,8 +647,8 @@ export default function CortexMiniPanel({ symbol, onSelectSymbol, setActiveTab, 
           // own already-real confirm-gate + POST /api/quick-trade/order,
           // the one real execution surface in this app. No new order path.
           <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 12px", marginBottom: 12 }}>
-            <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.6, marginBottom: 6 }}>TRADE PLAN</div>
-            <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 11, marginBottom: 8 }}>
+            <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.textDim, letterSpacing: 0.6, marginBottom: 6 }}>TRADE PLAN</div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 13, marginBottom: 8 }}>
               <span><span style={{ color: C.textDim }}>Entry</span> <b style={{ color: C.text }}>${(opp.executableEntry ?? opp.entry).toFixed(2)}</b></span>
               <span><span style={{ color: C.textDim }}>Stop</span> <b style={{ color: "#c8282a" }}>${opp.stop.toFixed(2)}</b></span>
               <span><span style={{ color: C.textDim }}>Target</span> <b style={{ color: "#0d9465" }}>${opp.target.toFixed(2)}</b></span>
@@ -656,7 +656,7 @@ export default function CortexMiniPanel({ symbol, onSelectSymbol, setActiveTab, 
             {/* Invalidation (goal section 13, "what could invalidate it")
                 — the real stop price already shown above, restated as a
                 plain-English condition. Not a new number. */}
-            <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginBottom: 8 }}>
+            <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.textDim, marginBottom: 8 }}>
               <b style={{ color: "#c8282a" }}>Invalidated if:</b> price closes back below ${opp.stop.toFixed(2)} — the real stop this plan is built on.
             </div>
             <button
@@ -668,13 +668,13 @@ export default function CortexMiniPanel({ symbol, onSelectSymbol, setActiveTab, 
                 const shares = riskPerShare > 0 ? Math.floor((acct * riskPct / 100) / riskPerShare) : 0;
                 window.dispatchEvent(new CustomEvent("open-quick-trade", { detail: { symbol: analysis.symbol, shares, stopLoss: opp.stop, takeProfit: opp.target } }));
               }}
-              style={{ width: "100%", fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "8px 10px", borderRadius: 7, border: "none", background: C.accent, color: "#fff", cursor: "pointer" }}>
+              style={{ width: "100%", fontFamily: MONO, fontSize: 13, fontWeight: 800, padding: "8px 10px", borderRadius: 7, border: "none", background: C.accent, color: "#fff", cursor: "pointer" }}>
               ⚡ Review Trade Plan
             </button>
           </div>
         )}
         {analysis && !verdictMeta && (
-          <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, textAlign: "center", marginBottom: 12 }}>
+          <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, textAlign: "center", marginBottom: 12 }}>
             No real verdict available for {analysis.symbol} right now.
           </div>
         )}
@@ -685,33 +685,33 @@ export default function CortexMiniPanel({ symbol, onSelectSymbol, setActiveTab, 
           <div style={{ marginBottom: 12 }}>
             {!correlation && (
               <button onClick={checkCorrelation} disabled={correlationLoading}
-                style={{ width: "100%", fontFamily: MONO, fontSize: 10.5, fontWeight: 800, padding: "7px 10px", borderRadius: 7,
+                style={{ width: "100%", fontFamily: MONO, fontSize: 13, fontWeight: 800, padding: "7px 10px", borderRadius: 7,
                   border: `1px solid ${C.border}`, background: "transparent", color: C.textDim, cursor: correlationLoading ? "default" : "pointer" }}>
                 {correlationLoading ? "Checking your real positions…" : `📊 Check vs My Portfolio`}
               </button>
             )}
             {correlation && correlation.ok === false && correlation.reason === "no-alpaca-key" && (
-              <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, textAlign: "center", padding: "6px 0" }}>No brokerage connected — nothing to compare against.</div>
+              <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, textAlign: "center", padding: "6px 0" }}>No brokerage connected — nothing to compare against.</div>
             )}
             {correlation && correlation.ok === false && correlation.reason !== "no-alpaca-key" && (
-              <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, textAlign: "center", padding: "6px 0" }}>Couldn't check portfolio correlation right now.</div>
+              <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, textAlign: "center", padding: "6px 0" }}>Couldn't check portfolio correlation right now.</div>
             )}
             {correlation && correlation.ok && correlation.correlations && (
               correlation.correlations.length === 0 ? (
-                <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, textAlign: "center", padding: "6px 0" }}>
+                <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, textAlign: "center", padding: "6px 0" }}>
                   {correlation.candidateInsufficientData ? `Not enough real price history for ${symbol} yet to compare.` : "No real overlap with your current holdings — a genuinely new opportunity."}
                 </div>
               ) : (
                 <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 10px", background: C.card }}>
-                  <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 4 }}>REAL CORRELATION TO YOUR HOLDINGS</div>
+                  <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.textDim, letterSpacing: 0.5, marginBottom: 4 }}>REAL CORRELATION TO YOUR HOLDINGS</div>
                   {correlation.correlations.slice(0, 3).map((c) => (
-                    <div key={c.symbol} style={{ fontFamily: MONO, fontSize: 11, display: "flex", justifyContent: "space-between", padding: "2px 0" }}>
+                    <div key={c.symbol} style={{ fontFamily: MONO, fontSize: 13, display: "flex", justifyContent: "space-between", padding: "2px 0" }}>
                       <span style={{ color: C.text, fontWeight: 700 }}>{c.symbol}</span>
                       <span style={{ color: Math.abs(c.correlation) >= 0.7 ? "#c8282a" : Math.abs(c.correlation) >= 0.4 ? "#d6a312" : C.textDim, fontWeight: 700 }}>r = {c.correlation > 0 ? "+" : ""}{c.correlation}</span>
                     </div>
                   ))}
                   {correlation.correlations[0] && Math.abs(correlation.correlations[0].correlation) >= 0.7 && (
-                    <div style={{ fontFamily: SANS, fontSize: 10, color: "#c8282a", marginTop: 4 }}>⚠ Highly correlated with your existing {correlation.correlations[0].symbol} position — this may not be a genuinely new, diversifying opportunity.</div>
+                    <div style={{ fontFamily: SANS, fontSize: 12.5, color: "#c8282a", marginTop: 4 }}>⚠ Highly correlated with your existing {correlation.correlations[0].symbol} position — this may not be a genuinely new, diversifying opportunity.</div>
                   )}
                 </div>
               )
@@ -721,7 +721,7 @@ export default function CortexMiniPanel({ symbol, onSelectSymbol, setActiveTab, 
 
         {analysis && (
           <div>
-            <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: C.textDim, letterSpacing: 0.6, marginBottom: 6 }}>🔍 WHY</div>
+            <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.textDim, letterSpacing: 0.6, marginBottom: 6 }}>🔍 WHY</div>
             <WhyBreakdownPanel
               symbol={analysis.symbol}
               sniperReasons={analysis.sniper?.reasons}
@@ -734,7 +734,7 @@ export default function CortexMiniPanel({ symbol, onSelectSymbol, setActiveTab, 
         )}
 
         {!analysis && !loading && !error && (
-          <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.textDim, textAlign: "center", padding: "20px 0" }}>
+          <div style={{ fontFamily: SANS, fontSize: 13.5, color: C.textDim, textAlign: "center", padding: "20px 0" }}>
             Search a symbol to see the real Master Verdict and why.
           </div>
         )}
