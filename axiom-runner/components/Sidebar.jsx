@@ -301,8 +301,8 @@ export default function Sidebar({ C, MONO, SANS, activeTab, setActiveTab, topOff
                 border: "none", textAlign: "left", cursor: "pointer", textDecoration: "none",
                 background: isActive ? `${C.accent}18` : "transparent",
                 color: isActive ? C.accent : C.textSec,
-                borderRadius: 8, padding: collapsed ? "9px 0" : "9px 10px", marginBottom: 2,
-                fontFamily: SANS, fontSize: 13, fontWeight: isActive ? 700 : 500,
+                borderRadius: 8, padding: collapsed ? "10px 0" : "10px 12px", marginBottom: 2,
+                fontFamily: SANS, fontSize: 14, fontWeight: isActive ? 700 : 500,
                 position: "relative", boxSizing: "border-box",
               }}
             >
@@ -336,7 +336,7 @@ export default function Sidebar({ C, MONO, SANS, activeTab, setActiveTab, topOff
             width: "100%", display: "flex", alignItems: "center", gap: 10,
             justifyContent: collapsed ? "center" : "flex-start",
             border: "none", textAlign: "left", cursor: "pointer", background: "transparent", color: C.textSec,
-            borderRadius: 8, padding: "9px 10px", marginBottom: 6, fontFamily: SANS, fontSize: 13, fontWeight: 500,
+            borderRadius: 8, padding: "10px 12px", marginBottom: 6, fontFamily: SANS, fontSize: 14, fontWeight: 500,
           }}
         >
           <span style={{ fontSize: 16, width: 20, textAlign: "center", flexShrink: 0 }}>⌨️</span>
