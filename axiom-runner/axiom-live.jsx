@@ -2581,6 +2581,11 @@ export default function App() {
     setUnlockInput("");
     setUnlockError("");
     try { sessionStorage.removeItem(AUTH_STORAGE_KEY); } catch {}
+    // Real server-side logout (2026-09-14 security fix) — clears the real
+    // session cookie too, not just this tab's own sessionStorage flag, so
+    // a locked app actually revokes API access rather than just hiding
+    // the UI while the still-valid cookie keeps every gated route open.
+    fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
   }, []);
 
   const refreshNews = useCallback(async () => {

@@ -2,6 +2,7 @@ const { writeJson, isOn } = require("../utils");
 const { isConfigured: telegramConfigured } = require("../telegram");
 const { getDbStatus } = require("../atomic-write");
 const { isDbMode: photosDbMode } = require("../dealership/photo-store");
+const { hasValidSession } = require("../session");
 
 // Build marker — the deploy's git commit (stable across restarts/cold-starts; changes ONLY on a new deploy).
 // Render sets RENDER_GIT_COMMIT automatically. Fall back to a fixed string so restarts don't trigger reloads.
@@ -9,6 +10,17 @@ const BUILD = process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || "local"
 const STARTED_AT = new Date().toISOString();
 
 async function handleHealth(req, res) {
+  // Minimal public shape (2026-09-14 security fix, Priority 1 — "public
+  // health response must contain only minimal safe information"). This
+  // route MUST stay reachable with zero auth (render.yaml's
+  // healthCheckPath: Render's own prober never sends the session cookie,
+  // and if this route ever 401'd, Render would consider the deploy
+  // unhealthy and could restart-loop the service) — so the fix here is
+  // conditional response RICHNESS, not a gate. Real operational
+  // diagnostics (env-var presence, Postgres status, execution/mutator
+  // state, dynamic-universe internals) only render for a caller who
+  // already has a valid session; everyone else gets just ok/build/started.
+  const authed = hasValidSession(req);
   const serverAutopilot = isOn(process.env.SERVER_AUTOPILOT);
   const meanrevPaper = isOn(process.env.MEANREV_PAPER);
   const apiAuth = !!(process.env.API_AUTH_TOKEN || "").trim();
@@ -50,8 +62,10 @@ async function handleHealth(req, res) {
     try { lastAttempt = require("../autopilot2-engine").getLastDynamicUniverseAttempt(); } catch { /* optional */ }
     dynamicUniverse = { universeSize: u.universe.length, builtAt: u.builtAt ? new Date(u.builtAt).toISOString() : null, stale: u.stale, cursor, lastAttempt };
   } catch (err) { dynamicUniverse = { error: err instanceof Error ? err.message : String(err) }; }
+  const minimal = { ok: true, version: "market-v2", build: BUILD, startedAt: STARTED_AT };
+  if (!authed) return writeJson(res, 200, minimal);
   return writeJson(res, 200, {
-    ok: true, version: "market-v2", build: BUILD, startedAt: STARTED_AT,
+    ...minimal,
     telegram: telegramConfigured(), serverAutopilot, meanrevPaper, apiAuth,
     execution: { ...executionStatus({ serverAutopilot, lightboxMode, tradierMode, tradierLive, autopilot2State }), lightboxMode, tradierMode, autopilot2State },
     envSeen, postgres, dynamicUniverse,

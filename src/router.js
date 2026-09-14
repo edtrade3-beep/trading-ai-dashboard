@@ -2,6 +2,7 @@ const { URL } = require("node:url");
 const { writeJson } = require("./utils");
 const { serveStatic } = require("./static");
 const { checkRateLimit } = require("./rate-limit");
+const { hasValidSession } = require("./session");
 const handleAuth = require("./routes/auth");
 const handleHealth = require("./routes/health");
 const handleWebhooks = require("./routes/webhooks");
@@ -125,11 +126,41 @@ async function handleRequest(req, res) {
       pathname === "/api/inventory/import-website"
     )) {
       if (!AUTH_TOKEN) return writeJson(res, 401, { ok: false, error: "unauthorized — API_AUTH_TOKEN is not configured on the server" });
+      const { safeCompare } = require("./utils");
       const tok = req.headers["x-api-token"] || "";
-      if (tok !== AUTH_TOKEN) return writeJson(res, 401, { ok: false, error: "unauthorized — set your API token in Settings" });
+      if (!safeCompare(tok, AUTH_TOKEN)) return writeJson(res, 401, { ok: false, error: "unauthorized — set your API token in Settings" });
     }
 
-    if (pathname === "/api/auth/check") {
+    // ── Sensitive-read auth gate (2026-09-14 security fix, Priority 1) ──────
+    // Real gap found live: PasswordLockScreen.jsx's "unlock" only ever set a
+    // client-side sessionStorage flag — the server never issued or checked
+    // anything, so every route below was reachable directly with zero auth
+    // (confirmed via unauthenticated curl: real portfolio positions, journal
+    // entries with notes/PnL, Alpaca positions with entry/stop/target, and
+    // account settings all returned in full). Gated here on the real
+    // server-side session (src/session.js) the password screen now actually
+    // establishes. Fail-closed: no APP_PASSWORD configured means no valid
+    // session can ever exist, so these stay refused rather than open.
+    //
+    // Scoped to the routes this audit actually confirmed exposed real
+    // account/trading data — not a blanket gate over the whole API surface,
+    // which would be a much larger, riskier change (this app has ~50 route
+    // handler files; auditing every one of them for what's genuinely
+    // sensitive is real, separate follow-up work, not squeezed into this
+    // pass). Dealership/inventory/leads routes are intentionally NOT
+    // included here — a separate subsystem, lower priority per explicit
+    // instruction ("dealership is secondary"), left for its own pass.
+    const SENSITIVE_READ_PREFIXES = [
+      "/api/portfolio", "/api/holdings", "/api/journal", "/api/alpaca", "/api/settings",
+    ];
+    if (SENSITIVE_READ_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/") || pathname.startsWith(p + "?"))) {
+      if (!hasValidSession(req)) return writeJson(res, 401, { ok: false, error: "unauthorized — unlock the app first" });
+    }
+    if (pathname === "/api/jobs/health" && !hasValidSession(req)) {
+      return writeJson(res, 401, { ok: false, error: "unauthorized — unlock the app first" });
+    }
+
+    if (pathname === "/api/auth/check" || pathname === "/api/auth/logout") {
       return await handleAuth(req, res, requestUrl);
     }
 
