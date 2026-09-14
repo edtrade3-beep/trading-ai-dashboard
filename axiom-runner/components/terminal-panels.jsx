@@ -27,7 +27,7 @@ export function EarningsSnapshot({ symbol, C, MONO, SANS }) {
   const big = (v) => v == null ? "—" : v >= 1e12 ? "$" + (v / 1e12).toFixed(2) + "T" : v >= 1e9 ? "$" + (v / 1e9).toFixed(1) + "B" : "$" + (v / 1e6).toFixed(0) + "M";
   const box = (label, val, col) => (
     <div key={label} style={{ flex: "1 1 90px", border: `1px solid ${C.border}`, borderRadius: 8, padding: "7px 11px", background: C.bg }}>
-      <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim }}>{label}</div>
+      <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.textDim }}>{label}</div>
       <div style={{ fontFamily: NUM, fontSize: 19, fontWeight: 700, color: col || C.text }}>{val}</div>
     </div>
   );
@@ -76,8 +76,8 @@ export function EarningsBars({ symbol, C, MONO, SANS }) {
         <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 800, color: C.text }}>📊 Annual Earnings — {symbol}</div>
         {state === "ok" && (
           <div style={{ display: "flex", gap: 4 }}>
-            {hasRev && <button onClick={() => setMetric("revenue")} style={{ fontFamily: MONO, fontSize: 11, padding: "4px 10px", borderRadius: 6, cursor: "pointer", border: `1px solid ${activeMetric === "revenue" ? "#22d47e" : C.border}`, background: activeMetric === "revenue" ? "rgba(34,212,126,0.14)" : "transparent", color: activeMetric === "revenue" ? "#22d47e" : C.textDim }}>Revenue</button>}
-            {hasEps && <button onClick={() => setMetric("eps")} style={{ fontFamily: MONO, fontSize: 11, padding: "4px 10px", borderRadius: 6, cursor: "pointer", border: `1px solid ${activeMetric === "eps" ? "#22d47e" : C.border}`, background: activeMetric === "eps" ? "rgba(34,212,126,0.14)" : "transparent", color: activeMetric === "eps" ? "#22d47e" : C.textDim }}>EPS</button>}
+            {hasRev && <button onClick={() => setMetric("revenue")} style={{ fontFamily: MONO, fontSize: 13, padding: "4px 10px", borderRadius: 6, cursor: "pointer", border: `1px solid ${activeMetric === "revenue" ? "#22d47e" : C.border}`, background: activeMetric === "revenue" ? "rgba(34,212,126,0.14)" : "transparent", color: activeMetric === "revenue" ? "#22d47e" : C.textDim }}>Revenue</button>}
+            {hasEps && <button onClick={() => setMetric("eps")} style={{ fontFamily: MONO, fontSize: 13, padding: "4px 10px", borderRadius: 6, cursor: "pointer", border: `1px solid ${activeMetric === "eps" ? "#22d47e" : C.border}`, background: activeMetric === "eps" ? "rgba(34,212,126,0.14)" : "transparent", color: activeMetric === "eps" ? "#22d47e" : C.textDim }}>EPS</button>}
           </div>
         )}
       </div>
@@ -94,19 +94,19 @@ export function EarningsBars({ symbol, C, MONO, SANS }) {
             const yoy = prev && v ? Math.round(((v - prev) / Math.abs(prev)) * 100) : null;
             return (
               <div key={r.year} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", height: "100%" }}>
-                <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.text, marginBottom: 3 }}>{fmt(v)}</div>
-                {yoy != null && <div style={{ fontFamily: MONO, fontSize: 9, color: yoy >= 0 ? "#22d47e" : "#ef4444", marginBottom: 2 }}>{yoy > 0 ? "+" : ""}{yoy}%</div>}
+                <div style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 700, color: C.text, marginBottom: 3 }}>{fmt(v)}</div>
+                {yoy != null && <div style={{ fontFamily: MONO, fontSize: 12, color: yoy >= 0 ? "#22d47e" : "#ef4444", marginBottom: 2 }}>{yoy > 0 ? "+" : ""}{yoy}%</div>}
                 <div title={r.estimate ? "Analyst estimate" : "Reported"}
                   style={{ width: "78%", height: h, borderRadius: "4px 4px 0 0",
                     background: r.estimate ? "transparent" : "#22d47e",
                     border: r.estimate ? "2px dashed #22d47e" : "none" }} />
-                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 5 }}>{r.year}{r.estimate ? "ᴱ" : ""}</div>
+                <div style={{ fontFamily: MONO, fontSize: 12.5, color: C.textDim, marginTop: 5 }}>{r.year}{r.estimate ? "ᴱ" : ""}</div>
               </div>
             );
           })}
         </div>
       )}
-      {state === "ok" && <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 8 }}>Solid = reported · dashed = analyst estimate (ᴱ). Source: {data.source}.</div>}
+      {state === "ok" && <div style={{ fontFamily: MONO, fontSize: 12.5, color: C.textDim, marginTop: 8 }}>Solid = reported · dashed = analyst estimate (ᴱ). Source: {data.source}.</div>}
     </div>
   );
 }
@@ -145,7 +145,7 @@ export function AiWhyPanel({ symbol, price, changePct, C, MONO, SANS }) {
       {reply && (
         <div style={{ fontFamily: SANS, fontSize: 13, lineHeight: 1.5, color: C.text, marginTop: 10, whiteSpace: "pre-wrap" }}>{reply}</div>
       )}
-      {state === "idle" && <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginTop: 8 }}>Live web-searched catalyst — click Ask AI.</div>}
+      {state === "idle" && <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim, marginTop: 8 }}>Live web-searched catalyst — click Ask AI.</div>}
     </div>
   );
 }
@@ -169,9 +169,9 @@ export function BullBearPanel({ symbol, bullBear, C, MONO, SANS }) {
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 800, color: C.text }}>⚖ Bull Case / Bear Case — {symbol}</div>
       </div>
-      <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 4 }}>Free, deterministic — real Institutional Grade dimensions split by which side of the case they support. Not an AI call.</div>
+      <div style={{ fontFamily: MONO, fontSize: 12.5, color: C.textDim, marginTop: 4 }}>Free, deterministic — real Institutional Grade dimensions split by which side of the case they support. Not an AI call.</div>
       {!bull.length && !bear.length ? (
-        <div style={{ fontFamily: MONO, fontSize: 11.5, color: C.textDim, marginTop: 10 }}>Every real dimension is in the genuine middle ground right now — no lopsided case either way.</div>
+        <div style={{ fontFamily: MONO, fontSize: 13.5, color: C.textDim, marginTop: 10 }}>Every real dimension is in the genuine middle ground right now — no lopsided case either way.</div>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14, marginTop: 12 }}>
           <div>
@@ -183,12 +183,12 @@ export function BullBearPanel({ symbol, bullBear, C, MONO, SANS }) {
             ) : <div style={{ fontFamily: MONO, fontSize: 11.5, color: C.textDim }}>No real bullish reasons stood out.</div>}
           </div>
           <div>
-            <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: "#c8282a", letterSpacing: "0.05em", marginBottom: 6 }}>▼ BEAR CASE</div>
+            <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: "#c8282a", letterSpacing: "0.05em", marginBottom: 6 }}>▼ BEAR CASE</div>
             {bear.length ? (
               <ul style={{ margin: 0, paddingLeft: 18 }}>
                 {bear.map((r, i) => <li key={i} style={{ fontFamily: SANS, fontSize: 12.5, color: C.text, lineHeight: 1.6, marginBottom: 3 }}>{r}</li>)}
               </ul>
-            ) : <div style={{ fontFamily: MONO, fontSize: 11.5, color: C.textDim }}>No real bearish reasons stood out.</div>}
+            ) : <div style={{ fontFamily: MONO, fontSize: 13.5, color: C.textDim }}>No real bearish reasons stood out.</div>}
           </div>
         </div>
       )}
@@ -227,7 +227,7 @@ export function NewsPanel({ symbol, C, MONO, SANS }) {
         <a key={i} href={it.link || it.url || "#"} target="_blank" rel="noopener noreferrer"
           style={{ display: "block", textDecoration: "none", padding: "9px 0", borderTop: i ? `1px solid ${C.border}` : "none" }}>
           <div style={{ fontFamily: SANS, fontSize: 13, fontWeight: 600, color: C.text, lineHeight: 1.35 }}>{it.title}</div>
-          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 3 }}>{(it.source || it.publisher || "")}{it.publishedAt ? " · " + ago(it.publishedAt) : ""}</div>
+          <div style={{ fontFamily: MONO, fontSize: 12.5, color: C.textDim, marginTop: 3 }}>{(it.source || it.publisher || "")}{it.publishedAt ? " · " + ago(it.publishedAt) : ""}</div>
         </a>
       ))}
     </div>
@@ -245,12 +245,12 @@ export function SectorHeatStrip({ sectorData, C, MONO, SANS }) {
   const bg = (v) => v > 0 ? `rgba(34,212,126,${Math.min(0.6, 0.12 + Math.abs(v) * 0.12)})` : `rgba(239,68,68,${Math.min(0.6, 0.12 + Math.abs(v) * 0.12)})`;
   return (
     <div style={{ width: "100%", marginBottom: 12 }}>
-      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.textDim, letterSpacing: 0.5, marginBottom: 6 }}>SECTOR HEAT — TODAY</div>
+      <div style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 700, color: C.textDim, letterSpacing: 0.5, marginBottom: 6 }}>SECTOR HEAT — TODAY</div>
       <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
         {rows.map(r => (
           <div key={r.sym} title={`${r.name} (${r.sym})`}
             style={{ flex: "1 1 80px", minWidth: 74, textAlign: "center", padding: "6px 4px", borderRadius: 7, background: bg(r.chg), border: `1px solid ${C.border}` }}>
-            <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 800, color: C.text }}>{r.name}</div>
+            <div style={{ fontFamily: SANS, fontSize: 13, fontWeight: 800, color: C.text }}>{r.name}</div>
             <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: r.chg >= 0 ? "#0a7d43" : "#b91c1c" }}>{r.chg > 0 ? "+" : ""}{r.chg.toFixed(2)}%</div>
           </div>
         ))}
@@ -281,7 +281,7 @@ export function MarketPulseBar({ C, MONO, SANS }) {
         const isVix = sym === "^VIX";
         return (
           <div key={sym} style={{ flex: "1 1 130px", minWidth: 120, border: `1px solid ${C.border}`, borderRadius: 8, padding: "7px 12px", background: C.bg }}>
-            <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.textDim }}>{name}</div>
+            <div style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 700, color: C.textDim }}>{name}</div>
             <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
               <span style={{ fontFamily: NUM, fontSize: 20, fontWeight: 700, color: C.text }}>{isFinite(x.price) ? (x.price >= 1000 ? Math.round(x.price).toLocaleString() : x.price?.toFixed(2)) : "—"}</span>
               <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: isVix ? (chg > 0 ? "#c8282a" : "#0d9465") : col }}>{isFinite(chg) ? (chg > 0 ? "+" : "") + chg.toFixed(2) + "%" : ""}</span>
@@ -306,7 +306,7 @@ export function SentimentRow({ C, MONO, SANS }) {
   return (
     <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
       <div style={{ flex: "1 1 240px", border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 14px", background: C.bg }}>
-        <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.textDim, marginBottom: 6 }}>FEAR &amp; GREED</div>
+        <div style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 700, color: C.textDim, marginBottom: 6 }}>FEAR &amp; GREED</div>
         <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
           <span style={{ fontFamily: NUM, fontSize: 30, fontWeight: 700, color: fgCol }}>{fg ? fg.score : "—"}</span>
           <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 800, color: fgCol }}>{fg ? fg.label : ""}</span>
@@ -316,7 +316,7 @@ export function SentimentRow({ C, MONO, SANS }) {
         </div>
       </div>
       <div style={{ flex: "1 1 240px", border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 14px", background: C.bg }}>
-        <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.textDim, marginBottom: 6 }}>SOCIAL BUZZ (StockTwits)</div>
+        <div style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 700, color: C.textDim, marginBottom: 6 }}>SOCIAL BUZZ (StockTwits)</div>
         <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
           <span style={{ fontFamily: NUM, fontSize: 30, fontWeight: 700, color: socCol }}>{soc ? (soc.netPct > 0 ? "+" : "") + soc.netPct + "%" : "—"}</span>
           <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 800, color: socCol }}>{soc ? soc.label : ""}</span>
@@ -324,7 +324,7 @@ export function SentimentRow({ C, MONO, SANS }) {
         {soc && soc.trending && soc.trending.length > 0 && (
           <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 6 }}>
             {soc.trending.slice(0, 8).map((t, i) => (
-              <span key={i} style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.accent, background: `${C.accent}14`, borderRadius: 4, padding: "1px 6px" }}>{t.symbol || t}</span>
+              <span key={i} style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 700, color: C.accent, background: `${C.accent}14`, borderRadius: 4, padding: "1px 6px" }}>{t.symbol || t}</span>
             ))}
           </div>
         )}
@@ -343,13 +343,13 @@ export function MarketNewsWire({ C, MONO, SANS }) {
   const ago = (iso) => { if (!iso) return ""; const m = Math.round((Date.now() - Date.parse(iso)) / 60000); return m < 60 ? m + "m" : m < 1440 ? Math.round(m / 60) + "h" : Math.round(m / 1440) + "d"; };
   return (
     <div style={{ marginTop: 12, border: `1px solid ${C.border}`, borderRadius: 10, background: C.bg, overflow: "hidden" }}>
-      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, padding: "9px 12px", borderBottom: `1px solid ${C.border}` }}>📡 MARKET WIRE</div>
+      <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.textDim, padding: "9px 12px", borderBottom: `1px solid ${C.border}` }}>📡 MARKET WIRE</div>
       {!items && <div style={{ padding: "18px 0", textAlign: "center", fontFamily: MONO, fontSize: 12, color: C.textDim }}>Loading…</div>}
       {items && items.slice(0, 14).map((it, i) => (
         <a key={i} href={it.link || it.url || "#"} target="_blank" rel="noopener noreferrer"
           style={{ display: "block", textDecoration: "none", padding: "8px 12px", borderTop: i ? `1px solid ${C.border}` : "none" }}>
           <div style={{ fontFamily: SANS, fontSize: 12.5, fontWeight: 600, color: C.text, lineHeight: 1.35 }}>{it.title}</div>
-          <div style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim, marginTop: 2 }}>{(it.source || it.publisher || "")}{it.publishedAt ? " · " + ago(it.publishedAt) + " ago" : ""}</div>
+          <div style={{ fontFamily: MONO, fontSize: 12.5, color: C.textDim, marginTop: 2 }}>{(it.source || it.publisher || "")}{it.publishedAt ? " · " + ago(it.publishedAt) + " ago" : ""}</div>
         </a>
       ))}
     </div>
@@ -384,19 +384,19 @@ export function AnalystPeerPanel({ symbol, price, lb, C, MONO, SANS }) {
       <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 10 }}>🎯 Analyst &amp; Peers — {symbol}</div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
         <div style={{ flex: "1 1 100px", border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px" }}>
-          <div style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim }}>ANALYST TARGET</div>
+          <div style={{ fontFamily: MONO, fontSize: 12.5, color: C.textDim }}>ANALYST TARGET</div>
           <div style={{ fontFamily: NUM, fontSize: 22, fontWeight: 700, color: C.text }}>{target ? "$" + target.toFixed(2) : "—"}</div>
-          {upside != null && <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: upside >= 0 ? "#0d9465" : "#c8282a" }}>{upside > 0 ? "+" : ""}{upside}% upside</div>}
+          {upside != null && <div style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 700, color: upside >= 0 ? "#0d9465" : "#c8282a" }}>{upside > 0 ? "+" : ""}{upside}% upside</div>}
         </div>
         <div style={{ flex: "1 1 100px", border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px" }}>
-          <div style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim }}>CONSENSUS</div>
+          <div style={{ fontFamily: MONO, fontSize: 12.5, color: C.textDim }}>CONSENSUS</div>
           <div style={{ fontFamily: NUM, fontSize: 22, fontWeight: 700, color: recCol }}>{rec || "—"}</div>
-          {f && f.numberOfAnalystOpinions ? <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{f.numberOfAnalystOpinions} analysts</div> : null}
+          {f && f.numberOfAnalystOpinions ? <div style={{ fontFamily: MONO, fontSize: 12.5, color: C.textDim }}>{f.numberOfAnalystOpinions} analysts</div> : null}
         </div>
       </div>
       {peers.length > 1 ? (
         <div>
-          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 5 }}>
+          <div style={{ fontFamily: MONO, fontSize: 12.5, color: C.textDim, marginBottom: 5 }}>
             SECTOR PEERS TODAY {rank >= 0 ? `· ${symbol} ranks #${rank + 1} of ${peers.length}` : ""}
           </div>
           {peers.slice(0, 6).map(p => (
@@ -406,7 +406,7 @@ export function AnalystPeerPanel({ symbol, price, lb, C, MONO, SANS }) {
             </div>
           ))}
         </div>
-      ) : <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>No sector peers in the tracked universe.</div>}
+      ) : <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim }}>No sector peers in the tracked universe.</div>}
     </div>
   );
 }
@@ -425,7 +425,7 @@ export function FundamentalsPanel({ symbol, C, MONO, SANS }) {
   const num = (v, d = 2) => v == null || isNaN(v) || v === 0 ? "—" : Number(v).toFixed(d);
   const box = (label, val, col) => (
     <div key={label} style={{ flex: "1 1 90px", border: `1px solid ${C.border}`, borderRadius: 8, padding: "7px 11px", background: C.bg }}>
-      <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim }}>{label}</div>
+      <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.textDim }}>{label}</div>
       <div style={{ fontFamily: NUM, fontSize: 19, fontWeight: 700, color: col || C.text }}>{val}</div>
     </div>
   );
@@ -442,7 +442,7 @@ export function FundamentalsPanel({ symbol, C, MONO, SANS }) {
           if (!v.label) return null;
           const vc = v.label === "UNDERVALUED" ? "#0d9465" : v.label === "OVERVALUED" ? "#c8282a" : C.textDim;
           return (
-            <span title={v.reason} style={{ fontFamily: MONO, fontSize: 10, fontWeight: 900, letterSpacing: "0.04em", color: vc, border: `1px solid ${vc}`, borderRadius: 5, padding: "3px 8px", cursor: "help" }}>
+            <span title={v.reason} style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 900, letterSpacing: "0.04em", color: vc, border: `1px solid ${vc}`, borderRadius: 5, padding: "3px 8px", cursor: "help" }}>
               {v.label}
             </span>
           );
@@ -452,7 +452,7 @@ export function FundamentalsPanel({ symbol, C, MONO, SANS }) {
       {state === "none" && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, padding: "16px 0", textAlign: "center" }}>⚠ Fundamentals unavailable (add an FMP key for full data on the live server).</div>}
       {state === "ok" && f && (
         <>
-          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 5 }}>VALUATION</div>
+          <div style={{ fontFamily: MONO, fontSize: 12.5, color: C.textDim, marginBottom: 5 }}>VALUATION</div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
             {box("P/E", num(f.pe || f.trailingPE, 1))}
             {box("P/S", num(f.priceToSales, 1))}
@@ -461,7 +461,7 @@ export function FundamentalsPanel({ symbol, C, MONO, SANS }) {
             {box("BETA", num(f.beta, 2))}
             {box("DIV YIELD", f.dividendYield != null ? pct(f.dividendYield) : "—")}
           </div>
-          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 5 }}>GROWTH &amp; MARGINS</div>
+          <div style={{ fontFamily: MONO, fontSize: 12.5, color: C.textDim, marginBottom: 5 }}>GROWTH &amp; MARGINS</div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
             {box("REV GROWTH", pct(f.revenueGrowth), f.revenueGrowth > 0 ? "#0d9465" : f.revenueGrowth < 0 ? "#c8282a" : null)}
             {box("EPS GROWTH", pct(f.earningsGrowth), f.earningsGrowth > 0 ? "#0d9465" : f.earningsGrowth < 0 ? "#c8282a" : null)}
@@ -482,7 +482,7 @@ export function FundamentalsPanel({ symbol, C, MONO, SANS }) {
             if (!read.bull.length && !read.bear.length) return null;
             return (
               <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 10 }}>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 8 }}>WHY — real thresholds, deterministic, not an AI call</div>
+                <div style={{ fontFamily: MONO, fontSize: 12.5, color: C.textDim, marginBottom: 8 }}>WHY — real thresholds, deterministic, not an AI call</div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
                   <div>
                     <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: "#0d9465", letterSpacing: "0.05em", marginBottom: 6 }}>▲ WHY IT'S GOOD</div>
@@ -493,12 +493,12 @@ export function FundamentalsPanel({ symbol, C, MONO, SANS }) {
                     ) : <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>Nothing stood out as a real strength.</div>}
                   </div>
                   <div>
-                    <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: "#c8282a", letterSpacing: "0.05em", marginBottom: 6 }}>▼ WHY IT'S BAD</div>
+                    <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: "#c8282a", letterSpacing: "0.05em", marginBottom: 6 }}>▼ WHY IT'S BAD</div>
                     {read.bear.length ? (
                       <ul style={{ margin: 0, paddingLeft: 18 }}>
                         {read.bear.map((r, i) => <li key={i} style={{ fontFamily: SANS, fontSize: 12, color: C.text, lineHeight: 1.55, marginBottom: 3 }}>{r}</li>)}
                       </ul>
-                    ) : <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>Nothing stood out as a real weakness.</div>}
+                    ) : <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim }}>Nothing stood out as a real weakness.</div>}
                   </div>
                 </div>
               </div>
@@ -524,7 +524,7 @@ export function CompanyProfile({ symbol, C, MONO, SANS }) {
   const mcStr = mc == null ? "—" : mc >= 1e12 ? "$" + (mc / 1e12).toFixed(2) + "T" : mc >= 1e9 ? "$" + (mc / 1e9).toFixed(1) + "B" : "$" + (mc / 1e6).toFixed(0) + "M";
   const row = (k, v) => (
     <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: `1px solid ${C.border}` }}>
-      <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>{k}</span>
+      <span style={{ fontFamily: MONO, fontSize: 13, color: C.textDim }}>{k}</span>
       <span style={{ fontFamily: SANS, fontSize: 12.5, fontWeight: 700, color: C.text }}>{v}</span>
     </div>
   );
@@ -536,7 +536,7 @@ export function CompanyProfile({ symbol, C, MONO, SANS }) {
       {row("Shares Out", f && f.sharesOutstanding ? (f.sharesOutstanding / 1e9).toFixed(2) + "B" : "—")}
       {row("Analyst Target", f && Number(f.analystTarget || f.targetMeanPrice) > 0 ? "$" + Number(f.analystTarget || f.targetMeanPrice).toFixed(2) : "—")}
       {f && f.description && <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, lineHeight: 1.55, marginTop: 10 }}>{String(f.description).slice(0, 400)}{f.description.length > 400 ? "…" : ""}</div>}
-      {!(f && f.description) && <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginTop: 10 }}>Company description needs an FMP key on the live server.</div>}
+      {!(f && f.description) && <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim, marginTop: 10 }}>Company description needs an FMP key on the live server.</div>}
     </div>
   );
 }
@@ -570,7 +570,7 @@ export function AiPredictPanel({ symbol, chart, C, MONO, SANS }) {
       </div>
       {state === "err" && <div style={{ fontFamily: MONO, fontSize: 12, color: "#c8282a" }}>⚠ {predictErr || "Prediction failed — try again."}</div>}
       {reply && <div style={{ fontFamily: SANS, fontSize: 13, lineHeight: 1.6, color: C.text, whiteSpace: "pre-wrap" }}>{reply}</div>}
-      {state === "idle" && <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginTop: 6 }}>Pick a date → AI projects a target price + range.</div>}
+      {state === "idle" && <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim, marginTop: 6 }}>Pick a date → AI projects a target price + range.</div>}
     </div>
   );
 }
@@ -592,18 +592,18 @@ export function COTPanel({ C, MONO, SANS }) {
   return (
     <div style={{ marginTop: 12, border: `1px solid ${C.border}`, borderRadius: 10, background: C.bg, overflow: "hidden" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "9px 12px", borderBottom: `1px solid ${C.border}` }}>
-        <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim }}>🏛 COT POSITIONING</span>
-        {d && d.reportDate && <span style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim }}>wk {d.reportDate}</span>}
+        <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.textDim }}>🏛 COT POSITIONING</span>
+        {d && d.reportDate && <span style={{ fontFamily: MONO, fontSize: 12.5, color: C.textDim }}>wk {d.reportDate}</span>}
       </div>
       {state === "loading" && <div style={{ padding: "16px 0", textAlign: "center", fontFamily: MONO, fontSize: 12, color: C.textDim }}>Loading…</div>}
-      {state === "none" && <div style={{ padding: "14px 12px", textAlign: "center", fontFamily: MONO, fontSize: 11, color: C.textDim }}>COT data not available yet.</div>}
+      {state === "none" && <div style={{ padding: "14px 12px", textAlign: "center", fontFamily: MONO, fontSize: 13, color: C.textDim }}>COT data not available yet.</div>}
       {state === "ok" && rows.map(([name, bias], i) => (
         <div key={name} style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "7px 12px", borderTop: i ? `1px solid ${C.border}` : "none", alignItems: "center" }}>
           <span style={{ fontFamily: SANS, fontSize: 12, color: C.text }}>{name}</span>
-          <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: biasCol(bias), textAlign: "right" }}>{bias}</span>
+          <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: biasCol(bias), textAlign: "right" }}>{bias}</span>
         </div>
       ))}
-      {state === "ok" && <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, padding: "7px 12px" }}>Big-trader futures positioning (CFTC, weekly). ⚠️ Crowded = extreme positioning, reversal risk.</div>}
+      {state === "ok" && <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, padding: "7px 12px" }}>Big-trader futures positioning (CFTC, weekly). ⚠️ Crowded = extreme positioning, reversal risk.</div>}
     </div>
   );
 }
@@ -624,12 +624,12 @@ export function PredictionMarkets({ C, MONO, SANS }) {
   const barCol = (p) => p >= 65 ? "#0d9465" : p >= 35 ? "#c9a227" : "#c8282a";
   return (
     <div style={{ marginTop: 12, border: `1px solid ${C.border}`, borderRadius: 10, background: C.bg, overflow: "hidden" }}>
-      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, padding: "9px 12px", borderBottom: `1px solid ${C.border}` }}>🎲 PREDICTION MARKETS</div>
+      <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.textDim, padding: "9px 12px", borderBottom: `1px solid ${C.border}` }}>🎲 PREDICTION MARKETS</div>
       {state === "ok" && (
         <div style={{ display: "flex", gap: 4, padding: "8px 10px", flexWrap: "wrap", borderBottom: `1px solid ${C.border}` }}>
           {CATS.map(c => (
             <button key={c} onClick={() => setCat(c)}
-              style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 700, padding: "3px 8px", borderRadius: 5, cursor: "pointer",
+              style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 700, padding: "3px 8px", borderRadius: 5, cursor: "pointer",
                 border: `1px solid ${cat === c ? C.accent : C.border}`, background: cat === c ? `${C.accent}16` : "transparent", color: cat === c ? C.accent : C.textDim }}>{c}</button>
           ))}
         </div>
@@ -668,7 +668,7 @@ export function SocialFeed({ symbol, C, MONO, SANS }) {
     <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, background: C.bg, overflow: "hidden" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", borderBottom: `1px solid ${C.border}` }}>
         <span style={{ fontFamily: SANS, fontSize: 14, fontWeight: 800, color: C.text }}>💬 Social — {symbol}</span>
-        {state === "ok" && <span style={{ fontFamily: MONO, fontSize: 11 }}><span style={{ color: "#0d9465" }}>🟢 {bull}</span> · <span style={{ color: "#c8282a" }}>🔴 {bear}</span></span>}
+        {state === "ok" && <span style={{ fontFamily: MONO, fontSize: 13 }}><span style={{ color: "#0d9465" }}>🟢 {bull}</span> · <span style={{ color: "#c8282a" }}>🔴 {bear}</span></span>}
       </div>
       {state === "loading" && <div style={{ padding: "18px 0", textAlign: "center", fontFamily: MONO, fontSize: 12, color: C.textDim }}>Loading feed…</div>}
       {state === "none" && <div style={{ padding: "16px 0", textAlign: "center", fontFamily: MONO, fontSize: 12, color: C.textDim }}>No recent posts.</div>}
@@ -677,14 +677,14 @@ export function SocialFeed({ symbol, C, MONO, SANS }) {
         return (
           <div key={m.id} style={{ padding: "9px 14px", borderTop: `1px solid ${C.border}` }}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-              <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.accent }}>@{m.user}</span>
-              <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{m.sentiment ? <b style={{ color: sc }}>{m.sentiment === "Bullish" ? "🟢 Bull" : "🔴 Bear"} · </b> : ""}{ago(m.at)}</span>
+              <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: C.accent }}>@{m.user}</span>
+              <span style={{ fontFamily: MONO, fontSize: 12.5, color: C.textDim }}>{m.sentiment ? <b style={{ color: sc }}>{m.sentiment === "Bullish" ? "🟢 Bull" : "🔴 Bear"} · </b> : ""}{ago(m.at)}</span>
             </div>
             <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.text, lineHeight: 1.4, marginTop: 3 }}>{m.body}</div>
           </div>
         );
       })}
-      {state === "ok" && <div style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim, padding: "8px 14px" }}>Source: StockTwits (free). X/Twitter posts require a paid API.</div>}
+      {state === "ok" && <div style={{ fontFamily: MONO, fontSize: 12.5, color: C.textDim, padding: "8px 14px" }}>Source: StockTwits (free). X/Twitter posts require a paid API.</div>}
     </div>
   );
 }
@@ -728,21 +728,21 @@ export function InvestorsPanel({ symbol, C, MONO, SANS }) {
         <>
           <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
             <div style={{ flex: 1, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px" }}>
-              <div style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim }}>HELD BY INSTITUTIONS</div>
+              <div style={{ fontFamily: MONO, fontSize: 12.5, color: C.textDim }}>HELD BY INSTITUTIONS</div>
               <div style={{ fontFamily: NUM, fontSize: 22, fontWeight: 700, color: C.text }}>{inst.institutionsPct ? inst.institutionsPct + "%" : "—"}</div>
             </div>
             <div style={{ flex: 1, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px" }}>
-              <div style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim }}>HELD BY INSIDERS</div>
+              <div style={{ fontFamily: MONO, fontSize: 12.5, color: C.textDim }}>HELD BY INSIDERS</div>
               <div style={{ fontFamily: NUM, fontSize: 22, fontWeight: 700, color: C.text }}>{inst.insidersPct ? inst.insidersPct + "%" : "—"}</div>
             </div>
           </div>
           {holders.length > 0 && (
             <>
-              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 5 }}>TOP INSTITUTIONAL HOLDERS</div>
+              <div style={{ fontFamily: MONO, fontSize: 12.5, color: C.textDim, marginBottom: 5 }}>TOP INSTITUTIONAL HOLDERS</div>
               {holders.slice(0, 6).map((h, i) => (
                 <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "5px 0", borderBottom: `1px solid ${C.border}` }}>
                   <span style={{ fontFamily: SANS, fontSize: 12, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.name}</span>
-                  <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, whiteSpace: "nowrap" }}>{h.pctHeld ? h.pctHeld + "% · " : ""}{big(h.value)}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 13, color: C.textDim, whiteSpace: "nowrap" }}>{h.pctHeld ? h.pctHeld + "% · " : ""}{big(h.value)}</span>
                 </div>
               ))}
             </>
@@ -750,15 +750,15 @@ export function InvestorsPanel({ symbol, C, MONO, SANS }) {
           {Array.isArray(txns) && txns.length > 0 && (
             <>
               <div style={{ display: "flex", alignItems: "center", gap: 6, margin: "12px 0 5px" }}>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>RECENT INSIDER TRANSACTIONS</div>
+                <div style={{ fontFamily: MONO, fontSize: 12.5, color: C.textDim }}>RECENT INSIDER TRANSACTIONS</div>
                 {insiderSource === "sec-edgar" && (
                   <span style={{ fontFamily: MONO, fontSize: 8.5, fontWeight: 700, color: C.textDim, border: `1px solid ${C.border}`, borderRadius: 3, padding: "1px 5px" }} title="Yahoo returned no data for this symbol — fetched directly from SEC EDGAR's real Form 4 filings instead.">via SEC EDGAR</span>
                 )}
               </div>
               {txns.slice(0, 6).map((t, i) => (
                 <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "5px 0", borderBottom: `1px solid ${C.border}` }}>
-                  <span style={{ fontFamily: SANS, fontSize: 11.5, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.name} <span style={{ color: C.textDim }}>{t.role}</span></span>
-                  <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: t.type === "SELL" ? "#c8282a" : "#0d9465", whiteSpace: "nowrap" }}>{t.type} {big(t.value)}</span>
+                  <span style={{ fontFamily: SANS, fontSize: 13.5, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.name} <span style={{ color: C.textDim }}>{t.role}</span></span>
+                  <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: t.type === "SELL" ? "#c8282a" : "#0d9465", whiteSpace: "nowrap" }}>{t.type} {big(t.value)}</span>
                 </div>
               ))}
             </>
@@ -772,29 +772,29 @@ export function InvestorsPanel({ symbol, C, MONO, SANS }) {
           behind `hasData`. */}
       {short && (short.shortFloat != null || short.shortRatio != null) && (
         <>
-          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, margin: "12px 0 5px" }}>SHORT INTEREST</div>
+          <div style={{ fontFamily: MONO, fontSize: 12.5, color: C.textDim, margin: "12px 0 5px" }}>SHORT INTEREST</div>
           <div style={{ display: "flex", gap: 8 }}>
             <div style={{ flex: 1, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px" }}>
-              <div style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim }}>SHORT % OF FLOAT</div>
+              <div style={{ fontFamily: MONO, fontSize: 12.5, color: C.textDim }}>SHORT % OF FLOAT</div>
               <div style={{ fontFamily: NUM, fontSize: 18, fontWeight: 700, color: short.shortFloat > 20 ? "#c8282a" : short.shortFloat > 10 ? "#d6a312" : C.text }}>{short.shortFloat != null ? short.shortFloat.toFixed(1) + "%" : "—"}</div>
             </div>
             <div style={{ flex: 1, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px" }}>
-              <div style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim }}>DAYS TO COVER</div>
+              <div style={{ fontFamily: MONO, fontSize: 12.5, color: C.textDim }}>DAYS TO COVER</div>
               <div style={{ fontFamily: NUM, fontSize: 18, fontWeight: 700, color: C.text }}>{short.shortRatio != null ? short.shortRatio.toFixed(1) : "—"}</div>
             </div>
           </div>
         </>
       )}
-      <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, margin: "12px 0 5px" }}>DARK POOL PRINTS</div>
+      <div style={{ fontFamily: MONO, fontSize: 12.5, color: C.textDim, margin: "12px 0 5px" }}>DARK POOL PRINTS</div>
       {dp && dp.ok && Array.isArray(dp.prints) && dp.prints.length > 0 ? (
         dp.prints.slice(0, 6).map((p, i) => (
           <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "5px 0", borderBottom: `1px solid ${C.border}` }}>
-            <span style={{ fontFamily: MONO, fontSize: 11.5, color: C.textDim }}>{p.time ? new Date(p.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"} · {p.size ? Number(p.size).toLocaleString() : "—"} sh @ ${p.price != null ? Number(p.price).toFixed(2) : "—"}</span>
-            <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.accent }}>{big(p.value)}</span>
+            <span style={{ fontFamily: MONO, fontSize: 13.5, color: C.textDim }}>{p.time ? new Date(p.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"} · {p.size ? Number(p.size).toLocaleString() : "—"} sh @ ${p.price != null ? Number(p.price).toFixed(2) : "—"}</span>
+            <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: C.accent }}>{big(p.value)}</span>
           </div>
         ))
       ) : (
-        <div style={{ fontFamily: MONO, fontSize: 11.5, color: C.textDim, padding: "6px 0" }}>
+        <div style={{ fontFamily: MONO, fontSize: 13.5, color: C.textDim, padding: "6px 0" }}>
           {dp && dp.ok === false && dp.error === "Unusual Whales API key not configured" ? "⚠ Dark pool prints need an Unusual Whales API key — not configured." : dp && dp.ok ? "No block prints >$500K today." : "Loading…"}
         </div>
       )}
@@ -826,7 +826,7 @@ export function OptionsFlowPanel({ symbol, C, MONO, SANS }) {
         <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 800, color: C.text }}>💵 Options Flow — {symbol}</div>
         {d && (
           <span title={isEstimated ? "No live options feed configured (Tradier/Yahoo) — this is a price/volume-momentum estimate, not real order flow" : "Real live options data"}
-            style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, padding: "2px 7px", borderRadius: 5, cursor: "help",
+            style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "2px 7px", borderRadius: 5, cursor: "help",
               color: isEstimated ? "#d6a312" : "#0d9465", background: isEstimated ? "#d6a31218" : "#0d946518" }}>
             {isEstimated ? "ESTIMATED" : "LIVE"}
           </span>
@@ -838,31 +838,31 @@ export function OptionsFlowPanel({ symbol, C, MONO, SANS }) {
         <>
           <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
             <div style={{ flex: 1, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px" }}>
-              <div style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim }}>CALL NOTIONAL</div>
+              <div style={{ fontFamily: MONO, fontSize: 12.5, color: C.textDim }}>CALL NOTIONAL</div>
               <div style={{ fontFamily: NUM, fontSize: 18, fontWeight: 700, color: "#0d9465" }}>{big(d.summary?.callNotional)}</div>
             </div>
             <div style={{ flex: 1, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px" }}>
-              <div style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim }}>PUT NOTIONAL</div>
+              <div style={{ fontFamily: MONO, fontSize: 12.5, color: C.textDim }}>PUT NOTIONAL</div>
               <div style={{ fontFamily: NUM, fontSize: 18, fontWeight: 700, color: "#c8282a" }}>{big(d.summary?.putNotional)}</div>
             </div>
             <div style={{ flex: 1, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px" }}>
-              <div style={{ fontFamily: MONO, fontSize: 9.5, color: C.textDim }}>CALL/PUT BIAS</div>
+              <div style={{ fontFamily: MONO, fontSize: 12.5, color: C.textDim }}>CALL/PUT BIAS</div>
               <div style={{ fontFamily: NUM, fontSize: 18, fontWeight: 700, color: (d.summary?.callNotional || 0) >= (d.summary?.putNotional || 0) ? "#0d9465" : "#c8282a" }}>
                 {(d.summary?.callNotional || 0) >= (d.summary?.putNotional || 0) ? "BULLISH" : "BEARISH"}
               </div>
             </div>
           </div>
           {flow.length === 0 ? (
-            <div style={{ fontFamily: MONO, fontSize: 11.5, color: C.textDim, padding: "6px 0" }}>No contracts matched today.</div>
+            <div style={{ fontFamily: MONO, fontSize: 13.5, color: C.textDim, padding: "6px 0" }}>No contracts matched today.</div>
           ) : (
             <>
-              <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginBottom: 5 }}>TOP CONTRACTS BY NOTIONAL</div>
+              <div style={{ fontFamily: MONO, fontSize: 12.5, color: C.textDim, marginBottom: 5 }}>TOP CONTRACTS BY NOTIONAL</div>
               {flow.slice(0, 10).map((r, i) => (
                 <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "5px 0", borderBottom: `1px solid ${C.border}` }}>
-                  <span style={{ fontFamily: MONO, fontSize: 11.5, color: r.side === "CALL" ? "#0d9465" : "#c8282a", fontWeight: 700 }}>{r.side} ${r.strike}</span>
-                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{r.expiry || "—"} · vol {r.volume?.toLocaleString() ?? "—"} · OI {r.openInterest?.toLocaleString() ?? "—"}</span>
-                  <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, padding: "1px 6px", borderRadius: 4, color: C.accent, background: `${C.accent}18` }}>{r.tradeType}</span>
-                  <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.text }}>{big(r.notional)}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 13.5, color: r.side === "CALL" ? "#0d9465" : "#c8282a", fontWeight: 700 }}>{r.side} ${r.strike}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 12.5, color: C.textDim }}>{r.expiry || "—"} · vol {r.volume?.toLocaleString() ?? "—"} · OI {r.openInterest?.toLocaleString() ?? "—"}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "1px 6px", borderRadius: 4, color: C.accent, background: `${C.accent}18` }}>{r.tradeType}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: C.text }}>{big(r.notional)}</span>
                 </div>
               ))}
             </>
@@ -905,13 +905,13 @@ export function TradeExtrasPanel({ data, macroData, C, MONO, SANS }) {
   return (
     <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, maxWidth: 320 }}>
-        <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 8 }}>POSITION SIZE</div>
+        <div style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 8 }}>POSITION SIZE</div>
         <Row k="Account" v={`$${acct.toLocaleString()}`} />
         <Row k="Risk per trade" v={`${riskPct}%`} />
         <Row k="Suggested shares" v={shares} c={C.accent} />
         <Row k="Dollar risk (max loss)" v={`$${dollarRisk}`} c={C.red} />
         <Row k="Capital deployed" v={`$${(shares * entry).toFixed(0)}`} />
-        <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginTop: 6 }}>Sizes off your saved account & risk % (Tools tab).</div>
+        <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.textDim, marginTop: 6 }}>Sizes off your saved account & risk % (Tools tab).</div>
       </div>
       <div>
         <button onClick={askAi} disabled={aiLoading} style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "9px 16px", borderRadius: 8, border: `1px solid ${C.accent}`, background: `${C.accent}14`, color: C.accent, cursor: "pointer" }}>{aiLoading ? "⏳ asking AI…" : "🧠 AI second opinion"}</button>
@@ -939,7 +939,7 @@ export function PerformanceCard({ C, MONO, SANS }) {
   const money = (v) => v == null ? "—" : (v >= 0 ? "+$" : "-$") + Math.abs(v).toFixed(0);
   const box = (label, val, col) => (
     <div key={label} style={{ flex: "1 1 90px", border: `1px solid ${C.border}`, borderRadius: 8, padding: "7px 11px", background: C.bg }}>
-      <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim }}>{label}</div>
+      <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.textDim }}>{label}</div>
       <div style={{ fontFamily: NUM, fontSize: 20, fontWeight: 700, color: col || C.text }}>{val}</div>
     </div>
   );
@@ -947,7 +947,7 @@ export function PerformanceCard({ C, MONO, SANS }) {
     <div style={{ marginBottom: 14, border: `1px solid ${C.border}`, borderRadius: 12, padding: "12px 14px", background: C.card }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
         <span style={{ fontFamily: SANS, fontSize: 15, fontWeight: 900, color: C.text }}>📈 My Performance</span>
-        <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: "#0d9465", background: "#0d946518", borderRadius: 4, padding: "1px 7px" }}>PAPER</span>
+        <span style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 700, color: "#0d9465", background: "#0d946518", borderRadius: 4, padding: "1px 7px" }}>PAPER</span>
       </div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         {box("EQUITY", eq == null ? "—" : "$" + eq.toLocaleString(undefined, { maximumFractionDigits: 0 }))}
@@ -961,12 +961,12 @@ export function PerformanceCard({ C, MONO, SANS }) {
         {box("SHARPE", n >= MIN_TRADES_FOR_EDGE && sharpe != null ? sharpe.toFixed(2) : "—", sharpe == null ? null : sharpe >= 1 ? "#0d9465" : sharpe >= 0 ? "#d6a312" : "#c8282a")}
       </div>
       {n > 0 ? (
-        <div style={{ fontFamily: MONO, fontSize: 10.5, color: C.textDim, marginTop: 8 }}>
+        <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim, marginTop: 8 }}>
           Best: <b style={{ color: "#0d9465" }}>{best.symbol} {money(best.pnl)}</b> · Worst: <b style={{ color: "#c8282a" }}>{worst.symbol} {money(worst.pnl)}</b>
           {" · "}{n < MIN_TRADES_FOR_EDGE ? `⏳ ${n}/${MIN_TRADES_FOR_EDGE} trades — real edge check needs more history` : edgeReady ? "✓ positive edge over 20+ trades" : "✕ no edge yet — refine before sizing up"}
         </div>
       ) : (
-        <div style={{ fontFamily: MONO, fontSize: 10.5, color: C.textDim, marginTop: 8 }}>No closed trades yet — stats fill in as the autopilot's paper positions close. Give it time.</div>
+        <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim, marginTop: 8 }}>No closed trades yet — stats fill in as the autopilot's paper positions close. Give it time.</div>
       )}
     </div>
   );
@@ -1112,25 +1112,25 @@ export function BestOpportunities({ C, MONO, SANS, onPick, macroData, setActiveT
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "12px 16px", flexWrap: "wrap" }}>
         <div>
           <div style={{ fontFamily: SANS, fontSize: 17, fontWeight: 900, color: C.text }}>🎯 Best Opportunities Now</div>
-          <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>
+          <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim }}>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><span style={{ width: 7, height: 7, borderRadius: "50%", background: "#0d9465", display: "inline-block" }} /> Auto-scans every 5 min</span>
             {lastScan ? ` · updated ${Math.round((Date.now() - lastScan) / 1000) < 60 ? "just now" : Math.round((Date.now() - lastScan) / 60000) + "m ago"}` : ""}
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           <button onClick={() => setOnlyStrong(v => !v)} title="Only show market-leading stocks (Relative Strength ≥ 70)"
-            style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "8px 12px", borderRadius: 8, cursor: "pointer",
+            style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, padding: "8px 12px", borderRadius: 8, cursor: "pointer",
               border: `1px solid ${onlyStrong ? "#0d9465" : C.border}`, background: onlyStrong ? "rgba(13,148,101,0.12)" : C.bg, color: onlyStrong ? "#0d9465" : C.textDim }}>
             {onlyStrong ? "✓ Leaders only (RS≥70)" : "All setups"}
           </button>
           <button onClick={enableNotify} title="Get an in-browser popup when a new GO buy-point appears (needs this tab open + notification permission granted). A real Telegram alert for the same event now runs on the server independently — that one works even with this tab closed."
-            style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "8px 12px", borderRadius: 8, cursor: "pointer",
+            style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, padding: "8px 12px", borderRadius: 8, cursor: "pointer",
               border: `1px solid ${notifyOn ? "#7c5cff" : C.border}`, background: notifyOn ? "rgba(124,92,255,0.12)" : C.bg, color: notifyOn ? "#7c5cff" : C.textDim }}>
             {notifyOn ? "🔔 Browser alerts ON" : "🔕 Browser popup on new GO"}
           </button>
           <button onClick={() => { const v = !autoWatchlist; setAutoWatchlist(v); localStorage.setItem("bestopp_autowatchlist", v ? "on" : "off"); }}
             title="Automatically add every symbol that shows up in this ranked list to your Watchlist"
-            style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "8px 12px", borderRadius: 8, cursor: "pointer",
+            style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, padding: "8px 12px", borderRadius: 8, cursor: "pointer",
               border: `1px solid ${autoWatchlist ? "#d6a312" : C.border}`, background: autoWatchlist ? "rgba(214,163,18,0.12)" : C.bg, color: autoWatchlist ? "#d6a312" : C.textDim }}>
             {autoWatchlist ? "⭐ Auto-watchlist ON" : "Auto-watchlist OFF"}
           </button>
@@ -1141,7 +1141,7 @@ export function BestOpportunities({ C, MONO, SANS, onPick, macroData, setActiveT
           </button>
         </div>
       </div>
-      {autoAddMsg && <div style={{ fontFamily: MONO, fontSize: 11.5, fontWeight: 700, color: "#d6a312", padding: "0 16px 8px" }}>{autoAddMsg}</div>}
+      {autoAddMsg && <div style={{ fontFamily: MONO, fontSize: 13.5, fontWeight: 700, color: "#d6a312", padding: "0 16px 8px" }}>{autoAddMsg}</div>}
       {/* Market-regime banner — breakouts work in green markets, fail in red ones. */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 16px", background: `${regime.color}14`, borderTop: `1px solid ${C.border}`, borderBottom: state === "ok" || state === "none" ? `1px solid ${C.border}` : "none", flexWrap: "wrap" }}>
         <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: regime.color }}>MARKET: {regime.label} {regime.score}/100</span>
@@ -1172,13 +1172,13 @@ export function BestOpportunities({ C, MONO, SANS, onPick, macroData, setActiveT
                         </span>
                       )}
                       <span title={r._aplus.reasons.join(" · ")} style={{ fontFamily: MONO, fontSize: 12, fontWeight: 900, color: "#fff", background: ac, borderRadius: 5, padding: "2px 8px", cursor: "help" }}>A+ {r._aplus.score}</span>
-                      {r._new && <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 800, color: "#fff", background: "#7c5cff", borderRadius: 4, padding: "1px 6px" }}>NEW</span>}
-                      <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: bc, background: `${bc}18`, borderRadius: 5, padding: "2px 8px" }}>{badge}</span>
-                      <span style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>R:R {r._rr.toFixed(1)}:1</span>
+                      {r._new && <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: "#fff", background: "#7c5cff", borderRadius: 4, padding: "1px 6px" }}>NEW</span>}
+                      <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: bc, background: `${bc}18`, borderRadius: 5, padding: "2px 8px" }}>{badge}</span>
+                      <span style={{ fontFamily: MONO, fontSize: 13, color: C.textDim }}>R:R {r._rr.toFixed(1)}:1</span>
                     </div>
-                    <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginTop: 2 }}>{why(r)}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim, marginTop: 2 }}>{why(r)}</div>
                   </div>
-                  <div style={{ textAlign: "right", fontFamily: MONO, fontSize: 11, whiteSpace: "nowrap" }}>
+                  <div style={{ textAlign: "right", fontFamily: MONO, fontSize: 13, whiteSpace: "nowrap" }}>
                     <div style={{ color: C.accent }}>Buy ${r.entry}</div>
                     <div style={{ color: "#c8282a" }}>Stop ${r.stop}</div>
                     <div style={{ color: "#0d9465" }}>Target ${r.target2}</div>
@@ -1186,7 +1186,7 @@ export function BestOpportunities({ C, MONO, SANS, onPick, macroData, setActiveT
                   <button
                     onClick={(e) => { e.stopPropagation(); askWhy(r, live); }}
                     title={`Why is ${r.symbol} moving? — real web-searched catalyst`}
-                    style={{ flexShrink: 0, fontFamily: MONO, fontSize: 11, fontWeight: 800, border: `1px solid #7c5cff`, background: isWhyOpen ? "rgba(124,92,255,0.22)" : "rgba(124,92,255,0.14)", color: "#a78bfa", borderRadius: 6, padding: "6px 10px", cursor: "pointer" }}>
+                    style={{ flexShrink: 0, fontFamily: MONO, fontSize: 13, fontWeight: 800, border: `1px solid #7c5cff`, background: isWhyOpen ? "rgba(124,92,255,0.22)" : "rgba(124,92,255,0.14)", color: "#a78bfa", borderRadius: 6, padding: "6px 10px", cursor: "pointer" }}>
                     🤖 Why{whyState[r.symbol] === "loading" ? "…" : ""}
                   </button>
                   <button
@@ -1214,7 +1214,7 @@ export function BestOpportunities({ C, MONO, SANS, onPick, macroData, setActiveT
                       setActiveTab && setActiveTab("tradeplanner");
                     }}
                     title={`Plan this trade — opens Trade Planner with ${r.symbol}'s real entry/stop from this scan already filled in`}
-                    style={{ flexShrink: 0, fontFamily: MONO, fontSize: 11, fontWeight: 800, border: `1px solid ${C.accent}`, background: `${C.accent}14`, color: C.accent, borderRadius: 6, padding: "6px 10px", cursor: "pointer" }}>
+                    style={{ flexShrink: 0, fontFamily: MONO, fontSize: 13, fontWeight: 800, border: `1px solid ${C.accent}`, background: `${C.accent}14`, color: C.accent, borderRadius: 6, padding: "6px 10px", cursor: "pointer" }}>
                     🎯 Plan
                   </button>
                 </div>
@@ -1228,7 +1228,7 @@ export function BestOpportunities({ C, MONO, SANS, onPick, macroData, setActiveT
               </div>
             );
           })}
-          <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, padding: "2px 4px" }}>Tap any name to open its chart + full setup, or Plan to jump straight to Trade Planner.</div>
+          <div style={{ fontFamily: MONO, fontSize: 12.5, color: C.textDim, padding: "2px 4px" }}>Tap any name to open its chart + full setup, or Plan to jump straight to Trade Planner.</div>
         </div>
       )}
     </div>
