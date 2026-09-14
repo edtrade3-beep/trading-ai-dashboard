@@ -24,7 +24,7 @@ let passed = 0;
 function ok(name, fn) { try { fn(); passed++; console.log(`  ✓ ${name}`); } catch (e) { console.error(`  ✗ ${name}\n    ${e.message}`); process.exitCode = 1; } }
 
 const src = fs.readFileSync(path.join(__dirname, "..", "src", "routes", "market.js"), "utf8");
-const fetchStart = src.indexOf("async function fetchRankedChainForStrategy(symbol, { minDte = 7 } = {})");
+const fetchStart = src.indexOf("async function fetchRankedChainForStrategy(symbol)");
 assert.ok(fetchStart > 0, "fetchRankedChainForStrategy not found");
 const fetchFnEnd = src.indexOf("\n  if (pathname ===", fetchStart);
 const fetchFn = src.slice(fetchStart, fetchFnEnd);
@@ -37,7 +37,7 @@ ok("TEST 1/2 — selectedExpiry/dte are read directly off the canonical chain, n
 });
 
 ok("TEST 3/7 — canonical chain unavailable -> Strategy Rank unavailable (empty calls/puts), no fallback fetch, no Polygon/Yahoo call remains reachable", () => {
-  assert.match(fetchFn, /if \(!chain\.available\) \{\s*\n\s*return \{ underlying: 0, calls: \[\], puts: \[\], source: chain\.source \|\| "yahoo", selectedExpiry: null, dteFloorMet: false, minDte \};/);
+  assert.match(fetchFn, /if \(!chain\.available\) \{\s*\n\s*return \{ underlying: 0, calls: \[\], puts: \[\], source: chain\.source \|\| "yahoo", selectedExpiry: null \};/);
   assert.doesNotMatch(fetchFn, /fetchYahooOptionsChain\(|polygon\.io|POLYGON_API_KEY/i, "no independent provider fetch may remain reachable in this function");
 });
 
@@ -64,13 +64,19 @@ ok("no Polygon snapshot/contracts URL remains reachable inside fetchRankedChainF
 
 console.log("\nChecking caller-contract compatibility — return shape preserved for existing callers…");
 
-ok("return shape still carries underlying/calls/puts/source/selectedExpiry/dteFloorMet/minDte — every existing destructuring caller keeps working unmodified", () => {
-  assert.match(fetchFn, /return \{ underlying, calls, puts, source: chain\.source, selectedExpiry: chain\.selectedExpiry, dteFloorMet: true, minDte \};/);
+ok("return shape carries underlying/calls/puts/source/selectedExpiry — every existing destructuring caller keeps working", () => {
+  assert.match(fetchFn, /return \{ underlying, calls, puts, source: chain\.source, selectedExpiry: chain\.selectedExpiry \};/);
 });
 
-ok("minDte is accepted (signature-compatible with every existing call site, none of which pass a second argument) but no longer drives any selection logic in this function", () => {
-  assert.match(fetchFn, /async function fetchRankedChainForStrategy\(symbol, \{ minDte = 7 \} = \{\}\) \{/);
-  assert.doesNotMatch(fetchFn, />= minDte\b/, "minDte must not be compared against anything — it is now inert");
+// UPDATE (2026-09-14, Stage 3 "Legacy Options Acquisition Cleanup"): the
+// now-dead minDte parameter and dteFloorMet return field (proven unread
+// by every real caller once Stage 2 shipped) have been removed entirely
+// — no caller ever passed minDte, and dteFloorMet's one real consumer
+// (robinhood-ticket's shortDteWarning) was provably unreachable, so
+// there is nothing left for either to signal.
+ok("fetchRankedChainForStrategy takes only (symbol) — the dead minDte parameter is gone, not just inert", () => {
+  assert.match(fetchFn, /async function fetchRankedChainForStrategy\(symbol\) \{/);
+  assert.doesNotMatch(fetchFn, /minDte|dteFloorMet/, "neither the dead parameter nor the dead return field should exist anywhere in this function anymore");
 });
 
 console.log(`\n${passed} checks passed.`);

@@ -377,11 +377,11 @@ function RobinhoodTicketCard({ symbol, strategy, ticket, loading, C, MONO, SANS,
       </div>
       {check && <div style={{ marginBottom: 12, fontFamily: SANS, fontSize: 14, color: C.text }}>{check.reason}</div>}
 
-      {ticket.shortDteWarning && (
-        <div style={{ marginBottom: 12, padding: "10px 12px", background: `${C.amber}18`, border: `1px solid ${C.amber}66`, borderRadius: 8, fontFamily: SANS, fontSize: 14, color: C.text }}>
-          ⚠️ <b>SHORT DTE — {ticket.expiration}.</b> {ticket.shortDteWarning}
-        </div>
-      )}
+      {/* shortDteWarning removed (Stage 3, 2026-09-14) — the backend no
+          longer produces it: a ticket can only be available:true from a
+          chain that already guarantees DTE>=21 (canonical Options Chain
+          Service), so the old short-DTE case this warned about can no
+          longer occur. */}
 
       {/* Robinhood Options Decision System (2026-09-08, spec §14) — same
           real 6-block classification as the candidate card above, on the

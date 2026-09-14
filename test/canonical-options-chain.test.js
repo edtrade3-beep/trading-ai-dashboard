@@ -128,7 +128,7 @@ async function run() {
   console.log("\nChecking fetchRankedChainForStrategy now consumes the shared chain service (Stage 2, no independent provider authority left)…");
 
   ok("fetchRankedChainForStrategy no longer has its own independent fetch/DTE logic (realDte/Polygon branch) — it now calls getCanonicalOptionsChain", () => {
-    const fetchStart = src.indexOf("async function fetchRankedChainForStrategy(symbol, { minDte = 7 } = {})");
+    const fetchStart = src.indexOf("async function fetchRankedChainForStrategy(symbol)");
     assert.ok(fetchStart > 0);
     const fetchFnEnd = src.indexOf("\n  if (pathname ===", fetchStart);
     const fetchFn = src.slice(fetchStart, fetchFnEnd);

@@ -5849,25 +5849,16 @@ async function handleMarket(req, res, requestUrl) {
   // Yahoo-fallback, single nearest expiry) — the strategy-selector.js
   // leg-construction math never touches score internals, only real
   // strike/premium/delta/pop/liquidity fields this same chain already has.
-  // fetchRankedChainForStrategy — the real nearest-expiry chain fetch +
-  // rankContracts pass shared by /api/market/strategy and
-  // /api/market/strategy-rank (extracted, 2026-08-29, so the ranking
-  // engine's own new route doesn't duplicate this real Polygon/Yahoo
-  // fetch — same real data, same real ranking, one route builds one
-  // structure from it and the other builds all of them).
-  // minDte (2026-09-08, Options Buy Assistant §10 "Exact Option
-  // Filtering" — explicit user spec: "The scanner should automatically
-  // reject... extremely short DTE unless using a separately tested
-  // strategy"). Real bug found live: this always picked expiryDates[0]
-  // (the single nearest available date) with no floor, and a real test
-  // against MSFT's live chain came back 1 DTE — a same-week contract
-  // dominated by gamma/theta, not the multi-day directional thesis this
-  // app's own strategy-selector.js structures assume. Default floor is 7
-  // real calendar days; a caller that genuinely wants 0-DTE can pass
-  // minDte:0 explicitly. Honestly falls back to the real nearest expiry
-  // (disclosed via `dteFloorMet:false`) when literally every available
-  // real expiry is inside the floor — never throws away a real, if
-  // short-dated, chain just because no long-dated one exists yet.
+  // fetchRankedChainForStrategy — the real ranked-chain + rankContracts
+  // pass shared by /api/market/strategy and /api/market/strategy-rank
+  // (extracted, 2026-08-29, so the ranking engine's own route doesn't
+  // duplicate this fetch — same real data, same real ranking, one route
+  // builds one structure from it and the other builds all of them). Its
+  // original own minDte=7/Polygon-fetch/fail-open expiry selection was
+  // replaced (Stage 2, 2026-09-14) by the shared canonical chain service
+  // below, then the now-dead minDte parameter and dteFloorMet return
+  // field were removed entirely (Stage 3, 2026-09-14) — see that
+  // function's own comment.
   // Canonical Options Chain Service (2026-09-14, "Stage 1: Extract
   // Canonical Options Chain Service") — the real fetch -> safe ET/21-DTE
   // expiry selection -> normalization this file already ran inline inside
@@ -6045,29 +6036,28 @@ async function handleMarket(req, res, requestUrl) {
   // UNCHANGED — only the chain this scores now comes from the canonical
   // source instead of Strategy Rank's own.
   //
-  // `minDte` is now IGNORED (expiry selection is owned entirely by
-  // getCanonicalOptionsChain's real MIN_ENTRY_DTE policy) — kept only so
-  // every existing caller (none of which pass a second argument, all
-  // relying on the old default of 7) doesn't need a signature change in
-  // this task; Stage 3 may remove it. Strategy
-  // Rank's own local `realDte()` formula, its minDte-based `.find()`
-  // selection, the fail-open nearest-expiry fallback, and the Polygon
-  // fetch branch are all gone from this function as of this change (Part
-  // 1's explicit instruction) — this function no longer has independent
-  // provider authority. `dteFloorMet` is retained in the return shape for
-  // caller compatibility (robinhood-ticket's shortDteWarning reads it)
-  // but is now trivial: always true when a canonical chain is available
-  // (since availability itself already guarantees DTE>=21), false only
-  // when canonical has nothing.
-  async function fetchRankedChainForStrategy(symbol, { minDte = 7 } = {}) {
+  // Strategy Rank's own local `realDte()` formula, its minDte-based
+  // `.find()` selection, the fail-open nearest-expiry fallback, and the
+  // Polygon fetch branch are all gone from this function as of the Stage
+  // 2 change above — this function no longer has independent provider
+  // authority. Stage 3 (2026-09-14, "Legacy Options Acquisition Cleanup")
+  // removes the `minDte` parameter and `dteFloorMet` return field
+  // entirely: `minDte` was never passed by any real caller and never
+  // read after Stage 2, and `dteFloorMet` was always `true` whenever a
+  // canonical chain was available (availability itself already
+  // guarantees DTE>=21) — the one place that branched on it being
+  // `false` (robinhood-ticket's shortDteWarning, describing the old
+  // 7-day floor) was provably unreachable post-Stage-2 and has been
+  // removed with it.
+  async function fetchRankedChainForStrategy(symbol) {
     const chain = await getCanonicalOptionsChain(symbol);
     if (!chain.available) {
-      return { underlying: 0, calls: [], puts: [], source: chain.source || "yahoo", selectedExpiry: null, dteFloorMet: false, minDte };
+      return { underlying: 0, calls: [], puts: [], source: chain.source || "yahoo", selectedExpiry: null };
     }
     const underlying = chain.underlying || 0;
     const calls = rankContracts(chain.calls, { underlying, isCall: true });
     const puts = rankContracts(chain.puts, { underlying, isCall: false });
-    return { underlying, calls, puts, source: chain.source, selectedExpiry: chain.selectedExpiry, dteFloorMet: true, minDte };
+    return { underlying, calls, puts, source: chain.source, selectedExpiry: chain.selectedExpiry };
   }
 
   if (pathname === "/api/market/strategy" && req.method === "GET") {
@@ -6138,7 +6128,7 @@ async function handleMarket(req, res, requestUrl) {
 
     try {
       const { rankAllStrategies } = require("../strategy-ranking");
-      const { underlying, calls, puts, source, selectedExpiry, dteFloorMet } = await fetchRankedChainForStrategy(symbol);
+      const { underlying, calls, puts, source, selectedExpiry } = await fetchRankedChainForStrategy(symbol);
       if (!(underlying > 0) || (!calls.length && !puts.length)) {
         return writeJson(res, 200, { ok: true, symbol, underlying, optionsAllowed: true, ranked: [], unavailable: [], best: null, reason: "No real options chain available for this symbol right now." });
       }
@@ -6163,7 +6153,7 @@ async function handleMarket(req, res, requestUrl) {
       const { explainStrategy } = require("../strategy-explain");
       const explained = ranked.map((s) => ({ ...s, explanation: explainStrategy(s, ranked, { bias, character, technicals }) }));
 
-      return writeJson(res, 200, { ok: true, symbol, underlying, optionsAllowed: true, bias, character, ranked: explained, unavailable, best: explained[0] || null, source, selectedExpiry, dteFloorMet, generatedAt: new Date().toISOString() });
+      return writeJson(res, 200, { ok: true, symbol, underlying, optionsAllowed: true, bias, character, ranked: explained, unavailable, best: explained[0] || null, source, selectedExpiry, generatedAt: new Date().toISOString() });
     } catch (err) {
       return writeJson(res, 502, { ok: false, error: err instanceof Error ? err.message : "Strategy ranking failed." });
     }
@@ -6241,7 +6231,7 @@ async function handleMarket(req, res, requestUrl) {
             const permission = await resolveCanonicalOptionsPermission(symbol);
             if (!permission.allowed) return { symbol, ok: false, reason: permission.reason };
 
-            const { underlying, calls, puts, selectedExpiry, dteFloorMet } = await fetchRankedChainForStrategy(symbol);
+            const { underlying, calls, puts, selectedExpiry } = await fetchRankedChainForStrategy(symbol);
             if (!(underlying > 0) || (!calls.length && !puts.length)) {
               return { symbol, ok: false, reason: "No real options chain available right now." };
             }
@@ -6296,7 +6286,7 @@ async function handleMarket(req, res, requestUrl) {
             });
 
             return {
-              symbol, ok: true, underlying, best: { ...best, explanation }, timing, selectedExpiry, dteFloorMet, maxLossDollars,
+              symbol, ok: true, underlying, best: { ...best, explanation }, timing, selectedExpiry, maxLossDollars,
               ivRank, ivClass, liquidityClass, rrClass, expirationClass, earningsExposure, entryStatus, exitPlan,
             };
           } catch (err) {
@@ -6359,7 +6349,7 @@ async function handleMarket(req, res, requestUrl) {
         return writeJson(res, 200, { ok: true, symbol, ticket: { available: false, reason: permission.reason } });
       }
 
-      const { underlying, calls, puts, selectedExpiry, dteFloorMet } = await fetchRankedChainForStrategy(symbol);
+      const { underlying, calls, puts } = await fetchRankedChainForStrategy(symbol);
       if (!(underlying > 0) || (!calls.length && !puts.length)) {
         return writeJson(res, 200, { ok: true, symbol, ticket: { available: false, reason: "No real options chain available for this symbol right now." } });
       }
@@ -6369,10 +6359,14 @@ async function handleMarket(req, res, requestUrl) {
       if (!rankedStrategy) {
         return writeJson(res, 200, { ok: true, symbol, ticket: { available: false, reason: wantStrategy ? `"${wantStrategy}" isn't buildable from the current real chain.` : "No real structure could be built from the current chain." } });
       }
+      // shortDteWarning (the old dteFloorMet-driven "inside the normal
+      // 7-day minimum" warning) was removed here (Stage 3, 2026-09-14) —
+      // provably unreachable once fetchRankedChainForStrategy started
+      // consuming the canonical >=21-DTE chain (Stage 2): a ticket can
+      // only become available:true from a chain that already guarantees
+      // DTE>=21, so the old short-DTE case this warned about can no
+      // longer occur.
       const ticket = buildRobinhoodOrderTicket({ symbol, rankedStrategy });
-      if (ticket.available && !dteFloorMet) {
-        ticket.shortDteWarning = `Only ${selectedExpiry} was available — every real expiry for this symbol is inside the normal 7-day minimum. Treat this as a separately-tested short-DTE trade, not a standard directional thesis.`;
-      }
 
       // Robinhood Options Decision System (2026-09-08) — same real
       // classification/exit-plan/SELL-TO-CLOSE layer as best-options-now,
