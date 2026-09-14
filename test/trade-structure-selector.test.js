@@ -4,7 +4,7 @@
 // (or npm test).
 "use strict";
 const assert = require("node:assert");
-const { selectTradeStructure } = require("../src/trade-structure-selector");
+const { selectTradeStructure, MIN_ENTRY_DTE } = require("../src/trade-structure-selector");
 
 let passed = 0;
 function ok(name, fn) { try { fn(); passed++; console.log(`  ✓ ${name}`); } catch (e) { console.error(`  ✗ ${name}\n    ${e.message}`); process.exitCode = 1; } }
@@ -124,6 +124,82 @@ ok("every real option pick (CALL/PUT/spread) always carries break-even, max loss
   assert.ok(Number.isFinite(callR.breakEven) && Number.isFinite(callR.maxLoss) && Number.isFinite(callR.expectedMove));
   const spreadR = selectTradeStructure({ symbol: "TEST", price: 100, optionChain: [liquidCall({ strike: 105 }), liquidCall({ strike: 115, bid: 1.3, ask: 1.4 })], ivRank: 75 });
   assert.ok(Number.isFinite(spreadR.breakEven) && Number.isFinite(spreadR.maxLoss) && Number.isFinite(spreadR.maxGain));
+});
+
+console.log("\nChecking MIN_ENTRY_DTE — new-entry expiration floor (2026-09-14, Safe Options Expiration Selection task)…");
+
+ok("MIN_ENTRY_DTE is the real, disclosed 21-day floor", () => {
+  assert.strictEqual(MIN_ENTRY_DTE, 21);
+});
+
+ok("TEST 4 — DTE 0 rejected", () => {
+  const r = selectTradeStructure({ symbol: "TEST", price: 100, optionChain: [liquidCall({ dte: 0 })], ivRank: 20, stopDistance: 5, targetDistance: 15 });
+  assert.strictEqual(r.structure, "STOCK");
+  assert.match(r.rejectedAlternatives[0].reason, /below the 21-day new-entry minimum/);
+});
+
+ok("TEST 5 — DTE 1 rejected", () => {
+  const r = selectTradeStructure({ symbol: "TEST", price: 100, optionChain: [liquidCall({ dte: 1 })], ivRank: 20, stopDistance: 5, targetDistance: 15 });
+  assert.strictEqual(r.structure, "STOCK");
+});
+
+ok("TEST 6 — DTE 7 rejected", () => {
+  const r = selectTradeStructure({ symbol: "TEST", price: 100, optionChain: [liquidCall({ dte: 7 })], ivRank: 20, stopDistance: 5, targetDistance: 15 });
+  assert.strictEqual(r.structure, "STOCK");
+});
+
+ok("TEST 7 — DTE 14 rejected", () => {
+  const r = selectTradeStructure({ symbol: "TEST", price: 100, optionChain: [liquidCall({ dte: 14 })], ivRank: 20, stopDistance: 5, targetDistance: 15 });
+  assert.strictEqual(r.structure, "STOCK");
+});
+
+ok("TEST 8 — DTE 20 rejected (one day short of the real floor)", () => {
+  const r = selectTradeStructure({ symbol: "TEST", price: 100, optionChain: [liquidCall({ dte: 20 })], ivRank: 20, stopDistance: 5, targetDistance: 15 });
+  assert.strictEqual(r.structure, "STOCK");
+});
+
+ok("TEST 9 — DTE 21 enters the eligible pool and clears all other existing gates -> real CALL", () => {
+  const r = selectTradeStructure({ symbol: "TEST", price: 100, optionChain: [liquidCall({ dte: 21 })], ivRank: 20, stopDistance: 5, targetDistance: 15 });
+  assert.strictEqual(r.structure, "CALL");
+});
+
+ok("TEST 10 — DTE 26 (real captured-live value) also clears the pool", () => {
+  const r = selectTradeStructure({ symbol: "TEST", price: 100, optionChain: [liquidCall({ dte: 26 })], ivRank: 20, stopDistance: 5, targetDistance: 15 });
+  assert.strictEqual(r.structure, "CALL");
+});
+
+ok("a DTE-21+ contract is STILL rejected if it fails an existing gate (liquidity) — the new floor doesn't bypass old checks", () => {
+  const r = selectTradeStructure({ symbol: "TEST", price: 100, optionChain: [liquidCall({ dte: 30, openInterest: 5, volume: 1 })], ivRank: 20, stopDistance: 5, targetDistance: 15 });
+  assert.strictEqual(r.structure, "STOCK");
+});
+
+ok("missing/non-finite DTE is rejected with its own distinct 'no valid real DTE' reason, separate from the new floor's reason", () => {
+  // dte:undefined alone would let enrichContract honestly recompute a real
+  // DTE from the still-valid default expiry — genuinely not a "missing
+  // data" case. An unparseable expiry is what actually leaves DTE
+  // non-finite (dteFromExpiry's own real null-on-unparseable-date rule).
+  const r = selectTradeStructure({ symbol: "TEST", price: 100, optionChain: [liquidCall({ dte: undefined, expiry: "not-a-real-date" })] });
+  assert.strictEqual(r.structure, "STOCK");
+  assert.match(r.rejectedAlternatives[0].reason, /no valid real DTE/);
+});
+
+console.log("\nChecking REGRESSION — all existing gates still enforced exactly as before…");
+
+ok("TEST 19 — liquidity minimum unchanged (MIN_LIQUIDITY still real gate)", () => {
+  const { MIN_LIQUIDITY } = require("../src/trade-structure-selector");
+  assert.strictEqual(MIN_LIQUIDITY, 40);
+});
+ok("TEST 20 — spread maximum unchanged", () => {
+  const { MAX_SPREAD_PCT } = require("../src/trade-structure-selector");
+  assert.strictEqual(MAX_SPREAD_PCT, 10);
+});
+ok("TEST 21 — staleness threshold unchanged", () => {
+  const { DEFAULT_MAX_STALE_MINUTES } = require("../src/trade-structure-selector");
+  assert.strictEqual(DEFAULT_MAX_STALE_MINUTES, 15);
+});
+ok("TEST 22 — premium validation still enforced (zero/missing bid+ask+lastPrice still rejects)", () => {
+  const r = selectTradeStructure({ symbol: "TEST", price: 100, optionChain: [liquidCall({ dte: 30, bid: 0, ask: 0, lastPrice: 0 })] });
+  assert.strictEqual(r.structure, "STOCK");
 });
 
 console.log(`\n${passed} checks passed.`);

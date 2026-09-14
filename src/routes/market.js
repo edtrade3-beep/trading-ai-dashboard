@@ -3104,9 +3104,36 @@ async function handleMarket(req, res, requestUrl) {
           if (searchParams.get("withOptions") === "1" && results.length <= 5) {
             try {
               const { ivRankFor } = require("../iv-history-store");
+              const { dteFromExpiry } = require("../options-math");
+              const { MIN_ENTRY_DTE } = require("../trade-structure-selector");
               const symbols = results.filter((r) => !r.error).map((r) => r.symbol);
-              const chains = await Promise.all(symbols.map((sym) =>
-                fetchYahooOptionsChain(sym, null).catch(() => null)));
+              // Safe expiry selection (2026-09-14, "Safe Options Expiration
+              // Selection" task) — real production evidence showed the
+              // nearest real expiry landing at 0-1 DTE, far too short for
+              // this platform's swing-oriented setups. One real nearest-
+              // chain fetch (unchanged), then AT MOST one additional real
+              // fetch for the first real expiry clearing MIN_ENTRY_DTE —
+              // never more. FAIL CLOSED (unlike the separate, untouched
+              // Strategy Rank chain fetcher a few thousand lines down,
+              // which intentionally falls back to the nearest expiry
+              // anyway): when no real expiry in expiryDates clears the
+              // floor, this symbol gets an honestly empty chain, so
+              // selectTradeStructure falls back to STOCK through its own
+              // existing, already-proven mechanism — never a fabricated
+              // or too-short contract.
+              const chains = await Promise.all(symbols.map(async (sym) => {
+                const nearest = await fetchYahooOptionsChain(sym, null).catch(() => null);
+                if (!nearest) return null;
+                const nearestDte = dteFromExpiry(nearest.selectedExpiry);
+                if (Number.isFinite(nearestDte) && nearestDte >= MIN_ENTRY_DTE) return nearest;
+                const qualifying = (nearest.expiryDates || []).find((d) => {
+                  const dte = dteFromExpiry(d);
+                  return Number.isFinite(dte) && dte >= MIN_ENTRY_DTE;
+                });
+                if (!qualifying) return { ...nearest, calls: [], puts: [] };
+                const later = await fetchYahooOptionsChain(sym, qualifying).catch(() => null);
+                return later || { ...nearest, calls: [], puts: [] };
+              }));
               optionChainBySymbol = new Map(symbols.map((sym, i) => {
                 const c = chains[i];
                 if (!c) return [sym, []];

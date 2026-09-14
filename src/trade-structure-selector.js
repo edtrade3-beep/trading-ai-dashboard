@@ -19,6 +19,16 @@ const MAX_SPREAD_PCT = 10;
 const HIGH_IV_RANK = 60;
 const DEFAULT_MAX_STALE_MINUTES = 15;
 const CONTRACT_MULTIPLIER = 100;
+// Minimum new-entry DTE (2026-09-14, "Safe Options Expiration Selection"
+// task — real production evidence: the nearest real expiry for a live
+// swing-oriented symbol was consistently 0-1 DTE). A real, disclosed
+// policy floor for NEW options entries only — never touches the existing
+// 21/14/7-DTE position-MANAGEMENT tiers in options-decision-engine.js or
+// the 5-DTE warning in position-manager-engine.js, which govern an
+// already-open position's remaining runway, a genuinely separate real
+// concern. Applies identically to CALL/PUT/CALL_SPREAD/PUT_SPREAD — all
+// four draw from the same real `eligible` pool below.
+const MIN_ENTRY_DTE = 21;
 
 function contractPremium(c) {
   const bid = Number(c?.bid), ask = Number(c?.ask);
@@ -64,7 +74,8 @@ function selectTradeStructure({
     if (c.stale) { rejectedAlternatives.push({ structure: sideLabel, strike: c.strike, reason: `stale real quote (${Number.isFinite(c.quoteAgeMinutes) ? c.quoteAgeMinutes + "min" : "unknown age"})` }); return false; }
     if (!Number.isFinite(c.liquidity) || c.liquidity < MIN_LIQUIDITY) { rejectedAlternatives.push({ structure: sideLabel, strike: c.strike, reason: `poor real liquidity (${c.liquidity ?? "n/a"}/100)` }); return false; }
     if (c.spread != null && c.spread > MAX_SPREAD_PCT) { rejectedAlternatives.push({ structure: sideLabel, strike: c.strike, reason: `wide real spread (${c.spread}%)` }); return false; }
-    if (!Number.isFinite(c.dte) || c.dte <= 0) { rejectedAlternatives.push({ structure: sideLabel, strike: c.strike, reason: "no valid real DTE" }); return false; }
+    if (!Number.isFinite(c.dte)) { rejectedAlternatives.push({ structure: sideLabel, strike: c.strike, reason: "no valid real DTE" }); return false; }
+    if (c.dte < MIN_ENTRY_DTE) { rejectedAlternatives.push({ structure: sideLabel, strike: c.strike, reason: `DTE ${c.dte} below the ${MIN_ENTRY_DTE}-day new-entry minimum` }); return false; }
     if (!Number.isFinite(c.premium) || c.premium <= 0) { rejectedAlternatives.push({ structure: sideLabel, strike: c.strike, reason: "no real tradable premium (bid/ask/last all missing)" }); return false; }
     return true;
   });
@@ -134,4 +145,4 @@ function selectTradeStructure({
   };
 }
 
-module.exports = { selectTradeStructure, MIN_LIQUIDITY, MAX_SPREAD_PCT, HIGH_IV_RANK, DEFAULT_MAX_STALE_MINUTES, CONTRACT_MULTIPLIER };
+module.exports = { selectTradeStructure, MIN_LIQUIDITY, MAX_SPREAD_PCT, HIGH_IV_RANK, DEFAULT_MAX_STALE_MINUTES, CONTRACT_MULTIPLIER, MIN_ENTRY_DTE };

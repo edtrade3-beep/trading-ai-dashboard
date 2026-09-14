@@ -189,14 +189,30 @@ function liquidityScore({ bid, ask, openInterest, volume } = {}) {
   return Math.round(score);
 }
 
-// Days-to-expiry from a real "YYYY-MM-DD" expiry string (UTC calendar days,
-// floor at 0). Null on an unparseable date rather than a guessed number.
+// Real America/New_York calendar-date formatter — same convention already
+// duplicated locally in iv-history-store.js/aplus-score-history.js (each
+// keeps its own copy rather than sharing one, since this module is
+// deliberately zero-framework-dependency; a third small local copy here
+// follows that same established pattern, not a new formula).
+function etDateStr(d = new Date()) {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(d);
+}
+
+// Days-to-expiry from a real "YYYY-MM-DD" expiry string, using real
+// America/New_York calendar dates (2026-09-14 fix — the prior UTC-
+// boundary version could read a real "tomorrow ET" expiry as DTE 0
+// whenever UTC had already rolled to the next calendar day while the US
+// market was still on the prior ET date, e.g. 8:36pm ET = 00:36 UTC the
+// next day). Both sides of the diff are real calendar-date strings
+// (Intl-resolved, DST-safe by construction — no hard-coded offset),
+// anchored to UTC midnight only so the subtraction is a pure whole-day
+// count, never a real-time instant diff. Floor at 0. Null on an
+// unparseable date rather than a guessed number.
 function dteFromExpiry(expiry) {
   const exp = new Date(`${expiry}T00:00:00Z`);
   if (Number.isNaN(exp.getTime())) return null;
-  const now = new Date();
-  const todayUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
-  return Math.max(0, Math.round((exp.getTime() - todayUtc) / 86_400_000));
+  const todayEt = new Date(`${etDateStr()}T00:00:00Z`);
+  return Math.max(0, Math.round((exp.getTime() - todayEt.getTime()) / 86_400_000));
 }
 
 // Expected Value — options platform redesign Phase 5 (spec: "Expected
@@ -371,6 +387,6 @@ function interpretFlowRow(row) {
 
 module.exports = {
   normCdf, probabilityOfProfit, estimateDelta, expectedMove, spreadPct, liquidityScore,
-  dteFromExpiry, expectedValue, rankContracts, gammaSqueezeProbability, ivCrushRisk, assignmentRisk,
+  dteFromExpiry, etDateStr, expectedValue, rankContracts, gammaSqueezeProbability, ivCrushRisk, assignmentRisk,
   interpretFlowRow, theta, breakEven, gamma, vega,
 };
