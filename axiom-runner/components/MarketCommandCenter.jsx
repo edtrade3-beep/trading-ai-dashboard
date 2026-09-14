@@ -78,7 +78,12 @@ export default function MarketCommandCenter({ onOpenNews, C, MONO, SANS }) {
       >
         <span style={sectionLabelStyle({ flexShrink: 0 })}>{expanded ? "▾" : "▸"} MARKET NOW</span>
         {regime?.regime && (
-          <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: REGIME_COLOR(C, regime.regime), flexShrink: 0 }}>
+          <span style={{
+            fontFamily: MONO, fontSize: 13, fontWeight: 800, letterSpacing: 0.3,
+            color: REGIME_COLOR(C, regime.regime), background: `${REGIME_COLOR(C, regime.regime)}1c`,
+            border: `1px solid ${REGIME_COLOR(C, regime.regime)}55`,
+            borderRadius: 5, padding: "2px 8px", flexShrink: 0,
+          }}>
             {String(regime.regime).replace(/_/g, " ")}
           </span>
         )}
