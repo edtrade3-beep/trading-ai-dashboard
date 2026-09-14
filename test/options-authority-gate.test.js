@@ -108,5 +108,40 @@ ok("/api/market/strategy (single deterministic pick, no ranked[] array) checks d
   assert.match(block, /__strategyBias\[pick\.strategy\] !== canonicalBias/);
 });
 
+console.log("\nChecking /api/market/smart-money-intel — the discovered bypass (2026-09-14, \"Close Smart-Money Options Authority Bypass\") is now protected…");
+
+const SMI_END = "  // GET /api/market/dividends?tickers=AAPL,MSFT";
+
+ok("smart-money-intel calls resolveCanonicalOptionsPermission BEFORE its Strategy Rank chain fetch — no bypass", () => {
+  const block = blockFor("/api/market/smart-money-intel", SMI_END);
+  const permissionIdx = block.indexOf("resolveCanonicalOptionsPermission(symbol)");
+  const fetchIdx = block.indexOf("fetchRankedChainForStrategy(symbol");
+  assert.ok(permissionIdx > -1 && fetchIdx > -1, "both calls must be present in this route");
+  assert.ok(permissionIdx < fetchIdx, "permission must be resolved before the real Strategy Rank chain fetch");
+});
+
+ok("smart-money-intel neutralizes ONLY bestOptionsStructure when blocked — never the whole response", () => {
+  const block = blockFor("/api/market/smart-money-intel", SMI_END);
+  assert.match(block, /if \(!permission\.allowed\) \{\s*bestOptionsStructure = \{ available: false, reason: permission\.reason \};/);
+});
+
+ok("smart-money-intel applies filterByCanonicalDirection to its ranked results — same reused helper, not a new rule", () => {
+  const block = blockFor("/api/market/smart-money-intel", SMI_END);
+  assert.match(block, /filterByCanonicalDirection\(ranked, permission\.structure\)/);
+});
+
+console.log("\nCaller audit — every real production call of fetchRankedChainForStrategy is gated, no silent new bypass…");
+
+ok("CALLER AUDIT: exactly 5 real call sites (smart-money-intel + the 4 Strategy Rank routes), every one preceded by a real permission check", () => {
+  const callSites = [...src.matchAll(/fetchRankedChainForStrategy\(symbol/g)]
+    .map((m) => m.index)
+    .filter((idx) => !src.slice(Math.max(0, idx - 30), idx).endsWith("async function "));
+  assert.strictEqual(callSites.length, 5, "expected exactly 5 real call sites — a different count means a caller was added/removed without this audit being updated");
+  for (const idx of callSites) {
+    const before = src.slice(Math.max(0, idx - 4000), idx);
+    assert.match(before, /resolveCanonicalOptionsPermission\(symbol\)/, `call site at index ${idx} has no permission check within range — possible new bypass`);
+  }
+});
+
 console.log(`\n${passed} checks passed.`);
 if (process.exitCode) console.error("OPTIONS-AUTHORITY-GATE TEST FAILED"); else console.log("OPTIONS-AUTHORITY-GATE TEST OK");

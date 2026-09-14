@@ -4998,15 +4998,32 @@ async function handleMarket(req, res, requestUrl) {
         // Real Best Options Structure — reuses Options Buy Assistant's own
         // real ranking + ticket-building pipeline (strategy-ranking.js +
         // options-buy-assistant.js), never a second/guessed options pick.
+        // Options Authority Gate (2026-09-14, "Close Smart-Money Options
+        // Authority Bypass") — the SAME canonical permission the four
+        // Strategy Rank routes already enforce (resolveCanonicalOptionsPermission
+        // / canonicalAllowsOptions, no second gate), checked BEFORE the
+        // real Strategy Rank chain fetch below. A canonical-blocked symbol
+        // never triggers fetchRankedChainForStrategy here, and the rest of
+        // this Smart Money Intel response (insiders/institutions/analysts/
+        // dark pool/sentiment/technical/fundamental) is unaffected either
+        // way — only bestOptionsStructure is neutralized.
         let bestOptionsStructure = { available: false, reason: "No real options chain lookup was requested for this symbol." };
+        let optionsAllowed = false;
         try {
-          const { underlying, calls, puts } = await fetchRankedChainForStrategy(symbol);
-          if (underlying > 0 && (calls.length || puts.length)) {
-            const { ranked } = rankAllStrategies({ calls, puts, underlying });
-            if (ranked.length) bestOptionsStructure = buildRobinhoodOrderTicket({ symbol, rankedStrategy: ranked[0] });
-            else bestOptionsStructure = { available: false, reason: "No real structure could be built from the current chain." };
+          const permission = await resolveCanonicalOptionsPermission(symbol);
+          optionsAllowed = permission.allowed;
+          if (!permission.allowed) {
+            bestOptionsStructure = { available: false, reason: permission.reason };
           } else {
-            bestOptionsStructure = { available: false, reason: "No real options chain available right now." };
+            const { underlying, calls, puts } = await fetchRankedChainForStrategy(symbol);
+            if (underlying > 0 && (calls.length || puts.length)) {
+              let { ranked } = rankAllStrategies({ calls, puts, underlying });
+              ranked = filterByCanonicalDirection(ranked, permission.structure);
+              if (ranked.length) bestOptionsStructure = buildRobinhoodOrderTicket({ symbol, rankedStrategy: ranked[0] });
+              else bestOptionsStructure = { available: false, reason: "No real structure could be built from the current chain." };
+            } else {
+              bestOptionsStructure = { available: false, reason: "No real options chain available right now." };
+            }
           }
         } catch (err) {
           bestOptionsStructure = { available: false, reason: err instanceof Error ? err.message : "Real chain fetch failed." };
@@ -5033,6 +5050,7 @@ async function handleMarket(req, res, requestUrl) {
           },
           fundamental: futureValue,
           bestOptionsStructure,
+          optionsAllowed,
           generatedAt: new Date().toISOString(),
         };
       });
