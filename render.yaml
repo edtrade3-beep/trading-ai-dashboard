@@ -5,7 +5,26 @@ services:
     plan: starter
     region: ohio
     rootDir: .
-    buildCommand: "npm install --include=dev --no-audit --no-fund && npm test && npm run build"
+    # npm test removed from this command (2026-09-14, incident fix — the
+    # workspace ran out of Render's own metered build-pipeline minutes,
+    # confirmed via a "Build canceled: your workspace has run out of
+    # build pipeline minutes" event). Running the full 160-file suite
+    # inside Render's own build pipeline on every single push was real,
+    # avoidable usage separate from the actual npm run build step. Tests
+    # now run in .github/workflows/test.yml (GitHub Actions, free for
+    # this pattern) on every push/PR to main instead — real coverage,
+    # just off Render's billed pipeline.
+    # IMPORTANT — real behavior change: this does NOT gate deploys on
+    # test results anymore. Render has no configured dependency on the
+    # GitHub Actions run, so a commit whose tests would fail can still
+    # build and deploy here; GitHub Actions only reports pass/fail after
+    # the fact (visible on the commit/PR), it does not block Render.
+    # Previously, a real test failure hard-blocked every deploy (see this
+    # exact incident's root cause) — that automatic "never ship a
+    # red-test commit" property no longer exists. Treat GitHub Actions'
+    # own status as something to check before/after pushing, not as an
+    # enforced gate.
+    buildCommand: "npm install --include=dev --no-audit --no-fund && npm run build"
     startCommand: "npm start"
     healthCheckPath: /api/health
     autoDeploy: true
