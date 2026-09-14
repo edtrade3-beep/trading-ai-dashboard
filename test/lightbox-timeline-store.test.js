@@ -50,9 +50,26 @@ try {
     assert.strictEqual(after[after.length - 1].score, 81);
   });
 
-  ok("getEdgeVelocityFor reuses the real shared classifier — honest INSUFFICIENT_DATA under its sample floor", () => {
+  // UPDATE (2026-09-14, deployment-incident root-cause fix): this
+  // assertion predates the "Provisional Edge Velocity" feature
+  // (opportunity-timeline-store.js's own MIN_SAMPLES_FOR_PROVISIONAL=2)
+  // and was never updated when that feature shipped — it asserted the
+  // OLD pre-provisional "3 samples for any real read" contract, which is
+  // no longer true and was never re-verified against the real shared
+  // classifier. The real, current, already-tested contract (see
+  // test/opportunity-edge-velocity.test.js TEST 1/2) is: INSUFFICIENT_DATA
+  // only below 2 samples; 2 real samples (this test's own real 62->81
+  // fixture above) produce a real PROVISIONAL read, not INSUFFICIENT_DATA.
+  // This test's actual job — per its own file header — is only to prove
+  // getEdgeVelocityFor genuinely delegates to that shared classifier
+  // rather than reimplementing it, so it now asserts the real, current,
+  // correct output for its own real 2-sample fixture instead of a stale
+  // expectation.
+  ok("getEdgeVelocityFor reuses the real shared classifier — 2 real same-day samples produce a real provisional (not INSUFFICIENT_DATA) read, matching opportunity-timeline-store.js's own real MIN_SAMPLES_FOR_PROVISIONAL contract", () => {
     const r = getEdgeVelocityFor("ZZZLBX");
-    assert.strictEqual(r.status, "INSUFFICIENT_DATA", "only 2 real samples recorded — below the shared 3-sample floor");
+    assert.strictEqual(r.sampleCount, 2, "this test's own fixture recorded exactly 2 real samples (62, then 81)");
+    assert.strictEqual(r.status, "ACCELERATING", "a real 62->81 rise over 2 samples is a real provisional ACCELERATING read");
+    assert.strictEqual(r.isProvisional, true, "2 real samples is below MIN_SAMPLES_FOR_VELOCITY(3) — a real provisional read, not yet confirmed");
   });
 } finally {
   saveStore(originalStore);
