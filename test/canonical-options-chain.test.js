@@ -115,15 +115,26 @@ async function run() {
     assert.match(permFn, /allowed: canonicalAllowsOptions\(tradeGpsVerdict\)/);
   });
 
-  console.log("\nChecking Strategy Rank remains untouched by this extraction (Part 8 — no Stage 2 migration)…");
+  // UPDATE (2026-09-14, Stage 2 "Make Strategy Rank Consume Canonical
+  // Options Chain"): at Stage 1 time this checked that Strategy Rank's
+  // own independent fetch/DTE logic was STILL untouched (in-scope
+  // boundary discipline for Stage 1 only). Stage 2 has now intentionally
+  // migrated fetchRankedChainForStrategy onto getCanonicalOptionsChain —
+  // real coverage for that migration (shared cache, both-sides
+  // preservation, fail-closed behavior, ranking-regression) lives in
+  // test/options-authority-gate.test.js and the existing
+  // strategy-ranking/strategy-explain suites, which exercise the
+  // now-shared chain end to end.
+  console.log("\nChecking fetchRankedChainForStrategy now consumes the shared chain service (Stage 2, no independent provider authority left)…");
 
-  ok("fetchRankedChainForStrategy still uses its own independent fetch/DTE logic (realDte, minDte, Polygon/Yahoo branch) — not getCanonicalOptionsChain", () => {
+  ok("fetchRankedChainForStrategy no longer has its own independent fetch/DTE logic (realDte/Polygon branch) — it now calls getCanonicalOptionsChain", () => {
     const fetchStart = src.indexOf("async function fetchRankedChainForStrategy(symbol, { minDte = 7 } = {})");
     assert.ok(fetchStart > 0);
     const fetchFnEnd = src.indexOf("\n  if (pathname ===", fetchStart);
     const fetchFn = src.slice(fetchStart, fetchFnEnd);
-    assert.match(fetchFn, /const realDte = \(dateStr\) => Math\.round\(\(Date\.parse\(dateStr\) - Date\.now\(\)\) \/ 86_400_000\);/);
-    assert.doesNotMatch(fetchFn, /getCanonicalOptionsChain/, "Stage 1 must not migrate Strategy Rank's own chain fetch yet");
+    assert.doesNotMatch(fetchFn, /const realDte = /, "Strategy Rank's own separate DTE formula must be gone after Stage 2");
+    assert.doesNotMatch(fetchFn, /fetchYahooOptionsChain\(|polygon\.io/i, "Strategy Rank must no longer independently fetch a provider chain after Stage 2");
+    assert.match(fetchFn, /const chain = await getCanonicalOptionsChain\(symbol\);/);
   });
 
   console.log(`\n${passed} checks passed.`);

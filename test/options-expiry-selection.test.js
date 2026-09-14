@@ -59,10 +59,22 @@ ok("selection reads the real expiryDates array in its existing bucket order — 
   assert.doesNotMatch(block, /expiryDates.*\.sort\(/);
 });
 
-console.log("\nChecking scope — Strategy Rank path and every other DO-NOT-TOUCH file are untouched…");
+console.log("\nChecking scope — this block's own DTE formula is still the only one here…");
 
-ok("the separate, pre-existing Strategy Rank chain fetcher (fetchRankedChainForStrategy) is untouched — still uses its own local realDte, not the canonical dteFromExpiry (known, disclosed, out-of-scope duplication)", () => {
-  assert.match(src, /const realDte = \(dateStr\) => Math\.round\(\(Date\.parse\(dateStr\) - Date\.now\(\)\) \/ 86_400_000\);/, "confirms this pre-existing separate formula still exists unmodified");
+ok("this withOptions=1 block still uses only the canonical dteFromExpiry/MIN_ENTRY_DTE — no locally re-implemented DTE formula introduced by later Stage 1/2 options-chain-service work", () => {
+  assert.doesNotMatch(block, /const realDte = /, "this block must never grow its own separate DTE formula");
+});
+
+// UPDATE (2026-09-14, Stage 2 "Make Strategy Rank Consume Canonical
+// Options Chain"): fetchRankedChainForStrategy's own separate local
+// realDte()/minDte=7/Polygon-branch formula — previously confirmed here
+// as a known, disclosed, out-of-scope duplication — has now been
+// intentionally REMOVED by the Stage 2 task; Strategy Rank consumes the
+// same getCanonicalOptionsChain() this block's own logic mirrors. Real
+// coverage for that change lives in test/canonical-options-chain.test.js
+// and test/options-authority-gate.test.js.
+ok("fetchRankedChainForStrategy no longer has its own separate realDte formula (Stage 2 unified it onto getCanonicalOptionsChain) — confirms the duplication this file used to document is now gone", () => {
+  assert.doesNotMatch(src, /const realDte = \(dateStr\) => Math\.round\(\(Date\.parse\(dateStr\) - Date\.now\(\)\) \/ 86_400_000\);/, "the old separate Strategy Rank DTE formula should no longer exist anywhere in this file after Stage 2");
 });
 
 console.log(`\n${passed} checks passed.`);

@@ -6028,55 +6028,46 @@ async function handleMarket(req, res, requestUrl) {
     return ranked.filter((s) => STRUCTURE_BIAS[s.strategy] !== opposing);
   }
 
+  // Stage 2 (2026-09-14, "Make Strategy Rank Consume Canonical Options
+  // Chain") — data acquisition only, replaced. Strategy Rank no longer
+  // performs its own independent Yahoo/Polygon fetch, expiry-calendar
+  // lookup, local realDte()/minDte=7 selection, or fail-open short-expiry
+  // fallback: it now consumes the SAME getCanonicalOptionsChain(symbol)
+  // (Stage 1) that resolveCanonicalOptionsPermission already calls for
+  // this exact symbol — same provider (Yahoo), same real America/
+  // New_York DTE calendar, same MIN_ENTRY_DTE=21 floor, same fail-closed
+  // behavior (no >=21 expiry -> no chain, never a shorter one), and the
+  // SAME 5-minute cached promise, so a gated request (which already ran
+  // resolveCanonicalOptionsPermission -> getCanonicalOptionsChain moments
+  // earlier) triggers zero additional real provider fetches within that
+  // cache window. `rankContracts()` below and everything downstream
+  // (rankAllStrategies/buildLegs/explainStrategy/order-ticket) is
+  // UNCHANGED — only the chain this scores now comes from the canonical
+  // source instead of Strategy Rank's own.
+  //
+  // `minDte` is now IGNORED (expiry selection is owned entirely by
+  // getCanonicalOptionsChain's real MIN_ENTRY_DTE policy) — kept only so
+  // every existing caller (none of which pass a second argument, all
+  // relying on the old default of 7) doesn't need a signature change in
+  // this task; Stage 3 may remove it. Strategy
+  // Rank's own local `realDte()` formula, its minDte-based `.find()`
+  // selection, the fail-open nearest-expiry fallback, and the Polygon
+  // fetch branch are all gone from this function as of this change (Part
+  // 1's explicit instruction) — this function no longer has independent
+  // provider authority. `dteFloorMet` is retained in the return shape for
+  // caller compatibility (robinhood-ticket's shortDteWarning reads it)
+  // but is now trivial: always true when a canonical chain is available
+  // (since availability itself already guarantees DTE>=21), false only
+  // when canonical has nothing.
   async function fetchRankedChainForStrategy(symbol, { minDte = 7 } = {}) {
-    const polyKey = process.env.POLYGON_API_KEY || "";
-    let underlying = 0, calls = [], puts = [], dteFloorMet = true, selectedExpiry = null;
-    const realDte = (dateStr) => Math.round((Date.parse(dateStr) - Date.now()) / 86_400_000);
-
-    if (polyKey) {
-      const PH = { "Accept": "application/json" };
-      const snapRes = await withTimeout(
-        fetch(`https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers/${symbol}?apiKey=${polyKey}`, { headers: PH }),
-        8000, null
-      );
-      const snapJson = snapRes?.ok ? await snapRes.json().catch(() => ({})) : {};
-      underlying = round2(snapJson?.ticker?.lastTrade?.p || snapJson?.ticker?.day?.c || snapJson?.ticker?.prevDay?.c || 0);
-
-      const contractsUrl = `https://api.polygon.io/v3/snapshot/options/${symbol}?limit=250&sort=expiration_date&apiKey=${polyKey}`;
-      const contractsRes = await withTimeout(fetch(contractsUrl, { headers: PH }), 12000, null);
-      if (contractsRes?.ok) {
-        const contractsJson = await contractsRes.json().catch(() => ({}));
-        const results = contractsJson?.results || [];
-        const expiryDates = [...new Set(results.map(r => r.details?.expiration_date).filter(Boolean))].sort();
-        const nearestExpiry = expiryDates[0];
-        const qualifying = expiryDates.find((d) => realDte(d) >= minDte);
-        selectedExpiry = qualifying || nearestExpiry;
-        dteFloorMet = !!qualifying;
-        const forExpiry = results.filter(r => r.details?.expiration_date === selectedExpiry);
-        const mapP = (r) => {
-          const d = r.details || {}, day = r.day || {}, greeks = r.greeks || {};
-          return {
-            contractSymbol: d.ticker || r.ticker || "", strike: round2(d.strike_price || 0),
-            lastPrice: round2(day.last_price || day.close || 0), bid: round2(r.last_quote?.bid || 0), ask: round2(r.last_quote?.ask || 0),
-            volume: Number(day.volume) || 0, openInterest: Number(r.open_interest) || 0,
-            iv: round2((r.implied_volatility || 0) * 100), expiry: d.expiration_date || selectedExpiry,
-            delta: greeks.delta != null ? round2(greeks.delta) : null,
-          };
-        };
-        calls = rankContracts(forExpiry.filter(r => r.details?.contract_type === "call").map(mapP), { underlying, isCall: true });
-        puts = rankContracts(forExpiry.filter(r => r.details?.contract_type === "put").map(mapP), { underlying, isCall: false });
-      }
-    } else {
-      const first = await fetchYahooOptionsChain(symbol, null);
-      const qualifying = (first.expiryDates || []).find((d) => realDte(d) >= minDte);
-      dteFloorMet = !!qualifying;
-      const chain = qualifying && qualifying !== first.selectedExpiry ? await fetchYahooOptionsChain(symbol, qualifying) : first;
-      underlying = chain.underlying;
-      selectedExpiry = chain.selectedExpiry;
-      calls = rankContracts(chain.calls, { underlying, isCall: true });
-      puts = rankContracts(chain.puts, { underlying, isCall: false });
+    const chain = await getCanonicalOptionsChain(symbol);
+    if (!chain.available) {
+      return { underlying: 0, calls: [], puts: [], source: chain.source || "yahoo", selectedExpiry: null, dteFloorMet: false, minDte };
     }
-    return { underlying, calls, puts, source: polyKey ? "polygon" : "yahoo", selectedExpiry, dteFloorMet, minDte };
+    const underlying = chain.underlying || 0;
+    const calls = rankContracts(chain.calls, { underlying, isCall: true });
+    const puts = rankContracts(chain.puts, { underlying, isCall: false });
+    return { underlying, calls, puts, source: chain.source, selectedExpiry: chain.selectedExpiry, dteFloorMet: true, minDte };
   }
 
   if (pathname === "/api/market/strategy" && req.method === "GET") {
