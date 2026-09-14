@@ -5850,6 +5850,111 @@ async function handleMarket(req, res, requestUrl) {
   // (disclosed via `dteFloorMet:false`) when literally every available
   // real expiry is inside the floor — never throws away a real, if
   // short-dated, chain just because no long-dated one exists yet.
+  // Options Authority Gate (2026-09-14, "Lock Strategy Rank Behind
+  // Canonical Trade Authority" — direct user spec: Strategy Rank must
+  // never produce an actionable options recommendation that contradicts
+  // canonical Trade GPS). Runs the SAME real canonical pipeline every
+  // other Trade GPS surface reads (canonical-decision-pipeline.js) for
+  // ONE symbol, including a real Trade GPS options chain (the same safe
+  // ET/21-DTE expiry selection as the withOptions=1 trend-screen block,
+  // 2026-09-14) — this is a SEPARATE real fetch from Strategy Rank's own
+  // fetchRankedChainForStrategy below, used only to answer the real
+  // permission question honestly (no shared-chain refactor in this
+  // task — Strategy Rank still ranks off its own real chain once
+  // permitted). Cached 5 minutes per symbol (same TTL as
+  // best-options-now/smart-money-intel) so repeated panel opens for the
+  // same symbol don't re-run this every render.
+  async function resolveCanonicalOptionsPermission(symbol) {
+    return cached(`options-permission:${symbol}`, 5 * 60_000, async () => {
+      const { computeCanonicalAssetDecision } = require("../canonical-decision-pipeline");
+      const { canonicalAllowsOptions } = require("../trade-gps-verdict");
+      const { dteFromExpiry } = require("../options-math");
+      const { MIN_ENTRY_DTE } = require("../trade-structure-selector");
+      const { ivRankFor } = require("../iv-history-store");
+      const MACRO_SYMS = ["SPY", "QQQ", "^VIX"];
+
+      let trend = null;
+      try {
+        const bars = await _fetchBarsCached(symbol);
+        trend = await _buildTrendTemplate(symbol, { bars });
+      } catch { trend = null; }
+      if (!trend || trend.error) {
+        return { allowed: false, structure: null, verdict: null, reason: "Canonical trade decision unavailable for this symbol right now." };
+      }
+
+      const macroQuotes = await fetchYahooQuoteBatch([symbol, ...MACRO_SYMS]).catch(() => []);
+      const macroData = macroQuotes.map((q) => ({ symbol: q.symbol, price: q.regularMarketPrice, changesPercentage: q.regularMarketChangePercent }));
+      const row = {
+        symbol, price: trend.price, entry: trend.setup?.entryPrice, pivot: trend.setup?.pivot,
+        stop: trend.setup?.stop, target2: trend.setup?.target2,
+        passCount: trend.passCount, stage: trend.stage, verdict: trend.setup?.verdict,
+        actionable: trend.setup?.actionable, extended: trend.setup?.extended,
+        volRatio: trend.volRatio, rsRating: trend.rsRating,
+      };
+
+      let optionChain = [], ivRank = null;
+      try {
+        const nearest = await fetchYahooOptionsChain(symbol, null).catch(() => null);
+        if (nearest) {
+          const nearestDte = dteFromExpiry(nearest.selectedExpiry);
+          let chain = nearest;
+          if (!(Number.isFinite(nearestDte) && nearestDte >= MIN_ENTRY_DTE)) {
+            const qualifying = (nearest.expiryDates || []).find((d) => {
+              const dte = dteFromExpiry(d);
+              return Number.isFinite(dte) && dte >= MIN_ENTRY_DTE;
+            });
+            chain = qualifying
+              ? ((await fetchYahooOptionsChain(symbol, qualifying).catch(() => null)) || { ...nearest, calls: [], puts: [] })
+              : { ...nearest, calls: [], puts: [] };
+          }
+          const toContract = (isCall) => (r) => ({
+            isCall, strike: r.strike, bid: r.bid || null, ask: r.ask || null,
+            lastPrice: r.lastPrice || null, iv: r.iv || null,
+            openInterest: r.openInterest, volume: r.volume,
+            expiry: r.expiry, quoteAgeMinutes: 0,
+          });
+          optionChain = [...(chain.calls || []).map(toContract(true)), ...(chain.puts || []).map(toContract(false))];
+          const underlying = Number(chain.underlying) || 0;
+          let atmIv = null, bestDist = Infinity;
+          for (const c of (chain.calls || [])) {
+            const iv = Number(c.iv);
+            if (!Number.isFinite(iv) || iv <= 0 || !underlying) continue;
+            const dist = Math.abs(Number(c.strike) - underlying);
+            if (dist < bestDist) { bestDist = dist; atmIv = iv; }
+          }
+          const rankResult = atmIv != null ? ivRankFor(symbol, atmIv) : null;
+          ivRank = rankResult?.available ? rankResult.rank : null;
+        }
+      } catch { /* real Trade GPS chain fetch is best-effort — optionChain stays [], canonical honestly falls back to STOCK/no permission */ }
+
+      const canonical = computeCanonicalAssetDecision({ symbol, row, macroQuotes: macroData, optionChain, ivRank, nowMs: Date.now(), marketHours: false });
+      const tradeGpsVerdict = canonical?.tradeGpsVerdict || null;
+      return {
+        allowed: canonicalAllowsOptions(tradeGpsVerdict),
+        structure: tradeGpsVerdict?.structure ?? null,
+        verdict: tradeGpsVerdict?.verdict ?? null,
+        reason: tradeGpsVerdict?.reasonOneLine || canonical?.tradeStructure?.reason || "Canonical trade decision does not currently permit an options entry.",
+      };
+    });
+  }
+
+  // Direction Compatibility Filter (Part 6 of the same task) — Strategy
+  // Rank's own real ranking (strategy-ranking.js's rankAllStrategies) can
+  // still rank a structurally opposite-biased strategy #1 even once
+  // canonical permission is granted (e.g. canonical CALL, Strategy Rank's
+  // own composite favoring Bear Put Spread). Reuses strategy-ranking.js's
+  // own real, already-exported STRUCTURE_BIAS map (never a second bias
+  // rule) — only strictly OPPOSING structures are removed; Iron Condor
+  // ("Range") is neutral, not opposing, and is left alone.
+  const CANONICAL_STRUCTURE_BIAS = { CALL: "Bullish", CALL_SPREAD: "Bullish", PUT: "Bearish", PUT_SPREAD: "Bearish" };
+  function filterByCanonicalDirection(ranked, canonicalStructure) {
+    const { STRUCTURE_BIAS } = require("../strategy-ranking");
+    const bias = CANONICAL_STRUCTURE_BIAS[canonicalStructure];
+    if (!bias || !Array.isArray(ranked)) return ranked;
+    const opposing = bias === "Bullish" ? "Bearish" : "Bullish";
+    return ranked.filter((s) => STRUCTURE_BIAS[s.strategy] !== opposing);
+  }
+
   async function fetchRankedChainForStrategy(symbol, { minDte = 7 } = {}) {
     const polyKey = process.env.POLYGON_API_KEY || "";
     let underlying = 0, calls = [], puts = [], dteFloorMet = true, selectedExpiry = null;
@@ -5917,10 +6022,25 @@ async function handleMarket(req, res, requestUrl) {
       return writeJson(res, 200, { ok: true, symbol, ivRank, ...pick, construction: { available: false, reason: "No strategy selected — no real legs to construct." }, generatedAt: new Date().toISOString() });
     }
 
+    // Options Authority Gate — canonical Trade GPS permission checked
+    // BEFORE the real Strategy Rank chain fetch below (Part 9: no
+    // fetchRankedChainForStrategy call for a symbol canonical has already
+    // blocked).
+    const permission = await resolveCanonicalOptionsPermission(symbol);
+    if (!permission.allowed) {
+      return writeJson(res, 200, { ok: true, symbol, ivRank, optionsAllowed: false, reason: permission.reason, construction: { available: false, reason: permission.reason }, generatedAt: new Date().toISOString() });
+    }
+    const { STRUCTURE_BIAS: __strategyBias } = require("../strategy-ranking");
+    const canonicalBias = CANONICAL_STRUCTURE_BIAS[permission.structure];
+    if (canonicalBias && __strategyBias[pick.strategy] && __strategyBias[pick.strategy] !== canonicalBias) {
+      const reason = `Canonical trade structure is ${permission.structure} — a ${pick.strategy} would oppose the canonical direction.`;
+      return writeJson(res, 200, { ok: true, symbol, ivRank, optionsAllowed: false, reason, construction: { available: false, reason }, generatedAt: new Date().toISOString() });
+    }
+
     try {
       const { underlying, calls, puts, source } = await fetchRankedChainForStrategy(symbol);
       const construction = buildLegs(pick.strategy, { calls, puts, underlying });
-      return writeJson(res, 200, { ok: true, symbol, underlying, ivRank, ...pick, construction, source, generatedAt: new Date().toISOString() });
+      return writeJson(res, 200, { ok: true, symbol, underlying, ivRank, optionsAllowed: true, ...pick, construction, source, generatedAt: new Date().toISOString() });
     } catch (err) {
       console.error("[market/strategy] error:", err?.message);
       return writeJson(res, 502, { error: "Strategy data unavailable: " + err?.message });
@@ -5943,13 +6063,24 @@ async function handleMarket(req, res, requestUrl) {
     if (!symbol) return writeJson(res, 400, { ok: false, error: "symbol required" });
     const bias = searchParams.get("bias") || null;
     const character = searchParams.get("character") || null;
+
+    // Options Authority Gate — canonical permission checked BEFORE the
+    // real Strategy Rank chain fetch (Part 9: no fetchRankedChainForStrategy
+    // call for a symbol canonical has already blocked).
+    const permission = await resolveCanonicalOptionsPermission(symbol);
+    if (!permission.allowed) {
+      return writeJson(res, 200, { ok: true, symbol, optionsAllowed: false, ranked: [], unavailable: [], best: null, reason: permission.reason });
+    }
+
     try {
       const { rankAllStrategies } = require("../strategy-ranking");
       const { underlying, calls, puts, source, selectedExpiry, dteFloorMet } = await fetchRankedChainForStrategy(symbol);
       if (!(underlying > 0) || (!calls.length && !puts.length)) {
-        return writeJson(res, 200, { ok: true, symbol, underlying, ranked: [], unavailable: [], best: null, reason: "No real options chain available for this symbol right now." });
+        return writeJson(res, 200, { ok: true, symbol, underlying, optionsAllowed: true, ranked: [], unavailable: [], best: null, reason: "No real options chain available for this symbol right now." });
       }
-      const { ranked, unavailable, best } = rankAllStrategies({ calls, puts, underlying, bias, character });
+      let { ranked, unavailable, best } = rankAllStrategies({ calls, puts, underlying, bias, character });
+      ranked = filterByCanonicalDirection(ranked, permission.structure);
+      best = ranked[0] || null;
 
       // "WHY THIS TRADE?" (Central Opportunity & Options Engine goal,
       // 2026-08-30) — real per-symbol technical context (breakout/volume/
@@ -5968,7 +6099,7 @@ async function handleMarket(req, res, requestUrl) {
       const { explainStrategy } = require("../strategy-explain");
       const explained = ranked.map((s) => ({ ...s, explanation: explainStrategy(s, ranked, { bias, character, technicals }) }));
 
-      return writeJson(res, 200, { ok: true, symbol, underlying, bias, character, ranked: explained, unavailable, best: explained[0] || null, source, selectedExpiry, dteFloorMet, generatedAt: new Date().toISOString() });
+      return writeJson(res, 200, { ok: true, symbol, underlying, optionsAllowed: true, bias, character, ranked: explained, unavailable, best: explained[0] || null, source, selectedExpiry, dteFloorMet, generatedAt: new Date().toISOString() });
     } catch (err) {
       return writeJson(res, 502, { ok: false, error: err instanceof Error ? err.message : "Strategy ranking failed." });
     }
@@ -6039,11 +6170,19 @@ async function handleMarket(req, res, requestUrl) {
 
         const perSymbol = await Promise.all(symbols.map(async (symbol) => {
           try {
+            // Options Authority Gate — canonical permission checked BEFORE
+            // the real Strategy Rank chain fetch below (Part 9: no
+            // fetchRankedChainForStrategy call for a symbol canonical has
+            // already blocked).
+            const permission = await resolveCanonicalOptionsPermission(symbol);
+            if (!permission.allowed) return { symbol, ok: false, reason: permission.reason };
+
             const { underlying, calls, puts, selectedExpiry, dteFloorMet } = await fetchRankedChainForStrategy(symbol);
             if (!(underlying > 0) || (!calls.length && !puts.length)) {
               return { symbol, ok: false, reason: "No real options chain available right now." };
             }
-            const { ranked, unavailable } = rankAllStrategies({ calls, puts, underlying });
+            let { ranked, unavailable } = rankAllStrategies({ calls, puts, underlying });
+            ranked = filterByCanonicalDirection(ranked, permission.structure);
             if (!ranked.length) return { symbol, ok: false, reason: unavailable[0]?.reason || "No real structure could be built from the current chain." };
             const best = ranked[0];
             const explanation = explainStrategy(best, ranked, {});
@@ -6147,11 +6286,21 @@ async function handleMarket(req, res, requestUrl) {
         classifyIv, classifyLiquidity, classifyRiskReward, classifyExpiration,
         classifyEarningsExposure, computeEntryStatus, computeOptionExitPlan, buildSellToCloseInstructions,
       } = require("../options-decision-engine");
+      // Options Authority Gate — canonical permission checked BEFORE the
+      // real Strategy Rank chain fetch below (Part 9: no
+      // fetchRankedChainForStrategy call for a symbol canonical has
+      // already blocked).
+      const permission = await resolveCanonicalOptionsPermission(symbol);
+      if (!permission.allowed) {
+        return writeJson(res, 200, { ok: true, symbol, ticket: { available: false, reason: permission.reason } });
+      }
+
       const { underlying, calls, puts, selectedExpiry, dteFloorMet } = await fetchRankedChainForStrategy(symbol);
       if (!(underlying > 0) || (!calls.length && !puts.length)) {
         return writeJson(res, 200, { ok: true, symbol, ticket: { available: false, reason: "No real options chain available for this symbol right now." } });
       }
-      const { ranked } = rankAllStrategies({ calls, puts, underlying });
+      let { ranked } = rankAllStrategies({ calls, puts, underlying });
+      ranked = filterByCanonicalDirection(ranked, permission.structure);
       const rankedStrategy = wantStrategy ? ranked.find((s) => s.strategy === wantStrategy) : ranked[0];
       if (!rankedStrategy) {
         return writeJson(res, 200, { ok: true, symbol, ticket: { available: false, reason: wantStrategy ? `"${wantStrategy}" isn't buildable from the current real chain.` : "No real structure could be built from the current chain." } });

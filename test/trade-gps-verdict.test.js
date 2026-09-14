@@ -4,7 +4,7 @@
 // zero-network. Run: node test/trade-gps-verdict.test.js (or npm test).
 "use strict";
 const assert = require("node:assert");
-const { translateToTradeGpsVerdict, selectPrimaryAndBackups, TRADE_GPS_VERDICTS } = require("../src/trade-gps-verdict");
+const { translateToTradeGpsVerdict, selectPrimaryAndBackups, TRADE_GPS_VERDICTS, canonicalAllowsOptions } = require("../src/trade-gps-verdict");
 
 let passed = 0;
 function ok(name, fn) { try { fn(); passed++; console.log(`  ✓ ${name}`); } catch (e) { console.error(`  ✗ ${name}\n    ${e.message}`); process.exitCode = 1; } }
@@ -142,6 +142,62 @@ ok("no real actionable candidates -> primary null, backups empty, never fabricat
   const r = selectPrimaryAndBackups([]);
   assert.strictEqual(r.primary, null);
   assert.deepStrictEqual(r.backups, []);
+});
+
+console.log("\nChecking canonicalAllowsOptions — Options Authority Gate predicate (2026-09-14, \"Lock Strategy Rank Behind Canonical Trade Authority\")…");
+
+ok("TEST 1 — canonical tradeStructure STOCK (via BUY_STOCK verdict) -> options NOT permitted", () => {
+  const r = translateToTradeGpsVerdict(actionable());
+  assert.strictEqual(r.verdict, "BUY_STOCK");
+  assert.strictEqual(canonicalAllowsOptions(r), false);
+});
+
+ok("TEST 2 — canonical WAIT -> options NOT permitted", () => {
+  const r = translateToTradeGpsVerdict(actionable({ signalState: "SCANNING" }));
+  assert.strictEqual(r.verdict, "WAIT");
+  assert.strictEqual(canonicalAllowsOptions(r), false);
+});
+
+ok("TEST 3 — canonical AVOID (real proxy: WATCH, which this layer also maps to WAIT — no real AVOID path ever reaches a BUY_* verdict) -> options NOT permitted", () => {
+  const r = translateToTradeGpsVerdict(actionable({ assetDecisionVerdict: "AVOID" }));
+  assert.strictEqual(canonicalAllowsOptions(r), false);
+});
+
+ok("TEST 3b — canonical EXIT -> options NOT permitted", () => {
+  const r = translateToTradeGpsVerdict(actionable({ assetDecisionVerdict: "EXIT" }));
+  assert.strictEqual(r.verdict, "EXIT");
+  assert.strictEqual(canonicalAllowsOptions(r), false);
+});
+
+ok("TEST 4 — canonical options data unavailable (NO_TRADE via trapShield/dataHealth/tradeStructure) -> options NOT permitted, never a fallback CALL/PUT", () => {
+  assert.strictEqual(canonicalAllowsOptions(translateToTradeGpsVerdict(actionable({ trapShield: { blocked: true } }))), false);
+  assert.strictEqual(canonicalAllowsOptions(translateToTradeGpsVerdict(actionable({ dataHealth: { status: "BLOCKED" } }))), false);
+  assert.strictEqual(canonicalAllowsOptions(translateToTradeGpsVerdict(actionable({ tradeStructure: { structure: "NO_TRADE" } }))), false);
+});
+
+ok("null tradeGpsVerdict (canonical decision could not be computed at all) -> options NOT permitted, fail closed", () => {
+  assert.strictEqual(canonicalAllowsOptions(null), false);
+  assert.strictEqual(canonicalAllowsOptions(undefined), false);
+});
+
+ok("TEST 5 — canonical structure CALL -> options permitted", () => {
+  const r = translateToTradeGpsVerdict(actionable({ tradeStructure: { structure: "CALL" } }));
+  assert.strictEqual(canonicalAllowsOptions(r), true);
+});
+
+ok("TEST 6 — canonical structure PUT -> options permitted", () => {
+  const r = translateToTradeGpsVerdict(actionable({ tradeStructure: { structure: "PUT" } }));
+  assert.strictEqual(canonicalAllowsOptions(r), true);
+});
+
+ok("TEST 7 — canonical structure CALL_SPREAD -> options permitted", () => {
+  const r = translateToTradeGpsVerdict(actionable({ tradeStructure: { structure: "CALL_SPREAD" } }));
+  assert.strictEqual(canonicalAllowsOptions(r), true);
+});
+
+ok("TEST 8 — canonical structure PUT_SPREAD -> options permitted", () => {
+  const r = translateToTradeGpsVerdict(actionable({ tradeStructure: { structure: "PUT_SPREAD" } }));
+  assert.strictEqual(canonicalAllowsOptions(r), true);
 });
 
 console.log(`\n${passed} checks passed.`);

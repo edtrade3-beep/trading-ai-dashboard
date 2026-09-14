@@ -57,6 +57,20 @@ function translateToTradeGpsVerdict({
 
 const ACTIONABLE_BUY_VERDICTS = new Set(Object.values(STRUCTURE_TO_BUY_VERDICT));
 
+// Options Authority Gate (2026-09-14, "Lock Strategy Rank Behind Canonical
+// Trade Authority") — the single existing verdict this real translation
+// layer already produces is the smallest single-authority read of "does
+// canonical permit an options entry right now": it already fuses the real
+// tradeStructure pick (CALL/PUT/CALL_SPREAD/PUT_SPREAD/STOCK), the real
+// assetDecision.verdict (only STRONG_BUY/BUY reach here), real signalState
+// (ENTER_NOW/ARMED), Trap Shield, and dataHealth above — no second verdict
+// rule is added here, only a real subset check against its own real
+// vocabulary.
+const OPTIONS_BUY_VERDICTS = new Set(["BUY_CALL", "BUY_PUT", "BUY_CALL_SPREAD", "BUY_PUT_SPREAD"]);
+function canonicalAllowsOptions(tradeGpsVerdict) {
+  return !!tradeGpsVerdict && OPTIONS_BUY_VERDICTS.has(tradeGpsVerdict.verdict);
+}
+
 // Cross-symbol ranking — the spec's "1 primary + max 2 backups" rule.
 // Takes an array of already-translated real per-symbol results (from
 // translateToTradeGpsVerdict above); never recomputes a verdict itself.
@@ -69,4 +83,4 @@ function selectPrimaryAndBackups(candidates = []) {
   return { primary: actionable[0] || null, backups: actionable.slice(1, 3) };
 }
 
-module.exports = { translateToTradeGpsVerdict, selectPrimaryAndBackups, TRADE_GPS_VERDICTS };
+module.exports = { translateToTradeGpsVerdict, selectPrimaryAndBackups, TRADE_GPS_VERDICTS, OPTIONS_BUY_VERDICTS, canonicalAllowsOptions };
