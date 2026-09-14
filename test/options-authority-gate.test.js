@@ -35,12 +35,21 @@ ok("resolveCanonicalOptionsPermission uses the real canonical pipeline and the r
   assert.match(src, /const \{ canonicalAllowsOptions \} = require\("\.\.\/trade-gps-verdict"\);/);
 });
 
-ok("resolveCanonicalOptionsPermission runs a SEPARATE real Trade GPS chain fetch (never Strategy Rank's own fetchRankedChainForStrategy) — no shared-chain refactor in this task", () => {
+ok("resolveCanonicalOptionsPermission acquires its real Trade GPS chain via the shared getCanonicalOptionsChain service (2026-09-14 Stage 1 extraction) — never Strategy Rank's own fetchRankedChainForStrategy", () => {
   const fnStart = src.indexOf("async function resolveCanonicalOptionsPermission(symbol)");
   const fnEnd = src.indexOf("function filterByCanonicalDirection", fnStart);
   const fn = src.slice(fnStart, fnEnd);
-  assert.match(fn, /fetchYahooOptionsChain\(symbol, null\)/);
+  assert.match(fn, /const chain = await getCanonicalOptionsChain\(symbol\);/);
+  assert.doesNotMatch(fn, /fetchYahooOptionsChain\(/, "chain acquisition must no longer be duplicated inline here — it now lives only in getCanonicalOptionsChain");
   assert.doesNotMatch(fn, /fetchRankedChainForStrategy\(/, "must not call Strategy Rank's own chain fetch to answer the permission question");
+});
+
+ok("getCanonicalOptionsChain itself is the one real place fetchYahooOptionsChain is called for canonical permission purposes, and it stays separate from Strategy Rank's own fetch", () => {
+  const fnStart = src.indexOf("async function getCanonicalOptionsChain(symbol)");
+  const fnEnd = src.indexOf("// Options Authority Gate (2026-09-14", fnStart);
+  const fn = src.slice(fnStart, fnEnd);
+  assert.match(fn, /fetchYahooOptionsChain\(symbol, null\)/);
+  assert.doesNotMatch(fn, /fetchRankedChainForStrategy\(/);
 });
 
 ok("resolveCanonicalOptionsPermission is cached per symbol (avoids re-running the full pipeline on every panel render)", () => {

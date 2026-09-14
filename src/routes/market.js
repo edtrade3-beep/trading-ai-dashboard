@@ -5868,26 +5868,101 @@ async function handleMarket(req, res, requestUrl) {
   // (disclosed via `dteFloorMet:false`) when literally every available
   // real expiry is inside the floor — never throws away a real, if
   // short-dated, chain just because no long-dated one exists yet.
+  // Canonical Options Chain Service (2026-09-14, "Stage 1: Extract
+  // Canonical Options Chain Service") — the real fetch -> safe ET/21-DTE
+  // expiry selection -> normalization this file already ran inline inside
+  // resolveCanonicalOptionsPermission, extracted into one cached, reusable
+  // function. Deliberately owns ONLY acquisition: fetch, safe expiry
+  // selection (same MIN_ENTRY_DTE/dteFromExpiry this file already used,
+  // never re-implemented), and normalization. It does NOT apply
+  // liquidity/spread/staleness/premium eligibility — that stays exactly
+  // where it already lives, inside trade-structure-selector.js's
+  // selectTradeStructure/enrichContract — and it does NOT direction-filter:
+  // both calls and puts always come back, since a future multi-leg
+  // consumer (e.g. an Iron Condor) needs both sides of the same real
+  // expiry. Fails closed (`available:false`) when no real expiry clears
+  // MIN_ENTRY_DTE, or when the real fetch itself fails — never a
+  // short-dated fallback, never a fabricated contract.
+  //
+  // quoteAgeMinutes is a synthetic 0 on every normalized contract here,
+  // unchanged from the pre-extraction behavior — Yahoo's v7 options chain
+  // response carries no real per-contract quote timestamp, so this has
+  // always meant "fetched this request," never a measured real quote age.
+  // Not fixed in this task — a separate future audit/fix, same as noted
+  // in the Shared Options Chain Consolidation audit.
+  async function getCanonicalOptionsChain(symbol) {
+    return cached(`canonical-options-chain:${symbol}`, 5 * 60_000, async () => {
+      const { dteFromExpiry } = require("../options-math");
+      const { MIN_ENTRY_DTE } = require("../trade-structure-selector");
+      const empty = (reason, extra = {}) => ({
+        symbol, underlying: null, selectedExpiry: null, dte: null,
+        calls: [], puts: [], contracts: [], expiryDates: [], source: "yahoo",
+        available: false, reason, ...extra,
+      });
+      try {
+        const nearest = await fetchYahooOptionsChain(symbol, null).catch(() => null);
+        if (!nearest) return empty("Real options chain fetch failed.");
+        const nearestDte = dteFromExpiry(nearest.selectedExpiry);
+        let chain = nearest;
+        if (!(Number.isFinite(nearestDte) && nearestDte >= MIN_ENTRY_DTE)) {
+          const qualifying = (nearest.expiryDates || []).find((d) => {
+            const dte = dteFromExpiry(d);
+            return Number.isFinite(dte) && dte >= MIN_ENTRY_DTE;
+          });
+          if (!qualifying) {
+            return empty(`No real expiry clears the ${MIN_ENTRY_DTE}-day minimum.`, {
+              underlying: Number(nearest.underlying) || null, expiryDates: nearest.expiryDates || [], source: nearest.source || "yahoo",
+            });
+          }
+          chain = (await fetchYahooOptionsChain(symbol, qualifying).catch(() => null)) || { ...nearest, calls: [], puts: [] };
+        }
+        const toContract = (isCall) => (r) => ({
+          isCall, strike: r.strike, bid: r.bid || null, ask: r.ask || null,
+          lastPrice: r.lastPrice || null, iv: r.iv || null,
+          openInterest: r.openInterest, volume: r.volume,
+          expiry: r.expiry, quoteAgeMinutes: 0,
+        });
+        const calls = (chain.calls || []).map(toContract(true));
+        const puts = (chain.puts || []).map(toContract(false));
+        const contracts = [...calls, ...puts];
+        const underlying = Number(chain.underlying) || null;
+        const selectedExpiry = chain.selectedExpiry || null;
+        if (!contracts.length) {
+          return empty("No real contracts on the selected expiry.", {
+            underlying, selectedExpiry, dte: dteFromExpiry(selectedExpiry),
+            expiryDates: nearest.expiryDates || [], source: chain.source || "yahoo",
+          });
+        }
+        return {
+          symbol, underlying, selectedExpiry, dte: dteFromExpiry(selectedExpiry),
+          calls, puts, contracts, expiryDates: nearest.expiryDates || [],
+          source: chain.source || "yahoo", available: true, reason: null,
+        };
+      } catch {
+        return empty("Real options chain fetch failed.");
+      }
+    });
+  }
+
   // Options Authority Gate (2026-09-14, "Lock Strategy Rank Behind
   // Canonical Trade Authority" — direct user spec: Strategy Rank must
   // never produce an actionable options recommendation that contradicts
   // canonical Trade GPS). Runs the SAME real canonical pipeline every
   // other Trade GPS surface reads (canonical-decision-pipeline.js) for
-  // ONE symbol, including a real Trade GPS options chain (the same safe
-  // ET/21-DTE expiry selection as the withOptions=1 trend-screen block,
-  // 2026-09-14) — this is a SEPARATE real fetch from Strategy Rank's own
-  // fetchRankedChainForStrategy below, used only to answer the real
-  // permission question honestly (no shared-chain refactor in this
-  // task — Strategy Rank still ranks off its own real chain once
-  // permitted). Cached 5 minutes per symbol (same TTL as
-  // best-options-now/smart-money-intel) so repeated panel opens for the
-  // same symbol don't re-run this every render.
+  // ONE symbol, including a real Trade GPS options chain (now sourced
+  // from getCanonicalOptionsChain above, 2026-09-14 Stage 1 extraction —
+  // same fetch/expiry-selection behavior as before, just no longer
+  // duplicated inline) — this is a SEPARATE real fetch from Strategy
+  // Rank's own fetchRankedChainForStrategy below, used only to answer the
+  // real permission question honestly (Strategy Rank still ranks off its
+  // own real chain once permitted — Stage 2, not this task). Cached 5
+  // minutes per symbol (same TTL as best-options-now/smart-money-intel)
+  // so repeated panel opens for the same symbol don't re-run this every
+  // render.
   async function resolveCanonicalOptionsPermission(symbol) {
     return cached(`options-permission:${symbol}`, 5 * 60_000, async () => {
       const { computeCanonicalAssetDecision } = require("../canonical-decision-pipeline");
       const { canonicalAllowsOptions } = require("../trade-gps-verdict");
-      const { dteFromExpiry } = require("../options-math");
-      const { MIN_ENTRY_DTE } = require("../trade-structure-selector");
       const { ivRankFor } = require("../iv-history-store");
       const MACRO_SYMS = ["SPY", "QQQ", "^VIX"];
 
@@ -5912,37 +5987,17 @@ async function handleMarket(req, res, requestUrl) {
 
       let optionChain = [], ivRank = null;
       try {
-        const nearest = await fetchYahooOptionsChain(symbol, null).catch(() => null);
-        if (nearest) {
-          const nearestDte = dteFromExpiry(nearest.selectedExpiry);
-          let chain = nearest;
-          if (!(Number.isFinite(nearestDte) && nearestDte >= MIN_ENTRY_DTE)) {
-            const qualifying = (nearest.expiryDates || []).find((d) => {
-              const dte = dteFromExpiry(d);
-              return Number.isFinite(dte) && dte >= MIN_ENTRY_DTE;
-            });
-            chain = qualifying
-              ? ((await fetchYahooOptionsChain(symbol, qualifying).catch(() => null)) || { ...nearest, calls: [], puts: [] })
-              : { ...nearest, calls: [], puts: [] };
-          }
-          const toContract = (isCall) => (r) => ({
-            isCall, strike: r.strike, bid: r.bid || null, ask: r.ask || null,
-            lastPrice: r.lastPrice || null, iv: r.iv || null,
-            openInterest: r.openInterest, volume: r.volume,
-            expiry: r.expiry, quoteAgeMinutes: 0,
-          });
-          optionChain = [...(chain.calls || []).map(toContract(true)), ...(chain.puts || []).map(toContract(false))];
-          const underlying = Number(chain.underlying) || 0;
-          let atmIv = null, bestDist = Infinity;
-          for (const c of (chain.calls || [])) {
-            const iv = Number(c.iv);
-            if (!Number.isFinite(iv) || iv <= 0 || !underlying) continue;
-            const dist = Math.abs(Number(c.strike) - underlying);
-            if (dist < bestDist) { bestDist = dist; atmIv = iv; }
-          }
-          const rankResult = atmIv != null ? ivRankFor(symbol, atmIv) : null;
-          ivRank = rankResult?.available ? rankResult.rank : null;
+        const chain = await getCanonicalOptionsChain(symbol);
+        optionChain = [...(chain.calls || []), ...(chain.puts || [])];
+        let atmIv = null, bestDist = Infinity;
+        for (const c of (chain.calls || [])) {
+          const iv = Number(c.iv);
+          if (!Number.isFinite(iv) || iv <= 0 || !chain.underlying) continue;
+          const dist = Math.abs(Number(c.strike) - chain.underlying);
+          if (dist < bestDist) { bestDist = dist; atmIv = iv; }
         }
+        const rankResult = atmIv != null ? ivRankFor(symbol, atmIv) : null;
+        ivRank = rankResult?.available ? rankResult.rank : null;
       } catch { /* real Trade GPS chain fetch is best-effort — optionChain stays [], canonical honestly falls back to STOCK/no permission */ }
 
       const canonical = computeCanonicalAssetDecision({ symbol, row, macroQuotes: macroData, optionChain, ivRank, nowMs: Date.now(), marketHours: false });
