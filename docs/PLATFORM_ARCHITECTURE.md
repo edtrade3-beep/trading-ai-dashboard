@@ -63,6 +63,16 @@ composite score alone is insufficient. **Scheduler consolidation
 (fewer mutators) is intentionally deferred** — flagged high-risk,
 requires deployment shadowing before any registration is removed.
 
+Both real Alpaca execution paths (`server-autopilot.js`,
+`lightbox-autopilot-execute.js`) also pass through one consolidated
+**account-level gate** (`autopilot-risk-gate.js`'s `evaluateAccountGate()`)
+before ever looking at a candidate symbol — this is where **portfolio
+event concentration** (`portfolio-event-concentration.js`, added
+2026-09-14) is enforced: a HIGH cluster (e.g. 4+ held positions all
+reporting earnings within the same 7-day window) really blocks new
+entries for that cycle; MODERATE is advisory-only (a sizing hint, never
+a hard block). It never sells or closes a position itself.
+
 ## 3. Master Agent (chat layer, built 2026-09-11/12)
 
 A deterministic-first chat surface, reachable from both the web
@@ -174,7 +184,6 @@ Two separate real surfaces sharing the same underlying real data:
 - Scheduler consolidation (5 mutators → fewer) — deferred pending shadow testing
 - Event-risk covers earnings DTE only; macro calendar (CPI/FOMC/jobs) isn't wired into risk overrides yet
 - Short-side scoring has documented risk-model gaps — no live short execution
-- Portfolio event concentration (e.g. "3 open positions all report earnings this week") not yet built
 - Options-flow and research-market-wrap data sources report availability only, no staleness tracking
 
 ## Where to look next

@@ -39,6 +39,23 @@ export default function PortfolioRiskCard({ C, MONO, SANS, distData }) {
     }).catch(() => setRiskLabState("error"));
   };
 
+  // Event-cluster (earnings-date) concentration — real, button-gated (same
+  // "needs a real quote-batch fetch" discipline as correlation/risk-lab
+  // above). src/portfolio-event-concentration.js — 2026-09-14, "promote
+  // portfolio-concentration to a real gate": a HIGH cluster shown here now
+  // really blocks every new autopilot entry that cycle
+  // (autopilot-risk-gate.js's PORTFOLIO_EVENT_CONCENTRATION code), not
+  // just an advisory note — surfaced here for the first time.
+  const [conc, setConc] = useState(null);
+  const [concState, setConcState] = useState("idle"); // idle | loading | ok | error
+  const runConcentrationCheck = () => {
+    setConcState("loading");
+    fetch("/api/ai-hub/portfolio-event-concentration").then(r => r.json()).then(d => {
+      if (d && d.ok) { setConc(d); setConcState("ok"); }
+      else setConcState("error");
+    }).catch(() => setConcState("error"));
+  };
+
   // Portfolio Greeks — real per-position delta/gamma/theta/vega, Phase 11's
   // already-polled Position Manager data (Polygon-sourced, honest null on
   // Yahoo fallback / no key). Zero new fetch cadence — one fetch on mount,
@@ -333,6 +350,47 @@ export default function PortfolioRiskCard({ C, MONO, SANS, distData }) {
               </>
             ) : (
               <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 4 }}>Sharpe/Sortino/Max drawdown building — {riskLab.riskLab.performanceDaysUsed || 0}/20 real trading days.</div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Event-cluster (earnings-date) concentration — real, button-gated.
+          2026-09-14: HIGH is now a real, enforced block on new autopilot
+          entries (autopilot-risk-gate.js), not just an advisory note —
+          the color coding and copy below say so plainly rather than
+          reading like every other advisory metric on this card. */}
+      <div style={{ borderTop: `1px solid ${C.border}`, marginTop: 12, paddingTop: 12 }}>
+        <button onClick={runConcentrationCheck} disabled={concState === "loading"}
+          style={{ width: "100%", fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "8px 0", borderRadius: 8, cursor: concState === "loading" ? "default" : "pointer",
+            border: `1px solid ${C.accent}`, background: `${C.accent}14`, color: C.accent }}>
+          {concState === "loading" ? "Checking real earnings-date overlap…" : "Check Event-Date Concentration"}
+        </button>
+        {concState === "error" && <div style={{ fontFamily: MONO, fontSize: 11, color: C.red, marginTop: 8 }}>Couldn't compute — try again.</div>}
+        {concState === "ok" && conc && (
+          <div style={{ marginTop: 12 }}>
+            {conc.clusters.length === 0 ? (
+              <div style={{ fontFamily: MONO, fontSize: 10.5, color: C.green }}>No overlapping event risk — no held positions report earnings within {conc.windowDays || 7} days of each other.</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {conc.clusters.map((c) => {
+                  const lvColor = c.concentrationLevel === "HIGH" ? C.red : c.concentrationLevel === "MODERATE" ? C.amber : C.textDim;
+                  return (
+                    <div key={c.positions.join("+")} style={{ padding: "8px 10px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, borderLeft: `3px solid ${lvColor}` }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 }}>
+                        <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: lvColor }}>
+                          {c.concentrationLevel}{c.newEntriesBlocked && " — NEW ENTRIES BLOCKED"}
+                        </span>
+                        <span style={{ fontFamily: MONO, fontSize: 10.5, color: C.textDim, ...num }}>{c.exposurePct}% of account</span>
+                      </div>
+                      <div style={{ fontFamily: MONO, fontSize: 10.5, color: C.textSec, marginBottom: 4 }}>
+                        {c.eventDates.map((e) => `${e.symbol} (${e.dte}d)`).join(", ")}
+                      </div>
+                      <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim }}>{c.recommendedAction}</div>
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
         )}
