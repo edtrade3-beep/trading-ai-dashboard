@@ -5740,7 +5740,31 @@ export default function App() {
       const focusScore = focus ? computeScores(focus, trendMap[focus.symbol]) : null;
       const focusTrend = focus ? classifyTrend(focus) : null;
 
-      // Try the server-side Claude AI endpoint first; fall back to heuristic if not configured.
+      // Real tool-calling Agent first (2026-09-15, "AI Trade Desk
+      // restructure" master prompt) — /api/agent/command, a SEPARATE
+      // route from the plain single-shot /api/agent below (which stays
+      // exactly as it was, unmodified, as the fallback path). This one
+      // lets Claude actually call real read-only platform tools
+      // (scan_market/what_changed/check_platform_health/
+      // dealership_leads_summary — src/agent-tools.js) instead of only
+      // reasoning over whatever's already sitting in this component's own
+      // state, so "what should I focus on today" / "audit the platform"
+      // / "any hot dealership leads" get real, current answers.
+      try {
+        const res = await fetch("/api/agent/command", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt }),
+        });
+        const data = await res.json();
+        if (res.ok && data.output) {
+          setAgentOutput(data.output);
+          setAgentRunAt(new Date().toLocaleString());
+          return;
+        }
+      } catch {}
+
+      // Try the server-side Claude AI endpoint next; fall back to heuristic if not configured.
       try {
         const indexRows = [
           { label: "SPY", value: spy },

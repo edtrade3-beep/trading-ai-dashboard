@@ -95,7 +95,12 @@ const healthSrc = fs.readFileSync(path.join(__dirname, "..", "src", "routes", "h
 
 ok("health.js checks hasValidSession and only returns the minimal shape when unauthenticated", () => {
   assert.match(healthSrc, /const authed = hasValidSession\(req\);/);
-  assert.match(healthSrc, /if \(!authed\) return writeJson\(res, 200, minimal\);/);
+  // Refactored 2026-09-15 (Agent tool-calling work) so an in-process
+  // caller can read the same real diagnostics via buildFullHealthSnapshot()
+  // — the minimal-vs-full branch behavior this test guards is unchanged,
+  // just no longer inlined as a local `minimal` variable.
+  assert.match(healthSrc, /if \(!authed\) return writeJson\(res, 200, \{ ok: true, version: "market-v2", build: BUILD, startedAt: STARTED_AT \}\);/);
+  assert.match(healthSrc, /return writeJson\(res, 200, buildFullHealthSnapshot\(\)\);/);
 });
 
 ok("the route itself never 401s (Render's own health prober never sends the session cookie and must always see 200, or deploys could restart-loop)", () => {

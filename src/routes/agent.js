@@ -2,7 +2,7 @@
 // configured (or the call fails) ────────────────────────────────────────────
 const { writeJson, readRequestBody } = require("../utils");
 const { sendTelegramMessage, isConfigured: telegramConfigured } = require("../telegram");
-const { callAnthropicApi } = require("../anthropic");
+const { callAnthropicApi, callAnthropicWithTools } = require("../anthropic");
 const { ANTHROPIC_API_KEY } = require("../config");
 const { computeEMA, computeRSI } = require("../indicators");
 
@@ -973,6 +973,38 @@ async function handleAgent(req, res, requestUrl) {
 
     const briefing = generateBriefing({ macro: body, regime: body.regime, watchlist: body.topLongs || [], earnings: [] });
     return writeJson(res, 200, { output: briefing, generatedAt: now() });
+  }
+
+  // ── POST /api/agent/command — real tool-calling Agent ────────────────────
+  // 2026-09-15, "AI Trade Desk restructure" master prompt: "The Agent can
+  // call the trading and dealership systems internally... should invoke
+  // existing platform capabilities rather than duplicate their UI." A
+  // SEPARATE route from /api/agent above (left completely untouched) —
+  // that one's 5 real callers (TerminalWorkspace/CoachTab/ChallengeTab/
+  // Morning Brief) each already have their own working single-shot
+  // prompt+context shape; this route is additive, only for the AI Agent
+  // tab's own free-text command box, where the model needs to actually GO
+  // LOOK at real live platform state (a live scan, real what-changed,
+  // real platform health, real dealership leads) rather than reason over
+  // whatever the client happened to already have in memory. Read-only
+  // tools only (src/agent-tools.js) — no tool here can place an order,
+  // change a setting, or send a real message to anyone.
+  if (pathname === "/api/agent/command" && req.method === "POST") {
+    let body;
+    try { body = JSON.parse(await readRequestBody(req)); } catch { return writeJson(res, 400, { error: "Invalid JSON" }); }
+    const prompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
+    if (!prompt) return writeJson(res, 400, { error: "prompt required" });
+    if (!ANTHROPIC_API_KEY) return writeJson(res, 200, { output: null, error: "AI not configured" });
+    try {
+      const { AGENT_TOOLS, executeAgentTool } = require("../agent-tools");
+      const SYSTEM = "You are the AI Trade Desk Agent for a personal, paper-trading platform. You have real read-only tools to look up live market opportunities, what changed, platform health, and dealership CRM leads — use them when the user's request needs current real data rather than guessing. You have no tool that places an order, changes any setting, or sends a message to anyone; if asked to do one of those, say plainly that you can't and suggest where in the app to do it. Be direct and concise.";
+      const { text, toolCalls } = await callAnthropicWithTools(prompt, ANTHROPIC_API_KEY, {
+        tools: AGENT_TOOLS, executeTool: executeAgentTool, system: SYSTEM, maxTokens: 1500, maxRounds: 4, timeout: 60000, feature: "agent-command",
+      });
+      return writeJson(res, 200, { output: text || null, toolCalls: toolCalls.map((c) => c.name), generatedAt: now() });
+    } catch (err) {
+      return writeJson(res, 200, { output: null, error: err instanceof Error ? err.message : "Agent call failed" });
+    }
   }
 
   // ── POST /api/agent/trade-setup ──────────────────────────────────────────

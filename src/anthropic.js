@@ -131,4 +131,43 @@ async function callAnthropicWithSearch(prompt, apiKey, { model = "claude-sonnet-
   return finalText;
 }
 
-module.exports = { callAnthropicApi, callAnthropicWithSearch, anthropicRequest, MODELS };
+// Real custom tool-calling loop (2026-09-15, "Agent should be capable of
+// interacting with the platform... invoke existing platform capabilities
+// rather than duplicate their UI" — AI Trade Desk restructure master
+// prompt). Distinct from callAnthropicWithSearch above (that one only
+// ever drives Anthropic's own built-in web_search tool); this drives
+// caller-defined tools (Anthropic messages-API `tools` + `tool_use`/
+// `tool_result` turns) against real platform data the caller's own
+// `executeTool` supplies — see src/agent-tools.js for the actual
+// read-only tool registry this was built for. Bounded to `maxRounds` real
+// tool-call turns so a runaway loop can never rack up unbounded real
+// Anthropic spend; each round's tool executions run in parallel
+// (Promise.all) since Claude can request multiple tools in one turn.
+async function callAnthropicWithTools(prompt, apiKey, { tools, executeTool, system = null, model = MODELS.sonnet, maxTokens = 1500, maxRounds = 4, timeout = 60000, feature = "unclassified" } = {}) {
+  const messages = [{ role: "user", content: prompt }];
+  let finalText = "";
+  const toolCallLog = [];
+  for (let round = 0; round < maxRounds; round++) {
+    const payload = { model, max_tokens: maxTokens, messages, tools };
+    if (system) payload.system = String(system);
+    const resp = await anthropicRequest(payload, apiKey, timeout, feature);
+    const content = resp.content || [];
+    const text = content.filter((b) => b.type === "text").map((b) => b.text).join("");
+    if (text) finalText = text;
+    if (resp.stop_reason !== "tool_use") break;
+    const toolUses = content.filter((b) => b.type === "tool_use");
+    if (!toolUses.length) break;
+    messages.push({ role: "assistant", content });
+    const results = await Promise.all(toolUses.map(async (call) => {
+      let output;
+      try { output = await executeTool(call.name, call.input || {}); }
+      catch (err) { output = { error: err instanceof Error ? err.message : String(err) }; }
+      toolCallLog.push({ name: call.name, input: call.input });
+      return { type: "tool_result", tool_use_id: call.id, content: JSON.stringify(output ?? null) };
+    }));
+    messages.push({ role: "user", content: results });
+  }
+  return { text: finalText, toolCalls: toolCallLog };
+}
+
+module.exports = { callAnthropicApi, callAnthropicWithSearch, callAnthropicWithTools, anthropicRequest, MODELS };
