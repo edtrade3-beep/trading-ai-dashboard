@@ -175,6 +175,13 @@ async function checkTradeGuardrails(cfg) {
   // store, never the shared Alpaca risk-state file. evaluateAccountGate
   // mutates cfg in place (same object) and leaves persisting it to us,
   // matching the exact write timing this file already had.
+  // No portfolioConcentration passed here (2026-09-14) — this is the
+  // legacy Tradier path, already disabled whenever the canonical Alpaca
+  // Server Autopilot is on (see maybeAutoExecute below), with its own
+  // different real position shape (costBasis/quantity, no marketValue).
+  // Omitting it is the same real "only passing it opts in" behavior
+  // evaluateAccountGate already documents — this path just doesn't opt
+  // in, same as it doesn't pass recentTrades below either.
   const gate = evaluateAccountGate({
     equity, cash, tradingBlocked: false, accountBlocked: false,
     startOfDayEquity: cfg.startOfDayEquity, dailyMaxLossAbs: cfg.maxDailyLoss,

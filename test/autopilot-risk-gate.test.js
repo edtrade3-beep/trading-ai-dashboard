@@ -120,6 +120,53 @@ ok("the daily-loss breaker still fires first even when a consecutive-loss streak
   assert.strictEqual(r.code, "DAILY_LOSS_BREAKER");
 });
 
+console.log("\nChecking the portfolio-event-concentration check (2026-09-14, \"promote portfolio-concentration to a real gate\")…");
+
+ok("portfolioConcentration omitted entirely -> check is skipped, never affects the result", () => {
+  resetRiskState();
+  const r = evaluateAccountGate({ equity: 100000, cash: 100000, startOfDayEquity: 100000, dailyMaxLossPct: 2 });
+  assert.strictEqual(r.ok, true);
+});
+
+ok("a HIGH concentration cluster trips PORTFOLIO_EVENT_CONCENTRATION even though every $/% breaker still passes", () => {
+  resetRiskState();
+  const r = evaluateAccountGate({
+    equity: 100000, cash: 100000, startOfDayEquity: 100000, dailyMaxLossPct: 2,
+    portfolioConcentration: { clusters: [{ positions: ["AAA", "BBB", "CCC", "DDD"], concentrationLevel: "HIGH", recommendedAction: "Reduce new exposure in this window — a large share of the portfolio reports earnings within days of each other." }] },
+  });
+  assert.strictEqual(r.ok, false);
+  assert.strictEqual(r.code, "PORTFOLIO_EVENT_CONCENTRATION");
+  assert.match(r.reason, /Reduce new exposure/);
+});
+
+ok("a MODERATE-only concentration result does NOT block — advisory sizing hint, not a hard stop", () => {
+  resetRiskState();
+  const r = evaluateAccountGate({
+    equity: 100000, cash: 100000, startOfDayEquity: 100000, dailyMaxLossPct: 2,
+    portfolioConcentration: { clusters: [{ positions: ["AAA", "BBB"], concentrationLevel: "MODERATE", recommendedAction: "Size new entries smaller than usual in this window." }] },
+  });
+  assert.strictEqual(r.ok, true);
+});
+
+ok("an empty-clusters concentration result (no overlapping events) does not block", () => {
+  resetRiskState();
+  const r = evaluateAccountGate({
+    equity: 100000, cash: 100000, startOfDayEquity: 100000, dailyMaxLossPct: 2,
+    portfolioConcentration: { clusters: [] },
+  });
+  assert.strictEqual(r.ok, true);
+});
+
+ok("the daily-loss breaker still fires first even when a HIGH concentration cluster is ALSO present", () => {
+  resetRiskState();
+  const r = evaluateAccountGate({
+    equity: 97000, cash: 97000, startOfDayEquity: 100000, dailyMaxLossPct: 2,
+    portfolioConcentration: { clusters: [{ positions: ["AAA", "BBB"], concentrationLevel: "HIGH", recommendedAction: "Reduce new exposure." }] },
+  });
+  assert.strictEqual(r.ok, false);
+  assert.strictEqual(r.code, "DAILY_LOSS_BREAKER");
+});
+
 resetRiskState();
 console.log(`\n${passed} checks passed.`);
 if (process.exitCode) console.error("AUTOPILOT-RISK-GATE TEST FAILED");

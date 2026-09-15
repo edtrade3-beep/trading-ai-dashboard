@@ -16,15 +16,28 @@
 // getJson): a pure function over real positions the caller already
 // fetched from /api/alpaca/positions, injectable fetch for real tests.
 //
-// Informational/advisory only, per explicit spec: "Do not automatically
-// sell positions." This engine places no order and mutates no state. It
-// is also NOT wired into the canonical AssetDecision / event-risk-
-// engine.js risk override in this pass — newEntriesBlocked is always
-// false; newEntriesReduced is a real, computed recommendation the caller
-// can surface, not an enforced gate. Making this a real canonical
-// blocking input is a separate, larger decision (it would affect verdict
-// computation for every new-entry candidate, not just the held positions
-// themselves) left for explicit approval before implementing.
+// Never sells or closes a position — per explicit spec: "Do not
+// automatically sell positions." This engine places no order and
+// mutates no state, HIGH clusters included.
+//
+// Promoted to a real, enforced gate (2026-09-14, explicit user approval:
+// "Promote portfolio-concentration to a real gate"). Deliberately NOT
+// wired into the canonical per-symbol AssetDecision/opportunity-engine.js
+// pipeline — that would mean fetching real positions on every one of that
+// pipeline's 15+ computeCanonicalAssetDecision call sites, for every
+// candidate symbol in every scan, an invasive refactor for a check that
+// is portfolio-level, not symbol-level. Instead this is a real, ACCOUNT-
+// level input to src/autopilot-risk-gate.js's evaluateAccountGate() — the
+// one already-consolidated gate every real order-placing system
+// (server-autopilot.js, lightbox-autopilot-execute.js) already calls once
+// per cycle, before it ever looks at a candidate symbol. See that file's
+// own `portfolioConcentration` param. A HIGH cluster now really blocks
+// every new entry for that cycle (evaluateAccountGate's own
+// PORTFOLIO_EVENT_CONCENTRATION code); MODERATE stays advisory-only
+// (`newEntriesReduced`, a sizing hint, not a block) — the spec's own
+// language ("reduce new exposure") never asked for MODERATE to hard-
+// block. `newEntriesBlocked` below now reflects that real enforcement
+// instead of always reading false.
 
 const CONCENTRATION_VERSION = "portfolio-event-concentration-v1";
 // "several earnings reports during one week" — the spec's own example.
@@ -104,7 +117,7 @@ async function computePortfolioEventConcentration(positions, { fetchQuoteBatch, 
       concentrationLevel: level,
       recommendedAction: recommendedAction(level),
       newEntriesReduced: level === "HIGH" || level === "MODERATE",
-      newEntriesBlocked: false, // advisory only in this pass — see file header
+      newEntriesBlocked: level === "HIGH", // real, enforced by autopilot-risk-gate.js — see file header
     });
   }
 

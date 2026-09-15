@@ -74,7 +74,7 @@ async function run() {
     assert.strictEqual(r.clusters.length, 0);
   });
 
-  await ok("TEST — real HIGH concentration (4+ positions or >=30% exposure) recommends reducing new exposure, never auto-sells (no order/close call anywhere in this engine)", async () => {
+  await ok("TEST — real HIGH concentration (4+ positions or >=30% exposure) reports newEntriesBlocked:true — real, enforced by autopilot-risk-gate.js (2026-09-14) — and never auto-sells (no order/close call anywhere in this engine)", async () => {
     const positions = [
       { symbol: "A", marketValue: 25000 }, { symbol: "B", marketValue: 25000 },
       { symbol: "C", marketValue: 25000 }, { symbol: "D", marketValue: 25000 },
@@ -86,7 +86,20 @@ async function run() {
     assert.strictEqual(r.clusters.length, 1);
     assert.strictEqual(r.clusters[0].concentrationLevel, "HIGH");
     assert.strictEqual(r.clusters[0].newEntriesReduced, true);
-    assert.strictEqual(r.clusters[0].newEntriesBlocked, false, "advisory only in this pass — never a real enforced block");
+    assert.strictEqual(r.clusters[0].newEntriesBlocked, true, "HIGH is now a real enforced block, not advisory-only — see autopilot-risk-gate.js's PORTFOLIO_EVENT_CONCENTRATION check");
+  });
+
+  await ok("TEST — a MODERATE cluster reports newEntriesBlocked:false — sizing hint only, never a hard block", async () => {
+    const positions = [
+      { symbol: "A", marketValue: 15000 }, { symbol: "B", marketValue: 5000 }, { symbol: "C", marketValue: 80000 },
+    ];
+    const r = await computePortfolioEventConcentration(positions, {
+      fetchQuoteBatch: fakeQuoteBatch({ A: 1, B: 2, C: null }),
+      nowMs: NOW,
+    });
+    assert.strictEqual(r.clusters.length, 1);
+    assert.strictEqual(r.clusters[0].concentrationLevel, "MODERATE");
+    assert.strictEqual(r.clusters[0].newEntriesBlocked, false);
   });
 
   ok("TEST — real LOW concentration (2 positions, small exposure) is disclosed but not treated as a reason to act", () => {
@@ -94,10 +107,27 @@ async function run() {
     assert.match(recommendedAction("LOW"), /No portfolio-level action needed/);
   });
 
-  await ok("this engine never references any order-placing/closing function name — provably advisory-only", () => {
+  await ok("this engine never references any order-placing/closing function name — provably never sells/closes a position itself, even when it now really blocks new entries via the account gate", () => {
     const fs = require("node:fs");
     const src = fs.readFileSync(require.resolve("../src/portfolio-event-concentration"), "utf8");
     assert.doesNotMatch(src, /alpacaClose|alpacaPlace|placeOrder|closePosition/i);
+  });
+
+  ok("real tripwire: autopilot-risk-gate.js's evaluateAccountGate() actually has the PORTFOLIO_EVENT_CONCENTRATION check wired in (2026-09-14, \"promote portfolio-concentration to a real gate\")", () => {
+    const fs = require("node:fs");
+    const src = fs.readFileSync(require.resolve("../src/autopilot-risk-gate"), "utf8");
+    assert.match(src, /portfolioConcentration/);
+    assert.match(src, /PORTFOLIO_EVENT_CONCENTRATION/);
+    assert.match(src, /concentrationLevel === "HIGH"/);
+  });
+
+  ok("real tripwire: both real Alpaca execution paths (server-autopilot.js, lightbox-autopilot-execute.js) actually compute and pass portfolioConcentration into evaluateAccountGate — not just the gate supporting it", () => {
+    const fs = require("node:fs");
+    for (const file of ["../src/server-autopilot.js", "../src/lightbox-autopilot-execute.js"]) {
+      const src = fs.readFileSync(require.resolve(file), "utf8");
+      assert.match(src, /computePortfolioEventConcentration/, `${file} should compute a real portfolioConcentration`);
+      assert.match(src, /portfolioConcentration,?\s*\n?\s*\}\);/, `${file} should pass portfolioConcentration into evaluateAccountGate(...)`);
+    }
   });
 
   console.log(`\n${passed} checks passed.`);

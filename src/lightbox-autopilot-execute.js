@@ -154,10 +154,31 @@ async function validateAndSize(symbol) {
   // server-autopilot.js. Same shared source:"alpaca-real" feed, same
   // shared account, so a losing streak on either file correctly locks
   // out the other too.
+  //
+  // Positions are fetched here, BEFORE the gate (moved up from below —
+  // same real call, no new fetch added), specifically so a real
+  // portfolio-event-concentration read (2026-09-14, "promote portfolio-
+  // concentration to a real gate") can be passed into evaluateAccountGate.
+  // Fails open on a quote-provider error — see the matching comment in
+  // server-autopilot.js.
+  const posR = await apca("/v2/positions");
+  const positions = (posR && posR.ok && Array.isArray(posR.data)) ? posR.data : [];
+  if (positions.some((p) => p.symbol === symbol)) {
+    return { ok: false, error: `Already holding a position in ${symbol}.` };
+  }
+  let portfolioConcentration;
+  try {
+    const { computePortfolioEventConcentration } = require("./portfolio-event-concentration");
+    portfolioConcentration = await computePortfolioEventConcentration(
+      positions.map((p) => ({ symbol: p.symbol, marketValue: Number(p.market_value) })),
+    );
+  } catch { portfolioConcentration = undefined; }
+
   const gate = evaluateAccountGate({
     equity, cash: Number(acct.cash) || 0, tradingBlocked: acct.trading_blocked, accountBlocked: acct.account_blocked,
     startOfDayEquity: lastEq, dailyMaxLossPct: maxLossPct, dailyMaxLossAbs: maxLossAbs, weeklyMaxLossPct, maxDrawdownPct,
     recentTrades: getRecentClosedTrades({ window: maxConsecutiveLosses, source: "alpaca-real" }), maxConsecutiveLosses,
+    portfolioConcentration,
   });
   if (!gate.ok) {
     const messages = {
@@ -166,15 +187,11 @@ async function validateAndSize(symbol) {
       WEEKLY_LOSS_BREAKER: `Weekly loss breaker tripped (−${weeklyMaxLossPct}%) — no new entries this week.`,
       DRAWDOWN_BREAKER: `Total drawdown breaker tripped (−${maxDrawdownPct}% off peak) — no new entries.`,
       CONSECUTIVE_LOSS_BREAKER: gate.reason,
+      PORTFOLIO_EVENT_CONCENTRATION: gate.reason,
     };
     return { ok: false, error: messages[gate.code] || gate.reason };
   }
 
-  const posR = await apca("/v2/positions");
-  const positions = (posR && posR.ok && Array.isArray(posR.data)) ? posR.data : [];
-  if (positions.some((p) => p.symbol === symbol)) {
-    return { ok: false, error: `Already holding a position in ${symbol}.` };
-  }
   const ordR = await apca("/v2/orders?status=open&limit=200");
   const openOrders = (ordR && ordR.ok && Array.isArray(ordR.data)) ? ordR.data : [];
   const ownOpenOrders = openOrders.filter((o) => String(o.client_order_id || "").startsWith(CLIENT_ORDER_PREFIX));
