@@ -56,6 +56,20 @@ ok("a real, independent path to Dealership still exists outside the sidebar (the
   assert.match(liveSrc, /href="\/dealer"/);
 });
 
+console.log("\nChecking Sidebar.jsx — Settings moved behind a real gear control (2026-09-15, \"simplify the entire user experience\" master prompt)…");
+
+ok("SIDEBAR_ITEMS no longer includes a permanent 'settings' row", () => {
+  const start = src.indexOf("export const SIDEBAR_ITEMS = [");
+  const end = src.indexOf("\n];", start);
+  const block = src.slice(start, end);
+  assert.doesNotMatch(block, /\{ id: "settings"/);
+});
+
+ok("a real gear-icon button in the sidebar footer opens Settings via setActiveTab — not just removed with no replacement", () => {
+  assert.match(src, /onClick=\{\(\) => setActiveTab\("settings"\)\}/);
+  assert.match(src, /aria-current=\{activeTab === "settings" \? "true" : undefined\}/);
+});
+
 console.log(`\n${passed} checks passed.`);
 if (process.exitCode) console.error("SIDEBAR-AGENT-ROW TEST FAILED");
 else console.log("SIDEBAR-AGENT-ROW TEST OK");

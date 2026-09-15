@@ -255,11 +255,13 @@ export const SIDEBAR_ITEMS = [
   // demoted from the rail.
   { id: "islamic", label: "Islamic", icon: "🕌", tab: "islamic" },
 
-  // Settings — not one of the 5 "question" surfaces (it doesn't answer a
-  // daily trading question, it configures the app), kept as a permanent
-  // utility row rather than folded into the palette so account/risk/coach
-  // settings stay one click away.
-  { id: "settings",  label: "Settings",   icon: "⚙️", tab: "settings" },
+  // Settings row removed from the rail (2026-09-15, "simplify the entire
+  // user experience" master prompt: "Move SETTINGS behind a gear/settings
+  // control. Do not add any other top-level navigation items."). Real
+  // SettingsTab.jsx (activeTab "settings") is untouched — now opened via
+  // a real gear-icon button in this file's own footer, below, instead of
+  // a primary-nav row: still one click away, just no longer competing
+  // with the trading-workflow items above for rail space.
 ];
 
 // AI Copilot stays a floating modal launcher (open-ai-copilot event →
@@ -343,11 +345,28 @@ export default function Sidebar({ C, MONO, SANS, activeTab, setActiveTab, topOff
           );
         })}
       </div>
-      {/* Bottom: Settings (opens the command palette — every control already
-          lives there) + a static profile chip. No Logout — there's no
+      {/* Bottom: a real gear/Settings control (2026-09-15, "simplify the
+          entire user experience" master prompt) + the command palette
+          launcher + a static profile chip. No Logout — there's no
           login/session concept in this single-user app, so a fake logout
           button would just be broken. */}
       <div style={{ borderTop: `1px solid ${C.border}`, padding: "8px" }}>
+        <button
+          onClick={() => setActiveTab("settings")}
+          aria-current={activeTab === "settings" ? "true" : undefined}
+          title={collapsed ? "Settings" : undefined}
+          style={{
+            width: "100%", display: "flex", alignItems: "center", gap: 10,
+            justifyContent: collapsed ? "center" : "flex-start",
+            border: "none", textAlign: "left", cursor: "pointer",
+            background: activeTab === "settings" ? `${C.accent}18` : "transparent",
+            color: activeTab === "settings" ? C.accent : C.textSec,
+            borderRadius: 8, padding: "10px 12px", marginBottom: 2, fontFamily: SANS, fontSize: 14, fontWeight: activeTab === "settings" ? 700 : 500,
+          }}
+        >
+          <span style={{ fontSize: 16, width: 20, textAlign: "center", flexShrink: 0 }}>⚙️</span>
+          {!collapsed && <span>Settings</span>}
+        </button>
         {/* Command palette launcher — relabeled from "Settings" (2026-07-29)
             now that Settings is a real sidebar destination above (Coach/
             Learn/Quran/Account & Risk); this stays as the quick way to
