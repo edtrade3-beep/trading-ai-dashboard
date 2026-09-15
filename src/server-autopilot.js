@@ -94,17 +94,36 @@ async function runServerAutopilot() {
   // (Stage 4) scoped to source:"alpaca-real" — the SAME shared account
   // this file and lightbox-autopilot-execute.js both trade, so a losing
   // streak on either one correctly locks out the other too.
-  const gate = evaluateAccountGate({
-    equity, cash: Number(acct.cash) || 0, tradingBlocked: acct.trading_blocked, accountBlocked: acct.account_blocked,
-    startOfDayEquity: lastEq, dailyMaxLossPct: 2, dailyMaxLossAbs: 1000, weeklyMaxLossPct: 5, maxDrawdownPct: 15,
-    recentTrades: getRecentClosedTrades({ window: 3, source: "alpaca-real" }), maxConsecutiveLosses: 3,
-  });
-  if (!gate.ok) return;
-
+  //
+  // Positions are fetched here, BEFORE the gate, specifically so a real
+  // portfolio-event-concentration read (2026-09-14, "promote portfolio-
+  // concentration to a real gate") can be passed into evaluateAccountGate
+  // — a HIGH cluster (several held positions reporting earnings within
+  // days of each other) really blocks every new entry this tick. Fails
+  // open: computePortfolioEventConcentration already swallows its own
+  // quote-fetch errors and returns an empty-clusters result rather than
+  // throwing, so a Yahoo hiccup never blocks trading — it just means this
+  // one tick evaluates without the concentration check, same as any
+  // other optional evaluateAccountGate input a caller doesn't supply.
   const posR = await apca("/v2/positions");
   const positions = (posR && posR.ok && Array.isArray(posR.data)) ? posR.data : [];
   const normPositions = positions.map(p => ({ symbol: p.symbol, qty: p.qty, avgEntryPrice: p.avg_entry_price }));
   const held = new Set(positions.map(p => p.symbol));
+  let portfolioConcentration;
+  try {
+    const { computePortfolioEventConcentration } = require("./portfolio-event-concentration");
+    portfolioConcentration = await computePortfolioEventConcentration(
+      positions.map(p => ({ symbol: p.symbol, marketValue: Number(p.market_value) })),
+    );
+  } catch { portfolioConcentration = undefined; }
+
+  const gate = evaluateAccountGate({
+    equity, cash: Number(acct.cash) || 0, tradingBlocked: acct.trading_blocked, accountBlocked: acct.account_blocked,
+    startOfDayEquity: lastEq, dailyMaxLossPct: 2, dailyMaxLossAbs: 1000, weeklyMaxLossPct: 5, maxDrawdownPct: 15,
+    recentTrades: getRecentClosedTrades({ window: 3, source: "alpaca-real" }), maxConsecutiveLosses: 3,
+    portfolioConcentration,
+  });
+  if (!gate.ok) return;
   // Raised 12->20 (2026-08-19, real user report: "not having lots of
   // trades" — confirmed live in production the account had sat pinned at
   // exactly 12/12 positions since 2026-07-23, ~4 weeks, silently blocking

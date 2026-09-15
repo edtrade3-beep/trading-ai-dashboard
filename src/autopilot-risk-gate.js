@@ -54,10 +54,26 @@ function writeRiskState(state) { writeJsonAtomic(RISK_STATE_PATH, state); }
 // `recentTrades` entirely to skip this check (e.g. a caller with no real
 // closed-trade history to evaluate yet) — only passing it opts in, this
 // never silently changes behavior for a caller that doesn't supply it.
+//
+// `portfolioConcentration` (2026-09-14, "promote portfolio-concentration
+// to a real gate") — optional, same opt-in convention as `recentTrades`:
+// pass the real result of portfolio-event-concentration.js's
+// computePortfolioEventConcentration(positions) (already computed by the
+// caller — this function stays synchronous, no network call happens in
+// here) to activate the check; omit it and behavior is unchanged. A real
+// HIGH cluster blocks every new entry for this cycle — several held
+// positions reporting earnings within days of each other is real
+// account-level risk, not a per-symbol one, so it belongs in this
+// account-level gate rather than the canonical per-symbol pipeline.
+// MODERATE clusters do NOT block here (the engine's own
+// `newEntriesReduced` stays a sizing hint for the caller to surface, not
+// a hard stop — matching the spec's own "reduce new exposure" language,
+// never "block new exposure", for anything short of HIGH).
 function evaluateAccountGate({
   equity, cash, tradingBlocked, accountBlocked, startOfDayEquity,
   dailyMaxLossPct, dailyMaxLossAbs, weeklyMaxLossPct = 5, maxDrawdownPct = 15,
   riskState: callerRiskState, recentTrades, maxConsecutiveLosses = 3,
+  portfolioConcentration,
 }) {
   if (isEmergencyStopActive()) {
     return { ok: false, code: "EMERGENCY_STOP", reason: "Emergency Stop is active." };
@@ -83,6 +99,13 @@ function evaluateAccountGate({
   }
   if (totalDrawdownBreakerTripped({ equity, peakEquity: riskState.peakEquity, maxDrawdownPct })) {
     return { ok: false, code: "DRAWDOWN_BREAKER", reason: "Total drawdown limit reached — no new entries." };
+  }
+
+  if (portfolioConcentration && Array.isArray(portfolioConcentration.clusters)) {
+    const highCluster = portfolioConcentration.clusters.find((c) => c.concentrationLevel === "HIGH");
+    if (highCluster) {
+      return { ok: false, code: "PORTFOLIO_EVENT_CONCENTRATION", reason: highCluster.recommendedAction };
+    }
   }
 
   if (recentTrades !== undefined && consecutiveLossBreakerTripped({ recentTrades, maxConsecutiveLosses })) {
