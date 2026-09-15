@@ -484,7 +484,18 @@ export default function TradeDeskTab({
     return { count: positions.length, pl };
   }, [alpacaPositions]);
 
-  const [dockModule, setDockModule] = useState(null);
+  // Defaults to "metrics" (2026-09-15, live user report + screenshot: "Fix
+  // this make it easy to use" — the rail's own default null state landed
+  // on a real dead screen, a real heading plus a sentence and nothing
+  // else, forcing a click before anything useful appeared even though the
+  // rail's own copy already promised "key levels, targets, options,
+  // news... one click away." "metrics" is the INTEL module that already
+  // bundles exactly that promised content (Key Levels/Targets/Key
+  // Metrics/Market Sentiment/Trade Setup/Trade GPS Why) — same real data,
+  // just shown immediately instead of after an extra required click. The
+  // rail's toggle behavior is unchanged: clicking METRICS again still
+  // collapses back to the empty state for anyone who wants it gone.
+  const [dockModule, setDockModule] = useState("metrics");
   // Search -> Discover handoff (2026-08-25, revised same day per explicit
   // user correction: "i want discover opens specifically for the ticker i
   // search"). DISCOVER now mounts MarketTerminalTab.jsx directly (see
@@ -505,7 +516,12 @@ export default function TradeDeskTab({
   // gone; the side tab rail below is always there, so opening a module
   // from here needs no extra mode switch, just openDockModule itself.
   const openTickerTab = (key) => {
-    if (key === "overview") { setDockModule(null); return; }
+    // "Overview" now opens the same real "metrics" bundle the rail
+    // defaults to (2026-09-15 usability fix, see the dockModule default
+    // comment above) — null used to mean a real dead screen, so pointing
+    // Overview at it would just recreate the exact empty state this same
+    // fix removes as the rail's default.
+    if (key === "overview") { setDockModule("metrics"); return; }
     if (symbol) {
       try { localStorage.setItem("mterminal_load_sym", symbol); } catch {}
     }

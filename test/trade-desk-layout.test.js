@@ -99,6 +99,11 @@ ok("TradeDeskTab.jsx's reference-layout metrics (Key Levels/Targets/Key Metrics/
 ok("TradeDeskTab.jsx's Simple/Full view-mode toggle is retired — the side tab rail is the only layout now, no second mode to discover", () => {
   assert.doesNotMatch(tradeDeskSrc, /const \[viewMode|toggleViewMode|MORE ANALYSIS/);
 });
+ok("TradeDeskTab.jsx's side rail opens on real content by default, not the empty 'Select a module' dead screen (2026-09-15 usability fix, live user report: 'Fix this make it easy to use') — Overview in the Deep Analysis dropdown routes to the same real default, not back to null", () => {
+  assert.match(tradeDeskSrc, /const \[dockModule, setDockModule\] = useState\("metrics"\);/);
+  assert.match(tradeDeskSrc, /if \(key === "overview"\) \{ setDockModule\("metrics"\); return; \}/);
+});
+
 ok("TradeDeskTab.jsx renders a real vertical side tab rail grouping every module (TRADE/ACCOUNT/ANALYSIS/EXECUTION/INTEL), each still scoped to the active symbol", () => {
   assert.match(tradeDeskSrc, /aria-label="Trade Desk tabs"/);
   assert.match(tradeDeskSrc, /group: "INTEL"/);
