@@ -2,21 +2,25 @@
 // from the prior 11-item flat list down to 7, then grew back to 19 real
 // top-level rows over the following month as new features each got their
 // own permanent slot. Collapsed again 2026-09-05 ("combine tabs minimize
-// tabs") down to a 7-item rail. Collapsed further 2026-09-15 ("restructure
-// around AI Trade Desk as the main workspace, remove anything that feels
-// like a separate research destination" master prompt) — Market/News/
-// Search dropped from the rail (their real content was already rendered
-// inline inside AI Trade Desk before this pass, genuinely redundant, not
-// merely similar), "Trade Desk"/"AI Agent" relabeled to "AI Trade Desk"/
-// "Agent". Target rail per that prompt is AI TRADE DESK / AGENT /
-// DEALERSHIP / JOURNAL / SETTINGS; Crypto, Autopilot, Car Business, Story
-// AI, and Islamic stay visible as a deliberate deviation from that strict
-// 5-item list — each was added to the permanent rail by its own separate,
-// explicit user request (Car Business has its own standing "DO NOT MIX
-// WITH THE TRADING ENGINE" rule from 2026-08-30), and the 2026-09-15
-// prompt doesn't mention any of them, so removing them wasn't treated as
-// authorized by silence. Flagged for the user to confirm rather than
-// assumed either way.
+// tabs") down to a 7-item rail. Collapsed further 2026-09-15, in two
+// steps, both same-day: first a "restructure around AI Trade Desk as the
+// main workspace" master prompt (Market/News/Search dropped — their real
+// content was already rendered inline inside AI Trade Desk, genuinely
+// redundant; "Trade Desk"/"AI Agent" relabeled to "AI Trade Desk"/
+// "Agent"; that prompt's own strict success criteria named AI TRADE DESK
+// / AGENT / DEALERSHIP / JOURNAL / SETTINGS as the only 5 rows), then a
+// direct, more specific follow-up instruction — "REMOVE DEALERSHIP AND
+// AGENT COMPLETELY" — which drops two of that same prompt's own named
+// rows; the later, more specific instruction took precedence over the
+// earlier one rather than being read as a conflict to resolve by asking.
+// Current rail: AI Trade Desk, Crypto, Autopilot, Journal, Car Business,
+// Story AI, Islamic, Settings. Crypto/Autopilot/Car Business/Story
+// AI/Islamic were never addressed by either 2026-09-15 prompt and stay
+// visible — each was added by its own separate, explicit user request
+// (Car Business has its own standing "DO NOT MIX WITH THE TRADING
+// ENGINE" rule from 2026-08-30), so their continued presence isn't
+// silence-as-authorization, it's simply outside what either prompt asked
+// about.
 //
 // Every dropped item is a demotion, never a deletion — the exact same
 // "hide, don't delete" pattern this file already used repeatedly
@@ -197,19 +201,19 @@ export const SIDEBAR_ITEMS = [
   // the CURBLINE command-palette alias (axiom-live.jsx). Revisit a real
   // sidebar row once/if it gets a real multi-tenant backend.
 
-  // Dealership — the real, already-built operational dealer portal
-  // (inventory management, AI CRM inbox, photo tools, price beater —
-  // src/dealership/routes.js/fb-hub.js). Explicit user request (2026-08-30:
-  // "Add dealership tab under new tab"), placed directly under Car
-  // Business since the two are closely related (Car Business is the AI
-  // research/strategy layer, this is the day-to-day operational tool it
-  // reasons about). Kept visible in the 2026-09-05 nav consolidation for
-  // the same explicit-exception reasoning as Car Business above. A
-  // genuinely separate app/bundle (client/dealer/index.html, not part of
-  // this React app) — real full-page navigation via `href`, opened in a
-  // new tab so the trading platform's own session/state isn't lost, same
-  // convention as any real cross-app link.
-  { id: "dealership", label: "Dealership", icon: "🏪", href: "/dealer" },
+  // Dealership row removed from the rail completely (2026-09-15, explicit
+  // user instruction: "REMOVE DEALERSHIP AND AGENT COMPLETELY" — this
+  // directly reverses this same day's earlier master prompt, which had
+  // listed Dealership as one of the 5 required top-level tabs; treated as
+  // the user's own later, more specific instruction taking precedence).
+  // The real dealer portal itself (src/dealership/routes.js/fb-hub.js,
+  // client/dealer/index.html) is completely untouched — it's a genuinely
+  // separate app/bundle, not part of this React SPA, so there was never a
+  // component to delete here, only this row. Two other real, pre-existing
+  // paths to it are untouched and still work: the top-bar "DIXIE" link
+  // (axiom-live.jsx, opens /dealer in a new tab) and the mobile menu's
+  // own "DIXIE" button — neither was added for this change, both already
+  // existed independently of this sidebar row.
 
   // Search dropped from the rail (2026-09-15 master prompt: "Search
   // should be removed completely as a tab... Search is an ACTION, not a
@@ -221,13 +225,17 @@ export const SIDEBAR_ITEMS = [
   // merely similar. SearchTab.jsx stays on disk, untouched, still
   // reachable via the existing SEARCH command-palette alias.
 
-  // Agent — real Institutional Copilot chat + the Astra/Claude dev-task
-  // queue (2026-09-13). Relabeled "AI Agent" -> "Agent" (2026-09-15 master
-  // prompt: exact target label). Same real destination (activeTab
-  // "agent"), AgentTab.jsx fully unchanged — still one click away, same
-  // explicit-exception treatment as Car Business/Dealership/Story AI/
-  // Islamic below.
-  { id: "agent", label: "Agent", icon: "🧭", tab: "agent" },
+  // Agent row removed from the rail completely (2026-09-15, explicit user
+  // instruction: "REMOVE DEALERSHIP AND AGENT COMPLETELY" — same later,
+  // more specific instruction overriding this same day's earlier master
+  // prompt, which had listed Agent as one of the 5 required top-level
+  // tabs). AgentTab.jsx and every real backing route (including the new
+  // /api/agent/command tool-calling work, same day) are completely
+  // untouched — this removes only the permanent rail row. Still one
+  // keystroke away via the existing AGENT/AI command-palette aliases
+  // (axiom-live.jsx), which already existed before Agent was ever
+  // promoted to a permanent row (2026-09-13) — same "hide, don't delete"
+  // convention as every other row dropped from this file.
 
   // Story AI — Arabic AI storytelling studio (2026-09-07, explicit user
   // request: "add a completely new major tab... self-contained module").
