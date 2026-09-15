@@ -191,6 +191,28 @@ export default function TradeGpsCard({
   // substitute — those are genuinely different concepts kept distinct below).
   const opportunityAvailable = Number.isFinite(decision?.opportunityScore);
 
+  // WHY — 3-5 concise reasons (2026-09-15, "simplify the entire user
+  // experience" master prompt: "Show 3-5 concise reasons for the verdict
+  // ... Never force the user to mentally combine 15 indicators"). Real,
+  // already-computed data — the exact same 7-bucket score breakdown
+  // TradeGpsWhyPanel.jsx's own SCORE BREAKDOWN already shows (tradeGps.
+  // breakdown, computed once by the canonical pipeline), never a second
+  // reasons-generation algorithm. Named buckets scoring >=60/100 are real
+  // positive contributors to the verdict; below that a bucket isn't
+  // actually supporting the case, so it's honestly left out rather than
+  // padding the list to a fixed count.
+  const WHY_BUCKET_LABEL = {
+    regimeAlignment: "Market regime supportive", trendConfirmation: "Strong trend",
+    catalystQuality: "Real catalyst present", relativeStrength: "Relative strength vs. market",
+    volumeConfirmation: "Volume confirmed", riskRewardQuality: "Favorable risk/reward",
+    optionsLiquidity: "Options liquidity healthy",
+  };
+  const whyBullets = Object.entries(tradeGps?.breakdown || {})
+    .filter(([, score]) => Number.isFinite(score) && score >= 60)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([key, score]) => ({ label: WHY_BUCKET_LABEL[key] || key, score }));
+
   return (
     <section aria-label="Trade GPS primary opportunity" style={{ padding: "18px 20px", background: C.surface, borderBottom: `1px solid ${C.border}` }}>
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: 22, marginBottom: 14 }}>
@@ -257,6 +279,19 @@ export default function TradeGpsCard({
           </>
         )}
       </div>
+
+      {/* WHY — real 3-5 bullet reasons, always visible (not buried behind
+          Deep Analysis) — only rendered once real breakdown data exists,
+          never padded with fabricated reasons to hit a count. */}
+      {whyBullets.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 18px", marginBottom: 14 }}>
+          {whyBullets.map((b) => (
+            <div key={b.label} style={{ display: "flex", alignItems: "center", gap: 6, fontFamily: SANS, fontSize: 14, color: C.textSec }}>
+              <span style={{ color: C.green, fontWeight: 900 }}>✓</span>{b.label}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Risk contributors — the real, already-computed reasons behind an
           elevated riskScore. Only rendered when real contributors exist;
