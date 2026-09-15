@@ -72,6 +72,11 @@ export default function AgentTab({
                 />
                 <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
                   {[
+                    "What should I focus on today?",
+                    "Scan the market and give me the best opportunity.",
+                    "Show me anything important that changed.",
+                    "Check the platform for problems.",
+                    "Any hot dealership leads I'm missing?",
                     "Bullish or bearish today?",
                     "Top 5 long setups right now",
                     "Top risks and hedges now",
