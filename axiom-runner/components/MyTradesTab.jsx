@@ -39,7 +39,7 @@ function AlpacaPanel({ C, MONO, SANS }) {
   const openPL = positions.reduce((s, p) => s + (Number(p.unrealizedPL) || 0), 0);
   const stat = (label, value, color) => (
     <div style={{ flex: "1 1 110px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 12px" }}>
-      <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.05em", marginBottom: 3 }}>{label}</div>
+      <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.05em", marginBottom: 3 }}>{label}</div>
       <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 800, color: color || C.text }}>{value}</div>
     </div>
   );
@@ -48,18 +48,18 @@ function AlpacaPanel({ C, MONO, SANS }) {
       {/* Hero: equity + today's change */}
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 14 }}>
         <div>
-          <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: "#10b981", letterSpacing: "0.06em", display: "flex", alignItems: "center", gap: 6 }}>
+          <div style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 700, color: "#10b981", letterSpacing: "0.06em", display: "flex", alignItems: "center", gap: 6 }}>
             🦙 ALPACA PAPER <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e", display: "inline-block" }} /> <span style={{ color: C.textDim, fontWeight: 500 }}>{acct.status}</span>
           </div>
           <div style={{ fontFamily: MONO, fontSize: 34, fontWeight: 900, color: C.text, lineHeight: 1.1, marginTop: 4 }}>{fmt(acct.equity)}</div>
-          <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim, marginTop: 2 }}>account equity</div>
+          <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim, marginTop: 2 }}>account equity</div>
         </div>
         <div style={{ textAlign: "right" }}>
-          <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.05em" }}>TODAY</div>
+          <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.05em" }}>TODAY</div>
           <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: dayChg >= 0 ? C.green : C.red }}>
             {dayChg >= 0 ? "+" : ""}{fmt(Math.abs(dayChg)).replace("$", dayChg < 0 ? "-$" : "$")} <span style={{ fontSize: 13 }}>({dayPct >= 0 ? "+" : ""}{dayPct.toFixed(2)}%)</span>
           </div>
-          {positions.length > 0 && <div style={{ fontFamily: MONO, fontSize: 10, color: openPL >= 0 ? C.green : C.red, marginTop: 2 }}>open P&L {openPL >= 0 ? "+" : ""}${Math.round(openPL)}</div>}
+          {positions.length > 0 && <div style={{ fontFamily: MONO, fontSize: 12.5, color: openPL >= 0 ? C.green : C.red, marginTop: 2 }}>open P&L {openPL >= 0 ? "+" : ""}${Math.round(openPL)}</div>}
         </div>
       </div>
       {/* Stat row */}
@@ -72,20 +72,20 @@ function AlpacaPanel({ C, MONO, SANS }) {
       {/* Open positions */}
       {positions.length > 0 && (
         <div style={{ marginTop: 14 }}>
-          <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim, letterSpacing: "0.06em", marginBottom: 8 }}>OPEN POSITIONS</div>
+          <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.textDim, letterSpacing: "0.06em", marginBottom: 8 }}>OPEN POSITIONS</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
             {positions.map(p => (
               <div key={p.symbol} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 10px", background: C.surface, borderRadius: 8 }}>
                 <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
                   <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.accent }}>{p.symbol}</span>
-                  <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{p.qty} sh @ ${Number(p.avgEntry).toFixed(2)}</span>
-                  {p.openedAt && <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }} title={`Opened ${new Date(p.openedAt).toLocaleString()}`}>
+                  <span style={{ fontFamily: MONO, fontSize: 12.5, color: C.textDim }}>{p.qty} sh @ ${Number(p.avgEntry).toFixed(2)}</span>
+                  {p.openedAt && <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }} title={`Opened ${new Date(p.openedAt).toLocaleString()}`}>
                     🕒 {new Date(p.openedAt).toLocaleDateString([], { month: "short", day: "numeric" })} {new Date(p.openedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                   </span>}
                 </div>
                 <div style={{ textAlign: "right" }}>
                   <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: p.unrealizedPL >= 0 ? C.green : C.red }}>{p.unrealizedPL >= 0 ? "+" : ""}${p.unrealizedPL.toFixed(0)}</span>
-                  <span style={{ fontFamily: MONO, fontSize: 10, color: p.unrealizedPL >= 0 ? C.green : C.red, marginLeft: 6 }}>({p.unrealizedPLpc >= 0 ? "+" : ""}{p.unrealizedPLpc.toFixed(1)}%)</span>
+                  <span style={{ fontFamily: MONO, fontSize: 12.5, color: p.unrealizedPL >= 0 ? C.green : C.red, marginLeft: 6 }}>({p.unrealizedPLpc >= 0 ? "+" : ""}{p.unrealizedPLpc.toFixed(1)}%)</span>
                 </div>
               </div>
             ))}
@@ -137,24 +137,24 @@ function AlpacaReportCard({ C, MONO, SANS }) {
   ];
   return wrap(<>
     <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
-      <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textSec, letterSpacing: "0.06em" }}>📊 REPORT CARD</span>
-      <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>real Alpaca closed trades</span>
+      <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.textSec, letterSpacing: "0.06em" }}>📊 REPORT CARD</span>
+      <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>real Alpaca closed trades</span>
       {n < MIN_TRADES_FOR_EDGE
-        ? <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: C.amber, background: `${C.amber}18`, borderRadius: 5, padding: "3px 8px" }}>⏳ {n}/{MIN_TRADES_FOR_EDGE} trades — keep going</span>
+        ? <span style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 700, color: C.amber, background: `${C.amber}18`, borderRadius: 5, padding: "3px 8px" }}>⏳ {n}/{MIN_TRADES_FOR_EDGE} trades — keep going</span>
         : edgeReady
-          ? <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.green, background: `${C.green}18`, borderRadius: 5, padding: "3px 8px" }}>✓ POSITIVE EDGE — you may be ready to scale</span>
-          : <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.red, background: `${C.red}18`, borderRadius: 5, padding: "3px 8px" }}>✕ NO EDGE YET — refine before sizing up</span>}
+          ? <span style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 800, color: C.green, background: `${C.green}18`, borderRadius: 5, padding: "3px 8px" }}>✓ POSITIVE EDGE — you may be ready to scale</span>
+          : <span style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 800, color: C.red, background: `${C.red}18`, borderRadius: 5, padding: "3px 8px" }}>✕ NO EDGE YET — refine before sizing up</span>}
     </div>
     {n === 0
       ? <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>No closed trades yet. Once the autopilot opens and closes round-trips on Alpaca, your win rate and edge will appear here.</div>
       : <>
         <div style={{ display: "flex", gap: 22, rowGap: 12, flexWrap: "wrap" }}>
           {stats.map(([l, v, col]) => (
-            <div key={l}><div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.04em" }}>{l}</div>
+            <div key={l}><div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.04em" }}>{l}</div>
               <div style={{ fontFamily: MONO, fontSize: 17, fontWeight: 800, color: col }}>{v}</div></div>
           ))}
         </div>
-        <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 8 }}>
+        <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, marginTop: 8 }}>
           Expectancy = (win% × avg win) − (loss% × avg loss) — the average you make per trade. Positive over 20+ trades = a real edge.
         </div>
         {eq.length >= 2 && (() => {
@@ -165,7 +165,7 @@ function AlpacaReportCard({ C, MONO, SANS }) {
           const up = eq[m - 1] >= 0;
           return (
             <div style={{ marginTop: 12 }}>
-              <div style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, marginBottom: 4 }}>📈 EQUITY CURVE — cumulative realized P&L over {m} closed trades</div>
+              <div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, marginBottom: 4 }}>📈 EQUITY CURVE — cumulative realized P&L over {m} closed trades</div>
               <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ width: "100%", height: 60, display: "block" }}>
                 <line x1="0" y1={y(0).toFixed(1)} x2={w} y2={y(0).toFixed(1)} stroke={C.border} strokeWidth="0.4" strokeDasharray="1 1" />
                 <path d={path} fill="none" stroke={up ? C.green : C.red} strokeWidth="1.2" vectorEffect="non-scaling-stroke" />
@@ -175,7 +175,7 @@ function AlpacaReportCard({ C, MONO, SANS }) {
         })()}
         {/* Recent closed trades with open → close times */}
         <div style={{ marginTop: 14 }}>
-          <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: C.textDim, letterSpacing: "0.06em", marginBottom: 8 }}>RECENT CLOSED</div>
+          <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.textDim, letterSpacing: "0.06em", marginBottom: 8 }}>RECENT CLOSED</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
             {closed.slice(0, 12).map((t, i) => {
               const ft = d => { try { const x = new Date(d); return x.toLocaleDateString([], { month: "short", day: "numeric" }) + " " + x.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); } catch { return "—"; } };
@@ -185,9 +185,9 @@ function AlpacaReportCard({ C, MONO, SANS }) {
                 <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "7px 10px", background: C.surface, borderRadius: 8, flexWrap: "wrap" }}>
                   <div style={{ display: "flex", alignItems: "baseline", gap: 8, minWidth: 150 }}>
                     <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.accent }}>{t.symbol}</span>
-                    <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>{t.side === "short" ? "SHORT " : ""}{t.qty} @ ${Number(t.entry).toFixed(2)}→${Number(t.exit).toFixed(2)}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 12.5, color: C.textDim }}>{t.side === "short" ? "SHORT " : ""}{t.qty} @ ${Number(t.entry).toFixed(2)}→${Number(t.exit).toFixed(2)}</span>
                   </div>
-                  <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, flex: 1, textAlign: "center", minWidth: 160 }}>
+                  <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, flex: 1, textAlign: "center", minWidth: 160 }}>
                     🕒 {ft(t.openedAt)} → {ft(t.closedAt)}{heldStr ? ` · ${heldStr}` : ""}
                   </span>
                   <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: t.pnl >= 0 ? C.green : C.red, minWidth: 60, textAlign: "right" }}>{t.pnl >= 0 ? "+" : ""}${Math.round(t.pnl)}</span>
@@ -220,24 +220,24 @@ function TierStatsCard({ C, MONO, SANS }) {
   if (tiers === null && !err) return wrap(<div style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>Loading tier breakdown…</div>);
   if (err) return wrap(<div style={{ fontFamily: SANS, fontSize: 12, color: C.red }}>Couldn't load tier stats — {err}.</div>);
   if (!tiers.length) return wrap(<>
-    <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textSec, letterSpacing: "0.06em", marginBottom: 4 }}>🎯 BY SETUP TIER</div>
+    <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.textSec, letterSpacing: "0.06em", marginBottom: 4 }}>🎯 BY SETUP TIER</div>
     <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>No tagged trades yet. Once the auto-pilot closes round-trips, each tier's real win rate and R-multiple will show up here.</div>
   </>);
 
   const MIN_SAMPLE = 5; // below this, a tier's stats aren't reliable enough to call good/bad yet
   return wrap(<>
     <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
-      <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textSec, letterSpacing: "0.06em" }}>🎯 BY SETUP TIER</span>
-      <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim }}>which setups actually work</span>
+      <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.textSec, letterSpacing: "0.06em" }}>🎯 BY SETUP TIER</span>
+      <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>which setups actually work</span>
     </div>
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
       {/* Header row */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 10px" }}>
-        <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.05em", width: 70 }}>TIER</span>
-        <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.05em", width: 60, textAlign: "right" }}>TRADES</span>
-        <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.05em", width: 60, textAlign: "right" }}>WIN%</span>
-        <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.05em", width: 70, textAlign: "right" }}>AVG R</span>
-        <span style={{ fontFamily: MONO, fontSize: 9, color: C.textDim, letterSpacing: "0.05em", flex: 1, textAlign: "right" }}>P&L</span>
+        <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.05em", width: 70 }}>TIER</span>
+        <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.05em", width: 60, textAlign: "right" }}>TRADES</span>
+        <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.05em", width: 60, textAlign: "right" }}>WIN%</span>
+        <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.05em", width: 70, textAlign: "right" }}>AVG R</span>
+        <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim, letterSpacing: "0.05em", flex: 1, textAlign: "right" }}>P&L</span>
       </div>
       {tiers.map(t => {
         const reliable = t.n >= MIN_SAMPLE;
@@ -266,7 +266,7 @@ function TierStatsCard({ C, MONO, SANS }) {
       if (!worst || worst.avgR > 0) return null;
       const label = worst.tier === "?" ? "untagged trades" : `Tier ${worst.tier}`;
       return (
-        <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 10 }}>
+        <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, marginTop: 10 }}>
           ⚠️ <b style={{ color: C.red }}>{label}</b> is losing money over {worst.n} trades ({worst.avgR}R avg) — consider cutting this setup.
         </div>
       );
@@ -372,7 +372,7 @@ export default function MyTradesTab({ C, MONO, SANS, watchlistData }) {
   // Reusable labeled setting block: title + caption + segmented buttons
   const Setting = ({ label, hint, options, value, onPick, accent = C.accent }) => (
     <div style={{ minWidth: 130 }}>
-      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textSec, letterSpacing: "0.04em" }}>{label}</div>
+      <div style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 800, color: C.textSec, letterSpacing: "0.04em" }}>{label}</div>
       <div style={{ display: "flex", gap: 4, marginTop: 5 }}>
         {options.map(([lbl, val, col]) => {
           const sel = value === val;
@@ -381,13 +381,13 @@ export default function MyTradesTab({ C, MONO, SANS, watchlistData }) {
             <button key={String(val)} onClick={() => onPick(val)}
               style={{ background: sel ? c : C.surface, color: sel ? "#fff" : C.textSec,
                 border: `1px solid ${sel ? c : C.border}`, borderRadius: 6,
-                fontFamily: MONO, fontSize: 11, fontWeight: 700, padding: "5px 10px", cursor: "pointer" }}>
+                fontFamily: MONO, fontSize: 13, fontWeight: 700, padding: "5px 10px", cursor: "pointer" }}>
               {lbl}
             </button>
           );
         })}
       </div>
-      {hint && <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginTop: 4, maxWidth: 200, lineHeight: 1.4 }}>{hint}</div>}
+      {hint && <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.textDim, marginTop: 4, maxWidth: 200, lineHeight: 1.4 }}>{hint}</div>}
     </div>
   );
 
@@ -396,7 +396,7 @@ export default function MyTradesTab({ C, MONO, SANS, watchlistData }) {
       {/* ── Header ── */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
         <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.text }}>🤖 AUTO-PILOT</div>
-        <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: "#10b981", padding: "3px 8px", borderRadius: 6, border: `1px solid #10b98155`, background: "#10b98114" }}>🅰 ALPACA PAPER</span>
+        <span style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 700, color: "#10b981", padding: "3px 8px", borderRadius: 6, border: `1px solid #10b98155`, background: "#10b98114" }}>🅰 ALPACA PAPER</span>
         <button onClick={flattenAll} disabled={closing}
           style={{ marginLeft: "auto", background: closing ? C.surface : `${C.red}15`, color: C.red, border: `1px solid ${C.red}55`, borderRadius: 10,
             fontFamily: MONO, fontSize: 13, fontWeight: 800, padding: "10px 18px", cursor: closing ? "default" : "pointer" }}>
@@ -430,15 +430,15 @@ export default function MyTradesTab({ C, MONO, SANS, watchlistData }) {
             const secsAgo = lastCheck ? Math.round((Date.now() - lastCheck) / 1000) : null;
             const dot = halted ? C.red : "#22c55e";
             const state = halted ? "PAUSED — circuit breaker" : slotsFree > 0 ? "SCANNING for setups" : "FULL — holding best positions";
-            const chip = (txt, col) => <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: col, background: `${col}18`, borderRadius: 5, padding: "2px 7px" }}>{txt}</span>;
+            const chip = (txt, col) => <span style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 700, color: col, background: `${col}18`, borderRadius: 5, padding: "2px 7px" }}>{txt}</span>;
             return (
               <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap", marginTop: 7 }}>
                 <span style={{ width: 8, height: 8, borderRadius: "50%", background: dot, display: "inline-block", boxShadow: `0 0 6px ${dot}`, animation: halted ? "none" : "pulse 1.5s infinite" }} />
-                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: dot }}>{state}</span>
+                <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: dot }}>{state}</span>
                 {chip(`${openCount}/${maxPos} open`, C.textSec)}
                 {!halted && chip(`${slotsFree} slot${slotsFree === 1 ? "" : "s"} free`, slotsFree > 0 ? C.green : C.amber)}
                 {maxLoss > 0 && chip(halted ? `stopped at −$${maxLoss}` : `breaker −$${maxLoss}`, halted ? C.red : C.textDim)}
-                <span style={{ fontFamily: MONO, fontSize: 10, color: C.textDim }}>
+                <span style={{ fontFamily: MONO, fontSize: 12.5, color: C.textDim }}>
                   · checked {secsAgo == null ? "starting…" : secsAgo < 60 ? `${secsAgo}s ago` : `${Math.round(secsAgo / 60)}m ago`} (every 15s)
                 </span>
               </div>
@@ -462,7 +462,7 @@ export default function MyTradesTab({ C, MONO, SANS, watchlistData }) {
           background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, cursor: "pointer", fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.textSec }}>
         <span style={{ transform: showSetup ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}>▸</span>
         ⚙️ AUTOPILOT SETUP
-        <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 500, color: C.textDim }}>
+        <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 500, color: C.textDim }}>
           {showSetup ? "— quick modes, fine-tune, broker" : `— ${activeMode === "simple" ? "Simple" : activeMode === "calls" ? "Long + Calls" : activeMode === "full" ? "Full Auto" : "Custom"} · ${broker.toUpperCase()} · tap to change`}
         </span>
       </button>
@@ -470,7 +470,7 @@ export default function MyTradesTab({ C, MONO, SANS, watchlistData }) {
       {showSetup && <>
       {/* ── Quick Modes — one-click presets ── */}
       <div style={{ marginBottom: 14, padding: "14px 18px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 12 }}>
-        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textSec, letterSpacing: "0.06em", marginBottom: 4 }}>⚡ QUICK MODE — one click sets everything</div>
+        <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.textSec, letterSpacing: "0.06em", marginBottom: 4 }}>⚡ QUICK MODE — one click sets everything</div>
         <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginBottom: 12 }}>Don't want to fiddle with toggles? Pick a mode and the auto-pilot configures itself.</div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           {[
@@ -485,7 +485,7 @@ export default function MyTradesTab({ C, MONO, SANS, watchlistData }) {
                   border: `1px solid ${on ? C.accent : C.border}`, background: on ? `${C.accent}14` : "transparent" }}>
                 <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: on ? C.accent : C.text }}>{label}{on ? " ✓" : ""}</div>
                 <div style={{ fontFamily: SANS, fontSize: 12, color: C.text, marginTop: 3 }}>{sub}</div>
-                <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 2 }}>{desc}</div>
+                <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, marginTop: 2 }}>{desc}</div>
               </button>
             );
           })}
@@ -494,7 +494,7 @@ export default function MyTradesTab({ C, MONO, SANS, watchlistData }) {
 
       {/* ── 2. Settings ── */}
       <div style={{ marginBottom: 14, padding: "14px 18px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 12 }}>
-        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textSec, letterSpacing: "0.06em", marginBottom: 12 }}>⚙️ FINE-TUNE (optional)</div>
+        <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.textSec, letterSpacing: "0.06em", marginBottom: 12 }}>⚙️ FINE-TUNE (optional)</div>
         <div style={{ display: "flex", gap: 22, rowGap: 16, flexWrap: "wrap" }}>
           <Setting label="A+ MODE" hint="Both options run every real Core Engine hard gate (structure, critical red flags, Stage 4, entry-score floor) — never a separate legacy signal. ON = only EARLY_BUY verdicts (score ≥85). BASIC = EARLY_BUY or BUY (score ≥70). Sized by confidence (1% / 0.75% / 0.5%), max 5 trades/day." value={aPlusOn}
             onPick={on => { setAPlusOn(on); localStorage.setItem("axiom_autopilot_aplus", on ? "on" : "off"); }}
@@ -524,9 +524,9 @@ export default function MyTradesTab({ C, MONO, SANS, watchlistData }) {
             onPick={on => { setScoreDecayOn(on); localStorage.setItem("axiom_autopilot_scoredecay", on ? "on" : "off"); }}
             options={[["ON", true], ["OFF ✓", false]]} />
           <div>
-            <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: "0.05em", marginBottom: 6 }}>BROKER</div>
-            <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: "#10b981", background: "#10b98118", border: "1px solid #10b98144", borderRadius: 6, padding: "5px 10px" }}>🅰 ALPACA PAPER</span>
-            <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginTop: 4, maxWidth: 200, lineHeight: 1.4 }}>All trades run through your Alpaca paper account.</div>
+            <div style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 800, color: C.textDim, letterSpacing: "0.05em", marginBottom: 6 }}>BROKER</div>
+            <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: "#10b981", background: "#10b98118", border: "1px solid #10b98144", borderRadius: 6, padding: "5px 10px" }}>🅰 ALPACA PAPER</span>
+            <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.textDim, marginTop: 4, maxWidth: 200, lineHeight: 1.4 }}>All trades run through your Alpaca paper account.</div>
           </div>
         </div>
       </div>
