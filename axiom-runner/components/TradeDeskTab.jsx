@@ -91,22 +91,21 @@ import TradeDeskTabs from "./TradeDeskTabs.jsx";
 // - FULL SCAN mounts RhProScanner.jsx directly — the real 100-stock
 //   ranked table/category-filter view, genuinely separate now, still the
 //   same real component/data as the standalone Discover page.
-// Each module gets its own fixed, distinct color (explicit user request,
-// 2026-08-25: "I WANT THESE COLORED" — the row previously rendered every
-// label in the same muted C.textSec regardless of state, so with no dock
-// module open the whole row read as flat/identical, per the user's own
-// screenshot). Deliberately NOT drawn from the app's real green/red/amber
-// status system (theme.js's documented 4-color BULLISH/BEARISH/CAUTION/
-// NEUTRAL palette) — these are navigation identity colors, not a signal
-// read, and reusing a real status color here risks a user misreading
-// "ALERTS is red" as a bearish signal. Fixed hex (not theme-swapped) since
-// mid-saturation hues at this lightness hold up against both the light
-// and dark surface colors.
+// Each module carries its own fixed, distinct `color` (explicit user
+// request, 2026-08-25: "I WANT THESE COLORED", back when this list drove
+// an always-visible dock row/rail). That rail is gone (2026-09-15,
+// "simplify the entire user experience" master prompt — see
+// DEEP_ANALYSIS_GROUPS below, which now drives the one real Deep
+// Analysis dropdown instead), so `color` is currently unused chrome
+// metadata rather than deleted — same "leave the file, drop the front
+// door" treatment this codebase already gives retired UI elsewhere, in
+// case a future colored presentation of this list wants it back.
 // Grouped 2026-09-05 (explicit user request: "trade desk needs to be
 // more easier more effecient" — narrowed via follow-up to include "hard
-// to find the right dock module"). Same 12 destinations, nothing cut or
-// merged — each just carries a `group` now so the dock row below can
-// cluster them instead of showing one flat, equally-weighted list.
+// to find the right dock module"). Same real destinations, nothing cut
+// or merged — each just carries a `group` so callers (now the Deep
+// Analysis dropdown, previously the retired rail) can cluster them
+// instead of one flat, equally-weighted list.
 // "SCANNER" relabeled "SMART SCAN" (its own real PDF-export title, see
 // ScannerTab.jsx) — sitting directly next to "FULL SCAN" in the same
 // TRADE group made the old generic name read as a duplicate.
@@ -173,6 +172,28 @@ const DOCK_GROUPS = (() => {
   }
   return [...map.entries()].map(([name, modules]) => ({ name, modules }));
 })();
+
+// Title-case a shouty rail label ("FULL SCAN") for the Deep Analysis
+// dropdown, which otherwise mixes normal-case entries (Overview/
+// Technicals/...) with these — a pure display transform of the same real
+// label DOCK_MODULES already declares, never a second name for anything.
+const titleCase = (s) => s.replace(/\w\S*/g, (w) => w[0] + w.slice(1).toLowerCase());
+
+// Deep Analysis dropdown groups (2026-09-15, "simplify the entire user
+// experience" master prompt: "Place advanced information behind ONE
+// expandable section... Do not recreate eight visible tabs"). Built FROM
+// the real DOCK_GROUPS above — no second, independently-maintained list
+// of these 19 destinations — plus the 3 real non-dockModule destinations
+// (Overview collapses to the same "metrics" bundle the page defaults to;
+// Cortex/Journal navigate to their own separate top-level tabs, same as
+// before this change). Replaces the old persistent 190px side rail
+// entirely — every one of its real destinations stays reachable, just
+// through this one dropdown instead of an always-visible button list.
+const DEEP_ANALYSIS_GROUPS = [
+  { name: null, items: [["Overview", "overview"]] },
+  ...DOCK_GROUPS.map((g) => ({ name: g.name, items: g.modules.map((m) => [titleCase(m.label), m.key]) })),
+  { name: "MORE", items: [["Cortex — AI Analysis", "cortex"], ["Journal", "journal"]] },
+];
 
 export default function TradeDeskTab({
   C, MONO, SANS, macroData, sectorData, alpacaPositions, terminalSymbol, setTerminalSymbol,
@@ -741,20 +762,15 @@ export default function TradeDeskTab({
           <div style={{ border: `1px solid ${TD.border}`, borderRadius: 10, background: TD.surface, height: 680, overflow: "hidden" }}>
             <CommandSearchPanel symbol={symbol} onSelectSymbol={selectSymbol} onOpenDaytrade={applyLightboxHandoff} chart={chart} symbolQuote={symbolQuote} fundamentals={fundamentals} C={TD} MONO={MONO} SANS={SANS} hideKeyLevels/>
           </div>
-          {/* Chart card — real TrendChart via ChartPane, unchanged, now
-              inside a real bordered card with the ticker sub-nav
-              (TradeDeskTabs — Overview/Technicals/Options/News/
-              Fundamentals/Cortex/Journal, unchanged) as its own header
-              row, matching the reference's "Chart | Options | Financials |
-              News | Analysis" tab strip. Clicking a tab still opens the
-              exact same real dock module further down the page (unchanged
-              openTickerTab behavior) — this only changes where the tab
-              row itself is drawn. */}
+          {/* Chart card — real TrendChart via ChartPane, unchanged. The
+              ticker sub-nav that used to sit in this card's own header row
+              (TradeDeskTabs) moved below the whole 4-column row (2026-09-15,
+              "simplify the entire user experience" master prompt) so BOTH
+              desktop and mobile share the exact same one Deep Analysis
+              dropdown instead of desktop getting it here and mobile having
+              no equivalent at all (mobile never rendered this card). */}
           <div style={{ border: `1px solid ${TD.border}`, borderRadius: 10, background: TD.surface, overflow: "hidden", display: "flex", flexDirection: "column", height: 680 }}>
-            <TradeDeskTabs symbol={symbol} activeKey={dockModule} onOpen={openTickerTab} C={TD} MONO={MONO} />
-            <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
-              <ChartPane symbol={symbol} chart={chart} chartError={chartError} loadingChart={loadingChart} vcpOn={vcpOn} setVcpOn={setVcpOn} C={TD} MONO={MONO} SANS={SANS} chartTf={chartTf} setChartTf={setChartTf} />
-            </div>
+            <ChartPane symbol={symbol} chart={chart} chartError={chartError} loadingChart={loadingChart} vcpOn={vcpOn} setVcpOn={setVcpOn} C={TD} MONO={MONO} SANS={SANS} chartTf={chartTf} setChartTf={setChartTf} />
           </div>
           {/* AI Analysis — CortexMiniPanel, entirely unchanged internals
               (ask-anything, SETUP QUALITY, FINAL DECISION, WHY breakdown —
@@ -782,80 +798,36 @@ export default function TradeDeskTab({
         </div>
       )}
 
-      {/* ── Side tab rail — everything that isn't the core "look at it and
-          decide" screen above (2026-09-09, explicit user request: "TOO
-          MUCH DATA IN TRADE DESK I WANT ONE PAGE ONLY THE REST JUST
-          CONNECTION AS TABS IN SIDE BUT EACH TAB CONNECTED TO TRADE
-          DESK"). Real content, real data, zero of it deleted — the old
-          bottom row cards (Key Levels/Targets/Key Metrics/Market
-          Sentiment/Trade Setup/Detailed Analysis), the always-on panels
-          (Before It Pops, Hidden Gem, Options Buy Assistant, Smart Money
-          Intel, Trade GPS Why, Extended Hours Movers), and the old
-          7-card Workspace Grid all moved into the INTEL group of the
-          SAME dockModule mechanism (DOCK_MODULES/dockBody above) the
-          existing 12 modules already used — one real vertical tab list
-          instead of a wall of always-rendered cards, and every tab still
-          reads the same `symbol` this page is already on ("each tab
-          connected to Trade Desk"). Replaces the old horizontal
-          "12-module dock row" + "More Analysis" toggle entirely — the
-          rail is just always here now, so there's no longer a second
-          mode to discover or switch into. */}
-      <div style={{ display: "flex", borderTop: `1px solid ${TD.border}`, minHeight: 0 }}>
-        <nav aria-label="Trade Desk tabs" style={{ width: 190, flexShrink: 0, borderRight: `1px solid ${TD.border}`, background: TD.surface, padding: "12px 8px", display: "flex", flexDirection: "column", gap: 14 }}>
-          {DOCK_GROUPS.map((group) => (
-            <div key={group.name}>
-              <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: TD.textDim, letterSpacing: "0.08em", padding: "0 6px 5px" }}>{group.name}</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                {group.modules.map((m) => (
-                  // Real bug fix (2026-09-09, live user report: "THEY ALL
-                  // LOOK THE SAME", screenshot of this exact rail) — each
-                  // module's own m.color only ever applied to the ACTIVE
-                  // tab; every inactive one (the whole rail, by default,
-                  // since dockModule starts null) fell back to the same
-                  // flat TD.textSec, so nothing was actually distinguished
-                  // at rest. The OLD horizontal dock row this replaced got
-                  // this right (color: m.color always, opacity dimmed when
-                  // inactive) — restoring that exact convention here.
-                  <button
-                    key={m.key}
-                    onClick={() => openDockModule(m.key)}
-                    aria-current={dockModule === m.key ? "true" : undefined}
-                    style={{
-                      textAlign: "left", padding: "7px 10px", border: "none", borderRadius: 6,
-                      background: dockModule === m.key ? `${m.color}1f` : "transparent",
-                      color: m.color, opacity: dockModule === m.key ? 1 : 0.78,
-                      fontFamily: MONO, fontSize: 12.5, fontWeight: 800, cursor: "pointer", letterSpacing: 0.2,
-                    }}
-                  >
-                    {m.label}
-                  </button>
-                ))}
-              </div>
+      {/* ── Deep Analysis dropdown + content pane (2026-09-15, "simplify
+          the entire user experience" master prompt: "Prefer ONE primary
+          scrolling workspace instead of another large tab system...
+          Place advanced information behind ONE expandable section... Do
+          not recreate eight visible tabs"). ONE shared dropdown for BOTH
+          desktop and mobile (previously this lived only inside the
+          desktop-only chart card, so mobile had no equivalent at all —
+          mobile relied entirely on the now-removed permanent 190px side
+          rail, which WAS shared, to switch modules). Every one of that
+          rail's 19 real destinations (DOCK_MODULES, unchanged) is reached
+          through this one dropdown (DEEP_ANALYSIS_GROUPS) now instead. */}
+      <TradeDeskTabs symbol={symbol} activeKey={dockModule} onOpen={openTickerTab} groups={DEEP_ANALYSIS_GROUPS} C={TD} MONO={MONO} />
+      <div style={{ borderTop: `1px solid ${TD.border}`, minHeight: 0 }}>
+        {dockModule ? (
+          <div style={{ maxHeight: isMobile ? "70vh" : "60vh", overflowY: "auto" }}>{dockBody}</div>
+        ) : (
+          // Real empty-state — only reachable now by re-clicking the
+          // active item in the Deep Analysis dropdown to close it (the
+          // page itself never lands here by default; dockModule starts
+          // at "metrics", see its own useState comment above).
+          <div style={{ minHeight: isMobile ? "40vh" : "50vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: "28px 24px" }}>
+            <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: TD.text, marginBottom: 8 }}>
+              Select a module
             </div>
-          ))}
-        </nav>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          {dockModule ? (
-            <div style={{ maxHeight: isMobile ? "70vh" : "60vh", overflowY: "auto" }}>{dockBody}</div>
-          ) : (
-            // Real empty-state redesign — the old version was a single
-            // 12.5px dim sentence in the top-left corner of an otherwise
-            // fully blank ~60vh pane (real "excess empty space, poor
-            // visual hierarchy" per the 2026-09-14 UI audit). Same real
-            // data/behavior (still just an instruction to pick a module,
-            // zero new fetch), given actual visual weight instead: a real
-            // heading, vertically centered in the available space.
-            <div style={{ minHeight: isMobile ? "40vh" : "50vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: "28px 24px" }}>
-              <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: TD.text, marginBottom: 8 }}>
-                Select a module
-              </div>
-              <div style={{ fontFamily: SANS, fontSize: 14, color: TD.textSec, lineHeight: 1.6, maxWidth: 380 }}>
-                Pick a tab on the left for more on {symbol || "this symbol"} — key levels, targets, options, news,
-                alerts, smart money, and everything else Trade Desk tracks lives here, one click away.
-              </div>
+            <div style={{ fontFamily: SANS, fontSize: 14, color: TD.textSec, lineHeight: 1.6, maxWidth: 380 }}>
+              Open Deep Analysis above for more on {symbol || "this symbol"} — key levels, targets, options, news,
+              alerts, smart money, and everything else Trade Desk tracks lives there, one click away.
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* ── Bottom status bar — reference's final required section. ── */}

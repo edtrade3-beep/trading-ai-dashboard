@@ -104,12 +104,23 @@ ok("TradeDeskTab.jsx's side rail opens on real content by default, not the empty
   assert.match(tradeDeskSrc, /if \(key === "overview"\) \{ setDockModule\("metrics"\); return; \}/);
 });
 
-ok("TradeDeskTab.jsx renders a real vertical side tab rail grouping every module (TRADE/ACCOUNT/ANALYSIS/EXECUTION/INTEL), each still scoped to the active symbol", () => {
-  assert.match(tradeDeskSrc, /aria-label="Trade Desk tabs"/);
+ok("TradeDeskTab.jsx groups every module (TRADE/ACCOUNT/ANALYSIS/EXECUTION/INTEL) for the one shared Deep Analysis dropdown, each still scoped to the active symbol — the permanent 190px side rail is gone (2026-09-15, \"simplify the entire user experience\" master prompt)", () => {
+  assert.doesNotMatch(tradeDeskSrc, /aria-label="Trade Desk tabs"/);
   assert.match(tradeDeskSrc, /group: "INTEL"/);
+  assert.match(tradeDeskSrc, /const DEEP_ANALYSIS_GROUPS = \[/);
   for (const key of ["metrics", "beforeitpops", "hiddengem", "buyassistant", "smartmoney", "moreintel", "movers"]) {
     assert.match(tradeDeskSrc, new RegExp(`key: "${key}"`));
   }
+});
+ok("the SAME one Deep Analysis dropdown is shared by both desktop and mobile — not desktop-only (which would leave mobile with no way to switch modules now that the rail is gone)", () => {
+  const matches = tradeDeskSrc.match(/<TradeDeskTabs /g) || [];
+  assert.strictEqual(matches.length, 1, "TradeDeskTabs should be rendered exactly once, outside the isMobile branch");
+});
+ok("real tripwire: every DOCK_MODULES key is genuinely reachable through DEEP_ANALYSIS_GROUPS — no destination silently dropped when the rail was retired", () => {
+  const modulesBlock = tradeDeskSrc.slice(tradeDeskSrc.indexOf("const DOCK_MODULES = ["), tradeDeskSrc.indexOf("\n];", tradeDeskSrc.indexOf("const DOCK_MODULES = [")));
+  const moduleKeys = [...modulesBlock.matchAll(/key: "([a-z0-9]+)"/g)].map((m) => m[1]);
+  assert.ok(moduleKeys.length >= 15, `expected the real ~19-module list, found ${moduleKeys.length}`);
+  assert.match(tradeDeskSrc, /\.\.\.DOCK_GROUPS\.map\(\(g\) => \(\{ name: g\.name, items: g\.modules\.map\(\(m\) => \[titleCase\(m\.label\), m\.key\]\) \}\)\)/, "DEEP_ANALYSIS_GROUPS must be BUILT FROM DOCK_GROUPS, never a second independently-typed list");
 });
 ok("TradeDeskTab.jsx's previously always-on panels (Before It Pops/Hidden Gem/Options Buy Assistant/Smart Money/Trade GPS Why/Extended Hours Movers) each render exactly once now — inside their real dockModule tab gate, not ALSO as a second always-on copy on the page", () => {
   for (const tag of ["<BeforeItPopsPanel", "<HiddenGemPanel", "<OptionsBuyAssistantPanel", "<SmartMoneyIntelPanel", "<TradeGpsWhyPanel", "<ExtendedHoursMovers"]) {
