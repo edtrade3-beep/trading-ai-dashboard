@@ -1,43 +1,56 @@
 // Persistent left sidebar nav. Collapsed 2026-08-09 (sidebar/IA redesign)
 // from the prior 11-item flat list down to 7, then grew back to 19 real
 // top-level rows over the following month as new features each got their
-// own permanent slot. Collapsed again 2026-09-05 (explicit user request:
-// "combine tabs minimize tabs," completing the nav-consolidation item from
-// this session's original platform-architect audit) down to the 5-tab spec
-// (TRADE DESK / MARKET / AUTOPILOT / JOURNAL / SETTINGS) plus 2 explicit
-// exceptions the user asked to keep visible (Car Business + Dealership —
-// real day-to-day dealership-business tools, not part of the trading
-// workflow, with their own standing requirement to never read as a
-// sub-view of the trading tabs).
+// own permanent slot. Collapsed again 2026-09-05 ("combine tabs minimize
+// tabs") down to a 7-item rail. Collapsed further 2026-09-15 ("restructure
+// around AI Trade Desk as the main workspace, remove anything that feels
+// like a separate research destination" master prompt) — Market/News/
+// Search dropped from the rail (their real content was already rendered
+// inline inside AI Trade Desk before this pass, genuinely redundant, not
+// merely similar), "Trade Desk"/"AI Agent" relabeled to "AI Trade Desk"/
+// "Agent". Target rail per that prompt is AI TRADE DESK / AGENT /
+// DEALERSHIP / JOURNAL / SETTINGS; Crypto, Autopilot, Car Business, Story
+// AI, and Islamic stay visible as a deliberate deviation from that strict
+// 5-item list — each was added to the permanent rail by its own separate,
+// explicit user request (Car Business has its own standing "DO NOT MIX
+// WITH THE TRADING ENGINE" rule from 2026-08-30), and the 2026-09-15
+// prompt doesn't mention any of them, so removing them wasn't treated as
+// authorized by silence. Flagged for the user to confirm rather than
+// assumed either way.
 //
 // Every dropped item is a demotion, never a deletion — the exact same
-// "hide, don't delete" pattern this file already used 7 times before
-// (Discover, Sniper AI, Light Box, Market/Crypto/Calendar, Curbline): the
-// real component/route/data is completely untouched, only the permanent
-// rail row disappears, replaced by a one-keystroke command-palette path
-// (axiom-live.jsx's runPaletteCommand `toTab` alias table). See each
-// dropped item's own comment below for its specific palette keyword.
-//
-// "Dashboard" is relabeled "Market" here (2026-09-05) — it's now the one
-// real MARKET destination in the 5-tab spec, unchanged underneath.
-// Single flat list, no section grouping — 7 items don't need one.
+// "hide, don't delete" pattern this file already used repeatedly
+// (Discover, Sniper AI, Light Box, Market/Crypto/Calendar, Curbline,
+// Market/News/Search): the real component/route/data is completely
+// untouched, only the permanent rail row disappears, replaced by a
+// one-keystroke command-palette path (axiom-live.jsx's runPaletteCommand
+// `toTab` alias table). See each dropped item's own comment below for its
+// specific palette keyword.
 export const SIDEBAR_ITEMS = [
-  // Trade Desk — one unified screen (2026-08-25, explicit user request:
+  // AI Trade Desk — one unified screen (2026-08-25, explicit user request:
   // top status strip + Discover-search|Chart|Cortex 3-pane + a bottom
-  // module dock, all without leaving the page). New, additive tab —
-  // TradeDeskTab.jsx. Named "Trade Desk," not "Command Center," to avoid
-  // colliding with the real, separate, already-shipped AI Market Command
-  // Center (CommandCenterTab.jsx, activeTab "command-center").
-  { id: "trade-desk", label: "Trade Desk", icon: "🎛️", tab: "trade-desk" },
+  // module dock, all without leaving the page). Relabeled "Trade Desk" ->
+  // "AI Trade Desk" (2026-09-15, "restructure around AI Trade Desk as the
+  // main workspace" master prompt) — a straight rename, activeTab
+  // unchanged ("trade-desk"), never a second/new tab; the spec's own
+  // explicit rule ("Do not create both 'Trade Desk' and 'AI Trade Desk'")
+  // is why this is a relabel, not an addition. TradeDeskTab.jsx already
+  // renders MarketCommandCenter (market regime/macro), WhatChangedStrip,
+  // and TopOpportunities inline — the spec's own MARKET/TODAY'S
+  // OPPORTUNITIES/WHAT CHANGED sections were already real and live here
+  // before this rename, not newly built for it.
+  { id: "trade-desk", label: "AI Trade Desk", icon: "🎛️", tab: "trade-desk" },
 
-  // "Market" (2026-09-05 nav consolidation) — a straight relabel of the
-  // former "Market Overview" row, activeTab unchanged ("dashboard"). This
-  // is the one real MARKET destination the 5-tab spec asks for; the
-  // palette's own MARKET keyword now points here too (repointed from
-  // "market"/Economy, see the ECONOMY alias below for where that went) —
-  // same "sidebar label matches palette word" convention as the
-  // 2026-07-29 PORTFOLIO/SCANNER repoint.
-  { id: "dashboard", label: "Market", icon: "🏠", tab: "dashboard" },
+  // "Market" row dropped from the rail (2026-09-15, same master prompt:
+  // "Market must live inside AI Trade Desk... do not create or retain a
+  // separate Market tab"). Same real component/data (activeTab
+  // "dashboard") — DashboardTab.jsx is untouched, still reachable via the
+  // existing MARKET command-palette alias (axiom-live.jsx), same "hide,
+  // don't delete" convention this file already used 15+ times before
+  // (Discover/Sniper AI/Portfolio/Alerts/Research/Market Wrap/Curbline/
+  // etc.). AI Trade Desk's own MarketCommandCenter+MarketSentimentCard
+  // (rendered inline, see above) already cover this row's real content —
+  // this genuinely was redundant, not just consolidated for its own sake.
 
   // Crypto — restored to the rail (2026-09-05, explicit user request: "add
   // crypto to tabs"), reversing the 2026-08-09 decision that dropped it as
@@ -107,13 +120,14 @@ export const SIDEBAR_ITEMS = [
   // Same real component (activeTab "autopilot2") — already reachable via
   // the existing AUTOPILOT2/ADOL22AUTOPILOT command-palette aliases.
 
-  // News — restored to the rail (2026-09-05, explicit user request: "Add
-  // it to side bar," right after the News Intelligence Engine V1 work).
-  // Same real component/data as before (activeTab "news") — it never
-  // moved, it just had no permanent row for a few hours; the existing
-  // NEWS command-palette alias still works too, now redundant with this
-  // row the same way every other sidebar tab's alias is.
-  { id: "news", label: "News", icon: "📰", tab: "news" },
+  // News dropped from the rail again (2026-09-15 master prompt: fold News
+  // into AI Trade Desk rather than keep it as a separate research
+  // destination). Same real component/data (activeTab "news") — still
+  // reachable via the existing NEWS command-palette alias, and AI Trade
+  // Desk's own module dock already has a real "NEWS" module (ANALYSIS
+  // group) plus MarketCommandCenter's onOpenNews handoff — this row's
+  // content was already duplicated inside AI Trade Desk, not newly folded
+  // in for this change.
 
   { id: "journal", label: "Journal", icon: "📓", tab: "journal" },
   // Journal remains a direct destination so historical trade records stay
@@ -161,11 +175,12 @@ export const SIDEBAR_ITEMS = [
   // Car Business — a completely separate automotive-business decision
   // system, explicit user /goal (2026-08-30: "Create a NEW standalone
   // CAR BUSINESS tab... DO NOT MIX IT WITH THE TRADING ENGINE."). Kept
-  // visible alongside the 5-tab trading rail (2026-09-05 nav
-  // consolidation, explicit user choice) rather than demoted to the
+  // visible through the 2026-09-05 nav consolidation (explicit user
+  // choice) and the 2026-09-15 AI-Trade-Desk restructure (not mentioned
+  // by that prompt — see the top-of-file note) rather than demoted to the
   // palette — a real day-to-day business tool, not a trading-workflow
-  // surface, so it doesn't compete for one of the 5 trading slots but
-  // still shouldn't require a command-palette lookup for daily use.
+  // surface, so it doesn't compete for a trading nav slot but still
+  // shouldn't require a command-palette lookup for daily use.
   // Reuses this app's real dealer backend (inventory-store.js,
   // dealership/fb-hub.js's CRM) rather than duplicating it — no
   // am-core-engine.js/opportunity-engine.js involved.
@@ -196,22 +211,23 @@ export const SIDEBAR_ITEMS = [
   // convention as any real cross-app link.
   { id: "dealership", label: "Dealership", icon: "🏪", href: "/dealer" },
 
-  // Search — standalone sidebar row (2026-09-09, explicit user request:
-  // "i want it as a tab underneath dealership"). Same real CommandSearchPanel
-  // (ticker search + tiered Opportunity Inbox) Trade Desk's own left column
-  // already uses — SearchTab.jsx is a thin wrapper, no new search logic.
-  // Selecting a symbol here hands off to Trade Desk via openInTradeDesk,
-  // the same real handoff LightBoxTab/TradeNavigatorTab already use.
-  { id: "search", label: "Search", icon: "🔎", tab: "search" },
+  // Search dropped from the rail (2026-09-15 master prompt: "Search
+  // should be removed completely as a tab... Search is an ACTION, not a
+  // destination"). SearchTab.jsx was already a thin wrapper around
+  // CommandSearchPanel — the exact same real search+Opportunity-Inbox
+  // component AI Trade Desk's own left column already renders inline
+  // (TradeDeskTab.jsx, both the 3-pane view and the "search" view mode) —
+  // so this row was already 100% redundant with AI Trade Desk itself, not
+  // merely similar. SearchTab.jsx stays on disk, untouched, still
+  // reachable via the existing SEARCH command-palette alias.
 
-  // AI Agent — real Institutional Copilot chat + the new Astra/Claude dev-
-  // task queue (2026-09-13). Was command-palette-only (AGENT/AI aliases,
-  // axiom-live.jsx) since before the 2026-09-05 consolidation — user
-  // couldn't find it ("dont see it"), so promoted to a permanent row, same
+  // Agent — real Institutional Copilot chat + the Astra/Claude dev-task
+  // queue (2026-09-13). Relabeled "AI Agent" -> "Agent" (2026-09-15 master
+  // prompt: exact target label). Same real destination (activeTab
+  // "agent"), AgentTab.jsx fully unchanged — still one click away, same
   // explicit-exception treatment as Car Business/Dealership/Story AI/
-  // Islamic below: a real destination worth one click, not a lookup.
-  // AgentTab.jsx (activeTab "agent") is otherwise fully unchanged.
-  { id: "agent", label: "AI Agent", icon: "🧭", tab: "agent" },
+  // Islamic below.
+  { id: "agent", label: "Agent", icon: "🧭", tab: "agent" },
 
   // Story AI — Arabic AI storytelling studio (2026-09-07, explicit user
   // request: "add a completely new major tab... self-contained module").
