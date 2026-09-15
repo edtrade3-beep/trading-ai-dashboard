@@ -32,6 +32,17 @@
 // own comment rather than re-declared as a new number.
 
 const { round2 } = require("./utils");
+// Real quote-quality thresholds (spread/staleness) reused from
+// trade-structure-selector.js — that file's own real gate already
+// decides whether a structure is buildable at ALL off these exact
+// numbers; computeEntryStatus below used to re-declare its own literal
+// 15/10 defaults, an independent copy that happened to match today but
+// had nothing keeping it in sync (2026-09-15 quote-quality gate
+// consolidation — same "no second engine" fix already applied to
+// ATR/EMA/RSI/the autopilot risk-gate cascade elsewhere in this repo).
+// Zero behavior change: both real callers (routes/market.js) never pass
+// these params explicitly, so the default was always what actually ran.
+const { MAX_SPREAD_PCT, DEFAULT_MAX_STALE_MINUTES } = require("./trade-structure-selector");
 
 // ---------------------------------------------------------------------
 // IV classification — reuses trade-structure-selector.js's own
@@ -121,7 +132,8 @@ function classifyEarningsExposure({ dte, earningsDte } = {}) {
 // ---------------------------------------------------------------------
 // Entry Status — spec §18. A real reducer over signals every one of
 // these engines ALREADY computes (never re-derives a technical read):
-// quote freshness (trade-structure-selector.js's own stale gate),
+// quote freshness (trade-structure-selector.js's own stale gate, same
+// DEFAULT_MAX_STALE_MINUTES import as the spread threshold below),
 // spread (strategy-selector.js's own liquidity gate), IV classification
 // above, real R:R, and real confirmation state (signal-lifecycle.js's
 // ARMED/ENTER_NOW, already surfaced on TradeGpsCard as `confirmationText`).
@@ -130,8 +142,8 @@ function classifyEarningsExposure({ dte, earningsDte } = {}) {
 // expensive", ...) reads as a checklist, not a single cause.
 // ---------------------------------------------------------------------
 function computeEntryStatus({
-  quoteAgeMinutes = null, maxStaleMinutes = 15,
-  spreadPct = null, maxSpreadPct = 10,
+  quoteAgeMinutes = null, maxStaleMinutes = DEFAULT_MAX_STALE_MINUTES,
+  spreadPct = null, maxSpreadPct = MAX_SPREAD_PCT,
   ivRank = null, riskReward = null, minRiskReward = 1.0,
   confirmed = null, // true/false/null (null = unknown, not penalized)
   earningsExposed = false,

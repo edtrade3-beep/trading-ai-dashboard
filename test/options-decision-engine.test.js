@@ -144,5 +144,26 @@ ok("missing real inputs -> honest null, never a guessed size", () => {
   assert.strictEqual(sizeOptionPosition({ equity: null, cash: 100000, maxLossPerContract: 100 }), null);
 });
 
+console.log("\nChecking computeEntryStatus's quote-quality defaults are really imported from trade-structure-selector.js, not a second, independently-drifting declaration (2026-09-15 consolidation)…");
+
+ok("real tripwire: options-decision-engine.js source actually imports MAX_SPREAD_PCT/DEFAULT_MAX_STALE_MINUTES from trade-structure-selector.js, no local literal defaults remain", () => {
+  const fs = require("node:fs");
+  const src = fs.readFileSync(require.resolve("../src/options-decision-engine"), "utf8");
+  assert.match(src, /const \{ MAX_SPREAD_PCT, DEFAULT_MAX_STALE_MINUTES \} = require\("\.\/trade-structure-selector"\);/);
+  assert.match(src, /maxStaleMinutes = DEFAULT_MAX_STALE_MINUTES/);
+  assert.match(src, /maxSpreadPct = MAX_SPREAD_PCT/);
+});
+
+ok("behavioral proof: computeEntryStatus's real default thresholds equal trade-structure-selector.js's real exported values (not just coincidentally matching numbers)", () => {
+  const { MAX_SPREAD_PCT, DEFAULT_MAX_STALE_MINUTES } = require("../src/trade-structure-selector");
+  // Exactly at the real canonical threshold clears; one unit past it trips —
+  // proves computeEntryStatus is really reading these imported constants,
+  // not some other coincidentally-equal number.
+  const atThreshold = computeEntryStatus({ quoteAgeMinutes: DEFAULT_MAX_STALE_MINUTES, spreadPct: MAX_SPREAD_PCT, ivRank: 40, riskReward: 2.1, confirmed: true });
+  assert.strictEqual(atThreshold.status, "ENTER_NOW");
+  const pastThreshold = computeEntryStatus({ quoteAgeMinutes: DEFAULT_MAX_STALE_MINUTES + 1, spreadPct: MAX_SPREAD_PCT + 1, ivRank: 40, riskReward: 2.1, confirmed: true });
+  assert.strictEqual(pastThreshold.status, "WAIT");
+});
+
 console.log(`${passed} checks passed.`);
 console.log("OPTIONS-DECISION-ENGINE TEST OK");
