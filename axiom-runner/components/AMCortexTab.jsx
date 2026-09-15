@@ -60,7 +60,7 @@ function ScoreBar({ C, MONO, label, pts, max }) {
   const color = pct >= 75 ? "#0d9465" : pct >= 45 ? "#d6a312" : "#c8282a";
   return (
     <div style={{ marginBottom: 8 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 10.5, color: C.textDim, marginBottom: 3 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: 13, color: C.textDim, marginBottom: 3 }}>
         <span>{label}</span><span style={{ color: C.text, fontWeight: 800 }}>{pts}/{max}</span>
       </div>
       <div style={{ height: 5, borderRadius: 3, background: C.border, overflow: "hidden" }}>
@@ -432,7 +432,7 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
         </div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10 }}>
           {EXAMPLES.map((ex) => (
-            <button key={ex} onClick={() => { setQuery(ex); }} style={{ fontFamily: SANS, fontSize: 10.5, padding: "4px 9px", borderRadius: 6, border: `1px solid ${C.border}`, background: "transparent", color: C.textDim, cursor: "pointer" }}>
+            <button key={ex} onClick={() => { setQuery(ex); }} style={{ fontFamily: SANS, fontSize: 13, padding: "4px 9px", borderRadius: 6, border: `1px solid ${C.border}`, background: "transparent", color: C.textDim, cursor: "pointer" }}>
               {ex}
             </button>
           ))}
@@ -450,7 +450,7 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
         return (
           <div style={{ border: `2px solid ${C.border}`, borderRadius: 14, overflow: "hidden" }}>
             <div style={{ background: C.card, padding: "14px 18px", borderBottom: `1px solid ${C.border}` }}>
-              <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim, letterSpacing: "0.08em" }}>🧠 CORTEX</div>
+              <div style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 800, color: C.textDim, letterSpacing: "0.08em" }}>🧠 CORTEX</div>
               <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginTop: 3 }}>
                 <span style={{ fontFamily: MONO, fontSize: 24, fontWeight: 900, color: C.text }}>{symbol}</span>
                 <span style={{ fontFamily: MONO, fontSize: 18, fontWeight: 800, color: C.text }}>${Number(row.price).toFixed(2)}</span>
@@ -460,7 +460,7 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
 
             <div style={{ padding: 18 }}>
               {isMobile && (
-                <button onClick={() => setShowDetail((v) => !v)} style={{ width: "100%", fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent, background: `${C.accent}12`, border: `1px solid ${C.accent}55`, borderRadius: 8, cursor: "pointer", padding: "9px 0", marginBottom: 14 }}>
+                <button onClick={() => setShowDetail((v) => !v)} style={{ width: "100%", fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.accent, background: `${C.accent}12`, border: `1px solid ${C.accent}55`, borderRadius: 8, cursor: "pointer", padding: "9px 0", marginBottom: 14 }}>
                   {showDetail ? "▴ HIDE DETAIL" : "▾ SHOW DETAIL (why, entry levels, risk & more)"}
                 </button>
               )}
@@ -468,26 +468,26 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
               <>
               {/* WHY */}
               <div style={{ marginBottom: 14 }}>
-                <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textDim, marginBottom: 4 }}>WHY</div>
+                <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.textDim, marginBottom: 4 }}>WHY</div>
                 <div style={{ fontFamily: SANS, fontSize: 13, color: C.text, lineHeight: 1.5 }}>{sniper.reason || "No dominant real driver identified right now."}</div>
               </div>
 
               {/* BUY PRICE — one clear real number/range, not a table to parse */}
               <div style={{ background: buyPrice.ok === false ? `${heat.color}12` : `${C.accent}12`, border: `1px solid ${buyPrice.ok === false ? heat.color : C.accent}55`, borderRadius: 10, padding: "12px 14px", marginBottom: 14 }}>
-                <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textDim, marginBottom: 4 }}>🎯 BUY PRICE</div>
+                <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.textDim, marginBottom: 4 }}>🎯 BUY PRICE</div>
                 <div style={{ fontFamily: MONO, fontSize: 19, fontWeight: 900, color: buyPrice.ok === false ? heat.color : C.accent }}>{buyPrice.label}</div>
-                <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.textSec, marginTop: 4, lineHeight: 1.4 }}>{buyPrice.reason}</div>
+                <div style={{ fontFamily: SANS, fontSize: 13.5, color: C.textSec, marginTop: 4, lineHeight: 1.4 }}>{buyPrice.reason}</div>
                 {buyPrice.lowerOption && (
                   <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px dashed ${C.border}` }}>
-                    <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: C.textDim }}>💡 WANT IT CHEAPER? <span style={{ color: C.text }}>{buyPrice.lowerOption.label}</span></div>
-                    <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 2, lineHeight: 1.4 }}>{buyPrice.lowerOption.reason}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 800, color: C.textDim }}>💡 WANT IT CHEAPER? <span style={{ color: C.text }}>{buyPrice.lowerOption.label}</span></div>
+                    <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, marginTop: 2, lineHeight: 1.4 }}>{buyPrice.lowerOption.reason}</div>
                   </div>
                 )}
               </div>
 
               {/* SETUP */}
               <div style={{ marginBottom: 14 }}>
-                <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textDim, marginBottom: 6 }}>SETUP</div>
+                <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.textDim, marginBottom: 6 }}>SETUP</div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(150px,1fr))", gap: 8 }}>
                   <StatRow C={C} MONO={MONO} SANS={SANS} label="A+ Score (setup)" value={`${aplus.score}/100`} color={aplus.score >= 70 ? "#0d9465" : aplus.score >= 50 ? "#d6a312" : "#c8282a"} />
                   <StatRow C={C} MONO={MONO} SANS={SANS} label="Technical Score" value={`${technicalScore}/100`} color={technicalScore >= 70 ? "#0d9465" : technicalScore >= 50 ? "#d6a312" : "#c8282a"} />
@@ -505,7 +505,7 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
 
               {/* LEVELS */}
               <div style={{ marginBottom: 14 }}>
-                <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textDim, marginBottom: 6 }}>LEVELS</div>
+                <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.textDim, marginBottom: 6 }}>LEVELS</div>
                 {priceToPay ? (
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(150px,1fr))", gap: 8 }}>
                     <StatRow C={C} MONO={MONO} SANS={SANS} label="Current" value={`$${priceToPay.current?.toFixed(2)}`} />
@@ -521,17 +521,17 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
               {/* TRIM SIGNAL */}
               {trimSignal && (
                 <div style={{ background: trimSignal.urgent ? "#d6a31214" : `${C.accent}0a`, border: `1px solid ${trimSignal.urgent ? "#d6a31255" : C.border}`, borderRadius: 10, padding: "10px 14px", marginBottom: 14 }}>
-                  <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textDim, marginBottom: 3 }}>✂️ WHEN TO START TRIMMING</div>
+                  <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.textDim, marginBottom: 3 }}>✂️ WHEN TO START TRIMMING</div>
                   <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: trimSignal.urgent ? "#d6a312" : C.text }}>{trimSignal.label}</div>
-                  <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 3 }}>{trimSignal.reason}</div>
+                  <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, marginTop: 3 }}>{trimSignal.reason}</div>
                 </div>
               )}
 
               {/* RISK */}
               <div style={{ background: `${heat.color}12`, border: `1px solid ${heat.color}55`, borderRadius: 10, padding: "10px 14px", marginBottom: 14 }}>
-                <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textDim, marginBottom: 3 }}>RISK</div>
+                <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.textDim, marginBottom: 3 }}>RISK</div>
                 <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 900, color: heat.color }}>{heat.icon} {heat.label}</div>
-                <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.textSec, marginTop: 3 }}>{heat.reason}</div>
+                <div style={{ fontFamily: SANS, fontSize: 13.5, color: C.textSec, marginTop: 3 }}>{heat.reason}</div>
               </div>
               </>
               )}
@@ -540,14 +540,14 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
                   shows the AssetDecision verdict with Cortex's historical
                   observation count; it is not a second classifier. */}
               <div style={{ background: `${verdict.color}14`, border: `1px solid ${verdict.color}66`, borderRadius: 12, padding: 18, textAlign: "center", marginBottom: 10 }}>
-                <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textDim, marginBottom: 4 }}>CANONICAL VERDICT · TRACK RECORD</div>
+                <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.textDim, marginBottom: 4 }}>CANONICAL VERDICT · TRACK RECORD</div>
                 <div style={{ fontFamily: MONO, fontSize: 28, fontWeight: 900, color: verdict.color }}>{verdict.icon} {verdict.verdict}</div>
                 <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.textSec, marginTop: 6, lineHeight: 1.5 }}>{verdict.reason}</div>
                 {(() => {
                   const wp = verdictWinProbFor(track, verdict.verdict);
                   if (!wp) return null;
                   return (
-                    <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 10, paddingTop: 8, borderTop: `1px dashed ${verdict.color}33` }}>
+                    <div style={{ fontFamily: MONO, fontSize: 12.5, color: C.textDim, marginTop: 10, paddingTop: 8, borderTop: `1px dashed ${verdict.color}33` }}>
                       {wp.winRate != null
                         ? `Real track record: ${wp.winRate}% positive over ${wp.horizon}d, ${wp.count} real "${verdict.verdict}" observations since ${wp.trackingStartedAt}`
                         : `Real track record: only ${wp.count} "${verdict.verdict}" observation${wp.count === 1 ? "" : "s"} logged so far — too early to trust a win rate (need 10+). Tracking started ${wp.trackingStartedAt || "today"}.`}
@@ -570,8 +570,8 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
                   sniper object) and a second set would just confuse, not
                   add. */}
               <div style={{ background: `${sniper.meta.color}0d`, border: `1px solid ${sniper.meta.color}55`, borderRadius: 12, padding: 16, textAlign: "center", marginBottom: 10 }}>
-                <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textDim, marginBottom: 4 }}>SNIPER TIMING</div>
-                <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, marginBottom: 6 }}>Real-time entry-trigger read — should you press the button right now, not a business-quality verdict</div>
+                <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.textDim, marginBottom: 4 }}>SNIPER TIMING</div>
+                <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, marginBottom: 6 }}>Real-time entry-trigger read — should you press the button right now, not a business-quality verdict</div>
                 <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 900, color: sniper.meta.color }}>{sniper.meta.icon} {sniper.meta.label}</div>
                 <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.textSec, marginTop: 6, lineHeight: 1.5 }}>{sniper.reason}</div>
                 {sniper.waitingFor && (
@@ -580,7 +580,7 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
                 {!!sniper.reasons?.length && (
                   <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px dashed ${sniper.meta.color}33`, textAlign: "left" }}>
                     {sniper.reasons.map((r, i) => (
-                      <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 7, fontFamily: SANS, fontSize: 11.5, padding: "2px 0" }}>
+                      <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 7, fontFamily: SANS, fontSize: 13.5, padding: "2px 0" }}>
                         <span style={{ color: r.ok ? "#0d9465" : "#c8282a", fontWeight: 900, flexShrink: 0 }}>{r.ok ? "✓" : "✗"}</span>
                         <span style={{ color: C.textSec }}>{r.text}</span>
                       </div>
@@ -589,7 +589,7 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
                 )}
               </div>
 
-              <button onClick={() => setShowWhy((v) => !v)} style={{ width: "100%", fontFamily: MONO, fontSize: 10.5, fontWeight: 800, color: C.textSec, background: "transparent", border: "none", cursor: "pointer", padding: "4px 0", marginBottom: 8 }}>
+              <button onClick={() => setShowWhy((v) => !v)} style={{ width: "100%", fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.textSec, background: "transparent", border: "none", cursor: "pointer", padding: "4px 0", marginBottom: 8 }}>
                 WHY? {showWhy ? "▴" : "▾"}
               </button>
               {showWhy && (
@@ -607,7 +607,7 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
                   understand that" error. */}
               {(conversation.length > 0 || followUpLoading) && (
                 <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: 14, marginBottom: 14 }}>
-                  <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textDim, marginBottom: 10 }}>FOLLOW-UP</div>
+                  <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.textDim, marginBottom: 10 }}>FOLLOW-UP</div>
                   {conversation.map((m, i) => (
                     <div key={i} style={{ marginBottom: 10, textAlign: m.role === "user" ? "right" : "left" }}>
                       <div style={{ display: "inline-block", maxWidth: "85%", textAlign: "left", fontFamily: SANS, fontSize: 12.5,
@@ -620,7 +620,7 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
                     </div>
                   ))}
                   {followUpLoading && (
-                    <div style={{ fontFamily: MONO, fontSize: 11.5, color: C.textDim }}>Cortex is thinking…</div>
+                    <div style={{ fontFamily: MONO, fontSize: 13.5, color: C.textDim }}>Cortex is thinking…</div>
                   )}
                 </div>
               )}
@@ -657,7 +657,7 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
                 <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 12 }}>
                   <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 12 }}>
                     {DEEP_TABS.map(([id, label]) => (
-                      <button key={id} onClick={() => setDeepTab(id)} style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 800, padding: "5px 10px", borderRadius: 6, cursor: "pointer", border: `1px solid ${deepTab === id ? C.accent : C.border}`, background: deepTab === id ? C.accent : "transparent", color: deepTab === id ? "#fff" : C.textSec }}>
+                      <button key={id} onClick={() => setDeepTab(id)} style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, padding: "5px 10px", borderRadius: 6, cursor: "pointer", border: `1px solid ${deepTab === id ? C.accent : C.border}`, background: deepTab === id ? C.accent : "transparent", color: deepTab === id ? "#fff" : C.textSec }}>
                         {label}
                       </button>
                     ))}
@@ -683,9 +683,9 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
                       {Array.isArray(row.criteria) && row.criteria.length ? row.criteria.map((c) => (
                         <div key={c.id} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "6px 0", borderBottom: `1px solid ${C.border}`, fontFamily: SANS, fontSize: 12 }}>
                           <span style={{ color: c.pass ? "#0d9465" : "#c8282a", fontWeight: 700 }}>{c.pass ? "✓" : "✗"} {c.label}</span>
-                          <span style={{ fontFamily: MONO, fontSize: 10.5, color: C.textDim, whiteSpace: "nowrap" }}>{String(c.value)}</span>
+                          <span style={{ fontFamily: MONO, fontSize: 13, color: C.textDim, whiteSpace: "nowrap" }}>{String(c.value)}</span>
                         </div>
-                      )) : <div style={{ fontFamily: MONO, fontSize: 11, color: C.textDim }}>DATA UNAVAILABLE — {row.passCount ?? "?"}/8 pass overall.</div>}
+                      )) : <div style={{ fontFamily: MONO, fontSize: 13, color: C.textDim }}>DATA UNAVAILABLE — {row.passCount ?? "?"}/8 pass overall.</div>}
                       <StatRow C={C} MONO={MONO} SANS={SANS} label="VCP grade" value={row.vcpGrade && row.vcpGrade !== "-" ? row.vcpGrade : null} />
                       <StatRow C={C} MONO={MONO} SANS={SANS} label="Base tightening" value={row.tightening ? "Yes — each pullback shallower than the last" : "No"} color={row.tightening ? "#0d9465" : C.textDim} />
                       {/* Real VCP Engine detail — already computed server-side
@@ -711,7 +711,7 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
                     <div>
                       {(fundamentalsRead?.bull?.length || fundamentalsRead?.bear?.length) ? (
                         <div style={{ marginBottom: 12 }}>
-                          <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: C.textDim, marginBottom: 6 }}>WHY — REAL FUNDAMENTAL BULL/BEAR READ</div>
+                          <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.textDim, marginBottom: 6 }}>WHY — REAL FUNDAMENTAL BULL/BEAR READ</div>
                           {fundamentalsRead.bull.map((t, i) => <div key={`bull${i}`} style={{ fontFamily: SANS, fontSize: 12, color: "#0d9465", padding: "3px 0" }}>🟢 {t}</div>)}
                           {fundamentalsRead.bear.map((t, i) => <div key={`bear${i}`} style={{ fontFamily: SANS, fontSize: 12, color: "#c8282a", padding: "3px 0" }}>🔴 {t}</div>)}
                         </div>
@@ -737,14 +737,14 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
                         )}
                         {premiumRead && (
                           <div style={{ marginTop: 10, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: 10 }}>
-                            <div style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 900, color: C.textDim }}>CAN I PAY A PREMIUM?</div>
+                            <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.textDim }}>CAN I PAY A PREMIUM?</div>
                             <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, color: C.text, marginTop: 2 }}>{premiumRead.verdict}</div>
-                            <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 3 }}>{premiumRead.reason}</div>
+                            <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, marginTop: 3 }}>{premiumRead.reason}</div>
                           </div>
                         )}
                         {futureValue.growth && (
                           <div style={{ marginTop: 10 }}>
-                            <div style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 900, color: C.textDim, marginBottom: 4 }}>WHAT GROWTH LOOKS LIKE (real)</div>
+                            <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.textDim, marginBottom: 4 }}>WHAT GROWTH LOOKS LIKE (real)</div>
                             <StatRow C={C} MONO={MONO} SANS={SANS} label="Revenue growth" value={futureValue.growth.revenueGrowth != null ? `${(futureValue.growth.revenueGrowth * 100).toFixed(1)}%` : null} />
                             <StatRow C={C} MONO={MONO} SANS={SANS} label="Earnings growth" value={futureValue.growth.earningsGrowth != null ? `${(futureValue.growth.earningsGrowth * 100).toFixed(1)}%` : null} />
                             <StatRow C={C} MONO={MONO} SANS={SANS} label="3yr revenue/share growth" value={futureValue.growth.threeYRevenueGrowthPerShare != null ? `${(futureValue.growth.threeYRevenueGrowthPerShare * 100).toFixed(0)}%` : null} />
@@ -754,7 +754,7 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
                         )}
                         {analyst && (
                           <div style={{ marginTop: 10 }}>
-                            <div style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 900, color: C.textDim, marginBottom: 4 }}>WHAT INVESTORS THINK (real analyst consensus)</div>
+                            <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.textDim, marginBottom: 4 }}>WHAT INVESTORS THINK (real analyst consensus)</div>
                             <StatRow C={C} MONO={MONO} SANS={SANS} label="Consensus" value={analyst.recommendation || null} />
                             <StatRow C={C} MONO={MONO} SANS={SANS} label="Analysts covering" value={analyst.numAnalysts || null} />
                             {Array.isArray(analyst.trend) && analyst.trend[0] && (
@@ -772,16 +772,16 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
                         <StatRow C={C} MONO={MONO} SANS={SANS} label="Institutional Grade" value={`${grade.score}/100`} color={grade.score >= 65 ? "#0d9465" : "#d6a312"} />
                       </div>
                       <div style={{ padding: "0 6px", marginBottom: 12 }}>
-                        <div style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 900, color: C.textDim, marginBottom: 4 }}>REAL ACCUMULATION / DISTRIBUTION PHASE</div>
+                        <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.textDim, marginBottom: 4 }}>REAL ACCUMULATION / DISTRIBUTION PHASE</div>
                         {institutionScore ? (
                           <>
                             <StatRow C={C} MONO={MONO} SANS={SANS} label="Phase"
                               value={`${institutionScore.label} (${institutionScore.score}/100)`}
                               color={institutionScore.score >= 60 ? "#0d9465" : institutionScore.score <= 40 ? "#c8282a" : "#d6a312"} />
-                            <div style={{ fontFamily: SANS, fontSize: 11, color: C.textSec, marginTop: 6, lineHeight: 1.6 }}>
+                            <div style={{ fontFamily: SANS, fontSize: 13, color: C.textSec, marginTop: 6, lineHeight: 1.6 }}>
                               {institutionScore.reasons.map((r, i) => <div key={i}>• {r}</div>)}
                             </div>
-                            <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, marginTop: 6, fontStyle: "italic" }}>{institutionScore.disclosure}</div>
+                            <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, marginTop: 6, fontStyle: "italic" }}>{institutionScore.disclosure}</div>
                           </>
                         ) : (
                           <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>DATA UNAVAILABLE — no real dark pool, options flow, insider, or short-interest data for this symbol right now.</div>
@@ -796,7 +796,7 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
                     <div>
                       {social?.stocktwits && social.stocktwits.total > 0 && (
                         <div style={{ marginBottom: 12 }}>
-                          <div style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 900, color: C.textDim, marginBottom: 4 }}>REAL SOCIAL SENTIMENT (StockTwits)</div>
+                          <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: C.textDim, marginBottom: 4 }}>REAL SOCIAL SENTIMENT (StockTwits)</div>
                           <StatRow C={C} MONO={MONO} SANS={SANS} label="Bullish" value={`${social.stocktwits.bullCount} posts`} color="#0d9465" />
                           <StatRow C={C} MONO={MONO} SANS={SANS} label="Bearish" value={`${social.stocktwits.bearCount} posts`} color="#c8282a" />
                           <StatRow C={C} MONO={MONO} SANS={SANS} label="Bull %" value={social.stocktwits.bullPct != null ? `${Math.round(social.stocktwits.bullPct)}%` : null} />
@@ -832,7 +832,7 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
                           sentiment) — see computeBottomSignal for exactly
                           what's real vs. honestly unavailable per dimension. */}
                       <div style={{ marginTop: 14, padding: "12px 14px", borderRadius: 10, background: `${bottomSignal.color}12`, border: `1px solid ${bottomSignal.color}55` }}>
-                        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 900, color: bottomSignal.color, marginBottom: 8 }}>🔻 REAL BOTTOM SIGNAL — {bottomSignal.label} ({bottomSignal.agreeCount}/3)</div>
+                        <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 900, color: bottomSignal.color, marginBottom: 8 }}>🔻 REAL BOTTOM SIGNAL — {bottomSignal.label} ({bottomSignal.agreeCount}/3)</div>
                         {bottomSignal.dims.map((d, i) => (
                           <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 6, fontFamily: SANS, fontSize: 12 }}>
                             <span style={{ color: d.present ? "#0d9465" : C.textDim, fontWeight: 900, flexShrink: 0 }}>{d.present ? "✓" : "—"}</span>
@@ -881,18 +881,18 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
         return (
           <div>
             <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.text, marginBottom: 4 }}>⚖️ COMPARE — {analyses.map((a) => a.symbol).join(" vs ")}</div>
-            <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginBottom: 12 }}>
+            <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, marginBottom: 12 }}>
               Relative ranking off real Core Engine scores — not a second, competing decision. Each symbol's own Master Verdict above (open it individually) remains the one real, canonical call.
             </div>
             {!!failed?.length && (
-              <div style={{ fontFamily: SANS, fontSize: 11.5, color: "#c8282a", marginBottom: 12 }}>
+              <div style={{ fontFamily: SANS, fontSize: 13.5, color: "#c8282a", marginBottom: 12 }}>
                 Excluded {failed.map((f) => f.symbol).join(", ")} — {failed.map((f) => f.reason).join("; ")}.
               </div>
             )}
 
             {winner && (
               <div style={{ background: `${C.accent}12`, border: `1px solid ${C.accent}55`, borderRadius: 10, padding: "12px 14px", marginBottom: 14 }}>
-                <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.accent, letterSpacing: "0.06em" }}>🏆 WINNER — {winner.symbol}</div>
+                <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.accent, letterSpacing: "0.06em" }}>🏆 WINNER — {winner.symbol}</div>
                 <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.textSec, marginTop: 4 }}>
                   Real Master Score {Math.round(winner.coreScore.score)}/100{runnerUp ? ` vs ${runnerUp.symbol}'s ${Math.round(runnerUp.coreScore.score)}/100` : ""}
                   {whyParts.length ? ` — ahead on ${whyParts.join(", ")}.` : "."}
@@ -923,7 +923,7 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
                       <tr key={a.symbol} style={{ background: isWinner ? `${C.accent}0a` : "transparent" }}>
                         <td style={{ padding: "8px 10px", borderBottom: `1px solid ${C.border}`, fontWeight: 900, color: C.text }}>
                           {isWinner ? "🏆 " : ""}{a.symbol}
-                          {meta && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 800, color: meta.color }}>{meta.icon} {meta.label}</span>}
+                          {meta && <span style={{ marginLeft: 6, fontSize: 12.5, fontWeight: 800, color: meta.color }}>{meta.icon} {meta.label}</span>}
                         </td>
                         <td style={{ padding: "8px 10px", borderBottom: `1px solid ${C.border}`, textAlign: "right", fontWeight: 900, color: C.text }}>{Math.round(a.coreScore.score)}</td>
                         <td style={{ padding: "8px 10px", borderBottom: `1px solid ${C.border}`, textAlign: "right", color: C.textSec }}>{a.coreScore.breakdown.setupQuality.toFixed(1)}</td>
@@ -933,7 +933,7 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
                         <td style={{ padding: "8px 10px", borderBottom: `1px solid ${C.border}`, textAlign: "right", color: C.textSec }}>{a.institutionScore?.score != null ? Math.round(a.institutionScore.score) : "—"}</td>
                         <td style={{ padding: "8px 10px", borderBottom: `1px solid ${C.border}`, textAlign: "right", color: C.textSec }}>{a.priceToPay?.rr != null ? `${Number(a.priceToPay.rr).toFixed(1)}:1` : "—"}</td>
                         <td style={{ padding: "8px 10px", borderBottom: `1px solid ${C.border}`, textAlign: "right" }}>
-                          <button onClick={() => analyzeFromList(a.symbol)} style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, padding: "4px 8px", borderRadius: 6, border: `1px solid ${C.accent}`, background: `${C.accent}14`, color: C.accent, cursor: "pointer" }}>
+                          <button onClick={() => analyzeFromList(a.symbol)} style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 800, padding: "4px 8px", borderRadius: 6, border: `1px solid ${C.accent}`, background: `${C.accent}14`, color: C.accent, cursor: "pointer" }}>
                             🧠 OPEN
                           </button>
                         </td>
@@ -954,7 +954,7 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
         return (
           <div>
             <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 900, color: C.text, marginBottom: 4 }}>{meta.icon} {meta.title}</div>
-            <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginBottom: 12 }}>{rows.length} real match{rows.length === 1 ? "" : "es"}</div>
+            <div style={{ fontFamily: SANS, fontSize: 13, color: C.textDim, marginBottom: 12 }}>{rows.length} real match{rows.length === 1 ? "" : "es"}</div>
             {!rows.length && <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>No real matches right now.</div>}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(230px,1fr))", gap: 10 }}>
               {rows.map((x) => {
@@ -969,10 +969,10 @@ export default function AMCortexTab({ C, MONO, SANS, macroData, sectorData, watc
                       <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>${Number(price).toFixed(2)}</span>
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                      <span style={{ fontFamily: MONO, fontSize: 10.5, color: C.textDim }}>{scoreLabel}</span>
+                      <span style={{ fontFamily: MONO, fontSize: 13, color: C.textDim }}>{scoreLabel}</span>
                       <span style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: C.text }}>{typeof score === "number" ? (result.scanType === "best_rr" ? `${score.toFixed(1)}:1` : Math.round(score)) : "—"}</span>
                     </div>
-                    <button onClick={() => analyzeFromList(symbol)} style={{ width: "100%", fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "6px 0", borderRadius: 6, border: `1px solid ${C.accent}`, background: `${C.accent}14`, color: C.accent, cursor: "pointer" }}>
+                    <button onClick={() => analyzeFromList(symbol)} style={{ width: "100%", fontFamily: MONO, fontSize: 13, fontWeight: 800, padding: "6px 0", borderRadius: 6, border: `1px solid ${C.accent}`, background: `${C.accent}14`, color: C.accent, cursor: "pointer" }}>
                       🧠 ANALYZE
                     </button>
                   </div>
