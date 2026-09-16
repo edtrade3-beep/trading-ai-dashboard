@@ -16,12 +16,23 @@ const src = fs.readFileSync(path.join(__dirname, "..", "axiom-runner", "componen
 console.log("Checking Top50ScannerPanel.jsx — real Top 5 default + VIEW ALL 50 expand…");
 
 ok("fetches the real /api/market/top50-scanner route (limit=5 by default)", () => {
-  assert.match(src, /fetch\("\/api\/market\/top50-scanner\?limit=5"\)/);
+  assert.match(src, /fetch\(`\/api\/market\/top50-scanner\?limit=5&sortBy=\$\{sortBy\}`\)/);
 });
 
 ok("VIEW ALL 50 fetches the real full list (limit=50), and only once per mount, not re-fetched on every toggle", () => {
-  assert.match(src, /fetch\("\/api\/market\/top50-scanner\?limit=50"\)/);
+  assert.match(src, /fetch\(`\/api\/market\/top50-scanner\?limit=50&sortBy=\$\{sortBy\}`\)/);
   assert.match(src, /if \(all50\) return;/);
+});
+
+ok("real CLOSEST TO BUY ZONE sort toggle — flips sortBy between score/distance, invalidating the already-fetched full 50 so a stale un-sorted list is never shown after toggling", () => {
+  assert.match(src, /setSortBy\(\(s\) => \(s === "distance" \? "score" : "distance"\)\)/);
+  assert.match(src, /useEffect\(\(\) => \{ setAll50\(null\); \}, \[sortBy\]\);/);
+});
+
+ok("real per-row price-to-pay fields (distance/priceStatus) come from the server's own whatToPay object — no client-side zone computation", () => {
+  assert.match(src, /const wtp = r\.whatToPay;/);
+  assert.match(src, /wtp\.distancePct/);
+  assert.match(src, /wtp\.priceStatus/);
 });
 
 ok("toggling VIEW ALL 50 flips back to SHOW TOP 5 — a real expand/collapse, not a one-way navigation", () => {

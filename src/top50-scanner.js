@@ -25,6 +25,7 @@
 
 const { computeTop50Score } = require("./top50-scanner-score");
 const { computeEMASeries } = require("./indicators");
+const { computeWhatToPay } = require("./what-to-pay");
 
 // tier/stage -> the prompt's own READY/WAIT/SETTING UP/WATCH vocabulary.
 // Every input here is a real, already-computed field from
@@ -71,8 +72,16 @@ const MIN_DOLLAR_VOLUME = require("./universe-builder").MIN_DOLLAR_VOLUME;
 // Ranks the real canonical opportunity universe by the new Top 50 score.
 // `limit` defaults to 50 (the prompt's own "Top 50"); the UI asks for
 // only 5 by default separately (AI Trade Desk's own display concern, not
-// this function's).
-async function scanTop50({ limit = 50 } = {}) {
+// this function's). `sortBy: "distance"` (2026-09-16, "What Price to
+// Pay" — "Add sorting based on opportunity proximity... CLOSEST TO BUY
+// ZONE") re-sorts by real distancePct ascending instead of score —
+// deliberately does NOT change which symbols make the cut (still the
+// same top50Score-ranked candidate set), only their display order, and
+// never lets a real collapsing/low-quality stock rank highly purely for
+// having a near-zero real distance — a symbol with no real whatToPay
+// zone at all (e.g. insufficient ATR history) sorts last, honestly, not
+// treated as "distance 0."
+async function scanTop50({ limit = 50, sortBy = "score" } = {}) {
   const { computeAllOpportunities, fetchBarsCached, fetchDayTradeScanRows } = require("./routes/market");
   const { tiers, marketRegime } = await computeAllOpportunities();
   const candidates = [
@@ -88,6 +97,7 @@ async function scanTop50({ limit = 50 } = {}) {
   if (!candidates.length) return { symbols: [], invalidatedSymbols, marketRegime, generatedAt: new Date().toISOString() };
 
   const symbols = candidates.map((c) => c.symbol);
+  const { buildTrendTemplate } = require("./routes/market");
   const [dayTradeResult, dailyBarsBySymbol] = await Promise.all([
     fetchDayTradeScanRows(symbols).catch(() => ({ rows: [] })),
     Promise.all(symbols.map(async (sym) => {
@@ -95,6 +105,16 @@ async function scanTop50({ limit = 50 } = {}) {
     })).then((pairs) => new Map(pairs)),
   ]);
   const dayTradeBySymbol = new Map((dayTradeResult.rows || []).map((r) => [r.symbol, r]));
+  // Real pivot/contractionLow/higherLows for what-to-pay.js's zone
+  // construction — the SAME real buildTrendTemplate() every other trend
+  // read already calls, passed the SAME daily bars just fetched above
+  // ({bars} opt) so this hits the shared cache rather than an
+  // independent fetch (2026-08-30 duplicate-fetch fix, reused here).
+  const trendSetupBySymbol = new Map((await Promise.all(symbols.map(async (sym) => {
+    const bars = dailyBarsBySymbol.get(sym);
+    if (!bars) return [sym, null];
+    try { const tt = await buildTrendTemplate(sym, { bars }); return [sym, tt?.setup || null]; } catch { return [sym, null]; }
+  }))));
 
   const scored = [];
   for (const c of candidates) {
@@ -121,17 +141,63 @@ async function scanTop50({ limit = 50 } = {}) {
     };
     const top50Score = computeTop50Score(inputs);
     const executionStatus = executionStatusFor(c.tier, c.stage);
+
+    // "What Price to Pay" (2026-09-16) — real zone/status derivation,
+    // src/what-to-pay.js. supportHolding is a disclosed, simple, honest
+    // proxy (price still at/above the real contraction low) rather than
+    // wiring in entry-engine.js's own more elaborate
+    // computeQualifyingConditions, whose own `ev` input this scan doesn't
+    // otherwise construct — "support holding" fundamentally means price
+    // hasn't broken the real support level, which this directly checks.
+    const setup = trendSetupBySymbol.get(c.symbol) || {};
+    const whatToPay = computeWhatToPay({
+      price: c.price, pivot: setup.pivot, contractionLow: setup.contractionLow,
+      ema20: daily.ema20, ema50: daily.ema50, ema9: dt.ema9, bars,
+      // signalState intentionally omitted — this opportunity object
+      // (computeAllOpportunities()'s own tiers) doesn't carry it (that
+      // lives on the separate, richer assetDecision object); tier is the
+      // documented PRIMARY execution-readiness authority (signal-
+      // lifecycle.js's own state is secondary/fallback), so gating on
+      // tier alone here is correct and sufficient — what-to-pay.js's own
+      // signalState check safely no-ops when omitted (undefined !==
+      // "CANCELLED"), never defaults to blocking.
+      tier: c.tier,
+      higherLows: setup.higherLows, supportHolding: Number.isFinite(setup.contractionLow) ? c.price >= setup.contractionLow : null,
+      rsi: dt.rsi15m, rsiPrior: dt.rsi15mPrior, macdHistogram: dt.macdHistogram15m, macdHistogramPrior: dt.macdHistogramPrior15m,
+      aboveVwap: dt.aboveVwap, rvol: dt.rvol,
+    });
+
     scored.push({
       symbol: c.symbol, price: c.price,
       top50Score: top50Score.score, direction: top50Score.direction, breakdown: top50Score.breakdown,
       tier: c.tier, stage: c.stage, executionStatus,
       verdict: c.verdict, entry: c.entry, executableEntry: c.executableEntry, stop: c.stop, target: c.target, invalidation: c.invalidation,
       rvol: dt.rvol, vwap: dt.vwap, aboveVwap: dt.aboveVwap, rsi: dt.rsi15m,
+      whatToPay: whatToPay.available ? whatToPay : null,
     });
   }
 
   scored.sort((a, b) => b.top50Score - a.top50Score);
-  return { symbols: scored.slice(0, limit), invalidatedSymbols, marketRegime, generatedAt: new Date().toISOString() };
+  const ranked = scored.slice(0, limit);
+  if (sortBy === "distance") {
+    // "Do NOT automatically rank a collapsing stock highly simply because
+    // it has entered the price zone. Confirmation and trend quality still
+    // matter." — a real, disclosed quality floor (top50Score >= 50, the
+    // same score every candidate here was already ranked by) keeps a
+    // weak/collapsing setup from outranking a strong one purely on
+    // distance; qualifying candidates then sort by real proximity.
+    const QUALITY_FLOOR = 50;
+    ranked.sort((a, b) => {
+      const aQualifies = a.top50Score >= QUALITY_FLOOR, bQualifies = b.top50Score >= QUALITY_FLOOR;
+      if (aQualifies !== bQualifies) return aQualifies ? -1 : 1;
+      const da = a.whatToPay?.distancePct, db = b.whatToPay?.distancePct;
+      if (!Number.isFinite(da) && !Number.isFinite(db)) return b.top50Score - a.top50Score;
+      if (!Number.isFinite(da)) return 1; // no real zone -> sorts last, never treated as "closest"
+      if (!Number.isFinite(db)) return -1;
+      return da - db;
+    });
+  }
+  return { symbols: ranked, invalidatedSymbols, marketRegime, generatedAt: new Date().toISOString() };
 }
 
 module.exports = { scanTop50, executionStatusFor, dailyEmaInputs, MIN_DOLLAR_VOLUME };

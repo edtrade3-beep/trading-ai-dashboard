@@ -80,6 +80,23 @@ ok("the candidate universe and entry/stop/target/invalidation/tier/stage all com
   assert.doesNotMatch(src, /async function computeAllOpportunities/, "must not redeclare the canonical scan");
 });
 
+console.log("\nChecking real \"What Price to Pay\" wiring (2026-09-16)…");
+
+ok("scanTop50() computes what-to-pay per row via the real src/what-to-pay.js function — no second zone-derivation algorithm declared in this file", () => {
+  const fs = require("node:fs");
+  const src = fs.readFileSync(require.resolve("../src/top50-scanner"), "utf8");
+  assert.match(src, /require\("\.\/what-to-pay"\)/);
+  assert.match(src, /computeWhatToPay\(\{/);
+  assert.doesNotMatch(src, /function computeWhatToPay/, "must not redeclare the zone-derivation function locally");
+});
+
+ok("sortBy: \"distance\" enforces a real quality floor (top50Score >= 50) before sorting by proximity — a weak/collapsing setup never outranks a strong one purely for being close to its zone", () => {
+  const fs = require("node:fs");
+  const src = fs.readFileSync(require.resolve("../src/top50-scanner"), "utf8");
+  assert.match(src, /const QUALITY_FLOOR = 50;/);
+  assert.match(src, /aQualifies !== bQualifies/);
+});
+
 console.log(`\n${passed} checks passed.`);
 if (process.exitCode) console.error("TOP50-SCANNER TEST FAILED");
 else console.log("TOP50-SCANNER TEST OK");
