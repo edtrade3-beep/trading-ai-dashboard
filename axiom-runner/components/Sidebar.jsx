@@ -65,6 +65,16 @@ export const SIDEBAR_ITEMS = [
   // way every other sidebar tab's alias is.
   { id: "crypto", label: "Crypto", icon: "🪙", tab: "crypto" },
 
+  // FOMC Watch — promoted to a direct top-level rail row (2026-09-16,
+  // explicit live-day request: "Put it as a tab not hidden"). Same real
+  // FedWatchTab.jsx this app already had two clicks deep (Calendar ->
+  // FED/FOMC sub-tab, still reachable there too) — today is a real FOMC
+  // meeting day (2pm ET statement), so this needed to be one click away
+  // right now rather than nested. activeTab "fedwatch" is a new, distinct
+  // top-level destination in axiom-live.jsx (not the calendarSubTab
+  // "fed" id used by the nested version).
+  { id: "fedwatch", label: "FOMC Watch", icon: "🏛️", tab: "fedwatch" },
+
   // Trade Navigator dropped from the rail (2026-09-05 nav consolidation).
   // TradeNavigatorTab.jsx (activeTab "trade-navigator") is fully untouched
   // — one keystroke away via the new NAVIGATOR command-palette alias.

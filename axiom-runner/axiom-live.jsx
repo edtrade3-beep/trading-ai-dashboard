@@ -7488,6 +7488,11 @@ export default function App() {
           </>
         )}
 
+        {/* FOMC Watch — direct top-level rail row (2026-09-16, "Put it as
+            a tab not hidden"). Same real FedWatchTab.jsx the "fed"
+            calendarSubTab below renders — not a second copy. */}
+        {activeTab === "fedwatch" && <FedWatchTab C={C} MONO={MONO} SANS={SANS} />}
+
         {/* CALENDAR — composite sidebar destination (institutional
             redesign, 2026-07-29) folding Economic Events/Fed-FOMC/Earnings
             into one nav item. Each sub-tab is the same real
