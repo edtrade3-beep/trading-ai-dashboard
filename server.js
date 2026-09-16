@@ -515,6 +515,16 @@ server.listen(PORT, HOST, () => {
   registerJob("Top 50 Scanner Alerts", 15 * 60_000, () => require("./src/top50-telegram-alerts").checkTop50TelegramAlerts());
   console.log("[Top 50 Scanner Alerts] Real READY/score-cross/entry-stop-target/invalidation detection active — every 15 min");
 
+  // AI Opportunity Hunter — Deal Score/Risk/Valuation alerts (2026-09-16
+  // master prompt, Stocks Phase 1). Deliberately does NOT re-alert on
+  // price-zone/entry-confirmed/invalidation — those are the SAME real
+  // events Top 50 Scanner Alerts above already covers off the same
+  // underlying fields; this job covers only its own new real signals
+  // (Deal Score crossing 80, a risk escalation to HIGH/CRITICAL, a real
+  // margin-of-safety improvement, and first entry into the ranked list).
+  registerJob("Opportunity Hunter Alerts", 15 * 60_000, () => require("./src/opportunity-hunter-alerts").checkOpportunityHunterAlerts());
+  console.log("[Opportunity Hunter Alerts] Real Deal-Score/risk-spike/valuation-improved detection active — every 15 min");
+
   // Watchlist institutional alerts — Phase 5 of the Institutional Research
   // Upgrade (2026-07-29): 5 more real, previously-missing alert categories
   // (smart-money BOS, dark-pool spike, unusual options flow, earnings
