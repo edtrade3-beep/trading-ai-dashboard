@@ -209,7 +209,7 @@ server.listen(PORT, HOST, () => {
 
   // AI Morning Game Plan (~9:40 AM ET) + AI Trade Coach (~4:15 PM ET) — weekdays, server-side.
   // Autopilot recap (~4:05 PM ET) — what the Alpaca paper autopilot did today.
-  let _gpSent = null, _coachSent = null, _recapAP = null, _weeklySent = null, _monthlyReview = null, _mrvPaper = null, _mrvSummary = null, _apexSent = null, _ceoSent = null, _aplusSnapshot = null, _cmdCenterSent = null, _ivSnapshot = null, _edgeDecaySnapshot = null, _researchIntelSent = null, _carBusinessSent = null, _marketWrapSent = null, _curblineIntelSent = null, _moneyIdeasSent = null, _dealerScanSent = null;
+  let _gpSent = null, _coachSent = null, _recapAP = null, _weeklySent = null, _monthlyReview = null, _mrvPaper = null, _mrvSummary = null, _apexSent = null, _ceoSent = null, _aplusSnapshot = null, _cmdCenterSent = null, _ivSnapshot = null, _edgeDecaySnapshot = null, _researchIntelSent = null, _carBusinessSent = null, _marketWrapSent = null, _curblineIntelSent = null, _moneyIdeasSent = null, _dealerScanSent = null, _top50MorningSent = null;
   setInterval(() => {
     const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
     const h = et.getHours(), m = et.getMinutes(), day = et.getDay();
@@ -261,6 +261,13 @@ server.listen(PORT, HOST, () => {
     // Morning Game Plan doesn't start until 9:40) — 4 min after Research
     // Intel, same ~5-10 min stagger discipline as every other job here.
     if (h === 8 && m >= 45 && m < 51 && _moneyIdeasSent !== today) { _moneyIdeasSent = today; buildMoneyIdeas().catch(() => {}); }
+    // AI Top 50 Scanner — Morning Top 5 9:15 ET (2026-09-16, "Build
+    // Telegram Alerts for the AI Top 50 Scanner" master prompt: "send one
+    // morning summary with the Top 5 current opportunities"). A real, free
+    // 9-min gap between Money Ideas (ends 8:51) and Morning Game Plan
+    // (starts 9:40) — 15 min before the 9:30 open, same "final pre-market
+    // read" placement the prompt's own example implies.
+    if (h === 9 && m >= 15 && m < 21 && _top50MorningSent !== today) { _top50MorningSent = today; require("./src/top50-telegram-alerts").sendTop50MorningSummary().catch(() => {}); }
     if (h === 9 && m >= 40 && m < 46 && _gpSent !== today) { _gpSent = today; runMorningGamePlan().catch(() => {}); }
     if (h === 16 && m >= 5 && m < 11 && _recapAP !== today) { _recapAP = today; runAutopilotRecap().catch(() => {}); }
     if (h === 16 && m >= 15 && m < 21 && _coachSent !== today) { _coachSent = today; runTradeCoach().catch(() => {}); }
@@ -495,6 +502,18 @@ server.listen(PORT, HOST, () => {
   // job above. Puts, not equity shorts (long-only guardrail stays intact).
   registerJob("Bearish Setups", 15 * 60_000, () => require("./src/bearish-setups-alerts").checkBearishSetupsAlerts());
   console.log("[Bearish Setups] Real new-put-candidate detection active — every 15 min, feeds the morning digest");
+
+  // AI Top 50 Scanner — Telegram transition alerts (2026-09-16, "Build
+  // Telegram Alerts for the AI Top 50 Scanner" master prompt). Same real
+  // "diff canonical scan against last-known state" template as
+  // Opportunity Pivot Watch above (src/top50-telegram-alerts.js) — fires
+  // only on a real SETTING UP->READY/WAIT->READY transition, a score
+  // crossing 80/90, an entry/stop/target/invalidation trigger, or a
+  // direction flip. LONG setups only this pass — SHORT setups already
+  // alert via Bearish Setups above (see that file's own header for why a
+  // second bearish classification wasn't built here).
+  registerJob("Top 50 Scanner Alerts", 15 * 60_000, () => require("./src/top50-telegram-alerts").checkTop50TelegramAlerts());
+  console.log("[Top 50 Scanner Alerts] Real READY/score-cross/entry-stop-target/invalidation detection active — every 15 min");
 
   // Watchlist institutional alerts — Phase 5 of the Institutional Research
   // Upgrade (2026-07-29): 5 more real, previously-missing alert categories

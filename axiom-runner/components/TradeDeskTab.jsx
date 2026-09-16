@@ -11,6 +11,7 @@ import RhProWatchlists from "./RhProWatchlists.jsx";
 import WhatChangedPanel from "./WhatChangedPanel.jsx";
 import WhatChangedStrip from "./WhatChangedStrip.jsx";
 import TopOpportunities from "./TopOpportunities.jsx";
+import Top50ScannerPanel from "./Top50ScannerPanel.jsx";
 import AlertsTab from "./AlertsTab.jsx";
 import OptionsChainTab from "./OptionsChainTab.jsx";
 import NewsTab from "./NewsTab.jsx";
@@ -725,6 +726,13 @@ export default function TradeDeskTab({
           ahead of the main analysis row, per the requested hierarchy. */}
       <div style={{ padding: "0 14px" }}>
         <TopOpportunities onSelectSymbol={selectSymbol} C={TD} MONO={MONO} SANS={SANS} />
+        {/* AI Top 50 Scanner (2026-09-16) — a real, separate ranked list
+            (the new 30/20/20/15/15 EMA/VWAP/MACD/RSI/RVOL score, distinct
+            from TopOpportunities' own canonical opportunityScore above),
+            shown right beneath it rather than conflated into the same
+            list/number. Top 5 by default, "VIEW ALL 50" expands in place
+            — no new top-level tab. */}
+        <Top50ScannerPanel onSelectSymbol={selectSymbol} C={TD} MONO={MONO} SANS={SANS} />
       </div>
 
       {/* ── Search | Chart | AI Analysis | Risk/Avoid — the reference
