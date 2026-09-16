@@ -174,6 +174,14 @@ async function scanTop50({ limit = 50, sortBy = "score" } = {}) {
       verdict: c.verdict, entry: c.entry, executableEntry: c.executableEntry, stop: c.stop, target: c.target, invalidation: c.invalidation,
       rvol: dt.rvol, vwap: dt.vwap, aboveVwap: dt.aboveVwap, rsi: dt.rsi15m,
       whatToPay: whatToPay.available ? whatToPay : null,
+      // Real canonical risk (2026-09-16, "AI Opportunity Hunter" master
+      // prompt) — asset-decision.js's computeRiskScore already runs as
+      // part of computeAllOpportunities()'s own canonical pipeline and is
+      // already attached to every real candidate (opportunity.assetDecision,
+      // set by canonical-decision-pipeline.js) — this was simply never
+      // read through to this row before. No second risk calculation.
+      riskScore: c.assetDecision?.riskScore ?? null, riskLevel: c.assetDecision?.riskLevel ?? null,
+      riskContributors: c.assetDecision?.riskContributors ?? null,
     });
   }
 

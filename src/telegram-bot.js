@@ -1246,6 +1246,106 @@ async function cmdFind(args) {
   }
 }
 
+// ── AI Opportunity Hunter (2026-09-16, master prompt) — Stocks Phase 1.
+// Real commands over src/opportunity-hunter.js's scanOpportunities(), the
+// ONE combining layer over already-canonical Deal Score (fundamentals,
+// future-value-scoring.js) + Entry Score (technicals, top50-scanner.js) +
+// Risk (asset-decision.js) + real buy-zones (what-to-pay.js). Same
+// process as the bot itself — direct function call, no HTTP round-trip.
+function fmtOh(v) { return Number.isFinite(v) ? `$${Number(v).toFixed(2)}` : "—"; }
+
+async function cmdOpportunities() {
+  await reply("🔎 Scanning for the best opportunities…");
+  try {
+    const { scanOpportunities } = require("./opportunity-hunter");
+    const { opportunities, dealDataAvailable } = await scanOpportunities({ limit: 50 });
+    if (!opportunities.length) return reply("No real qualifying candidates right now — try again during market hours or after the next scan cycle.");
+    const ranked = [...opportunities].sort((a, b) => (b.dealScore ?? -1) - (a.dealScore ?? -1) || b.entryScore - a.entryScore).slice(0, 10);
+    const lines = ["🔥 TOP OPPORTUNITIES", ""];
+    ranked.forEach((o, i) => {
+      lines.push(`${i + 1}. ${o.symbol}`, `   Deal: ${o.dealScore ?? "—"}  Entry: ${o.entryScore}  Risk: ${o.riskLevel || "—"}  Confidence: ${o.confidenceScore}`, `   State: ${o.state}`, "");
+    });
+    if (!dealDataAvailable) lines.push("(Deal Score unavailable this run — real fundamentals provider not reachable; Entry/Risk/zones are still real.)");
+    return reply(lines.join("\n").trim());
+  } catch (err) {
+    return reply(`Opportunities error: ${err.message}`);
+  }
+}
+
+async function cmdWhy(args) {
+  const symbol = (args[0] || "").trim().toUpperCase();
+  if (!symbol) return reply("Usage: /why SYMBOL");
+  try {
+    const { scanOpportunities } = require("./opportunity-hunter");
+    const { opportunities } = await scanOpportunities({ limit: 50 });
+    const o = opportunities.find((r) => r.symbol === symbol);
+    if (!o) return reply(`${symbol} isn't in the current real Top 50 scan — try /opportunities to see who is.`);
+    const lines = [
+      `${symbol} — ${fmtOh(o.price)}`, "",
+      `Deal Score: ${o.dealScore ?? "—"}`, `Entry Score: ${o.entryScore}`, `Risk: ${o.riskLevel || "—"}`, `Confidence: ${o.confidenceScore}`,
+      "", `State: ${o.state}`, "",
+      "WHY:", ...(o.reasons || []).map((r) => `• ${r.replace(/_/g, " ")}`),
+    ];
+    if (o.fairValue) lines.push("", `Estimated Fair Value: ${fmtOh(o.fairValue.conservative)}–${fmtOh(o.fairValue.bull)}`);
+    if (o.whatToPay) lines.push(`What to Pay: ${fmtOh(o.whatToPay.low)}–${fmtOh(o.whatToPay.high)}`);
+    if (Number.isFinite(o.entry) && Number.isFinite(o.invalidation) && Number.isFinite(o.target)) {
+      lines.push("", `Entry: ${fmtOh(o.entry)}`, `Invalidation: ${fmtOh(o.invalidation)}`, `Target: ${fmtOh(o.target)}`, `R:R: ${o.riskReward != null ? `${o.riskReward.toFixed(1)}:1` : "—"}`);
+    }
+    return reply(lines.join("\n"));
+  } catch (err) {
+    return reply(`Why error: ${err.message}`);
+  }
+}
+
+async function cmdOhChanges() {
+  try {
+    const { readJsonSafe } = require("./atomic-write");
+    const { STORE_PATH } = require("./opportunity-hunter-alerts");
+    const { scanOpportunities } = require("./opportunity-hunter");
+    const prev = readJsonSafe(STORE_PATH, {});
+    const { opportunities } = await scanOpportunities({ limit: 50 });
+    const changes = [];
+    for (const o of opportunities) {
+      const p = prev[o.symbol];
+      if (!p) continue;
+      const dealDelta = Number.isFinite(p.dealScore) && Number.isFinite(o.dealScore) ? o.dealScore - p.dealScore : 0;
+      const entryDelta = Number.isFinite(p.entryScore) && Number.isFinite(o.entryScore) ? o.entryScore - p.entryScore : 0;
+      if (Math.abs(dealDelta) >= 5 || Math.abs(entryDelta) >= 5 || p.state !== o.state || p.riskLevel !== o.riskLevel) {
+        changes.push({ symbol: o.symbol, dealDelta, entryDelta, prevState: p.state, state: o.state, prevRisk: p.riskLevel, riskLevel: o.riskLevel });
+      }
+    }
+    if (!changes.length) return reply("No meaningful changes since the last real scan.");
+    const lines = ["📋 WHAT CHANGED", ""];
+    for (const c of changes.slice(0, 15)) {
+      lines.push(c.symbol);
+      if (c.dealDelta) lines.push(`  Deal: ${c.dealDelta > 0 ? "+" : ""}${c.dealDelta}`);
+      if (c.entryDelta) lines.push(`  Entry: ${c.entryDelta > 0 ? "+" : ""}${c.entryDelta}`);
+      if (c.prevState !== c.state) lines.push(`  State: ${c.prevState} → ${c.state}`);
+      if (c.prevRisk !== c.riskLevel) lines.push(`  Risk: ${c.prevRisk} → ${c.riskLevel}`);
+      lines.push("");
+    }
+    return reply(lines.join("\n").trim());
+  } catch (err) {
+    return reply(`Changes error: ${err.message}`);
+  }
+}
+
+async function cmdLowRisk() {
+  try {
+    const { scanOpportunities } = require("./opportunity-hunter");
+    const { opportunities } = await scanOpportunities({ limit: 50 });
+    const list = opportunities
+      .filter((o) => (o.riskLevel === "LOW" || o.riskLevel === "NORMAL") && Number.isFinite(o.confidenceScore) && o.confidenceScore >= 70)
+      .sort((a, b) => (b.dealScore ?? 0) - (a.dealScore ?? 0));
+    if (!list.length) return reply("No real high-confidence, lower-risk candidates right now.");
+    const lines = ["🟢 LOW-RISK, HIGH-CONFIDENCE", ""];
+    list.slice(0, 10).forEach((o, i) => lines.push(`${i + 1}. ${o.symbol} — Deal ${o.dealScore ?? "—"} · Entry ${o.entryScore} · Confidence ${o.confidenceScore} · ${o.state}`));
+    return reply(lines.join("\n"));
+  } catch (err) {
+    return reply(`Low-risk error: ${err.message}`);
+  }
+}
+
 async function cmdDeals(args) {
   const query = args.join(" ").trim();
   await reply(query ? `Searching deals: "${query}"…` : "Fetching top deals…");
@@ -1691,6 +1791,18 @@ const COMMANDS = {
   snipe:     (a) => cmdSniper(a),
   find:      (a) => cmdFind(a),
   undervalued: () => cmdFind(["undervalued"]),
+  // AI Opportunity Hunter (2026-09-16, master prompt, Stocks Phase 1) —
+  // "Keep Telegram simple... required commands: /opportunities /why
+  // /changes /watch /lowrisk". /watch reuses the real existing /wl add
+  // handler (same real watchlist store, no second one) — adding a symbol
+  // to it already causes both the Deal Score scan (future-value-scan.js)
+  // and the Entry Score scan (top50-scanner.js) to cover it, since both
+  // already union SCAN_UNIVERSE with the real watchlist.
+  opportunities: () => cmdOpportunities(),
+  why:       (a) => cmdWhy(a),
+  changes:   () => cmdOhChanges(),
+  lowrisk:   () => cmdLowRisk(),
+  watch:     async (a) => { const sym = (a[0] || "").toUpperCase(); if (!sym) return reply("Usage: /watch SYMBOL"); return COMMANDS.wl(["add", sym]); },
   future:      () => cmdFind(["future"]),
   aplus:       () => cmdFind(["aplus"]),
   breakout:    () => cmdFind(["breakout"]),
