@@ -41,6 +41,27 @@ ok("renders nothing (returns null) when there is no selected symbol yet — neve
   assert.match(src, /if \(!symbol \|\| state === "idle"\) return null;/);
 });
 
+console.log("\nChecking placement in TradeDeskTab.jsx (live user request: \"want price to pay on the right side of set up quality underneath risk/high risk column\")…");
+
+ok("WhatToPayCard renders inside the 4th column (Risk/Avoid), directly underneath RiskAvoidCard — the column immediately right of Setup Quality/Risk Level (CortexMiniPanel, 3rd column)", () => {
+  const tradeDeskSrc = fs.readFileSync(path.join(__dirname, "..", "axiom-runner", "components", "TradeDeskTab.jsx"), "utf8");
+  const riskAvoidIdx = tradeDeskSrc.indexOf("<RiskAvoidCard ");
+  const wtpIdx = tradeDeskSrc.indexOf("<WhatToPayCard ", riskAvoidIdx);
+  assert.ok(riskAvoidIdx > 0 && wtpIdx > riskAvoidIdx, "WhatToPayCard must appear after RiskAvoidCard, in the same column");
+  // Both must sit inside the SAME enclosing column div (no closing </div>
+  // for that column between them).
+  const between = tradeDeskSrc.slice(riskAvoidIdx, wtpIdx);
+  assert.doesNotMatch(between, /<\/div>\s*<div/, "RiskAvoidCard and WhatToPayCard must share the same column div, not be split into separate ones");
+});
+
+ok("that column real-scrolls instead of clipping (overflow: \"hidden auto\", not a bare overflow: \"hidden\") — a tall real combined read is never silently cut off", () => {
+  const tradeDeskSrc = fs.readFileSync(path.join(__dirname, "..", "axiom-runner", "components", "TradeDeskTab.jsx"), "utf8");
+  const riskAvoidIdx = tradeDeskSrc.indexOf("<RiskAvoidCard ");
+  const columnOpenIdx = tradeDeskSrc.lastIndexOf("<div style={{ height: 680", riskAvoidIdx);
+  const columnOpenLine = tradeDeskSrc.slice(columnOpenIdx, tradeDeskSrc.indexOf("\n", columnOpenIdx));
+  assert.match(columnOpenLine, /overflow: "hidden auto"/);
+});
+
 console.log(`\n${passed} checks passed.`);
 if (process.exitCode) console.error("WHAT-TO-PAY-CARD TEST FAILED");
 else console.log("WHAT-TO-PAY-CARD TEST OK");

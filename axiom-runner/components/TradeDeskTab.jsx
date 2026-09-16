@@ -721,15 +721,6 @@ export default function TradeDeskTab({
         account={autopilotStatus?.account} dailyLossLocked={autopilotStatus?.dailyLossLocked}
         C={TD} MONO={MONO} SANS={SANS}
       />
-      {/* WHAT PRICE TO PAY (2026-09-16) — directly below the verdict card's
-          own current-price header, per the master prompt's own explicit
-          placement ("directly below the current market price"). Real,
-          self-fetching (GET /api/market/what-to-pay), same canonical
-          tier/ATR/EMA/VWAP/RVOL/MACD/RSI infrastructure every other
-          surface already reads — see src/what-to-pay.js's own header. */}
-      <div style={{ padding: "0 14px" }}>
-        <WhatToPayCard symbol={symbol} C={TD} MONO={MONO} SANS={SANS} />
-      </div>
       <OhlcStatsRow chart={chart} fundamentals={fundamentals} symbolQuote={symbolQuote} C={TD} MONO={MONO} />
 
       {/* TOP OPPORTUNITIES (2026-09-13) — right after the verdict card,
@@ -810,8 +801,23 @@ export default function TradeDeskTab({
               card (normal in any dashboard with uneven column content) is
               a completely different, non-broken thing from the page-length
               blank void this height-matching fixes. */}
-          <div style={{ height: 680, overflow: "hidden" }}>
+          <div style={{ height: 680, overflow: "hidden auto", display: "flex", flexDirection: "column", gap: 10 }}>
             <RiskAvoidCard symbol={symbol} decision={canonicalDecision} tradeGpsData={tradeGpsData} C={TD} MONO={MONO} SANS={SANS} />
+            {/* WHAT PRICE TO PAY (2026-09-16, live user placement request:
+                "want price to pay on the right side of set up quality
+                underneath risk/high risk column") — this 4th column sits
+                immediately right of the 3rd column's Setup Quality/Risk
+                Level read (CortexMiniPanel above), and Risk/Avoid's own
+                real content doesn't fill the full 680px height (see that
+                card's own comment) — WhatToPayCard fills the real gap
+                directly underneath it. Real, self-fetching (GET
+                /api/market/what-to-pay), same canonical tier/ATR/EMA/
+                VWAP/RVOL/MACD/RSI infrastructure every other surface
+                already reads — see src/what-to-pay.js's own header.
+                Column switched to a real internal scroll (was
+                overflow:hidden) so a tall real WhatToPayCard read is
+                never silently clipped instead of scrolled. */}
+            <WhatToPayCard symbol={symbol} C={TD} MONO={MONO} SANS={SANS} />
           </div>
         </div>
       )}
