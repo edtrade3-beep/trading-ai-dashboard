@@ -12,6 +12,13 @@ const TWELVE_DATA_API_KEY = process.env.TWELVE_DATA_API_KEY || "";
 const POLYGON_API_KEY = process.env.POLYGON_API_KEY || "";
 const UNUSUAL_WHALES_API_KEY = process.env.UNUSUAL_WHALES_API_KEY || "";
 const TRADIER_API_KEY = process.env.TRADIER_API_KEY || "";
+// RentCast (2026-09-16, "AI Opportunity Hunter" master prompt's Property
+// Engine — real, explicit user decision after being asked which provider
+// they have: "I have a real listing/comps API"). Real property records/
+// value-estimate/rent-estimate/sale-listings API, key added by the user
+// directly to Render's env vars — src/providers/rentcast.js is the one
+// real adapter against it.
+const RENTCAST_API_KEY = (process.env.RENTCAST_API_KEY || "").trim();
 const TV_WEBHOOK_SECRET = (process.env.TV_WEBHOOK_SECRET || process.env.WEBHOOK_SECRET || "").trim();
 const APP_PASSWORD = (process.env.APP_PASSWORD || "").trim();
 const TELEGRAM_BOT_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || "").trim();
@@ -82,13 +89,14 @@ function resolveProviderKeys(searchParams) {
     polygon: (searchParams.get("polygonKey") || POLYGON_API_KEY || "").trim(),
     unusualWhales: (searchParams.get("uwKey") || UNUSUAL_WHALES_API_KEY || "").trim(),
     tradier: (searchParams.get("tradierKey") || TRADIER_API_KEY || "").trim(),
+    rentcast: (searchParams.get("rentcastKey") || RENTCAST_API_KEY || "").trim(),
   };
 }
 
 module.exports = {
   PORT, HOST, ROOT, MARKET_QUOTE_TIMEOUT_MS,
   FINNHUB_API_KEY, FMP_API_KEY, TWELVE_DATA_API_KEY, POLYGON_API_KEY,
-  UNUSUAL_WHALES_API_KEY, TRADIER_API_KEY, TV_WEBHOOK_SECRET, TV_WEBHOOK_MAX_ROWS,
+  UNUSUAL_WHALES_API_KEY, TRADIER_API_KEY, RENTCAST_API_KEY, TV_WEBHOOK_SECRET, TV_WEBHOOK_MAX_ROWS,
   APP_PASSWORD, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, ANTHROPIC_API_KEY, ASTRA_ENABLED,
   MIME_TYPES, TIMEFRAME_CONFIG, CANDLE_TIMEFRAME_CONFIG, MACRO_SYMBOLS,
   resolveProviderKeys

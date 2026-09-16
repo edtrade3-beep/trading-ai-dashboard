@@ -1346,6 +1346,109 @@ async function cmdLowRisk() {
   }
 }
 
+// Property Engine commands (2026-09-16, "STOCKS + PROPERTIES" master
+// prompt) — real RentCast-backed search/analysis via src/property-scanner.js
+// (src/property-engine.js's real math, never a second implementation here).
+function fmtP(v) { return Number.isFinite(v) ? `$${Math.round(Number(v)).toLocaleString("en-US")}` : "—"; }
+function fmtPPct(v) { return Number.isFinite(v) ? `${(v * 100).toFixed(1)}%` : "—"; }
+function parseCityState(text) {
+  const parts = (text || "").split(",").map((s) => s.trim()).filter(Boolean);
+  return { city: parts[0] || null, state: parts[1] || null };
+}
+
+async function cmdProperties(args) {
+  const { city, state } = parseCityState(args.join(" "));
+  if (!city || !state) return reply("Usage: /properties <city>, <state>  (e.g. /properties Austin, TX)");
+  await reply(`🏠 Searching active listings in ${city}, ${state}…`);
+  try {
+    const { scanProperties } = require("./property-scanner");
+    const { resolveProviderKeys } = require("./config");
+    const keys = resolveProviderKeys(new URLSearchParams());
+    const result = await scanProperties({ city, state, limit: 10 }, keys.rentcast);
+    if (!result.ok) return reply(`Property search error: ${result.error}`);
+    if (!result.properties.length) return reply("No real qualifying rental candidates found for that search.");
+    const lines = [`🏠 TOP PROPERTIES — ${city}, ${state}`, ""];
+    result.properties.forEach((p, i) => {
+      lines.push(`${i + 1}. ${p.address}`, `   ${fmtP(p.price)} · Rent ${fmtP(p.rentEstimate)}/mo · Cap ${fmtPPct(p.capRate)} · CoC ${fmtPPct(p.cashOnCashReturn)}`, `   Deal Score: ${p.rentalDealScore}`, "");
+    });
+    return reply(lines.join("\n").trim());
+  } catch (err) {
+    return reply(`Properties error: ${err.message}`);
+  }
+}
+
+async function cmdRentals(args) {
+  const { city, state } = parseCityState(args.join(" "));
+  if (!city || !state) return reply("Usage: /rentals <city>, <state>  (e.g. /rentals Austin, TX)");
+  await reply(`🏠 Searching cash-flow-positive rentals in ${city}, ${state}…`);
+  try {
+    const { scanProperties } = require("./property-scanner");
+    const { resolveProviderKeys } = require("./config");
+    const keys = resolveProviderKeys(new URLSearchParams());
+    const result = await scanProperties({ city, state, limit: 25 }, keys.rentcast);
+    if (!result.ok) return reply(`Rentals error: ${result.error}`);
+    const list = result.properties.filter((p) => Number.isFinite(p.monthlyCashFlow) && p.monthlyCashFlow > 0);
+    if (!list.length) return reply("No real positive-cash-flow candidates found in that search.");
+    const lines = [`💵 CASH-FLOW POSITIVE — ${city}, ${state}`, ""];
+    list.slice(0, 10).forEach((p, i) => lines.push(`${i + 1}. ${p.address}`, `   ${fmtP(p.price)} · Cash Flow: +${fmtP(p.monthlyCashFlow)}/mo · Cap ${fmtPPct(p.capRate)}`, ""));
+    return reply(lines.join("\n").trim());
+  } catch (err) {
+    return reply(`Rentals error: ${err.message}`);
+  }
+}
+
+async function cmdUnder(args) {
+  const maxPrice = Number(args[0]);
+  const { city, state } = parseCityState(args.slice(1).join(" "));
+  if (!Number.isFinite(maxPrice) || maxPrice <= 0 || !city || !state) return reply("Usage: /under <maxPrice> <city>, <state>  (e.g. /under 250000 Austin, TX)");
+  await reply(`🏠 Searching listings under ${fmtP(maxPrice)} in ${city}, ${state}…`);
+  try {
+    const { scanProperties } = require("./property-scanner");
+    const { resolveProviderKeys } = require("./config");
+    const keys = resolveProviderKeys(new URLSearchParams());
+    const result = await scanProperties({ city, state, maxPrice, limit: 10 }, keys.rentcast);
+    if (!result.ok) return reply(`Search error: ${result.error}`);
+    if (!result.properties.length) return reply("No real candidates under that price in that search.");
+    const lines = [`🏠 UNDER ${fmtP(maxPrice)} — ${city}, ${state}`, ""];
+    result.properties.forEach((p, i) => lines.push(`${i + 1}. ${p.address} — ${fmtP(p.price)} · Cap ${fmtPPct(p.capRate)} · Deal Score ${p.rentalDealScore}`));
+    return reply(lines.join("\n"));
+  } catch (err) {
+    return reply(`Under error: ${err.message}`);
+  }
+}
+
+async function cmdFlip(args) {
+  const raw = args.join(" ").trim();
+  if (!raw) return reply("Usage: /flip <address> | repair=<cost>  (e.g. /flip 123 Main St, Austin, TX 78701 | repair=30000)");
+  const [addrPart, repairPart] = raw.split("|").map((s) => (s || "").trim());
+  const repairMatch = repairPart && repairPart.match(/repair\s*=\s*(\d+)/i);
+  const repairCost = repairMatch ? Number(repairMatch[1]) : null;
+  await reply(`🔨 Analyzing flip potential for ${addrPart}…`);
+  try {
+    const { analyzeProperty } = require("./property-scanner");
+    const { resolveProviderKeys } = require("./config");
+    const keys = resolveProviderKeys(new URLSearchParams());
+    const result = await analyzeProperty({ address: addrPart, repairCost }, keys.rentcast);
+    if (!result.ok) return reply(`Flip error: ${result.error}`);
+    const lines = [`🔨 FLIP ANALYSIS — ${result.address}`, "", `Estimated ARV: ${fmtP(result.valueEstimate.price)} (range ${fmtP(result.valueEstimate.priceRangeLow)}–${fmtP(result.valueEstimate.priceRangeHigh)})`];
+    if (result.flip?.repairCostRequired) {
+      lines.push("", "Add a repair estimate to see real flip math: /flip <address> | repair=<cost>");
+    } else if (result.flip) {
+      const f = result.flip;
+      lines.push(
+        "", `Purchase: ${fmtP(f.purchasePrice)}  Repair: ${fmtP(f.repairCost)}`,
+        `Total Cost: ${fmtP(f.totalCost)}`, `Net Proceeds After Sale: ${fmtP(f.netProceeds)}`,
+        `Profit: ${fmtP(f.profit)}  ROI: ${fmtPPct(f.roi)}`,
+        `70% Rule: ${f.meetsSeventyPercentRule ? "✅ PASSES" : "❌ FAILS"} (max offer ${fmtP(f.maxOfferAtSeventyPercent)})`,
+        "", `Flip Deal Score: ${result.flipDealScore ?? "—"}`,
+      );
+    }
+    return reply(lines.join("\n"));
+  } catch (err) {
+    return reply(`Flip error: ${err.message}`);
+  }
+}
+
 async function cmdDeals(args) {
   const query = args.join(" ").trim();
   await reply(query ? `Searching deals: "${query}"…` : "Fetching top deals…");
@@ -1803,6 +1906,13 @@ const COMMANDS = {
   changes:   () => cmdOhChanges(),
   lowrisk:   () => cmdLowRisk(),
   watch:     async (a) => { const sym = (a[0] || "").toUpperCase(); if (!sym) return reply("Usage: /watch SYMBOL"); return COMMANDS.wl(["add", sym]); },
+  // Property Engine (2026-09-16, "STOCKS + PROPERTIES" master prompt) —
+  // real RentCast-backed commands, same src/property-scanner.js orchestrator
+  // every /api/property/* route already uses.
+  properties: (a) => cmdProperties(a),
+  rentals:    (a) => cmdRentals(a),
+  under:      (a) => cmdUnder(a),
+  flip:       (a) => cmdFlip(a),
   future:      () => cmdFind(["future"]),
   aplus:       () => cmdFind(["aplus"]),
   breakout:    () => cmdFind(["breakout"]),
