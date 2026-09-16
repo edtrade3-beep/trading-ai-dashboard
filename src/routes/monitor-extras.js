@@ -209,4 +209,8 @@ async function handleMonitorExtras(req, res, pathname, requestUrl) {
   return null;
 }
 
-module.exports = { handleMonitorExtras, extractSessionMovers };
+// FOMC_DATES exposed (2026-09-16, "live FOMC reaction tracker" request) so
+// src/fomc-reaction-tracker.js can check "is today a real meeting day"
+// against the SAME real schedule /api/market/fomc-calendar already serves
+// — never a second, possibly-drifting copy of these dates.
+module.exports = { handleMonitorExtras, extractSessionMovers, FOMC_DATES: FIXED_EVENTS.find(e => e.name === "FOMC").dates };

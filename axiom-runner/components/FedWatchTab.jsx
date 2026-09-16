@@ -87,6 +87,108 @@ function FomcCalendarCard({ C, MONO, SANS }) {
   );
 }
 
+// Live FOMC Reaction — real minute-by-minute SPY/QQQ move during the real
+// 2pm-4pm ET statement/press-conference window (2026-09-16, live request:
+// "scan fomc meeting and tell me hawkish bearish how market react every
+// min during meeting 2pm to 4pm"). Statement scoring reuses the same real
+// /api/market/fed-interpret FedInterpreter already calls — no second
+// hawkish/dovish read; this card's only new real data is the real
+// per-minute (or real 5-minute, honestly labeled, if 1m bars aren't
+// available) price reaction table from /api/market/fomc-reaction.
+function FomcReactionCard({ C, MONO, SANS }) {
+  const [data, setData] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    let timer = null;
+    const load = async () => {
+      try {
+        const d = await fetch("/api/market/fomc-reaction").then((r) => r.json());
+        if (!alive) return;
+        setData(d);
+        timer = setTimeout(load, d?.isLive ? 30000 : 60000);
+      } catch { if (alive) timer = setTimeout(load, 60000); }
+    };
+    load();
+    return () => { alive = false; if (timer) clearTimeout(timer); };
+  }, []);
+
+  if (!data) return null;
+  if (!data.ok) return (
+    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, marginTop: 12 }}>
+      <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>{data.error || "FOMC reaction unavailable."}</div>
+    </div>
+  );
+
+  const bias = data.statement?.bias;
+  const col = bias === "DOVISH" ? C.green : bias === "HAWKISH" ? C.red : C.textDim;
+  const points = data.reactions?.[0]?.points || [];
+  const hasPoints = points.length > 0;
+
+  return (
+    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, marginTop: 12 }}>
+      <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 10 }}>
+        LIVE FOMC REACTION · {data.date}{data.isLive ? " · 🔴 LIVE" : data.isUpcoming ? " · upcoming" : " · replay"}
+      </div>
+
+      {data.statement && (
+        <div style={{ marginBottom: 10, padding: "8px 10px", background: `${col}12`, border: `1px solid ${col}44`, borderRadius: 8 }}>
+          <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 900, color: col }}>
+            {data.statement.label || data.statement.bias} · {data.statement.score}/100
+            {data.statement.rateAction && data.statement.rateAction !== "UNKNOWN" ? ` · ${data.statement.rateAction}` : ""}
+          </div>
+          <div style={{ fontFamily: SANS, fontSize: 11, color: C.text, marginTop: 2 }}>{data.statement.read}</div>
+        </div>
+      )}
+
+      <div style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, marginBottom: 8 }}>
+        📄 Statement {data.statementMarker} ET · 🎙 Press conference {data.pressConferenceMarker} ET
+      </div>
+
+      {!hasPoints ? (
+        <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim }}>
+          {data.isUpcoming ? "Live window opens 1:55pm ET — this card auto-refreshes." : "No real intraday bars available for this window yet."}
+        </div>
+      ) : (
+        <div style={{ maxHeight: 220, overflowY: "auto", overflowX: "auto", border: `1px solid ${C.border}`, borderRadius: 6 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: MONO, fontSize: 11 }}>
+            <thead>
+              <tr style={{ position: "sticky", top: 0, background: C.card }}>
+                <th style={{ textAlign: "left", padding: "4px 8px", color: C.textDim }}>Time (ET)</th>
+                {data.reactions.map((r) => (
+                  <th key={r.symbol} style={{ textAlign: "right", padding: "4px 8px", color: C.textDim }}>{r.symbol}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {points.map((p, i) => {
+                const isMarker = p.time === data.statementMarker || p.time === data.pressConferenceMarker;
+                return (
+                  <tr key={p.time + i} style={{ borderTop: `1px solid ${C.border}`, background: isMarker ? `${C.accent}12` : "transparent" }}>
+                    <td style={{ padding: "3px 8px", color: isMarker ? C.accent : C.text, fontWeight: isMarker ? 800 : 500 }}>
+                      {p.time}{p.time === data.statementMarker ? " 📄" : p.time === data.pressConferenceMarker ? " 🎙" : ""}
+                    </td>
+                    {data.reactions.map((r) => {
+                      const pt = r.points[i];
+                      return (
+                        <td key={r.symbol} style={{ padding: "3px 8px", textAlign: "right", color: pt == null ? C.textDim : pt.pct >= 0 ? C.green : C.red, fontWeight: 700 }}>
+                          {pt ? `${pt.pct >= 0 ? "+" : ""}${pt.pct}%` : "—"}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <div style={{ fontFamily: SANS, fontSize: 9.5, color: C.textDim, marginTop: 6 }}>
+        % move from each symbol's real last price before 2:00pm ET · {data.reactions?.[0]?.granularity === "1m" ? "real 1-minute bars" : "real 5-minute bars (1-minute unavailable)"}
+      </div>
+    </div>
+  );
+}
+
 // Fed / FOMC Watch — dedicated always-available Dashboard sub-tab
 // (2026-07-29, "create tab under dashboard" -> "Fed / FOMC watch":
 // "Real Fed-funds-futures implied rate, real yields, meeting dates,
@@ -105,6 +207,7 @@ export default function FedWatchTab({ C, MONO, SANS }) {
         <FomcCalendarCard C={C} MONO={MONO} SANS={SANS} />
       </div>
       <FedInterpreter C={C} MONO={MONO} SANS={SANS} />
+      <FomcReactionCard C={C} MONO={MONO} SANS={SANS} />
     </div>
   );
 }
