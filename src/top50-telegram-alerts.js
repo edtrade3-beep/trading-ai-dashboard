@@ -88,7 +88,56 @@ function detectTransitions(prevState, row) {
   if (!prevState.stopTriggered && Number.isFinite(row.stop) && Number.isFinite(price) && (isShort ? price >= row.stop : price <= row.stop)) events.push("STOP");
   if (!prevState.targetTriggered && Number.isFinite(row.target) && Number.isFinite(price) && (isShort ? price <= row.target : price >= row.target)) events.push("TARGET");
   if (!prevState.invalidationTriggered && Number.isFinite(row.invalidation) && Number.isFinite(price) && (isShort ? price >= row.invalidation : price <= row.invalidation)) events.push("INVALIDATION_LEVEL");
+
+  // "What Price to Pay" price-zone transitions (2026-09-16 — "Connect
+  // this to the existing alert system... 1. approaches WHAT TO PAY 2.
+  // enters WHAT TO PAY 3. enters STRONG BUY ZONE 4. ENTRY CONFIRMED 5.
+  // setup becomes invalid 6. price becomes extended"). #5 (setup
+  // invalid) is the SAME real tier-based INVALIDATED handling already
+  // above (checkTop50TelegramAlerts' own invalidatedSet loop) — not
+  // duplicated here. Every check below is a pure diff of the real
+  // priceStatus src/what-to-pay.js already computed this run vs. last
+  // run's persisted value — same one-time-per-transition discipline as
+  // every other predicate in this function.
+  const prevPriceStatus = prevState.priceStatus || null;
+  const priceStatus = row.whatToPay?.priceStatus || null;
+  if (priceStatus && priceStatus !== prevPriceStatus) {
+    if (priceStatus === "APPROACHING BUY ZONE" && prevPriceStatus === "WAIT FOR PRICE") events.push("APPROACHING_ZONE");
+    else if (priceStatus === "IN BUY ZONE") events.push("ENTERED_ZONE");
+    else if (priceStatus === "STRONG BUY ZONE") events.push("ENTERED_STRONG_ZONE");
+    else if (priceStatus === "ENTRY CONFIRMED") events.push("PRICE_ENTRY_CONFIRMED");
+    else if (priceStatus === "EXTENDED — DON'T CHASE") events.push("PRICE_EXTENDED");
+  }
   return events;
+}
+
+// The prompt's own explicit example format:
+// "🚨 AMD BUY ZONE / AMD: $489.30 / 🎯 What to Pay: $475–495 / Price has
+// entered the preferred accumulation zone. / Status: WAITING FOR
+// CONFIRMATION" — a real, distinct, shorter message from the full
+// buildAlertMessage above (score/EMA/MACD/RVOL detail), matching this
+// prompt's own explicit "keep it simple" example rather than reusing the
+// heavier Top 50 Score format for what is fundamentally a price-zone
+// event, not a score event.
+const ZONE_ALERT_TITLE = {
+  APPROACHING_ZONE: "APPROACHING BUY ZONE", ENTERED_ZONE: "BUY ZONE", ENTERED_STRONG_ZONE: "STRONG BUY ZONE",
+  PRICE_ENTRY_CONFIRMED: "ENTRY CONFIRMED", PRICE_EXTENDED: "EXTENDED — DON'T CHASE",
+};
+function buildPriceZoneAlertMessage(row, kind) {
+  const wtp = row.whatToPay;
+  const lines = [
+    `🚨 ${row.symbol} ${ZONE_ALERT_TITLE[kind] || wtp.priceStatus}`, "",
+    `${row.symbol}: ${fmt(row.price)}`,
+    wtp.whatToPay ? `🎯 What to Pay: ${fmt(wtp.whatToPay.low)}–${wtp.whatToPay.high.toFixed(2)}` : null,
+    "",
+    kind === "PRICE_ENTRY_CONFIRMED"
+      ? "Real confirmation signals have cleared — this is no longer just an attractive price."
+      : kind === "PRICE_EXTENDED"
+      ? "Price has moved too far above the real breakout/pivot level — do not chase."
+      : "Price has entered the preferred accumulation zone.",
+    "", "Status:", kind === "PRICE_ENTRY_CONFIRMED" ? "ENTRY CONFIRMED" : kind === "PRICE_EXTENDED" ? "EXTENDED — DON'T CHASE" : "WAITING FOR CONFIRMATION",
+  ].filter((l) => l !== null);
+  return lines.join("\n");
 }
 
 async function checkTop50TelegramAlerts() {
@@ -127,11 +176,20 @@ async function checkTop50TelegramAlerts() {
     // Fire at most one message per symbol per run — the strongest real
     // event present, priority order matches the prompt's own listed
     // severity (a triggered level matters more than a score crossing).
-    const priority = ["INVALIDATION_LEVEL", "STOP", "TARGET", "ENTRY", "READY", "DIRECTION_FLIP", "SCORE_90", "SCORE_80", "SCORE_JUMP"];
+    // Price-zone events (2026-09-16) rank between the hard $-triggers
+    // and the score-crossing events — a real "entered the buy zone" is
+    // more actionable than a routine score crossing but less urgent than
+    // a real stop/target/invalidation-level hit.
+    const priority = [
+      "INVALIDATION_LEVEL", "STOP", "TARGET", "ENTRY", "PRICE_ENTRY_CONFIRMED", "READY",
+      "PRICE_EXTENDED", "ENTERED_STRONG_ZONE", "ENTERED_ZONE", "APPROACHING_ZONE",
+      "DIRECTION_FLIP", "SCORE_90", "SCORE_80", "SCORE_JUMP",
+    ];
     const fireKind = priority.find((k) => events.includes(k));
 
     next[row.symbol] = {
       executionStatus: row.executionStatus, top50Score: row.top50Score, direction: row.direction, tier: row.tier,
+      priceStatus: row.whatToPay?.priceStatus || null,
       entryTriggered: prevState?.entryTriggered || events.includes("ENTRY"),
       stopTriggered: prevState?.stopTriggered || events.includes("STOP"),
       targetTriggered: prevState?.targetTriggered || events.includes("TARGET"),
@@ -142,20 +200,22 @@ async function checkTop50TelegramAlerts() {
     if (!fireKind) continue;
     // The prompt's own explicit exception list (READY/entry/stop/target/
     // invalidation/direction-change/major-score-jump) bypasses the
-    // cooldown entirely; everything else (SCORE_80/SCORE_90) still
-    // respects it — real protection against a score hovering right at a
-    // threshold and crossing back and forth repeatedly.
+    // cooldown entirely; everything else (SCORE_80/SCORE_90, and the new
+    // price-zone events — "Do not send repeated alerts every refresh...
+    // use state-change alerts with cooldown/deduplication," the prompt's
+    // own explicit instruction) still respects it.
     if (!IMMEDIATE_TYPES.has(fireKind) && withinCooldown) continue;
     // Reuses telegram-bot.js's EXISTING real alert-priority categories
     // (stop-trigger/target-hit/opportunity are already P1 there) for the
     // triggers that matter most, rather than lumping a real stop-loss hit
     // under the same generic P3 budget as a routine score crossing.
     const category = fireKind === "STOP" ? "stop-trigger" : fireKind === "TARGET" ? "target-hit"
-      : (fireKind === "READY" || fireKind === "ENTRY") ? "opportunity" : "top50-scanner";
+      : (fireKind === "READY" || fireKind === "ENTRY" || fireKind === "PRICE_ENTRY_CONFIRMED") ? "opportunity" : "top50-scanner";
     if (!shouldSendAlert({ category })) continue; // real daily priority-budget/quiet-hours gate — same one every other alert job already respects
 
     next[row.symbol].lastAlertAt = now;
-    const message = buildAlertMessage(row, fireKind, marketRegime);
+    const isZoneEvent = fireKind in ZONE_ALERT_TITLE;
+    const message = isZoneEvent ? buildPriceZoneAlertMessage(row, fireKind) : buildAlertMessage(row, fireKind, marketRegime);
     await sendTelegramMessage(message).catch(() => {}); // a real Telegram failure must never break the scan/state-save below
     sent.push({ symbol: row.symbol, kind: fireKind });
   }
@@ -185,4 +245,4 @@ async function sendTop50MorningSummary() {
   return { ok: true, sent: symbols.length };
 }
 
-module.exports = { checkTop50TelegramAlerts, sendTop50MorningSummary, detectTransitions, buildAlertMessage, buildMorningSummaryMessage, COOLDOWN_MS, STORE_PATH };
+module.exports = { checkTop50TelegramAlerts, sendTop50MorningSummary, detectTransitions, buildAlertMessage, buildPriceZoneAlertMessage, buildMorningSummaryMessage, COOLDOWN_MS, STORE_PATH };

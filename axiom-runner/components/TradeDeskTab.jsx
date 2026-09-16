@@ -12,6 +12,7 @@ import WhatChangedPanel from "./WhatChangedPanel.jsx";
 import WhatChangedStrip from "./WhatChangedStrip.jsx";
 import TopOpportunities from "./TopOpportunities.jsx";
 import Top50ScannerPanel from "./Top50ScannerPanel.jsx";
+import WhatToPayCard from "./WhatToPayCard.jsx";
 import AlertsTab from "./AlertsTab.jsx";
 import OptionsChainTab from "./OptionsChainTab.jsx";
 import NewsTab from "./NewsTab.jsx";
@@ -720,6 +721,15 @@ export default function TradeDeskTab({
         account={autopilotStatus?.account} dailyLossLocked={autopilotStatus?.dailyLossLocked}
         C={TD} MONO={MONO} SANS={SANS}
       />
+      {/* WHAT PRICE TO PAY (2026-09-16) — directly below the verdict card's
+          own current-price header, per the master prompt's own explicit
+          placement ("directly below the current market price"). Real,
+          self-fetching (GET /api/market/what-to-pay), same canonical
+          tier/ATR/EMA/VWAP/RVOL/MACD/RSI infrastructure every other
+          surface already reads — see src/what-to-pay.js's own header. */}
+      <div style={{ padding: "0 14px" }}>
+        <WhatToPayCard symbol={symbol} C={TD} MONO={MONO} SANS={SANS} />
+      </div>
       <OhlcStatsRow chart={chart} fundamentals={fundamentals} symbolQuote={symbolQuote} C={TD} MONO={MONO} />
 
       {/* TOP OPPORTUNITIES (2026-09-13) — right after the verdict card,

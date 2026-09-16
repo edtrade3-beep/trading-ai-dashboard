@@ -3496,10 +3496,73 @@ async function handleMarket(req, res, requestUrl) {
       const { scanTop50 } = require("../top50-scanner");
       const limitParam = Number(requestUrl.searchParams.get("limit"));
       const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(50, limitParam) : 5;
-      const result = await scanTop50({ limit });
+      // sortBy=distance (2026-09-16, "What Price to Pay": "Add sorting
+      // based on opportunity proximity... CLOSEST TO BUY ZONE") — real,
+      // optional; default stays score-ranked, unchanged for every
+      // existing caller.
+      const sortBy = requestUrl.searchParams.get("sortBy") === "distance" ? "distance" : "score";
+      const result = await scanTop50({ limit, sortBy });
       return writeJson(res, 200, { ok: true, ...result });
     } catch (err) {
       return writeJson(res, 200, { ok: false, error: err instanceof Error ? err.message : "Top 50 scan unavailable." });
+    }
+  }
+
+  // GET /api/market/what-to-pay?symbol=X — "AI Trade Desk — Add 'What
+  // Price to Pay' to Every Stock" (2026-09-16), the single-symbol version
+  // for AI Trade Desk's own currently-selected stock card (top50-scanner.js's
+  // own scanTop50() computes the SAME real thing per-row for its 50-stock
+  // watchlist — this route exists because the Trade Desk's selected
+  // symbol may not be one of those 50 candidates). Builds the real
+  // canonical tier the exact same way resolveCanonicalOptionsPermission
+  // above already does (same row-construction recipe, no second one) so
+  // src/what-to-pay.js's signal-lifecycle safety gate reads a real tier,
+  // never an unknown/missing one defaulting the wrong way.
+  if (pathname === "/api/market/what-to-pay" && req.method === "GET") {
+    const symbol = (requestUrl.searchParams.get("symbol") || "").trim().toUpperCase();
+    if (!symbol) return writeJson(res, 400, { ok: false, error: "symbol required" });
+    try {
+      const result = await cached(`what-to-pay:${symbol}`, 5 * 60_000, async () => {
+        const { computeCanonicalAssetDecision } = require("../canonical-decision-pipeline");
+        const { computeWhatToPay } = require("../what-to-pay");
+        const { dailyEmaInputs } = require("../top50-scanner");
+        const MACRO_SYMS = ["SPY", "QQQ", "^VIX"];
+
+        const bars = await _fetchBarsCached(symbol).catch(() => null);
+        if (!Array.isArray(bars) || bars.length < 200) return { available: false, reason: "Not enough real daily history yet." };
+        const trend = await _buildTrendTemplate(symbol, { bars }).catch(() => null);
+        if (!trend || trend.error) return { available: false, reason: "Canonical trend read unavailable for this symbol right now." };
+
+        const macroQuotes = await fetchYahooQuoteBatch([symbol, ...MACRO_SYMS]).catch(() => []);
+        const macroData = macroQuotes.map((q) => ({ symbol: q.symbol, price: q.regularMarketPrice, changesPercentage: q.regularMarketChangePercent }));
+        const row = {
+          symbol, price: trend.price, entry: trend.setup?.entryPrice, pivot: trend.setup?.pivot,
+          stop: trend.setup?.stop, target2: trend.setup?.target2,
+          passCount: trend.passCount, stage: trend.stage, verdict: trend.setup?.verdict,
+          actionable: trend.setup?.actionable, extended: trend.setup?.extended,
+          volRatio: trend.volRatio, rsRating: trend.rsRating,
+        };
+        const canonical = computeCanonicalAssetDecision({ symbol, row, macroQuotes: macroData, nowMs: Date.now(), marketHours: false });
+        const tier = canonical?.opportunity?.tier ?? null;
+        const signalState = canonical?.assetDecision?.signalState ?? null;
+
+        const { rows: dayTradeRows } = await fetchDayTradeScanRows([symbol]).catch(() => ({ rows: [] }));
+        const dt = dayTradeRows[0] || {};
+        const daily = dailyEmaInputs(bars);
+
+        const wtp = computeWhatToPay({
+          price: trend.price, pivot: trend.setup?.pivot, contractionLow: trend.setup?.contractionLow,
+          ema20: daily.ema20, ema50: daily.ema50, ema9: dt.ema9, bars,
+          tier, signalState,
+          higherLows: trend.setup?.higherLows, supportHolding: Number.isFinite(trend.setup?.contractionLow) ? trend.price >= trend.setup.contractionLow : null,
+          rsi: dt.rsi15m, rsiPrior: dt.rsi15mPrior, macdHistogram: dt.macdHistogram15m, macdHistogramPrior: dt.macdHistogramPrior15m,
+          aboveVwap: dt.aboveVwap, rvol: dt.rvol,
+        });
+        return { ...wtp, symbol, price: trend.price, tier, signalState };
+      });
+      return writeJson(res, 200, { ok: true, ...result });
+    } catch (err) {
+      return writeJson(res, 200, { ok: false, error: err instanceof Error ? err.message : "What-to-pay unavailable." });
     }
   }
 

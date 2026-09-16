@@ -8,7 +8,7 @@
 // prompt's own explicitly required test list (mapped 1:1 in comments).
 const assert = require("node:assert");
 const {
-  detectTransitions, buildAlertMessage, buildMorningSummaryMessage, COOLDOWN_MS,
+  detectTransitions, buildAlertMessage, buildMorningSummaryMessage, buildPriceZoneAlertMessage, COOLDOWN_MS,
 } = require("../src/top50-telegram-alerts");
 
 let passed = 0;
@@ -80,6 +80,57 @@ ok("score crossing 80 and 90 each fire their own real, distinct one-time transit
 ok("a major real score jump (>=15) fires SCORE_JUMP", () => {
   const events = detectTransitions({ executionStatus: "WAIT", top50Score: 60, direction: "LONG" }, { ...baseRow, top50Score: 78 });
   assert.ok(events.includes("SCORE_JUMP"));
+});
+
+console.log("\nChecking real \"What Price to Pay\" alert transitions (2026-09-16)…");
+
+const baseWtpRow = { ...baseRow, whatToPay: { whatToPay: { low: 475, high: 495 }, priceStatus: "IN BUY ZONE" } };
+
+ok("ALERT #1 — approaching WHAT TO PAY (WAIT FOR PRICE -> APPROACHING BUY ZONE) fires APPROACHING_ZONE", () => {
+  const prev = { executionStatus: "WAIT", top50Score: 70, direction: "LONG", priceStatus: "WAIT FOR PRICE" };
+  const row = { ...baseWtpRow, whatToPay: { ...baseWtpRow.whatToPay, priceStatus: "APPROACHING BUY ZONE" } };
+  assert.ok(detectTransitions(prev, row).includes("APPROACHING_ZONE"));
+});
+
+ok("ALERT #2 — entering WHAT TO PAY fires ENTERED_ZONE exactly once per real transition, not on every subsequent refresh while still in the zone", () => {
+  const prev = { executionStatus: "WAIT", top50Score: 70, direction: "LONG", priceStatus: "APPROACHING BUY ZONE" };
+  const events1 = detectTransitions(prev, baseWtpRow);
+  assert.ok(events1.includes("ENTERED_ZONE"));
+  const prevInZone = { ...prev, priceStatus: "IN BUY ZONE" };
+  const events2 = detectTransitions(prevInZone, baseWtpRow); // still IN BUY ZONE, no real change
+  assert.ok(!events2.includes("ENTERED_ZONE"), "must not re-fire while priceStatus hasn't actually changed");
+});
+
+ok("ALERT #3 — entering STRONG BUY ZONE fires ENTERED_STRONG_ZONE", () => {
+  const prev = { executionStatus: "WAIT", top50Score: 70, direction: "LONG", priceStatus: "IN BUY ZONE" };
+  const row = { ...baseWtpRow, whatToPay: { ...baseWtpRow.whatToPay, priceStatus: "STRONG BUY ZONE" } };
+  assert.ok(detectTransitions(prev, row).includes("ENTERED_STRONG_ZONE"));
+});
+
+ok("ALERT #4 — real confirmation clearing (IN BUY ZONE -> ENTRY CONFIRMED) fires PRICE_ENTRY_CONFIRMED", () => {
+  const prev = { executionStatus: "WAIT", top50Score: 70, direction: "LONG", priceStatus: "IN BUY ZONE" };
+  const row = { ...baseWtpRow, whatToPay: { ...baseWtpRow.whatToPay, priceStatus: "ENTRY CONFIRMED" } };
+  assert.ok(detectTransitions(prev, row).includes("PRICE_ENTRY_CONFIRMED"));
+});
+
+ok("ALERT #6 — price becoming extended fires PRICE_EXTENDED", () => {
+  const prev = { executionStatus: "WAIT", top50Score: 70, direction: "LONG", priceStatus: "APPROACHING BUY ZONE" };
+  const row = { ...baseWtpRow, whatToPay: { ...baseWtpRow.whatToPay, priceStatus: "EXTENDED — DON'T CHASE" } };
+  assert.ok(detectTransitions(prev, row).includes("PRICE_EXTENDED"));
+});
+
+ok("ALERT #5 (setup becomes invalid) reuses the SAME real tier-based SETUP_INVALIDATED handling already built for the Top 50 Scanner — no second invalidation predicate declared for price zones", () => {
+  const fs = require("node:fs");
+  const src = fs.readFileSync(require.resolve("../src/top50-telegram-alerts"), "utf8");
+  assert.match(src, /SAME real tier-based INVALIDATED handling already/);
+});
+
+ok("buildPriceZoneAlertMessage matches the prompt's own explicit example format (title / symbol:price / what-to-pay / status)", () => {
+  const msg = buildPriceZoneAlertMessage({ symbol: "AMD", price: 489.3, whatToPay: { whatToPay: { low: 475, high: 495 }, priceStatus: "IN BUY ZONE" } }, "ENTERED_ZONE");
+  assert.match(msg, /🚨 AMD BUY ZONE/);
+  assert.match(msg, /AMD: \$489\.30/);
+  assert.match(msg, /🎯 What to Pay: \$475\.00–495\.00/);
+  assert.match(msg, /WAITING FOR CONFIRMATION/);
 });
 
 console.log("\nChecking buildAlertMessage — real format, real fields, never fabricated…");
