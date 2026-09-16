@@ -168,9 +168,17 @@ async function fetchDayTradeScanRows(universe) {
         if (!prevClose) return null;
         const gapPct = Math.round(((today[0].open - prevClose) / prevClose) * 10000) / 100;
         const chgPct = Math.round(((price - prevClose) / prevClose) * 10000) / 100;
-        // VWAP over today's 15-min bars
-        let pv = 0, vv = 0;
-        today.forEach(b => { const tp = (b.high + b.low + b.close) / 3; pv += tp * (b.volume || 0); vv += (b.volume || 0); });
+        // VWAP over today's 15-min bars. vwapPrior (2026-09-16, Top 50
+        // Scanner) — the SAME real cumulative VWAP as of the prior bar
+        // (today.length>=2 only), a real "is VWAP trending up this
+        // session" read for top50-scanner-score.js's VWAP bucket — not a
+        // second VWAP formula, the identical running calculation one bar
+        // earlier.
+        let pv = 0, vv = 0, vwapPrior = null;
+        today.forEach((b, i) => {
+          const tp = (b.high + b.low + b.close) / 3; pv += tp * (b.volume || 0); vv += (b.volume || 0);
+          if (i === today.length - 2) vwapPrior = vv ? pv / vv : null;
+        });
         const vwap = vv ? pv / vv : price;
         const vsVwap = Math.round(((price - vwap) / vwap) * 10000) / 100;
         // Opening range = first 2 fifteen-min bars (~30 min)
@@ -206,14 +214,31 @@ async function fetchDayTradeScanRows(universe) {
         // Trading Logic Redesign" spec, explicit user request 2026-08-19.
         const { computeRSI, computeMACDSeries, computeROC, detectPriceAction } = require("../daytrade-console-engine");
         const rsi15m = c15.length > 14 ? rnd(computeRSI(c15, 14)) : null;
+        // rsi15mPrior (2026-09-16, Top 50 Scanner) — computeRSI(values, period)
+        // only ever returns the LATEST real RSI for a values array; calling it
+        // again against the series with its own last element dropped is the
+        // same real Wilder RSI formula evaluated one bar earlier, not a second
+        // formula (same trick used nowhere else in this file previously,
+        // documented here since it's non-obvious).
+        const rsi15mPrior = c15.length > 15 ? rnd(computeRSI(c15.slice(0, -1), 14)) : null;
         const roc15m = c15.length > 10 ? rnd(computeROC(c15, 10)) : null;
         const macd = c15.length > 26 ? computeMACDSeries(intraday, 12, 26, 9) : null;
         const macdHistogram15m = macd && macd.histogram.length ? rnd(macd.histogram[macd.histogram.length - 1].value) : null;
+        // macdLine15m/macdSignal15m/*Prior (2026-09-16, Top 50 Scanner) —
+        // computeMACDSeries already computes both series in full; only the
+        // histogram's last value was ever extracted before now. Real,
+        // additive, zero new computation — every existing consumer of this
+        // row (Light Box grid, Day Trade Console via daytrade-console-engine.js)
+        // is unaffected, these are new fields appended to the same real row.
+        const macdLine15m = macd && macd.line.length ? rnd(macd.line[macd.line.length - 1].value) : null;
+        const macdSignal15m = macd && macd.signal.length ? rnd(macd.signal[macd.signal.length - 1].value) : null;
+        const macdLinePrior15m = macd && macd.line.length > 1 ? rnd(macd.line[macd.line.length - 2].value) : null;
+        const macdSignalPrior15m = macd && macd.signal.length > 1 ? rnd(macd.signal[macd.signal.length - 2].value) : null;
         const priceAction = detectPriceAction(today, orHigh, orLow);
 
         return { symbol: sym, price: rnd(price), chgPct, gapPct, rvol, vsVwap, aboveVwap: price >= vwap, orBreakout, orHigh: rnd(orHigh), orLow: rnd(orLow),
-          ema9: rnd(ema9), ema21: rnd(ema21), ema50: rnd(ema50), vwap: rnd(vwap), closeStrong, bull15, bull5: bull15,
-          rsi15m, roc15m, macdHistogram15m, priceAction };
+          ema9: rnd(ema9), ema21: rnd(ema21), ema50: rnd(ema50), vwap: rnd(vwap), vwapPrior: rnd(vwapPrior), closeStrong, bull15, bull5: bull15,
+          rsi15m, rsi15mPrior, roc15m, macdHistogram15m, macdLine15m, macdSignal15m, macdLinePrior15m, macdSignalPrior15m, priceAction };
       } catch { return null; }
     }));
     out.push(...done.filter(Boolean));
@@ -3455,6 +3480,26 @@ async function handleMarket(req, res, requestUrl) {
       return writeJson(res, 200, { ok: true, sinceOpen: null, sinceLastRefresh: null, ...(result || {}) });
     } catch (err) {
       return writeJson(res, 200, { ok: false, error: err instanceof Error ? err.message : "What-changed unavailable." });
+    }
+  }
+
+  // GET /api/market/top50-scanner?limit=N — the AI Top 50 Scanner
+  // (2026-09-16, "Build Telegram Alerts for the AI Top 50 Scanner" master
+  // prompt). Real ranking, src/top50-scanner.js's own scanTop50() — same
+  // canonical computeAllOpportunities() scan every other Trade Desk
+  // surface reads, ranked by the new real 30/20/20/15/15 EMA/VWAP/MACD/
+  // RSI/RVOL score. `limit` defaults to 5 (AI Trade Desk's own default
+  // display); pass `?limit=50` for the "VIEW ALL 50" expansion — same
+  // real ranked list, just more of it, never a second computation.
+  if (pathname === "/api/market/top50-scanner" && req.method === "GET") {
+    try {
+      const { scanTop50 } = require("../top50-scanner");
+      const limitParam = Number(requestUrl.searchParams.get("limit"));
+      const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(50, limitParam) : 5;
+      const result = await scanTop50({ limit });
+      return writeJson(res, 200, { ok: true, ...result });
+    } catch (err) {
+      return writeJson(res, 200, { ok: false, error: err instanceof Error ? err.message : "Top 50 scan unavailable." });
     }
   }
 
@@ -7713,3 +7758,5 @@ module.exports.buildCortexFollowupSystemPrompt = buildCortexFollowupSystemPrompt
 module.exports.getTrackReportCached = _getTrackReportCached; // exposed for opportunity-engine.js's real winProbFor lookup (Market Opportunity Engine Phase 1)
 module.exports.computeAllOpportunities = computeAllOpportunities; // exposed for opportunity-pivot-alerts.js's real WAIT/DEVELOPING/EXTENDED -> ACTIONABLE background watch job
 module.exports.DAYTRADE_UNIVERSE = DAYTRADE_UNIVERSE; // exposed for lightbox-state-store.js's broader real rotation pool (Market Opportunity Intelligence Engine upgrade, 2026-08-26)
+module.exports.fetchBarsCached = _fetchBarsCached; // exposed for top50-scanner.js's real daily EMA20/50/200 read — same real cached daily-bars fetch buildTrendTemplate already uses, never a second independent fetch
+module.exports.fetchDayTradeScanRows = fetchDayTradeScanRows; // exposed for top50-scanner.js's real 15m VWAP/RVOL/MACD/RSI read — same real function Light Box's grid scan and the Day Trade Console already use, never a second intraday scan
