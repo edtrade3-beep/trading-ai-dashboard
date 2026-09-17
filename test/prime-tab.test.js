@@ -59,6 +59,11 @@ ok("the real market-regime label displayed is the tournament board's own canonic
   assert.match(primeSrc, /regimeLabel={board\.marketRegime}/);
 });
 
+ok("the inline 'NEXT CHALLENGERS' expand (replacing the removed VIEW ALL 500 button) reuses the SAME real board.challengers array — never a second ranked list or a navigation to a deleted tab", () => {
+  assert.match(primeSrc, /board\.challengers\.map\(\(c\) =>/);
+  assert.doesNotMatch(primeSrc, /setActiveTab\("tournament"\)/, "must not link to the removed standalone tournament tab");
+});
+
 console.log("\nChecking wiring — PRIME is the new default landing screen, reachable from the sidebar, additive to AI Trade Desk…");
 
 ok("Sidebar.jsx has a real 'AI Trade Desk — PRIME' row, placed first", () => {

@@ -85,16 +85,17 @@ export const SIDEBAR_ITEMS = [
   // "fed" id used by the nested version).
   { id: "fedwatch", label: "FOMC Watch", icon: "🏛️", tab: "fedwatch" },
 
-  // 500 Tournament — direct sidebar tab (2026-09-17). Originally shipped
-  // as a dockModule inside AI Trade Desk's Deep Analysis dropdown (plus a
-  // dedicated in-page button), per the master prompt's own closing
-  // recommendation to avoid a new top-level tab — explicit follow-up
-  // request overrode that: "tournament button as a tab in side bar."
-  // Same real Tournament500Panel component, not a second copy; the
-  // Trade Desk dock module/button both stay intact too (additive, same
-  // "give it a second, more visible entry point" precedent as FOMC
-  // Watch above).
-  { id: "tournament", label: "500 Tournament", icon: "🏆", tab: "tournament" },
+  // 500 Tournament — permanent rail row REMOVED (2026-09-17, explicit
+  // instruction: "ai trade desk prime will take data from 500 tournament
+  // and delete 500 tournament because will be duplicate"). PRIME's own
+  // Top 5 Elite / Early Discovery / Tournament Top 25 sections already
+  // read the exact same real GET /api/market/tournament board this
+  // standalone tab did — a separate rail row for the identical data was
+  // genuinely redundant, not just consolidated for its own sake. The
+  // underlying Tournament500Panel.jsx module, its real board/detail
+  // routes, and the /tournament Telegram command are all untouched —
+  // PrimeTab.jsx's own Top-25 table and Selected Trade Plan panel are
+  // literally built from that same file's exported Row/TradePlanContent.
 
   // Trade Navigator dropped from the rail (2026-09-05 nav consolidation).
   // TradeNavigatorTab.jsx (activeTab "trade-navigator") is fully untouched

@@ -240,6 +240,7 @@ export default function PrimeTab({ setActiveTab, C, MONO, SANS }) {
   const [board, setBoard] = useState(null);
   const [error, setError] = useState(null);
   const [selected, setSelected] = useState(null);
+  const [showChallengers, setShowChallengers] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -286,11 +287,20 @@ export default function PrimeTab({ setActiveTab, C, MONO, SANS }) {
         </div>
       </div>
 
-      {/* D. 500-STOCK TOURNAMENT — Top 25 (same real board, real Row) */}
+      {/* D. 500-STOCK TOURNAMENT — Top 25 (same real board, real Row).
+          "VIEW ALL 500" used to navigate to the now-removed standalone
+          tournament tab (2026-09-17, "delete 500 tournament because will
+          be duplicate") — replaced with an inline expand of the SAME
+          real board.challengers (#26-35) already computed server-side,
+          never a second screen. */}
       <div style={{ marginBottom: 14 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
           <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.05em" }}>500-STOCK TOURNAMENT — TOP 25 ({board.scanning} scanning)</span>
-          {setActiveTab && <button onClick={() => setActiveTab("tournament")} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, color: C.accent, fontFamily: MONO, fontSize: 10.5, fontWeight: 700, padding: "4px 10px", cursor: "pointer" }}>VIEW ALL 500 →</button>}
+          {board.challengers?.length > 0 && (
+            <button onClick={() => setShowChallengers((v) => !v)} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, color: C.accent, fontFamily: MONO, fontSize: 10.5, fontWeight: 700, padding: "4px 10px", cursor: "pointer" }}>
+              {showChallengers ? "HIDE CHALLENGERS ▲" : `NEXT CHALLENGERS #${board.top25Count + 1}–#${board.top25Count + board.challengers.length} ▼`}
+            </button>
+          )}
         </div>
         <div style={{ overflowX: "auto", border: `1px solid ${C.border}`, borderRadius: 10 }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -306,6 +316,17 @@ export default function PrimeTab({ setActiveTab, C, MONO, SANS }) {
             </tbody>
           </table>
         </div>
+        {showChallengers && board.challengers?.length > 0 && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
+            {board.challengers.map((c) => (
+              <div key={c.symbol} onClick={() => setSelected(c.symbol)} className="tourn-chip" style={{ cursor: "pointer", background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 10px", fontFamily: MONO, fontSize: 11 }}>
+                <b style={{ color: C.text }}>#{c.rank} {c.symbol}</b>{" "}
+                <span style={{ color: VELOCITY_COLOR[c.velocityLabel] ? C[VELOCITY_COLOR[c.velocityLabel]] : C.textDim }}>{rankArrow(c.rankChange)}</span>{" "}
+                <span style={{ color: C.textDim }}>Score {Math.round(c.opportunityScore)}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* E + G. SELECTED TRADE PLAN | RISK GUARDRAILS */}

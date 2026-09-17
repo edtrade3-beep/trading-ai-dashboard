@@ -181,7 +181,6 @@ import IpoTab from "./components/IpoTab.jsx";
 import CalendarTab from "./components/CalendarTab.jsx";
 import EconCalTab from "./components/EconCalTab.jsx";
 import FedWatchTab from "./components/FedWatchTab.jsx";
-import Tournament500Panel from "./components/Tournament500Panel.jsx";
 import PrimeTab from "./components/PrimeTab.jsx";
 import DarkPoolTab from "./components/DarkPoolTab.jsx";
 import DpHeatmapTab from "./components/DpHeatmapTab.jsx";
@@ -7496,21 +7495,19 @@ export default function App() {
             a tab not hidden"). Same real FedWatchTab.jsx the "fed"
             calendarSubTab below renders — not a second copy. */}
         {activeTab === "fedwatch" && <FedWatchTab C={C} MONO={MONO} SANS={SANS} />}
-        {/* 500 Tournament — direct sidebar tab (2026-09-17, explicit
-            follow-up after the in-Trade-Desk button placement: "tournament
-            button as a tab in side bar"). Same real Tournament500Panel
-            TradeDeskTab.jsx's own dock module already renders — not a
-            second copy. No onSelectSymbol wired here: clicking a row opens
-            the panel's own real detail drawer in place, which is already
-            the full "don't navigate to another cluttered page" behavior
-            the master prompt's own section 10 asked for. */}
-        {activeTab === "tournament" && <Tournament500Panel C={C} MONO={MONO} SANS={SANS} />}
-        {/* AI Trade Desk — PRIME (2026-09-17 master prompt) — the new
+        {/* 500 Tournament standalone tab REMOVED (2026-09-17, explicit
+            instruction: "ai trade desk prime will take data from 500
+            tournament and delete 500 tournament because will be
+            duplicate"). PrimeTab.jsx below reads the exact same real
+            GET /api/market/tournament board and reuses Tournament500Panel.jsx's
+            own Row/TradePlanContent — no data or logic lost, just the
+            redundant standalone screen. */}
+        {/* AI Trade Desk — PRIME (2026-09-17 master prompt) — the
             default landing screen (see activeTab's own initializer
             above). Real aggregator only; every score/risk/lifecycle field
-            it shows is the same real field AI Trade Desk/500 Tournament
-            already compute — see PrimeTab.jsx's own header for the full
-            reuse map. */}
+            it shows is the same real field AI Trade Desk/the 500-stock
+            tournament data already compute — see PrimeTab.jsx's own
+            header for the full reuse map. */}
         {activeTab === "prime" && <PrimeTab setActiveTab={setActiveTab} C={C} MONO={MONO} SANS={SANS} />}
 
         {/* CALENDAR — composite sidebar destination (institutional

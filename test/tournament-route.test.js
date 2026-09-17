@@ -56,23 +56,26 @@ ok("server.js registers the real 500-Stock Tournament Tick job, reusing tourname
   assert.match(serverSrc, /registerJob\("500-Stock Tournament Tick", 10 \* 60_000, \(\) => require\("\.\/src\/tournament-engine"\)\.runTournamentTick\(\)\)/);
 });
 
-console.log("\nChecking TradeDeskTab.jsx — slotted into the existing Deep Analysis dropdown, not a new sidebar tab…");
+console.log("\nChecking the standalone 500 Tournament UI surface is fully consolidated into PRIME (2026-09-17: \"ai trade desk prime will take data from 500 tournament and delete 500 tournament because will be duplicate\")…");
 
-ok("a real 'tournament' dock module is declared, rendering Tournament500Panel — no new top-level activeTab/sidebar route", () => {
-  assert.match(tabSrc, /\{ key: "tournament", label: "500 TOURNAMENT"/);
-  assert.match(tabSrc, /dockModule === "tournament" && \(\s*<Tournament500Panel/);
+ok("TradeDeskTab.jsx no longer declares a 'tournament' dock module or a dedicated 500 TOURNAMENT button — that data now lives on PRIME", () => {
+  assert.doesNotMatch(tabSrc, /\{ key: "tournament", label: "500 TOURNAMENT"/);
+  assert.doesNotMatch(tabSrc, /dockModule === "tournament" && \(\s*<Tournament500Panel/);
+  assert.doesNotMatch(tabSrc, /🏆 500 TOURNAMENT/);
+  assert.doesNotMatch(tabSrc, /import Tournament500Panel/, "TradeDeskTab.jsx should no longer import a component it never renders");
 });
 
-ok("a real dedicated, always-visible '500 TOURNAMENT' button also opens the same dockModule (2026-09-17 follow-up: \"add it as a tab under ai trade desk\") — additive, not a replacement for the Deep Analysis dropdown entry", () => {
-  assert.match(tabSrc, /🏆 500 TOURNAMENT/);
-  assert.match(tabSrc, /onClick=\{\(\) => openTickerTab\("tournament"\)\}/);
-});
-
-ok("Sidebar.jsx has a real direct '500 Tournament' row (2026-09-17 explicit follow-up: \"tournament button as a tab in side bar\", overriding the master prompt's own initial closing recommendation) rendering the same real Tournament500Panel, not a second copy", () => {
+ok("Sidebar.jsx no longer has a standalone '500 Tournament' row, and axiom-live.jsx no longer routes activeTab 'tournament' to a standalone screen — real board data is now reached only through PRIME", () => {
   const sidebarSrc = fs.readFileSync(path.join(__dirname, "..", "axiom-runner", "components", "Sidebar.jsx"), "utf8");
   const liveSrc = fs.readFileSync(path.join(__dirname, "..", "axiom-runner", "axiom-live.jsx"), "utf8");
-  assert.match(sidebarSrc, /\{ id: "tournament", label: "500 Tournament"/);
-  assert.match(liveSrc, /activeTab === "tournament" && <Tournament500Panel/);
+  assert.doesNotMatch(sidebarSrc, /\{ id: "tournament", label: "500 Tournament"/);
+  assert.doesNotMatch(liveSrc, /activeTab === "tournament" && <Tournament500Panel/);
+  assert.doesNotMatch(liveSrc, /import Tournament500Panel/, "axiom-live.jsx should no longer import a component it never renders");
+});
+
+ok("Tournament500Panel.jsx itself (the real board/detail fetch logic and its exported Row/TradePlanContent/Badge/etc.) is untouched — PRIME's own Top-25 table and Selected Trade Plan panel are built from these same real exports, not a second copy", () => {
+  assert.match(panelSrc, /export \{\s*\n?\s*Row, Badge, TradePlanContent/);
+  assert.match(panelSrc, /fetch\("\/api\/market\/tournament"\)/);
 });
 
 console.log("\nChecking Tournament500Panel.jsx — real server-computed fields only, no client-side scoring…");
