@@ -12,7 +12,6 @@ import WhatChangedPanel from "./WhatChangedPanel.jsx";
 import WhatChangedStrip from "./WhatChangedStrip.jsx";
 import TopOpportunities from "./TopOpportunities.jsx";
 import Top50ScannerPanel from "./Top50ScannerPanel.jsx";
-import Tournament500Panel from "./Tournament500Panel.jsx";
 import WhatToPayCard from "./WhatToPayCard.jsx";
 import AlertsTab from "./AlertsTab.jsx";
 import OptionsChainTab from "./OptionsChainTab.jsx";
@@ -114,12 +113,11 @@ import TradeDeskTabs from "./TradeDeskTabs.jsx";
 // TRADE group made the old generic name read as a duplicate.
 const DOCK_MODULES = [
   { key: "discover", label: "DISCOVER", color: "#6366f1", group: "TRADE" },
-  // 500-Stock Tournament (2026-09-17 master prompt) — explicit user
-  // recommendation in the prompt itself: "make it a single section inside
-  // AI Trade Desk rather than another top-level platform tab." Same real
-  // Deep Analysis dropdown/dock-module mechanism every other destination
-  // here already uses, not a new sidebar row.
-  { key: "tournament", label: "500 TOURNAMENT", color: "#dc2626", group: "TRADE" },
+  // 500-Stock Tournament dock module REMOVED (2026-09-17, "ai trade desk
+  // prime will take data from 500 tournament and delete 500 tournament
+  // because will be duplicate") — the real Top 25 board is now on AI
+  // Trade Desk — PRIME (its own sidebar entry), which reuses
+  // Tournament500Panel.jsx's exported Row/TradePlanContent directly.
   { key: "scanlist", label: "FULL SCAN", color: "#2563eb", group: "TRADE" },
   { key: "scanner", label: "SMART SCAN", color: "#4f46e5", group: "TRADE" },
   { key: "lightbox", label: "LIGHT BOX", color: "#f59e0b", group: "TRADE" },
@@ -600,9 +598,6 @@ export default function TradeDeskTab({
 
   const dockBody = (
     <>
-      {dockModule === "tournament" && (
-        <Tournament500Panel onSelectSymbol={selectSymbol} C={C} MONO={MONO} SANS={SANS} />
-      )}
       {dockModule === "discover" && (
         <MarketTerminalTab
           key={symbol} C={C} MONO={MONO} SANS={SANS} sectorData={sectorData} macroData={macroData}
@@ -845,26 +840,10 @@ export default function TradeDeskTab({
           through this one dropdown (DEEP_ANALYSIS_GROUPS) now instead. */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <TradeDeskTabs symbol={symbol} activeKey={dockModule} onOpen={openTickerTab} groups={DEEP_ANALYSIS_GROUPS} C={TD} MONO={MONO} />
-        {/* 500 Tournament — a real, dedicated, always-visible tab
-            (2026-09-17, explicit follow-up: "add it as a tab under ai
-            trade desk" — the Deep Analysis dropdown placement wasn't
-            visible enough). Same real dockModule mechanism/onOpen
-            handler every Deep Analysis destination already uses — this
-            is a second, additional entry point to the identical
-            "tournament" module, not a new/parallel one. */}
-        <button
-          onClick={() => openTickerTab("tournament")}
-          aria-current={dockModule === "tournament" ? "page" : undefined}
-          style={{
-            display: "flex", alignItems: "center", gap: 6,
-            border: `1px solid ${dockModule === "tournament" ? TD.accent : TD.border}`,
-            background: dockModule === "tournament" ? `${TD.accent}18` : "transparent",
-            color: dockModule === "tournament" ? TD.accent : TD.textSec,
-            borderRadius: 5, padding: "6px 10px", fontFamily: MONO, fontSize: 10.5, fontWeight: 700, cursor: "pointer",
-          }}
-        >
-          🏆 500 TOURNAMENT
-        </button>
+        {/* Dedicated "500 TOURNAMENT" button REMOVED (2026-09-17, "ai
+            trade desk prime will take data from 500 tournament and
+            delete 500 tournament because will be duplicate") — the real
+            Top 25 board now lives on AI Trade Desk — PRIME. */}
       </div>
       <div style={{ borderTop: `1px solid ${TD.border}`, minHeight: 0 }}>
         {dockModule ? (
