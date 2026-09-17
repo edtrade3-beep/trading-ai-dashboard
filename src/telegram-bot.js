@@ -40,7 +40,7 @@ const { fetchTrending: stTrending, fetchSentiment: stSentiment }    = require(".
 const { fetchFinanceNews, fetchTechNews, fetchAllNews, fetchSubreddit: fetchRedditSub, FINANCE_SUBS, TECH_SUBS } = require("./providers/reddit-news");
 const { withTimeout, round2 }                    = require("./utils");
 const { formatScheduleMessage: formatPrayerSchedule, formatNextPrayerMessage, formatDateMessage } = require("./prayer-times");
-const { fetchRealWeather, renderWeatherText } = require("./weather-engine");
+const { fetchRealWeather, renderWeatherText, fetchExtendedForecast, renderExtendedForecastText } = require("./weather-engine");
 const { formatMorningAzkar, formatEveningAzkar } = require("./azkar-content");
 
 const API = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`;
@@ -396,6 +396,7 @@ async function cmdHelp() {
     "/prayertimes          full daily prayer timetable\n" +
     "/date                 today's Gregorian + Hijri dates\n" +
     "/weather              current weather + today's forecast in your area\n" +
+    "/forecast             real extended daily forecast (up to 16 real days)\n" +
     "/morningduaa          أذكار الصباح with repetition counts\n" +
     "/eveningduaa          أذكار المساء with repetition counts\n" +
     "/tasbeeh              interactive dhikr counter (+1 / Undo / Reset / target)\n" +
@@ -1948,6 +1949,17 @@ const COMMANDS = {
       return reply(renderWeatherText(w));
     } catch (err) { return reply(`Weather lookup failed: ${err.message}`); }
   },
+  // "/forecast" (2026-09-16, explicit request: "30 days weather forecast
+  // telegram forecast") — real extended daily forecast, same real
+  // Open-Meteo source /weather already uses, no second provider. Real
+  // cap is 16 days (see weather-engine.js's own disclosure); asking for
+  // 30 would only pad with fabricated days, so this never claims 30.
+  forecast: async () => {
+    try {
+      const f = await fetchExtendedForecast();
+      return reply(renderExtendedForecastText(f));
+    } catch (err) { return reply(`Forecast lookup failed: ${err.message}`); }
+  },
   date: async () => reply(await formatDateMessage()),
   morningduaa: () => reply(formatMorningAzkar()),
   azkarsabah:  () => reply(formatMorningAzkar()),
@@ -2560,6 +2572,7 @@ const COMMANDS = {
 const BARE_WORD_COMMAND_ALIASES = {
   salam: null,
   weather: "weather",
+  forecast: "forecast",
   date: "date",
   prayer: "prayer",
   prayertimes: "prayertimes",
@@ -2729,6 +2742,7 @@ async function registerCommands() {
       { command: "agent",     description: "Master Agent — \"start my day\" report or ask it a question" },
       { command: "ask",       description: "Ask the Master Agent anything" },
       { command: "weather",   description: "Current weather + today's forecast in your area" },
+      { command: "forecast",  description: "Real extended daily forecast (up to 16 real days)" },
       { command: "prayer",    description: "Next prayer, its time, and countdown" },
       { command: "prayertimes", description: "Full daily prayer timetable" },
       { command: "date",      description: "Today's Gregorian and Hijri dates" },

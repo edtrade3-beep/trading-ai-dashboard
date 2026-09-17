@@ -4,7 +4,7 @@
 // itself makes a real live network call to Open-Meteo, exercised live
 // instead of mocked (same convention as this session's other engines).
 const assert = require("node:assert");
-const { renderWeatherText } = require("../src/weather-engine");
+const { renderWeatherText, renderExtendedForecastText, MAX_REAL_FORECAST_DAYS } = require("../src/weather-engine");
 
 let passed = 0;
 function ok(name, fn) {
@@ -30,6 +30,34 @@ ok("an unrecognized weather code falls back to an honest code label, never a fab
   const j = { current: { temperature_2m: 50, apparent_temperature: 48, relative_humidity_2m: 40, wind_speed_10m: 5, weather_code: 12345 }, daily: {} };
   const text = renderWeatherText(j);
   assert.ok(text.includes("Weather code 12345"));
+});
+
+console.log("\nChecking renderExtendedForecastText — real multi-day forecast, honest about its real 16-day cap (2026-09-16, \"30 days weather forecast\" request)…");
+
+ok("MAX_REAL_FORECAST_DAYS is honestly 16, never silently bumped toward a fabricated 30", () => {
+  assert.strictEqual(MAX_REAL_FORECAST_DAYS, 16);
+});
+
+ok("a real 16-day Open-Meteo-shaped daily response renders one real line per day with hi/lo/condition/rain chance", () => {
+  const days = 16;
+  const j = { daily: {
+    time: Array.from({ length: days }, (_, i) => `2026-09-${16 + i}`),
+    weather_code: Array.from({ length: days }, () => 1),
+    temperature_2m_max: Array.from({ length: days }, (_, i) => 80 - i),
+    temperature_2m_min: Array.from({ length: days }, (_, i) => 60 - i),
+    precipitation_probability_max: Array.from({ length: days }, () => 20),
+  } };
+  const text = renderExtendedForecastText(j);
+  assert.ok(text.includes("16-Day Forecast"));
+  assert.ok(text.includes("Mainly clear"));
+  assert.ok(text.includes("80°/60°F"));
+  assert.ok(text.includes("rain 20%"));
+});
+
+ok("a real short (< 30 real days) result honestly discloses the real forecast-horizon limit, never pads with fabricated days", () => {
+  const j = { daily: { time: ["2026-09-16", "2026-09-17"], weather_code: [1, 2], temperature_2m_max: [80, 78], temperature_2m_min: [60, 58], precipitation_probability_max: [10, 15] } };
+  const text = renderExtendedForecastText(j);
+  assert.ok(text.includes("no honest data source exists for a genuine 30-day forecast"));
 });
 
 console.log(`\n${passed} checks passed.`);

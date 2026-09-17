@@ -49,4 +49,40 @@ function renderWeatherText(j) {
   return lines.join("\n");
 }
 
-module.exports = { fetchRealWeather, renderWeatherText };
+// Real extended daily forecast (2026-09-16, explicit request: "30 days
+// weather forecast telegram forecast"). Open-Meteo's real forecast model
+// (the same free, no-key provider fetchRealWeather already uses) only
+// produces genuine daily forecasts out to 16 days — there is no real
+// weather-model data source for a true 30-day daily forecast; days beyond
+// ~16 would be climate-normal guesses, not a real forecast. Rather than
+// fabricate 14 extra days, this returns the real maximum (16 real days)
+// and says so honestly in the rendered text.
+const MAX_REAL_FORECAST_DAYS = 16;
+
+async function fetchExtendedForecast(days = MAX_REAL_FORECAST_DAYS) {
+  const forecastDays = Math.max(1, Math.min(MAX_REAL_FORECAST_DAYS, Math.round(days)));
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${LOCATION.lat}&longitude=${LOCATION.lng}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&temperature_unit=fahrenheit&precipitation_unit=inch&timezone=auto&forecast_days=${forecastDays}`;
+  const r = await fetch(url);
+  const j = await r.json().catch(() => null);
+  if (!r.ok || !j?.daily?.time?.length) throw new Error("real extended forecast fetch failed");
+  return j;
+}
+
+function renderExtendedForecastText(j) {
+  const d = j.daily || {};
+  const dates = d.time || [];
+  const lines = [`🌤 ${dates.length}-Day Forecast — ${LOCATION.label}`, ""];
+  dates.forEach((dateStr, i) => {
+    const label = WEATHER_CODE_LABELS[d.weather_code?.[i]] ?? `Code ${d.weather_code?.[i]}`;
+    const hi = d.temperature_2m_max?.[i], lo = d.temperature_2m_min?.[i];
+    const rain = d.precipitation_probability_max?.[i];
+    const dow = new Date(`${dateStr}T12:00:00`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+    lines.push(`${dow}: ${Math.round(hi)}°/${Math.round(lo)}°F, ${label}${rain != null ? ` · rain ${rain}%` : ""}`);
+  });
+  if (dates.length < 30) {
+    lines.push("", `(Real weather models only forecast ${MAX_REAL_FORECAST_DAYS} real days out — no honest data source exists for a genuine 30-day forecast, so this isn't padded with guesses.)`);
+  }
+  return lines.join("\n");
+}
+
+module.exports = { fetchRealWeather, renderWeatherText, fetchExtendedForecast, renderExtendedForecastText, MAX_REAL_FORECAST_DAYS };
