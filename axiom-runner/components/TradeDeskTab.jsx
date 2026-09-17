@@ -12,6 +12,7 @@ import WhatChangedPanel from "./WhatChangedPanel.jsx";
 import WhatChangedStrip from "./WhatChangedStrip.jsx";
 import TopOpportunities from "./TopOpportunities.jsx";
 import Top50ScannerPanel from "./Top50ScannerPanel.jsx";
+import Tournament500Panel from "./Tournament500Panel.jsx";
 import WhatToPayCard from "./WhatToPayCard.jsx";
 import AlertsTab from "./AlertsTab.jsx";
 import OptionsChainTab from "./OptionsChainTab.jsx";
@@ -113,6 +114,12 @@ import TradeDeskTabs from "./TradeDeskTabs.jsx";
 // TRADE group made the old generic name read as a duplicate.
 const DOCK_MODULES = [
   { key: "discover", label: "DISCOVER", color: "#6366f1", group: "TRADE" },
+  // 500-Stock Tournament (2026-09-17 master prompt) — explicit user
+  // recommendation in the prompt itself: "make it a single section inside
+  // AI Trade Desk rather than another top-level platform tab." Same real
+  // Deep Analysis dropdown/dock-module mechanism every other destination
+  // here already uses, not a new sidebar row.
+  { key: "tournament", label: "500 TOURNAMENT", color: "#dc2626", group: "TRADE" },
   { key: "scanlist", label: "FULL SCAN", color: "#2563eb", group: "TRADE" },
   { key: "scanner", label: "SMART SCAN", color: "#4f46e5", group: "TRADE" },
   { key: "lightbox", label: "LIGHT BOX", color: "#f59e0b", group: "TRADE" },
@@ -593,6 +600,9 @@ export default function TradeDeskTab({
 
   const dockBody = (
     <>
+      {dockModule === "tournament" && (
+        <Tournament500Panel onSelectSymbol={selectSymbol} C={C} MONO={MONO} SANS={SANS} />
+      )}
       {dockModule === "discover" && (
         <MarketTerminalTab
           key={symbol} C={C} MONO={MONO} SANS={SANS} sectorData={sectorData} macroData={macroData}
