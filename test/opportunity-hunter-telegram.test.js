@@ -45,6 +45,11 @@ ok("server.js registers the real 15-min Opportunity Hunter Alerts job, same regi
   assert.match(serverSrc, /registerJob\("Opportunity Hunter Alerts", 15 \* 60_000, \(\) => require\("\.\/src\/opportunity-hunter-alerts"\)\.checkOpportunityHunterAlerts\(\)\)/);
 });
 
+ok("server.js schedules the real hourly Opportunity Digest (2026-09-16, \"I want opportunities come to me not search for it\") at 6 real fixed hours, reusing the same real sendOpportunityDigest — no second scan/scoring declared inline in server.js", () => {
+  assert.match(serverSrc, /for \(const dh of \[10, 11, 12, 13, 14, 15\]\)/);
+  assert.match(serverSrc, /require\("\.\/src\/opportunity-hunter-alerts"\)\.sendOpportunityDigest\(\)/);
+});
+
 console.log(`\n${passed} checks passed.`);
 if (process.exitCode) console.error("OPPORTUNITY-HUNTER-TELEGRAM TEST FAILED");
 else console.log("OPPORTUNITY-HUNTER-TELEGRAM TEST OK");
