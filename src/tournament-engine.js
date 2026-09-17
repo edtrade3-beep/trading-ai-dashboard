@@ -28,6 +28,8 @@ const { isMarketHoursET } = require("./risk-guardrails");
 const { buildResearchContext } = require("./research-context-adapter");
 const { loadCoachLog } = require("./ai-coach-store");
 const { getEdgeVelocityFor } = require("./opportunity-timeline-store");
+const { isConfigured: telegramConfigured, sendTelegramMessage } = require("./telegram");
+const { shouldSendAlert } = require("./telegram-bot");
 const {
   loadTournamentState, saveTournamentState, upsertSymbolData, applyRanking,
 } = require("./tournament-store");
@@ -172,6 +174,15 @@ async function runTournamentTick() {
 
   const state = loadTournamentState();
   let scanned = 0;
+  // Real ENTER_NOW watch (2026-09-17, explicit request: "keep scanning
+  // till get me in one of the stocks also telegram notify right away when
+  // enter happen") — detects the real signalState transitioning INTO
+  // "ENTER_NOW" (the same real execution-readiness field every other
+  // surface reads, computed by canonical-decision-pipeline.js — never a
+  // second lifecycle/entry classifier). Only symbols touched by THIS
+  // tick's batch can transition, which is exactly right: a symbol's
+  // signalState only changes when it's freshly rescanned.
+  const justEnteredNow = [];
   for (const row of rows) {
     if (row.error) continue;
     const canonical = computeCanonicalAssetDecision({
@@ -185,6 +196,9 @@ async function runTournamentTick() {
     fields.previousOpportunityScore = Number.isFinite(prevEntry?.opportunityScore) ? prevEntry.opportunityScore : null;
     upsertSymbolData(state, row.symbol, fields);
     scanned++;
+    if (fields.signalState === "ENTER_NOW" && prevEntry?.signalState !== "ENTER_NOW") {
+      justEnteredNow.push(row.symbol);
+    }
   }
   state.lastTickAt = nowMs;
 
@@ -192,8 +206,39 @@ async function runTournamentTick() {
   applyRanking(state, ranked.map((r) => r.symbol));
   saveTournamentState(state);
 
+  // Send AFTER applyRanking so the alert carries each symbol's real,
+  // just-computed rank — not its rank from before this tick's re-sort.
+  // Same real P1 "opportunity" budget/quiet-hours gate every other
+  // opportunity alert in this app already respects — a busy tick can't
+  // blow through the shared daily cap just because several symbols
+  // crossed into ENTER_NOW at once.
+  if (justEnteredNow.length && telegramConfigured() && marketHours) {
+    for (const symbol of justEnteredNow) {
+      if (!shouldSendAlert({ category: "opportunity" })) break;
+      const entry = state.symbols[symbol];
+      await sendTelegramMessage(buildEnterNowMessage(entry)).catch(() => {});
+    }
+  }
+
   const marketRegime = await getMarketRegime(macroQuotes, marketHours, nowMs, researchContext);
-  return { ok: true, scanned, batchSize: batch.length, universeSize: universe.length, stale, builtAt, marketRegime };
+  return { ok: true, scanned, batchSize: batch.length, universeSize: universe.length, stale, builtAt, marketRegime, entered: justEnteredNow };
+}
+
+function fmt(v) { return Number.isFinite(v) ? `$${Number(v).toFixed(2)}` : "—"; }
+
+// Real, pure message builder — every field read directly off the same
+// real tournament-state entry the board itself displays, never a second
+// computation.
+function buildEnterNowMessage(entry) {
+  const { tier: tournamentTier } = tierForRank(entry.currentRank);
+  const lines = [
+    `🎯 ENTER NOW — ${entry.symbol}`, "",
+    `Rank: ${entry.currentRank ? `#${entry.currentRank}` : "unranked"}${tournamentTier ? ` (${tournamentTier})` : ""}`,
+    `Opportunity: ${Number.isFinite(entry.opportunityScore) ? Math.round(entry.opportunityScore) : "—"}  Risk: ${Number.isFinite(entry.riskScore) ? Math.round(entry.riskScore) : "—"}${entry.riskLevel ? ` (${entry.riskLevel})` : ""}`,
+    `Entry: ${fmt(entry.entryZone)}  Stop: ${fmt(entry.stop)}  Target: ${fmt(entry.target)}`,
+    Number.isFinite(entry.riskReward) ? `R:R ${entry.riskReward.toFixed(1)}:1` : null,
+  ].filter(Boolean);
+  return lines.join("\n");
 }
 
 // Pure — real ranking over already-persisted state, no network. Sorted by
@@ -303,5 +348,6 @@ function buildTournamentBoard(marketRegimeLabel) {
 module.exports = {
   runTournamentTick, buildTournamentBoard, rankTournamentSymbols, tierForRank, velocityLabelFor,
   rankAdjustedScore, extractTournamentFields, pickEarlyDiscoveryChallengers, getMarketRegime,
+  buildEnterNowMessage,
   TICK_BATCH_SIZE, TOP_N, ELITE_N, CHALLENGER_COUNT, EARLY_DISCOVERY_SLOTS, RISK_RANK_ADJUSTMENT_WEIGHT,
 };
