@@ -57,9 +57,11 @@ ok("a real dedicated, always-visible '500 TOURNAMENT' button also opens the same
   assert.match(tabSrc, /onClick=\{\(\) => openTickerTab\("tournament"\)\}/);
 });
 
-ok("Sidebar.jsx gains no new row for this feature — reachable only through the existing Deep Analysis dropdown/dock mechanism", () => {
+ok("Sidebar.jsx has a real direct '500 Tournament' row (2026-09-17 explicit follow-up: \"tournament button as a tab in side bar\", overriding the master prompt's own initial closing recommendation) rendering the same real Tournament500Panel, not a second copy", () => {
   const sidebarSrc = fs.readFileSync(path.join(__dirname, "..", "axiom-runner", "components", "Sidebar.jsx"), "utf8");
-  assert.doesNotMatch(sidebarSrc, /tournament/i, "the 500-Stock Tournament must not get its own permanent sidebar row, per the prompt's own explicit recommendation");
+  const liveSrc = fs.readFileSync(path.join(__dirname, "..", "axiom-runner", "axiom-live.jsx"), "utf8");
+  assert.match(sidebarSrc, /\{ id: "tournament", label: "500 Tournament"/);
+  assert.match(liveSrc, /activeTab === "tournament" && <Tournament500Panel/);
 });
 
 console.log("\nChecking Tournament500Panel.jsx — real server-computed fields only, no client-side scoring…");

@@ -181,6 +181,7 @@ import IpoTab from "./components/IpoTab.jsx";
 import CalendarTab from "./components/CalendarTab.jsx";
 import EconCalTab from "./components/EconCalTab.jsx";
 import FedWatchTab from "./components/FedWatchTab.jsx";
+import Tournament500Panel from "./components/Tournament500Panel.jsx";
 import DarkPoolTab from "./components/DarkPoolTab.jsx";
 import DpHeatmapTab from "./components/DpHeatmapTab.jsx";
 import CotTab from "./components/CotTab.jsx";
@@ -7492,6 +7493,15 @@ export default function App() {
             a tab not hidden"). Same real FedWatchTab.jsx the "fed"
             calendarSubTab below renders — not a second copy. */}
         {activeTab === "fedwatch" && <FedWatchTab C={C} MONO={MONO} SANS={SANS} />}
+        {/* 500 Tournament — direct sidebar tab (2026-09-17, explicit
+            follow-up after the in-Trade-Desk button placement: "tournament
+            button as a tab in side bar"). Same real Tournament500Panel
+            TradeDeskTab.jsx's own dock module already renders — not a
+            second copy. No onSelectSymbol wired here: clicking a row opens
+            the panel's own real detail drawer in place, which is already
+            the full "don't navigate to another cluttered page" behavior
+            the master prompt's own section 10 asked for. */}
+        {activeTab === "tournament" && <Tournament500Panel C={C} MONO={MONO} SANS={SANS} />}
 
         {/* CALENDAR — composite sidebar destination (institutional
             redesign, 2026-07-29) folding Economic Events/Fed-FOMC/Earnings
