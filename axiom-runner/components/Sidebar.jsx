@@ -31,6 +31,16 @@
 // `toTab` alias table). See each dropped item's own comment below for its
 // specific palette keyword.
 export const SIDEBAR_ITEMS = [
+  // AI Trade Desk — PRIME (2026-09-17 master prompt) — the new default
+  // landing screen (see axiom-live.jsx's own activeTab initializer),
+  // placed first per the prompt's own closing note: "PRIME should
+  // eventually become the primary daily trading workflow. The rest of
+  // the platform should support PRIME, not compete with it." A real
+  // aggregator over AI Trade Desk's own MarketCommandCenter/regime data,
+  // the 500-Stock Tournament board, Quick Trade's real position-sizing/
+  // risk-gate, and WhatChangedStrip — no new engine, no duplicate score.
+  { id: "prime", label: "AI Trade Desk — PRIME", icon: "🎯", tab: "prime" },
+
   // AI Trade Desk — one unified screen (2026-08-25, explicit user request:
   // top status strip + Discover-search|Chart|Cortex 3-pane + a bottom
   // module dock, all without leaving the page). Relabeled "Trade Desk" ->

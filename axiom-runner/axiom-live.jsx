@@ -182,6 +182,7 @@ import CalendarTab from "./components/CalendarTab.jsx";
 import EconCalTab from "./components/EconCalTab.jsx";
 import FedWatchTab from "./components/FedWatchTab.jsx";
 import Tournament500Panel from "./components/Tournament500Panel.jsx";
+import PrimeTab from "./components/PrimeTab.jsx";
 import DarkPoolTab from "./components/DarkPoolTab.jsx";
 import DpHeatmapTab from "./components/DpHeatmapTab.jsx";
 import CotTab from "./components/CotTab.jsx";
@@ -1652,12 +1653,14 @@ export default function App() {
       localStorage.setItem("axiom_seen_start", "1");
       return "start";
     }
-    // Default landing (2026-08-25, explicit user request: "make my desk
-    // trade as start page") — was "lightbox" (2026-08-17), before that
-    // "ceo-ai". Light Box itself moved into Trade Desk's own bottom dock
-    // the same request, so this isn't a loss of the old default's real
-    // content, just a new front door around it.
-    return "trade-desk";
+    // Default landing (2026-09-17, "AI Trade Desk — PRIME" master prompt's
+    // own explicit closing note: "I would make PRIME the default screen
+    // when the platform opens... That gives you one daily workflow
+    // instead of another tool to manage"). Was "trade-desk" (2026-08-25,
+    // before that "lightbox"/"ceo-ai") — AI Trade Desk itself is fully
+    // intact and one click away in the sidebar, this is a front-door
+    // change only, not a removal.
+    return "prime";
   });
   // Auto-collapse the mobile FAB stack on every tab change — otherwise an
   // expanded stack from the previous screen would stay open and cover the
@@ -7502,6 +7505,13 @@ export default function App() {
             the full "don't navigate to another cluttered page" behavior
             the master prompt's own section 10 asked for. */}
         {activeTab === "tournament" && <Tournament500Panel C={C} MONO={MONO} SANS={SANS} />}
+        {/* AI Trade Desk — PRIME (2026-09-17 master prompt) — the new
+            default landing screen (see activeTab's own initializer
+            above). Real aggregator only; every score/risk/lifecycle field
+            it shows is the same real field AI Trade Desk/500 Tournament
+            already compute — see PrimeTab.jsx's own header for the full
+            reuse map. */}
+        {activeTab === "prime" && <PrimeTab setActiveTab={setActiveTab} C={C} MONO={MONO} SANS={SANS} />}
 
         {/* CALENDAR — composite sidebar destination (institutional
             redesign, 2026-07-29) folding Economic Events/Fed-FOMC/Earnings
