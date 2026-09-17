@@ -52,6 +52,11 @@ ok("a real 'tournament' dock module is declared, rendering Tournament500Panel �
   assert.match(tabSrc, /dockModule === "tournament" && \(\s*<Tournament500Panel/);
 });
 
+ok("a real dedicated, always-visible '500 TOURNAMENT' button also opens the same dockModule (2026-09-17 follow-up: \"add it as a tab under ai trade desk\") — additive, not a replacement for the Deep Analysis dropdown entry", () => {
+  assert.match(tabSrc, /🏆 500 TOURNAMENT/);
+  assert.match(tabSrc, /onClick=\{\(\) => openTickerTab\("tournament"\)\}/);
+});
+
 ok("Sidebar.jsx gains no new row for this feature — reachable only through the existing Deep Analysis dropdown/dock mechanism", () => {
   const sidebarSrc = fs.readFileSync(path.join(__dirname, "..", "axiom-runner", "components", "Sidebar.jsx"), "utf8");
   assert.doesNotMatch(sidebarSrc, /tournament/i, "the 500-Stock Tournament must not get its own permanent sidebar row, per the prompt's own explicit recommendation");

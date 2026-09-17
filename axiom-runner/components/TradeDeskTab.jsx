@@ -843,7 +843,29 @@ export default function TradeDeskTab({
           rail, which WAS shared, to switch modules). Every one of that
           rail's 19 real destinations (DOCK_MODULES, unchanged) is reached
           through this one dropdown (DEEP_ANALYSIS_GROUPS) now instead. */}
-      <TradeDeskTabs symbol={symbol} activeKey={dockModule} onOpen={openTickerTab} groups={DEEP_ANALYSIS_GROUPS} C={TD} MONO={MONO} />
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <TradeDeskTabs symbol={symbol} activeKey={dockModule} onOpen={openTickerTab} groups={DEEP_ANALYSIS_GROUPS} C={TD} MONO={MONO} />
+        {/* 500 Tournament — a real, dedicated, always-visible tab
+            (2026-09-17, explicit follow-up: "add it as a tab under ai
+            trade desk" — the Deep Analysis dropdown placement wasn't
+            visible enough). Same real dockModule mechanism/onOpen
+            handler every Deep Analysis destination already uses — this
+            is a second, additional entry point to the identical
+            "tournament" module, not a new/parallel one. */}
+        <button
+          onClick={() => openTickerTab("tournament")}
+          aria-current={dockModule === "tournament" ? "page" : undefined}
+          style={{
+            display: "flex", alignItems: "center", gap: 6,
+            border: `1px solid ${dockModule === "tournament" ? TD.accent : TD.border}`,
+            background: dockModule === "tournament" ? `${TD.accent}18` : "transparent",
+            color: dockModule === "tournament" ? TD.accent : TD.textSec,
+            borderRadius: 5, padding: "6px 10px", fontFamily: MONO, fontSize: 10.5, fontWeight: 700, cursor: "pointer",
+          }}
+        >
+          🏆 500 TOURNAMENT
+        </button>
+      </div>
       <div style={{ borderTop: `1px solid ${TD.border}`, minHeight: 0 }}>
         {dockModule ? (
           <div style={{ maxHeight: isMobile ? "70vh" : "60vh", overflowY: "auto" }}>{dockBody}</div>
