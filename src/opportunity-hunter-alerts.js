@@ -105,4 +105,35 @@ async function checkOpportunityHunterAlerts() {
   return { ok: true, checked: opportunities.length, sent };
 }
 
-module.exports = { checkOpportunityHunterAlerts, detectTransitions, buildMessage, COOLDOWN_MS, STORE_PATH };
+// Hourly Opportunity Digest (2026-09-16, explicit request: "I want
+// opportunities come to me not search for it") — a real, guaranteed push
+// on a fixed schedule regardless of whether anything changed, distinct
+// from checkOpportunityHunterAlerts() above (which only fires on a real
+// state-diff event and could stay silent for hours on a quiet day). Same
+// real scanOpportunities() read, just a different real delivery cadence
+// and format — reuses telegram.js's real send, no second Telegram client.
+// Deliberately sent directly (like top50-telegram-alerts.js's own
+// sendTop50MorningSummary), not through shouldSendAlert's P1 budget —
+// this is a fixed, bounded schedule (server.js's OPP_DIGEST_HOURS), not
+// an unbounded event stream that needs budgeting.
+function buildDigestMessage(opportunities) {
+  const time = new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit" });
+  const lines = [`📊 OPPORTUNITY DIGEST — ${time} ET`, ""];
+  const ranked = [...opportunities].sort((a, b) => (b.dealScore ?? -1) - (a.dealScore ?? -1) || b.entryScore - a.entryScore).slice(0, 10);
+  if (!ranked.length) { lines.push("No real qualifying candidates right now."); return lines.join("\n"); }
+  ranked.forEach((o, i) => {
+    lines.push(`${i + 1}. ${o.symbol} — Deal ${o.dealScore ?? "—"} · Entry ${o.entryScore} · Risk ${o.riskLevel || "—"}`, `   ${o.state}`);
+  });
+  lines.push("", "/why SYMBOL for full detail · /opportunities for the live list anytime");
+  return lines.join("\n");
+}
+
+async function sendOpportunityDigest() {
+  if (!telegramConfigured()) return { ok: true, skipped: "telegram not configured" };
+  if (!isMarketHoursET()) return { ok: true, skipped: "outside market hours" };
+  const { opportunities } = await scanOpportunities({ limit: 50 }).catch(() => ({ opportunities: [] }));
+  await sendTelegramMessage(buildDigestMessage(opportunities)).catch(() => {});
+  return { ok: true, sent: opportunities.length };
+}
+
+module.exports = { checkOpportunityHunterAlerts, detectTransitions, buildMessage, sendOpportunityDigest, buildDigestMessage, COOLDOWN_MS, STORE_PATH };

@@ -4,7 +4,7 @@
 // buildMessage tests, no network — same convention as
 // top50-telegram-alerts.test.js.
 const assert = require("node:assert");
-const { detectTransitions, buildMessage, COOLDOWN_MS } = require("../src/opportunity-hunter-alerts");
+const { detectTransitions, buildMessage, buildDigestMessage, COOLDOWN_MS } = require("../src/opportunity-hunter-alerts");
 
 let passed = 0;
 function ok(name, fn) { try { fn(); passed++; console.log(`  ✓ ${name}`); } catch (e) { console.error(`  ✗ ${name}\n    ${e.message}`); process.exitCode = 1; } }
@@ -61,6 +61,24 @@ ok("message includes the real Deal/Entry/Risk/Confidence/State fields and up to 
   assert.match(msg, /Risk: LOW/);
   assert.match(msg, /State:\nSETUP READY/);
   assert.match(msg, /deal score attractive/);
+});
+
+console.log("\nChecking buildDigestMessage — the hourly push (2026-09-16, \"I want opportunities come to me not search for it\")…");
+
+ok("ranks real candidates by Deal Score (ties broken by Entry Score), caps at 10, includes a real ET timestamp", () => {
+  const opps = [
+    { symbol: "AAPL", dealScore: 82, entryScore: 60, riskLevel: "LOW", state: "GREAT VALUE — WAIT" },
+    { symbol: "NVDA", dealScore: 91, entryScore: 88, riskLevel: "MODERATE", state: "SETUP READY" },
+  ];
+  const msg = buildDigestMessage(opps);
+  assert.match(msg, /OPPORTUNITY DIGEST/);
+  assert.match(msg, /ET/);
+  assert.ok(msg.indexOf("NVDA") < msg.indexOf("AAPL"), "higher real Deal Score must rank first");
+});
+
+ok("a real empty scan result is reported honestly, never a fabricated placeholder opportunity", () => {
+  const msg = buildDigestMessage([]);
+  assert.match(msg, /No real qualifying candidates right now\./);
 });
 
 console.log("\nChecking dedup/cooldown + failure isolation…");
