@@ -60,5 +60,17 @@ ok("a real short (< 30 real days) result honestly discloses the real forecast-ho
   assert.ok(text.includes("no honest data source exists for a genuine 30-day forecast"));
 });
 
+console.log("\nChecking /weather30 Telegram command (2026-09-17, explicit request: \"under weather30 command telegram\")…");
+
+ok("a real /weather30 command is registered, reusing the exact same real fetchExtendedForecast/renderExtendedForecastText as /forecast — no second forecast implementation", () => {
+  const fs = require("node:fs");
+  const src = fs.readFileSync(require.resolve("../src/telegram-bot"), "utf8");
+  const start = src.indexOf("weather30: async () => {");
+  assert.ok(start > -1, "weather30 command handler must exist");
+  const block = src.slice(start, start + 250);
+  assert.match(block, /fetchExtendedForecast\(\)/);
+  assert.match(block, /renderExtendedForecastText\(f\)/);
+});
+
 console.log(`\n${passed} checks passed.`);
 if (!process.exitCode) console.log("WEATHER-ENGINE TEST OK");

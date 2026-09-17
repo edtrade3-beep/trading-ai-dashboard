@@ -1982,6 +1982,19 @@ const COMMANDS = {
       return reply(renderExtendedForecastText(f));
     } catch (err) { return reply(`Forecast lookup failed: ${err.message}`); }
   },
+  // /weather30 (2026-09-17, explicit request: "Create weather 30 days
+  // forecast under weather30 command") — same real /forecast handler
+  // (fetchExtendedForecast/renderExtendedForecastText, weather-engine.js),
+  // not a second implementation. Real weather models still cap genuine
+  // daily forecasts at 16 days — renderExtendedForecastText already
+  // discloses that real limit in the message itself rather than padding
+  // with 14 fabricated days, regardless of which command name reaches it.
+  weather30: async () => {
+    try {
+      const f = await fetchExtendedForecast();
+      return reply(renderExtendedForecastText(f));
+    } catch (err) { return reply(`Forecast lookup failed: ${err.message}`); }
+  },
   date: async () => reply(await formatDateMessage()),
   morningduaa: () => reply(formatMorningAzkar()),
   azkarsabah:  () => reply(formatMorningAzkar()),
@@ -2595,6 +2608,7 @@ const BARE_WORD_COMMAND_ALIASES = {
   salam: null,
   weather: "weather",
   forecast: "forecast",
+  weather30: "weather30",
   date: "date",
   prayer: "prayer",
   prayertimes: "prayertimes",
@@ -2765,6 +2779,7 @@ async function registerCommands() {
       { command: "ask",       description: "Ask the Master Agent anything" },
       { command: "weather",   description: "Current weather + today's forecast in your area" },
       { command: "forecast",  description: "Real extended daily forecast (up to 16 real days)" },
+      { command: "weather30", description: "Same real extended forecast (up to 16 real days) under a /weather30 name" },
       { command: "prayer",    description: "Next prayer, its time, and countdown" },
       { command: "prayertimes", description: "Full daily prayer timetable" },
       { command: "date",      description: "Today's Gregorian and Hijri dates" },
