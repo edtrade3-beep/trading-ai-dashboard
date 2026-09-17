@@ -82,6 +82,14 @@ ok("Opportunity Score and Risk Score are rendered as two real, separate fields �
   assert.doesNotMatch(panelSrc, /opportunityScore\s*[-+]\s*riskScore/, "must not merge the two into one displayed value");
 });
 
+console.log("\nChecking the real /tournament Telegram command (2026-09-17 follow-up: \"keep scanning till get me in one of the stocks\")…");
+
+const botSrc = fs.readFileSync(path.join(__dirname, "..", "src", "telegram-bot.js"), "utf8");
+ok("a real /tournament command is registered, reusing the same real buildTournamentBoard the web board reads — no second ranking pass", () => {
+  assert.match(botSrc, /tournament: \(\) => cmdTournament\(\),/);
+  assert.match(botSrc, /require\("\.\/tournament-engine"\)/);
+});
+
 console.log(`\n${passed} checks passed.`);
 if (process.exitCode) console.error("TOURNAMENT-ROUTE TEST FAILED");
 else console.log("TOURNAMENT-ROUTE TEST OK");

@@ -1347,6 +1347,27 @@ async function cmdLowRisk() {
   }
 }
 
+// /tournament — on-demand real 500-Stock Tournament snapshot (2026-09-17).
+// Reuses the exact same real buildTournamentBoard() the live web board
+// reads — never a second ranking pass. Real ENTER_NOW alerts already push
+// automatically the moment they happen (see tournament-engine.js's own
+// runTournamentTick); this is the pull side for checking the board
+// on-demand between those pushes.
+async function cmdTournament() {
+  try {
+    const { buildTournamentBoard } = require("./tournament-engine");
+    const board = buildTournamentBoard(null);
+    if (!board.top25.length) return reply("No real tournament data yet — the background scan hasn't completed a cycle. Check back shortly.");
+    const lines = [`🏆 500-STOCK TOURNAMENT — Top 25: ${board.top25Count} · Elite: ${board.eliteCount}`, ""];
+    board.top25.slice(0, 10).forEach((r) => {
+      lines.push(`#${r.rank} ${r.symbol} — Opp ${Math.round(r.opportunityScore)} · Risk ${Math.round(r.riskScore)} · ${r.tournamentTier} · ${r.signalState || "—"}`);
+    });
+    return reply(lines.join("\n"));
+  } catch (err) {
+    return reply(`Tournament error: ${err.message}`);
+  }
+}
+
 // Property Engine commands (2026-09-16, "STOCKS + PROPERTIES" master
 // prompt) — real RentCast-backed search/analysis via src/property-scanner.js
 // (src/property-engine.js's real math, never a second implementation here).
@@ -1906,6 +1927,7 @@ const COMMANDS = {
   why:       (a) => cmdWhy(a),
   changes:   () => cmdOhChanges(),
   lowrisk:   () => cmdLowRisk(),
+  tournament: () => cmdTournament(),
   watch:     async (a) => { const sym = (a[0] || "").toUpperCase(); if (!sym) return reply("Usage: /watch SYMBOL"); return COMMANDS.wl(["add", sym]); },
   // Property Engine commands unregistered (2026-09-16, explicit request:
   // "remove properties for now keep only stocks in AI Opportunity

@@ -6,7 +6,7 @@
 const assert = require("node:assert");
 const {
   rankTournamentSymbols, tierForRank, velocityLabelFor, rankAdjustedScore,
-  pickEarlyDiscoveryChallengers, extractTournamentFields,
+  pickEarlyDiscoveryChallengers, extractTournamentFields, buildEnterNowMessage,
   TOP_N, ELITE_N, RISK_RANK_ADJUSTMENT_WEIGHT,
 } = require("../src/tournament-engine");
 
@@ -146,6 +146,41 @@ ok("real bug regression (live crash, 2026-09-17): red-flag-engine.js's redFlags 
   assert.strictEqual(fields.negativeContributors.length, 2);
   for (const c of fields.negativeContributors) assert.strictEqual(typeof c, "string", `every negativeContributor must be a real string, got ${typeof c}: ${JSON.stringify(c)}`);
   assert.ok(fields.negativeContributors.includes("Bid/ask spread is unusually wide."));
+});
+
+console.log("\nChecking buildEnterNowMessage — the real Telegram push (2026-09-17, \"telegram notify right away when enter happen\")…");
+
+ok("a real worked example produces a real, readable ENTER NOW message with rank/tier/opp/risk/entry/stop/target/R:R", () => {
+  const msg = buildEnterNowMessage({
+    symbol: "AMD", currentRank: 3, opportunityScore: 88, riskScore: 12, riskLevel: "LOW",
+    entryZone: 220.5, stop: 210, target: 245, riskReward: 2.4,
+  });
+  assert.match(msg, /ENTER NOW — AMD/);
+  assert.match(msg, /Rank: #3 \(ELITE\)/);
+  assert.match(msg, /Opportunity: 88\s+Risk: 12 \(LOW\)/);
+  assert.match(msg, /Entry: \$220\.50\s+Stop: \$210\.00\s+Target: \$245\.00/);
+  assert.match(msg, /R:R 2\.4:1/);
+});
+
+ok("a real symbol with no rank yet (never ranked, or outside the top 25) omits the tier parenthetical rather than fabricating one", () => {
+  const msg = buildEnterNowMessage({ symbol: "XYZ", currentRank: 40, opportunityScore: 60, riskScore: 20, riskLevel: "LOW", entryZone: null, stop: null, target: null, riskReward: null });
+  assert.match(msg, /Rank: #40$/m);
+  assert.doesNotMatch(msg, /R:R/, "must not show a fabricated risk/reward when the real value is unavailable");
+});
+
+console.log("\nChecking the real ENTER_NOW transition detection + alert gating…");
+
+ok("the tick only fires an ENTER_NOW alert on a real transition INTO that state, never on a symbol that was already there (no repeat-alert spam every tick)", () => {
+  const fs = require("node:fs");
+  const src = fs.readFileSync(require.resolve("../src/tournament-engine"), "utf8");
+  assert.match(src, /fields\.signalState === "ENTER_NOW" && prevEntry\?\.signalState !== "ENTER_NOW"/);
+});
+
+ok("the real Telegram send happens only when telegramConfigured() and real market hours are true, and respects the shared 'opportunity' P1 alert budget — never an unbounded/off-hours push", () => {
+  const fs = require("node:fs");
+  const src = fs.readFileSync(require.resolve("../src/tournament-engine"), "utf8");
+  assert.match(src, /telegramConfigured\(\) && marketHours/);
+  assert.match(src, /shouldSendAlert\(\{ category: "opportunity" \}\)/);
 });
 
 console.log("\nChecking reuse discipline (source-inspection tripwire)…");
