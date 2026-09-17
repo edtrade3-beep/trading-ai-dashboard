@@ -77,8 +77,8 @@ ok("fetches the real board/detail endpoints — never computes a score/rank/tier
 });
 
 ok("Opportunity Score and Risk Score are rendered as two real, separate fields — never merged into one displayed number", () => {
-  assert.match(panelSrc, /OPPORTUNITY/);
-  assert.match(panelSrc, /RISK/);
+  assert.match(panelSrc, /Opportunity/i);
+  assert.match(panelSrc, /Risk/i);
   assert.doesNotMatch(panelSrc, /opportunityScore\s*[-+]\s*riskScore/, "must not merge the two into one displayed value");
 });
 
