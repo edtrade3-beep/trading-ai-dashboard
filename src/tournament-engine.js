@@ -125,7 +125,15 @@ function extractTournamentFields(canonical, row) {
     target: Array.isArray(ad?.targets) ? ad.targets[0] ?? null : null,
     riskReward: ad?.riskReward ?? null,
     positiveContributors: (ad?.reasons || []).slice(0, 5),
-    negativeContributors: [...(ad?.blockers || []), ...(opp.redFlags || [])].slice(0, 5),
+    // Real bug fixed here (2026-09-17, live crash report): red-flag-
+    // engine.js's redFlags are real OBJECTS ({key, label, critical,
+    // reason}), not strings — mixing them raw into this array crashed
+    // Tournament500Panel.jsx's rendering ("Objects are not valid as a
+    // React child") the moment any real stock with an active red flag
+    // showed up in the Top 25/challengers/drop zone. Map each to its own
+    // real reason/label text before merging with the (already-string)
+    // blockers.
+    negativeContributors: [...(ad?.blockers || []), ...(opp.redFlags || []).map((f) => f.reason || f.label || f.key)].slice(0, 5),
     riskContributors: null, // filled in by the caller when the full computeRiskScore contributors are available (route-level detail fetch only — not persisted per-tick to keep tournament-state.json bounded)
   };
 }

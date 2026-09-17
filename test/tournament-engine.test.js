@@ -137,6 +137,17 @@ ok("real, honestly-unavailable fundamentals/valuation stay null rather than bein
   assert.strictEqual(fields.valuationScore, null);
 });
 
+ok("real bug regression (live crash, 2026-09-17): red-flag-engine.js's redFlags are real OBJECTS ({key,label,critical,reason}), not strings — negativeContributors must hold only real strings a UI can render directly, never a raw flag object", () => {
+  const canonical = {
+    assetDecision: { blockers: ["Canonical market regime is RISK_OFF."] },
+    opportunity: { breakdown: {}, redFlags: [{ key: "wideSpread", label: "Wide Spread", critical: false, reason: "Bid/ask spread is unusually wide." }] },
+  };
+  const fields = extractTournamentFields(canonical, {});
+  assert.strictEqual(fields.negativeContributors.length, 2);
+  for (const c of fields.negativeContributors) assert.strictEqual(typeof c, "string", `every negativeContributor must be a real string, got ${typeof c}: ${JSON.stringify(c)}`);
+  assert.ok(fields.negativeContributors.includes("Bid/ask spread is unusually wide."));
+});
+
 console.log("\nChecking reuse discipline (source-inspection tripwire)…");
 
 ok("tournament-engine.js reuses the real canonical-decision-pipeline.js, universe-builder.js, and opportunity-timeline-store.js — no second scoring/universe/velocity engine declared here", () => {

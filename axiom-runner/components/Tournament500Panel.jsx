@@ -23,6 +23,14 @@ function rankArrow(change) {
   if (!Number.isFinite(change) || change === 0) return "→ 0";
   return change > 0 ? `↑ +${change}` : `↓ ${change}`;
 }
+// Defensive — never render a raw non-string contributor. The real root
+// cause (redFlags being objects, not strings) is fixed server-side in
+// tournament-engine.js/routes/tournament.js, but the persisted store can
+// still hold entries written before that fix until each symbol's next
+// real tick refreshes it; this guarantees the UI can never crash on
+// stale data either way.
+function asText(v) { return typeof v === "string" ? v : v == null ? "" : (v.reason || v.label || v.key || JSON.stringify(v)); }
+
 function lifecycleLabelFor(row) {
   if (row.tier === "EXTENDED") return "EXTENDED";
   if (row.tier === "INVALIDATED") return "EXHAUSTED";
@@ -82,10 +90,10 @@ function DetailDrawer({ symbol, onClose, C, MONO, SANS }) {
 
             <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, marginTop: 10, marginBottom: 6 }}>WHY IT IS RANKED HERE</div>
             {(data.positiveContributors || []).length > 0 ? (data.positiveContributors.slice(0, 3).map((r, i) => (
-              <div key={i} style={{ fontFamily: SANS, fontSize: 12, color: C.green, marginBottom: 3 }}>+ {r}</div>
+              <div key={i} style={{ fontFamily: SANS, fontSize: 12, color: C.green, marginBottom: 3 }}>+ {asText(r)}</div>
             ))) : <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>No real positive factors recorded.</div>}
             {(data.negativeContributors || []).length > 0 && data.negativeContributors.slice(0, 3).map((r, i) => (
-              <div key={i} style={{ fontFamily: SANS, fontSize: 12, color: C.red, marginBottom: 3 }}>− {r}</div>
+              <div key={i} style={{ fontFamily: SANS, fontSize: 12, color: C.red, marginBottom: 3 }}>− {asText(r)}</div>
             ))}
 
             <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, marginTop: 14, marginBottom: 4 }}>SCORE BREAKDOWN</div>
@@ -102,7 +110,7 @@ function DetailDrawer({ symbol, onClose, C, MONO, SANS }) {
               <>
                 <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, marginTop: 14, marginBottom: 4 }}>RISK FACTORS</div>
                 {data.riskContributors.map((c, i) => (
-                  <div key={i} style={{ fontFamily: SANS, fontSize: 11.5, color: C.textDim, marginBottom: 3 }}>• {c.reason} <span style={{ color: C.text }}>(+{c.points})</span></div>
+                  <div key={i} style={{ fontFamily: SANS, fontSize: 11.5, color: C.textDim, marginBottom: 3 }}>• {asText(c)} <span style={{ color: C.text }}>(+{Number.isFinite(c?.points) ? c.points : "—"})</span></div>
                 ))}
               </>
             )}
@@ -245,7 +253,7 @@ export default function Tournament500Panel({ onSelectSymbol, C, MONO, SANS }) {
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             {board.dropZone.map((d) => (
               <div key={d.symbol} style={{ fontFamily: SANS, fontSize: 11.5, color: C.textDim }}>
-                <b style={{ color: C.text, fontFamily: MONO }}>{d.symbol}</b> #{d.previousRank} → {d.currentRank ? `#${d.currentRank}` : "unranked"} — {d.reasons?.[0] || "Score declined."}
+                <b style={{ color: C.text, fontFamily: MONO }}>{d.symbol}</b> #{d.previousRank} → {d.currentRank ? `#${d.currentRank}` : "unranked"} — {d.reasons?.[0] ? asText(d.reasons[0]) : "Score declined."}
               </div>
             ))}
           </div>

@@ -88,7 +88,10 @@ async function handleTournamentDetail(req, res, requestUrl) {
       opportunityScore: opp.score ?? null, riskScore: ad?.riskScore ?? null, riskLevel: ad?.riskLevel ?? null,
       riskContributors: riskAssessment.contributors,
       tier: opp.tier ?? null, opportunityStage: opp.stage ?? null, signalState: ad?.signalState ?? null,
-      positiveContributors: ad?.reasons || [], negativeContributors: [...(ad?.blockers || []), ...(opp.redFlags || [])],
+      positiveContributors: ad?.reasons || [],
+      // Same real fix as tournament-engine.js's extractTournamentFields —
+      // redFlags are objects ({key, label, critical, reason}), not strings.
+      negativeContributors: [...(ad?.blockers || []), ...(opp.redFlags || []).map((f) => f.reason || f.label || f.key)],
       trendScore: ad?.trendScore ?? null, momentumScore: ad?.momentumScore ?? null, volumeScore: opp.breakdown?.volume ?? null,
       relativeStrengthScore: ad?.relativeStrengthScore ?? null, catalystScore: ad?.newsScore ?? null,
       fundamentalScore: ad?.fundamentalScore ?? null, valuationScore: ad?.valuationScore ?? null,

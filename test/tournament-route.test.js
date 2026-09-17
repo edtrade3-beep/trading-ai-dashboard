@@ -31,6 +31,10 @@ ok("the detail handler reuses the real canonical-decision-pipeline.js and asset-
   assert.doesNotMatch(routeSrc, /function computeRiskScore/, "must not redeclare risk scoring");
 });
 
+ok("real bug regression (live crash, 2026-09-17): negativeContributors maps each redFlag object to its real reason/label string before merging with blockers — never renders a raw flag object", () => {
+  assert.match(routeSrc, /opp\.redFlags \|\| \[\]\)\.map\(\(f\) => f\.reason \|\| f\.label \|\| f\.key\)/);
+});
+
 console.log("\nChecking router.js wiring…");
 
 ok("router.js wires both real tournament routes to routes/tournament.js's real handlers", () => {
