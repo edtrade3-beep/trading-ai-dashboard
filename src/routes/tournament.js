@@ -15,6 +15,7 @@ const { fetchYahooQuoteBatch } = require("../providers/yahoo");
 const { isMarketHoursET } = require("../risk-guardrails");
 const { buildResearchContext } = require("../research-context-adapter");
 const { loadCoachLog } = require("../ai-coach-store");
+const { resolveProviderKeys } = require("../config");
 
 let _cachedRegime = { at: 0, label: null };
 const REGIME_TTL_MS = 5 * 60_000;
@@ -81,6 +82,31 @@ async function handleTournamentDetail(req, res, requestUrl) {
     const state = loadTournamentState();
     const stored = state.symbols[symbol] || null;
 
+    // Real fundamentals/valuation (2026-09-17, explicit request: "pull
+    // fundamental from the platform") — the 12-bucket canonical technical
+    // engine genuinely has no fundamentals bucket (am-core-engine.js's
+    // breakdown has no `fundamentals`/`valuation` key at all — that's why
+    // these two showed "unavailable"), so there's nothing to "unlock"
+    // there. This platform's real fundamentals read lives in a separate,
+    // already-shipped engine — future-value-scoring.js's real FMP-backed
+    // futureScore (growth durability + moat + financial strength) and
+    // valueScore (cheap-relative-to-fundamentals) — the same one powering
+    // "🚀 FUTURE STOCKS"/"💎 UNDERVALUED STOCKS". Reused here via its own
+    // real single-symbol lookup, never a second fundamentals formula.
+    // Failure (FMP not configured, no real fundamentals for this symbol)
+    // leaves both honestly null — never fabricated.
+    let fundamentalScore = ad?.fundamentalScore ?? null;
+    let valuationScore = ad?.valuationScore ?? null;
+    try {
+      const { runFutureValueSymbol } = require("./future-value-scan");
+      const keys = resolveProviderKeys(new URLSearchParams());
+      const fv = await runFutureValueSymbol(symbol, keys);
+      if (fv?.ok) {
+        if (Number.isFinite(fv.row?.futureScore)) fundamentalScore = fv.row.futureScore;
+        if (Number.isFinite(fv.row?.valueScore)) valuationScore = fv.row.valueScore;
+      }
+    } catch { /* real fundamentals genuinely unavailable — leave null, never fabricated */ }
+
     return writeJson(res, 200, {
       ok: true, symbol, price: row.price ?? null,
       currentRank: stored?.currentRank ?? null, previousRank: stored?.previousRank ?? null,
@@ -94,7 +120,7 @@ async function handleTournamentDetail(req, res, requestUrl) {
       negativeContributors: [...(ad?.blockers || []), ...(opp.redFlags || []).map((f) => f.reason || f.label || f.key)],
       trendScore: ad?.trendScore ?? null, momentumScore: ad?.momentumScore ?? null, volumeScore: opp.breakdown?.volume ?? null,
       relativeStrengthScore: ad?.relativeStrengthScore ?? null, catalystScore: ad?.newsScore ?? null,
-      fundamentalScore: ad?.fundamentalScore ?? null, valuationScore: ad?.valuationScore ?? null,
+      fundamentalScore, valuationScore,
       entryQualityScore: opp.breakdown?.entryQuality ?? null,
       entryZone: opp.entry ?? null, invalidation: opp.invalidation ?? null, stop: ad?.stop ?? null,
       target: Array.isArray(ad?.targets) ? ad.targets[0] ?? null : null, riskReward: ad?.riskReward ?? null,
