@@ -82,6 +82,90 @@ function StatCard({ label, value, accent, C, MONO, SANS }) {
   );
 }
 
+// Pure presentational trade-plan content — split out (2026-09-17, "AI
+// Trade Desk — PRIME" master prompt) so PRIME's own inline "Selected
+// Trade Plan" panel can render the exact same real content this modal
+// drawer does, without a second copy of this JSX. Takes already-fetched
+// data/error/loading — no fetch of its own, so callers control the
+// request (DetailDrawer below fetches on open; PrimeTab.jsx fetches on
+// row-select).
+function TradePlanContent({ data, error, loading, extra, C, MONO, SANS }) {
+  const riskBand = data ? RISK_BAND(data.riskScore) : null;
+  if (error) return <div style={{ fontFamily: SANS, fontSize: 12, color: C.red, padding: "10px 0" }}>{error}</div>;
+  if (loading || !data) return (
+    <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, padding: "10px 0" }}>
+      <span className="tourn-spin">⟳</span>&nbsp; Loading real detail…
+    </div>
+  );
+  return (
+    <>
+      <div style={{ display: "flex", gap: 20, marginBottom: 14, padding: "12px 14px", background: C.surface || `${C.border}30`, borderRadius: 10 }}>
+        <StatCard label="Opportunity" value={Number.isFinite(data.opportunityScore) ? Math.round(data.opportunityScore) : "—"} C={C} MONO={MONO} SANS={SANS} />
+        <StatCard label="Risk" value={Number.isFinite(data.riskScore) ? Math.round(data.riskScore) : "—"} accent={RISK_COLOR[riskBand] || RISK_COLOR[data.riskLevel]} C={C} MONO={MONO} SANS={SANS} />
+        <StatCard label="Rank" value={data.currentRank ? `#${data.currentRank}` : "—"} C={C} MONO={MONO} SANS={SANS} />
+      </div>
+      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 16, flexWrap: "wrap" }}>
+        <Badge text={lifecycleLabelFor(data)} color={data.tier === "EXTENDED" || data.tier === "INVALIDATED" ? "red" : "accent"} C={C} MONO={MONO} />
+        <span style={{ fontFamily: SANS, fontSize: 11.5, color: C.textDim }}>Stage: {data.opportunityStage || "—"}</span>
+      </div>
+
+      <div style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 8 }}>WHY IT'S RANKED HERE</div>
+      {(data.positiveContributors || []).length > 0 ? (data.positiveContributors.slice(0, 3).map((r, i) => (
+        <div key={i} style={{ fontFamily: SANS, fontSize: 12.5, color: C.text, marginBottom: 5, paddingLeft: 14, position: "relative" }}>
+          <span style={{ position: "absolute", left: 0, color: C.green }}>▲</span>{asText(r)}
+        </div>
+      ))) : <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginBottom: 5 }}>No real positive factors recorded.</div>}
+      {(data.negativeContributors || []).length > 0 && data.negativeContributors.slice(0, 3).map((r, i) => (
+        <div key={i} style={{ fontFamily: SANS, fontSize: 12.5, color: C.textSec || C.text, marginBottom: 5, paddingLeft: 14, position: "relative" }}>
+          <span style={{ position: "absolute", left: 0, color: C.red }}>▼</span>{asText(r)}
+        </div>
+      ))}
+
+      <div style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginTop: 18, marginBottom: 10 }}>SCORE BREAKDOWN</div>
+      <ScoreBar label="Trend" value={data.trendScore} C={C} MONO={MONO} SANS={SANS} />
+      <ScoreBar label="Momentum" value={data.momentumScore} C={C} MONO={MONO} SANS={SANS} />
+      <ScoreBar label="Volume" value={data.volumeScore} max={10} C={C} MONO={MONO} SANS={SANS} />
+      <ScoreBar label="Relative Strength" value={data.relativeStrengthScore} max={10} C={C} MONO={MONO} SANS={SANS} />
+      <ScoreBar label="Catalyst" value={data.catalystScore} max={12} C={C} MONO={MONO} SANS={SANS} />
+      <ScoreBar label="Fundamental" value={data.fundamentalScore} max={100} C={C} MONO={MONO} SANS={SANS} />
+      <ScoreBar label="Valuation" value={data.valuationScore} max={100} C={C} MONO={MONO} SANS={SANS} />
+      <ScoreBar label="Entry Quality" value={data.entryQualityScore} max={10} C={C} MONO={MONO} SANS={SANS} />
+
+      {(data.riskContributors || []).length > 0 && (
+        <>
+          <div style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginTop: 18, marginBottom: 8 }}>RISK FACTORS</div>
+          {data.riskContributors.map((c, i) => (
+            <div key={i} style={{ display: "flex", justifyContent: "space-between", fontFamily: SANS, fontSize: 11.5, color: C.textDim, marginBottom: 4, gap: 8 }}>
+              <span>{asText(c)}</span>
+              <span style={{ fontFamily: MONO, color: C.amber, fontWeight: 700, flexShrink: 0 }}>+{Number.isFinite(c?.points) ? c.points : "—"}</span>
+            </div>
+          ))}
+        </>
+      )}
+
+      <div style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginTop: 18, marginBottom: 8 }}>TRADE STRUCTURE</div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 4 }}>
+        {[["Entry Zone", data.entryZone], ["Invalidation", data.invalidation], ["Stop", data.stop], ["Target", data.target]].map(([label, v]) => (
+          <div key={label} style={{ background: `${C.border}25`, borderRadius: 8, padding: "8px 10px" }}>
+            <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginBottom: 2 }}>{label}</div>
+            <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: C.text }}>{Number.isFinite(v) ? money(v) : "unavailable"}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", fontFamily: SANS, fontSize: 12, padding: "10px 2px 0" }}>
+        <span style={{ color: C.textDim }}>Risk / Reward</span>
+        <span style={{ fontFamily: MONO, fontWeight: 800, color: C.text }}>{Number.isFinite(data.riskReward) ? `${data.riskReward.toFixed(1)}:1` : "unavailable"}</span>
+      </div>
+      {/* Real position sizing (2026-09-17, PRIME section 14) — rendered
+          by the caller passing `extra` (PrimeTab.jsx's own real
+          /api/quick-trade/precheck read); DetailDrawer's modal use below
+          doesn't pass this, so it simply doesn't render there — additive,
+          never required. */}
+      {extra}
+    </>
+  );
+}
+
 function DetailDrawer({ symbol, onClose, C, MONO, SANS }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
@@ -96,8 +180,6 @@ function DetailDrawer({ symbol, onClose, C, MONO, SANS }) {
     return () => { alive = false; };
   }, [symbol]);
 
-  const riskBand = data ? RISK_BAND(data.riskScore) : null;
-
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 200, display: "flex", justifyContent: "flex-end" }} onClick={onClose}>
       <div className="tourn-drawer" style={{ width: "min(440px, 100%)", height: "100%", background: C.card, borderLeft: `1px solid ${C.border}`, padding: 22, overflowY: "auto", boxSizing: "border-box" }} onClick={(e) => e.stopPropagation()}>
@@ -105,73 +187,7 @@ function DetailDrawer({ symbol, onClose, C, MONO, SANS }) {
           <span style={{ fontFamily: MONO, fontSize: 20, fontWeight: 900, color: C.text, letterSpacing: "0.01em" }}>{symbol}</span>
           <button onClick={onClose} className="tourn-icon-btn" style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 6, width: 28, height: 28, color: C.textDim, fontSize: 14, cursor: "pointer" }}>✕</button>
         </div>
-        {error && <div style={{ fontFamily: SANS, fontSize: 12, color: C.red, padding: "10px 0" }}>{error}</div>}
-        {!data && !error && (
-          <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, padding: "10px 0" }}>
-            <span className="tourn-spin">⟳</span>&nbsp; Loading real detail…
-          </div>
-        )}
-        {data && (
-          <>
-            <div style={{ display: "flex", gap: 20, marginBottom: 14, padding: "12px 14px", background: C.surface || `${C.border}30`, borderRadius: 10 }}>
-              <StatCard label="Opportunity" value={Number.isFinite(data.opportunityScore) ? Math.round(data.opportunityScore) : "—"} C={C} MONO={MONO} SANS={SANS} />
-              <StatCard label="Risk" value={Number.isFinite(data.riskScore) ? Math.round(data.riskScore) : "—"} accent={RISK_COLOR[riskBand] || RISK_COLOR[data.riskLevel]} C={C} MONO={MONO} SANS={SANS} />
-              <StatCard label="Rank" value={data.currentRank ? `#${data.currentRank}` : "—"} C={C} MONO={MONO} SANS={SANS} />
-            </div>
-            <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 16, flexWrap: "wrap" }}>
-              <Badge text={lifecycleLabelFor(data)} color={data.tier === "EXTENDED" || data.tier === "INVALIDATED" ? "red" : "accent"} C={C} MONO={MONO} />
-              <span style={{ fontFamily: SANS, fontSize: 11.5, color: C.textDim }}>Stage: {data.opportunityStage || "—"}</span>
-            </div>
-
-            <div style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginBottom: 8 }}>WHY IT'S RANKED HERE</div>
-            {(data.positiveContributors || []).length > 0 ? (data.positiveContributors.slice(0, 3).map((r, i) => (
-              <div key={i} style={{ fontFamily: SANS, fontSize: 12.5, color: C.text, marginBottom: 5, paddingLeft: 14, position: "relative" }}>
-                <span style={{ position: "absolute", left: 0, color: C.green }}>▲</span>{asText(r)}
-              </div>
-            ))) : <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim, marginBottom: 5 }}>No real positive factors recorded.</div>}
-            {(data.negativeContributors || []).length > 0 && data.negativeContributors.slice(0, 3).map((r, i) => (
-              <div key={i} style={{ fontFamily: SANS, fontSize: 12.5, color: C.textSec || C.text, marginBottom: 5, paddingLeft: 14, position: "relative" }}>
-                <span style={{ position: "absolute", left: 0, color: C.red }}>▼</span>{asText(r)}
-              </div>
-            ))}
-
-            <div style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginTop: 18, marginBottom: 10 }}>SCORE BREAKDOWN</div>
-            <ScoreBar label="Trend" value={data.trendScore} C={C} MONO={MONO} SANS={SANS} />
-            <ScoreBar label="Momentum" value={data.momentumScore} C={C} MONO={MONO} SANS={SANS} />
-            <ScoreBar label="Volume" value={data.volumeScore} max={10} C={C} MONO={MONO} SANS={SANS} />
-            <ScoreBar label="Relative Strength" value={data.relativeStrengthScore} max={10} C={C} MONO={MONO} SANS={SANS} />
-            <ScoreBar label="Catalyst" value={data.catalystScore} max={12} C={C} MONO={MONO} SANS={SANS} />
-            <ScoreBar label="Fundamental" value={data.fundamentalScore} max={100} C={C} MONO={MONO} SANS={SANS} />
-            <ScoreBar label="Valuation" value={data.valuationScore} max={100} C={C} MONO={MONO} SANS={SANS} />
-            <ScoreBar label="Entry Quality" value={data.entryQualityScore} max={10} C={C} MONO={MONO} SANS={SANS} />
-
-            {(data.riskContributors || []).length > 0 && (
-              <>
-                <div style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginTop: 18, marginBottom: 8 }}>RISK FACTORS</div>
-                {data.riskContributors.map((c, i) => (
-                  <div key={i} style={{ display: "flex", justifyContent: "space-between", fontFamily: SANS, fontSize: 11.5, color: C.textDim, marginBottom: 4, gap: 8 }}>
-                    <span>{asText(c)}</span>
-                    <span style={{ fontFamily: MONO, color: C.amber, fontWeight: 700, flexShrink: 0 }}>+{Number.isFinite(c?.points) ? c.points : "—"}</span>
-                  </div>
-                ))}
-              </>
-            )}
-
-            <div style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 800, color: C.textDim, letterSpacing: "0.06em", marginTop: 18, marginBottom: 8 }}>TRADE STRUCTURE</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 4 }}>
-              {[["Entry Zone", data.entryZone], ["Invalidation", data.invalidation], ["Stop", data.stop], ["Target", data.target]].map(([label, v]) => (
-                <div key={label} style={{ background: `${C.border}25`, borderRadius: 8, padding: "8px 10px" }}>
-                  <div style={{ fontFamily: SANS, fontSize: 10, color: C.textDim, marginBottom: 2 }}>{label}</div>
-                  <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: C.text }}>{Number.isFinite(v) ? money(v) : "unavailable"}</div>
-                </div>
-              ))}
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", fontFamily: SANS, fontSize: 12, padding: "10px 2px 0" }}>
-              <span style={{ color: C.textDim }}>Risk / Reward</span>
-              <span style={{ fontFamily: MONO, fontWeight: 800, color: C.text }}>{Number.isFinite(data.riskReward) ? `${data.riskReward.toFixed(1)}:1` : "unavailable"}</span>
-            </div>
-          </>
-        )}
+        <TradePlanContent data={data} error={error} C={C} MONO={MONO} SANS={SANS} />
       </div>
     </div>
   );
@@ -368,3 +384,13 @@ export default function Tournament500Panel({ onSelectSymbol, C, MONO, SANS }) {
     </div>
   );
 }
+
+// Named exports (2026-09-17, "AI Trade Desk — PRIME" master prompt) —
+// PrimeTab.jsx reuses these exact real pieces (the same Row/Badge/
+// TradePlanContent this panel itself renders) for its own Top 5 Elite /
+// Early Discovery / Tournament Top 25 / Selected Trade Plan sections,
+// rather than declaring a second, parallel copy of any of them.
+export {
+  Row, Badge, TradePlanContent, StatCard, ScoreBar, lifecycleLabelFor, asText,
+  RISK_BAND, RISK_COLOR, TIER_COLOR, TIER_BG, VELOCITY_COLOR, rankArrow, money, pct,
+};
