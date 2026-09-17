@@ -64,13 +64,20 @@ ok("router.js wires both real property routes to routes/property.js's real handl
   assert.match(routerSrc, /\/api\/property\/search/);
 });
 
-console.log("\nChecking Telegram command wiring — /properties /rentals /under /flip, real reuse only…");
+console.log("\nChecking Telegram command wiring — /properties /rentals /under /flip currently hidden (2026-09-16, \"remove properties for now, keep only stocks\"), not deleted…");
 
-ok("all 4 real property commands are registered in the COMMANDS router", () => {
-  assert.match(botSrc, /properties: \(a\) => cmdProperties\(a\),/);
-  assert.match(botSrc, /rentals:\s+\(a\) => cmdRentals\(a\),/);
-  assert.match(botSrc, /under:\s+\(a\) => cmdUnder\(a\),/);
-  assert.match(botSrc, /flip:\s+\(a\) => cmdFlip\(a\),/);
+ok("the 4 real property commands are NOT registered in the COMMANDS router right now (hidden, per explicit request)", () => {
+  assert.doesNotMatch(botSrc, /\n  properties: \(a\) => cmdProperties\(a\),/);
+  assert.doesNotMatch(botSrc, /\n  rentals:\s+\(a\) => cmdRentals\(a\),/);
+  assert.doesNotMatch(botSrc, /\n  under:\s+\(a\) => cmdUnder\(a\),/);
+  assert.doesNotMatch(botSrc, /\n  flip:\s+\(a\) => cmdFlip\(a\),/);
+});
+
+ok("the real cmdProperties/cmdRentals/cmdUnder/cmdFlip handlers themselves are still fully intact (hidden, not deleted — restorable by re-registering)", () => {
+  assert.match(botSrc, /async function cmdProperties\(args\)/);
+  assert.match(botSrc, /async function cmdRentals\(args\)/);
+  assert.match(botSrc, /async function cmdUnder\(args\)/);
+  assert.match(botSrc, /async function cmdFlip\(args\)/);
 });
 
 ok("every property command calls the real src/property-scanner.js orchestrator — no second scan/scoring declared inline in telegram-bot.js", () => {

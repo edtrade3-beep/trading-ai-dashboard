@@ -1906,13 +1906,17 @@ const COMMANDS = {
   changes:   () => cmdOhChanges(),
   lowrisk:   () => cmdLowRisk(),
   watch:     async (a) => { const sym = (a[0] || "").toUpperCase(); if (!sym) return reply("Usage: /watch SYMBOL"); return COMMANDS.wl(["add", sym]); },
-  // Property Engine (2026-09-16, "STOCKS + PROPERTIES" master prompt) —
-  // real RentCast-backed commands, same src/property-scanner.js orchestrator
-  // every /api/property/* route already uses.
-  properties: (a) => cmdProperties(a),
-  rentals:    (a) => cmdRentals(a),
-  under:      (a) => cmdUnder(a),
-  flip:       (a) => cmdFlip(a),
+  // Property Engine commands unregistered (2026-09-16, explicit request:
+  // "remove properties for now keep only stocks in AI Opportunity
+  // Hunter"). "Hide, don't delete" — same convention Sidebar.jsx already
+  // uses repeatedly: cmdProperties/cmdRentals/cmdUnder/cmdFlip and the
+  // real src/property-scanner.js engine + /api/property/* routes are all
+  // completely untouched, just not reachable as Telegram commands right
+  // now. Re-add these four lines to restore.
+  // properties: (a) => cmdProperties(a),
+  // rentals:    (a) => cmdRentals(a),
+  // under:      (a) => cmdUnder(a),
+  // flip:       (a) => cmdFlip(a),
   future:      () => cmdFind(["future"]),
   aplus:       () => cmdFind(["aplus"]),
   breakout:    () => cmdFind(["breakout"]),
