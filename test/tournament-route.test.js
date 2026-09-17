@@ -35,6 +35,13 @@ ok("real bug regression (live crash, 2026-09-17): negativeContributors maps each
   assert.match(routeSrc, /opp\.redFlags \|\| \[\]\)\.map\(\(f\) => f\.reason \|\| f\.label \|\| f\.key\)/);
 });
 
+ok("real fundamentals wiring (2026-09-17, \"pull fundamental from the platform\"): the detail handler reuses the real, already-shipped future-value-scan.js's runFutureValueSymbol (FMP-backed futureScore/valueScore) — no second fundamentals formula declared here, and a real fetch failure leaves both fields honestly null rather than fabricating a score", () => {
+  assert.match(routeSrc, /require\("\.\/future-value-scan"\)/);
+  assert.match(routeSrc, /runFutureValueSymbol/);
+  assert.doesNotMatch(routeSrc, /function computeFutureValueRead/, "must not redeclare the fundamentals scoring formula");
+  assert.match(routeSrc, /catch \{ \/\* real fundamentals genuinely unavailable/);
+});
+
 console.log("\nChecking router.js wiring…");
 
 ok("router.js wires both real tournament routes to routes/tournament.js's real handlers", () => {

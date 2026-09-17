@@ -141,8 +141,8 @@ function DetailDrawer({ symbol, onClose, C, MONO, SANS }) {
             <ScoreBar label="Volume" value={data.volumeScore} max={10} C={C} MONO={MONO} SANS={SANS} />
             <ScoreBar label="Relative Strength" value={data.relativeStrengthScore} max={10} C={C} MONO={MONO} SANS={SANS} />
             <ScoreBar label="Catalyst" value={data.catalystScore} max={12} C={C} MONO={MONO} SANS={SANS} />
-            <ScoreBar label="Fundamental" value={data.fundamentalScore} C={C} MONO={MONO} SANS={SANS} />
-            <ScoreBar label="Valuation" value={data.valuationScore} C={C} MONO={MONO} SANS={SANS} />
+            <ScoreBar label="Fundamental" value={data.fundamentalScore} max={100} C={C} MONO={MONO} SANS={SANS} />
+            <ScoreBar label="Valuation" value={data.valuationScore} max={100} C={C} MONO={MONO} SANS={SANS} />
             <ScoreBar label="Entry Quality" value={data.entryQualityScore} max={10} C={C} MONO={MONO} SANS={SANS} />
 
             {(data.riskContributors || []).length > 0 && (
