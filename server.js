@@ -537,6 +537,16 @@ server.listen(PORT, HOST, () => {
   // (Deal Score crossing 80, a risk escalation to HIGH/CRITICAL, a real
   // margin-of-safety improvement, and first entry into the ranked list).
   registerJob("Opportunity Hunter Alerts", 15 * 60_000, () => require("./src/opportunity-hunter-alerts").checkOpportunityHunterAlerts());
+  // 500-Stock Tournament (2026-09-17 master prompt) — real tiered refresh,
+  // per its own explicit "do not run 500 expensive calls every few
+  // seconds" constraint: each tick scans one 60-symbol rotation batch of
+  // the real dynamic universe (universe-builder.js) through the same
+  // canonical pipeline every other opportunity scan already uses. A full
+  // real sweep of a ~500-symbol universe takes ~14 ticks (~140 min) at
+  // this cadence — the same real per-minute provider-call budget as the
+  // existing 15-min/100-symbol Opportunity Hunter Alerts job above, just
+  // spread over a much larger universe instead of refreshing fast.
+  registerJob("500-Stock Tournament Tick", 10 * 60_000, () => require("./src/tournament-engine").runTournamentTick());
   console.log("[Opportunity Hunter Alerts] Real Deal-Score/risk-spike/valuation-improved detection active — every 15 min");
 
   // Watchlist institutional alerts — Phase 5 of the Institutional Research
