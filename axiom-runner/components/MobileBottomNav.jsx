@@ -20,22 +20,22 @@ const PRIMARY = [
   { id: "calendar", label: "Calendar", icon: "📅", tab: "calendar" },
 ];
 
-export const MOBILE_BOTTOM_NAV_H = 62;
+export const MOBILE_BOTTOM_NAV_H = 66; // bumped from 62 (2026-09-18 usability fix) to fit the slightly larger icon/label/tap-target sizing below
 
 export default function MobileBottomNav({ C, MONO, SANS, activeTab, setActiveTab, moreOpen, onToggleMore, alertCount }) {
   const Item = ({ icon, label, active, onClick, badge }) => (
     <button
       onClick={onClick}
       style={{
-        flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
-        background: "transparent", border: "none", cursor: "pointer", padding: "8px 2px",
-        color: active ? C.accent : C.textDim, position: "relative",
+        flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3,
+        background: "transparent", border: "none", cursor: "pointer", padding: "8px 4px",
+        color: active ? C.accent : C.textDim, position: "relative", minHeight: 48,
       }}
     >
-      <span style={{ fontSize: 19, lineHeight: 1 }}>{icon}</span>
-      <span style={{ fontFamily: SANS, fontSize: 9.5, fontWeight: active ? 800 : 600 }}>{label}</span>
+      <span style={{ fontSize: 21, lineHeight: 1 }}>{icon}</span>
+      <span style={{ fontFamily: SANS, fontSize: 10.5, fontWeight: active ? 800 : 600 }}>{label}</span>
       {badge > 0 && (
-        <span style={{ position: "absolute", top: 2, right: "28%", background: C.red, color: "#fff", borderRadius: 8, minWidth: 15, height: 15, fontSize: 9, fontWeight: 800, fontFamily: MONO, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 3px" }}>{badge}</span>
+        <span style={{ position: "absolute", top: 2, right: "22%", background: C.red, color: "#fff", borderRadius: 8, minWidth: 16, height: 16, fontSize: 9.5, fontWeight: 800, fontFamily: MONO, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 3px" }}>{badge}</span>
       )}
     </button>
   );
