@@ -56,6 +56,15 @@ ok("wires the real support-resistance-engine.js additively too, reusing the SAME
   assert.match(block, /supportResistance/);
 });
 
+ok("real fix (2026-09-18 follow-up, 'only 2 candidates... not a true multi-source cluster'): supportResistance is computed exactly ONCE (not twice) and threaded into computeWhatToPay itself, so What Price To Pay's own STRONG BUY ZONE can anchor on the real cluster, not just EMA50/contractionLow", () => {
+  const start = marketSrc.indexOf('pathname === "/api/market/what-to-pay"');
+  const end = marketSrc.indexOf("\n  }", marketSrc.indexOf("computeQuantFeatures({ bars", start));
+  const block = marketSrc.slice(start, end);
+  const occurrences = (block.match(/computeSupportResistanceZones\(/g) || []).length;
+  assert.strictEqual(occurrences, 1, "must compute the real cluster exactly once per request, never twice");
+  assert.match(block, /computeWhatToPay\(\{[\s\S]*?supportResistance,?\s*\}\)/, "computeWhatToPay must receive the real supportResistance object");
+});
+
 console.log(`\n${passed} checks passed.`);
 if (process.exitCode) console.error("WHAT-TO-PAY-ROUTE TEST FAILED");
 else console.log("WHAT-TO-PAY-ROUTE TEST OK");
