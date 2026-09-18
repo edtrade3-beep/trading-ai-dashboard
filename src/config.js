@@ -43,7 +43,8 @@ const MIME_TYPES = {
   ".jpg": "image/jpeg",
   ".jpeg": "image/jpeg",
   ".svg": "image/svg+xml",
-  ".ico": "image/x-icon"
+  ".ico": "image/x-icon",
+  ".webmanifest": "application/manifest+json"
 };
 
 const TIMEFRAME_CONFIG = {
