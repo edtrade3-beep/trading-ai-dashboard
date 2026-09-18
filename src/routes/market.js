@@ -3526,6 +3526,7 @@ async function handleMarket(req, res, requestUrl) {
         const { computeCanonicalAssetDecision } = require("../canonical-decision-pipeline");
         const { computeWhatToPay } = require("../what-to-pay");
         const { computeQuantFeatures } = require("../quant-feature-engine");
+        const { computeSupportResistanceZones } = require("../support-resistance-engine");
         const { dailyEmaInputs } = require("../top50-scanner");
         const MACRO_SYMS = ["SPY", "QQQ", "^VIX"];
 
@@ -3566,7 +3567,16 @@ async function handleMarket(req, res, requestUrl) {
         // signalState/verdict above are computed with zero dependency on
         // this object.
         const quantFeatures = computeQuantFeatures({ bars, price: trend.price });
-        return { ...wtp, symbol, price: trend.price, tier, signalState, quantFeatures };
+        // Real Support/Resistance Cluster Engine (2026-09-18, same master
+        // prompt, "SUPPORT / RESISTANCE ENGINE") — same real bars + the
+        // same real pivot/contractionLow computeWhatToPay above already
+        // reused, never a second breakout/support calculation. Additive
+        // for now (surfaced, not yet wired into whatToPay's own zone
+        // centers — a deliberately separate follow-up so that already-
+        // tested zone-picking logic gets its own dedicated review rather
+        // than changing under this same pass).
+        const supportResistance = computeSupportResistanceZones({ bars, price: trend.price, pivot: trend.setup?.pivot, contractionLow: trend.setup?.contractionLow });
+        return { ...wtp, symbol, price: trend.price, tier, signalState, quantFeatures, supportResistance };
       });
       return writeJson(res, 200, { ok: true, ...result });
     } catch (err) {

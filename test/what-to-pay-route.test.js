@@ -47,6 +47,15 @@ ok("wires the real quant-feature-engine.js additively alongside What Price To Pa
   assert.match(block, /quantFeatures/);
 });
 
+ok("wires the real support-resistance-engine.js additively too, reusing the SAME real bars/pivot/contractionLow already in hand — no second breakout/support calculation", () => {
+  const start = marketSrc.indexOf('pathname === "/api/market/what-to-pay"');
+  const end = marketSrc.indexOf("\n  }", marketSrc.indexOf("computeSupportResistanceZones({ bars", start));
+  const block = marketSrc.slice(start, end);
+  assert.match(block, /require\("\.\.\/support-resistance-engine"\)/);
+  assert.match(block, /computeSupportResistanceZones\(\{ bars, price: trend\.price, pivot: trend\.setup\?\.pivot, contractionLow: trend\.setup\?\.contractionLow \}\)/);
+  assert.match(block, /supportResistance/);
+});
+
 console.log(`\n${passed} checks passed.`);
 if (process.exitCode) console.error("WHAT-TO-PAY-ROUTE TEST FAILED");
 else console.log("WHAT-TO-PAY-ROUTE TEST OK");
