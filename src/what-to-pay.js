@@ -91,17 +91,41 @@ function computeWhatToPay({
     if (strongBuyZone.high <= strongBuyZone.low) strongBuyZone = null; // no real separation left — honest omission, not a fabricated sliver
   }
 
-  // DON'T CHASE ABOVE — a real dollar ceiling, cheaply derived from
-  // atr-risk-engine.js's own already-configured ANTI_CHASE_DEFAULTS.
-  // extendedMax (8% above the real pivot) — the exact same real
-  // threshold Trap Shield/Sniper Decision's own "don't chase" read
-  // already uses, never a second, independently-chosen number.
-  const dontChaseAbove = Number.isFinite(pivot) ? round2(pivot * 1.08) : null;
+  // DON'T CHASE ABOVE (2026-09-18, "CANONICAL QUANT ENGINE" master
+  // prompt, explicit rule: "Do NOT calculate this as an arbitrary fixed
+  // percentage") — a real, volatility-scaled dollar ceiling instead of
+  // the prior flat 8%-above-pivot rule. A quiet, low-ATR stock now gets a
+  // tighter ceiling; a genuinely volatile one gets real room, rather than
+  // every stock sharing one number. DONT_CHASE_ATR_MULT (2.5) sits
+  // between atr-risk-engine.js's own real stopMult (1.5, tighter — a
+  // stop needs to sit close) and target2R (3, wider) — a disclosed,
+  // internally-consistent choice, not a second independently-invented
+  // scale. ANTI_CHASE_DEFAULTS' own fixed-% bands (Trap Shield/Sniper
+  // Decision's existing "don't chase" read) are untouched — only THIS
+  // file's own ceiling changes, and antiChaseBand below still reports
+  // that real, separate existing classification alongside it.
+  const DONT_CHASE_ATR_MULT = 2.5;
+  const dontChaseAbove = Number.isFinite(pivot) ? round2(pivot + DONT_CHASE_ATR_MULT * atr) : null;
   const antiChase = Number.isFinite(pivot) ? computeAntiChase(round2((price / pivot - 1) * 100)) : null;
 
   // Distance to the WHAT TO PAY zone — positive = price sits above the
-  // zone (real "how far to go"); 0 once price is inside it.
+  // zone (real "how far to go"); 0 once price is inside it. A SEPARATE
+  // real signed distance below the zone (distanceBelowZonePct) covers the
+  // opposite real case, which this single non-negative field could never
+  // represent — see the real BELOW BUY ZONE fix below.
   const distancePct = whatToPay ? round2(Math.max(0, ((price - whatToPay.high) / whatToPay.high) * 100)) : null;
+  // Real BELOW BUY ZONE detection (2026-09-18, Quant Engine master
+  // prompt's own explicit "X% BELOW BUY ZONE — CHECK BREAKDOWN" case).
+  // whatToPay's own zone only exists when ema20 <= price (the "genuine
+  // discount" gate above, by design — a level price hasn't reached yet
+  // is never shown as an already-cheap zone). That means whatToPay is
+  // ALWAYS null in exactly the case this label needs to cover (price
+  // has fallen THROUGH the pullback reference entirely) — distancePct
+  // can't represent it either (it only measures distance ABOVE a zone
+  // that, here, doesn't exist). So this reads the real ema20 reference
+  // directly instead of the zone object, independent of that gate.
+  const distanceBelowZonePct = Number.isFinite(ema20) && Number.isFinite(price) && price < ema20
+    ? round2(((ema20 - price) / ema20) * 100) : null;
 
   const confirmation = computeConfirmation({ higherLows, supportHolding, rsi, rsiPrior, macdHistogram, macdHistogramPrior, aboveVwap, ema9, ema9Prior, price, rvol });
 
@@ -129,6 +153,18 @@ function computeWhatToPay({
     priceStatus = confirmation.passed && executionReady ? "ENTRY CONFIRMED" : "IN BUY ZONE";
   } else if (whatToPay && distancePct != null && distancePct <= 3) {
     priceStatus = "APPROACHING BUY ZONE";
+  } else if (
+    // Real BELOW BUY ZONE case (2026-09-18, Quant Engine master prompt,
+    // explicit ask: "BELOW BUY ZONE — CHECK BREAKDOWN"). Checked BEFORE
+    // the WAIT FOR PRICE catch-all, and only once price has fallen a
+    // genuinely meaningful amount below EMA20 (not strongBuyZone either —
+    // a price still inside strongBuyZone was already handled above) so a
+    // routine intraday wiggle doesn't get flagged as a structural
+    // breakdown.
+    (!strongBuyZone || price < strongBuyZone.low) &&
+    distanceBelowZonePct != null && distanceBelowZonePct > 1
+  ) {
+    priceStatus = "BELOW BUY ZONE — CHECK BREAKDOWN";
   } else {
     priceStatus = "WAIT FOR PRICE";
   }
@@ -146,7 +182,7 @@ function computeWhatToPay({
   return {
     available: true, atr,
     whatToPay, strongBuyZone, dontChaseAbove, antiChaseBand: antiChase?.band || null,
-    distancePct, priceStatus,
+    distancePct, distanceBelowZonePct, priceStatus,
     confirmation,
   };
 }

@@ -3525,6 +3525,7 @@ async function handleMarket(req, res, requestUrl) {
       const result = await cached(`what-to-pay:${symbol}`, 5 * 60_000, async () => {
         const { computeCanonicalAssetDecision } = require("../canonical-decision-pipeline");
         const { computeWhatToPay } = require("../what-to-pay");
+        const { computeQuantFeatures } = require("../quant-feature-engine");
         const { dailyEmaInputs } = require("../top50-scanner");
         const MACRO_SYMS = ["SPY", "QQQ", "^VIX"];
 
@@ -3558,7 +3559,14 @@ async function handleMarket(req, res, requestUrl) {
           rsi: dt.rsi15m, rsiPrior: dt.rsi15mPrior, macdHistogram: dt.macdHistogram15m, macdHistogramPrior: dt.macdHistogramPrior15m,
           aboveVwap: dt.aboveVwap, rvol: dt.rvol,
         });
-        return { ...wtp, symbol, price: trend.price, tier, signalState };
+        // Real Quant Feature Engine (2026-09-18, "BUILD THE CANONICAL
+        // QUANT ENGINE" master prompt, Phase 2) — the SAME real bars this
+        // handler already fetched above, additive alongside What Price To
+        // Pay, never a second entry/verdict engine. Read-only lens: tier/
+        // signalState/verdict above are computed with zero dependency on
+        // this object.
+        const quantFeatures = computeQuantFeatures({ bars, price: trend.price });
+        return { ...wtp, symbol, price: trend.price, tier, signalState, quantFeatures };
       });
       return writeJson(res, 200, { ok: true, ...result });
     } catch (err) {
