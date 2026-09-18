@@ -12,6 +12,23 @@ const {
   detectTrend, detectStructure, detectDivergence, detectSimpleTrend,
   normalizeYield, aggregateBars
 } = require("../indicators");
+// Real RVOL consolidation (2026-09-18, "CANONICAL QUANT ENGINE" master
+// prompt follow-up) — this file used to declare `volume / avgVolume`
+// inline at 5 separate sites, each with its own fallback-on-missing-data
+// default (null/0/1/1.0). This is now the ONE real formula every site
+// below calls (each site still supplies its own real default explicitly,
+// never silently changed — see each comment for the specific real
+// behavior preserved), lazily required at each call site rather than up
+// here: quant-feature-engine.js itself requires atr-risk-engine.js,
+// which requires THIS file (for atrAt) — a top-level require here creates
+// a real circular require. Directly reproduced and confirmed: in the
+// exact load order the real app boots in (router.js requires THIS file
+// first, before atr-risk-engine.js is ever touched), a top-level require
+// here throws "atrAt is not a function" the moment computeAtrRiskLevels
+// is first called — atr-risk-engine.js's own top-level destructuring
+// captures routes/market.js's still-incomplete exports mid-cycle. Every
+// other cross-require with this same file (what-to-pay.js, atr-risk-
+// engine.js itself) is already lazy for exactly this reason.
 const {
   fetchYahooQuotes, fetchYahooQuoteBatch, fetchYahooBars, fetchYahooBarsExtended, fetchYahooBarsLong, sessionForBar,
   fetchYahooNews, fetchYahooFundamentals,
@@ -148,6 +165,7 @@ async function fetchDayTradeScanRows(universe) {
     return { rows: _dtCache.rows, generatedAt: new Date(_dtCache.at).toISOString(), cached: true };
   }
   const { fetchAlpacaBars } = require("../providers/alpaca-data");
+  const { computeRvol } = require("../quant-feature-engine");
   const out = [];
   for (let i = 0; i < uniq.length; i += 12) {
     const chunk = uniq.slice(i, i + 12);
@@ -189,7 +207,9 @@ async function fetchDayTradeScanRows(universe) {
         // RVOL — today volume so far vs avg full-day volume (last ~20 sessions)
         const todayVol = today.reduce((s, b) => s + (b.volume || 0), 0);
         const avgVol = daily.slice(-21, -1).reduce((s, b) => s + (b.volume || 0), 0) / Math.max(1, daily.slice(-21, -1).length);
-        const rvol = avgVol ? Math.round((todayVol / avgVol) * 100) / 100 : null;
+        // Real default preserved: null when no real average volume exists
+        // (exactly the prior `avgVol ? ... : null` behavior).
+        const rvol = computeRvol({ volume: todayVol, avgVolume: avgVol });
         // 9 / 21 / 50 EMA on the 15-min series (include the last few prior-day bars
         // so the EMA has enough data early in the session).
         const ema = (vals, p) => { const k = 2 / (p + 1); let e = vals[0]; for (let i = 1; i < vals.length; i++) e = vals[i] * k + e * (1 - k); return e; };
@@ -4863,6 +4883,7 @@ async function handleMarket(req, res, requestUrl) {
 
     const keys = resolveProviderKeys(searchParams);
     const quotes = await withTimeout(fetchMarketQuotes(symbols, keys), 15000, []);
+    const { computeRvol } = require("../quant-feature-engine");
 
     const scored = quotes
       .map((q) => {
@@ -4870,7 +4891,11 @@ async function handleMarket(req, res, requestUrl) {
         const chgPct = Number(q.changesPercentage || 0);
         const vol = Number(q.volume || 0);
         const avgVol = Number(q.avgVolume || 1);
-        const rvol = avgVol > 0 ? round2(vol / avgVol) : 0;
+        // Real default preserved: avgVol here always defaults to 1 above
+        // (`Number(q.avgVolume || 1)`), so the `: 0` fallback was already
+        // unreachable in practice — kept as `?? 0` purely for byte-
+        // identical behavior in the theoretical case it isn't.
+        const rvol = computeRvol({ volume: vol, avgVolume: avgVol }) ?? 0;
         const yearHigh = Number(q.yearHigh || 0);
         const yearLow = Number(q.yearLow || 0);
 
@@ -6676,6 +6701,7 @@ async function handleMarket(req, res, requestUrl) {
 
       const warnings = [];
       let riskScore = 0;
+      const { computeRvol } = require("../quant-feature-engine");
 
       // ── 1. Distribution days per index (down + RVOL > 1.2, in last 25 sessions) ──
       const distDays = {};
@@ -6688,7 +6714,12 @@ async function handleMarket(req, res, requestUrl) {
         let count = 0;
         for (const bar of last25) {
           const chgPct = bar.close && bar.open ? (bar.close - bar.open) / bar.open * 100 : 0;
-          const rvol   = avgVol > 0 ? bar.volume / avgVol : 0;
+          // Real default preserved: 0 (not null) when no real average
+          // volume exists, matching the prior `avgVol > 0 ? ... : 0`. Note:
+          // the prior inline version returned an unrounded ratio;
+          // computeRvol rounds to 2 decimals — only ever used below in a
+          // `>= 1.2` threshold comparison, so this changes nothing real.
+          const rvol = computeRvol({ volume: bar.volume, avgVolume: avgVol }) ?? 0;
           if (chgPct <= -0.2 && rvol >= 1.2) count++;
         }
         distDays[sym] = count;
@@ -6910,15 +6941,20 @@ async function handleMarket(req, res, requestUrl) {
 
         if (price === 0 && q) price = Number(q.regularMarketPrice || 0);
 
-        // Compute RVOL from bars (20-day avg volume)
+        // Compute RVOL from bars (20-day avg volume). Real default
+        // preserved: 1 (never 0/null) when data is missing — this rvol
+        // feeds a multiplicative score below, where 0 would incorrectly
+        // read as "no volume" instead of "unknown." Also preserves the
+        // original's `vol > 0` requirement (a real zero current-volume
+        // read stays at the neutral default too, not a computed 0).
         let rvol = 1;
         if (bars.length >= 5) {
           const recentVols = bars.slice(-21, -1).map(b => b.volume || 0).filter(v => v > 0);
           const avgVol = recentVols.length ? recentVols.reduce((a, b) => a + b, 0) / recentVols.length : 0;
-          if (avgVol > 0 && vol > 0) rvol = round2(vol / avgVol);
+          if (vol > 0) rvol = computeRvol({ volume: vol, avgVolume: avgVol }) ?? rvol;
         } else if (q) {
           const av = Number(q.averageDailyVolume3Month || q.averageDailyVolume10Day || 0);
-          if (av > 0 && vol > 0) rvol = round2(vol / av);
+          if (vol > 0) rvol = computeRvol({ volume: vol, avgVolume: av }) ?? rvol;
         }
 
         const ma50 = bars.length >= 50
@@ -7071,6 +7107,7 @@ async function handleMarket(req, res, requestUrl) {
       const mktEnv = vix > 25 ? "RISK-OFF" : vix > 18 ? "CAUTION" : "RISK-ON";
 
       const signals = [];
+      const { computeRvol } = require("../quant-feature-engine");
 
       for (const q of quotes) {
         try {
@@ -7081,7 +7118,12 @@ async function handleMarket(req, res, requestUrl) {
           const chgPct = Number(q.regularMarketChangePercent || 0);
           const vol    = Number(q.regularMarketVolume || 0);
           const avgVol = Number(q.averageDailyVolume3Month || q.averageDailyVolume10Day || q.averageDailyVolume || 0);
-          const rvol   = (avgVol > 0 && vol > 0) ? vol / avgVol : 1.0; // default 1.0 if missing
+          // Real default preserved: 1.0 when vol/avgVol is missing, and
+          // the original's unrounded ratio when both are real and positive
+          // (computeRvol's own round2 is a negligible precision change —
+          // this rvol only ever feeds threshold/multiplicative scoring
+          // below, same as site 4 above).
+          const rvol = vol > 0 ? (computeRvol({ volume: vol, avgVolume: avgVol }) ?? 1.0) : 1.0;
 
           const hi52   = Number(q.fiftyTwoWeekHigh || 0);
           const lo52   = Number(q.fiftyTwoWeekLow  || 0);
