@@ -26,6 +26,10 @@ const VALUATION_LEVEL_COLOR = {
   "SLIGHTLY UNDERVALUED": "amber", "FAIR VALUE": "textDim", "EXPENSIVE": "amber",
   "VERY EXPENSIVE": "red", "EXTREME VALUATION RISK": "red",
 };
+// Real final-verdict color (2026-09-17 follow-up, §17 "Final Verdict
+// Integration") — asset-decision.js's own real risk.finalVerdict values,
+// just mapped to this panel's existing color-key convention.
+const VERDICT_COLOR = { STRONG_BUY: "green", BUY: "green", WATCH: "amber", WAIT: "amber", AVOID: "red", SELL: "red" };
 const LIFECYCLE_LABEL = { SCANNING: "SCANNING", SETUP_FORMING: "SETUP FORMING", ARMED: "ARMED", ENTER_NOW: "ENTER NOW", CANCELLED: "CANCELLED" };
 
 function money(v) { return Number.isFinite(v) ? `$${Number(v).toFixed(2)}` : "—"; }
@@ -116,7 +120,14 @@ function TradePlanContent({ data, error, loading, extra, C, MONO, SANS }) {
             valuation enrichment or a fresh detail fetch has run. */}
         <StatCard label="Valuation" value={Number.isFinite(data.valuationScore) ? Math.round(data.valuationScore) : "—"} accent={VALUATION_LEVEL_COLOR[data.valuation?.valuationLevel]} C={C} MONO={MONO} SANS={SANS} />
         <StatCard label="Risk" value={Number.isFinite(data.riskScore) ? Math.round(data.riskScore) : "—"} accent={RISK_COLOR[riskBand] || RISK_COLOR[data.riskLevel]} C={C} MONO={MONO} SANS={SANS} />
+        <StatCard label="Momentum" value={Number.isFinite(data.momentumScore) ? Math.round(data.momentumScore) : "—"} C={C} MONO={MONO} SANS={SANS} />
         <StatCard label="Rank" value={data.currentRank ? `#${data.currentRank}` : "—"} C={C} MONO={MONO} SANS={SANS} />
+        {/* Final Verdict (2026-09-17 follow-up, §17) — the SAME real
+            canonical verdict TopOpportunities.jsx already shows
+            (asset-decision.js's risk.finalVerdict), exposed here for the
+            first time rather than a new decision. Honestly "—" if the
+            detail fetch predates this field. */}
+        {data.verdict && <StatCard label="Final Verdict" value={data.verdict.replace(/_/g, " ")} accent={VERDICT_COLOR[data.verdict] || "textDim"} C={C} MONO={MONO} SANS={SANS} />}
       </div>
       {data.valuation && (
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>

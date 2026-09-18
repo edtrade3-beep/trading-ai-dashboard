@@ -48,6 +48,10 @@ ok("real bug fix (2026-09-17, ONE-ENGINE-RULE gap this route itself introduced b
   assert.match(routeSrc, /valuationScore = v\.valuationScore/);
 });
 
+ok("Final Verdict Integration (2026-09-17 follow-up, §17): the detail handler exposes the real, already-computed asset-decision.js verdict (risk.finalVerdict) — no new decision logic, just exposure", () => {
+  assert.match(routeSrc, /verdict: ad\?\.verdict \?\? null/);
+});
+
 console.log("\nChecking router.js wiring…");
 
 ok("router.js wires both real tournament routes to routes/tournament.js's real handlers", () => {

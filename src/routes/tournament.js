@@ -142,6 +142,12 @@ async function handleTournamentDetail(req, res, requestUrl) {
       opportunityScore: opp.score ?? null, riskScore: ad?.riskScore ?? null, riskLevel: ad?.riskLevel ?? null,
       riskContributors: riskAssessment.contributors,
       tier: opp.tier ?? null, opportunityStage: opp.stage ?? null, signalState: ad?.signalState ?? null,
+      // Real Final Verdict Integration (2026-09-17 follow-up, "VALUATION
+      // ENGINE" master prompt §17: "Opportunity / Valuation / Risk /
+      // Momentum / Final Verdict" shown together). ad.verdict is already
+      // computed by asset-decision.js's own real risk-committee override
+      // logic — just exposed here for the first time, never a new formula.
+      verdict: ad?.verdict ?? null,
       positiveContributors: ad?.reasons || [],
       // Same real fix as tournament-engine.js's extractTournamentFields —
       // redFlags are objects ({key, label, critical, reason}), not strings.
