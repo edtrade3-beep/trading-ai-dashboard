@@ -47,6 +47,28 @@ ok("STRONG BUY ZONE centers on the deeper of real EMA50/contractionLow, and sits
   assert.ok(r.strongBuyZone.high <= r.whatToPay.low, "STRONG BUY ZONE must never overlap/exceed WHAT TO PAY");
 });
 
+ok("real support-cluster fix (2026-09-18 follow-up, 'only 2 candidates... not a true multi-source cluster'): when the caller supplies a real supportResistance.nearestSupport DEEPER than EMA50/contractionLow, STRONG BUY ZONE anchors on it instead — a genuinely well-evidenced cluster can now win even when it sits below both prior candidates", () => {
+  const withoutCluster = computeWhatToPay({ price: 504, pivot: 525, ema20: 485, ema50: 460, contractionLow: 452, bars, tier: "ACTIONABLE" });
+  const withCluster = computeWhatToPay({
+    price: 504, pivot: 525, ema20: 485, ema50: 460, contractionLow: 452, bars, tier: "ACTIONABLE",
+    supportResistance: { nearestSupport: { mid: 440, low: 438, high: 442, evidenceCount: 3, confidence: "STRONG" } },
+  });
+  assert.ok(withCluster.strongBuyZone.low < withoutCluster.strongBuyZone.low, "the deeper real cluster level should pull the zone lower than EMA50/contractionLow alone");
+});
+
+ok("a supportResistance cluster ABOVE price, or with no real nearestSupport, is safely ignored — never used to fabricate a candidate", () => {
+  const noSupport = computeWhatToPay({
+    price: 504, pivot: 525, ema20: 485, ema50: 460, contractionLow: 452, bars, tier: "ACTIONABLE",
+    supportResistance: { nearestSupport: null },
+  });
+  const aboveOnly = computeWhatToPay({
+    price: 504, pivot: 525, ema20: 485, ema50: 460, contractionLow: 452, bars, tier: "ACTIONABLE",
+    supportResistance: { nearestSupport: { mid: 520 } }, // above price — must never be treated as support
+  });
+  assert.ok(noSupport.strongBuyZone, "must still produce a real zone from EMA50/contractionLow alone");
+  assert.strictEqual(aboveOnly.strongBuyZone.low, noSupport.strongBuyZone.low, "an above-price cluster must be filtered out identically to having none at all");
+});
+
 ok("DON'T CHASE ABOVE (2026-09-18, Quant Engine master prompt: 'Do NOT calculate this as an arbitrary fixed percentage') is a real, volatility-scaled ceiling — pivot + 2.5x the real shared ATR, never a flat percentage", () => {
   const r = computeWhatToPay({ price: 504, pivot: 500, ema20: 485, ema50: 460, bars, tier: "ACTIONABLE" });
   const atr = computeAtrRiskLevels(bars, 504).atr;

@@ -63,6 +63,17 @@ function computeWhatToPay({
   price, pivot, contractionLow, ema20, ema50, ema9, ema9Prior, bars,
   tier, signalState,
   higherLows, supportHolding, rsi, rsiPrior, macdHistogram, macdHistogramPrior, aboveVwap, rvol,
+  // Real, OPTIONAL support/resistance cluster (2026-09-18, "CANONICAL
+  // QUANT ENGINE" master prompt follow-up: "only 2 candidates... not a
+  // true multi-source cluster") — support-resistance-engine.js's own
+  // real computeSupportResistanceZones() output, computed ONCE by the
+  // caller (never recomputed here — that would run the same real bar
+  // scan twice per request) and passed straight through. Omitted
+  // entirely by callers who don't have it in hand yet (e.g.
+  // top50-scanner.js's 50-symbol scan, where running the cluster engine
+  // per row is a real, deliberately-deferred cost tradeoff) — behavior
+  // for those callers is byte-identical to before this field existed.
+  supportResistance,
 } = {}) {
   if (!Number.isFinite(price) || price <= 0) return { available: false, reason: "No real price." };
   const atrResult = computeAtrRiskLevels(Array.isArray(bars) ? bars : [], price);
@@ -75,10 +86,16 @@ function computeWhatToPay({
   const payCenter = Number.isFinite(ema20) && ema20 <= price ? ema20 : null;
   let whatToPay = zoneAround(payCenter, atr);
 
-  // STRONG BUY ZONE — centered on the deeper of real EMA50 / the real
-  // recent contraction low (major technical support), also only when
-  // it's genuinely at or below price.
-  const strongCandidates = [ema50, contractionLow].filter((v) => Number.isFinite(v) && v <= price);
+  // STRONG BUY ZONE — centered on the deepest real candidate among EMA50,
+  // the real recent contraction low, AND (when the caller supplied it)
+  // the real multi-source support-cluster's nearest zone — real
+  // structural support, never a fabricated blend. Adding the cluster
+  // candidate is the real fix for "only 2 candidates" — a genuinely
+  // well-evidenced cluster (multiple independent real levels agreeing)
+  // can now anchor the zone even when it sits deeper than both EMA50 and
+  // the contraction low alone would have picked.
+  const clusterSupportCenter = supportResistance?.nearestSupport?.mid;
+  const strongCandidates = [ema50, contractionLow, clusterSupportCenter].filter((v) => Number.isFinite(v) && v <= price);
   const strongCenter = strongCandidates.length ? Math.min(...strongCandidates) : null;
   let strongBuyZone = zoneAround(strongCenter, atr);
 
