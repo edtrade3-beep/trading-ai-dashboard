@@ -11,7 +11,14 @@
   <title>AM Trading Platform</title>
   <link rel="icon" type="image/png" href="/axiom-runner/assets/am-trading-logo.png">
   <link rel="shortcut icon" type="image/png" href="/axiom-runner/assets/am-trading-logo.png">
-  <link rel="apple-touch-icon" href="/axiom-runner/assets/am-trading-logo.png">
+  <!-- PWA install-to-homescreen (2026-09-18) — real manifest + properly
+       sized icons (the old apple-touch-icon pointed at the raw 1254x1254
+       source logo; iOS wants a real 180x180). manifest.webmanifest covers
+       Android/Chrome's "Install app" prompt; these two apple-mobile-web-app
+       meta tags above already existed and cover iOS's own home-screen path,
+       which never reads the manifest at all. -->
+  <link rel="apple-touch-icon" href="/axiom-runner/assets/icon-180.png">
+  <link rel="manifest" href="/axiom-runner/manifest.webmanifest">
   <!-- 2026-09-09 — real font trio for the "AI Trading" mockup palette
        (theme.js's SANS/MONO/NUM). None of this app's previously-declared
        fonts (Inter/JetBrains Mono/Oswald) were ever actually loaded
@@ -290,6 +297,19 @@
       check();
       setInterval(check, 60000); // every 60s
     })();
+
+    // Service worker registration (2026-09-18, PWA install-to-homescreen) —
+    // deferred to window "load" so it can never compete with/delay the real
+    // app boot above. Registered at root scope ("/sw.js") so it covers the
+    // whole app, not just /axiom-runner/. A registration failure (e.g. a
+    // browser that blocks service workers, or plain HTTP in local dev) is
+    // silently ignored — installability just won't be offered there, the
+    // app itself is entirely unaffected either way.
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("/sw.js").catch(() => {});
+      });
+    }
   </script>
 </body>
 </html>
