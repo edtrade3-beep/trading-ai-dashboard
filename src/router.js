@@ -60,6 +60,7 @@ const { handleFutureValueScan } = require("./routes/future-value-scan");
 const { handlePropertyAnalyze, handlePropertySearch } = require("./routes/property");
 const { handleFomcReaction } = require("./routes/fomc-reaction");
 const { handleTournamentBoard, handleTournamentDetail } = require("./routes/tournament");
+const { handleValuation } = require("./routes/valuation");
 const { handleSeasonalCycle } = require("./routes/seasonal-cycle");
 const { sendTelegramAlert, sendTelegramMessage, sendTelegramVoice, isConfigured: telegramConfigured } = require("./telegram");
 
@@ -215,6 +216,7 @@ async function handleRequest(req, res) {
     if (pathname === "/api/market/fomc-reaction") return await handleFomcReaction(req, res, requestUrl);
     if (pathname === "/api/market/tournament") return await handleTournamentBoard(req, res);
     if (pathname === "/api/market/tournament/detail") return await handleTournamentDetail(req, res, requestUrl);
+    if (pathname === "/api/market/valuation") return await handleValuation(req, res, requestUrl);
     if (pathname === "/api/market/cycle-composite") return await handleSeasonalCycle(req, res);
     if (pathname === "/api/scanner/under10")      return await handleUnder10(req, res, requestUrl);
     if (pathname === "/api/scanner/squeeze")      return await handleSqueeze(req, res);

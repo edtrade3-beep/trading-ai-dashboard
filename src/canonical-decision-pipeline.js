@@ -15,6 +15,7 @@ const { getUpcomingMacroEvents } = require("./macro-calendar");
 const { computeWhyNow } = require("./why-now-engine");
 const { classifyTradeLane } = require("./trade-lane-classifier");
 const { buildRedTeamReview } = require("./red-team-engine");
+const { computeValuationProfile } = require("./valuation-engine");
 
 const PIPELINE_VERSION = "canonical-pipeline-v1";
 
@@ -33,6 +34,14 @@ function computeCanonicalAssetDecision({
   optionsFlow = null, trackReport = null, spreadPct = null, eventRisk = null,
   fundamentals = null, news = null, executionHealth = null,
   researchContext = null, optionChain = [], ivRank = null,
+  // Valuation Engine (2026-09-17 master prompt) inputs — both optional,
+  // both null by default so every EXISTING caller (which never passes
+  // these) is completely unaffected; canonical.valuation is simply null
+  // for them, honestly disclosing "not computed for this call" rather
+  // than silently changing behavior. fundamentalsHistory = providers/
+  // fmp.js's real fetchFmpFundamentalsHistory per-quarter array;
+  // forwardEps = Yahoo's real epsForward.
+  fundamentalsHistory = null, forwardEps = null,
   nowMs = Date.now(), marketHours = false, extraDataSources = [],
 } = {}) {
   if (!row || row.error || !symbol) return null;
@@ -62,6 +71,17 @@ function computeCanonicalAssetDecision({
   // `opportunity`/`canonical.opportunity` already gets it for free.
   const redTeamReview = buildRedTeamReview(assetDecision);
   opportunity.redTeam = redTeamReview;
+  // Valuation Engine (2026-09-17 master prompt) — real, additive-only.
+  // Computed from `fundamentals`/`fundamentalsHistory`/`forwardEps` alone
+  // (never from `assetDecision`/`opportunity`), and attached to the
+  // return object AFTER assetDecision is already final — it cannot
+  // influence tier/signalState/verdict/entry/stop/target, only ride
+  // alongside them for the UI/final-verdict DISPLAY layer to combine.
+  // Section 17's own "cheap must never automatically mean BUY" rule is
+  // enforced structurally by this ordering, not by a runtime check.
+  const valuation = fundamentals
+    ? computeValuationProfile({ fundamentals, fundamentalsHistory, price: opportunity.price, forwardEps })
+    : null;
   // Trade GPS (2026-09-03) — additive only, per the confirmed design
   // decision: this is a SECOND, narrower "is this specific setup
   // Trade-GPS-ready" read shown only on the new Trade GPS card, never a
@@ -164,6 +184,7 @@ function computeCanonicalAssetDecision({
   return {
     assetDecision, opportunity, marketRegime, dataHealth, compatibilityRegime: legacyRegime,
     tradeGps, tradeStructure, trapShield, marketAgreement, tradeGpsVerdict, dangerEvent, whyNow, tradeLane,
+    valuation,
     // Formal Red-Team pass (2026-09-11) — wired centrally here so every
     // real consumer of this pipeline (trend-screen, opportunities,
     // run_scan, etc.) gets it for free instead of each route building its
