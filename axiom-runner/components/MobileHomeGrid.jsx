@@ -17,6 +17,17 @@
 import { computeRegime } from "./market-helpers.js";
 import { deriveRiskLevel, deriveTodaysFocus } from "./mobile-home-derived.js";
 
+// Real usability fix (2026-09-18, explicit user report: "App on phone
+// hard to use" — text/buttons too small, layout cramped, navigation
+// confusing). PRIME (axiom-live.jsx's own default landing tab since the
+// "AI Trade Desk — PRIME" rollout, Sidebar.jsx's own first row) had NO
+// presence anywhere on this grid — a mobile user who ever left it had no
+// direct way back except the 3-tap Bottom Nav "More" sheet. Rendered as
+// its own full-width featured card below, separate from NAV_CARDS' 2-col
+// grid, since it's the platform's one designated daily-workflow hub, not
+// a peer of the other 12 destinations.
+const PRIME_CARD = { id: "prime", label: "AI Trade Desk — PRIME", icon: "🎯", tab: "prime", desc: "Your one daily workflow — Top 5 Elite, 500-Stock Tournament, Selected Trade Plan & risk guardrails in one screen" };
+
 const NAV_CARDS = [
   { id: "dashboard", label: "Home", icon: "🏠", tab: "dashboard", desc: "Market overview & today's summary" },
   { id: "cortex", label: "Cortex", icon: "🧠", tab: "cortex", desc: "AI market intelligence & analysis" },
@@ -69,10 +80,27 @@ export default function MobileHomeGrid({ C, MONO, SANS, macroData, activeTab, se
   const regime = computeRegime(macroData);
   const risk = deriveRiskLevel(regime?.vixVal);
   const focus = deriveTodaysFocus(regime);
+  const primeActive = activeTab === PRIME_CARD.tab;
 
   return (
-    <div style={{ padding: "4px 2px 90px" }}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10, marginBottom: 14 }}>
+    <div style={{ padding: "12px 12px 90px" }}>
+      <button
+        onClick={() => setActiveTab(PRIME_CARD.tab)}
+        style={{
+          display: "flex", alignItems: "center", gap: 12, width: "100%", textAlign: "left",
+          background: primeActive ? `${C.accent}18` : `${C.accent}0d`,
+          border: `1px solid ${primeActive ? C.accent : `${C.accent}55`}`,
+          borderRadius: 14, padding: "16px 14px", cursor: "pointer", marginBottom: 14, minHeight: 76,
+        }}
+      >
+        <span style={{ fontSize: 28, flexShrink: 0 }}>{PRIME_CARD.icon}</span>
+        <span style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
+          <span style={{ fontFamily: SANS, fontSize: 15.5, fontWeight: 900, color: primeActive ? C.accent : C.text }}>{PRIME_CARD.label}</span>
+          <span style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, lineHeight: 1.35 }}>{PRIME_CARD.desc}</span>
+        </span>
+      </button>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10, marginBottom: 16 }}>
         {NAV_CARDS.map((item) => {
           const isActive = activeTab === item.tab;
           return (
@@ -80,21 +108,21 @@ export default function MobileHomeGrid({ C, MONO, SANS, macroData, activeTab, se
               key={item.id}
               onClick={() => setActiveTab(item.tab)}
               style={{
-                display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 4, textAlign: "left",
+                display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 5, textAlign: "left",
                 background: isActive ? `${C.accent}14` : C.card,
                 border: `1px solid ${isActive ? C.accent : C.border}`,
-                borderRadius: 12, padding: "14px 12px", cursor: "pointer", minHeight: 88,
+                borderRadius: 12, padding: "16px 13px", cursor: "pointer", minHeight: 100,
               }}
             >
-              <span style={{ fontSize: 22 }}>{item.icon}</span>
-              <span style={{ fontFamily: SANS, fontSize: 14, fontWeight: 800, color: isActive ? C.accent : C.text }}>{item.label}</span>
-              <span style={{ fontFamily: SANS, fontSize: 10.5, color: C.textDim, lineHeight: 1.3 }}>{item.desc}</span>
+              <span style={{ fontSize: 24 }}>{item.icon}</span>
+              <span style={{ fontFamily: SANS, fontSize: 15, fontWeight: 800, color: isActive ? C.accent : C.text }}>{item.label}</span>
+              <span style={{ fontFamily: SANS, fontSize: 11.5, color: C.textDim, lineHeight: 1.35 }}>{item.desc}</span>
             </button>
           );
         })}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(105px, 1fr))", gap: 10 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(98px, 1fr))", gap: 10 }}>
         <RegimeCard C={C} MONO={MONO} SANS={SANS} regime={regime} />
         <RiskCard C={C} MONO={MONO} SANS={SANS} risk={risk} />
         <FocusCard C={C} MONO={MONO} SANS={SANS} focus={focus} />
