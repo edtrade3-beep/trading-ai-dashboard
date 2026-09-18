@@ -13,6 +13,7 @@ import WhatChangedStrip from "./WhatChangedStrip.jsx";
 import TopOpportunities from "./TopOpportunities.jsx";
 import Top50ScannerPanel from "./Top50ScannerPanel.jsx";
 import WhatToPayCard from "./WhatToPayCard.jsx";
+import ValuationCard from "./ValuationCard.jsx";
 import AlertsTab from "./AlertsTab.jsx";
 import OptionsChainTab from "./OptionsChainTab.jsx";
 import NewsTab from "./NewsTab.jsx";
@@ -823,6 +824,14 @@ export default function TradeDeskTab({
                 overflow:hidden) so a tall real WhatToPayCard read is
                 never silently clipped instead of scrolled. */}
             <WhatToPayCard symbol={symbol} C={TD} MONO={MONO} SANS={SANS} />
+            {/* VALUATION (2026-09-17, "VALUATION ENGINE" master prompt) —
+                "part of the existing stock card / verdict flow", not
+                another tab. Real, self-fetching (GET
+                /api/market/valuation), reuses the one canonical
+                valuation-engine.js — collapsed by default (score/level/
+                trend/value-trap only), full metrics behind "View
+                Valuation Details". */}
+            <ValuationCard symbol={symbol} C={TD} MONO={MONO} SANS={SANS} />
           </div>
         </div>
       )}
