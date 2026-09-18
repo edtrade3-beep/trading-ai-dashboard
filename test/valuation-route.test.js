@@ -68,6 +68,16 @@ ok("ValuationCard is rendered inline in the existing 4-column analysis area (sam
   assert.doesNotMatch(tabSrc, /key: "valuation"/, "must not add a new dock module for this");
 });
 
+console.log("\nChecking the shared getValuationProfile export (2026-09-17 follow-up: reused by tournament-engine.js's Top-25 enrichment and routes/tournament.js's detail handler)…");
+
+ok("exports a reusable getValuationProfile alongside the HTTP handler, backed by the same 15-min cache — so every consumer of a symbol's valuation shares one real fetch+compute path", () => {
+  assert.match(routeSrc, /module\.exports = \{ handleValuation, getValuationProfile \}/);
+  assert.match(routeSrc, /async function getValuationProfile\(symbol, keys\)/);
+  assert.match(routeSrc, /async function handleValuation/);
+  const require2 = require("../src/routes/valuation");
+  assert.strictEqual(typeof require2.getValuationProfile, "function");
+});
+
 console.log(`\n${passed} checks passed.`);
 if (process.exitCode) console.error("VALUATION-ROUTE TEST FAILED");
 else console.log("VALUATION-ROUTE TEST OK");

@@ -100,9 +100,25 @@ function TopEliteCard({ row, onSelect, C, MONO, SANS }) {
       </div>
       <div style={{ display: "flex", gap: 14, marginTop: 4, fontFamily: MONO, fontSize: 11.5 }}>
         <span style={{ color: C.textDim }}>Opp <b style={{ color: C.text }}>{Math.round(row.opportunityScore)}</b></span>
+        {/* Real valuation (2026-09-17 follow-up, "Top Opportunities" +
+            valuation integration) — the SAME canonical valuation-engine.js
+            profile tournament-engine.js's Top-25 enrichment computes,
+            shown as a real, separate input next to Opportunity/Risk — per
+            the master prompt's own rule, never merged into one number.
+            Honestly omitted (not zeroed) until this symbol's been enriched. */}
+        {Number.isFinite(row.valuation?.valuationScore) && (
+          <span style={{ color: C.textDim }}>Val <b style={{ color: C.text }}>{Math.round(row.valuation.valuationScore)}</b></span>
+        )}
         <span style={{ color: C.textDim }}>Risk <b style={{ color: C.text }}>{Math.round(row.riskScore)}</b></span>
         <Badge text={row.signalState === "ENTER_NOW" ? "ENTER NOW" : row.signalState || "—"} color={row.signalState === "ENTER_NOW" ? "green" : "textDim"} C={C} MONO={MONO} />
       </div>
+      {row.valuation?.valuationLevel && (
+        <div style={{ fontFamily: MONO, fontSize: 10, color: C.textDim, marginTop: 3, letterSpacing: "0.02em" }}>
+          {row.valuation.valuationLevel}
+          {row.valuation.revenueTrend ? ` · REVENUE ${row.valuation.revenueTrend}` : ""}
+          {Number.isFinite(row.valuation.epsRevision30D) ? ` · EPS REV ${row.valuation.epsRevision30D >= 0 ? "↑" : "↓"}` : ""}
+        </div>
+      )}
       {reasons.length > 0 && (
         <div style={{ fontFamily: SANS, fontSize: 11, color: C.textDim, marginTop: 4 }}>{reasons.join(" + ")}</div>
       )}
@@ -306,7 +322,7 @@ export default function PrimeTab({ setActiveTab, C, MONO, SANS }) {
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: C.card }}>
-                {["RANK", "TICKER", "PRICE", "CHG%", "OPP", "RISK", "TIER", "STATE", "MOVE", "VELOCITY"].map((h) => (
+                {["RANK", "TICKER", "PRICE", "CHG%", "OPP", "RISK", "VAL", "TIER", "STATE", "MOVE", "VELOCITY"].map((h) => (
                   <th key={h} style={{ padding: "8px 10px", fontFamily: MONO, fontSize: 10, color: C.textDim, textAlign: h === "TICKER" ? "left" : "right", borderBottom: `1px solid ${C.border}` }}>{h}</th>
                 ))}
               </tr>

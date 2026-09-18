@@ -30,9 +30,44 @@ const { loadCoachLog } = require("./ai-coach-store");
 const { getEdgeVelocityFor } = require("./opportunity-timeline-store");
 const { isConfigured: telegramConfigured, sendTelegramMessage } = require("./telegram");
 const { shouldSendAlert } = require("./telegram-bot");
+const { FMP_API_KEY } = require("./config");
 const {
   loadTournamentState, saveTournamentState, upsertSymbolData, applyRanking,
 } = require("./tournament-store");
+
+// Real valuation enrichment (2026-09-17 follow-up to the "VALUATION ENGINE"
+// master prompt: "add valuation to Top Opportunities / the 500-Stock
+// Tournament"). Reuses the exact same real fetch+compute path (and its
+// shared 15-min cache) the Trade Desk's own ValuationCard hits — never a
+// second valuation formula. Deliberately bounded to the current real
+// Top 25 (not the full 700-symbol universe, not even the full scanned
+// state) — the prompt's own explicit performance constraint ("do not run
+// 500 expensive calls every few seconds") applies just as much to a real
+// FMP fundamentals fetch (5 requests/symbol) as it does to the technical
+// scan. With the shared 15-min cache and a 10-min tick, most ticks are
+// cache hits for symbols that stay in the Top 25.
+const VALUATION_ENRICH_N = 25;
+async function enrichTopWithValuation(state, rankedSymbols) {
+  if (!FMP_API_KEY) return; // honestly skipped, never fabricated
+  const { getValuationProfile } = require("./routes/valuation"); // lazy — avoids a require cycle with routes/*
+  const targets = rankedSymbols.slice(0, VALUATION_ENRICH_N);
+  const keys = { fmp: FMP_API_KEY };
+  const results = await Promise.allSettled(targets.map((symbol) => getValuationProfile(symbol, keys)));
+  results.forEach((r, i) => {
+    const symbol = targets[i];
+    const entry = state.symbols[symbol];
+    if (!entry) return;
+    const data = r.status === "fulfilled" ? r.value : null;
+    entry.valuation = data && data.ok ? {
+      valuationScore: data.valuationScore, valuationLevel: data.valuationLevel,
+      forwardPE: data.forwardPE, peg: data.peg, pegStatus: data.pegStatus,
+      fcfYield: data.fcfYield, revenueTrend: data.revenueTrend, latestRevenueGrowth: data.latestRevenueGrowth,
+      valueTrapRisk: data.valueTrapRisk, valueTrapLevel: data.valueTrapLevel,
+      garpStatus: data.garpStatus, valuationTrend: data.valuationTrend,
+      buyZones: data.buyZones, valuationConfidence: data.valuationConfidence,
+    } : (entry.valuation || null); // a transient real fetch failure keeps the last real read rather than blanking it
+  });
+}
 
 const TICK_BATCH_SIZE = 60; // roughly one SCAN_UNIVERSE-sized real fetch per tick — same real per-tick cost profile computeAllOpportunities already has
 const TOP_N = 25;
@@ -204,6 +239,7 @@ async function runTournamentTick() {
 
   const ranked = rankTournamentSymbols(state);
   applyRanking(state, ranked.map((r) => r.symbol));
+  await enrichTopWithValuation(state, ranked.map((r) => r.symbol)).catch(() => {});
   saveTournamentState(state);
 
   // Send AFTER applyRanking so the alert carries each symbol's real,
@@ -307,6 +343,13 @@ function buildTournamentBoard(marketRegimeLabel) {
       trendScore: e.trendScore, momentumScore: e.momentumScore, volumeScore: e.volumeScore,
       relativeStrengthScore: e.relativeStrengthScore, catalystScore: e.catalystScore, entryQualityScore: e.entryQualityScore,
       timeInTop25: e.timeInTop25 || 0, timeInTop10: e.timeInTop10 || 0, timeInElite: e.timeInElite || 0,
+      // Real valuation read (2026-09-17 follow-up) — whatever
+      // enrichTopWithValuation last computed for this symbol via the SAME
+      // canonical valuation-engine.js profile ValuationCard.jsx shows on
+      // the Trade Desk. Honestly null until the tick has enriched this
+      // symbol (e.g. FMP not configured, or a symbol newly entering the
+      // Top 25 this tick) — never fabricated.
+      valuation: e.valuation || null,
     };
   });
 
@@ -345,9 +388,39 @@ function buildTournamentBoard(marketRegimeLabel) {
   };
 }
 
+// Real valuation screener (2026-09-17 follow-up, master prompt's own
+// example filter: "Valuation >= 75, EPS Revisions > 0, Revenue Growth >
+// 10%, FCF Yield > 3%, Value Trap Risk < 40"). Pure — filters/sorts
+// symbols that already have a real, tick-enriched valuation read
+// (enrichTopWithValuation above); a symbol with no real valuation yet is
+// excluded outright, never included with a fabricated/zeroed score. Not
+// limited to the Top 25 by opportunity rank — this is a distinct real
+// "which of my currently-tracked stocks look cheap" question, so it scans
+// every symbol this session has ever enriched.
+function filterTournamentByValuation(state, filters = {}) {
+  const {
+    minValuation = null, maxValueTrap = null, minRevenueGrowth = null,
+    minFcfYield = null, garpStatus = null, sortBy = "valuationScore",
+  } = filters;
+  const rows = Object.values(state.symbols)
+    .filter((e) => e.valuation && Number.isFinite(e.valuation.valuationScore))
+    .filter((e) => minValuation == null || e.valuation.valuationScore >= minValuation)
+    .filter((e) => maxValueTrap == null || !Number.isFinite(e.valuation.valueTrapRisk) || e.valuation.valueTrapRisk <= maxValueTrap)
+    .filter((e) => minRevenueGrowth == null || (Number.isFinite(e.valuation.latestRevenueGrowth) && e.valuation.latestRevenueGrowth >= minRevenueGrowth))
+    .filter((e) => minFcfYield == null || (Number.isFinite(e.valuation.fcfYield) && e.valuation.fcfYield >= minFcfYield))
+    .filter((e) => !garpStatus || e.valuation.garpStatus === garpStatus)
+    .map((e) => ({
+      symbol: e.symbol, opportunityScore: e.opportunityScore, riskScore: e.riskScore,
+      currentRank: e.currentRank ?? null, ...e.valuation,
+    }));
+  const sortKey = sortBy === "opportunityScore" ? "opportunityScore" : "valuationScore";
+  rows.sort((a, b) => (b[sortKey] ?? -Infinity) - (a[sortKey] ?? -Infinity));
+  return rows;
+}
+
 module.exports = {
   runTournamentTick, buildTournamentBoard, rankTournamentSymbols, tierForRank, velocityLabelFor,
   rankAdjustedScore, extractTournamentFields, pickEarlyDiscoveryChallengers, getMarketRegime,
-  buildEnterNowMessage,
-  TICK_BATCH_SIZE, TOP_N, ELITE_N, CHALLENGER_COUNT, EARLY_DISCOVERY_SLOTS, RISK_RANK_ADJUSTMENT_WEIGHT,
+  buildEnterNowMessage, enrichTopWithValuation, filterTournamentByValuation,
+  TICK_BATCH_SIZE, TOP_N, ELITE_N, CHALLENGER_COUNT, EARLY_DISCOVERY_SLOTS, RISK_RANK_ADJUSTMENT_WEIGHT, VALUATION_ENRICH_N,
 };
