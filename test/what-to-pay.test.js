@@ -6,6 +6,7 @@
 // input the caller supplies directly.
 const assert = require("node:assert");
 const { computeWhatToPay, computeConfirmation, MIN_CONFIRMATIONS } = require("../src/what-to-pay");
+const { computeAtrRiskLevels } = require("../src/atr-risk-engine");
 
 let passed = 0;
 function ok(name, fn) { try { fn(); passed++; console.log(`  ✓ ${name}`); } catch (e) { console.error(`  ✗ ${name}\n    ${e.message}`); process.exitCode = 1; } }
@@ -46,9 +47,11 @@ ok("STRONG BUY ZONE centers on the deeper of real EMA50/contractionLow, and sits
   assert.ok(r.strongBuyZone.high <= r.whatToPay.low, "STRONG BUY ZONE must never overlap/exceed WHAT TO PAY");
 });
 
-ok("DON'T CHASE ABOVE is derived from the real pivot × atr-risk-engine.js's own ANTI_CHASE_DEFAULTS.extendedMax (8%) — same real threshold, not a second number", () => {
+ok("DON'T CHASE ABOVE (2026-09-18, Quant Engine master prompt: 'Do NOT calculate this as an arbitrary fixed percentage') is a real, volatility-scaled ceiling — pivot + 2.5x the real shared ATR, never a flat percentage", () => {
   const r = computeWhatToPay({ price: 504, pivot: 500, ema20: 485, ema50: 460, bars, tier: "ACTIONABLE" });
-  assert.strictEqual(r.dontChaseAbove, Math.round(500 * 1.08 * 100) / 100);
+  const atr = computeAtrRiskLevels(bars, 504).atr;
+  assert.strictEqual(r.dontChaseAbove, Math.round((500 + 2.5 * atr) * 100) / 100);
+  assert.notStrictEqual(r.dontChaseAbove, Math.round(500 * 1.08 * 100) / 100, "must no longer be the old flat 8% rule");
 });
 
 ok("price above DON'T CHASE ABOVE always reads EXTENDED — DON'T CHASE, regardless of confirmation or tier", () => {
@@ -97,6 +100,18 @@ ok("price just above the zone (within 3%) reads APPROACHING BUY ZONE; further aw
   const far = computeWhatToPay({ price: 550, pivot: 610, ema20: 485, ema50: 460, contractionLow: 452, bars, tier: "ACTIONABLE" });
   assert.strictEqual(near.priceStatus, "APPROACHING BUY ZONE");
   assert.strictEqual(far.priceStatus, "WAIT FOR PRICE");
+});
+
+ok("BELOW BUY ZONE — CHECK BREAKDOWN (2026-09-18, Quant Engine master prompt's own explicit case) fires when price has fallen meaningfully below EMA20 with no real strong-buy support underneath either — distinct from WAIT FOR PRICE, never silently read as 'approaching'", () => {
+  const r = computeWhatToPay({ price: 440, pivot: 500, ema20: 485, ema50: 470, contractionLow: 460, bars, tier: "ACTIONABLE" });
+  assert.strictEqual(r.priceStatus, "BELOW BUY ZONE — CHECK BREAKDOWN");
+  assert.ok(r.distanceBelowZonePct > 1, `expected a real positive distanceBelowZonePct, got ${r.distanceBelowZonePct}`);
+  assert.strictEqual(r.whatToPay, null, "the zone itself stays honestly null (price never reached the discount) — this reads the real EMA20 reference directly instead");
+});
+
+ok("still inside a real STRONG BUY ZONE takes priority over BELOW BUY ZONE — a real deep-support price is never mislabeled as a breakdown", () => {
+  const r = computeWhatToPay({ price: 460, pivot: 500, ema20: 485, ema50: 460, contractionLow: 458, bars, tier: "ACTIONABLE" });
+  assert.notStrictEqual(r.priceStatus, "BELOW BUY ZONE — CHECK BREAKDOWN");
 });
 
 ok("distancePct is 0 once price is inside the zone, and a real positive number above it", () => {

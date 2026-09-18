@@ -38,6 +38,24 @@ ok("reuses the real fetchDayTradeScanRows for the single symbol — same 15m VWA
   assert.match(block, /fetchDayTradeScanRows\(\[symbol\]\)/);
 });
 
+ok("wires the real quant-feature-engine.js additively alongside What Price To Pay (2026-09-18, Quant Engine master prompt) — same real bars already fetched, no second fetch, no second entry/verdict engine", () => {
+  const start = marketSrc.indexOf('pathname === "/api/market/what-to-pay"');
+  const end = marketSrc.indexOf("\n  }", marketSrc.indexOf("computeQuantFeatures({ bars", start));
+  const block = marketSrc.slice(start, end);
+  assert.match(block, /require\("\.\.\/quant-feature-engine"\)/);
+  assert.match(block, /computeQuantFeatures\(\{ bars, price: trend\.price \}\)/);
+  assert.match(block, /quantFeatures/);
+});
+
+ok("wires the real support-resistance-engine.js additively too, reusing the SAME real bars/pivot/contractionLow already in hand — no second breakout/support calculation", () => {
+  const start = marketSrc.indexOf('pathname === "/api/market/what-to-pay"');
+  const end = marketSrc.indexOf("\n  }", marketSrc.indexOf("computeSupportResistanceZones({ bars", start));
+  const block = marketSrc.slice(start, end);
+  assert.match(block, /require\("\.\.\/support-resistance-engine"\)/);
+  assert.match(block, /computeSupportResistanceZones\(\{ bars, price: trend\.price, pivot: trend\.setup\?\.pivot, contractionLow: trend\.setup\?\.contractionLow \}\)/);
+  assert.match(block, /supportResistance/);
+});
+
 console.log(`\n${passed} checks passed.`);
 if (process.exitCode) console.error("WHAT-TO-PAY-ROUTE TEST FAILED");
 else console.log("WHAT-TO-PAY-ROUTE TEST OK");

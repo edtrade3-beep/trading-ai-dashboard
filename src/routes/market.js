@@ -3525,6 +3525,8 @@ async function handleMarket(req, res, requestUrl) {
       const result = await cached(`what-to-pay:${symbol}`, 5 * 60_000, async () => {
         const { computeCanonicalAssetDecision } = require("../canonical-decision-pipeline");
         const { computeWhatToPay } = require("../what-to-pay");
+        const { computeQuantFeatures } = require("../quant-feature-engine");
+        const { computeSupportResistanceZones } = require("../support-resistance-engine");
         const { dailyEmaInputs } = require("../top50-scanner");
         const MACRO_SYMS = ["SPY", "QQQ", "^VIX"];
 
@@ -3558,7 +3560,23 @@ async function handleMarket(req, res, requestUrl) {
           rsi: dt.rsi15m, rsiPrior: dt.rsi15mPrior, macdHistogram: dt.macdHistogram15m, macdHistogramPrior: dt.macdHistogramPrior15m,
           aboveVwap: dt.aboveVwap, rvol: dt.rvol,
         });
-        return { ...wtp, symbol, price: trend.price, tier, signalState };
+        // Real Quant Feature Engine (2026-09-18, "BUILD THE CANONICAL
+        // QUANT ENGINE" master prompt, Phase 2) — the SAME real bars this
+        // handler already fetched above, additive alongside What Price To
+        // Pay, never a second entry/verdict engine. Read-only lens: tier/
+        // signalState/verdict above are computed with zero dependency on
+        // this object.
+        const quantFeatures = computeQuantFeatures({ bars, price: trend.price });
+        // Real Support/Resistance Cluster Engine (2026-09-18, same master
+        // prompt, "SUPPORT / RESISTANCE ENGINE") — same real bars + the
+        // same real pivot/contractionLow computeWhatToPay above already
+        // reused, never a second breakout/support calculation. Additive
+        // for now (surfaced, not yet wired into whatToPay's own zone
+        // centers — a deliberately separate follow-up so that already-
+        // tested zone-picking logic gets its own dedicated review rather
+        // than changing under this same pass).
+        const supportResistance = computeSupportResistanceZones({ bars, price: trend.price, pivot: trend.setup?.pivot, contractionLow: trend.setup?.contractionLow });
+        return { ...wtp, symbol, price: trend.price, tier, signalState, quantFeatures, supportResistance };
       });
       return writeJson(res, 200, { ok: true, ...result });
     } catch (err) {
