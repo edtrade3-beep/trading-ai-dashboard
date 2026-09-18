@@ -18,6 +18,14 @@ const TIER_BG = { ELITE: "rgba(245,158,11,0.14)", GREAT: "rgba(34,197,94,0.14)",
 const VELOCITY_COLOR = { ACCELERATING: "green", IMPROVING: "green", STABLE: "textDim", WEAKENING: "amber", FALLING: "red" };
 const RISK_BAND = (score) => (!Number.isFinite(score) ? null : score <= 25 ? "LOW" : score <= 50 ? "MEDIUM" : score <= 75 ? "HIGH" : "CRITICAL");
 const RISK_COLOR = { LOW: "green", NORMAL: "green", MEDIUM: "amber", ELEVATED: "amber", HIGH: "red", CRITICAL: "red" };
+// Real valuation-level → accent color (2026-09-17 follow-up) — same
+// banding valuation-engine.js's own VALUATION_LEVELS defines, just mapped
+// to this panel's existing color-key convention (never a second band cutoff).
+const VALUATION_LEVEL_COLOR = {
+  "EXCEPTIONAL VALUE": "green", "STRONGLY UNDERVALUED": "green", "UNDERVALUED": "green",
+  "SLIGHTLY UNDERVALUED": "amber", "FAIR VALUE": "textDim", "EXPENSIVE": "amber",
+  "VERY EXPENSIVE": "red", "EXTREME VALUATION RISK": "red",
+};
 const LIFECYCLE_LABEL = { SCANNING: "SCANNING", SETUP_FORMING: "SETUP FORMING", ARMED: "ARMED", ENTER_NOW: "ENTER NOW", CANCELLED: "CANCELLED" };
 
 function money(v) { return Number.isFinite(v) ? `$${Number(v).toFixed(2)}` : "—"; }
@@ -99,11 +107,25 @@ function TradePlanContent({ data, error, loading, extra, C, MONO, SANS }) {
   );
   return (
     <>
-      <div style={{ display: "flex", gap: 20, marginBottom: 14, padding: "12px 14px", background: C.surface || `${C.border}30`, borderRadius: 10 }}>
+      <div style={{ display: "flex", gap: 20, marginBottom: 14, padding: "12px 14px", background: C.surface || `${C.border}30`, borderRadius: 10, flexWrap: "wrap" }}>
         <StatCard label="Opportunity" value={Number.isFinite(data.opportunityScore) ? Math.round(data.opportunityScore) : "—"} C={C} MONO={MONO} SANS={SANS} />
+        {/* Final Verdict Integration (2026-09-17, "VALUATION ENGINE" master
+            prompt §17): valuation shown as its own real, separate input
+            alongside Opportunity/Risk/Momentum — never merged into one
+            opaque number. Honestly "—" until this symbol's Top-25
+            valuation enrichment or a fresh detail fetch has run. */}
+        <StatCard label="Valuation" value={Number.isFinite(data.valuationScore) ? Math.round(data.valuationScore) : "—"} accent={VALUATION_LEVEL_COLOR[data.valuation?.valuationLevel]} C={C} MONO={MONO} SANS={SANS} />
         <StatCard label="Risk" value={Number.isFinite(data.riskScore) ? Math.round(data.riskScore) : "—"} accent={RISK_COLOR[riskBand] || RISK_COLOR[data.riskLevel]} C={C} MONO={MONO} SANS={SANS} />
         <StatCard label="Rank" value={data.currentRank ? `#${data.currentRank}` : "—"} C={C} MONO={MONO} SANS={SANS} />
       </div>
+      {data.valuation && (
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
+          {data.valuation.valuationLevel && <Badge text={data.valuation.valuationLevel} color="accent" C={C} MONO={MONO} />}
+          {data.valuation.garpStatus && <Badge text={`GARP: ${data.valuation.garpStatus}`} color={data.valuation.garpStatus === "YES" ? "green" : data.valuation.garpStatus === "NO" ? "red" : "accent"} C={C} MONO={MONO} />}
+          {data.valuation.valueTrapLevel && data.valuation.valueTrapLevel !== "LOW" && <Badge text={`VALUE TRAP: ${data.valuation.valueTrapLevel}`} color={data.valuation.valueTrapLevel === "EXTREME" || data.valuation.valueTrapLevel === "HIGH" ? "red" : "accent"} C={C} MONO={MONO} />}
+          {data.valuation.valuationTrend && <Badge text={`TREND: ${data.valuation.valuationTrend}`} color="accent" C={C} MONO={MONO} />}
+        </div>
+      )}
       <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 16, flexWrap: "wrap" }}>
         <Badge text={lifecycleLabelFor(data)} color={data.tier === "EXTENDED" || data.tier === "INVALIDATED" ? "red" : "accent"} C={C} MONO={MONO} />
         <span style={{ fontFamily: SANS, fontSize: 11.5, color: C.textDim }}>Stage: {data.opportunityStage || "—"}</span>
@@ -208,6 +230,16 @@ function Row({ row, onSelect, C, MONO, SANS }) {
       <td style={{ padding: "9px 10px", fontFamily: MONO, fontSize: 12, textAlign: "right", fontWeight: 700, color: changeUp ? C.green : C.red }}>{pct(row.changePct)}</td>
       <td style={{ padding: "9px 10px", fontFamily: MONO, fontSize: 14, fontWeight: 900, textAlign: "right", color: C.text }}>{Number.isFinite(row.opportunityScore) ? Math.round(row.opportunityScore) : "—"}</td>
       <td style={{ padding: "9px 10px", textAlign: "right" }}><Badge text={Number.isFinite(row.riskScore) ? Math.round(row.riskScore) : "—"} color={RISK_COLOR[riskBand] || "textDim"} C={C} MONO={MONO} /></td>
+      {/* Real valuation read (2026-09-17 follow-up) — tournament-engine.js's
+          own Top-25 enrichment (enrichTopWithValuation), the SAME canonical
+          engine ValuationCard/TradePlanContent use. Honestly "—" until this
+          symbol has been enriched (e.g. FMP not configured, or newly
+          entered the Top 25) — never fabricated. */}
+      <td style={{ padding: "9px 10px", textAlign: "right" }}>
+        {row.valuation?.valuationLevel
+          ? <Badge text={Number.isFinite(row.valuation.valuationScore) ? Math.round(row.valuation.valuationScore) : "—"} color={VALUATION_LEVEL_COLOR[row.valuation.valuationLevel] || "textDim"} C={C} MONO={MONO} />
+          : <span style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>—</span>}
+      </td>
       <td style={{ padding: "9px 10px" }}><Badge text={row.tournamentTier} color={TIER_COLOR[row.tournamentTier]} bg={TIER_BG[row.tournamentTier]} C={C} MONO={MONO} /></td>
       <td style={{ padding: "9px 10px", fontFamily: SANS, fontSize: 10.5, color: C.textDim, fontWeight: 600 }}>{lifecycleLabelFor(row)}</td>
       <td style={{ padding: "9px 10px", fontFamily: MONO, fontSize: 12, textAlign: "right", fontWeight: 800, color: moveUp ? C.green : moveDown ? C.red : C.textDim }}>
@@ -329,7 +361,7 @@ export default function Tournament500Panel({ onSelectSymbol, C, MONO, SANS }) {
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead className="tourn-thead">
             <tr style={{ background: C.card }}>
-              {["RANK", "TICKER", "PRICE", "CHG%", "OPP", "RISK", "TIER", "STATE", "MOVE", "VELOCITY"].map((h) => (
+              {["RANK", "TICKER", "PRICE", "CHG%", "OPP", "RISK", "VAL", "TIER", "STATE", "MOVE", "VELOCITY"].map((h) => (
                 <th key={h} style={{ padding: "9px 10px", fontFamily: MONO, fontSize: 10, color: C.textDim, letterSpacing: "0.04em", textAlign: h === "TICKER" ? "left" : "right", borderBottom: `1px solid ${C.border}` }}>{h}</th>
               ))}
             </tr>

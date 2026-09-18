@@ -1,5 +1,37 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { pickTopOpportunities } from "./CommandSearchPanel.jsx";
+
+// Real valuation enrichment (2026-09-17 follow-up, "VALUATION ENGINE"
+// master prompt §15, "Add valuation information to Top Opportunities" —
+// this IS that named panel). Bounded to exactly the 5 (or 6, with the
+// Early Discovery slot) symbols actually visible here — a real, cheap
+// fetch of the SAME canonical GET /api/market/valuation every other
+// valuation surface reads (routes/valuation.js's shared 15-min cache),
+// never a second scoring formula. `fetchedRef` prevents re-requesting a
+// symbol that's already resolved (including a real "unavailable") on
+// every 60s poll tick as long as the Top-5 set doesn't change.
+function useValuations(symbols) {
+  const [map, setMap] = useState({});
+  const fetchedRef = useRef(new Set());
+  useEffect(() => {
+    let alive = true;
+    const need = symbols.filter((s) => s && !fetchedRef.current.has(s));
+    if (!need.length) return undefined;
+    need.forEach((s) => fetchedRef.current.add(s));
+    Promise.all(need.map((s) =>
+      fetch(`/api/market/valuation?symbol=${encodeURIComponent(s)}`).then((r) => r.json()).catch(() => null)
+    )).then((results) => {
+      if (!alive) return;
+      setMap((prev) => {
+        const next = { ...prev };
+        need.forEach((s, i) => { next[s] = results[i] || null; });
+        return next;
+      });
+    });
+    return () => { alive = false; };
+  }, [symbols.join(",")]);
+  return map;
+}
 
 // TopOpportunities.jsx (2026-09-13) — compact ranked "TOP OPPORTUNITIES"
 // panel for Trade Desk. Reuses the EXACT SAME real ranking Trade Desk's
@@ -133,6 +165,7 @@ export default function TopOpportunities({ onSelectSymbol, C, MONO, SANS }) {
 
   const rows = tiers ? withEarlyDiscoverySlot(pickTopOpportunities(tiers, 5), tiers) : [];
   const timingNotReady = tiers ? pickTimingNotReadyCandidate(tiers, rows.map((o) => o.symbol)) : null;
+  const valuations = useValuations(rows.map((o) => o.symbol));
 
   return (
     <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px", marginBottom: 12 }}>
@@ -147,33 +180,53 @@ export default function TopOpportunities({ onSelectSymbol, C, MONO, SANS }) {
             const ad = o.assetDecision || null;
             const opportunityScore = Number.isFinite(ad?.opportunityScore) ? ad.opportunityScore : (Number.isFinite(o.score) ? o.score : null);
             const riskAvailable = Number.isFinite(ad?.riskScore) && Boolean(ad?.riskLevel);
+            const val = valuations[o.symbol];
+            const valAvailable = val?.ok && Number.isFinite(val.valuationScore);
             return (
-              <div
-                key={o.symbol}
-                {...(onSelectSymbol ? { onClick: () => onSelectSymbol(o.symbol), role: "button", tabIndex: 0 } : {})}
-                style={{ display: "flex", alignItems: "center", gap: 12, padding: "6px 8px", borderRadius: 6, background: C.surface, cursor: onSelectSymbol ? "pointer" : "default" }}
-              >
-                <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 800, color: C.text, minWidth: 56 }}>{o.symbol}</div>
-                <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: stage.color, minWidth: 130 }}>
-                  {stage.text}
-                  {o.edgeVelocity?.status === "ACCELERATING" && (
-                    <span style={{ color: C.green, marginLeft: 4 }}>
-                      ↑ ACCELERATING{o.edgeVelocity?.isProvisional ? " · PROVISIONAL" : ""}
-                    </span>
+              <div key={o.symbol}>
+                <div
+                  {...(onSelectSymbol ? { onClick: () => onSelectSymbol(o.symbol), role: "button", tabIndex: 0 } : {})}
+                  style={{ display: "flex", alignItems: "center", gap: 12, padding: "6px 8px", borderRadius: 6, background: C.surface, cursor: onSelectSymbol ? "pointer" : "default" }}
+                >
+                  <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 800, color: C.text, minWidth: 56 }}>{o.symbol}</div>
+                  <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: stage.color, minWidth: 130 }}>
+                    {stage.text}
+                    {o.edgeVelocity?.status === "ACCELERATING" && (
+                      <span style={{ color: C.green, marginLeft: 4 }}>
+                        ↑ ACCELERATING{o.edgeVelocity?.isProvisional ? " · PROVISIONAL" : ""}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontFamily: MONO, fontSize: 13, color: C.textSec, minWidth: 90 }}>
+                    Opportunity {opportunityScore ?? "—"}
+                  </div>
+                  {/* Real valuation (2026-09-17 follow-up) — the SAME
+                      canonical valuation-engine.js profile every other
+                      surface reads. Honestly omitted (not "0") while a
+                      fresh per-symbol fetch is still in flight or genuinely
+                      unavailable (e.g. FMP not configured). */}
+                  {valAvailable && (
+                    <div style={{ fontFamily: MONO, fontSize: 13, color: C.textSec, minWidth: 90 }}>
+                      Valuation {Math.round(val.valuationScore)}
+                    </div>
+                  )}
+                  <div style={{ fontFamily: MONO, fontSize: 13, color: riskAvailable ? riskColorFor(ad.riskLevel, C) : C.textDim, minWidth: 110 }}>
+                    {riskAvailable ? `Risk ${ad.riskScore} · ${ad.riskLevel}` : "Risk unavailable"}
+                  </div>
+                  <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.accent, minWidth: 70 }}>
+                    {ad?.verdict || "—"}
+                  </div>
+                  {o.verdictReason && (
+                    <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {o.verdictReason}
+                    </div>
                   )}
                 </div>
-                <div style={{ fontFamily: MONO, fontSize: 13, color: C.textSec, minWidth: 90 }}>
-                  Opportunity {opportunityScore ?? "—"}
-                </div>
-                <div style={{ fontFamily: MONO, fontSize: 13, color: riskAvailable ? riskColorFor(ad.riskLevel, C) : C.textDim, minWidth: 110 }}>
-                  {riskAvailable ? `Risk ${ad.riskScore} · ${ad.riskLevel}` : "Risk unavailable"}
-                </div>
-                <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: C.accent, minWidth: 70 }}>
-                  {ad?.verdict || "—"}
-                </div>
-                {o.verdictReason && (
-                  <div style={{ fontFamily: SANS, fontSize: 12, color: C.textSec, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {o.verdictReason}
+                {valAvailable && (val.valuationLevel || val.revenueTrend) && (
+                  <div style={{ fontFamily: MONO, fontSize: 10.5, color: C.textDim, padding: "0 8px 4px 8px", letterSpacing: "0.02em" }}>
+                    {val.valuationLevel}
+                    {val.revenueTrend === "ACCELERATING" ? " · REVENUE ACCELERATING" : ""}
+                    {Number.isFinite(val.epsRevision30D) ? ` · EPS REVISIONS ${val.epsRevision30D >= 0 ? "↑" : "↓"}` : ""}
                   </div>
                 )}
               </div>

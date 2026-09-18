@@ -254,6 +254,22 @@ ok("row does not render at all when no candidate qualifies (null-safe, no fabric
   assert.match(src, /\{timingNotReady && \(/);
 });
 
+console.log("\nChecking real valuation enrichment (2026-09-17, \"VALUATION ENGINE\" master prompt §15 — this named panel IS \"Top Opportunities\")…");
+
+ok("fetches the SAME canonical GET /api/market/valuation every other valuation surface reads — no second formula, bounded to the visible rows", () => {
+  assert.match(src, /fetch\(`\/api\/market\/valuation\?symbol=/);
+  assert.doesNotMatch(src, /computeValuationProfile/, "must not call the pure engine directly — always through the shared cached route");
+});
+
+ok("a symbol whose valuation fetch hasn't resolved (or is genuinely unavailable) renders no Valuation field at all — never a fabricated/zeroed score", () => {
+  assert.match(src, /valAvailable/);
+  assert.match(src, /val\?\.ok && Number\.isFinite\(val\.valuationScore\)/);
+});
+
+ok("already-resolved symbols are not re-fetched on every 60s poll tick (fetchedRef dedup)", () => {
+  assert.match(src, /fetchedRef/);
+});
+
 console.log("\nChecking TradeDeskTab.jsx — TopOpportunities is imported, rendered, and wired to the existing symbol-selection flow…");
 
 ok("TopOpportunities is imported AND rendered, wired to the existing selectSymbol function", () => {

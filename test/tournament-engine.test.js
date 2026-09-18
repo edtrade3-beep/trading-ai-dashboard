@@ -7,6 +7,7 @@ const assert = require("node:assert");
 const {
   rankTournamentSymbols, tierForRank, velocityLabelFor, rankAdjustedScore,
   pickEarlyDiscoveryChallengers, extractTournamentFields, buildEnterNowMessage,
+  filterTournamentByValuation, VALUATION_ENRICH_N,
   TOP_N, ELITE_N, RISK_RANK_ADJUSTMENT_WEIGHT,
 } = require("../src/tournament-engine");
 
@@ -192,6 +193,61 @@ ok("tournament-engine.js reuses the real canonical-decision-pipeline.js, univers
   assert.match(src, /require\("\.\/universe-builder"\)/);
   assert.match(src, /require\("\.\/opportunity-timeline-store"\)/);
   assert.doesNotMatch(src, /function computeCoreScore|function computeOpportunity|function buildAssetDecision|function computeEdgeVelocity/, "must not redeclare canonical scoring/velocity");
+});
+
+console.log("\nChecking filterTournamentByValuation — real valuation screener (2026-09-17 follow-up: \"Top Opportunities\" + Tournament valuation integration)…");
+
+function fakeState(symbols) {
+  return { symbols: Object.fromEntries(symbols.map((s) => [s.symbol, s])) };
+}
+
+ok("excludes symbols with no real valuation read yet — never included with a fabricated/zeroed score", () => {
+  const state = fakeState([
+    { symbol: "AAA", opportunityScore: 80, valuation: { valuationScore: 82, garpStatus: "YES" } },
+    { symbol: "BBB", opportunityScore: 90 }, // never enriched (e.g. FMP not configured this run)
+  ]);
+  const rows = filterTournamentByValuation(state, {});
+  assert.strictEqual(rows.length, 1);
+  assert.strictEqual(rows[0].symbol, "AAA");
+});
+
+ok("the master prompt's own example filter (Valuation >= 75, Revenue Growth > 10%, FCF Yield > 3%, Value Trap Risk < 40) applies as real AND-combined predicates", () => {
+  const state = fakeState([
+    { symbol: "CHEAP_GOOD", opportunityScore: 70, valuation: { valuationScore: 82, latestRevenueGrowth: 15, fcfYield: 4, valueTrapRisk: 20 } },
+    { symbol: "CHEAP_TRAP", opportunityScore: 65, valuation: { valuationScore: 80, latestRevenueGrowth: 12, fcfYield: 5, valueTrapRisk: 90 } }, // fails value-trap ceiling
+    { symbol: "TOO_EXPENSIVE", opportunityScore: 88, valuation: { valuationScore: 40, latestRevenueGrowth: 30, fcfYield: 6, valueTrapRisk: 10 } }, // fails valuation floor
+  ]);
+  const rows = filterTournamentByValuation(state, { minValuation: 75, minRevenueGrowth: 10, minFcfYield: 3, maxValueTrap: 40 });
+  assert.strictEqual(rows.length, 1);
+  assert.strictEqual(rows[0].symbol, "CHEAP_GOOD");
+});
+
+ok("a symbol with no real valueTrapRisk yet is never excluded purely by the maxValueTrap filter (honest unknown, not treated as failing)", () => {
+  const state = fakeState([
+    { symbol: "NOHIST", opportunityScore: 70, valuation: { valuationScore: 80, valueTrapRisk: null } },
+  ]);
+  const rows = filterTournamentByValuation(state, { maxValueTrap: 40 });
+  assert.strictEqual(rows.length, 1);
+});
+
+ok("sorts by real valuationScore descending by default", () => {
+  const state = fakeState([
+    { symbol: "LOW", opportunityScore: 50, valuation: { valuationScore: 40 } },
+    { symbol: "HIGH", opportunityScore: 50, valuation: { valuationScore: 90 } },
+  ]);
+  const rows = filterTournamentByValuation(state, {});
+  assert.deepStrictEqual(rows.map((r) => r.symbol), ["HIGH", "LOW"]);
+});
+
+console.log("\nChecking the Top-25 valuation enrichment — bounded cost, single canonical source (2026-09-17 follow-up)…");
+
+ok("enrichTopWithValuation reuses routes/valuation.js's own shared getValuationProfile/cache — no second fetch or scoring formula, and is bounded (never the full 700-symbol universe)", () => {
+  const fs = require("node:fs");
+  const src = fs.readFileSync(require.resolve("../src/tournament-engine"), "utf8");
+  assert.match(src, /require\("\.\/routes\/valuation"\)/);
+  assert.match(src, /getValuationProfile/);
+  assert.doesNotMatch(src, /computeValuationProfile/, "must not call the pure engine directly — always through the shared cached route helper");
+  assert.strictEqual(VALUATION_ENRICH_N, 25);
 });
 
 console.log(`\n${passed} checks passed.`);

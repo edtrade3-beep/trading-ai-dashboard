@@ -42,6 +42,12 @@ ok("real fundamentals wiring (2026-09-17, \"pull fundamental from the platform\"
   assert.match(routeSrc, /catch \{ \/\* real fundamentals genuinely unavailable/);
 });
 
+ok("real bug fix (2026-09-17, ONE-ENGINE-RULE gap this route itself introduced before the Valuation Engine existed): the detail handler's valuationScore now comes from the SAME canonical routes/valuation.js getValuationProfile every other valuation surface uses — no longer a second, conflicting number from future-value-scan.js's raw valueScore", () => {
+  assert.match(routeSrc, /require\("\.\/valuation"\)/);
+  assert.match(routeSrc, /getValuationProfile/);
+  assert.match(routeSrc, /valuationScore = v\.valuationScore/);
+});
+
 console.log("\nChecking router.js wiring…");
 
 ok("router.js wires both real tournament routes to routes/tournament.js's real handlers", () => {
