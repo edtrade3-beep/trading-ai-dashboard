@@ -50,6 +50,7 @@ const handleRequest = require("./src/router");
 const { startPriceAlertMonitor } = require("./src/price-alert-monitor");
 const { startMarketScanner, sendMacroReport } = require("./src/market-scanner");
 const { startTelegramBot }    = require("./src/telegram-bot");
+const { startFajrBot }        = require("./src/fajr-bot");
 const { checkDealWatches }   = require("./src/routes/deals");
 const { startCOTScheduler }  = require("./src/cot/scheduler");
 const { startPreMarketAlerts } = require("./src/premarket-alerts");
@@ -90,6 +91,13 @@ const { initPhotoStore } = require("./src/dealership/photo-store");
 const { initFutureWalletStore } = require("./src/future-wallet-store");
 const { initNewsStore } = require("./src/news/store");
 const { initStoryAssetStore } = require("./src/story-ai-asset-store");
+// Fajr & Tasbeeh multi-user bot (2026-09-19) — own real Postgres tables
+// (fajr-bot-store.js), same shared-pool sequencing every other real
+// Postgres-backed store here follows. No-ops entirely when DATABASE_URL
+// isn't set (stays disabled, never silently degrades to per-process
+// in-memory state — that would break the real restart-safe idempotency
+// this feature's whole design depends on).
+const { initFajrBotStore } = require("./src/fajr-bot-store");
 
 // Sequenced, not parallel (2026-08-16): initPhotoStore() now reuses
 // initPgStore()'s shared pool (see atomic-write.js's getPool()) instead of
@@ -109,6 +117,7 @@ initPgStore()
   .then(() => initFutureWalletStore())
   .then(() => initNewsStore())
   .then(() => initStoryAssetStore())
+  .then(() => initFajrBotStore())
   .then(() => startServer())
   .catch((err) => {
     console.error("[startup] DATABASE_URL is set but Postgres bootstrap failed — refusing to start:", err.message);
@@ -130,6 +139,7 @@ server.listen(PORT, HOST, () => {
   // startFbScheduler();  // disabled
   startMarketScanner();   // 15-min stock scan → grouped BUY/SELL alerts (batched, quiet hours respected)
   startTelegramBot();
+  startFajrBot(); // no-op (logs why) when FAJR_BOT_TOKEN or DATABASE_URL isn't configured
   // startCOTScheduler(); // disabled — COT reports were firing 7x/day (too much noise)
   startPreMarketAlerts(); // ONE gap scan alert at 9:00 AM ET only
   try { require("./src/dealership/fb-hub").startCrmScheduler(); } catch (e) { console.error("CRM scheduler failed:", e.message); }
@@ -721,6 +731,19 @@ server.listen(PORT, HOST, () => {
   // Athan feature already uses, so it fires regardless of whether the app
   // is open. No market-hours gate — prayer times run every day.
   registerJob("Prayer Notification", 60_000, () => require("./src/prayer-times").tickPrayerNotify());
+  // Fajr & Tasbeeh multi-user bot (2026-09-19) — real, restart-safe ticks.
+  // Escalation runs every minute (the real precision the 5-minute-
+  // follow-up/early-reminder windows need); daily recalc runs every 15
+  // minutes (cheap — it only ever does real work for users still missing
+  // today's row, a real UPSERT no-ops for everyone else instantly);
+  // Tasbeeh reminders run every minute too (slotsDueNow's own real
+  // hour-match + the DB claim make a coarser tick safe either way, but
+  // matching the escalation tick's cadence keeps this simple). Every one
+  // of these three is a real no-op (checked first line) when the bot
+  // isn't configured — safe to register unconditionally.
+  registerJob("Fajr Bot — Escalation", 60_000, () => require("./src/fajr-bot").runFajrEscalationTick());
+  registerJob("Fajr Bot — Daily Recalc", 15 * 60_000, () => require("./src/fajr-bot").runFajrDailyRecalcTick());
+  registerJob("Fajr Bot — Tasbeeh Reminders", 60_000, () => require("./src/fajr-bot").runFajrTasbeehReminderTick());
 
   // Morning digest — once-daily consolidated Telegram summary of the 9
   // "opportunity" detection jobs above (explicit user request, 2026-08-14:

@@ -63,6 +63,30 @@ services:
         sync: false
       - key: TELEGRAM_CHAT_ID
         sync: false
+      # Real fix (2026-09-19, found while auditing for the new Fajr bot):
+      # DATABASE_URL is genuinely load-bearing already (atomic-write.js's
+      # Postgres store backs ~25 real data/*.json stores plus dealer
+      # photos/future-wallet/news/story-ai assets — see server.js's own
+      # initPgStore() chain) but was never declared here. Same real risk
+      # this exact repo already hit once with RENTCAST_API_KEY: a value
+      # set only in the Render dashboard, absent from this Blueprint file,
+      # can get silently dropped on the next Blueprint sync. Declaring it
+      # here (sync: false, so the dashboard's real value is never
+      # overwritten) closes that gap without changing the value itself.
+      - key: DATABASE_URL
+        sync: false
+      # Fajr & Tasbeeh multi-user bot (2026-09-19) — a genuinely SEPARATE
+      # real Telegram bot/token from TELEGRAM_BOT_TOKEN above (that one is
+      # hardcoded to the single TELEGRAM_CHAT_ID throughout this app and
+      # is not safe to reuse for 200+ distinct users — see fajr-bot.js's
+      # own header). Create a new bot via @BotFather and set its real
+      # token here.
+      - key: FAJR_BOT_TOKEN
+        sync: false
+      - key: ADMIN_TELEGRAM_ID
+        sync: false
+      - key: DEFAULT_TIMEZONE
+        value: America/New_York
       - key: ANTHROPIC_API_KEY
         sync: false
       - key: ASTRA_ENABLED
