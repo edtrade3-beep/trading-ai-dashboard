@@ -3596,7 +3596,15 @@ async function handleMarket(req, res, requestUrl) {
         // entry/verdict engine. Read-only lens: tier/signalState/verdict
         // above are computed with zero dependency on this object.
         const quantFeatures = computeQuantFeatures({ bars, price: trend.price });
-        return { ...wtp, symbol, price: trend.price, tier, signalState, quantFeatures, supportResistance };
+        // Real Entry Quality (2026-09-19, "Valuation Engine inside AI
+        // Trade Desk" spec: Company Quality / Valuation / Entry Quality as
+        // three separate scores) — already computed above as part of the
+        // real canonical decision (asset-decision.js's own technical
+        // entryQuality: distance from MAs/VWAP/RSI/support/ATR-extension/
+        // volume), simply never surfaced in this response before. No new
+        // computation, no second entry-quality formula.
+        const entryQualityScore = canonical?.opportunity?.breakdown?.entryQuality ?? null;
+        return { ...wtp, symbol, price: trend.price, tier, signalState, quantFeatures, supportResistance, entryQualityScore };
       });
       return writeJson(res, 200, { ok: true, ...result });
     } catch (err) {

@@ -31,7 +31,10 @@
 // engine.js's own divergence trend) and is labeled distinctly so it's
 // never confused with an analyst consensus revision.
 
-const { computeValueScore, computeFairValueBands } = require("./future-value-scoring");
+const {
+  computeValueScore, computeFairValueBands,
+  computeQualityScore, computeGrowthScore, computeFinancialStrength, computeMoatProxy, computeFutureScore,
+} = require("./future-value-scoring");
 const { computeFundamentalDivergence, classifyValueTrapRisk } = require("./mispricing-engine");
 
 function round1(x) { return Number.isFinite(x) ? Math.round(x * 10) / 10 : null; }
@@ -176,6 +179,91 @@ function computeValuationConfidence({ hasFundamentals, hasHistory, hasFairValue,
   return Math.max(0, Math.min(100, score));
 }
 
+// ---- Follow-up additions (2026-09-19, "Valuation Engine inside AI Trade
+// Desk" spec: Company Quality / Valuation / Entry Quality as three
+// separate real scores, a compact price-assessment card, a real templated
+// WHY explanation, a real warning-flags list, and a simplified 6-state
+// FINAL VALUATION STATE). Per that spec's own "do not create a new major
+// tab" + this session's ONE-ENGINE RULE: every score below is REUSED, not
+// recomputed. Company Quality is future-value-scoring.js's own real
+// futureScore (durability + moat + financial strength blend, already
+// live elsewhere as "🚀 FUTURE STOCKS") — this file had never actually
+// called it before; Valuation stays this file's own valuationScore above
+// (unchanged); Entry Quality is asset-decision.js's own real technical
+// entryQuality (distance from MAs/VWAP/RSI/support/ATR-extension/volume)
+// — a canonical field this file has no involvement in computing, only
+// ever displayed alongside these two by the caller (never duplicated
+// here, since valuation-engine.js has no technical/price-bar inputs).
+
+// Real "Company Quality Score" — the SAME real futureScore blend
+// future-value-scoring.js already computes for "🚀 FUTURE STOCKS", reused
+// verbatim (never a second growth/quality/moat/balance-sheet formula).
+// upsidePct (optional) = the real analyst-target margin-of-safety this
+// file's own fairValue already computes — the same real "nudge, don't
+// dominate" input computeFutureScore's other real caller already passes.
+function computeCompanyQualityScore(fundamentals, upsidePct) {
+  if (!fundamentals) return null;
+  const quality = computeQualityScore(fundamentals);
+  const growth = computeGrowthScore(fundamentals);
+  const moat = computeMoatProxy(fundamentals);
+  const financialStrength = computeFinancialStrength(fundamentals);
+  return computeFutureScore({ quality, growth, moat, financialStrength }, upsidePct);
+}
+
+// Simplified 6-state read of the SAME real valuationScore VALUATION_LEVELS
+// already bands into 8 finer levels above — this is a coarser, spec-
+// requested vocabulary for the compact card, never a second score.
+const FINAL_VALUATION_STATES = [
+  { min: 80, state: "UNDERVALUED" },
+  { min: 65, state: "ATTRACTIVE" },
+  { min: 45, state: "FAIRLY VALUED" },
+  { min: 25, state: "EXPENSIVE" },
+  { min: 0, state: "EXTREMELY EXPENSIVE" },
+];
+function finalValuationStateFor(valuationScore) {
+  if (!Number.isFinite(valuationScore)) return "INSUFFICIENT DATA";
+  return FINAL_VALUATION_STATES.find((b) => valuationScore >= b.min).state;
+}
+
+// Real warning flags — each one reads an already-computed real field from
+// this same profile; a flag is included ONLY when the underlying real
+// data exists (the spec's own suggested flags this codebase has no real
+// source for — EPS-revision history, true 5yr P/E range, one-time-item
+// detection — are never fabricated here, simply never produced).
+function computeWarningFlags(p) {
+  const flags = [];
+  if (Number.isFinite(p.fcfGrowth) && p.fcfGrowth < 0) flags.push({ key: "FCF_DETERIORATING", label: `FCF shrinking (${p.fcfGrowth.toFixed(1)}% growth)` });
+  if (p.revenueTrend === "DECELERATING") flags.push({ key: "REVENUE_DECELERATING", label: "Revenue growth decelerating over the real multi-quarter window" });
+  const marginMetric = p.divergence?.metrics?.margin;
+  if (marginMetric && marginMetric.improving === false) flags.push({ key: "MARGIN_COMPRESSION", label: `Margin compression: ${marginMetric.label || "real multi-quarter margin trend deteriorating"}` });
+  const debtMetric = p.divergence?.metrics?.netDebtToEbitda;
+  if (debtMetric && debtMetric.improving === false) flags.push({ key: "DEBT_RISING", label: "Net debt/EBITDA trending up over the real multi-quarter window" });
+  if (p.balanceSheetRisk === "HIGH") flags.push({ key: "HIGH_LEVERAGE", label: `High balance-sheet leverage (net debt/EBITDA ${p.netDebtToEbitda})` });
+  if (p.pegStatus === "EXPENSIVE") flags.push({ key: "HIGH_PEG", label: `PEG ${p.peg?.toFixed(2)} — demanding valuation relative to growth` });
+  if (Number.isFinite(p.fcfYield) && p.fcfYield < 1) flags.push({ key: "LOW_FCF_YIELD", label: `Low FCF yield (${p.fcfYield.toFixed(1)}%)` });
+  if (p.valueTrapLevel === "HIGH" || p.valueTrapLevel === "EXTREME") flags.push({ key: "VALUE_TRAP_RISK", label: p.valueTrapReason || `${p.valueTrapLevel} value-trap risk` });
+  return flags;
+}
+
+// Real, deterministic 2-3 line WHY template — same rule-based-selection
+// pattern mispricing-engine.js's own answerWhy() already establishes for
+// this codebase (a real ordered rule list, never a free-text/LLM
+// generation), built only from fields this same profile already computed.
+function buildValuationWhy(p) {
+  const lines = [];
+  if (Number.isFinite(p.forwardPE) && p.pegStatus) {
+    lines.push(`Forward P/E is ${p.forwardPE.toFixed(1)}x with a ${p.pegStatus.toLowerCase()} PEG of ${p.peg.toFixed(2)}, ${p.pegStatus === "EXPENSIVE" ? "a demanding valuation relative to expected growth." : "reasonable relative to expected growth."}`);
+  } else if (Number.isFinite(p.trailingPE)) {
+    lines.push(`Trailing P/E is ${p.trailingPE.toFixed(1)}x — real forward EPS wasn't available to compute a forward multiple.`);
+  }
+  if (Number.isFinite(p.fcfYield)) {
+    lines.push(`FCF yield is ${p.fcfYield.toFixed(1)}%${Number.isFinite(p.fcfGrowth) ? ` and ${p.fcfGrowth >= 0 ? "growing" : "shrinking"} (${p.fcfGrowth.toFixed(1)}%)` : ""}.`);
+  }
+  if (p.revenueTrend) lines.push(`Revenue growth is ${p.revenueTrend.toLowerCase()}${Number.isFinite(p.latestRevenueGrowth) ? ` (latest ${p.latestRevenueGrowth.toFixed(1)}%)` : ""}.`);
+  if (!lines.length) return "Not enough real data to explain this valuation read yet.";
+  return lines.slice(0, 3).join(" ");
+}
+
 // The one canonical entry point — assembles every real piece above into
 // one object. `fundamentals` = providers/fmp.js's real fetchFmpFundamentals
 // output; `fundamentalsHistory` = fetchFmpFundamentalsHistory's real
@@ -195,10 +283,13 @@ function computeValuationProfile({ fundamentals, fundamentalsHistory, price, for
   const divergence = computeFundamentalDivergence({ quarters: fundamentalsHistory, priceChangePct });
   const valueTrap = computeValueTrapScore({ valueScore: valuationScore, divergence });
   const forwardPE = computeForwardPE(price, forwardEps);
+  const companyQualityScore = computeCompanyQualityScore(fundamentals, fairValue?.marginOfSafetyPct);
 
-  return {
+  const profile = {
     available: true,
     valuationScore, valuationLevel: valuationLevelFor(valuationScore),
+    companyQualityScore,
+    finalValuationState: finalValuationStateFor(valuationScore),
     forwardPE,
     // Honestly unavailable — no real 5yr P/E history / sector-median
     // source exists in this codebase (see header). Never guessed.
@@ -229,10 +320,19 @@ function computeValuationProfile({ fundamentals, fundamentalsHistory, price, for
       hasFairValue: !!fairValue, hasForwardPE: Number.isFinite(forwardPE),
     }),
   };
+  // priceAssessment — the spec's own Great-Value/Fair-Value/Expensive
+  // naming, a pure alias of buyZones above (zero new computation).
+  profile.priceAssessment = profile.buyZones
+    ? { greatValue: profile.buyZones.aggressiveBuyBelow, fairValue: profile.buyZones.fairValueRange, expensive: profile.buyZones.expensiveAbove }
+    : null;
+  profile.warningFlags = computeWarningFlags(profile);
+  profile.whyText = buildValuationWhy(profile);
+  return profile;
 }
 
 module.exports = {
   computeValuationProfile, valuationLevelFor, valueTrapLevelFor, computeValueTrapScore,
   computeGarpStatus, computeValuationTrend, computeBuyZones, computeForwardPE, pegStatusFor, revenueTrendFor,
   computeValuationConfidence, VALUATION_LEVELS, VALUE_TRAP_LEVELS,
+  computeCompanyQualityScore, finalValuationStateFor, FINAL_VALUATION_STATES, computeWarningFlags, buildValuationWhy,
 };

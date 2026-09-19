@@ -78,6 +78,25 @@ ok("exports a reusable getValuationProfile alongside the HTTP handler, backed by
   assert.strictEqual(typeof require2.getValuationProfile, "function");
 });
 
+console.log("\nChecking ValuationCard.jsx — Company Quality / Valuation / Entry Quality three-score header (2026-09-19 follow-up)…");
+
+ok("shows all three real scores (companyQualityScore, valuationScore, a real separately-fetched entryQualityScore) — never merges them into one number", () => {
+  assert.match(cardSrc, /data\.companyQualityScore/);
+  assert.match(cardSrc, /data\.valuationScore/);
+  assert.match(cardSrc, /entryQualityScore/);
+  assert.doesNotMatch(cardSrc, /companyQualityScore\s*[-+*/]\s*valuationScore/, "must never combine the two scores into one");
+});
+
+ok("entryQualityScore comes from the SEPARATE real /api/market/what-to-pay endpoint (asset-decision.js's own canonical technical entryQuality), not computed inline here", () => {
+  assert.match(cardSrc, /fetch\(`\/api\/market\/what-to-pay\?symbol=/);
+});
+
+ok("real finalValuationState and warningFlags are surfaced — never fabricated when the underlying data doesn't support them", () => {
+  assert.match(cardSrc, /data\.finalValuationState/);
+  assert.match(cardSrc, /data\.warningFlags/);
+  assert.match(cardSrc, /data\.whyText/);
+});
+
 console.log(`\n${passed} checks passed.`);
 if (process.exitCode) console.error("VALUATION-ROUTE TEST FAILED");
 else console.log("VALUATION-ROUTE TEST OK");
