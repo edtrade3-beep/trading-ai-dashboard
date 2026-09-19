@@ -123,6 +123,25 @@ async function _createSchema(pool) {
       PRIMARY KEY (telegram_id, local_date, slot)
     )
   `);
+  // Real admin-generated invitations (2026-09-19, explicit user request:
+  // "add users with name send telgram invitation") — a real Telegram bot
+  // can NEVER message someone who hasn't started a conversation with it
+  // first (a hard platform anti-spam rule, not something any code here
+  // can work around). What IS real and buildable: the admin generates a
+  // real, personalized deep-link (https://t.me/<bot>?start=<code>) here,
+  // sends it to the person through their own real channel (WhatsApp/SMS/
+  // Telegram directly), and when that person taps it, the bot's own
+  // /start handler recognizes the code and greets them by the real name
+  // the admin gave — plus lets the admin see who has/hasn't joined yet.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS fajr_invites (
+      code TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      used_at TIMESTAMPTZ,
+      telegram_id BIGINT
+    )
+  `);
 }
 
 function isReady() { return _ready; }
@@ -283,6 +302,53 @@ async function getAdminStats() {
   };
 }
 
+// ---- Admin invitations ("add users with name send telegram invitation") ----
+
+// Real, unique invite code — a short random string, real PRIMARY KEY
+// collision-checked (regenerates on the rare real conflict) rather than
+// a long UUID, since it has to be typed/pasted as part of a real
+// t.me/<bot>?start=<code> link a human will actually handle.
+function _randomCode() {
+  return Math.random().toString(36).slice(2, 8) + Math.random().toString(36).slice(2, 6);
+}
+
+async function createInvite(name) {
+  const pool = getPool();
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const code = _randomCode();
+    const { rows } = await pool.query(
+      "INSERT INTO fajr_invites (code, name) VALUES ($1, $2) ON CONFLICT (code) DO NOTHING RETURNING *",
+      [code, name]
+    );
+    if (rows[0]) return rows[0];
+  }
+  throw new Error("Could not generate a unique real invite code after 5 attempts.");
+}
+
+async function getInvite(code) {
+  const pool = getPool();
+  const { rows } = await pool.query("SELECT * FROM fajr_invites WHERE code = $1", [code]);
+  return rows[0] || null;
+}
+
+// Real, idempotent claim — first real /start with this code wins; a
+// second tap of the same link (or a retried update) is a harmless no-op
+// via the WHERE guard, never double-attributed to two different users.
+async function markInviteUsed(code, telegramId) {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    "UPDATE fajr_invites SET used_at = now(), telegram_id = $2 WHERE code = $1 AND used_at IS NULL RETURNING *",
+    [code, telegramId]
+  );
+  return rows[0] || null;
+}
+
+async function listInvites() {
+  const pool = getPool();
+  const { rows } = await pool.query("SELECT * FROM fajr_invites ORDER BY created_at DESC LIMIT 200");
+  return rows;
+}
+
 module.exports = {
   STAGES, initFajrBotStore, isReady,
   upsertUser, getUser, setActive, setEarlyReminder, setTasbeehFreq, listActiveUsers,
@@ -290,4 +356,5 @@ module.exports = {
   claimReminderStage, listSentStages,
   claimAdhkar, claimTasbeehSlot,
   getAdminStats,
+  createInvite, getInvite, markInviteUsed, listInvites,
 };

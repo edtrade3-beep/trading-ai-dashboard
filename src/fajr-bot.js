@@ -124,13 +124,63 @@ async function sendVoice(chatId, text) {
   } catch (err) { console.warn("[FajrBot] sendVoice error:", err.message); return { ok: false, error: err.message }; }
 }
 
-// ---- Registration (/start) ----
-async function handleStart(chatId, firstName) {
+// ---- Registration (/start [invite-code]) ----
+// The invite code (when present) comes from a real Telegram deep link
+// (https://t.me/<bot>?start=<code>) an admin generated via /invite — see
+// handleInvite below. Telegram delivers it as literal text after /start,
+// e.g. "/start ab12cd34", never as a separate structured field.
+async function handleStart(chatId, firstName, inviteCode) {
+  let greetName = firstName || "";
+  if (inviteCode) {
+    try {
+      const invite = await store.getInvite(inviteCode);
+      if (invite && invite.name) greetName = invite.name; // the real name the admin gave, in case Telegram's own first_name differs/is blank
+      await store.markInviteUsed(inviteCode, chatId).catch(() => {}); // real idempotent claim — a re-tapped link is a harmless no-op
+    } catch (err) { console.warn("[FajrBot] invite lookup failed:", err.message); }
+  }
   await sendMessage(
     chatId,
-    `👋 ${firstName || ""}، مرحبًا بك في بوت الفجر والتسبيح.\n\nلحساب وقت الفجر الدقيق في منطقتك، شارك موقعك بالضغط على الزر أدناه.\n\n(Share your location using the button below so I can calculate your exact real Fajr time.)`,
+    `👋 ${greetName}، مرحبًا بك في بوت الفجر والتسبيح.\n\nلحساب وقت الفجر الدقيق في منطقتك، شارك موقعك بالضغط على الزر أدناه.\n\n(Share your location using the button below so I can calculate your exact real Fajr time.)`,
     { keyboard: LOCATION_KEYBOARD }
   );
+}
+
+// ---- Admin: generate a real, personalized invite (#: "add users with
+// name send telegram invitation"). A Telegram bot can never message
+// someone who hasn't started a chat with it first (real platform anti-
+// spam rule) — this generates a real shareable deep link + ready message
+// for the admin to forward through their own real channel instead of
+// pretending the bot can reach out on its own.
+async function handleInvite(chatId, args) {
+  if (!ADMIN_TELEGRAM_ID || String(chatId) !== String(ADMIN_TELEGRAM_ID)) return sendMessage(chatId, "هذا الأمر للمشرف فقط.");
+  const name = args.join(" ").trim();
+  if (!name) return sendMessage(chatId, "الاستخدام: /invite <الاسم>\nمثال: /invite أحمد");
+  const invite = await store.createInvite(name);
+  const botUsername = await _botUsername();
+  const link = botUsername ? `https://t.me/${botUsername}?start=${invite.code}` : `(اضبط اسم المستخدم للبوت أولاً)`;
+  return sendMessage(
+    chatId,
+    `✅ تم إنشاء دعوة لـ ${name}.\n\nأرسل هذه الرسالة إليه عبر واتساب أو تيليجرام:\n\n———\nمرحبًا ${name}! انضم إلى بوت الفجر والتسبيح:\n${link}\n———`
+  );
+}
+
+async function handleInvites(chatId) {
+  if (!ADMIN_TELEGRAM_ID || String(chatId) !== String(ADMIN_TELEGRAM_ID)) return sendMessage(chatId, "هذا الأمر للمشرف فقط.");
+  const invites = await store.listInvites();
+  if (!invites.length) return sendMessage(chatId, "لا توجد دعوات بعد.");
+  const lines = invites.slice(0, 30).map((i) => `${i.used_at ? "✅" : "⏳"} ${i.name}${i.used_at ? " — انضم" : " — بالانتظار"}`);
+  return sendMessage(chatId, `📋 الدعوات (آخر ${lines.length}):\n\n${lines.join("\n")}`);
+}
+
+let _cachedBotUsername = null;
+async function _botUsername() {
+  if (_cachedBotUsername) return _cachedBotUsername;
+  try {
+    const res = await fetch(`${API}/getMe`);
+    const json = await res.json().catch(() => ({}));
+    if (json.ok) _cachedBotUsername = json.result.username;
+  } catch { /* real network failure — caller handles a null username */ }
+  return _cachedBotUsername;
 }
 
 async function handleLocation(chatId, firstName, latitude, longitude) {
@@ -297,11 +347,13 @@ async function dispatchMessage(msg) {
   const [cmdRaw, ...args] = text.slice(1).split(/\s+/);
   const cmd = cmdRaw.toLowerCase();
 
-  if (cmd === "start") return handleStart(chatId, firstName);
+  if (cmd === "start") return handleStart(chatId, firstName, args[0] || null);
   if (cmd === "timezone") return handleTimezone(chatId, args);
   if (cmd === "early") return handleEarly(chatId, args);
   if (cmd === "tasbeehfreq") return handleTasbeehFreq(chatId, args);
   if (cmd === "stats") return handleStats(chatId);
+  if (cmd === "invite") return handleInvite(chatId, args);
+  if (cmd === "invites") return handleInvites(chatId);
   if (cmd === "help") {
     return sendMessage(chatId, [
       "/start — تسجيل/مشاركة الموقع",
