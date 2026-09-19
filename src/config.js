@@ -33,6 +33,20 @@ const ANTHROPIC_API_KEY = (process.env.ANTHROPIC_API_KEY || "").trim();
 const ASTRA_ENABLED = isOn(process.env.ASTRA_ENABLED);
 const TV_WEBHOOK_MAX_ROWS = 160;
 
+// Fajr & Tasbeeh multi-user bot (2026-09-19, explicit user request: "build
+// this multi-user (200+) version as new functionality inside trading-ai-
+// dashboard's existing single-user bot"). A genuinely SEPARATE Telegram
+// bot/token from TELEGRAM_BOT_TOKEN above — that one is hardcoded to a
+// single TELEGRAM_CHAT_ID throughout this whole app (see telegram.js) and
+// is not safe to repurpose for 200+ distinct users. Real, own bot created
+// via @BotFather, own token here. ADMIN_TELEGRAM_ID is who /stats and
+// admin-only commands are allowed to reach. DEFAULT_TIMEZONE only applies
+// until a user's own real timezone is known (their /start registration
+// captures it) — never silently overrides a real per-user value.
+const FAJR_BOT_TOKEN = (process.env.FAJR_BOT_TOKEN || "").trim();
+const ADMIN_TELEGRAM_ID = (process.env.ADMIN_TELEGRAM_ID || "").trim();
+const DEFAULT_TIMEZONE = (process.env.DEFAULT_TIMEZONE || "America/New_York").trim();
+
 const MIME_TYPES = {
   ".html": "text/html; charset=utf-8",
   ".css": "text/css; charset=utf-8",
@@ -99,6 +113,7 @@ module.exports = {
   FINNHUB_API_KEY, FMP_API_KEY, TWELVE_DATA_API_KEY, POLYGON_API_KEY,
   UNUSUAL_WHALES_API_KEY, TRADIER_API_KEY, RENTCAST_API_KEY, TV_WEBHOOK_SECRET, TV_WEBHOOK_MAX_ROWS,
   APP_PASSWORD, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, ANTHROPIC_API_KEY, ASTRA_ENABLED,
+  FAJR_BOT_TOKEN, ADMIN_TELEGRAM_ID, DEFAULT_TIMEZONE,
   MIME_TYPES, TIMEFRAME_CONFIG, CANDLE_TIMEFRAME_CONFIG, MACRO_SYMBOLS,
   resolveProviderKeys
 };
