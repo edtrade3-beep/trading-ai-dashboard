@@ -56,6 +56,14 @@ ok("wires the real support-resistance-engine.js additively too, reusing the SAME
   assert.match(block, /supportResistance/);
 });
 
+ok("real Entry Quality field (2026-09-19, 'Valuation Engine inside AI Trade Desk' follow-up) — reuses the real canonical opportunity.breakdown.entryQuality already computed above, never a second entry-quality formula", () => {
+  const start = marketSrc.indexOf('pathname === "/api/market/what-to-pay"');
+  const end = marketSrc.indexOf("\n  }", marketSrc.indexOf("entryQualityScore = canonical", start));
+  const block = marketSrc.slice(start, end);
+  assert.match(block, /canonical\?\.opportunity\?\.breakdown\?\.entryQuality \?\? null/);
+  assert.match(block, /entryQualityScore \};?\s*$/m);
+});
+
 ok("real fix (2026-09-18 follow-up, 'only 2 candidates... not a true multi-source cluster'): supportResistance is computed exactly ONCE (not twice) and threaded into computeWhatToPay itself, so What Price To Pay's own STRONG BUY ZONE can anchor on the real cluster, not just EMA50/contractionLow", () => {
   const start = marketSrc.indexOf('pathname === "/api/market/what-to-pay"');
   const end = marketSrc.indexOf("\n  }", marketSrc.indexOf("computeQuantFeatures({ bars", start));

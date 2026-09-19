@@ -8,6 +8,7 @@ const assert = require("node:assert");
 const {
   computeValuationProfile, valuationLevelFor, valueTrapLevelFor,
   computeGarpStatus, computeValuationTrend, pegStatusFor,
+  computeCompanyQualityScore, finalValuationStateFor, computeWarningFlags, buildValuationWhy,
 } = require("../src/valuation-engine");
 
 let passed = 0;
@@ -129,6 +130,104 @@ ok("computeValuationTrend defaults to STABLE with no real multi-quarter data, ne
   assert.strictEqual(computeValuationTrend({ totalReal: 0 }), "STABLE");
 });
 
+console.log("\nChecking companyQualityScore — real reuse of future-value-scoring.js's own futureScore, never a second growth/quality/moat formula (2026-09-19 follow-up)…");
+
+ok("computeCompanyQualityScore is high for real strong growth/quality/moat/balance-sheet fundamentals", () => {
+  const score = computeCompanyQualityScore({
+    revenueGrowth: 0.3, earningsGrowth: 0.35, freeCashFlowGrowth: 0.25, profitMargin: 0.2, roe: 0.25, roic: 0.2,
+    currentRatio: 2.5, netDebtToEbitda: -0.5, grossMargin: 0.65,
+  }, 10);
+  assert.ok(score >= 70, `expected a real high company-quality score, got ${score}`);
+});
+
+ok("computeCompanyQualityScore is low for real weak fundamentals — never floored to a default", () => {
+  const score = computeCompanyQualityScore({
+    revenueGrowth: -0.1, earningsGrowth: -0.2, freeCashFlowGrowth: -0.3, profitMargin: 0.01, roe: -0.05, roic: -0.02,
+    currentRatio: 0.6, netDebtToEbitda: 5, grossMargin: 0.15,
+  }, -10);
+  assert.ok(score <= 35, `expected a real low company-quality score, got ${score}`);
+});
+
+ok("computeCompanyQualityScore is honestly null with no real fundamentals", () => {
+  assert.strictEqual(computeCompanyQualityScore(null), null);
+});
+
+ok("computeValuationProfile wires companyQualityScore into the real assembled profile — a separate real score alongside valuationScore, never merged into it", () => {
+  const r = computeValuationProfile({
+    fundamentals: { pe: 12, pegRatio: 0.8, fcfYield: 0.07, netDebtToEbitda: 0.5, revenueGrowth: 0.15, earningsGrowth: 0.2, freeCashFlowGrowth: 0.1, priceToSales: 2, evToEbitda: 9, profitMargin: 0.2, roe: 0.2, roic: 0.15, currentRatio: 2, grossMargin: 0.5 },
+    fundamentalsHistory: IMPROVING_HISTORY, price: 100, forwardEps: 5,
+  });
+  assert.ok(Number.isFinite(r.companyQualityScore));
+  assert.notStrictEqual(r.companyQualityScore, r.valuationScore, "must be a genuinely separate real number, not a duplicate of valuationScore");
+});
+
+console.log("\nChecking finalValuationState — a real, simplified 6-state read of the same valuationScore (2026-09-19 follow-up)…");
+
+ok("bands the real spec-requested 6 states correctly, INSUFFICIENT DATA when no real score exists", () => {
+  assert.strictEqual(finalValuationStateFor(85), "UNDERVALUED");
+  assert.strictEqual(finalValuationStateFor(70), "ATTRACTIVE");
+  assert.strictEqual(finalValuationStateFor(50), "FAIRLY VALUED");
+  assert.strictEqual(finalValuationStateFor(30), "EXPENSIVE");
+  assert.strictEqual(finalValuationStateFor(5), "EXTREMELY EXPENSIVE");
+  assert.strictEqual(finalValuationStateFor(null), "INSUFFICIENT DATA");
+});
+
+console.log("\nChecking computeWarningFlags — only real, data-backed flags, never the spec's own unavailable ones (EPS-revision history, true 5yr P/E range)…");
+
+ok("real deteriorating fundamentals produce real, specific warning flags", () => {
+  const r = computeValuationProfile({
+    // earningsGrowth kept slightly positive (not the fixture's own -0.25)
+    // so pegStatus is actually evaluated here — PEG is honestly null
+    // against non-positive growth (the real, separate, already-tested
+    // rule), which would otherwise mask this specific HIGH_PEG flag.
+    fundamentals: { pe: 8, fcfYield: -0.02, netDebtToEbitda: 4.5, revenueGrowth: -0.08, earningsGrowth: 0.02, freeCashFlowGrowth: -0.3, priceToSales: 0.8, evToEbitda: 6, pegRatio: 3 },
+    fundamentalsHistory: DETERIORATING_HISTORY, price: 40,
+  });
+  const keys = r.warningFlags.map((f) => f.key);
+  assert.ok(keys.includes("FCF_DETERIORATING"));
+  assert.ok(keys.includes("HIGH_LEVERAGE"));
+  assert.ok(keys.includes("HIGH_PEG"));
+  assert.ok(r.warningFlags.every((f) => typeof f.label === "string" && f.label.length > 0), "every flag must carry a real, non-empty label");
+});
+
+ok("clean, improving fundamentals produce zero warning flags — never a fabricated flag when nothing real is wrong", () => {
+  const r = computeValuationProfile({
+    fundamentals: { pe: 12, pegRatio: 0.8, fcfYield: 0.07, netDebtToEbitda: 0.5, revenueGrowth: 0.15, earningsGrowth: 0.2, freeCashFlowGrowth: 0.1, priceToSales: 2, evToEbitda: 9 },
+    fundamentalsHistory: IMPROVING_HISTORY, price: 100, forwardEps: 5,
+  });
+  assert.strictEqual(r.warningFlags.length, 0);
+});
+
+ok("computeWarningFlags never produces a flag this codebase has no real data source for (e.g. EPS-revision-history, historical-P/E-range flags)", () => {
+  const allPossibleKeys = ["FCF_DETERIORATING", "REVENUE_DECELERATING", "MARGIN_COMPRESSION", "DEBT_RISING", "HIGH_LEVERAGE", "HIGH_PEG", "LOW_FCF_YIELD", "VALUE_TRAP_RISK"];
+  const r = computeValuationProfile({
+    fundamentals: { pe: 8, fcfYield: -0.02, netDebtToEbitda: 4.5, revenueGrowth: -0.08, earningsGrowth: -0.25, freeCashFlowGrowth: -0.3, pegRatio: 3 },
+    fundamentalsHistory: DETERIORATING_HISTORY, price: 40,
+  });
+  for (const f of r.warningFlags) assert.ok(allPossibleKeys.includes(f.key), `unexpected flag key ${f.key} — must only ever be one of the real, data-backed set`);
+});
+
+console.log("\nChecking buildValuationWhy / priceAssessment — real templated explanation, real zone relabeling (2026-09-19 follow-up)…");
+
+ok("whyText is a real, non-empty string built from actually-computed fields, honestly generic when nothing real is available", () => {
+  assert.strictEqual(buildValuationWhy({}), "Not enough real data to explain this valuation read yet.");
+  const text = buildValuationWhy({ forwardPE: 20, pegStatus: "ATTRACTIVE", peg: 0.8, fcfYield: 5, fcfGrowth: 10, revenueTrend: "ACCELERATING", latestRevenueGrowth: 15 });
+  assert.match(text, /20\.0x/);
+  assert.match(text, /0\.80/);
+});
+
+ok("priceAssessment is a real alias of buyZones (great value / fair value / expensive), zero new computation", () => {
+  const r = computeValuationProfile({
+    fundamentals: { pe: 12, pegRatio: 0.8, fcfYield: 0.07, netDebtToEbitda: 0.5, revenueGrowth: 0.15, earningsGrowth: 0.2, freeCashFlowGrowth: 0.1, targetLow: 100, targetMedian: 150, targetHigh: 220, analystTarget: 150 },
+    fundamentalsHistory: IMPROVING_HISTORY, price: 100, forwardEps: 5,
+  });
+  if (r.buyZones) {
+    assert.strictEqual(r.priceAssessment.greatValue, r.buyZones.aggressiveBuyBelow);
+    assert.strictEqual(r.priceAssessment.expensive, r.buyZones.expensiveAbove);
+    assert.deepStrictEqual(r.priceAssessment.fairValue, r.buyZones.fairValueRange);
+  }
+});
+
 console.log("\nChecking reuse discipline (source-inspection tripwire) — ONE-ENGINE RULE…");
 
 ok("valuation-engine.js reuses the real future-value-scoring.js and mispricing-engine.js — no second valuation/value-trap formula declared here", () => {
@@ -137,6 +236,13 @@ ok("valuation-engine.js reuses the real future-value-scoring.js and mispricing-e
   assert.match(src, /require\("\.\/future-value-scoring"\)/);
   assert.match(src, /require\("\.\/mispricing-engine"\)/);
   assert.doesNotMatch(src, /function computeValueScore|function computeFairValueBands|function computeFundamentalDivergence/, "must not redeclare the canonical valuation/divergence formulas");
+});
+
+ok("companyQualityScore reuses future-value-scoring.js's own real computeQualityScore/computeGrowthScore/computeMoatProxy/computeFinancialStrength/computeFutureScore — never a second growth/quality/moat/balance-sheet formula", () => {
+  const fs = require("node:fs");
+  const src = fs.readFileSync(require.resolve("../src/valuation-engine"), "utf8");
+  assert.match(src, /computeQualityScore, computeGrowthScore, computeFinancialStrength, computeMoatProxy, computeFutureScore/);
+  assert.doesNotMatch(src, /function computeQualityScore|function computeGrowthScore|function computeMoatProxy|function computeFinancialStrength|function computeFutureScore/, "must not redeclare any of the real company-quality sub-formulas");
 });
 
 console.log(`\n${passed} checks passed.`);
