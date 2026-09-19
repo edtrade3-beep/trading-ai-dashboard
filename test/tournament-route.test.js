@@ -48,6 +48,13 @@ ok("real bug fix (2026-09-17, ONE-ENGINE-RULE gap this route itself introduced b
   assert.match(routeSrc, /valuationScore = v\.valuationScore/);
 });
 
+ok("real bug fix (2026-09-18, \"ENTER_NOW staleness\" investigation): the detail handler now passes sectorInfo/adx to computeCanonicalAssetDecision — the same two real inputs tournament-engine.js's own runTournamentTick already uses, previously missing here, which could genuinely change tier/signalState for the exact same symbol at the exact same moment (not a staleness issue — two different real computations)", () => {
+  assert.match(routeSrc, /require\("\.\.\/sector-theme-map"\)/);
+  assert.match(routeSrc, /SECTOR_THEME_MAP\.SECTOR_ETFS/);
+  assert.match(routeSrc, /const adx = row\.technicals\?\.adx \|\| null;/);
+  assert.match(routeSrc, /computeCanonicalAssetDecision\(\{ symbol, row, macroQuotes, sectorInfo, adx,/);
+});
+
 ok("Final Verdict Integration (2026-09-17 follow-up, §17): the detail handler exposes the real, already-computed asset-decision.js verdict (risk.finalVerdict) — no new decision logic, just exposure", () => {
   assert.match(routeSrc, /verdict: ad\?\.verdict \?\? null/);
 });

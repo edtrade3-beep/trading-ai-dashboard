@@ -16,6 +16,7 @@ const { isMarketHoursET } = require("../risk-guardrails");
 const { buildResearchContext } = require("../research-context-adapter");
 const { loadCoachLog } = require("../ai-coach-store");
 const { resolveProviderKeys } = require("../config");
+const SECTOR_THEME_MAP = require("../sector-theme-map");
 
 let _cachedRegime = { at: 0, label: null };
 const REGIME_TTL_MS = 5 * 60_000;
@@ -65,11 +66,25 @@ async function handleTournamentBoard(req, res, requestUrl) {
 }
 
 // GET /api/market/tournament/detail?symbol=X — one fresh real canonical
-// decision for a single symbol, same recipe the tick itself uses, plus
-// the real riskScore contributor breakdown (asset-decision.js's own
-// computeRiskScore already computes this internally but buildAssetDecision
-// only keeps score/level from it — called again here with the exact same
-// real inputs already sitting on the canonical result, not a new formula).
+// decision for a single symbol, plus the real riskScore contributor
+// breakdown (asset-decision.js's own computeRiskScore already computes
+// this internally but buildAssetDecision only keeps score/level from it —
+// called again here with the exact same real inputs already sitting on
+// the canonical result, not a new formula).
+//
+// Real bug fix (2026-09-18, "ENTER_NOW staleness" investigation — a user
+// report of the board showing ENTER_NOW for a symbol while this route
+// showed WAIT moments later): this handler's own comment used to claim
+// "same recipe the tick itself uses," but it never actually passed
+// `sectorInfo`/`adx` to computeCanonicalAssetDecision — two real inputs
+// tournament-engine.js's runTournamentTick() DOES pass, and both feed
+// directly into computeOpportunity's real score. That's not staleness;
+// it's two different real computations for the same symbol at nearly the
+// same moment, genuinely capable of landing on different tier/signalState
+// results. Fixed by building sectorInfo/adx with the exact same recipe
+// the tick uses (SECTOR_THEME_MAP sector-ETF ranking + row.technicals.adx)
+// so a click-through always reflects the SAME real canonical read the
+// board itself is showing, never a quieter, less-informed one.
 async function handleTournamentDetail(req, res, requestUrl) {
   const symbol = (requestUrl.searchParams.get("symbol") || "").trim().toUpperCase();
   if (!symbol) return writeJson(res, 400, { ok: false, error: "symbol required" });
@@ -80,14 +95,24 @@ async function handleTournamentDetail(req, res, requestUrl) {
     if (!row) return writeJson(res, 200, { ok: false, error: `No real trend-template data for ${symbol} right now.` });
 
     const MACRO_SYMS = ["SPY", "QQQ", "IWM", "DIA", "^VIX", "UUP", "VIXY", "TLT", "HYG"];
-    const macroQuotesRaw = await fetchYahooQuoteBatch(MACRO_SYMS).catch(() => []);
+    const [macroQuotesRaw, sectorQuotes] = await Promise.all([
+      fetchYahooQuoteBatch(MACRO_SYMS).catch(() => []),
+      fetchYahooQuoteBatch(SECTOR_THEME_MAP.SECTOR_ETFS.map((s) => s.sym)).catch(() => []),
+    ]);
     const macroQuotes = macroQuotesRaw.map((q) => ({ symbol: q.symbol, price: q.regularMarketPrice, changesPercentage: q.regularMarketChangePercent }));
+    const sectorRanked = SECTOR_THEME_MAP.SECTOR_ETFS
+      .map((s) => ({ sym: s.sym, chgPct: Number(sectorQuotes.find((q) => q.symbol === s.sym)?.regularMarketChangePercent) || 0 }))
+      .sort((a, b) => b.chgPct - a.chgPct);
+    const etf = SECTOR_THEME_MAP.etfOf(symbol);
+    const sectorIdx = etf ? sectorRanked.findIndex((r) => r.sym === etf) : -1;
+    const sectorInfo = sectorIdx >= 0 ? { rank: sectorIdx + 1, of: sectorRanked.length } : null;
+    const adx = row.technicals?.adx || null;
     const nowMs = Date.now();
     const marketHours = isMarketHoursET();
     const coachLog = loadCoachLog();
     const researchContext = buildResearchContext({ researchIntel: coachLog.researchIntel, marketWrap: coachLog.marketWrap, timestamp: nowMs });
 
-    const canonical = computeCanonicalAssetDecision({ symbol, row, macroQuotes, nowMs, marketHours, researchContext });
+    const canonical = computeCanonicalAssetDecision({ symbol, row, macroQuotes, sectorInfo, adx, nowMs, marketHours, researchContext });
     if (!canonical) return writeJson(res, 200, { ok: false, error: `Canonical decision unavailable for ${symbol} right now.` });
     const { assetDecision: ad, opportunity: opp } = canonical;
 
