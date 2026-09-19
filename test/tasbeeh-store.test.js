@@ -106,6 +106,13 @@ ok("DHIKR_LIST entries all carry real, non-empty Arabic text and a real English 
   }
 });
 
+ok("DHIKR_LIST includes a real Salawat entry (2026-09-19, explicit user request: 'صلاة على رسول الله 1000 مرة target') — same real phrase already used by the web Tasbeeh widget, and the existing TARGETS list already includes 1000 for it (or any dhikr) to select", () => {
+  const salawat = DHIKR_LIST.find((d) => d.label === "Salawat");
+  assert.ok(salawat, "expected a real Salawat entry in DHIKR_LIST");
+  assert.strictEqual(salawat.ar, "الصلاة على رسول الله");
+  assert.ok(TARGETS.includes(1000));
+});
+
 console.log("\nChecking the real 'Tasbeeh 100' combo mode (2026-09-12, explicit user request: 33 Subhan Allah / 34 Alhamdulillah / 67 Allahu Akbar / 100 La ilaha illallah)…");
 
 ok("stageForCount resolves every real boundary to the correct real dhikr — 1, 33, 34, 66, 67, 99, 100", () => {

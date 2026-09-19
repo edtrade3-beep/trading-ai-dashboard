@@ -21,6 +21,13 @@ const DHIKR_LIST = [
   { ar: "أَسْتَغْفِرُ اللَّهَ", label: "Astaghfirullah" },
   { ar: "سُبْحَانَ اللَّهِ وَبِحَمْدِهِ", label: "Subhan Allahi wa bihamdih" },
   { ar: "لَا حَوْلَ وَلَا قُوَّةَ إِلَّا بِاللَّهِ", label: "La hawla wala quwwata illa billah" },
+  // Salawat (2026-09-19, explicit user request: "صلاة على رسول الله 1000
+  // مرة target") — same real phrase already added to the web Tasbeeh
+  // widget on 2026-09-12 (TasbeehCounter.jsx's own "salawat" entry),
+  // matched here for consistency across both surfaces. TARGETS below
+  // already includes 1000, selectable for this (or any) dhikr via the
+  // existing 🎯 Target menu — no per-dhikr default needed here.
+  { ar: "الصلاة على رسول الله", label: "Salawat" },
 ];
 
 const TARGETS = [33, 100, 300, 1000];
