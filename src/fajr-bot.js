@@ -34,7 +34,15 @@ function isConfigured() { return Boolean(FAJR_BOT_TOKEN) && store.isReady(); }
 async function getStatus() {
   const tokenConfigured = Boolean(FAJR_BOT_TOKEN);
   const dbReady = store.isReady();
-  const status = { tokenConfigured, dbReady, polling: _polling, botInfo: null, botError: null };
+  // adminConfigured (2026-09-19, live incident: "/invite Ahmad only for
+  // admin, im admin") — never echoes the real ADMIN_TELEGRAM_ID value
+  // itself (it's a real Telegram user id, not shown here for the same
+  // "don't leak more than necessary over an unauthenticated endpoint"
+  // discipline as the token), just whether it's set at all. Pair this
+  // with /whoami inside Telegram (shows the sender's own real chat_id) to
+  // compare the two directly.
+  const adminConfigured = Boolean(ADMIN_TELEGRAM_ID);
+  const status = { tokenConfigured, dbReady, adminConfigured, polling: _polling, botInfo: null, botError: null };
   if (!tokenConfigured) { status.botError = "FAJR_BOT_TOKEN is not set."; return status; }
   try {
     const res = await fetch(`${API}/getMe`, { signal: AbortSignal.timeout(10_000) });
@@ -234,6 +242,26 @@ async function handleAck(chatId) {
   if (row) await sendMessage(chatId, "✅ جزاك الله خيرًا — تم تسجيل صلاتك، لن تصلك تذكيرات إضافية اليوم.");
 }
 
+// Real, self-serve diagnostic (2026-09-19, live incident: "/invite Ahmad
+// only for admin, im admin") — real Telegram chat IDs are per-account,
+// so the most likely real cause is the sender's own real chat_id not
+// actually matching whatever ADMIN_TELEGRAM_ID is configured to on
+// Render (a different Telegram account, a typo when it was set, etc.).
+// This lets anyone directly compare their own real id against it,
+// without needing Render log/dashboard access.
+async function handleWhoami(chatId) {
+  const isAdmin = Boolean(ADMIN_TELEGRAM_ID) && String(chatId) === String(ADMIN_TELEGRAM_ID);
+  return sendMessage(
+    chatId,
+    [
+      `🆔 رقم حسابك (chat_id): ${chatId}`,
+      ADMIN_TELEGRAM_ID
+        ? (isAdmin ? "✅ هذا الحساب مُسجَّل كمشرف." : "❌ هذا الحساب ليس المشرف المُسجَّل — تأكد أن ADMIN_TELEGRAM_ID على Render يساوي الرقم أعلاه بالضبط.")
+        : "⚠️ لم يتم ضبط ADMIN_TELEGRAM_ID على Render بعد.",
+    ].join("\n")
+  );
+}
+
 async function handleStats(chatId) {
   if (!ADMIN_TELEGRAM_ID || String(chatId) !== String(ADMIN_TELEGRAM_ID)) return sendMessage(chatId, "هذا الأمر للمشرف فقط.");
   const s = await store.getAdminStats();
@@ -352,6 +380,7 @@ async function dispatchMessage(msg) {
   if (cmd === "early") return handleEarly(chatId, args);
   if (cmd === "tasbeehfreq") return handleTasbeehFreq(chatId, args);
   if (cmd === "stats") return handleStats(chatId);
+  if (cmd === "whoami") return handleWhoami(chatId);
   if (cmd === "invite") return handleInvite(chatId, args);
   if (cmd === "invites") return handleInvites(chatId);
   if (cmd === "help") {
@@ -360,6 +389,7 @@ async function dispatchMessage(msg) {
       "/timezone <IANA> — تحديد المنطقة الزمنية",
       "/early on|off — التذكير المبكر (15 د قبل الفجر)",
       "/tasbeehfreq off|1|2|3 — عدد تذكيرات التسبيح يوميًا",
+      "/whoami — عرض رقم حسابك (chat_id) والتحقق من صلاحية المشرف",
     ].join("\n"));
   }
 }

@@ -116,6 +116,15 @@ ok("the invite link is a real https://t.me/<bot>?start=<code> deep link built fr
   assert.match(inviteFn, /_botUsername\(\)/);
 });
 
+console.log("\nChecking /whoami — real self-serve admin-mismatch diagnostic (2026-09-19 live incident: \"/invite Ahmad only for admin, im admin\")…");
+
+ok("/whoami is available to ANY sender (not admin-gated — that would defeat its own purpose of letting a non-matching account diagnose the mismatch) and reports the real sender's own chat_id compared against the real configured ADMIN_TELEGRAM_ID", () => {
+  const whoamiFn = botSrc.slice(botSrc.indexOf("async function handleWhoami"), botSrc.indexOf("async function handleStats"));
+  assert.doesNotMatch(whoamiFn, /ADMIN_TELEGRAM_ID\)\)\s*return sendMessage/, "must not gate /whoami behind the same admin check it exists to help diagnose");
+  assert.match(whoamiFn, /String\(chatId\) === String\(ADMIN_TELEGRAM_ID\)/);
+  assert.match(whoamiFn, /\$\{chatId\}/, "must echo the real sender chat_id, never a fabricated/placeholder one");
+});
+
 console.log("\nChecking router.js wiring — the new safe diagnostic route…");
 
 ok("router.js wires the real GET /api/fajr-bot/status route to fajr-bot.js's own real getStatus() — no inline reimplementation, no auth gate (same safe, non-secret category as /api/health)", () => {
@@ -135,7 +144,8 @@ ok("router.js wires the real GET /api/fajr-bot/status route to fajr-bot.js's own
     assert.strictEqual(s.tokenConfigured, false, "no real FAJR_BOT_TOKEN in this test environment");
     assert.strictEqual(s.botError, "FAJR_BOT_TOKEN is not set.");
     assert.strictEqual(s.botInfo, null, "must never fabricate bot info when no real token exists");
-    passed++; console.log("  ✓ getStatus() honestly reports tokenConfigured:false, never fabricates bot info, without ever calling Telegram");
+    assert.strictEqual(s.adminConfigured, false, "no real ADMIN_TELEGRAM_ID in this test environment — must never assume configured");
+    passed++; console.log("  ✓ getStatus() honestly reports tokenConfigured:false/adminConfigured:false, never fabricates bot info, without ever calling Telegram");
   } catch (e) { console.error(`  ✗ getStatus honest-false check\n    ${e.message}`); process.exitCode = 1; }
 
   console.log(`\n${passed} checks passed.`);
