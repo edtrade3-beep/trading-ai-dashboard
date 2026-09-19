@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import {
-  Row, Badge, TradePlanContent, rankArrow, VELOCITY_COLOR,
+  Row, Badge, TradePlanContent, rankArrow, VELOCITY_COLOR, DetailDrawer,
 } from "./Tournament500Panel.jsx";
 import WhatChangedStrip from "./WhatChangedStrip.jsx";
 
@@ -257,6 +257,14 @@ export default function PrimeTab({ setActiveTab, C, MONO, SANS }) {
   const [error, setError] = useState(null);
   const [selected, setSelected] = useState(null);
   const [showChallengers, setShowChallengers] = useState(false);
+  // Real deep-dive popup (2026-09-19, "click each stock and get a
+  // summary/deep dive — we did have this option in 500 tournaments") —
+  // reuses the SAME DetailDrawer modal the standalone Tournament500Panel
+  // page already opens on row click, rather than only updating the
+  // below-the-fold inline "Selected Trade" panel (which has no click
+  // affordance on this screen and is easy to miss).
+  const [drawerSymbol, setDrawerSymbol] = useState(null);
+  const openDetail = (symbol) => { setSelected(symbol); setDrawerSymbol(symbol); };
 
   useEffect(() => {
     let alive = true;
@@ -293,12 +301,12 @@ export default function PrimeTab({ setActiveTab, C, MONO, SANS }) {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
         <div>
           <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.05em", marginBottom: 8 }}>🔥 TOP 5 ELITE</div>
-          {top5.length ? top5.map((r) => <TopEliteCard key={r.symbol} row={r} onSelect={setSelected} C={C} MONO={MONO} SANS={SANS} />)
+          {top5.length ? top5.map((r) => <TopEliteCard key={r.symbol} row={r} onSelect={openDetail} C={C} MONO={MONO} SANS={SANS} />)
             : <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>No real qualifying candidates yet.</div>}
         </div>
         <div>
           <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, color: C.textDim, letterSpacing: "0.05em", marginBottom: 8 }}>🌱 EARLY DISCOVERY</div>
-          {earlyDiscovery.length ? earlyDiscovery.map((r) => <EarlyDiscoveryRow key={r.symbol} row={r} onSelect={setSelected} C={C} MONO={MONO} SANS={SANS} />)
+          {earlyDiscovery.length ? earlyDiscovery.map((r) => <EarlyDiscoveryRow key={r.symbol} row={r} onSelect={openDetail} C={C} MONO={MONO} SANS={SANS} />)
             : <div style={{ fontFamily: SANS, fontSize: 12, color: C.textDim }}>No real accelerating candidates right now — not enough rank/score history yet or none qualify.</div>}
         </div>
       </div>
@@ -328,14 +336,14 @@ export default function PrimeTab({ setActiveTab, C, MONO, SANS }) {
               </tr>
             </thead>
             <tbody>
-              {top25.map((row) => <Row key={row.symbol} row={row} onSelect={setSelected} C={C} MONO={MONO} SANS={SANS} />)}
+              {top25.map((row) => <Row key={row.symbol} row={row} onSelect={openDetail} C={C} MONO={MONO} SANS={SANS} />)}
             </tbody>
           </table>
         </div>
         {showChallengers && board.challengers?.length > 0 && (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
             {board.challengers.map((c) => (
-              <div key={c.symbol} onClick={() => setSelected(c.symbol)} className="tourn-chip" style={{ cursor: "pointer", background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 10px", fontFamily: MONO, fontSize: 11 }}>
+              <div key={c.symbol} onClick={() => openDetail(c.symbol)} className="tourn-chip" style={{ cursor: "pointer", background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 10px", fontFamily: MONO, fontSize: 11 }}>
                 <b style={{ color: C.text }}>#{c.rank} {c.symbol}</b>{" "}
                 <span style={{ color: VELOCITY_COLOR[c.velocityLabel] ? C[VELOCITY_COLOR[c.velocityLabel]] : C.textDim }}>{rankArrow(c.rankChange)}</span>{" "}
                 <span style={{ color: C.textDim }}>Score {Math.round(c.opportunityScore)}</span>
@@ -359,6 +367,13 @@ export default function PrimeTab({ setActiveTab, C, MONO, SANS }) {
 
       {/* F. WHAT CHANGED — the real, existing strip, unchanged */}
       <WhatChangedStrip C={C} MONO={MONO} SANS={SANS} />
+
+      {/* Real deep-dive popup — same DetailDrawer modal the standalone
+          Tournament500Panel page already opens, reused here (never a
+          second implementation) so a click anywhere above shows the full
+          summary/score-breakdown/trade-structure immediately instead of
+          only updating the below-the-fold SELECTED TRADE panel. */}
+      {drawerSymbol && <DetailDrawer symbol={drawerSymbol} onClose={() => setDrawerSymbol(null)} C={C} MONO={MONO} SANS={SANS} />}
     </div>
   );
 }
