@@ -18,12 +18,12 @@ function ok(name, fn) { try { fn(); passed++; console.log(`  ✓ ${name}`); } ca
 
 console.log("Checking the spec's own exact required message text (#5, #6)…");
 
-ok("fajrMessageFor produces the exact literal Arabic text the spec requires, with {{first_name}} substituted", () => {
-  assert.strictEqual(fajrMessageFor("Ahmad"), "Ahmad، حي على الصلاة، حي على الفلاح 🌙 حان وقت صلاة الفجر. قم وتوضأ وصلِّ الفجر.");
+ok("fajrMessageFor produces the current (2026-09-19 softer-tone) Arabic text, with {{first_name}} substituted", () => {
+  assert.strictEqual(fajrMessageFor("Ahmad"), "Ahmad، حان وقت صلاة الفجر 🌅 استيقظ بلطف، توضأ وصلِّ، وابدأ يومك بنور وبركة.");
 });
 
-ok("fajrVoiceTextFor produces the exact literal TTS text the spec requires — a real, deliberately different (shorter, no emoji) string from the text message, matching the spec's own two separate literal blocks", () => {
-  assert.strictEqual(fajrVoiceTextFor("Ahmad"), "Ahmad، حي على الصلاة، حي على الفلاح. حان وقت صلاة الفجر.");
+ok("fajrVoiceTextFor produces the current softer-tone TTS text — a real, deliberately different (shorter, no emoji) string from the text message", () => {
+  assert.strictEqual(fajrVoiceTextFor("Ahmad"), "Ahmad، حان وقت صلاة الفجر. استيقظ بلطف وصلِّ.");
   assert.notStrictEqual(fajrVoiceTextFor("Ahmad"), fajrMessageFor("Ahmad"));
 });
 
