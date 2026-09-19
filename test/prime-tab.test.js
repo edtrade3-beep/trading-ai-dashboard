@@ -78,6 +78,28 @@ ok("axiom-live.jsx renders the real PrimeTab for activeTab === 'prime', and defa
   assert.match(liveSrc, /return "prime";/);
 });
 
+console.log("\nChecking click-to-deep-dive (2026-09-19, \"click on each stock and get a summary and details and deep dive\") — reuses the SAME DetailDrawer modal the standalone 500 Tournament page already opens…");
+
+ok("PrimeTab imports the real DetailDrawer from Tournament500Panel.jsx — no second modal/detail-popup component declared here", () => {
+  assert.match(primeSrc, /import \{[\s\S]*DetailDrawer[\s\S]*\} from "\.\/Tournament500Panel\.jsx"/);
+  assert.doesNotMatch(primeSrc, /function DetailDrawer\(/, "must not redeclare the real detail drawer");
+});
+
+ok("Tournament500Panel.jsx actually exports DetailDrawer for real reuse", () => {
+  assert.match(tournamentSrc, /export \{[\s\S]*DetailDrawer[\s\S]*\}/);
+});
+
+ok("every real click target (Top 5 Elite, Early Discovery, Tournament Top 25 rows, challenger chips) opens the SAME real drawer via one shared openDetail handler — never a dead click with no visible result", () => {
+  const opens = (primeSrc.match(/onSelect=\{openDetail\}|openDetail\(c\.symbol\)/g) || []).length;
+  assert.strictEqual(opens, 4, `expected all 4 click surfaces wired to openDetail, found ${opens}`);
+  assert.match(primeSrc, /\{drawerSymbol && <DetailDrawer symbol=\{drawerSymbol\}/);
+});
+
+ok("Row's <tr> carries its own inline cursor:pointer — never relies solely on Tournament500Panel's own <style> block, which PrimeTab does not render", () => {
+  const rowFn = tournamentSrc.slice(tournamentSrc.indexOf("function Row("), tournamentSrc.indexOf("const RISK_FILTERS"));
+  assert.match(rowFn, /className="tourn-row" onClick=\{\(\) => onSelect\(row\.symbol\)\} style=\{\{ cursor: "pointer" \}\}/);
+});
+
 ok("AI Trade Desk itself is untouched — 'trade-desk' activeTab and its sidebar row both still exist (PRIME is additive, not a replacement)", () => {
   const tabSrc = fs.readFileSync(path.join(__dirname, "..", "axiom-runner", "components", "TradeDeskTab.jsx"), "utf8");
   assert.ok(tabSrc.length > 1000, "TradeDeskTab.jsx must still be a real, substantial file");

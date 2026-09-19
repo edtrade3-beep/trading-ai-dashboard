@@ -232,7 +232,7 @@ function Row({ row, onSelect, C, MONO, SANS }) {
   const moveUp = Number.isFinite(row.rankChange) && row.rankChange > 0;
   const moveDown = Number.isFinite(row.rankChange) && row.rankChange < 0;
   return (
-    <tr className="tourn-row" onClick={() => onSelect(row.symbol)}>
+    <tr className="tourn-row" onClick={() => onSelect(row.symbol)} style={{ cursor: "pointer" }}>
       <td style={{ padding: "9px 10px", fontFamily: MONO, fontSize: 12.5, color: C.textDim, fontWeight: 700 }}>{row.tierIcon} #{row.rank}</td>
       <td style={{ padding: "9px 10px", fontFamily: MONO, fontSize: 13.5, fontWeight: 800, color: C.text }}>
         {row.symbol}{row.isEarlyDiscovery && <span title="Early Discovery" style={{ marginLeft: 5 }}>🌱</span>}
@@ -436,4 +436,5 @@ export default function Tournament500Panel({ onSelectSymbol, C, MONO, SANS }) {
 export {
   Row, Badge, TradePlanContent, StatCard, ScoreBar, lifecycleLabelFor, asText,
   RISK_BAND, RISK_COLOR, TIER_COLOR, TIER_BG, VELOCITY_COLOR, rankArrow, money, pct,
+  DetailDrawer,
 };
