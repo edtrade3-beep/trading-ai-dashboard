@@ -23,6 +23,28 @@ const API = `https://api.telegram.org/bot${FAJR_BOT_TOKEN}`;
 
 function isConfigured() { return Boolean(FAJR_BOT_TOKEN) && store.isReady(); }
 
+// Real, safe diagnostic (2026-09-19, live incident: "it does not
+// respond" with no way to see Render's own deploy logs) — calls
+// Telegram's own real getMe API with whatever FAJR_BOT_TOKEN is
+// currently configured. getMe only ever returns real PUBLIC bot info
+// (id/username/first_name) or Telegram's own real rejection reason
+// (e.g. "401: Unauthorized" for an invalid/fake token) — never the
+// token itself, safe to expose over HTTP. This answers "is the real
+// token actually valid" directly, without needing any server logs.
+async function getStatus() {
+  const tokenConfigured = Boolean(FAJR_BOT_TOKEN);
+  const dbReady = store.isReady();
+  const status = { tokenConfigured, dbReady, polling: _polling, botInfo: null, botError: null };
+  if (!tokenConfigured) { status.botError = "FAJR_BOT_TOKEN is not set."; return status; }
+  try {
+    const res = await fetch(`${API}/getMe`, { signal: AbortSignal.timeout(10_000) });
+    const json = await res.json().catch(() => ({}));
+    if (json.ok) status.botInfo = { id: json.result.id, username: json.result.username, firstName: json.result.first_name };
+    else status.botError = `Telegram rejected this token: ${json.description || res.status}`;
+  } catch (err) { status.botError = `Could not reach Telegram: ${err.message}`; }
+  return status;
+}
+
 // ---- Real message templates (spec's own exact literal Arabic text) ----
 function fajrMessageFor(firstName) {
   const name = firstName || "";
@@ -342,7 +364,7 @@ function startFajrBot() {
 function stopFajrBot() { _polling = false; }
 
 module.exports = {
-  isConfigured, startFajrBot, stopFajrBot,
+  isConfigured, getStatus, startFajrBot, stopFajrBot,
   runFajrEscalationTick, runFajrDailyRecalcTick, runFajrTasbeehReminderTick, slotsDueNow,
   dispatchMessage, handleCallbackQuery,
   fajrMessageFor, fajrVoiceTextFor, stageMessageFor,

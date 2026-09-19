@@ -11,7 +11,7 @@
 const assert = require("node:assert");
 const fs = require("node:fs");
 const path = require("node:path");
-const { fajrMessageFor, fajrVoiceTextFor, stageMessageFor, isConfigured, slotsDueNow } = require("../src/fajr-bot");
+const { fajrMessageFor, fajrVoiceTextFor, stageMessageFor, isConfigured, slotsDueNow, getStatus } = require("../src/fajr-bot");
 
 let passed = 0;
 function ok(name, fn) { try { fn(); passed++; console.log(`  ✓ ${name}`); } catch (e) { console.error(`  ✗ ${name}\n    ${e.message}`); process.exitCode = 1; } }
@@ -95,6 +95,29 @@ ok("every real reminder send goes through store.claimReminderStage's real idempo
   assert.ok(claimIdx > 0 && sendIdx > 0 && claimIdx < sendIdx, "claim must happen before send");
 });
 
-console.log(`\n${passed} checks passed.`);
-if (process.exitCode) console.error("FAJR-BOT TEST FAILED");
-else console.log("FAJR-BOT TEST OK");
+console.log("\nChecking router.js wiring — the new safe diagnostic route…");
+
+ok("router.js wires the real GET /api/fajr-bot/status route to fajr-bot.js's own real getStatus() — no inline reimplementation, no auth gate (same safe, non-secret category as /api/health)", () => {
+  const routerSrc = fs.readFileSync(require.resolve("../src/router"), "utf8");
+  assert.match(routerSrc, /pathname === "\/api\/fajr-bot\/status"/);
+  assert.match(routerSrc, /require\("\.\/fajr-bot"\)\.getStatus\(\)/);
+});
+
+// Async check appended last, properly awaited before the final summary
+// (2026-09-19 hotfix — live incident: "it does not respond" with no
+// Render log access). getStatus()'s no-token path returns before ever
+// calling fetch, so this stays real, fast, and network-free.
+(async () => {
+  console.log("\nChecking getStatus — real, safe diagnostic (calls Telegram's own getMe, never exposes the token itself)…");
+  try {
+    const s = await getStatus();
+    assert.strictEqual(s.tokenConfigured, false, "no real FAJR_BOT_TOKEN in this test environment");
+    assert.strictEqual(s.botError, "FAJR_BOT_TOKEN is not set.");
+    assert.strictEqual(s.botInfo, null, "must never fabricate bot info when no real token exists");
+    passed++; console.log("  ✓ getStatus() honestly reports tokenConfigured:false, never fabricates bot info, without ever calling Telegram");
+  } catch (e) { console.error(`  ✗ getStatus honest-false check\n    ${e.message}`); process.exitCode = 1; }
+
+  console.log(`\n${passed} checks passed.`);
+  if (process.exitCode) console.error("FAJR-BOT TEST FAILED");
+  else console.log("FAJR-BOT TEST OK");
+})();
