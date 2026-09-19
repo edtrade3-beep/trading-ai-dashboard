@@ -53,14 +53,18 @@ async function getStatus() {
   return status;
 }
 
-// ---- Real message templates (spec's own exact literal Arabic text) ----
+// ---- Real message templates ----
+// 2026-09-19: switched from the spec's original literal wording to a
+// softer/gentler tone per explicit user request ("different tone for
+// fajr" → "Softer / gentle"). Same meaning (it's Fajr time, rise and
+// pray), warmer delivery, no invented religious ruling/text.
 function fajrMessageFor(firstName) {
   const name = firstName || "";
-  return `${name}، حي على الصلاة، حي على الفلاح 🌙 حان وقت صلاة الفجر. قم وتوضأ وصلِّ الفجر.`;
+  return `${name}، حان وقت صلاة الفجر 🌅 استيقظ بلطف، توضأ وصلِّ، وابدأ يومك بنور وبركة.`;
 }
 function fajrVoiceTextFor(firstName) {
   const name = firstName || "";
-  return `${name}، حي على الصلاة، حي على الفلاح. حان وقت صلاة الفجر.`;
+  return `${name}، حان وقت صلاة الفجر. استيقظ بلطف وصلِّ.`;
 }
 // Real, disclosed text for the other 3 escalation stages — the spec only
 // gave exact literal text for the main Fajr message/voice above; these
