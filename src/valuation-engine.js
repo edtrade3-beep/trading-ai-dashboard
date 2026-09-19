@@ -321,9 +321,17 @@ function computeValuationProfile({ fundamentals, fundamentalsHistory, price, for
     }),
   };
   // priceAssessment — the spec's own Great-Value/Fair-Value/Expensive
-  // naming, a pure alias of buyZones above (zero new computation).
+  // naming, a pure alias of buyZones above (zero new computation). Real
+  // fix (2026-09-19, self-caught while re-checking the shipped output
+  // against the spec's own example): the spec's own worked example shows
+  // Great Value as a RANGE ("$118–$128"), not a bare "below $128"
+  // threshold — buyZones.goodBuyRange is the real range that matches
+  // ("unusually attractive," between the deepest real discount and the
+  // ideal buy zone), aggressiveBuyBelow was the wrong (single-number)
+  // field. fairValue/expensive already matched the spec's own range/
+  // single-threshold shapes and are unchanged.
   profile.priceAssessment = profile.buyZones
-    ? { greatValue: profile.buyZones.aggressiveBuyBelow, fairValue: profile.buyZones.fairValueRange, expensive: profile.buyZones.expensiveAbove }
+    ? { greatValue: profile.buyZones.goodBuyRange, fairValue: profile.buyZones.fairValueRange, expensive: profile.buyZones.expensiveAbove }
     : null;
   profile.warningFlags = computeWarningFlags(profile);
   profile.whyText = buildValuationWhy(profile);
