@@ -190,6 +190,19 @@ async function handleRequest(req, res) {
       return writeJson(res, 200, { ok: true, jobs: loadHeartbeats() });
     }
 
+    // Real diagnostic for the Fajr bot (2026-09-19, live incident: "it
+    // does not respond" with no way to see Render's own deploy logs from
+    // here). Calls Telegram's own real getMe with whatever FAJR_BOT_TOKEN
+    // is configured — reports real, safe, non-secret info only (a bot's
+    // public id/username, or Telegram's own real rejection reason for an
+    // invalid token) so a wrong/placeholder token is diagnosable directly
+    // from this URL, no Render log access needed. Read-only, no auth
+    // needed — same category as /api/health/jobs/health.
+    if (pathname === "/api/fajr-bot/status" && req.method === "GET") {
+      const status = await require("./fajr-bot").getStatus();
+      return writeJson(res, 200, { ok: true, ...status });
+    }
+
     if (pathname === "/api/webhooks/tradingview" || pathname === "/api/market/tv-alerts") {
       return await handleWebhooks(req, res, requestUrl);
     }
