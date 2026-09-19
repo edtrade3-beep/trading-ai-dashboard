@@ -216,13 +216,14 @@ ok("whyText is a real, non-empty string built from actually-computed fields, hon
   assert.match(text, /0\.80/);
 });
 
-ok("priceAssessment is a real alias of buyZones (great value / fair value / expensive), zero new computation", () => {
+ok("priceAssessment is a real alias of buyZones (great value / fair value / expensive), zero new computation — greatValue is a real RANGE (goodBuyRange), matching the spec's own worked example ('Great Value: $118-$128'), not a bare 'below X' threshold", () => {
   const r = computeValuationProfile({
     fundamentals: { pe: 12, pegRatio: 0.8, fcfYield: 0.07, netDebtToEbitda: 0.5, revenueGrowth: 0.15, earningsGrowth: 0.2, freeCashFlowGrowth: 0.1, targetLow: 100, targetMedian: 150, targetHigh: 220, analystTarget: 150 },
     fundamentalsHistory: IMPROVING_HISTORY, price: 100, forwardEps: 5,
   });
   if (r.buyZones) {
-    assert.strictEqual(r.priceAssessment.greatValue, r.buyZones.aggressiveBuyBelow);
+    assert.deepStrictEqual(r.priceAssessment.greatValue, r.buyZones.goodBuyRange);
+    assert.ok(Array.isArray(r.priceAssessment.greatValue), "greatValue must be a real [low, high] range, not a single number");
     assert.strictEqual(r.priceAssessment.expensive, r.buyZones.expensiveAbove);
     assert.deepStrictEqual(r.priceAssessment.fairValue, r.buyZones.fairValueRange);
   }
