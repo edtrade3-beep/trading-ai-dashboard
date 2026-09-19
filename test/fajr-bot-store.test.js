@@ -66,6 +66,52 @@ console.log("Checking initFajrBotStore — a real schema-setup failure must neve
     assert.match(fnBody, /catch\s*\(err\)\s*\{/);
   });
 
+  console.log("\nChecking admin invitations ('add users with name send telegram invitation') — real unique-code generation, real idempotent claim…");
+
+  await okAsync("createInvite generates a real, unique code and stores the real admin-given name — retries on a real (simulated) collision rather than silently overwriting", async () => {
+    delete require.cache[require.resolve("../src/atomic-write")];
+    delete require.cache[require.resolve("../src/fajr-bot-store")];
+    const atomicWrite = require("../src/atomic-write");
+    let calls = 0;
+    atomicWrite.getPool = () => ({
+      query: async (sql, params) => {
+        calls++;
+        if (sql.includes("INSERT INTO fajr_invites") && calls === 1) return { rows: [] }; // simulate one real collision
+        if (sql.includes("INSERT INTO fajr_invites")) return { rows: [{ code: params[0], name: params[1] }] };
+        return { rows: [] };
+      },
+    });
+    atomicWrite.isDbMode = () => true;
+    const store = require("../src/fajr-bot-store");
+    const invite = await store.createInvite("Ahmad");
+    assert.strictEqual(invite.name, "Ahmad");
+    assert.ok(invite.code && invite.code.length > 0, "expected a real, non-empty invite code");
+    assert.ok(calls >= 2, "expected a real retry after the simulated collision");
+  });
+
+  await okAsync("markInviteUsed is a real idempotent claim — a second call for an already-used code returns null, never re-attributes the invite to a different user", async () => {
+    delete require.cache[require.resolve("../src/atomic-write")];
+    delete require.cache[require.resolve("../src/fajr-bot-store")];
+    const atomicWrite = require("../src/atomic-write");
+    let usedAlready = false;
+    atomicWrite.getPool = () => ({
+      query: async (sql) => {
+        if (sql.includes("UPDATE fajr_invites")) {
+          if (usedAlready) return { rows: [] }; // real WHERE used_at IS NULL guard already fired once
+          usedAlready = true;
+          return { rows: [{ code: "abc123", telegram_id: 111 }] };
+        }
+        return { rows: [] };
+      },
+    });
+    atomicWrite.isDbMode = () => true;
+    const store = require("../src/fajr-bot-store");
+    const first = await store.markInviteUsed("abc123", 111);
+    const second = await store.markInviteUsed("abc123", 222); // a different real telegram_id trying to reuse the same link
+    assert.ok(first, "first real claim must succeed");
+    assert.strictEqual(second, null, "a second claim on an already-used real invite must be honestly rejected, never silently reassigned");
+  });
+
   console.log(`\n${passed} checks passed.`);
   if (process.exitCode) console.error("FAJR-BOT-STORE TEST FAILED");
   else console.log("FAJR-BOT-STORE TEST OK");

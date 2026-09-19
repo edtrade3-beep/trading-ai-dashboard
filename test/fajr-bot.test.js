@@ -95,6 +95,27 @@ ok("every real reminder send goes through store.claimReminderStage's real idempo
   assert.ok(claimIdx > 0 && sendIdx > 0 && claimIdx < sendIdx, "claim must happen before send");
 });
 
+console.log("\nChecking admin invitations ('add users with name send telegram invitation') — real ADMIN_TELEGRAM_ID gate, real deep-link wiring…");
+
+ok("/invite and /invites are both gated behind the SAME real ADMIN_TELEGRAM_ID check /stats already uses — never a second, weaker admin check", () => {
+  const inviteFn = botSrc.slice(botSrc.indexOf("async function handleInvite(chatId, args)"), botSrc.indexOf("async function handleInvites"));
+  const invitesFn = botSrc.slice(botSrc.indexOf("async function handleInvites"), botSrc.indexOf("let _cachedBotUsername"));
+  assert.match(inviteFn, /String\(chatId\) !== String\(ADMIN_TELEGRAM_ID\)/);
+  assert.match(invitesFn, /String\(chatId\) !== String\(ADMIN_TELEGRAM_ID\)/);
+});
+
+ok("handleStart threads a real /start deep-link payload into store.getInvite/markInviteUsed — never fabricates a name when no real invite exists", () => {
+  const startFn = botSrc.slice(botSrc.indexOf("async function handleStart"), botSrc.indexOf("async function handleInvite"));
+  assert.match(startFn, /store\.getInvite\(inviteCode\)/);
+  assert.match(startFn, /store\.markInviteUsed\(inviteCode, chatId\)/);
+});
+
+ok("the invite link is a real https://t.me/<bot>?start=<code> deep link built from the bot's own real getMe username — never a hardcoded/guessed bot name", () => {
+  const inviteFn = botSrc.slice(botSrc.indexOf("async function handleInvite(chatId, args)"), botSrc.indexOf("async function handleInvites"));
+  assert.match(inviteFn, /https:\/\/t\.me\/\$\{botUsername\}\?start=\$\{invite\.code\}/);
+  assert.match(inviteFn, /_botUsername\(\)/);
+});
+
 console.log("\nChecking router.js wiring — the new safe diagnostic route…");
 
 ok("router.js wires the real GET /api/fajr-bot/status route to fajr-bot.js's own real getStatus() — no inline reimplementation, no auth gate (same safe, non-secret category as /api/health)", () => {
