@@ -28,10 +28,32 @@ let _ready = false;
 // isn't set — this whole feature requires real per-user persistence, so
 // it stays disabled (not silently degraded to file-mode) without it; see
 // isReady()/isAvailable() below, checked before the bot ever starts.
+// Real fix (2026-09-19, live incident: adding FAJR_BOT_TOKEN/etc. env
+// vars appeared to leave the WHOLE app on a stale build — the real
+// suspected cause is this function throwing during its own schema setup,
+// which (before this fix) propagated straight through server.js's boot
+// chain into process.exit(1) — a bug in this one new bolt-on feature
+// taking down the entire, already-working trading platform. That
+// directly violates the user's own explicit priority #1 ("keep the
+// existing Render deployment working"). initPgStore() itself legitimately
+// stays fatal (dozens of existing features depend on that one connection
+// succeeding); this feature does not get that same blast radius — any
+// failure here is caught, logged clearly, and leaves _ready false (the
+// bot stays honestly disabled) instead of crashing the process.
 async function initFajrBotStore() {
   if (!isDbMode()) return;
   const pool = getPool();
   if (!pool) return;
+  try {
+    await _createSchema(pool);
+    _ready = true;
+    console.log("[fajr-bot-store] Postgres schema ready.");
+  } catch (err) {
+    console.error("[fajr-bot-store] Schema setup failed — Fajr bot stays disabled, rest of the app boots normally:", err.message);
+  }
+}
+
+async function _createSchema(pool) {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS fajr_users (
       telegram_id BIGINT PRIMARY KEY,
@@ -101,8 +123,6 @@ async function initFajrBotStore() {
       PRIMARY KEY (telegram_id, local_date, slot)
     )
   `);
-  _ready = true;
-  console.log("[fajr-bot-store] Postgres schema ready.");
 }
 
 function isReady() { return _ready; }
